@@ -660,3 +660,73 @@ def test_student_homework_carries_what_was_handed_in(
     hw = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()[0]
     assert hw["attachment_count"] == 1
     assert hw["files"][0]["file_path"] == "https://x/book.jpg"
+
+
+# --- Answer keys, for the Check Viewer ---
+
+
+def _set_answer_key(db_session: Session):
+    """Give homework 10 a hand-picked answer key, on the exercise and in the view."""
+    answer = {
+        "answer_pdf_name": "[Center]\\ANS\\Ch5_ANS.pdf",
+        "answer_page_start": 6,
+        "answer_page_end": 7,
+        "answer_remarks": "Qs 1-4 only",
+    }
+    db_session.query(SessionExercise).filter(SessionExercise.id == 10).update(answer)
+    db_session.query(HomeworkToCheck).filter(
+        HomeworkToCheck.session_exercise_id == 10
+    ).update(answer)
+    db_session.commit()
+    return answer
+
+
+def test_to_check_carries_the_answer_key(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """Every marking panel reads this, and the viewer opens the answers from it."""
+    answer = _set_answer_key(db_session)
+
+    homework = client.get("/api/homework/to-check?session_ids=200", cookies=AUTH_COOKIE).json()[0]["homework"][0]
+    for field, value in answer.items():
+        assert homework[field] == value
+
+
+def test_to_check_leaves_the_answer_key_empty_when_none_was_chosen(
+    client: TestClient, as_tutor, homework_setup
+):
+    """Empty is what tells the viewer to search for one by the worksheet's name."""
+    homework = client.get("/api/homework/to-check?session_ids=200", cookies=AUTH_COOKIE).json()[0]["homework"][0]
+    assert homework["answer_pdf_name"] is None
+    assert homework["answer_page_start"] is None
+
+
+def test_student_homework_carries_the_answer_key(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    answer = _set_answer_key(db_session)
+
+    hw = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()[0]
+    for field, value in answer.items():
+        assert hw[field] == value
+
+
+def test_marking_keeps_the_answer_key_in_the_response(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """
+    The client folds the saved record straight into its caches, so a mark made
+    from inside the viewer must not come back without the answers it is showing.
+    Both paths: the view's row, and the snapshot used when the view has none.
+    """
+    answer = _set_answer_key(db_session)
+
+    from_view = client.patch(
+        "/api/sessions/200/homework/10", json={"completion_status": "Completed"}, cookies=AUTH_COOKIE,
+    ).json()
+    from_snapshot = client.patch(
+        "/api/sessions/100/homework/10", json={"completion_status": "Completed"}, cookies=AUTH_COOKIE,
+    ).json()
+    for field, value in answer.items():
+        assert from_view[field] == value
+        assert from_snapshot[field] == value

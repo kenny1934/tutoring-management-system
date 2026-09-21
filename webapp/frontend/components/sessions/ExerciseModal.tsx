@@ -30,6 +30,8 @@ import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
+import { checkItems } from "@/lib/homework-check";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { uncheckedCount } from "@/lib/homework-utils";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
@@ -1165,15 +1167,17 @@ export function ExerciseModal({
                   <div className="text-xs">
                     <span className="text-gray-500 text-[10px]">HW to check:</span>
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {detailedSession.homework_completion.map((hw) => (
-                        <HomeworkCheckRow
-                          key={hw.session_exercise_id}
-                          homework={hw}
-                          sessionId={session.id}
-                          readOnly={readOnly}
-                          onMarked={handleHomeworkMarked}
-                        />
-                      ))}
+                      <CheckViewerProvider items={checkItems(detailedSession.homework_completion, session.id)} readOnly={readOnly} onMarked={handleHomeworkMarked}>
+                        {detailedSession.homework_completion.map((hw) => (
+                          <HomeworkCheckRow
+                            key={hw.session_exercise_id}
+                            homework={hw}
+                            sessionId={session.id}
+                            readOnly={readOnly}
+                            onMarked={handleHomeworkMarked}
+                          />
+                        ))}
+                      </CheckViewerProvider>
                     </div>
                   </div>
                 )}

@@ -3,7 +3,9 @@
 import { Home, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { awaitingMarkingCount, checkedCount, homeworkCountTone } from "@/lib/homework-utils";
+import { checkItems } from "@/lib/homework-check";
 import { HomeworkCheckRow } from "./HomeworkCheckRow";
+import { CheckViewerProvider } from "./CheckViewerProvider";
 import type { HomeworkCompletion } from "@/types";
 
 /**
@@ -62,17 +64,19 @@ export function HomeworkPanel({
         </div>
       </div>
 
-      <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 px-3 divide-y divide-blue-200/60 dark:divide-blue-800/60">
-        {items.map((hw) => (
-          <HomeworkCheckRow
-            key={hw.session_exercise_id}
-            homework={hw}
-            sessionId={sessionId}
-            readOnly={readOnly}
-            onMarked={onMarked}
-          />
-        ))}
-      </div>
+      <CheckViewerProvider items={checkItems(items, sessionId)} readOnly={readOnly} onMarked={onMarked}>
+        <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 px-3 divide-y divide-blue-200/60 dark:divide-blue-800/60">
+          {items.map((hw) => (
+            <HomeworkCheckRow
+              key={hw.session_exercise_id}
+              homework={hw}
+              sessionId={sessionId}
+              readOnly={readOnly}
+              onMarked={onMarked}
+            />
+          ))}
+        </div>
+      </CheckViewerProvider>
 
       {!readOnly && (
         <p className="text-xs text-gray-400 dark:text-gray-500">

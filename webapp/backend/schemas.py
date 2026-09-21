@@ -842,6 +842,13 @@ class HomeworkCompletionResponse(BaseModel):
     url_title: Optional[str] = Field(None, max_length=500)
     assignment_remarks: Optional[str] = None
 
+    # The answer key a tutor chose for this homework. When it is empty, the
+    # Check Viewer searches for one by the worksheet's file name.
+    answer_pdf_name: Optional[str] = None
+    answer_page_start: Optional[int] = None
+    answer_page_end: Optional[int] = None
+    answer_remarks: Optional[str] = None
+
     # Check state
     completion_id: Optional[int] = Field(None, gt=0)
     completion_status: Optional[str] = Field(None, max_length=50)

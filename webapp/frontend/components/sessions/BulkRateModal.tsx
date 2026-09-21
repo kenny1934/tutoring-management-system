@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
@@ -11,6 +12,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
+import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
+import { checkItems } from "@/lib/homework-check";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
@@ -33,6 +36,9 @@ export function BulkRateModal({
 }: BulkRateModalProps) {
   const { showToast } = useToast();
   const [focusedIndex, setFocusedIndex] = useState(0);
+  // Joins the overlay stack itself and hands the layer to Modal, so the
+  // shortcuts below can tell when something has been opened on top.
+  const overlayLayer = useOverlayLayer(isOpen, { lockScroll: true });
   const [ratings, setRatings] = useState<Map<number, { rating: number; notes: string }>>(new Map());
   const [saving, setSaving] = useState(false);
   const initialRatingsRef = useRef<Map<number, { rating: number; notes: string }>>(new Map());
@@ -80,6 +86,12 @@ export function BulkRateModal({
   );
   const { bySession } = useHomeworkToCheck(sessionIds);
   const handleHomeworkMarked = useHomeworkMarked();
+  // The whole slot in one list, in the order the students are shown, so the
+  // Check Viewer's next button carries on to the next student's homework.
+  const slotHomework = useMemo(
+    () => sessions.flatMap((s) => checkItems(bySession.get(s.id) ?? [], s.id, s.student_name)),
+    [sessions, bySession]
+  );
 
   // Compute which sessions have changes
   const changedSessionIds = useMemo(() => {
@@ -171,6 +183,16 @@ export function BulkRateModal({
         return;
       }
 
+      // Something is open over this modal, such as the homework Check Viewer
+      // or a photo. None of the shortcuts below may reach through it: a
+      // number key would quietly change a rating the tutor can't see. Escape
+      // travels on to whatever is on top, and every other key is still kept
+      // from the page underneath.
+      if (!overlayLayer.isTopmost) {
+        if (e.key !== "Escape") e.stopPropagation();
+        return;
+      }
+
       const isTextarea = (e.target as HTMLElement)?.tagName === "TEXTAREA";
 
       // Ctrl+Enter — Save All (works even in textarea)
@@ -223,13 +245,14 @@ export function BulkRateModal({
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [isOpen, handleSaveAll, focusedSession, setRatingFor, sessions.length, showCloseConfirm, cancelClose]);
+  }, [isOpen, overlayLayer.isTopmost, handleSaveAll, focusedSession, setRatingFor, sessions.length, showCloseConfirm, cancelClose]);
 
   return (
-    <>
+    <CheckViewerProvider items={slotHomework} readOnly={readOnly} onMarked={handleHomeworkMarked}>
       <Modal
         isOpen={isOpen}
         onClose={handleCloseAttempt}
+        layer={overlayLayer}
         title={
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">
@@ -395,6 +418,6 @@ export function BulkRateModal({
         </div>,
         document.body
       )}
-    </>
+    </CheckViewerProvider>
   );
 }

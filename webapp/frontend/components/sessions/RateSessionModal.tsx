@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
@@ -33,6 +34,10 @@ export function RateSessionModal({
 }: RateSessionModalProps) {
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState("");
+
+  // Joins the overlay stack itself and hands the layer to Modal, so the
+  // shortcuts below can tell when something has been opened on top.
+  const overlayLayer = useOverlayLayer(isOpen, { lockScroll: true });
 
   // Homework carried over from earlier lessons, marked here at the point the
   // tutor closes off the session rather than behind a separate disclosure.
@@ -99,6 +104,16 @@ export function RateSessionModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Something is open over this modal, such as the homework Check Viewer
+      // or a photo. None of the shortcuts below may reach through it: a
+      // number key would quietly change a rating the tutor can't see. Escape
+      // travels on to whatever is on top, and every other key is still kept
+      // from the page underneath.
+      if (!overlayLayer.isTopmost) {
+        if (e.key !== 'Escape') e.stopPropagation();
+        return;
+      }
+
       // Skip if focused on textarea (allow normal typing)
       const isTextarea = (e.target as HTMLElement)?.tagName === 'TEXTAREA';
 
@@ -141,7 +156,7 @@ export function RateSessionModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave]);
+  }, [isOpen, overlayLayer.isTopmost, handleSave]);
 
   const inputClass = cn(
     "w-full px-3 py-2 rounded-md border",
@@ -156,6 +171,7 @@ export function RateSessionModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      layer={overlayLayer}
       title={
         <div className="flex items-center gap-2">
           <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">

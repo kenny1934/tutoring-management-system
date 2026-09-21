@@ -67,6 +67,7 @@ core change from the legacy design and everything else follows from it.
 | 156 | `homework_files.thumbnail_path`, nullable | Applied to prod 2026-08-10 |
 | 157 | Drops the 155 aliases now the new backend is live | Applied to prod 2026-08-10 |
 | 158 | The `Submitted` state, and all three views rebuilt around it | Applied to prod 2026-08-11 |
+| 182 | `homework_to_check` hands over the answer key chosen for the homework, for the Check Viewer | Applied to prod 2026-09-21 |
 
 Migration 158 is additive only: the enum widens, no column is renamed or
 dropped, and the views keep every column they had. The deployed backend reads
@@ -173,6 +174,7 @@ Wired into:
 | `ZenLessonSidebar` | "TO CHECK" list for the active student, and the `H` overlay to mark it. |
 | `LessonExerciseSidebar` (normal lesson mode) | "To check" block above the session blocks, a counter in the header, a status tick on every homework row. See Phase 6. |
 | `ZenLessonMode` | Same `TO CHECK` list and `H` overlay as Zen wide mode. |
+| Every surface above except Zen | An Answers button on each row that opens the Check Viewer. See Phase 7. |
 | Student page, Courseware tab | Status glyph on every homework row, marking inline, a summary and a status filter. See Phase 5. |
 
 ---
@@ -390,6 +392,67 @@ this one arrives from a list, which carries no homework. The keyboard branch is
 the wide one, layered after the exit-confirm and help branches: `1`/`2`/`3` only
 collide inside the exit dialog, which returns early. The `Homework` group in
 `ZenLessonHelp` was wide-only and is now shared by both modes.
+
+## Phase 7: the Check Viewer
+
+Marking was the easy part. What made checking homework slow was getting at the
+answers: no marking surface could open the worksheet or its answer key, normal
+lesson mode could only reach back one lesson through its Previous Session
+block, and wide mode, where group classes are taught, couldn't reach earlier
+homework at all. The students' work is on paper (nobody has ever uploaded a
+photo of it), so what a tutor needs is the answer key for exactly the pages
+that were set, next to the marking buttons.
+
+The Check Viewer is one overlay, the same on every surface, including both
+lesson modes. Kenny chose that over opening homework in the lesson's own
+viewer, which would have meant saving ink against a lesson that may belong to
+another tutor. It shows the worksheet on the left and the answer key on the
+right, both cut to the pages set, with the marking row underneath. On a phone
+the two files are tabs, with the answers first. Next and previous (and the
+arrow keys) step through the list it was opened from.
+
+**Where it opens from.** `HomeworkCheckRow` shows an Answers button whenever a
+`CheckViewerProvider` sits above it and the homework has a worksheet file. Every
+marking surface except Zen renders that row, so one button reaches them all.
+The widest provider wins: a provider that finds another above it steps aside.
+That's how bulk rate and wide lesson mode step across every student in the
+slot, even though each student's panel brings a provider of its own. The
+student page puts one around its single expanded row, carrying the tab's whole
+visible homework list in display order.
+
+**Which answer key.** The one a tutor chose for the homework, when there is
+one, and otherwise a search by the worksheet's file name, as lesson mode does.
+In the 60 days to 2026-09-21, 1,021 of 1,469 homework items had one chosen by
+hand, which is why migration 182 exists: the view used to drop those columns.
+The migration only adds columns, so it can land before the code, but **the code
+must not run before the migration**, because the model now maps the new
+columns and SQLAlchemy selects every column it maps.
+
+**Which answer pages.** The answer key's own pages when someone chose them,
+and otherwise the worksheet's pages, because answer keys follow their
+worksheets page for page (69 of the 71 items with both ranges set had the same
+ones). Pages the file doesn't have are dropped, and if that leaves none, every
+page shows. An All pages button on the answer pane gives the whole file when
+the guess is wrong. This is deliberately different from lesson mode, which
+shows the whole answer file whenever the answer pages are blank.
+
+**Keys.** The viewer joins the overlay stack and, while it's on top, stops
+every key at the window in the capture phase, the same way the exercise modal
+does. Without that, Escape would also leave a lesson underneath, and the
+lesson's letter shortcuts would fire. Escape in the comment box blurs it first,
+which saves the comment, and only a second Escape closes the viewer.
+
+Two fixes came with it, both about sharing the keyboard with something on top:
+
+- `RateSessionModal` and `BulkRateModal` listened for keys at the window in the
+  capture phase without asking whether anything was stacked above them, so a
+  number key pressed in the viewer quietly changed the lesson rating of the
+  student underneath. Both now join the stack themselves, hand the layer to
+  `Modal`, and step aside while they're not topmost, exactly as `ExerciseModal`
+  already did.
+- `ImageLightbox` painted at `z-[100]`, below every modal, so a photo of handed-in
+  work opened from the rate modal appeared behind it. It now joins the stack
+  too, which also covers its inbox and Wolfram uses.
 
 ## Phase 4: reporting
 
