@@ -49,6 +49,8 @@ import { RecordContactModal } from "@/components/parent-contacts/RecordContactMo
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { StudentProgressDrawer } from "@/components/students/StudentProgressTab";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
+import type { CheckItem } from "@/lib/homework-check";
 import { HOMEWORK_STATES, HomeworkStatusGlyph, homeworkState } from "@/components/homework/homework-status";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { isChecked } from "@/lib/homework-utils";
@@ -3157,6 +3159,17 @@ function CoursewareTab({
     }));
   }, [filteredExercises]);
 
+  // The homework on show, in the order the tab lists it, for the Check
+  // Viewer's next and previous. Each mark lands on the lesson the row itself
+  // would mark against.
+  const checkList = useMemo<CheckItem[]>(() => {
+    const groups = groupBy === "pdf" ? exercisesByPdf : exercisesBySession;
+    return [...groups.values()].flat().flatMap((ex) => {
+      const hw = homeworkFor(ex);
+      return hw ? [{ homework: hw, sessionId: hw.current_session_id }] : [];
+    });
+  }, [groupBy, exercisesByPdf, exercisesBySession, homeworkFor]);
+
   // Helper to render exercise type badge
   const renderTypeBadge = (exerciseType: string, small = false) => {
     const isCW = exerciseType === "CW" || exerciseType === "Classwork";
@@ -3474,12 +3487,14 @@ function CoursewareTab({
                               </div>
                               {marking && homework && (
                                 <div className="ml-7 mr-2 mb-1 px-2 rounded border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10">
-                                  <HomeworkCheckRow
-                                    homework={homework}
-                                    sessionId={homework.current_session_id}
-                                    readOnly={isReadOnly}
-                                    onMarked={onMarked}
-                                  />
+                                  <CheckViewerProvider items={checkList} readOnly={isReadOnly} onMarked={onMarked}>
+                                    <HomeworkCheckRow
+                                      homework={homework}
+                                      sessionId={homework.current_session_id}
+                                      readOnly={isReadOnly}
+                                      onMarked={onMarked}
+                                    />
+                                  </CheckViewerProvider>
                                 </div>
                               )}
                             </div>
@@ -3555,12 +3570,14 @@ function CoursewareTab({
                       </div>
                       {marking && homework && (
                         <div className="mx-3 mb-2 px-2 rounded border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10">
-                          <HomeworkCheckRow
-                            homework={homework}
-                            sessionId={homework.current_session_id}
-                            readOnly={isReadOnly}
-                            onMarked={onMarked}
-                          />
+                          <CheckViewerProvider items={checkList} readOnly={isReadOnly} onMarked={onMarked}>
+                            <HomeworkCheckRow
+                              homework={homework}
+                              sessionId={homework.current_session_id}
+                              readOnly={isReadOnly}
+                              onMarked={onMarked}
+                            />
+                          </CheckViewerProvider>
                         </div>
                       )}
                     </div>

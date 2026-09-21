@@ -18,6 +18,8 @@ import type { Session, HomeworkCompletion } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
+import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
+import { checkItems } from "@/lib/homework-check";
 import { PrintIconButton } from "./PrintIconButton";
 import { WithSchoolIfItFits } from "./SchoolBadge";
 import { LessonDraftRow, type LessonDraftEntry } from "./LessonDraftRow";
@@ -585,6 +587,12 @@ export function LessonWideSidebar({
   const cwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "CW"), [fileGroups]);
   const hwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "HW"), [fileGroups]);
 
+  // Every student's homework to check, in the order the students are listed.
+  const slotHomework = useMemo(
+    () => students.flatMap((s) => checkItems(homeworkBySession?.get(s.id) ?? [], s.id, s.student_name)),
+    [students, homeworkBySession]
+  );
+
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
@@ -683,32 +691,36 @@ export function LessonWideSidebar({
 
         {sidebarMode === "by-student" ? (
           // By-student mode: one block per student
-          <div className="flex flex-col gap-2">
-            {students.map((session) => {
-              const studentEntries = allEntries.filter(e => e.session.id === session.id);
-              return (
-                <StudentBlock
-                  key={session.id}
-                  session={session}
-                  entries={studentEntries}
-                  selectedEntry={selectedEntry}
-                  onEntrySelect={onEntrySelect}
-                  onStudentOpen={onStudentOpen}
-                  onEditExercises={onEditExercises}
-                  isReadOnly={isReadOnly}
-                  hasAnnotations={hasAnnotations}
-                  selectedLocation={selectedLocation}
-                  expanded={!foldedStudents.has(session.id)}
-                  onExpandedChange={(open) => setFoldedStudents((folded) => withFolded(folded, session.id, !open))}
-                  onPrint={onPrint}
-                  onBulkPrintStudent={onBulkPrintStudent}
-                  printing={printing}
-                  homework={homeworkBySession?.get(session.id) ?? []}
-                  onHomeworkMarked={onHomeworkMarked}
-                />
-              );
-            })}
-          </div>
+          // The Check Viewer steps through the whole slot, student by student,
+          // in the order they are listed here.
+          <CheckViewerProvider items={slotHomework} readOnly={isReadOnly} onMarked={onHomeworkMarked}>
+            <div className="flex flex-col gap-2">
+              {students.map((session) => {
+                const studentEntries = allEntries.filter(e => e.session.id === session.id);
+                return (
+                  <StudentBlock
+                    key={session.id}
+                    session={session}
+                    entries={studentEntries}
+                    selectedEntry={selectedEntry}
+                    onEntrySelect={onEntrySelect}
+                    onStudentOpen={onStudentOpen}
+                    onEditExercises={onEditExercises}
+                    isReadOnly={isReadOnly}
+                    hasAnnotations={hasAnnotations}
+                    selectedLocation={selectedLocation}
+                    expanded={!foldedStudents.has(session.id)}
+                    onExpandedChange={(open) => setFoldedStudents((folded) => withFolded(folded, session.id, !open))}
+                    onPrint={onPrint}
+                    onBulkPrintStudent={onBulkPrintStudent}
+                    printing={printing}
+                    homework={homeworkBySession?.get(session.id) ?? []}
+                    onHomeworkMarked={onHomeworkMarked}
+                  />
+                );
+              })}
+            </div>
+          </CheckViewerProvider>
         ) : (
           // By-file mode: CW files then HW files
           <div className="flex flex-col gap-2">

@@ -391,6 +391,13 @@ export interface HomeworkCompletion {
   url_title?: string;
   assignment_remarks?: string;
 
+  // The answer key a tutor chose for this homework. Empty means nobody chose
+  // one, and the Check Viewer searches for it by the worksheet's file name.
+  answer_pdf_name?: string;
+  answer_page_start?: number;
+  answer_page_end?: number;
+  answer_remarks?: string;
+
   // Check state
   completion_id?: number;
   completion_status?: HomeworkStatus;

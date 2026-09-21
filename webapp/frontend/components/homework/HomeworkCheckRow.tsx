@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquare, Paperclip } from "lucide-react";
+import { BookCheck, MessageSquare, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { homeworkAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -10,6 +10,8 @@ import { ratingToEmoji } from "@/lib/formatters";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel } from "@/lib/lesson-utils";
 import { assignedLabel } from "@/lib/homework-utils";
+import { canOpenInCheckViewer } from "@/lib/homework-check";
+import { useCheckViewer } from "./CheckViewerProvider";
 import { HOMEWORK_STATES } from "./homework-status";
 import { useHomeworkAttachments } from "./useHomeworkAttachments";
 import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
@@ -21,6 +23,12 @@ interface HomeworkCheckRowProps {
   readOnly?: boolean;
   /** Fired with the saved record so the parent can update its cache. */
   onMarked?: (updated: HomeworkCompletion) => void;
+  /**
+   * The row is the Check Viewer's footer. The viewer's header already names
+   * the homework and where it came from, so the row leaves those out, along
+   * with its button for opening the viewer.
+   */
+  inCheckViewer?: boolean;
 }
 
 export function HomeworkCheckRow({
@@ -28,8 +36,10 @@ export function HomeworkCheckRow({
   sessionId,
   readOnly,
   onMarked,
+  inCheckViewer,
 }: HomeworkCheckRowProps) {
   const { showToast } = useToast();
+  const checkViewer = useCheckViewer();
   const [state, setState] = useState(homework);
   const [saving, setSaving] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
@@ -121,33 +131,50 @@ export function HomeworkCheckRow({
     remarks: state.assignment_remarks,
   } as SessionExercise);
 
+  // Only offered where a surface has put a viewer above the row, and only for
+  // homework with a worksheet to show.
+  const canOpen = !inCheckViewer && !!checkViewer && canOpenInCheckViewer(state);
+
   return (
-    <div className={cn("py-1.5", saving && "opacity-70")}>
+    <div className={cn(inCheckViewer ? "py-2" : "py-1.5", saving && "opacity-70")}>
       {/* What was assigned */}
-      <div className="flex items-baseline gap-1.5 min-w-0">
-        <span className="text-xs text-gray-800 dark:text-gray-200 truncate">
-          {getExerciseDisplayName(state)}
-        </span>
-        {pageLabel && (
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
-            {pageLabel}
+      {!inCheckViewer && (
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="text-xs text-gray-800 dark:text-gray-200 truncate">
+            {getExerciseDisplayName(state)}
           </span>
-        )}
-        {/* Thumbnails sit below, so the count only earns its place when the
-            files themselves are not rendered. */}
-        {state.attachment_count > 0 && files.length === 0 && (
-          <span
-            className="flex items-center gap-0.5 text-[10px] text-gray-500 flex-shrink-0"
-            title={`${state.attachment_count} file${state.attachment_count === 1 ? "" : "s"} handed in`}
-          >
-            <Paperclip className="h-2.5 w-2.5" />
-            {state.attachment_count}
-          </span>
-        )}
-      </div>
+          {pageLabel && (
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
+              {pageLabel}
+            </span>
+          )}
+          {/* Thumbnails sit below, so the count only earns its place when the
+              files themselves are not rendered. */}
+          {state.attachment_count > 0 && files.length === 0 && (
+            <span
+              className="flex items-center gap-0.5 text-[10px] text-gray-500 flex-shrink-0"
+              title={`${state.attachment_count} file${state.attachment_count === 1 ? "" : "s"} handed in`}
+            >
+              <Paperclip className="h-2.5 w-2.5" />
+              {state.attachment_count}
+            </span>
+          )}
+          {canOpen && (
+            <button
+              type="button"
+              onClick={() => checkViewer?.open({ homework: state, sessionId })}
+              title="Open the worksheet with its answers"
+              className="ml-auto self-center flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium text-[#a0704b] hover:bg-[#a0704b]/10 dark:text-[#d4a574] dark:hover:bg-[#d4a574]/10 transition-colors"
+            >
+              <BookCheck className="h-3 w-3" />
+              Answers
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Where it came from */}
-      {source && (
+      {!inCheckViewer && source && (
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
           from {source}
           {(state.sessions_ago || 0) > 1 && (
@@ -159,7 +186,7 @@ export function HomeworkCheckRow({
       )}
 
       {/* The ladder, plus rating and comment */}
-      <div className="flex items-center gap-2 mt-1 flex-wrap">
+      <div className={cn("flex items-center gap-2 flex-wrap", !inCheckViewer && "mt-1")}>
         <div className="flex items-center gap-0.5" role="group" aria-label="Homework status">
           {HOMEWORK_STATES.map(({ status, icon: Icon, label, activeClass }) => {
             const active = currentStatus === status;

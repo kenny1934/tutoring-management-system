@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 
 interface ImageLightboxProps {
   images: string[];
@@ -25,6 +26,12 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
 
   const isZoomed = scale > 1.05;
 
+  // Joins the overlay stack, so a photo opened from a modal, such as the
+  // homework Check Viewer or a rate modal, paints above it instead of behind.
+  // The stack also holds the page still while it's open, and hands scrolling
+  // back only once nothing else is open either.
+  const { zIndex } = useOverlayLayer(true, { lockScroll: true });
+
   // Reset zoom on image change
   useEffect(() => {
     setScale(1);
@@ -46,10 +53,8 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
       else if (e.key === "0") { setScale(1); setTranslate({ x: 0, y: 0 }); }
     };
     document.addEventListener("keydown", handleKey);
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = "";
     };
   }, [onClose, goPrev, goNext, isZoomed]);
 
@@ -138,7 +143,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
   }, [isZoomed, onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex }}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleBackdropClick} />
 

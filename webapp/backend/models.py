@@ -581,6 +581,12 @@ class HomeworkToCheck(Base):
     pages = Column(String(50))
     assignment_remarks = Column(Text)
 
+    # The answer key chosen for the homework, for the Check Viewer
+    answer_pdf_name = Column(String(255))
+    answer_page_start = Column(Integer)
+    answer_page_end = Column(Integer)
+    answer_remarks = Column(Text)
+
     # Completion status from homework_completion (if checked)
     completion_id = Column(Integer)
     completion_status = Column(String(50))

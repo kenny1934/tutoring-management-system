@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
+import { checkItems } from "@/lib/homework-check";
 import { uncheckedCount } from "@/lib/homework-utils";
 
 // Copy button component for PDF paths
@@ -302,29 +304,31 @@ export function BookmarkTab({
                 className="overflow-hidden"
               >
                 <div className="space-y-1.5 pb-2">
-                  {homeworkToCheck.map((hw, index) => (
-                    <div
-                      key={hw.session_exercise_id}
-                      className={cn(
-                        "py-1.5 px-2.5 bg-[#f5ede3]/50 dark:bg-[#3a3020]/30 rounded border border-[#d4a574]/20",
-                        index > 0 && "mt-1.5"
-                      )}
-                    >
-                      <div className="flex items-start gap-1.5">
-                        <div className="flex-1 min-w-0">
-                          <HomeworkCheckRow
-                            homework={hw}
-                            sessionId={sessionId}
-                            readOnly={readOnly}
-                            onMarked={onHomeworkMarked}
-                          />
-                        </div>
-                        <div className="pt-2 flex-shrink-0">
-                          <CopyButton text={hw.pdf_name || hw.url || ""} />
+                  <CheckViewerProvider items={checkItems(homeworkToCheck, sessionId)} readOnly={readOnly} onMarked={onHomeworkMarked}>
+                    {homeworkToCheck.map((hw, index) => (
+                      <div
+                        key={hw.session_exercise_id}
+                        className={cn(
+                          "py-1.5 px-2.5 bg-[#f5ede3]/50 dark:bg-[#3a3020]/30 rounded border border-[#d4a574]/20",
+                          index > 0 && "mt-1.5"
+                        )}
+                      >
+                        <div className="flex items-start gap-1.5">
+                          <div className="flex-1 min-w-0">
+                            <HomeworkCheckRow
+                              homework={hw}
+                              sessionId={sessionId}
+                              readOnly={readOnly}
+                              onMarked={onHomeworkMarked}
+                            />
+                          </div>
+                          <div className="pt-2 flex-shrink-0">
+                            <CopyButton text={hw.pdf_name || hw.url || ""} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </CheckViewerProvider>
                 </div>
               </motion.div>
             )}

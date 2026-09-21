@@ -270,6 +270,10 @@ def get_student_homework(
             url=exercise.url,
             url_title=exercise.url_title,
             assignment_remarks=exercise.remarks,
+            answer_pdf_name=exercise.answer_pdf_name,
+            answer_page_start=exercise.answer_page_start,
+            answer_page_end=exercise.answer_page_end,
+            answer_remarks=exercise.answer_remarks,
             completion_id=completion.id if completion else None,
             completion_status=(
                 completion.completion_status if completion else None
@@ -424,6 +428,10 @@ def _completion_response(
         url=completion.url,
         url_title=exercise.url_title,
         assignment_remarks=completion.exercise_remarks,
+        answer_pdf_name=exercise.answer_pdf_name,
+        answer_page_start=exercise.answer_page_start,
+        answer_page_end=exercise.answer_page_end,
+        answer_remarks=exercise.answer_remarks,
         completion_id=completion.id,
         completion_status=completion.completion_status,
         homework_rating=completion.homework_rating,
