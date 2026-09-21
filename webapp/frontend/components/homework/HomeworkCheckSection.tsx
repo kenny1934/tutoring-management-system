@@ -5,9 +5,7 @@ import { ChevronDown, Home } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { checkedCount } from "@/lib/homework-utils";
-import { checkItems } from "@/lib/homework-check";
-import { HomeworkCheckRow } from "./HomeworkCheckRow";
-import { CheckViewerProvider } from "./CheckViewerProvider";
+import { HomeworkCheckList } from "./HomeworkCheckList";
 import type { HomeworkCompletion } from "@/types";
 
 /**
@@ -100,19 +98,13 @@ export function HomeworkCheckSection({
             transition={{ duration: 0.15 }}
             className="overflow-hidden"
           >
-            <CheckViewerProvider items={checkItems(items, sessionId)} readOnly={isReadOnly} onMarked={onMarked}>
-              <div className="mt-1 px-2 rounded-md bg-[#faf3e8]/70 dark:bg-[#221c14]/50 divide-y divide-[#e8d4b8]/70 dark:divide-[#3a3228]/70">
-                {items.map((hw) => (
-                  <HomeworkCheckRow
-                    key={hw.session_exercise_id}
-                    homework={hw}
-                    sessionId={sessionId}
-                    readOnly={isReadOnly}
-                    onMarked={onMarked}
-                  />
-                ))}
-              </div>
-            </CheckViewerProvider>
+            <HomeworkCheckList
+              items={items}
+              sessionId={sessionId}
+              readOnly={isReadOnly}
+              onMarked={onMarked}
+              className="mt-1 px-2 rounded-md bg-[#faf3e8]/70 dark:bg-[#221c14]/50 divide-y divide-[#e8d4b8]/70 dark:divide-[#3a3228]/70"
+            />
           </motion.div>
         )}
       </AnimatePresence>

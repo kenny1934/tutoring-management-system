@@ -8,6 +8,13 @@ interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onReset?: () => void;
+  /**
+   * Clears a caught error when it changes, for a boundary around something
+   * that moves on to show different content, as the Check Viewer's panes do
+   * when the tutor steps to the next homework. Keying the boundary instead
+   * would remount everything inside it and throw away what it had drawn.
+   */
+  resetKey?: unknown;
 }
 
 interface ErrorBoundaryState {
@@ -31,6 +38,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Error caught by ErrorBoundary:", error, errorInfo);
+  }
+
+  componentDidUpdate(previous: ErrorBoundaryProps) {
+    if (this.state.hasError && previous.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   handleReset = () => {

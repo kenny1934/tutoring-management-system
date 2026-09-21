@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
-import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { keyIsForOverlayAbove, useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
@@ -13,7 +13,7 @@ import { sessionsAPI } from "@/lib/api";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
 import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
-import { checkItems } from "@/lib/homework-check";
+import { slotCheckItems } from "@/lib/homework-check";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
@@ -88,10 +88,7 @@ export function BulkRateModal({
   const handleHomeworkMarked = useHomeworkMarked();
   // The whole slot in one list, in the order the students are shown, so the
   // Check Viewer's next button carries on to the next student's homework.
-  const slotHomework = useMemo(
-    () => sessions.flatMap((s) => checkItems(bySession.get(s.id) ?? [], s.id, s.student_name)),
-    [sessions, bySession]
-  );
+  const slotHomework = useMemo(() => slotCheckItems(sessions, bySession), [sessions, bySession]);
 
   // Compute which sessions have changes
   const changedSessionIds = useMemo(() => {
@@ -184,14 +181,8 @@ export function BulkRateModal({
       }
 
       // Something is open over this modal, such as the homework Check Viewer
-      // or a photo. None of the shortcuts below may reach through it: a
-      // number key would quietly change a rating the tutor can't see. Escape
-      // travels on to whatever is on top, and every other key is still kept
-      // from the page underneath.
-      if (!overlayLayer.isTopmost) {
-        if (e.key !== "Escape") e.stopPropagation();
-        return;
-      }
+      // or a photo.
+      if (keyIsForOverlayAbove(e, overlayLayer.isTopmost)) return;
 
       const isTextarea = (e.target as HTMLElement)?.tagName === "TEXTAREA";
 

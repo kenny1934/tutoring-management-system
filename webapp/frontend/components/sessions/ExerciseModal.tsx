@@ -19,7 +19,7 @@ import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-moda
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
 import { useSession } from "@/lib/hooks";
-import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { keyIsForOverlayAbove, useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl, hasExerciseSource, extractUrlFromPaste } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
@@ -29,9 +29,7 @@ import { YouTubeThumbnail } from "@/components/ui/url-badge";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
-import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
-import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
-import { checkItems } from "@/lib/homework-check";
+import { HomeworkCheckList } from "@/components/homework/HomeworkCheckList";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { uncheckedCount } from "@/lib/homework-utils";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
@@ -561,14 +559,8 @@ export function ExerciseModal({
 
       // Something else in the overlay stack sits above this modal: a lesson's
       // detail popover opened from the School Progress usage list, a file
-      // browser, or a confirm dialog. Every shortcut below acts on this modal,
-      // so none of them run. Escape travels on to the overlay on top, which
-      // is the one it belongs to, and every other key is still kept from the
-      // page underneath, the same as at the bottom of this handler.
-      if (!overlayLayer.isTopmost) {
-        if (e.key !== 'Escape') e.stopPropagation();
-        return;
-      }
+      // browser, the Check Viewer, or a confirm dialog.
+      if (keyIsForOverlayAbove(e, overlayLayer.isTopmost)) return;
 
       // Handle close confirmation with Escape - MUST be at TOP
       if (showCloseConfirm) {
@@ -1166,19 +1158,13 @@ export function ExerciseModal({
                 {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
                   <div className="text-xs">
                     <span className="text-gray-500 text-[10px]">HW to check:</span>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                      <CheckViewerProvider items={checkItems(detailedSession.homework_completion, session.id)} readOnly={readOnly} onMarked={handleHomeworkMarked}>
-                        {detailedSession.homework_completion.map((hw) => (
-                          <HomeworkCheckRow
-                            key={hw.session_exercise_id}
-                            homework={hw}
-                            sessionId={session.id}
-                            readOnly={readOnly}
-                            onMarked={handleHomeworkMarked}
-                          />
-                        ))}
-                      </CheckViewerProvider>
-                    </div>
+                    <HomeworkCheckList
+                      items={detailedSession.homework_completion}
+                      sessionId={session.id}
+                      readOnly={readOnly}
+                      onMarked={handleHomeworkMarked}
+                      className="divide-y divide-gray-100 dark:divide-gray-800"
+                    />
                   </div>
                 )}
               </div>

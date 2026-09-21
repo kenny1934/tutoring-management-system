@@ -47,9 +47,7 @@ import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-uti
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
-import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
-import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
-import { checkItems } from "@/lib/homework-check";
+import { HomeworkCheckList } from "@/components/homework/HomeworkCheckList";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { uncheckedCount } from "@/lib/homework-utils";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
@@ -1236,19 +1234,13 @@ export function SessionDetailPopover({
                   {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
                     <div className="text-xs">
                       <span className="text-gray-500 text-[10px]">HW to check:</span>
-                      <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        <CheckViewerProvider items={checkItems(detailedSession.homework_completion, session.id)} readOnly={isReadOnly} onMarked={handleHomeworkMarked}>
-                          {detailedSession.homework_completion.map((hw) => (
-                            <HomeworkCheckRow
-                              key={hw.session_exercise_id}
-                              homework={hw}
-                              sessionId={session.id}
-                              readOnly={isReadOnly}
-                              onMarked={handleHomeworkMarked}
-                            />
-                          ))}
-                        </CheckViewerProvider>
-                      </div>
+                      <HomeworkCheckList
+                        items={detailedSession.homework_completion}
+                        sessionId={session.id}
+                        readOnly={isReadOnly}
+                        onMarked={handleHomeworkMarked}
+                        className="divide-y divide-gray-100 dark:divide-gray-800"
+                      />
                     </div>
                   )}
                 </div>

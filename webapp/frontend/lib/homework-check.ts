@@ -1,5 +1,5 @@
 import { getAnswerPageNumbers, getExercisePageNumbers } from "@/lib/lesson-utils";
-import type { HomeworkCompletion, SessionExercise } from "@/types";
+import type { HomeworkCompletion, Session, SessionExercise } from "@/types";
 
 /**
  * One homework item in the Check Viewer. The viewer can step through items
@@ -21,6 +21,18 @@ export function checkItems(
   studentName?: string,
 ): CheckItem[] {
   return homework.map((hw) => ({ homework: hw, sessionId, studentName }));
+}
+
+/**
+ * A whole slot's homework as one list, student by student in the order the
+ * lessons are given, so the Check Viewer's next button carries on to the next
+ * student's homework.
+ */
+export function slotCheckItems(
+  sessions: Pick<Session, "id" | "student_name">[],
+  homeworkBySession: ReadonlyMap<number, HomeworkCompletion[]> | undefined,
+): CheckItem[] {
+  return sessions.flatMap((s) => checkItems(homeworkBySession?.get(s.id) ?? [], s.id, s.student_name));
 }
 
 /** Whether there's a worksheet to open. A homework item that's only a web link has nothing to show. */

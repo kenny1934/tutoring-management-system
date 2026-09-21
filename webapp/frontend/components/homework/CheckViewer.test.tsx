@@ -11,17 +11,26 @@ import type { HomeworkCompletion } from "@/types";
 vi.mock("@/components/lesson/PdfPageViewer", () => ({
   tbBtn: "", tbBtnIdle: "", tbBtnOn: "",
   PdfPageViewer: (props: {
+    pdfData: ArrayBuffer | null;
     exerciseLabel?: string;
     pageNumbers: number[];
     isLoading: boolean;
     loadingMessage?: string | null;
     error: string | null;
+    emptyMessage?: string;
+    emptyAction?: ReactNode;
     toolbarStart?: ReactNode;
   }) => (
     <div data-testid="pane" data-label={props.exerciseLabel} data-pages={props.pageNumbers.join(",")}>
       {props.toolbarStart}
       {props.isLoading && <span>{props.loadingMessage ?? "loading"}</span>}
       {props.error}
+      {!props.pdfData && !props.isLoading && !props.error && (
+        <>
+          {props.emptyMessage}
+          {props.emptyAction}
+        </>
+      )}
     </div>
   ),
 }));
@@ -37,7 +46,7 @@ vi.mock("@/hooks/useExercisePdf", () => ({
   }),
 }));
 
-let answer: HomeworkAnswer = { kind: "idle" };
+let answer: HomeworkAnswer = { kind: "searching" };
 const retryAnswer = vi.fn();
 vi.mock("./useHomeworkAnswer", () => ({
   useHomeworkAnswer: () => ({ answer, retry: retryAnswer }),
@@ -155,9 +164,10 @@ describe("CheckViewer", () => {
   it("says so when there's no answer key, and can look again", () => {
     answer = { kind: "none" };
     renderViewer();
-    expect(screen.getByText("We couldn't find an answer key for this worksheet.")).toBeInTheDocument();
+    const [worksheet, answers] = screen.getAllByTestId("pane");
     // The worksheet still shows.
-    expect(screen.getAllByTestId("pane")).toHaveLength(1);
+    expect(worksheet.dataset.label).toBe("Sheet1");
+    expect(answers).toHaveTextContent("We couldn't find an answer key for this worksheet.");
     fireEvent.click(screen.getByRole("button", { name: /Search again/ }));
     expect(retryAnswer).toHaveBeenCalled();
   });
@@ -210,7 +220,8 @@ describe("CheckViewer", () => {
   });
 
   it("passes a saved mark on and refreshes its own copy", () => {
-    const { onMarked, onNavigate } = renderViewer();
+    const onNavigate = vi.fn();
+    const { onMarked } = renderViewer({ onNavigate });
     fireEvent.click(screen.getByRole("button", { name: "Mark done" }));
 
     expect(onMarked).toHaveBeenCalledWith(expect.objectContaining({ session_exercise_id: 1, completion_status: "Completed" }));

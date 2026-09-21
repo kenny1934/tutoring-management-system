@@ -30,7 +30,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
   // homework Check Viewer or a rate modal, paints above it instead of behind.
   // The stack also holds the page still while it's open, and hands scrolling
   // back only once nothing else is open either.
-  const { zIndex } = useOverlayLayer(true, { lockScroll: true });
+  const { isTopmost, zIndex } = useOverlayLayer(true, { lockScroll: true });
 
   // Reset zoom on image change
   useEffect(() => {
@@ -43,8 +43,13 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
 
   const clampScale = (s: number) => Math.min(Math.max(s, 0.5), 5);
 
+  // The photo's keys are heard on the window before anything else, and kept
+  // there, so the arrows still work over a modal that keeps keys from the page
+  // and Escape closes only the photo, not a lesson underneath as well.
   useEffect(() => {
+    if (!isTopmost) return;
     const handleKey = (e: KeyboardEvent) => {
+      e.stopPropagation();
       if (e.key === "Escape") { if (isZoomed) { setScale(1); setTranslate({ x: 0, y: 0 }); } else onClose(); }
       else if (e.key === "ArrowLeft" && !isZoomed) goPrev();
       else if (e.key === "ArrowRight" && !isZoomed) goNext();
@@ -52,11 +57,11 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
       else if (e.key === "-") setScale(s => clampScale(s - 0.25));
       else if (e.key === "0") { setScale(1); setTranslate({ x: 0, y: 0 }); }
     };
-    document.addEventListener("keydown", handleKey);
+    window.addEventListener("keydown", handleKey, true);
     return () => {
-      document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("keydown", handleKey, true);
     };
-  }, [onClose, goPrev, goNext, isZoomed]);
+  }, [isTopmost, onClose, goPrev, goNext, isZoomed]);
 
   // Desktop scroll-to-zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
