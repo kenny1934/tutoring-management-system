@@ -231,6 +231,11 @@ export interface StudentCouponResponse {
   available?: number;
   value?: number;
   last_synced_at?: string;
+  // True once any termination list has been imported for this student, so a
+  // count of 0 can be told apart from a student who has never been on a list.
+  synced?: boolean;
+  source_location?: string;
+  source_list_date?: string;
 }
 
 // =============================================================================

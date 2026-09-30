@@ -120,6 +120,7 @@ class StudentCoupon(Base):
     available_coupons = Column(Integer, default=0, comment="Number of discount coupons available")
     coupon_value = Column(DECIMAL(10, 2), default=300, comment="Value per coupon (usually $300)")
     last_synced_at = Column(DateTime, comment="When synced from company system")
+    sync_source_file = Column(String(500), comment="Filename of company system Excel file")
     notes = Column(Text, comment="Any special notes about coupons")
 
     # Relationship

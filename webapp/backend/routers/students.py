@@ -2,6 +2,8 @@
 Students API endpoints.
 Provides CRUD access to student data.
 """
+import re
+from datetime import date, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select, or_, cast, Integer
@@ -410,14 +412,47 @@ def get_student_coupon(
     Returns coupon availability and value for enrollment discount auto-selection.
     """
     coupon = db.query(StudentCoupon).filter(StudentCoupon.student_id == student_id).first()
-    if coupon and coupon.available_coupons and coupon.available_coupons > 0:
+    if coupon is None:
+        return StudentCouponResponse(has_coupon=False)
+
+    source_location, source_list_date = _parse_termination_list_name(coupon.sync_source_file)
+    # The sync writes this time with MySQL's NOW(), which is UTC on Cloud SQL,
+    # unlike the Hong Kong times stored elsewhere. Labelling it as UTC lets the
+    # page show the right day for a sync run in the early morning.
+    last_synced_at = coupon.last_synced_at
+    if last_synced_at is not None:
+        last_synced_at = last_synced_at.replace(tzinfo=timezone.utc)
+    sync_details = dict(
+        last_synced_at=last_synced_at,
+        synced=True,
+        source_location=source_location,
+        source_list_date=source_list_date,
+    )
+    if coupon.available_coupons and coupon.available_coupons > 0:
         return StudentCouponResponse(
             has_coupon=True,
             available=coupon.available_coupons,
             value=coupon.coupon_value,
-            last_synced_at=coupon.last_synced_at
+            **sync_details,
         )
-    return StudentCouponResponse(has_coupon=False)
+    return StudentCouponResponse(has_coupon=False, **sync_details)
+
+
+# The company system names its exports like
+# "TerminationList_MSA_2026-12-01_20260930114218.xls", where the date is the
+# month the list covers and the trailing digits are when it was exported.
+_TERMINATION_LIST_NAME = re.compile(r"TerminationList_([A-Z]+)_(\d{4}-\d{2}-\d{2})_")
+
+
+def _parse_termination_list_name(filename: Optional[str]) -> tuple[Optional[str], Optional[date]]:
+    """Read the branch and list date out of an imported termination list's filename."""
+    match = _TERMINATION_LIST_NAME.search(filename or "")
+    if not match:
+        return None, None
+    try:
+        return match.group(1), date.fromisoformat(match.group(2))
+    except ValueError:
+        return None, None
 
 
 @router.patch("/students/{student_id}", response_model=StudentResponse)

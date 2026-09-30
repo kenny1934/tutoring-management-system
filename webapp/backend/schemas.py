@@ -242,6 +242,14 @@ class StudentCouponResponse(BaseModel):
     available: Optional[int] = None
     value: Optional[Decimal] = None
     last_synced_at: Optional[datetime] = None
+    # True once any termination list has been imported for this student, even
+    # one that gave them no coupons. The student page uses it to tell a count
+    # of 0 apart from a student who has never appeared on a list.
+    synced: bool = False
+    # The branch and date of the termination list the count came from, read
+    # from the imported filename. Both stay empty if the filename is unusual.
+    source_location: Optional[str] = None
+    source_list_date: Optional[date] = None
 
 
 # ============================================

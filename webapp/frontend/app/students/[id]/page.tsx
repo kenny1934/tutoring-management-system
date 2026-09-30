@@ -27,7 +27,7 @@ import { getSessionStatusConfig, getDisplayStatus, isSupersededSession } from "@
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
+import { formatShortDate, formatCompactDateTimeSlot, formatDayFirstDate } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { getToday } from "@/lib/calendar-utils";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
@@ -858,6 +858,15 @@ const ACADEMIC_STREAM_OPTIONS = [
   { value: "Commerce", label: "Commerce", icon: Briefcase, color: "#fbf2d0" },
 ];
 
+// Says when the coupon count was last imported and, when the filename could be
+// read, which branch's termination list and which month it came from.
+function couponSyncTooltip(couponInfo: StudentCouponResponse) {
+  if (!couponInfo.last_synced_at) return "No sync date available";
+  const updated = `Last updated on ${formatDayFirstDate(couponInfo.last_synced_at)}`;
+  if (!couponInfo.source_location || !couponInfo.source_list_date) return `${updated}.`;
+  return `${updated} from the ${couponInfo.source_location} termination list for ${formatDayFirstDate(couponInfo.source_list_date)}.`;
+}
+
 function ProfileTab({
   student,
   enrollments,
@@ -1175,7 +1184,7 @@ function ProfileTab({
             <div className="space-y-3">
               {/* Student Coupons - read only */}
               {couponInfo?.has_coupon && (
-                <Tooltip content={couponInfo.last_synced_at ? `Last updated: ${new Date(couponInfo.last_synced_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : "No sync date available"}>
+                <Tooltip content={couponSyncTooltip(couponInfo)}>
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                     <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     <div>
@@ -1239,7 +1248,7 @@ function ProfileTab({
               <div className="flex flex-wrap gap-4">
                 {/* Student Coupons */}
                 {couponInfo?.has_coupon && (
-                  <Tooltip content={couponInfo.last_synced_at ? `Last updated: ${new Date(couponInfo.last_synced_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : "No sync date available"}>
+                  <Tooltip content={couponSyncTooltip(couponInfo)}>
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                       <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                       <div>
@@ -1269,10 +1278,19 @@ function ProfileTab({
                     </div>
                   </div>
                 )}
-                {/* Show message if nothing to display */}
-                {!couponInfo?.has_coupon && !student.is_staff_referral && isAdmin && (
+                {/* Admins see where a student without coupons stands, so a
+                    count of 0 from the last list can be told apart from a
+                    student who has never been on one. */}
+                {!couponInfo?.has_coupon && isAdmin && (
                   <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                    No discounts or coupons. Click Edit to add staff referral.
+                    {couponInfo?.synced ? (
+                      <Tooltip content={couponSyncTooltip(couponInfo)}>
+                        <span>No coupons available.</span>
+                      </Tooltip>
+                    ) : (
+                      <span>Not on the last synced termination list yet.</span>
+                    )}
+                    {!student.is_staff_referral && " Click Edit to add a staff referral."}
                   </p>
                 )}
               </div>
