@@ -217,7 +217,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
               Not yet matched to a topic
             </p>
             {data.unmatched_lines.map((line) => (
-              <p key={line} className="text-[11px] text-gray-400 dark:text-gray-400">
+              <p key={line} className="text-[11px] text-gray-500 dark:text-gray-400">
                 {line}
               </p>
             ))}

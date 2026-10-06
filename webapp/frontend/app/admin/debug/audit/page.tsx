@@ -350,7 +350,7 @@ export default function AuditLogPage() {
               <div className="flex items-center justify-between p-4 border-b border-line">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                    <Undo2 className="h-5 w-5 text-amber-600" aria-hidden="true" />
+                    <Undo2 className="h-5 w-5 text-amber-700" aria-hidden="true" />
                   </div>
                   <h3 className="text-lg font-semibold">Revert Change</h3>
                 </div>

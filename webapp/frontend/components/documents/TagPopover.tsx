@@ -32,7 +32,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
         <div className="px-3 pt-3 pb-2">
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">{doc.title}</p>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
             <input
               ref={inputRef}
               autoFocus

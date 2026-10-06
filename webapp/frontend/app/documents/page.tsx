@@ -976,7 +976,7 @@ export default function DocumentsPage() {
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move {selectedIds.size} document(s) to</h3>
             <div className="space-y-0.5">
               <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                <FolderOpen className="w-4 h-4 text-gray-400" /> No folder
+                <FolderOpen className="w-4 h-4 text-gray-500" /> No folder
               </button>
               {flatFolders.map(({ folder: f, depth }) => (
                 <button key={f.id} onClick={() => executeBulkMove(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
@@ -1090,7 +1090,7 @@ export default function DocumentsPage() {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move folder to</h3>
               <div className="space-y-0.5">
                 <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                  <FolderOpen className="w-4 h-4 text-gray-400" /> Root (no parent)
+                  <FolderOpen className="w-4 h-4 text-gray-500" /> Root (no parent)
                 </button>
                 {flatFolders.filter(({ folder: f }) => !excludeIds.has(f.id)).map(({ folder: f, depth }) => (
                   <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>

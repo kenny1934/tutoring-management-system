@@ -151,7 +151,7 @@ export function CurriculumPastPaperRow({
           title="Preview this paper"
           className={cn(
             hitArea,
-            "rounded shrink-0 text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
+            "rounded shrink-0 text-gray-500 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
           )}
         >
           <Eye className="h-3 w-3" />

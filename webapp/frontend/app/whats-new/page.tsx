@@ -54,9 +54,9 @@ const sectionIcons: Record<string, typeof Megaphone> = {
 };
 
 const sectionColors: Record<string, string> = {
-  "New Features": "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+  "New Features": "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10",
   "Bug Fixes": "text-red-600 dark:text-red-400 bg-red-500/10",
-  "Performance": "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+  "Performance": "text-amber-700 dark:text-amber-400 bg-amber-500/10",
   "Improvements": "text-blue-600 dark:text-blue-400 bg-blue-500/10",
 };
 

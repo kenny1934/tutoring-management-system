@@ -2561,7 +2561,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Keyboard Shortcuts</h2>
-              <button onClick={() => setShowShortcutsModal(false)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+              <button onClick={() => setShowShortcutsModal(false)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
                 <X className="w-4 h-4" />
               </button>
             </div>

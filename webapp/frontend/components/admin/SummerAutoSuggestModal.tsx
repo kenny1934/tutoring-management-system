@@ -899,7 +899,7 @@ export function SummerAutoSuggestModal({
       )}>
         {/* Header */}
         <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e8d4b8] bg-paper rounded-t-xl">
-          <Wand2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <Wand2 className="h-5 w-5 text-amber-700 dark:text-amber-400" />
           <h2 className="text-base font-semibold flex-1">
             {applicationId ? `Suggest for ${studentName || "Student"}` : "Auto-Suggest Placements"}
           </h2>
