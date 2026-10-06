@@ -198,7 +198,7 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
               >
                 {/* Day label */}
                 <span className={cn(
-                  "text-[10px] font-semibold",
+                  "text-[11px] font-semibold",
                   isToday ? "text-accent-ink" : isHoliday ? "text-rose-600" : "text-foreground/60"
                 )}>
                   {DAY_LABELS[i]}

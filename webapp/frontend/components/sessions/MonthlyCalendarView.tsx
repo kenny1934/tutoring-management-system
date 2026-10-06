@@ -389,55 +389,52 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
         )}>
           {date.getDate()}
         </span>
-        {isToday && (
-          <span className="text-[8px] sm:text-[10px] font-medium text-accent-ink bg-primary/10 dark:bg-[#cd853f]/20 px-1 rounded">
-            TODAY
-          </span>
-        )}
       </div>
 
-      {/* Tutor Workloads */}
+      {/* Tutor workloads, then the day's statuses as icons with counts. Status
+          words at this size were too small to read, and the icons carry the
+          same colours people scan the sessions page by. */}
       {totalSessions > 0 && (
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="space-y-0.5">
-            {visibleTutors.map(({ tutor, sessionCount }) => (
+            {visibleTutors.map(({ tutor, sessionCount }, i) => (
               <div
                 key={tutor.id}
-                className="flex items-center gap-1 text-[9px] sm:text-[10px]"
+                className="flex items-center gap-1 text-[11px]"
               >
-                <span className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1 rounded truncate max-w-[50px]">
+                <span className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1 rounded truncate max-w-[60px]">
                   {getTutorFirstName(tutor.tutor_name)}
                 </span>
-                <span className="text-[#8b6f47] dark:text-[#cd853f]">
+                <span className="text-accent-ink tabular-nums">
                   {sessionCount}
                 </span>
+                {i === visibleTutors.length - 1 && remainingTutors > 0 && (
+                  <span className="text-ink-subtle" title={`${remainingTutors} more tutor${remainingTutors > 1 ? "s" : ""}`}>
+                    +{remainingTutors}
+                  </span>
+                )}
               </div>
             ))}
-            {remainingTutors > 0 && (
-              <div className="text-[8px] sm:text-[9px] text-[#8b6f47]/70 dark:text-[#cd853f]/70">
-                +{remainingTutors} more
-              </div>
-            )}
 
-            {/* Status Summary */}
-            <div className="text-[8px] text-[#8b6f47]/80 dark:text-[#cd853f]/80 mt-0.5 space-y-px">
-              {/* Unpaid indicator */}
-              {dayData.unpaidCount > 0 && (
-                <div className="flex items-center gap-0.5 text-red-600">
-                  <HandCoins className="h-2.5 w-2.5" />
-                  <span>{dayData.unpaidCount} unpaid</span>
-                </div>
-              )}
-              {/* Status breakdown - show top 2 statuses */}
+            <div className="flex items-center gap-2 flex-wrap text-[11px] tabular-nums pt-0.5">
               {Array.from(dayData.statusCounts.entries())
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 2)
-                .map(([status, count]) => (
-                  <div key={status} className="truncate">
-                    {count} {status.toLowerCase()}
-                  </div>
-                ))
-              }
+                .slice(0, isMobile ? 1 : 3)
+                .map(([status, count]) => {
+                  const { Icon, textClass } = getSessionStatusConfig(status);
+                  return (
+                    <span key={status} className={cn("inline-flex items-center gap-0.5", textClass)} title={`${count} ${status.toLowerCase()}`}>
+                      <Icon className="h-3 w-3" />
+                      {count}
+                    </span>
+                  );
+                })}
+              {dayData.unpaidCount > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-red-600 dark:text-red-400" title={`${dayData.unpaidCount} unpaid`}>
+                  <HandCoins className="h-3 w-3" />
+                  {dayData.unpaidCount}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -453,7 +450,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
                 style={{ width: `${(totalSessions / maxSessions) * 100}%` }}
               />
             </div>
-            <span className="text-[8px] sm:text-[9px] font-medium text-[#8b6f47] dark:text-[#cd853f] whitespace-nowrap">
+            <span className="text-[11px] font-medium text-ink-subtle tabular-nums whitespace-nowrap">
               {totalSessions}
             </span>
           </div>
@@ -463,7 +460,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
       {/* Proposed Sessions Indicator */}
       {proposedCount > 0 && (
         <div className="flex-shrink-0 pt-0.5">
-          <div className="flex items-center gap-0.5 text-[8px] text-amber-700 dark:text-amber-400">
+          <div className="flex items-center gap-0.5 text-[11px] text-amber-700 dark:text-amber-400">
             <CalendarClock className="h-2.5 w-2.5" />
             <span>{proposedCount} proposed</span>
           </div>
@@ -701,7 +698,7 @@ function DayPopover({
                 {bulkActionsAvailable.attended && (
                   <button
                     disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 cursor-not-allowed opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 cursor-not-allowed opacity-50"
                     title="Coming soon"
                   >
                     <CheckCheck className="h-3 w-3" />
@@ -711,7 +708,7 @@ function DayPopover({
                 {bulkActionsAvailable.noShow && (
                   <button
                     disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
                     title="Coming soon"
                   >
                     <UserX className="h-3 w-3" />
@@ -721,7 +718,7 @@ function DayPopover({
                 {bulkActionsAvailable.reschedule && (
                   <button
                     disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
                     title="Coming soon"
                   >
                     <CalendarClock className="h-3 w-3" />
@@ -731,7 +728,7 @@ function DayPopover({
                 {bulkActionsAvailable.sickLeave && (
                   <button
                     disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
                     title="Coming soon"
                   >
                     <Ambulance className="h-3 w-3" />
@@ -741,7 +738,7 @@ function DayPopover({
                 {/* Exercise actions - always visible */}
                 <button
                   onClick={() => setBulkExerciseType("CW")}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                   title="Assign Classwork"
                 >
                   <PenTool className="h-3 w-3" />
@@ -749,7 +746,7 @@ function DayPopover({
                 </button>
                 <button
                   onClick={() => setBulkExerciseType("HW")}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                   title="Assign Homework"
                 >
                   <Home className="h-3 w-3" />
@@ -758,7 +755,7 @@ function DayPopover({
                 {/* Clear button - always visible */}
                 <button
                   onClick={clearSelection}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 >
                   <X className="h-3 w-3" />
                   <span className="hidden xs:inline">Clear</span>
@@ -938,7 +935,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
             <div className="flex items-center gap-1.5 mb-1">
               <div className="h-px flex-1 bg-line" />
               <button
-                className="flex items-center gap-1 text-[10px] font-semibold text-accent-ink px-1.5 hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
+                className="flex items-center gap-1 text-[11px] font-semibold text-accent-ink px-1.5 hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
                 onClick={() => {
                   navigator.clipboard.writeText(copyText);
                   setCopiedSlot(timeSlot);
@@ -991,7 +988,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
           {/* Proposed Sessions Header */}
           <div className="flex items-center gap-1.5 mb-1">
             <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
-            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 px-1.5 flex items-center gap-1">
+            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 px-1.5 flex items-center gap-1">
               <CalendarClock className="h-3 w-3" />
               Proposed Sessions
             </span>
@@ -1018,7 +1015,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                 {/* Main Content */}
                 <div className="flex-1 min-w-0 pl-3">
                   {/* Top Row: Student ID + Time */}
-                  <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
+                  <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
                     <span className="flex items-center gap-0.5 whitespace-nowrap flex-shrink-0">
                       {ps.school_student_id || "N/A"}
                     </span>
@@ -1029,17 +1026,17 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                   <div className="flex items-center gap-1 text-xs font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
                     <span className="truncate">{ps.student_name || "Unknown"}</span>
                     {ps.grade && (
-                      <GradeBadge className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={ps.grade} langStream={ps.lang_stream} />
+                      <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={ps.grade} langStream={ps.lang_stream} />
                     )}
                     {ps.school && (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                      <span className="text-[11px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
                         {ps.school}
                       </span>
                     )}
                   </div>
 
                   {/* Bottom Row: Tutor Name */}
-                  <div className="text-[10px] text-[#8b6f47] dark:text-[#cd853f] truncate">
+                  <div className="text-[11px] text-[#8b6f47] dark:text-[#cd853f] truncate">
                     {ps.tutor_name || "No tutor"}
                   </div>
                 </div>
@@ -1123,7 +1120,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
           className="grid border-b border-line"
           style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, minmax(80px, 1fr))` }}
         >
-          <div className="p-1 bg-paper text-[8px] text-[#8b6f47] dark:text-[#cd853f]">
+          <div className="p-1 bg-paper text-[11px] text-[#8b6f47] dark:text-[#cd853f]">
             Time
           </div>
           {tutorIds.map((tutorId, index) => {
@@ -1136,10 +1133,10 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                   index % 2 === 1 && "bg-tint"
                 )}
               >
-                <div className="text-[9px] font-semibold text-[#5d4e37] dark:text-[#e8d4b8] truncate">
+                <div className="text-[11px] font-semibold text-[#5d4e37] dark:text-[#e8d4b8] truncate">
                   {tutor ? getTutorFirstName(tutor.tutor_name) : "Unknown"}
                 </div>
-                <div className="text-[8px] text-[#8b6f47] dark:text-[#cd853f]">
+                <div className="text-[11px] text-[#8b6f47] dark:text-[#cd853f]">
                   {(sessionsByTutor.get(tutorId) || []).filter(isCountableSession).length} sessions
                 </div>
               </div>
@@ -1155,7 +1152,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
             style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, minmax(80px, 1fr))` }}
           >
             {/* Time Label */}
-            <div className="p-0.5 text-[8px] text-[#8b6f47] dark:text-[#cd853f] bg-paper flex items-center justify-center">
+            <div className="p-0.5 text-[11px] text-[#8b6f47] dark:text-[#cd853f] bg-paper flex items-center justify-center">
               {time}
             </div>
             {/* Tutor Cells */}
@@ -1336,12 +1333,12 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
       {/* Main Content */}
       <div className="flex-1 min-w-0">
         {/* Top Row: Student ID + Time */}
-        <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
+        <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
           <span className="flex items-center gap-0.5 whitespace-nowrap flex-shrink-0">
             {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}
             <SessionLessonBadge session={session} size="xs" />
             {isCancelledEnrollment ? (
-              <span className="text-[8px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+              <span className="text-[11px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                 Cancelled
               </span>
             ) : isSessionUnpaid(session) && (
@@ -1365,10 +1362,10 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         )}>
           <span className="truncate">{session.student_name || "Unknown"}</span>
           {session.grade && (
-            <GradeBadge className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
+            <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
-            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+            <span className="text-[11px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
               {session.school}
             </span>
           )}
@@ -1381,7 +1378,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         </div>
 
         {/* Bottom Row: Tutor Name */}
-        <div className="text-[10px] text-[#8b6f47] dark:text-[#cd853f] truncate">
+        <div className="text-[11px] text-[#8b6f47] dark:text-[#cd853f] truncate">
           {session.tutor_name || "No tutor"}
         </div>
 

@@ -342,7 +342,7 @@ export function WaitlistTimetable({
     <div className="border border-line rounded-lg overflow-hidden">
       {/* Day filter chips */}
       <div className="flex items-center gap-1 px-3 py-2 bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-line">
-        <span className="text-[9px] text-foreground/40 mr-1">Days:</span>
+        <span className="text-[11px] text-foreground/40 mr-1">Days:</span>
         {DAYS.map((day) => {
           const ds = dayStats.get(day);
           const hasData = ds && (ds.enrolled > 0 || ds.waiting > 0);
@@ -351,7 +351,7 @@ export function WaitlistTimetable({
               key={day}
               onClick={() => toggleDay(day)}
               className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
                 visibleDays.has(day)
                   ? hasData
                     ? "bg-primary text-white"
@@ -366,7 +366,7 @@ export function WaitlistTimetable({
         {!allDaysVisible && (
           <button
             onClick={() => setVisibleDays(new Set(DAYS))}
-            className="text-[9px] text-accent-ink hover:underline ml-1"
+            className="text-[11px] text-accent-ink hover:underline ml-1"
           >
             All
           </button>
@@ -388,7 +388,7 @@ export function WaitlistTimetable({
                   >
                     <div>{day}</div>
                     {ds && (ds.enrolled > 0 || ds.waiting > 0) && (
-                      <div className="text-[8px] font-normal mt-0.5">
+                      <div className="text-[11px] font-normal mt-0.5">
                         <span className="text-foreground/40">{ds.enrolled}</span>
                         {ds.waiting > 0 && (
                           <span className="text-orange-700 ml-1">+{ds.waiting}w</span>
@@ -411,7 +411,7 @@ export function WaitlistTimetable({
                 {(() => {
                   const tw = timeStats.get(normalizeTimeSlot(timeSlot)) || 0;
                   return tw > 0 ? (
-                    <div className="text-[8px] text-orange-700 font-sans mt-0.5">{tw} waiting</div>
+                    <div className="text-[11px] text-orange-700 font-sans mt-0.5">{tw} waiting</div>
                   ) : null;
                 })()}
               </td>
@@ -475,7 +475,7 @@ export function WaitlistTimetable({
                       </div>
                     ) : (
                       <div className="h-8 flex items-center justify-center">
-                        <span className="text-[8px] text-foreground/15 select-none">No classes</span>
+                        <span className="text-[11px] text-foreground/15 select-none">No classes</span>
                       </div>
                     )}
                   </td>

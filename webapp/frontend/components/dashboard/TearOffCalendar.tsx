@@ -24,7 +24,7 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
     >
       {/* Month section - warm brown to match theme */}
       <div className="flex items-center justify-center px-2 bg-primary dark:bg-[#8b5a3a] rounded-l-md">
-        <span className="text-[10px] font-bold text-white tracking-wide">
+        <span className="text-[11px] font-bold text-white tracking-wide">
           {month}
         </span>
       </div>

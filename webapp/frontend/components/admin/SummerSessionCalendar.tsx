@@ -380,13 +380,13 @@ export function SummerSessionCalendar({
 
         {/* Day filter chips — subset of openDays */}
         <div className="flex items-center gap-1">
-          <span className="text-[9px] text-muted-foreground mr-0.5">Days:</span>
+          <span className="text-[11px] text-muted-foreground mr-0.5">Days:</span>
           {openDays.map((day) => (
             <button
               key={day}
               onClick={() => toggleDay(day)}
               className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
                 visibleDays.has(day)
                   ? "bg-primary text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
@@ -399,7 +399,7 @@ export function SummerSessionCalendar({
           {visibleDays.size !== openDays.length && (
             <button
               onClick={() => setVisibleDays(new Set(openDays))}
-              className="text-[10px] text-accent-ink hover:underline ml-0.5"
+              className="text-[11px] text-accent-ink hover:underline ml-0.5"
             >
               All
             </button>
@@ -408,7 +408,7 @@ export function SummerSessionCalendar({
 
         {/* Slot-content filters — grade / course type / tutor / has-space */}
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[9px] text-muted-foreground mr-0.5">Grade:</span>
+          <span className="text-[11px] text-muted-foreground mr-0.5">Grade:</span>
           <FilterChip
             label="All"
             active={gradeFilter === null}
@@ -425,7 +425,7 @@ export function SummerSessionCalendar({
             />
           ))}
 
-          <span className="text-[9px] text-muted-foreground ml-1 mr-0.5">Type:</span>
+          <span className="text-[11px] text-muted-foreground ml-1 mr-0.5">Type:</span>
           <FilterChip
             label="All"
             active={courseTypeFilter === null}
@@ -453,12 +453,12 @@ export function SummerSessionCalendar({
 
           {slotFilterActive && (
             <>
-              <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">
+              <span className="text-[11px] text-muted-foreground ml-1 tabular-nums">
                 {visibleLessons.length} of {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}
               </span>
               <button
                 onClick={clearSlotFilters}
-                className="text-[10px] text-accent-ink hover:underline ml-0.5"
+                className="text-[11px] text-accent-ink hover:underline ml-0.5"
               >
                 Clear
               </button>
@@ -504,7 +504,7 @@ export function SummerSessionCalendar({
                 className="bg-paper sticky top-0 z-10 flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
               >
                 <span>{DAY_ABBREV[dayName] || dayName}</span>
-                <span className="text-[10px]">{formatColumnDate(dateStr)}</span>
+                <span className="text-[11px]">{formatColumnDate(dateStr)}</span>
               </div>
             );
           })}
@@ -517,7 +517,7 @@ export function SummerSessionCalendar({
                 {/* Time label */}
                 <div
                   className={cn(
-                    "bg-paper flex items-start justify-center pt-1 px-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10",
+                    "bg-paper flex items-start justify-center pt-1 px-1 text-[11px] text-muted-foreground font-medium sticky left-0 z-10",
                     isExtensionRow && "italic text-amber-700/80 dark:text-amber-300/80",
                   )}
                   title={isExtensionRow ? "Ad-hoc time — outside regular slots" : undefined}
@@ -575,7 +575,7 @@ export function SummerSessionCalendar({
                       {isEmptyCell && !readOnly && (
                         <button
                           onClick={() => setMakeupModal({ date: dateStr, time: ts })}
-                          className="absolute inset-0 flex items-center justify-center text-[10px] text-amber-700/70 dark:text-amber-300/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
+                          className="absolute inset-0 flex items-center justify-center text-[11px] text-amber-700/70 dark:text-amber-300/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
                           title="Add a Make-up Slot at this time"
                         >
                           <Plus className="h-3.5 w-3.5 mr-0.5" />

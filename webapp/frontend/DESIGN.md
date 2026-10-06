@@ -84,7 +84,7 @@ A boot script in the root layout puts the choice on `<html>` before the first pa
 
 The body face is Inter. Chinese falls through to Noto Sans TC.
 
-Nothing on CSM's own pages is smaller than 11px. That's the size the supply order app uses for its smallest labels, and it's still clearly a label rather than shrunken body text. A few places are allowed smaller sizes, each for a reason: digits inside small fixed-size badges, page previews and thumbnails that shrink text on purpose, the student report pages laid out for export, and lesson mode. The dense calendar grids are still below 11px and are due a pass of their own.
+Nothing on CSM's own pages is smaller than 11px. That's the size the supply order app uses for its smallest labels, and it's still clearly a label rather than shrunken body text. A few places are allowed smaller sizes, each for a reason: digits inside small fixed-size badges, page previews and thumbnails that shrink text on purpose, the student report pages laid out for export, lesson mode, and the session cards in the calendar grids. Those cards (in the weekly and daily grids, My Students' week, the month view's tutor grid and the admin timetables) stay at 9px and 10px on purpose. A tutor needs the student number, lesson number, name, grade, school and status on each card, and raising them to 11px would show one student per slot instead of two or three. Everything around the cards in those grids, like the time column, the day headers and the filter bars, is 11px.
 
 The handwriting fonts (Caveat and the others loaded at the top of `globals.css`) belong to the classroom objects below, and nowhere else.
 
