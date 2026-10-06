@@ -73,7 +73,7 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
           <select
             value={state.preset}
             onChange={(e) => onChange({ ...state, preset: e.target.value })}
-            className="w-full pl-8 pr-7 py-1.5 text-sm border border-border rounded-md bg-background appearance-none"
+            className="w-full pl-8 pr-7 py-1.5 text-sm border border-field rounded-md bg-background appearance-none"
           >
             {presetTimeSlots.map((slot) => (
               <option key={slot} value={slot}>{slot}</option>
@@ -103,7 +103,7 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
           aria-label="Start time"
           className={cn(
             "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
-            showInvalid ? "border-red-400" : "border-border",
+            showInvalid ? "border-red-400" : "border-field",
           )}
         />
         <span className="text-foreground/50 text-xs">to</span>
@@ -114,7 +114,7 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
           aria-label="End time"
           className={cn(
             "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
-            showInvalid ? "border-red-400" : "border-border",
+            showInvalid ? "border-red-400" : "border-field",
           )}
         />
       </div>

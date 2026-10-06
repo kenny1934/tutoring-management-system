@@ -796,7 +796,7 @@ export default function TerminatedStudentsPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className={cn(
                       "w-full pl-8 pr-8 py-1.5 text-sm rounded-full",
-                      "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+                      "bg-white dark:bg-[#1a1a1a] border border-field",
                       "text-foreground placeholder:text-muted-foreground",
                       "focus:outline-none focus:ring-1 focus:ring-accent-ink"
                     )}
@@ -1448,7 +1448,7 @@ function StatDetailContent({
           placeholder="Search by name or ID..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-7 pr-2 py-1 text-xs rounded border border-line bg-transparent focus:outline-none focus:border-accent-ink"
+          className="w-full pl-7 pr-2 py-1 text-xs rounded border border-field bg-transparent focus:outline-none focus:border-accent-ink"
         />
       </div>
       <SortToggle sortBy={sortBy} onChange={setSortBy} />
@@ -2065,7 +2065,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
             !readOnly && isEditing
               ? "border-primary dark:border-[#cd853f] ring-1 ring-primary/20 dark:ring-[#cd853f]/20"
               : !readOnly && hasPendingChanges
-                ? "border-[#d4a574] dark:border-[#6b5a4a] bg-[#fef9f3]/50 dark:bg-[#3d3628]/50"
+                ? "border-field bg-[#fef9f3]/50 dark:bg-[#3d3628]/50"
                 : "border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a] bg-transparent"
           )}
         />

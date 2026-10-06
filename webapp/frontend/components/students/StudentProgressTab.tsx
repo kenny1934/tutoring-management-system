@@ -931,7 +931,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             <select
               value={preset}
               onChange={(e) => setPreset(e.target.value as DatePreset)}
-              className="w-full text-xs border border-line rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+              className="w-full text-xs border border-field rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
             >
               <option value="1m">Last month</option>
               <option value="3m">Last 3 months</option>
@@ -946,13 +946,13 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="flex-1 text-xs border border-line rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  className="flex-1 text-xs border border-field rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
                 />
                 <input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="flex-1 text-xs border border-line rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  className="flex-1 text-xs border border-field rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
                 />
               </div>
             )}
@@ -1021,7 +1021,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               onChange={(e) => setNarrative(e.target.value)}
               placeholder="Write a summary or use AI to generate one..."
               rows={3}
-              className="w-full text-xs border border-line rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+              className="w-full text-xs border border-field rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
             />
           </div>
 
@@ -1086,7 +1086,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       }}
                       placeholder={`Attribute ${i + 1}`}
                       maxLength={30}
-                      className="flex-1 text-xs border border-line rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
+                      className="flex-1 text-xs border border-field rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
                     />
                     <select
                       value={axis.score}
@@ -1099,7 +1099,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                         });
                       }}
                       className={cn(
-                        "text-xs border border-line rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                        "text-xs border border-field rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300",
                         radarConfig.display_mode === "numerical" ? "w-14" : "w-28"
                       )}
                     >
@@ -1152,7 +1152,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               onChange={(e) => setComment(e.target.value)}
               placeholder="Add observations or recommendations..."
               rows={3}
-              className="w-full text-xs border border-line rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+              className="w-full text-xs border border-field rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
             />
           </div>
         </div>

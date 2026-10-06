@@ -200,7 +200,7 @@ export function HandwritingRemovalToolbar({
             className={cn(
               "h-7 px-2 text-xs rounded-md border",
               "bg-white dark:bg-[#3d3427]",
-              "border-[#d4c4a8] dark:border-[#5a4d3a]",
+              "border-field",
               "focus:outline-none focus:ring-2 focus:ring-amber-500/50"
             )}
             title="Black ink removal aggressiveness"

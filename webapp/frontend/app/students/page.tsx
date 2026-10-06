@@ -430,7 +430,7 @@ export default function StudentsPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 onBlur={handleSearchSubmit}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                className="w-full pl-8 pr-3 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
+                className="w-full pl-8 pr-3 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -438,7 +438,7 @@ export default function StudentsPage() {
             <select
               value={gradeFilter}
               onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7"
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat',
@@ -472,7 +472,7 @@ export default function StudentsPage() {
                   setTimeout(() => setShowSchoolSuggestions(false), 150);
                 }}
                 onKeyDown={handleSchoolKeyDown}
-                className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
+                className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
               />
               {schoolFilter && (
                 <button
@@ -513,7 +513,7 @@ export default function StudentsPage() {
             <select
               value={sortOption}
               onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat',

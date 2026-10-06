@@ -231,7 +231,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                     placeholder="Filter…"
                     className={cn(
                       "w-full pl-7 pr-2 py-1 text-xs font-normal",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574]/60 dark:border-[#6b5a4a] rounded",
+                      "bg-white dark:bg-[#1a1a1a] border border-field rounded",
                       "text-gray-900 dark:text-gray-100 placeholder:text-gray-400",
                       "focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary",
                     )}

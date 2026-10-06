@@ -250,7 +250,7 @@ export const StudentContactList = memo(function StudentContactList({
             onChange={(e) => setSearchQuery(e.target.value)}
             className={cn(
               "w-full pl-7 pr-3 py-1.5 text-sm",
-              "bg-white dark:bg-[#1a1a1a] border border-[#d4a574]/50 dark:border-[#6b5a4a] rounded-md",
+              "bg-white dark:bg-[#1a1a1a] border border-field rounded-md",
               "focus:outline-none focus:ring-1 focus:ring-primary",
               "placeholder:text-gray-400"
             )}

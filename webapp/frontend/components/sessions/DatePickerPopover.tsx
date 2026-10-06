@@ -201,7 +201,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
                 className={cn(
                   "w-full px-2 py-1 text-xs",
                   "bg-white dark:bg-[#1a1a1a]",
-                  "border border-gray-200 dark:border-gray-700 rounded",
+                  "border border-field rounded",
                   "focus:outline-none focus:ring-1 focus:ring-primary",
                   "text-gray-700 dark:text-gray-300",
                   "placeholder:text-gray-400 dark:placeholder:text-gray-600"

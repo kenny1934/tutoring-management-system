@@ -659,7 +659,7 @@ export default function AdminWaitlistPage() {
             <select
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">All Grades</option>
               {GRADES.map((g) => (
@@ -673,7 +673,7 @@ export default function AdminWaitlistPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">All Types</option>
               <option value="New">New</option>
@@ -688,7 +688,7 @@ export default function AdminWaitlistPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, school, phone..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
               {search && (
                 <button
@@ -1066,7 +1066,7 @@ export default function AdminWaitlistPage() {
               value={closeReason}
               onChange={(e) => setCloseReason(e.target.value)}
               placeholder="Reason (optional)"
-              className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConfirmClose(); } }}
             />
           </div>

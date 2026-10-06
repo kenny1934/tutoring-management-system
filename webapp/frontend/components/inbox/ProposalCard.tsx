@@ -161,7 +161,7 @@ function SlotItem({
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Reason (optional)"
-                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#2a2a2a]"
+                  className="w-full px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2a2a2a]"
                   autoFocus
                 />
                 <div className="flex gap-1">
@@ -480,7 +480,7 @@ export const ProposalCard = memo(function ProposalCard({
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g., No available slots this week"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
               />
             </div>
           </div>

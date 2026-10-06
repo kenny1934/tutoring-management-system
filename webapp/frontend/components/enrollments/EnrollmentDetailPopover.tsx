@@ -394,7 +394,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 <select
                   value={editedDay}
                   onChange={(e) => handleDayChange(e.target.value)}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                  className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                 >
                   <option value="">Unscheduled</option>
                   {DAY_OPTIONS.map(day => (
@@ -413,7 +413,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                       value={editedTime}
                       onChange={(e) => setEditedTime(e.target.value)}
                       placeholder="e.g., 10:00 - 11:30"
-                      className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                      className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                     />
                     <button
                       onClick={(e) => {
@@ -437,7 +437,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                         setEditedTime(e.target.value);
                       }
                     }}
-                    className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                    className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                   >
                     <option value="">Select time...</option>
                     {timeOptions.map(time => (
@@ -454,7 +454,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 <select
                   value={editedLocation}
                   onChange={(e) => handleLocationChange(e.target.value)}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                  className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                 >
                   <option value="">None</option>
                   {locations.map(loc => (
@@ -469,7 +469,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 <select
                   value={editedTutorId || ''}
                   onChange={(e) => setEditedTutorId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 disabled:opacity-50"
+                  className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 disabled:opacity-50"
                   disabled={!editedLocation}
                 >
                   <option value="">{editedLocation ? 'Select tutor...' : 'Select location first'}</option>

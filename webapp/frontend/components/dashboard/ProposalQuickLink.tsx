@@ -584,7 +584,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                     placeholder="Search student..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                    className="w-full pl-7 pr-2 py-1.5 text-xs border border-field rounded bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                   />
                 </div>
                 <button

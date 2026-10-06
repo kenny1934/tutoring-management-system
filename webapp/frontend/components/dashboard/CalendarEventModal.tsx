@@ -404,7 +404,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-[#e8d4b8]/30 dark:bg-[#2d2618]/70",
-                  "border border-line",
+                  "border border-field",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "placeholder:text-[#a08060] dark:placeholder:text-[#8b7355]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]",
@@ -429,7 +429,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-[#e8d4b8]/30 dark:bg-[#2d2618]/70",
-                  "border border-line",
+                  "border border-field",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
                 )}
@@ -496,7 +496,7 @@ export function CalendarEventModal({
               className={cn(
                 "w-full px-3 py-2 rounded-lg",
                 "bg-white/50 dark:bg-[#2d2618]/70",
-                "border border-line",
+                "border border-field",
                 "text-[#5c4934] dark:text-[#e8d4b8]",
                 "placeholder:text-[#a08060] dark:placeholder:text-[#8b7355]",
                 "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
@@ -519,7 +519,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-white/50 dark:bg-[#2d2618]/70",
-                  "border border-line",
+                  "border border-field",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
                 )}
@@ -539,7 +539,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-white/50 dark:bg-[#2d2618]/70",
-                  "border border-line",
+                  "border border-field",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
                 )}
@@ -562,7 +562,7 @@ export function CalendarEventModal({
               className={cn(
                 "w-full px-3 py-2 rounded-lg resize-none",
                 "bg-white/50 dark:bg-[#2d2618]/70",
-                "border border-line",
+                "border border-field",
                 "text-[#5c4934] dark:text-[#e8d4b8]",
                 "placeholder:text-[#a08060] dark:placeholder:text-[#8b7355]",
                 "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"

@@ -1572,7 +1572,7 @@ export default function GeometryEditorModal({
                           } as React.CSSProperties}
                         />
                       ) : (
-                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none text-gray-800 dark:text-gray-200" />
+                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none text-gray-800 dark:text-gray-200" />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -1605,7 +1605,7 @@ export default function GeometryEditorModal({
                           } as React.CSSProperties}
                         />
                       ) : (
-                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none text-gray-800 dark:text-gray-200" />
+                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none text-gray-800 dark:text-gray-200" />
                       )}
                     </div>
                   </div>
@@ -1616,14 +1616,14 @@ export default function GeometryEditorModal({
                         type="text"
                         value={tMinInput}
                         onChange={(e) => setTMinInput(e.target.value)}
-                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-line rounded outline-none text-gray-800 dark:text-gray-200"
+                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-field rounded outline-none text-gray-800 dark:text-gray-200"
                       />
                       <span className="text-[10px] text-gray-500">to</span>
                       <input
                         type="text"
                         value={tMaxInput}
                         onChange={(e) => setTMaxInput(e.target.value)}
-                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-line rounded outline-none text-gray-800 dark:text-gray-200"
+                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-field rounded outline-none text-gray-800 dark:text-gray-200"
                       />
                     </div>
                     <button
@@ -1686,7 +1686,7 @@ export default function GeometryEditorModal({
                         }
                       }}
                       placeholder="Loading math input..."
-                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
+                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
                     />
                   )}
                   <button
@@ -1729,7 +1729,7 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Type text, then click on the board to place it"
-              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
           </div>
         )}
@@ -1747,7 +1747,7 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Optional — e.g. 45 (click vertex, then ray)"
-              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
           </div>
         )}
@@ -1770,7 +1770,7 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="3, -2"
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
             <button
               onClick={handleAddPoint}
@@ -1798,7 +1798,7 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="Name"
-              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
+              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
             <span className="text-xs text-gray-500 dark:text-gray-400">at</span>
             <input
@@ -1813,7 +1813,7 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="x, y"
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-field rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
             <button
               onClick={handleApplyCoordEdit}

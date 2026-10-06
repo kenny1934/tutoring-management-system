@@ -979,7 +979,7 @@ export function SummerAutoSuggestModal({
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Search student..."
-                      className="w-full pl-7 pr-2 py-1 text-xs rounded-md border border-[#e8d4b8]/70 bg-background focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-full pl-7 pr-2 py-1 text-xs rounded-md border border-field bg-background focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   </div>
                   <div className="flex items-center gap-1">

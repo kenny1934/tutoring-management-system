@@ -671,7 +671,7 @@ function TutorProfileInner() {
                         value={search}
                         onChange={(ev) => setSearch(ev.target.value)}
                         placeholder="Search name, school, ID…"
-                        className="w-full rounded-lg border border-foreground/15 bg-white py-1.5 pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-[#231d14]"
+                        className="w-full rounded-lg border border-field bg-white py-1.5 pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-[#231d14]"
                       />
                     </div>
                     <div className="relative">
@@ -679,7 +679,7 @@ function TutorProfileInner() {
                       <select
                         value={sort}
                         onChange={(ev) => setSort(ev.target.value as RosterSort)}
-                        className="w-full rounded-lg border border-foreground/15 bg-white py-1.5 pl-8 pr-7 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto dark:bg-[#231d14]"
+                        className="w-full rounded-lg border border-field bg-white py-1.5 pl-8 pr-7 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto dark:bg-[#231d14]"
                       >
                         {ROSTER_SORTS.map((o) => (
                           <option key={o.value} value={o.value}>

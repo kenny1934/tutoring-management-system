@@ -295,7 +295,7 @@ export default function MathEditorModal({
               onChange={(e) => setLatex(e.target.value)}
               autoFocus
               spellCheck={false}
-              className="w-full rounded-lg border border-line bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full rounded-lg border border-field bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-primary resize-none"
               style={{ minHeight: "80px" }}
               placeholder="e.g. \frac{a}{b}"
             />

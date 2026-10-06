@@ -551,7 +551,7 @@ export default function ComposeModal({
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Optional subject..."
-              className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
             />
           </div>
 
@@ -838,14 +838,14 @@ export default function ComposeModal({
                             value={customScheduleDate}
                             onChange={(e) => setCustomScheduleDate(e.target.value)}
                             min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
+                            className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
                           />
                           <input
                             type="time"
                             value={customScheduleTime}
                             onChange={(e) => setCustomScheduleTime(e.target.value)}
                             min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
+                            className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
                           />
                           <div className="flex gap-1">
                             <button

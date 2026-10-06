@@ -111,7 +111,7 @@ function StudentSearch({ value, onChange, disabled, location }: StudentSearchPro
             onFocus={() => search.length >= 2 && setIsOpen(true)}
             onBlur={() => setTimeout(() => setIsOpen(false), 200)}
             placeholder={location ? `Search ${location} students...` : "Search student by name or ID..."}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
             disabled={disabled}
           />
           {isOpen && (
@@ -669,7 +669,7 @@ export function CreateEnrollmentModal({
               <select
                 value={tutorId || ""}
                 onChange={(e) => setTutorId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
               >
                 <option value="">Select tutor...</option>
                 {locationTutors.map((t) => (
@@ -688,7 +688,7 @@ export function CreateEnrollmentModal({
               <select
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
               >
                 <option value="MSA">MSA</option>
                 <option value="MSB">MSB</option>
@@ -705,7 +705,7 @@ export function CreateEnrollmentModal({
               <select
                 value={assignedDay}
                 onChange={(e) => setAssignedDay(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
               >
                 {DAY_NAMES.map((day) => (
                   <option key={day} value={day}>{day}</option>
@@ -725,7 +725,7 @@ export function CreateEnrollmentModal({
                   <select
                     value={assignedTime}
                     onChange={(e) => setAssignedTime(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                    className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
                   >
                     {availableTimeSlots.map((slot) => (
                       <option key={slot} value={slot}>{slot}</option>
@@ -753,7 +753,7 @@ export function CreateEnrollmentModal({
                     aria-invalid={!isCustomTimeValid && customTimeStart && customTimeEnd ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800",
-                      !isCustomTimeValid ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                      !isCustomTimeValid ? "border-red-400" : "border-field"
                     )}
                   />
                   <span className="text-foreground/50 text-center" aria-hidden="true">to</span>
@@ -766,7 +766,7 @@ export function CreateEnrollmentModal({
                     aria-invalid={!isCustomTimeValid && customTimeStart && customTimeEnd ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800",
-                      !isCustomTimeValid ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                      !isCustomTimeValid ? "border-red-400" : "border-field"
                     )}
                   />
                 </div>
@@ -803,7 +803,7 @@ export function CreateEnrollmentModal({
                 "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary",
                 dayMismatchWarning
                   ? "border-amber-400 dark:border-amber-500"
-                  : "border-gray-300 dark:border-gray-600"
+                  : "border-field"
               )}
             />
             {dayMismatchWarning && (
@@ -834,7 +834,7 @@ export function CreateEnrollmentModal({
               onBlur={() => {
                 if (lessonsPaid === "" || lessonsPaid < 1) setLessonsPaid(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
 
@@ -845,7 +845,7 @@ export function CreateEnrollmentModal({
               <select
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full pl-3 pr-8 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">No discount</option>
                 {discounts.map((d) => (

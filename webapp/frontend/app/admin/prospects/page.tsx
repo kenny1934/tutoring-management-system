@@ -1502,7 +1502,7 @@ function HeaderBar({
               value={year ?? ""}
               onChange={(e) => onYearChange(Number(e.target.value))}
               aria-label="Year"
-              className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
+              className="px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground"
             >
               {availableYears.map((y) => (
                 <option key={y} value={y}>{y}</option>

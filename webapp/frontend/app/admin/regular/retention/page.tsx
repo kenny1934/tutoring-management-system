@@ -21,7 +21,7 @@ import { formatProspectCode } from "@/lib/regular-utils";
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionResponse, RegularRetentionRow } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** The intake at a glance, the analysis axes, and the list staff actually work. */
 type RetentionTab = "overview" | "breakdowns" | "chase";

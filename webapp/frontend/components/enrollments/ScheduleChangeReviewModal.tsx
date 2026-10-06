@@ -515,7 +515,7 @@ export function ScheduleChangeReviewModal({
                                         value={overrides[session.session_id]?.date || effectiveDate}
                                         onChange={(e) => handleDateOverride(session.session_id, e.target.value)}
                                         min={new Date().toISOString().split('T')[0]}
-                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-background"
+                                        className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
                                       />
                                     </div>
                                     <div>
@@ -531,14 +531,14 @@ export function ScheduleChangeReviewModal({
                                               type="time"
                                               value={start}
                                               onChange={(e) => handleTimeOverride(session.session_id, e.target.value, end)}
-                                              className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-background"
+                                              className="flex-1 px-2 py-1.5 text-sm border border-field rounded-md bg-background"
                                             />
                                             <span className="text-foreground/50">-</span>
                                             <input
                                               type="time"
                                               value={end}
                                               onChange={(e) => handleTimeOverride(session.session_id, start, e.target.value)}
-                                              className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-background"
+                                              className="flex-1 px-2 py-1.5 text-sm border border-field rounded-md bg-background"
                                             />
                                           </div>
                                         );

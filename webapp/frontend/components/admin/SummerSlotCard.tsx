@@ -283,7 +283,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             <input
               ref={labelRef}
               defaultValue={slot.slot_label ?? ""}
-              className="text-[9px] w-10 px-0.5 rounded border border-line/60 bg-white dark:bg-gray-800 shrink-0"
+              className="text-[9px] w-10 px-0.5 rounded border border-field bg-white dark:bg-gray-800 shrink-0"
               autoFocus
               onBlur={commitLabel}
               onKeyDown={(e) => { if (e.key === "Enter") commitLabel(); if (e.key === "Escape") setEditingLabel(false); }}
@@ -349,7 +349,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             defaultValue={slot.max_students}
             min={1}
             max={20}
-            className="text-[9px] w-8 px-0.5 rounded border border-line/60 bg-white dark:bg-gray-800 text-center"
+            className="text-[9px] w-8 px-0.5 rounded border border-field bg-white dark:bg-gray-800 text-center"
             autoFocus
             onBlur={commitMax}
             onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
@@ -372,7 +372,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             <input
               defaultValue={slot.slot_label ?? ""}
               key={slot.slot_label}
-              className="text-[9px] w-full px-1 py-0.5 rounded border border-line/60 bg-white dark:bg-gray-800"
+              className="text-[9px] w-full px-1 py-0.5 rounded border border-field bg-white dark:bg-gray-800"
               onBlur={(e) => {
                 const val = e.target.value.trim();
                 if (val !== (slot.slot_label ?? "")) onUpdate({ slot_label: val || null });

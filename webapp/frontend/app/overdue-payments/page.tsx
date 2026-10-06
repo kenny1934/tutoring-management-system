@@ -531,7 +531,7 @@ export default function OverduePaymentsPage() {
                   placeholder="Search by student, ID, tutor, or grade..."
                   className={cn(
                     "w-full pl-9 pr-8 py-1.5 text-sm rounded-lg",
-                    "border border-line",
+                    "border border-field",
                     "bg-white dark:bg-[#1a1a1a]",
                     "placeholder-gray-400",
                     "focus:outline-none focus:ring-1 focus:ring-accent-ink",
@@ -732,7 +732,7 @@ export default function OverduePaymentsPage() {
                   onChange={(e) => setPaymentDate(e.target.value)}
                   className={cn(
                     "w-full px-3 py-2 rounded-lg border",
-                    "border-[#d4a574] dark:border-[#6b5a4a]",
+                    "border-field",
                     "bg-white dark:bg-[#1a1a1a]",
                     "focus:outline-none focus:ring-2 focus:ring-primary/20"
                   )}

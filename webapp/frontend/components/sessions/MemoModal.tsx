@@ -246,7 +246,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                 onFocus={() => studentSearch.length >= 2 && setSearchOpen(true)}
                 onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
                 placeholder="Search student by name or ID..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 text-sm"
+                className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 text-sm"
               />
               {searchOpen && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -395,7 +395,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                         value={ex.pdf_name}
                         onChange={(e) => updateExercise(i, "pdf_name", e.target.value)}
                         placeholder="PDF path"
-                        className="flex-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        className="flex-1 px-2 py-1 text-sm rounded border border-field bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -404,7 +404,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                         value={ex.page_start ?? ""}
                         onChange={(e) => updateExercise(i, "page_start", e.target.value ? Number(e.target.value) : null)}
                         placeholder="p."
-                        className="w-14 px-1.5 py-1 text-sm text-center rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        className="w-14 px-1.5 py-1 text-sm text-center rounded border border-field bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
                         min={1}
                       />
                       <span className="text-gray-500 text-xs">-</span>
@@ -413,7 +413,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                         value={ex.page_end ?? ""}
                         onChange={(e) => updateExercise(i, "page_end", e.target.value ? Number(e.target.value) : null)}
                         placeholder="p."
-                        className="w-14 px-1.5 py-1 text-sm text-center rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        className="w-14 px-1.5 py-1 text-sm text-center rounded border border-field bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
                         min={1}
                       />
                     </div>

@@ -113,7 +113,7 @@ function classifyRange(
   return { workingDays, excluded };
 }
 
-const inputCls = "w-full text-sm border border-[#d4a574]/40 dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-primary";
+const inputCls = "w-full text-sm border border-field rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-primary";
 
 
 type ExcludedDay = { date: string; reason: "holiday" | "rdo"; label: string };
@@ -909,7 +909,7 @@ function RequestCard({
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Note (optional)"
               rows={2}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full text-sm border border-field rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         }
@@ -930,7 +930,7 @@ function RequestCard({
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Reason (optional)"
               rows={2}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full text-sm border border-field rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         }
@@ -1023,7 +1023,7 @@ function AllStaffBalancesPanel({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search staff..."
             aria-label="Search staff"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-[#d4a574]/40 dark:border-[#6b5a4a] bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         {selectedLocation !== "All Locations" && (

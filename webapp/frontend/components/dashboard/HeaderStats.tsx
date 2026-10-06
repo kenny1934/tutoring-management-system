@@ -159,7 +159,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                       className={cn(
                         "w-full pl-7 pr-3 py-1.5 text-sm rounded-md",
                         "bg-white dark:bg-[#1a1a1a]",
-                        "border border-line-strong",
+                        "border border-field",
                         "focus:outline-none focus:ring-1 focus:ring-primary",
                         "placeholder:text-gray-400"
                       )}

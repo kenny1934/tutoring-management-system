@@ -130,7 +130,7 @@ export function StudentJumpSearch({
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full pl-7 pr-7 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+        className="w-full pl-7 pr-7 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
         aria-label="Search students across placed and unplaced"
         aria-autocomplete="list"
         aria-expanded={showDropdown}

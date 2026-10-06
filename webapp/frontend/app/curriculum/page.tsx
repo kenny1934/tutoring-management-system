@@ -38,7 +38,7 @@ import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFil
 import type { CurriculumGradeCheckStudent, CurriculumPacingBand } from "@/types";
 
 const selectClass =
-  "text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
+  "text-xs px-2 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
 
 // Width of the topic-label column inside the horizontally scrollable charts.
 const LABEL_W = "11rem";
@@ -1081,7 +1081,7 @@ export default function CurriculumPage() {
                     "w-32 text-[11px] px-2 py-1 rounded-lg border bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500",
                     weekQueryInvalid
                       ? "border-rose-300 dark:border-rose-700"
-                      : "border-[#d4a574]/60 dark:border-[#8b6f47]"
+                      : "border-field"
                   )}
                   title="Type a week number or a date and press Enter"
                 />
@@ -1315,7 +1315,7 @@ export default function CurriculumPage() {
                 ))}
                 {compares.length < 2 && compareOptions.length > 0 && (
                   <select
-                    className="text-[10px] px-1.5 py-1 rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    className="text-[10px] px-1.5 py-1 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     value=""
                     onChange={(e) => {
                       if (!e.target.value) return;

@@ -968,7 +968,7 @@ export default function AdminRenewalsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name or ID..."
-              className="pl-9 pr-8 py-1.5 w-full sm:w-64 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className="pl-9 pr-8 py-1.5 w-full sm:w-64 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
             />
             {searchQuery && (
               <button

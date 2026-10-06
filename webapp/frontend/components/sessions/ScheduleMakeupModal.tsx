@@ -1521,7 +1521,7 @@ export function ScheduleMakeupModal({
             onChange={(e) => setMakeupNotes(e.target.value)}
             placeholder={mode === "propose" ? "Note for the tutor (optional)" : "Reason for make-up (optional)"}
             maxLength={500}
-            className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 placeholder:text-gray-400"
+            className="flex-1 px-3 py-1.5 text-sm border border-field rounded-md bg-white dark:bg-gray-800 placeholder:text-gray-400"
           />
         </div>
 
@@ -2119,7 +2119,7 @@ export function ScheduleMakeupModal({
                     value={selectedTimeSlot}
                     onChange={(e) => setSelectedTimeSlot(e.target.value)}
                     disabled={!selectedDate}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 border border-field rounded-md text-sm bg-white dark:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">{selectedDate ? "Select time slot" : "Select a date first"}</option>
                     {selectedDate && availableTimeSlots.map((slot) => (
@@ -2151,7 +2151,7 @@ export function ScheduleMakeupModal({
                         aria-invalid={isInvalid ? "true" : undefined}
                         className={cn(
                           "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
-                          isInvalid ? "border-red-400" : "border-gray-200 dark:border-gray-700"
+                          isInvalid ? "border-red-400" : "border-field"
                         )}
                       />
                       <span className="text-gray-500" aria-hidden="true">to</span>
@@ -2164,7 +2164,7 @@ export function ScheduleMakeupModal({
                         aria-invalid={isInvalid ? "true" : undefined}
                         className={cn(
                           "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
-                          isInvalid ? "border-red-400" : "border-gray-200 dark:border-gray-700"
+                          isInvalid ? "border-red-400" : "border-field"
                         )}
                       />
                     </div>
@@ -2195,7 +2195,7 @@ export function ScheduleMakeupModal({
               <select
                 value={selectedTutorId || ""}
                 onChange={(e) => setSelectedTutorId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800"
+                className="w-full px-3 py-2 border border-field rounded-md text-sm bg-white dark:bg-gray-800"
               >
                 <option value="">Select tutor</option>
                 <TutorOptions

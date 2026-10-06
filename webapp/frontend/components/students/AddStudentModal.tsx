@@ -247,7 +247,7 @@ export function AddStudentModal({
             required
             aria-required="true"
             aria-describedby={duplicates.length > 0 ? "student-duplicate-warning" : undefined}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             autoFocus
           />
         </div>
@@ -263,7 +263,7 @@ export function AddStudentModal({
             <select
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               <option value="">Select grade</option>
               {grade === "P6" && <option value="P6">P6</option>}
@@ -284,7 +284,7 @@ export function AddStudentModal({
               onChange={(e) => setHomeLocation(e.target.value)}
               disabled={isLocationLocked && !initialData?.home_location}
               className={cn(
-                "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50",
                 isLocationLocked && !initialData?.home_location && "opacity-60 cursor-not-allowed"
               )}
             >
@@ -364,7 +364,7 @@ export function AddStudentModal({
               <select
                 value={academicStream}
                 onChange={(e) => setAcademicStream(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">Select stream</option>
                 {ACADEMIC_STREAMS.map((as) => (
@@ -395,7 +395,7 @@ export function AddStudentModal({
                     setContacts(updated);
                   }}
                   placeholder="Phone number"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                  className="flex-1 px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
                 />
                 <input
                   list="add-student-contact-labels"
@@ -406,7 +406,7 @@ export function AddStudentModal({
                     setContacts(updated);
                   }}
                   placeholder="Label"
-                  className="w-28 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                  className="w-28 px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
                 />
                 {contacts.length > 1 && (
                   <button

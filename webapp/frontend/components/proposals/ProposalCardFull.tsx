@@ -271,7 +271,7 @@ function SlotItem({
                       type="date"
                       value={editDate}
                       onChange={(e) => setEditDate(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     />
                   </div>
                   <div>
@@ -279,7 +279,7 @@ function SlotItem({
                     <select
                       value={editTime}
                       onChange={(e) => setEditTime(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
                       {ALL_TIME_SLOTS.map((ts) => (
                         <option key={ts} value={ts}>{ts}</option>
@@ -293,7 +293,7 @@ function SlotItem({
                     <select
                       value={editTutorId}
                       onChange={(e) => setEditTutorId(Number(e.target.value))}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
                       {tutors.map((t) => (
                         <option key={t.id} value={t.id}>{t.tutor_name}</option>
@@ -305,7 +305,7 @@ function SlotItem({
                     <select
                       value={editLocation}
                       onChange={(e) => setEditLocation(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
                       {locations.map((loc) => (
                         <option key={loc} value={loc}>{loc}</option>
@@ -424,7 +424,7 @@ function SlotItem({
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     placeholder="Reason (optional)"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                    className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     autoFocus
                   />
                   <div className="flex gap-2">
@@ -964,7 +964,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g., No available slots this week"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
               />
             </div>
           </div>

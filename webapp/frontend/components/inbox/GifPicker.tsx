@@ -111,7 +111,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search GIFs..."
-              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-line rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-field rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {query && (
               <button

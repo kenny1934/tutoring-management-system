@@ -1982,7 +1982,7 @@ function SessionsPageContent() {
       <select
         value={tutorFilter}
         onChange={(e) => setTutorFilter(e.target.value)}
-        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
+        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
           backgroundRepeat: 'no-repeat',

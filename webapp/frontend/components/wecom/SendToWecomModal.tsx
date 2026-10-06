@@ -238,7 +238,7 @@ export default function SendToWecomModal({
             <select
               value={selectedWebhook}
               onChange={(e) => setSelectedWebhook(e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
             >
               {webhooks.map((wh) => (
                 <option key={wh.webhook_name} value={wh.webhook_name}>

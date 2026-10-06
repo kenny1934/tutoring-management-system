@@ -147,7 +147,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             placeholder="Search by title or tag..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a]/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-colors"
+            className="w-full pl-8 pr-7 py-1 rounded-md border border-field bg-[#fef9f3] dark:bg-[#1a1a1a]/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-colors"
           />
           {search && (
             <button onClick={() => onSearchChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">

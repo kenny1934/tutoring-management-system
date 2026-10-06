@@ -197,7 +197,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
               className={cn(
                 "flex-1 px-3 py-2 text-sm rounded-lg border",
                 "bg-white dark:bg-[#2a2318]",
-                "border-[#d4c4a8] dark:border-[#3a3228]",
+                "border-field",
                 "text-[#4a3728] dark:text-[#d4c4a8]",
                 "placeholder:text-ink-subtle dark:placeholder:text-[#6b5d4d]",
                 "focus:outline-none focus:ring-2 focus:ring-primary/50"

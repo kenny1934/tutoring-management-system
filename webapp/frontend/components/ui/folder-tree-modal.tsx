@@ -1271,7 +1271,7 @@ export function FolderTreeModal({
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortOption)}
-                    className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                    className="text-xs border border-field rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                   >
                     <option value="name-asc">Name A→Z</option>
                     <option value="name-desc">Name Z→A</option>
@@ -1288,7 +1288,7 @@ export function FolderTreeModal({
                       placeholder="Filter... (Ctrl+F)"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                      className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-field bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                     />
                     {searchQuery && (
                       <button
@@ -1346,7 +1346,7 @@ export function FolderTreeModal({
                                 "w-20 px-1.5 py-0.5 text-xs border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
                                 sel.error
                                   ? "border-red-400 focus:ring-red-400"
-                                  : "border-gray-300 dark:border-gray-600 focus:ring-amber-400"
+                                  : "border-field focus:ring-amber-400"
                               )}
                             />
                             {sel.pageCount && (
@@ -1748,7 +1748,7 @@ export function FolderTreeModal({
                         placeholder="From"
                         className={cn(
                           "w-16 px-2 py-1 text-sm border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
-                          previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                          previewPagesError ? "border-red-400" : "border-field"
                         )}
                       />
                       <span className="text-gray-500 text-sm">to</span>
@@ -1771,7 +1771,7 @@ export function FolderTreeModal({
                         placeholder="To"
                         className={cn(
                           "w-16 px-2 py-1 text-sm border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
-                          previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                          previewPagesError ? "border-red-400" : "border-field"
                         )}
                       />
                     </div>
@@ -1788,7 +1788,7 @@ export function FolderTreeModal({
                       placeholder="e.g., 1,3,5-7"
                       className={cn(
                         "w-full px-2 py-1 text-sm border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
-                        previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                        previewPagesError ? "border-red-400" : "border-field"
                       )}
                     />
                   )}

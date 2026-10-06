@@ -377,7 +377,7 @@ export function BulkRateModal({
                     className={cn(
                       "w-full px-3 py-2 rounded-md border text-sm resize-none",
                       "bg-white dark:bg-gray-900",
-                      "border-gray-300 dark:border-gray-600",
+                      "border-field",
                       "text-gray-900 dark:text-gray-100",
                       "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
                       "placeholder:text-gray-400 dark:placeholder:text-gray-500"

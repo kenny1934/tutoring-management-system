@@ -114,7 +114,7 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
               compact ? "sm:flex-none sm:h-36 text-xs" : "sm:flex-none sm:h-48 text-sm",
               isEditable
                 ? "border-sky-400 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-sky-300/30"
-                : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-default"
+                : "border-field bg-gray-100 dark:bg-gray-800 cursor-default"
             )}
           />
         </div>

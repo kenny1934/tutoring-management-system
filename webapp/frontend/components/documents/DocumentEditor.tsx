@@ -1750,7 +1750,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                           min={8}
                           max={96}
                           placeholder="px"
-                          className="w-14 px-1.5 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent text-gray-700 dark:text-gray-300 outline-none focus:border-primary"
+                          className="w-14 px-1.5 py-0.5 text-xs border border-field rounded bg-transparent text-gray-700 dark:text-gray-300 outline-none focus:border-primary"
                         />
                         <button type="submit" className="text-[10px] text-accent-ink hover:underline">Set</button>
                       </div>
@@ -1933,7 +1933,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                       type="number"
                       min={1}
                       defaultValue={editor.getAttributes("orderedList").start ?? 1}
-                      className="w-full px-2 py-1 text-xs border border-line rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -1977,7 +1977,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                       onChange={(e) => setLinkUrl(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") applyLink(); if (e.key === "Escape") setLinkPopoverOpen(false); }}
                       placeholder="https://example.com"
-                      className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-gray-200 dark:border-gray-700 bg-transparent text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-field bg-transparent text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                     <button
                       onClick={applyLink}
@@ -2165,7 +2165,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? editor.commands.goToPreviousResult() : editor.commands.goToNextResult(); }
                 if (e.key === "Escape") { setShowFindReplace(false); setSearchTerm(""); editor.commands.clearSearch(); }
               }}
-              className="w-32 sm:w-48 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-32 sm:w-48 px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
             <span className="text-[10px] text-gray-500 tabular-nums flex-shrink-0">
               {editor.storage.searchAndReplace.results > 0
@@ -2194,7 +2194,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 value={replaceTerm}
                 onChange={(e) => { setReplaceTerm(e.target.value); editor.commands.setReplaceTerm(e.target.value); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); editor.commands.replaceCurrent(); } }}
-                className="w-28 sm:w-40 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-28 sm:w-40 px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
               <button onClick={() => editor.commands.replaceCurrent()} className="px-2 py-1 text-[10px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700" title="Replace current">
                 Replace
@@ -2674,7 +2674,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 type="number"
                 min={1}
                 defaultValue={editor.getAttributes("orderedList").start ?? 1}
-                className="w-full px-2 py-0.5 text-xs border border-line rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-2 py-0.5 text-xs border border-field rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -3115,7 +3115,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
                     setSearch("");
                   }
                 }}
-                className="w-full pl-6 pr-2 py-1.5 rounded border border-border bg-white dark:bg-[#1a1a1a] text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full pl-6 pr-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
             </div>
           </div>

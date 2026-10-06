@@ -157,7 +157,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
               max={52}
               value={lessonsPaid}
               onChange={(e) => setLessonsPaid(Math.max(1, Math.min(52, Number(e.target.value) || 1)))}
-              className="w-16 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
+              className="w-16 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-gray-800 text-center"
             />
           </div>
           <button
@@ -185,7 +185,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
               "w-full h-64 p-3 text-sm font-mono rounded-lg border resize-none transition-colors",
               isEditable
                 ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-                : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 cursor-default"
+                : "border-field bg-gray-100 dark:bg-gray-900 cursor-default"
             )}
           />
         )}

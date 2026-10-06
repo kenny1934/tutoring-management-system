@@ -52,7 +52,7 @@ import type {
   RegularPublishErrorDetail,
 } from "@/types";
 
-const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
+const inputClass = "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 const smallLabelClass = "block text-[10px] text-muted-foreground mb-0.5";
 
 const PUBLISH_ERROR_TITLES: Record<string, string> = {
@@ -1180,7 +1180,7 @@ export function RegularApplicationDetailModal({
                               ? `Applicant claims: ${app.is_existing_student}`
                               : "Where this student came from. Choose New only when they have attended no MathConcept centre."
                           }
-                          className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
+                          className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-field bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
                         >
                           <option value="">Unverified</option>
                           <option value="New">New</option>

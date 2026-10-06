@@ -91,14 +91,14 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <input
               type="time"
               value={customTime}
               onChange={(e) => setCustomTime(e.target.value)}
               min={customDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <div className="flex gap-1">
               <button

@@ -549,7 +549,7 @@ export default function FolderSidebar({
                   placeholder="Filter folders..."
                   value={folderSearch}
                   onChange={(e) => setFolderSearch(e.target.value)}
-                  className="w-full pl-7 pr-6 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-full pl-7 pr-6 py-1 rounded-md border border-field bg-gray-50 dark:bg-gray-800/50 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
                 {folderSearch && (
                   <button onClick={() => setFolderSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
@@ -711,7 +711,7 @@ export default function FolderSidebar({
                 if (e.key === "Enter") handleSubmitRename();
                 if (e.key === "Escape") setRenamingFolder(null);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
+              className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
             />
             <div className="flex gap-2">
               <button
@@ -753,7 +753,7 @@ export default function FolderSidebar({
                 }
                 if (e.key === "Escape") setRenamingTag(null);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
+              className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
             />
             <div className="flex gap-2">
               <button onClick={() => setRenamingTag(null)} className="flex-1 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors rounded-lg border border-border">

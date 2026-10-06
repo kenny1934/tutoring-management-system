@@ -346,7 +346,7 @@ function SchoolAutocomplete({
         onKeyDown={handleKeyDown}
         className={cn(
           "w-36 pl-8 pr-3 py-2 text-sm rounded-md min-h-[40px]",
-          "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
+          "bg-white dark:bg-[#1a1a1a] border border-field",
           "text-gray-700 dark:text-gray-300 placeholder-gray-500",
           "focus:outline-none focus:ring-2 focus:ring-primary/50"
         )}
@@ -1601,7 +1601,7 @@ function CoursewareBrowserTab() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-amber-400"
+              className="text-xs border border-field rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-amber-400"
             >
               <option value="name-asc">Name A→Z</option>
               <option value="name-desc">Name Z→A</option>
@@ -1618,7 +1618,7 @@ function CoursewareBrowserTab() {
                 placeholder="Filter... (Ctrl+F)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-field bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
               />
               {searchQuery && (
                 <button
@@ -2378,7 +2378,7 @@ function CoursewareSearchTab() {
             placeholder="Search courseware in Shelv..."
             className={cn(
               "w-full pl-10 pr-10 py-2.5 text-sm rounded-md",
-              "bg-paper border border-[#d4a574] dark:border-[#6b5a4a]",
+              "bg-paper border border-field",
               "focus:outline-none focus:ring-2 focus:ring-primary/50"
             )}
           />
@@ -3001,7 +3001,7 @@ export default function CoursewarePage() {
       onChange={(e) => onChange(e.target.value)}
       className={cn(
         "px-3 py-2 text-sm font-medium rounded-md min-h-[40px]",
-        "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] border border-field",
         "text-gray-700 dark:text-gray-300",
         "focus:outline-none focus:ring-2 focus:ring-primary/50",
         "cursor-pointer"

@@ -51,7 +51,7 @@ export function BrowseSelectionPanel({
                   "w-20 px-1.5 py-0.5 text-xs border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
                   sel.error
                     ? "border-red-400 focus:ring-red-400"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-amber-400"
+                    : "border-field focus:ring-amber-400"
                 )}
               />
               {sel.pageCount && (

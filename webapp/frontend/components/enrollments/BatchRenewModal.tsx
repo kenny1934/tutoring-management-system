@@ -533,7 +533,7 @@ export function BatchRenewModal({
                     }}
                     min={1}
                     max={52}
-                    className="w-16 px-2 py-1.5 text-center border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-16 px-2 py-1.5 text-center border border-field rounded-lg bg-white dark:bg-gray-800 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <motion.button
                     onClick={() => handleLessonsChange(1)}

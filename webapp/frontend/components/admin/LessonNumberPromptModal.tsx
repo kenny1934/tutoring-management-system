@@ -112,7 +112,7 @@ export function LessonNumberPromptModal({
                   }}
                   placeholder="Leave blank to skip"
                   className={cn(
-                    "w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background",
+                    "w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background",
                     !isValid && "border-red-400",
                   )}
                 />

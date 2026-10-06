@@ -204,7 +204,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="e.g. David Sir, Miss Bella"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-foreground/15 bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <p className="mt-1 text-xs text-foreground/50">
             Short name used in parent messages.
@@ -219,7 +219,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
           <select
             value={defaultLocation}
             onChange={(e) => setDefaultLocation(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-foreground/15 bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="">— None —</option>
             {locationOptions.map((loc) => (
@@ -295,7 +295,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
                               type="date"
                               value={draft.from}
                               onChange={(e) => editDraft(loc, { from: e.target.value })}
-                              className="px-2 py-1 text-sm rounded-lg border border-foreground/15 bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              className="px-2 py-1 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
                           </label>
                           <label className="text-xs text-foreground/60">
@@ -304,7 +304,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
                               type="date"
                               value={draft.until}
                               onChange={(e) => editDraft(loc, { until: e.target.value })}
-                              className="px-2 py-1 text-sm rounded-lg border border-foreground/15 bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              className="px-2 py-1 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
                           </label>
                         </div>
@@ -353,7 +353,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
               value={basicSalary}
               onChange={(e) => setBasicSalary(e.target.value)}
               placeholder="0.00"
-              className="w-full pl-7 pr-3 py-2 text-sm rounded-lg border border-foreground/15 bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full pl-7 pr-3 py-2 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
           <p className="mt-1 text-xs text-foreground/50">
@@ -385,7 +385,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             type="date"
             value={departureOn}
             onChange={(e) => setDepartureOn(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <p className="mt-1 text-xs text-foreground/60">
             {arkManaged

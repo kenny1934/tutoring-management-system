@@ -206,7 +206,7 @@ export function SummerUnassignedPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, ref code, student ID..."
-            className="w-full pl-7 pr-2 py-1 text-xs border border-line/60 rounded bg-white dark:bg-gray-800"
+            className="w-full pl-7 pr-2 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800"
           />
         </div>
 
