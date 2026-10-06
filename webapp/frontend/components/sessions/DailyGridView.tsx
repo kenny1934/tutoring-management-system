@@ -377,7 +377,7 @@ export const DailyGridView = memo(function DailyGridView({
             {/* Tutor Headers */}
             <div className="grid border-b-2 border-line sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1.5 bg-paper border-r border-line flex items-center">
-                <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
+                <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {activeTutors.map((tutor, index) => {
                 const isCollapsed = isTutorCollapsed(tutor.id);
@@ -397,7 +397,7 @@ export const DailyGridView = memo(function DailyGridView({
                     {isCollapsed ? (
                       <div className="h-full flex items-center justify-center">
                         <span
-                          className="text-[9px] font-bold whitespace-nowrap text-gray-500 dark:text-gray-400"
+                          className="text-[11px] font-bold whitespace-nowrap text-gray-500 dark:text-gray-400"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
                         >
                           {getTutorSortName(tutor.tutor_name).split(' ')[0] || tutor.tutor_name}
@@ -405,7 +405,7 @@ export const DailyGridView = memo(function DailyGridView({
                       </div>
                     ) : (
                       <div className="text-center">
-                        <p className="text-[10px] font-bold uppercase leading-tight text-gray-600 dark:text-gray-400">
+                        <p className="text-[11px] font-bold uppercase leading-tight text-gray-600 dark:text-gray-400">
                           {tutor.tutor_name}
                         </p>
                         <p className="text-xs font-medium leading-tight text-accent-ink">

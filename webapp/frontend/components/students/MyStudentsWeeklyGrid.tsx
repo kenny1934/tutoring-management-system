@@ -207,7 +207,7 @@ export function MyStudentsWeeklyGrid({
       {fillHeight && unscheduledCount > 0 && (
         <div className="absolute top-1 right-1 z-20">
           <span
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[10px] shadow-sm"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[11px] shadow-sm"
             title={`${unscheduledCount} student${unscheduledCount !== 1 ? 's' : ''} without scheduled time`}
           >
             <CalendarOff className="h-2.5 w-2.5" aria-hidden="true" />
@@ -226,7 +226,7 @@ export function MyStudentsWeeklyGrid({
             {/* Day Headers */}
             <div className="grid border-b-2 border-line sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1 bg-paper border-r border-line flex items-center">
-                <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
+                <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {DAY_NAMES.map((dayName, index) => {
                 const isCollapsed = isDayCollapsed(index);
@@ -252,7 +252,7 @@ export function MyStudentsWeeklyGrid({
                     {isCollapsed ? (
                       <div className="h-full flex items-center justify-center">
                         <span
-                          className="text-[9px] font-bold whitespace-nowrap text-gray-500 dark:text-gray-400"
+                          className="text-[11px] font-bold whitespace-nowrap text-gray-500 dark:text-gray-400"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
                           aria-hidden="true"
                         >

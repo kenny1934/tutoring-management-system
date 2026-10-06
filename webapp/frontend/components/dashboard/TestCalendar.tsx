@@ -182,7 +182,7 @@ function TestItemPopover({
               </div>
               {/* Revision stats */}
               {stats && stats.slots > 0 && (
-                <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
+                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
                   <span className="inline-flex items-center gap-0.5" title="Revision slots created">
                     <GraduationCap className="h-3 w-3" />
                     {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
@@ -276,7 +276,7 @@ function TestItemPopover({
       </div>
       {/* Revision stats */}
       {stats && stats.slots > 0 && (
-        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
           <span className="inline-flex items-center gap-0.5" title="Revision slots created">
             <GraduationCap className="h-2.5 w-2.5" />
             {stats.slots} slot{stats.slots !== 1 ? 's' : ''}

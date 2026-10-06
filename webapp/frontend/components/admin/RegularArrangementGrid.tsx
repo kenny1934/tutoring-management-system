@@ -243,7 +243,7 @@ export function RegularArrangementGrid({
 
       {/* Day filter chips — subset of open days */}
       <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-[9px] text-muted-foreground mr-0.5">Days:</span>
+        <span className="text-[11px] text-muted-foreground mr-0.5">Days:</span>
         {days.map((day) => {
           const isVisible = visibleDays.has(day);
           return (
@@ -251,7 +251,7 @@ export function RegularArrangementGrid({
               key={day}
               onClick={() => toggleDay(day)}
               className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
                 isVisible
                   ? "bg-primary text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
@@ -265,7 +265,7 @@ export function RegularArrangementGrid({
         {visibleDays.size !== days.length && (
           <button
             onClick={() => setVisibleDays(new Set(days))}
-            className="text-[10px] text-accent-ink hover:underline ml-0.5"
+            className="text-[11px] text-accent-ink hover:underline ml-0.5"
           >
             All
           </button>
@@ -275,7 +275,7 @@ export function RegularArrangementGrid({
         <span className="h-4 w-px bg-border/70 mx-1 hidden sm:block" aria-hidden />
 
         {/* Grade filter */}
-        <span className="text-[9px] text-muted-foreground mr-0.5">Grade:</span>
+        <span className="text-[11px] text-muted-foreground mr-0.5">Grade:</span>
         <FilterChip
           label="All"
           active={gradeFilter === null}
@@ -295,7 +295,7 @@ export function RegularArrangementGrid({
         {/* Stream filter */}
         {streams.length > 0 && (
           <>
-            <span className="text-[9px] text-muted-foreground ml-1 mr-0.5">Stream:</span>
+            <span className="text-[11px] text-muted-foreground ml-1 mr-0.5">Stream:</span>
             <FilterChip
               label="All"
               active={streamFilter === null}
@@ -341,12 +341,12 @@ export function RegularArrangementGrid({
         {/* Match count + clear, only while a slot filter narrows the board */}
         {slotFilterActive && (
           <>
-            <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">
+            <span className="text-[11px] text-muted-foreground ml-1 tabular-nums">
               {visibleSlots.length} of {slots.length} {slots.length === 1 ? "slot" : "slots"}
             </span>
             <button
               onClick={clearSlotFilters}
-              className="text-[10px] text-accent-ink hover:underline ml-0.5"
+              className="text-[11px] text-accent-ink hover:underline ml-0.5"
             >
               Clear
             </button>
@@ -379,7 +379,7 @@ export function RegularArrangementGrid({
           {/* Data rows: time label + cells */}
           {timeSlots.map((ts) => (
             <Fragment key={ts}>
-              <div className="bg-paper flex items-center justify-center text-[10px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
+              <div className="bg-paper flex items-center justify-center text-[11px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
                 {ts}
               </div>
 

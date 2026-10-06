@@ -231,7 +231,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
               Week {getSchoolYearWeek(weekDates[0])}
             </p>
-            <p className="text-[10px] text-gray-600 dark:text-gray-400">
+            <p className="text-[11px] text-gray-600 dark:text-gray-400">
               {weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}
             </p>
           </div>
@@ -281,7 +281,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
             {/* Day Headers */}
             <div className="grid border-b-2 border-line sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1.5 bg-paper border-r border-line flex items-center">
-                <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
+                <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {weekDates.map((date, index) => {
                 const isToday = isSameDay(date, today);
@@ -304,7 +304,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                       <div className="h-full flex items-center justify-center">
                         <span
                           className={cn(
-                            "text-[9px] font-bold whitespace-nowrap",
+                            "text-[11px] font-bold whitespace-nowrap",
                             isToday ? "text-white/80" : "text-gray-500 dark:text-gray-400"
                           )}
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
@@ -316,7 +316,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                       <div className="text-center">
                         <p
                           className={cn(
-                            "text-[10px] font-bold uppercase leading-tight",
+                            "text-[11px] font-bold uppercase leading-tight",
                             isToday ? "text-white" : "text-gray-600 dark:text-gray-400"
                           )}
                         >
