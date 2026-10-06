@@ -12,11 +12,12 @@ interface SessionStatusTagProps {
 }
 
 /**
- * Session status tag: the status's icon and its word in the status colour,
- * with no fill, as statuses read in the supply order app. The icon is what
- * people pick out first when scanning a list, so it stays. The words already
- * say whether an attended session was a make-up or a trial, so the tag drops
- * the strip's icon accents, which were chosen for a solid fill.
+ * Session status tag. With its word, it is the status's icon and word in the
+ * status colour, with no fill, as statuses read in the supply order app. Icon
+ * only, the word is gone, so the tag needs a solid block of colour to be told
+ * apart at a glance: a small badge with a white icon, which also shows the
+ * icon accents (yellow for a make-up, blue for a trial). A pale fill was tried
+ * and was too faint at this size.
  */
 export function SessionStatusTag({
   status,
@@ -25,20 +26,20 @@ export function SessionStatusTag({
   showIcon = true,
   iconOnly = false,
 }: SessionStatusTagProps) {
-  const { textClass, Icon } = getSessionStatusConfig(status);
+  const { textClass, badgeClass, iconClass, Icon } = getSessionStatusConfig(status);
 
   return (
     <span
       className={cn(
         "inline-flex items-center font-medium",
-        textClass,
-        iconOnly ? "p-1" : "gap-1",
-        !iconOnly && (size === "sm" ? "text-xs" : "text-sm"),
+        iconOnly
+          ? cn("justify-center rounded p-1 text-white", badgeClass)
+          : cn("gap-1", textClass, size === "sm" ? "text-xs" : "text-sm"),
         className
       )}
       title={iconOnly ? status : undefined}
     >
-      {showIcon && <Icon className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />}
+      {showIcon && <Icon className={cn(size === "sm" ? "h-3 w-3" : "h-4 w-4", iconOnly && iconClass)} />}
       {!iconOnly && <span className="truncate">{status}</span>}
     </span>
   );

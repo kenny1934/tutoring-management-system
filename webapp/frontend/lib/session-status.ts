@@ -13,6 +13,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+// Large areas get a soft fill and small marks get a solid one. A strip is
+// big enough that a pale fill reads, but a badge the size of an icon needs a
+// solid block of colour to be told apart at a glance (Kenny, 2026-10-07).
+// The badge fills are a step or two deeper than the strips' old solid fills,
+// so every white icon on them clears 3:1.
+//
 // The status strip on a session card: a pale fill in the status's own hue
 // with the icon in a dark shade of it, the soft option Kenny picked on
 // 2026-10-06. People read the sessions page by these hues, so each status
@@ -21,20 +27,21 @@ import {
 // solid `bgClass`: thin strips with no icon, dots, and the session detail
 // chalkboard.
 const STRIP = {
-  sky: { fill: "bg-sky-100 dark:bg-sky-900/50", icon: "text-sky-700 dark:text-sky-300" },
-  green: { fill: "bg-green-100 dark:bg-green-900/50", icon: "text-green-700 dark:text-green-300" },
-  yellow: { fill: "bg-yellow-100 dark:bg-yellow-900/50", icon: "text-yellow-700 dark:text-yellow-300" },
-  blue: { fill: "bg-blue-100 dark:bg-blue-900/50", icon: "text-blue-700 dark:text-blue-300" },
-  orange: { fill: "bg-orange-100 dark:bg-orange-900/50", icon: "text-orange-700 dark:text-orange-300" },
-  red: { fill: "bg-red-100 dark:bg-red-900/50", icon: "text-red-700 dark:text-red-300" },
-  gray: { fill: "bg-gray-100 dark:bg-gray-800/60", icon: "text-gray-600 dark:text-gray-300" },
-  amber: { fill: "bg-amber-100 dark:bg-amber-900/50", icon: "text-amber-700 dark:text-amber-300" },
+  sky: { fill: "bg-sky-100 dark:bg-sky-900/50", icon: "text-sky-700 dark:text-sky-300", badge: "bg-sky-600" },
+  green: { fill: "bg-green-100 dark:bg-green-900/50", icon: "text-green-700 dark:text-green-300", badge: "bg-green-700" },
+  yellow: { fill: "bg-yellow-100 dark:bg-yellow-900/50", icon: "text-yellow-700 dark:text-yellow-300", badge: "bg-yellow-700" },
+  blue: { fill: "bg-blue-100 dark:bg-blue-900/50", icon: "text-blue-700 dark:text-blue-300", badge: "bg-blue-600" },
+  orange: { fill: "bg-orange-100 dark:bg-orange-900/50", icon: "text-orange-700 dark:text-orange-300", badge: "bg-orange-600" },
+  red: { fill: "bg-red-100 dark:bg-red-900/50", icon: "text-red-700 dark:text-red-300", badge: "bg-red-600" },
+  gray: { fill: "bg-gray-100 dark:bg-gray-800/60", icon: "text-gray-600 dark:text-gray-300", badge: "bg-gray-500" },
+  amber: { fill: "bg-amber-100 dark:bg-amber-900/50", icon: "text-amber-700 dark:text-amber-300", badge: "bg-amber-700" },
 };
 
 interface SessionStatusConfig {
   bgClass: string;
   stripClass: string; // The pale fill of the status strip on a session card
   stripIconClass: string; // The icon colour inside that strip
+  badgeClass: string; // The solid fill of an icon-only status badge, with a white icon
   bgTint: string;
   textClass: string;
   Icon: LucideIcon;
@@ -48,25 +55,25 @@ export const getSessionStatusConfig = (status: string | undefined): SessionStatu
 
   // Check suffix patterns first (for wildcard statuses like "Rescheduled - Pending Make-up")
   if (s.endsWith("- Pending Make-up")) {
-    return { bgClass: "bg-orange-500", stripClass: STRIP.orange.fill, stripIconClass: STRIP.orange.icon, bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-700 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
+    return { bgClass: "bg-orange-500", stripClass: STRIP.orange.fill, stripIconClass: STRIP.orange.icon, badgeClass: STRIP.orange.badge, bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-700 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
   }
   if (s.endsWith("- Make-up Booked")) {
-    return { bgClass: "bg-gray-400", stripClass: STRIP.gray.fill, stripIconClass: STRIP.gray.icon, bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true, opacity: 0.6 };
+    return { bgClass: "bg-gray-400", stripClass: STRIP.gray.fill, stripIconClass: STRIP.gray.icon, badgeClass: STRIP.gray.badge, bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true, opacity: 0.6 };
   }
 
   // Exact matches
   const config: Record<string, SessionStatusConfig> = {
-    "Scheduled": { bgClass: "bg-sky-400", stripClass: STRIP.sky.fill, stripIconClass: STRIP.sky.icon, bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-700 dark:text-sky-400", Icon: Clock },
-    "Attended": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle },
-    "Attended (Make-up)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
-    "Attended (Trial)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
-    "Make-up Class": { bgClass: "bg-yellow-500", stripClass: STRIP.yellow.fill, stripIconClass: STRIP.yellow.icon, bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-700 dark:text-yellow-400", Icon: PencilLine },
-    "Trial Class": { bgClass: "bg-blue-500", stripClass: STRIP.blue.fill, stripIconClass: STRIP.blue.icon, bgTint: "bg-blue-50/80 dark:bg-blue-900/20", textClass: "text-blue-600 dark:text-blue-400", Icon: FlaskConical },
-    "Cancelled": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-600 dark:text-red-400", Icon: XCircle, strikethrough: true },
-    "No Show": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-600 dark:text-red-400", Icon: UserX, strikethrough: true },
+    "Scheduled": { bgClass: "bg-sky-400", stripClass: STRIP.sky.fill, stripIconClass: STRIP.sky.icon, badgeClass: STRIP.sky.badge, bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-700 dark:text-sky-400", Icon: Clock },
+    "Attended": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, badgeClass: STRIP.green.badge, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle },
+    "Attended (Make-up)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, badgeClass: STRIP.green.badge, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
+    "Attended (Trial)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, badgeClass: STRIP.green.badge, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
+    "Make-up Class": { bgClass: "bg-yellow-500", stripClass: STRIP.yellow.fill, stripIconClass: STRIP.yellow.icon, badgeClass: STRIP.yellow.badge, bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-700 dark:text-yellow-400", Icon: PencilLine },
+    "Trial Class": { bgClass: "bg-blue-500", stripClass: STRIP.blue.fill, stripIconClass: STRIP.blue.icon, badgeClass: STRIP.blue.badge, bgTint: "bg-blue-50/80 dark:bg-blue-900/20", textClass: "text-blue-600 dark:text-blue-400", Icon: FlaskConical },
+    "Cancelled": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, badgeClass: STRIP.red.badge, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-600 dark:text-red-400", Icon: XCircle, strikethrough: true },
+    "No Show": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, badgeClass: STRIP.red.badge, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-600 dark:text-red-400", Icon: UserX, strikethrough: true },
   };
 
-  return config[s] || { bgClass: "bg-[#d4a574]", stripClass: STRIP.amber.fill, stripIconClass: STRIP.amber.icon, bgTint: "bg-amber-50/80 dark:bg-amber-900/20", textClass: "text-amber-700 dark:text-amber-400", Icon: Circle };
+  return config[s] || { bgClass: "bg-[#d4a574]", stripClass: STRIP.amber.fill, stripIconClass: STRIP.amber.icon, badgeClass: STRIP.amber.badge, bgTint: "bg-amber-50/80 dark:bg-amber-900/20", textClass: "text-amber-700 dark:text-amber-400", Icon: Circle };
 };
 
 /**
