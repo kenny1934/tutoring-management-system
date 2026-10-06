@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { PlotPanel } from "./PlotPanel";
 import { DEFAULT_AXES, withDegrees, type AxesSettings } from "@/lib/axes";
@@ -31,7 +31,15 @@ function Harness({ initial = "", axes = DEFAULT_AXES, onPlot = vi.fn(), onClose 
   );
 }
 
-const field = () => screen.findByLabelText("Function of x") as Promise<HTMLElement & { value: string }>;
+// The field appears as soon as MathLive has loaded, but its listeners are
+// added a moment later by an effect, and anything typed in between is lost.
+// That effect sets the keyboard policy in the same step as it adds them, so
+// waiting for the policy means the field is ready to type into.
+const field = async () => {
+  const box = (await screen.findByLabelText("Function of x")) as HTMLElement & { value: string; mathVirtualKeyboardPolicy?: string };
+  await waitFor(() => expect(box.mathVirtualKeyboardPolicy).toBe("manual"));
+  return box;
+};
 const type = async (latex: string) => {
   const box = await field();
   box.value = latex;
