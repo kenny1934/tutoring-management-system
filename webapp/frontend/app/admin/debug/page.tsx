@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
@@ -48,10 +48,10 @@ export default function DebugPanelPage() {
 
   return (
     <SuperAdminPageGuard>
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 z-40 desk-background border-b border-[#6b5a4a]/30">
+          <div className="sticky top-0 z-40 surface border-b border-[#6b5a4a]/30">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center gap-4">
                 <Link
@@ -66,11 +66,11 @@ export default function DebugPanelPage() {
                     <Database className="h-6 w-6 text-red-600 dark:text-red-400" aria-hidden="true" />
                   </div>
                   <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+                    <h1 className="text-lg sm:text-2xl font-bold text-on-surface flex items-center gap-2">
                       Debug Panel
                       <Shield className="h-5 w-5 text-red-400" aria-hidden="true" />
                     </h1>
-                    <p className="hidden sm:block text-sm text-white/70">
+                    <p className="hidden sm:block text-sm text-on-surface/70">
                       Super Admin database access
                     </p>
                   </div>
@@ -195,7 +195,7 @@ export default function DebugPanelPage() {
             )}
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     </SuperAdminPageGuard>
   );
 }

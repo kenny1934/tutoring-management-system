@@ -14,6 +14,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { SurfacePicker } from "@/components/ui/SurfacePicker";
+import { TONES } from "@/lib/tones";
 import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
@@ -21,13 +23,13 @@ import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
 import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge, useRegularIntakeOpen } from "@/lib/hooks";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
-  { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
-  { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
-  { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
-  { name: "Curriculum", href: "/curriculum", icon: Map, color: "bg-teal-500" },
-  { name: "Documents", href: "/documents", icon: FileText, color: "bg-amber-500" },
-  { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
+  { name: "Dashboard", href: "/", icon: Home },
+  { name: "Students", href: "/students", icon: Users },
+  { name: "Sessions", href: "/sessions", icon: Calendar },
+  { name: "Courseware", href: "/courseware", icon: BookOpen },
+  { name: "Curriculum", href: "/curriculum", icon: Map },
+  { name: "Documents", href: "/documents", icon: FileText },
+  { name: "Inbox", href: "/inbox", icon: Inbox },
 ];
 
 // Admin navigation items - only visible to Admin and Super Admin
@@ -99,7 +101,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   // goes to be missed.
   const mainNavigation = useMemo(() => {
     if (!intakeOpen) return navigation;
-    const renewal = { name: "Course Renewal", href: "/course-renewal", icon: CalendarCheck, color: "bg-sky-500" };
+    const renewal = { name: "Course Renewal", href: "/course-renewal", icon: CalendarCheck };
     const inboxAt = navigation.findIndex((item) => item.name === "Inbox");
     if (inboxAt === -1) return [...navigation, renewal];
     return [...navigation.slice(0, inboxAt), renewal, ...navigation.slice(inboxAt)];
@@ -118,9 +120,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       : name === "Regular Intake" ? regularActionable
       : 0;
     const color =
-      name === "Overdue Payments" ? "bg-red-500"
-      : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? "bg-red-500"
-      : "bg-orange-500";
+      name === "Overdue Payments" ? TONES.danger.solid
+      : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? TONES.danger.solid
+      : TONES.warning.solid;
     const isIntakeOpen =
       (name === "Summer Course" && summerIsOpen) ||
       (name === "Regular Intake" && regularIsOpen);
@@ -361,39 +363,28 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 prefetch={true}
                 onClick={handleNavClick}
                 style={{
-                  transition: `all ${isActive ? '350ms' : '200ms'} cubic-bezier(0.38, 1.21, 0.22, 1.00)`
+                  transition: `all ${isActive ? '350ms' : '200ms'} var(--ease-out)`
                 }}
                 className={cn(
                   "group relative flex items-center rounded-2xl text-sm font-medium",
                   showExpanded ? "gap-3 px-4 py-3" : "justify-center p-3",
                   isActive
                     ? "bg-primary/10 text-primary shadow-sm"
-                    : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.02] active:scale-[0.98]"
+                    : "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
-                {/* Color indicator with glow */}
+                {/* Marks the current page. Every item uses the one accent colour, so the
+                    dot says "you are here" and nothing else. */}
                 {showExpanded && (
                   <div className={cn(
-                    "w-2 h-2 rounded-full transition-all duration-300",
-                    item.color,
-                    isActive
-                      ? "scale-100 opacity-100 shadow-[0_0_8px_currentColor]"
-                      : "scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-60"
+                    "w-1.5 h-1.5 rounded-full bg-primary transition-opacity duration-200",
+                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
                   )} />
                 )}
 
                 {/* Icon */}
                 <div className="relative">
-                  <item.icon
-                    className={cn(
-                      "transition-transform duration-300",
-                      showExpanded ? "h-5 w-5" : "h-6 w-6",
-                      isActive ? "scale-110" : "group-hover:scale-110"
-                    )}
-                    style={{
-                      transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
-                    }}
-                  />
+                  <item.icon className={showExpanded ? "h-5 w-5" : "h-6 w-6"} />
 
                   {/* Beta badge for collapsed Documents */}
                   {!showExpanded && item.name === "Documents" && (
@@ -419,7 +410,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
                 {/* Badge for collapsed Inbox */}
                 {!showExpanded && item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                  <span className={cn("absolute -top-1 -right-1 text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", TONES.danger.solid)}>
                     {unreadCount.count > 99 ? "99+" : unreadCount.count}
                   </span>
                 )}
@@ -436,7 +427,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     )}
                     {/* Unread badge for Inbox */}
                     {item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                      <span className={cn("text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", TONES.danger.solid)}>
                         {unreadCount.count > 99 ? "99+" : unreadCount.count}
                       </span>
                     )}
@@ -507,7 +498,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           </span>
                         )}
                         {(badgeCount ?? 0) > 0 && (
-                          <span className={cn("text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
+                          <span className={cn("text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         )}
@@ -573,7 +564,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <item.icon className="h-5 w-5" />
                         </Link>
                         {(badgeCount ?? 0) > 0 && (
-                          <span className={cn("absolute -top-1 -right-1 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
+                          <span className={cn("absolute -top-1 -right-1 text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         )}
@@ -715,14 +706,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <button
                 onClick={() => setIsUserMenuOpen(true)}
                 className={cn(
-                  "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
+                  "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg p-3",
                   "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
                   isImpersonating
                     ? "border-amber-400 dark:border-amber-600"
                     : "border-white/10 dark:border-white/5"
                 )}
                 style={{
-                  transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+                  transition: 'all 250ms var(--ease-out)',
                 }}
                 title="User settings"
               >
@@ -751,14 +742,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <button
                 onClick={() => setIsUserMenuOpen(true)}
                 className={cn(
-                  "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+                  "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg",
                   "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
                   isImpersonating
                     ? "border-amber-400 dark:border-amber-600"
                     : "border-white/10 dark:border-white/5"
                 )}
                 style={{
-                  transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+                  transition: 'all 250ms var(--ease-out)',
                 }}
               >
                 <div className="relative flex-shrink-0">
@@ -851,6 +842,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <span className="text-sm font-medium text-foreground/80">Theme</span>
                 <ThemeToggle compact />
               </div>
+            </div>
+
+            {/* Page background */}
+            <div className="py-3">
+              <span className="text-sm font-medium text-foreground/80 mb-2 block">Background</span>
+              <SurfacePicker />
             </div>
 
             {/* Location Selector - Admin only */}
@@ -952,7 +949,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           isCollapsed ? "w-[72px]" : "w-64"
         )}
         style={{
-          transition: 'width 350ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+          transition: 'width 350ms var(--ease-out)',
         }}
       >
         {sidebarContent(false, navRef)}

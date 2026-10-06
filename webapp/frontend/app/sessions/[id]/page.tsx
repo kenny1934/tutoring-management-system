@@ -47,7 +47,7 @@ import { cn, formatError } from "@/lib/utils";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { useToast } from "@/contexts/ToastContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 
 const LessonMode = dynamic(() =>
   import("@/components/lesson/LessonMode").then(mod => ({ default: mod.LessonMode })),
@@ -389,7 +389,7 @@ export default function SessionDetailPage() {
 
   if (loading) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
         {/* Chalkboard skeleton - matches ChalkboardHeader structure */}
         <div
@@ -470,7 +470,7 @@ export default function SessionDetailPage() {
           </div>
         </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
@@ -487,19 +487,19 @@ export default function SessionDetailPage() {
 
   if (lessonMode) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <LessonMode
           session={session}
           onExit={() => setLessonMode(false)}
           onSessionDataChange={() => mutate()}
           isReadOnly={isReadOnly}
         />
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
         {/* Bookmark Tab for Previous Session (fixed position) */}
         <BookmarkTab
@@ -896,6 +896,6 @@ export default function SessionDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </DeskSurface>
+    </PageSurface>
   );
 }

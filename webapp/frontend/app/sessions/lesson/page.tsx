@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSessions, usePageTitle } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { AlertTriangle, ArrowLeft, Users } from "lucide-react";
 import type { Session } from "@/types";
 
@@ -52,7 +52,7 @@ export default function LessonWidePage() {
   // Validation
   if (!date || !slot || !tutorId) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
             <AlertTriangle className="h-10 w-10 text-amber-500" />
@@ -61,13 +61,13 @@ export default function LessonWidePage() {
             </p>
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (isLoading) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 flex flex-col gap-2 p-2 overflow-hidden">
           {/* Header */}
           <div className="relative rounded-2xl bg-gradient-to-br from-[#b89968] via-[#a67c52] to-[#8b6f47] p-1 flex-shrink-0">
@@ -100,13 +100,13 @@ export default function LessonWidePage() {
             <div className="flex-1 shimmer-sepia rounded-xl" />
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (sessions.length === 0) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
             <AlertTriangle className="h-10 w-10 text-amber-500" />
@@ -115,12 +115,12 @@ export default function LessonWidePage() {
             </p>
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <LessonWideMode
         sessions={sessions}
         slotSessionIds={slotSessionIds}
@@ -130,6 +130,6 @@ export default function LessonWidePage() {
         onSessionDataChange={() => mutate()}
         isReadOnly={isReadOnly}
       />
-    </DeskSurface>
+    </PageSurface>
   );
 }

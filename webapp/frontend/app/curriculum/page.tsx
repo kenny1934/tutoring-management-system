@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Map as MapIcon, FileText, Loader2, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scrollAppToTop } from "@/lib/scroll";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
@@ -811,7 +811,7 @@ export default function CurriculumPage() {
   }, [pacingRows]);
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
         {/* Toolbar. Sticky from sm up only: on phones it wraps to two or
             three rows and would pin that much of the viewport. */}
@@ -1383,6 +1383,6 @@ export default function CurriculumPage() {
           />
         )}
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

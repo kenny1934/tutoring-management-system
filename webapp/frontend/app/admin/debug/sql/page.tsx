@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle } from "@/lib/hooks";
@@ -347,10 +347,10 @@ export default function SqlExecutorPage() {
 
   return (
     <SuperAdminPageGuard>
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 z-40 desk-background border-b border-[#6b5a4a]/30">
+          <div className="sticky top-0 z-40 surface border-b border-[#6b5a4a]/30">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -366,11 +366,11 @@ export default function SqlExecutorPage() {
                       <Terminal className="h-6 w-6 text-violet-600 dark:text-violet-400" aria-hidden="true" />
                     </div>
                     <div>
-                      <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+                      <h1 className="text-lg sm:text-2xl font-bold text-on-surface flex items-center gap-2">
                         SQL Executor
                         <Database className="h-5 w-5 text-violet-400" aria-hidden="true" />
                       </h1>
-                      <p className="hidden sm:block text-sm text-white/70">
+                      <p className="hidden sm:block text-sm text-on-surface/70">
                         Execute read-only SQL queries
                       </p>
                     </div>
@@ -650,7 +650,7 @@ export default function SqlExecutorPage() {
             )}
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     </SuperAdminPageGuard>
   );
 }

@@ -14,7 +14,7 @@ import Link from "next/link";
 import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -1653,7 +1653,7 @@ function SessionsPageContent() {
 
   if (loading) {
     return (
-      <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
+      <PageSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
         <PageTransition className={cn(
           "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
           (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
@@ -1894,13 +1894,13 @@ function SessionsPageContent() {
             </AnimatePresence>
           )}
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (error) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
           <StickyNote variant="pink" size="lg" showTape={true}>
             <div className="text-center">
@@ -1909,7 +1909,7 @@ function SessionsPageContent() {
             </div>
           </StickyNote>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
@@ -2113,7 +2113,7 @@ function SessionsPageContent() {
   if (viewMode === "list") {
     return (
       <>
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
@@ -3172,7 +3172,7 @@ function SessionsPageContent() {
             </motion.div>
           )}
         </AnimatePresence>
-      </DeskSurface>
+      </PageSurface>
       <QuickAttendFAB selectedDate={selectedDate} />
       </>
     );
@@ -3181,7 +3181,7 @@ function SessionsPageContent() {
   // Non-list views (weekly, daily, monthly)
   return (
     <>
-    <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
+    <PageSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
         "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
         (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
@@ -3260,9 +3260,9 @@ function SessionsPageContent() {
       )}
 
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
 
-    {/* Quick Attend FAB - mobile only, outside DeskSurface to avoid overflow-hidden clipping */}
+    {/* Quick Attend FAB - mobile only, outside PageSurface to avoid overflow-hidden clipping */}
     <QuickAttendFAB selectedDate={selectedDate} />
     </>
   );

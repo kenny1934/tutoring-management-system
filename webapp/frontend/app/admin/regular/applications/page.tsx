@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -359,16 +359,16 @@ export default function RegularApplicationsPage() {
 
   if (!canViewAdminPages) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           Access denied
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header */}
@@ -854,6 +854,6 @@ export default function RegularApplicationsPage() {
           readOnly={isReadOnly}
         />
       )}
-    </DeskSurface>
+    </PageSurface>
   );
 }

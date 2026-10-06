@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -121,32 +121,32 @@ export default function AdminRegularConfigPage() {
   // Auth guard
   if (authLoading) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (!user || !canViewAdminPages) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
           <p className="text-center py-20 text-muted-foreground">
             You do not have permission to view this page.
           </p>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   // Editor view
   if (editingId !== null || creating) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
           <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
             <RegularConfigEditor
@@ -158,13 +158,13 @@ export default function AdminRegularConfigPage() {
             />
           </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   // List view
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
           {/* Header */}
@@ -365,6 +365,6 @@ export default function AdminRegularConfigPage() {
           />
         </div>
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

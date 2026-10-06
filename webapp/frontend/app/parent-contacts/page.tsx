@@ -7,7 +7,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTutors, usePageTitle, useStudentParentContacts } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
@@ -333,17 +333,17 @@ export default function ParentContactsPage() {
 
   if (isGuest) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
           <Phone className="h-12 w-12 text-red-500/50" />
           <p>Access denied — Guest role cannot view parent contacts</p>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden">
           {/* Toolbar */}
@@ -572,6 +572,6 @@ export default function ParentContactsPage() {
         variant="danger"
         loading={isDeleting}
       />
-    </DeskSurface>
+    </PageSurface>
   );
 }

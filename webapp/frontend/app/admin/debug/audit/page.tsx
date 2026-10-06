@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
@@ -233,10 +233,10 @@ export default function AuditLogPage() {
 
   return (
     <SuperAdminPageGuard>
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 z-40 desk-background">
+          <div className="sticky top-0 z-40 surface">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center gap-4">
                 <Link
@@ -251,10 +251,10 @@ export default function AuditLogPage() {
                     <History className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
                   </div>
                   <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-white">
+                    <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
                       Audit Logs
                     </h1>
-                    <p className="text-sm text-white/70">
+                    <p className="text-sm text-on-surface/70">
                       History of debug panel operations
                     </p>
                   </div>
@@ -428,7 +428,7 @@ export default function AuditLogPage() {
             </div>
           </div>
         )}
-      </DeskSurface>
+      </PageSurface>
     </SuperAdminPageGuard>
   );
 }

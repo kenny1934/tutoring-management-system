@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import useSWR from "swr";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useVisibilityAwareInterval, useEscapeKey } from "@/lib/hooks";
@@ -748,11 +748,11 @@ export default function RegularArrangementPage() {
 
   if (!canView) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           Access denied
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
@@ -764,7 +764,7 @@ export default function RegularArrangementPage() {
       : null;
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-2 sm:p-6")}>
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header. Full screen swaps the two rows for the shared slim strip
@@ -1179,6 +1179,6 @@ export default function RegularArrangementPage() {
           </div>
         )}
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

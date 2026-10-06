@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useProposals, usePageTitle } from "@/lib/hooks";
 import { ProposalCardFull } from "@/components/proposals/ProposalCardFull";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,7 +207,7 @@ export default function ProposalsPage() {
 
   if (!currentTutorId) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex flex-col gap-4 p-4 sm:p-8">
           {/* Header skeleton */}
           <div className="flex items-center gap-4">
@@ -238,12 +238,12 @@ export default function ProposalsPage() {
           {/* Card skeletons */}
           <ProposalListSkeleton />
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="flex flex-col gap-4 p-4 sm:p-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -259,10 +259,10 @@ export default function ProposalsPage() {
                 <CalendarClock className="h-6 w-6 text-[#a0704b]" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-on-surface">
                   Make-up Proposals
                 </h1>
-                <p className="text-sm text-white/70">
+                <p className="text-sm text-on-surface/70">
                   Manage make-up session requests
                 </p>
               </div>
@@ -452,6 +452,6 @@ export default function ProposalsPage() {
           />
         )}
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

@@ -30,7 +30,7 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
         "relative w-12 h-7 rounded-full shadow-sm hover:scale-105 active:scale-95",
         isDark ? "bg-primary" : "bg-foreground/20"
       )}
-      style={{ transition: 'all 200ms var(--spring-expressive-default)' }}
+      style={{ transition: 'all 200ms var(--ease-out)' }}
       aria-label="Toggle theme"
     >
       {/* Toggle knob - M3 Expressive */}
@@ -40,7 +40,7 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
           isDark ? "left-5" : "left-0.5"
         )}
         style={{
-          transition: 'all 250ms var(--spring-expressive-default)'
+          transition: 'all 250ms var(--ease-out)'
         }}
       >
         {mounted ? (

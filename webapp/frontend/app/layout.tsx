@@ -4,6 +4,7 @@ import "./globals.css";
 import { LayoutShell } from "@/components/layout/LayoutShell";
 import { Providers } from "@/components/providers/Providers";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
+import { SURFACE_BOOT_SCRIPT } from "@/lib/surfaces";
 
 const inter = Inter({ subsets: ["latin"] });
 const caveat = Caveat({
@@ -23,7 +24,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} ${caveat.variable} desk-background`}>
+      <head>
+        {/* Applies the chosen page background before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: SURFACE_BOOT_SCRIPT }} />
+      </head>
+      <body className={`${inter.className} ${caveat.variable} surface`}>
         {/* Skip navigation link for keyboard accessibility */}
         <a
           href={`#${MAIN_CONTENT_ID}`}

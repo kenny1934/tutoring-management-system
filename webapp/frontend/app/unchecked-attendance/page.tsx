@@ -11,7 +11,7 @@ import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { useHaptic } from "@/lib/useHaptic";
 import { formatDateCompact } from "@/lib/formatters";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { sessionsAPI } from "@/lib/api";
@@ -336,7 +336,7 @@ export default function UncheckedAttendancePage() {
   const colCount = viewMode === 'center-view' ? 9 : 8;
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
@@ -709,6 +709,6 @@ export default function UncheckedAttendancePage() {
           clickPosition={popoverClickPosition}
         />
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

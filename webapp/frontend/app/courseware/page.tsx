@@ -11,7 +11,7 @@ import { useMapSelection, type DocSelection } from "@/lib/hooks/useMapSelection"
 import { useLocation } from "@/contexts/LocationContext";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { formatDateCompact } from "@/lib/formatters";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import {
   BookOpen,
@@ -3017,7 +3017,7 @@ export default function CoursewarePage() {
   );
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
         {/* Browse/search fill the visible area exactly (their boxes are
             flex-1, so the mobile header and stacked toolbar are accounted
@@ -3323,6 +3323,6 @@ export default function CoursewarePage() {
 
         <ScrollToTopButton />
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

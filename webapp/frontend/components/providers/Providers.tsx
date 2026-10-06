@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import { ThemeProvider } from "next-themes";
+import { SurfaceAttribute } from "./SurfaceAttribute";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth";
 import { LocationProvider } from "@/contexts/LocationContext";
@@ -57,6 +58,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <SWRConfig value={SWR_CONFIG}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <SurfaceAttribute />
         <AuthProvider>
           <AuthGuard>
             <LocationProvider>

@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle, useDebouncedValue, useFocusTrap, useClickOutside, useModal } from "@/lib/hooks";
@@ -1788,10 +1788,10 @@ export default function TableBrowserPage() {
 
   return (
     <SuperAdminPageGuard>
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="flex-shrink-0 desk-background border-b border-[#6b5a4a]/30">
+          <div className="flex-shrink-0 surface border-b border-[#6b5a4a]/30">
             {/* Priority accent bar */}
             <div className={cn("h-1", priorityAccentColor)} />
 
@@ -1810,10 +1810,10 @@ export default function TableBrowserPage() {
                       <Table2 className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
                     </div>
                     <div>
-                      <h1 className="text-lg sm:text-2xl font-bold text-white">
+                      <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
                         {schema?.display_name || tableName}
                       </h1>
-                      <p className="text-sm text-white/70 font-mono">{tableName}</p>
+                      <p className="text-sm text-on-surface/70 font-mono">{tableName}</p>
                     </div>
                   </div>
                 </div>
@@ -3465,7 +3465,7 @@ export default function TableBrowserPage() {
             </div>
           </div>
         )}
-      </DeskSurface>
+      </PageSurface>
     </SuperAdminPageGuard>
   );
 }

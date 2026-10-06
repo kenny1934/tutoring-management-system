@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDebouncedValue, usePageTitle } from "@/lib/hooks";
@@ -235,16 +235,16 @@ export default function CourseRenewalPage() {
 
   if (isGuest) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           You do not have access to this page.
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header */}
@@ -485,6 +485,6 @@ export default function CourseRenewalPage() {
           )}
         </div>
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

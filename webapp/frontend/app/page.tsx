@@ -21,7 +21,7 @@ const SchoolDistributionChart = dynamic(
 import { TodaySessionsCard } from "@/components/dashboard/TodaySessionsCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { LazySection } from "@/components/ui/lazy-section";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
@@ -114,7 +114,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
           <div className={cn(
             "bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 p-8 text-center max-w-md",
@@ -129,12 +129,12 @@ export default function DashboardPage() {
             <p className="text-sm text-red-600 dark:text-red-400">{error instanceof Error ? error.message : String(error)}</p>
           </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 overflow-x-hidden">
         {/* Dashboard Header with branding, welcome, and quick links */}
         <motion.div
@@ -255,6 +255,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

@@ -12,9 +12,27 @@ import {
   CalendarClock,
   type LucideIcon,
 } from "lucide-react";
+import { TONES } from "./tones";
+
+// Tinted chips for the status tag. A status keeps its own hue, because people
+// read the sessions page by those colours, but the tag shows it as a pale fill
+// with dark text, which reads at small sizes where white on a light fill did
+// not. The hues that match a tone take the tone's chip, and the three statuses
+// with a hue of their own (sky, yellow and orange) follow the same recipe.
+const CHIP = {
+  sky: "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:ring-sky-800/60",
+  yellow: "bg-yellow-50 text-yellow-800 ring-1 ring-inset ring-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:ring-yellow-800/60",
+  orange: "bg-orange-50 text-orange-800 ring-1 ring-inset ring-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:ring-orange-800/60",
+  green: TONES.success.soft,
+  blue: TONES.info.soft,
+  red: TONES.danger.soft,
+  gray: TONES.neutral.soft,
+  amber: TONES.warning.soft,
+};
 
 interface SessionStatusConfig {
   bgClass: string;
+  chipClass: string; // The tinted chip SessionStatusTag draws, with text in it
   bgTint: string;
   textClass: string;
   Icon: LucideIcon;
@@ -28,25 +46,25 @@ export const getSessionStatusConfig = (status: string | undefined): SessionStatu
 
   // Check suffix patterns first (for wildcard statuses like "Rescheduled - Pending Make-up")
   if (s.endsWith("- Pending Make-up")) {
-    return { bgClass: "bg-orange-500", bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-600 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
+    return { bgClass: "bg-orange-500", chipClass: CHIP.orange, bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-600 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
   }
   if (s.endsWith("- Make-up Booked")) {
-    return { bgClass: "bg-gray-400", bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true, opacity: 0.6 };
+    return { bgClass: "bg-gray-400", chipClass: CHIP.gray, bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true, opacity: 0.6 };
   }
 
   // Exact matches
   const config: Record<string, SessionStatusConfig> = {
-    "Scheduled": { bgClass: "bg-sky-400", bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-600 dark:text-sky-400", Icon: Clock },
-    "Attended": { bgClass: "bg-green-600", bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle },
-    "Attended (Make-up)": { bgClass: "bg-green-600", bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
-    "Attended (Trial)": { bgClass: "bg-green-600", bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
-    "Make-up Class": { bgClass: "bg-yellow-500", bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-600 dark:text-yellow-400", Icon: PencilLine },
-    "Trial Class": { bgClass: "bg-blue-500", bgTint: "bg-blue-50/80 dark:bg-blue-900/20", textClass: "text-blue-600 dark:text-blue-400", Icon: FlaskConical },
-    "Cancelled": { bgClass: "bg-red-500", bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: XCircle, strikethrough: true },
-    "No Show": { bgClass: "bg-red-500", bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: UserX, strikethrough: true },
+    "Scheduled": { bgClass: "bg-sky-400", chipClass: CHIP.sky, bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-600 dark:text-sky-400", Icon: Clock },
+    "Attended": { bgClass: "bg-green-600", chipClass: CHIP.green, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle },
+    "Attended (Make-up)": { bgClass: "bg-green-600", chipClass: CHIP.green, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
+    "Attended (Trial)": { bgClass: "bg-green-600", chipClass: CHIP.green, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
+    "Make-up Class": { bgClass: "bg-yellow-500", chipClass: CHIP.yellow, bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-600 dark:text-yellow-400", Icon: PencilLine },
+    "Trial Class": { bgClass: "bg-blue-500", chipClass: CHIP.blue, bgTint: "bg-blue-50/80 dark:bg-blue-900/20", textClass: "text-blue-600 dark:text-blue-400", Icon: FlaskConical },
+    "Cancelled": { bgClass: "bg-red-500", chipClass: CHIP.red, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: XCircle, strikethrough: true },
+    "No Show": { bgClass: "bg-red-500", chipClass: CHIP.red, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: UserX, strikethrough: true },
   };
 
-  return config[s] || { bgClass: "bg-[#d4a574]", bgTint: "bg-amber-50/80 dark:bg-amber-900/20", textClass: "text-amber-700 dark:text-amber-400", Icon: Circle };
+  return config[s] || { bgClass: "bg-[#d4a574]", chipClass: CHIP.amber, bgTint: "bg-amber-50/80 dark:bg-amber-900/20", textClass: "text-amber-700 dark:text-amber-400", Icon: Circle };
 };
 
 /**

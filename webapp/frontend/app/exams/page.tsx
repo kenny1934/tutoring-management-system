@@ -20,7 +20,7 @@ const CalendarEventModal = dynamic(
   () => import("@/components/dashboard/CalendarEventModal").then(mod => ({ default: mod.CalendarEventModal })),
   { ssr: false }
 );
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { useLocation } from "@/contexts/LocationContext";
@@ -555,24 +555,24 @@ export default function ExamsPage() {
 
   if (!currentTutorId) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       {/* Single scroll container */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Single sticky container for header + toolbar */}
-        <div ref={stickyHeaderRef} className="sticky top-0 z-40 desk-background border-b border-[#6b5a4a]/30">
+        <div ref={stickyHeaderRef} className="sticky top-0 z-40 surface border-b border-[#6b5a4a]/30">
           {/* Header */}
-          <div className="p-4 sm:px-6 sm:py-4 desk-background">
+          <div className="p-4 sm:px-6 sm:py-4 surface">
             <div className="flex items-center gap-4">
               <button
                 onClick={goBack}
@@ -585,10 +585,10 @@ export default function ExamsPage() {
                   <GraduationCap className="h-6 w-6 text-[#a0704b]" />
                 </div>
                 <div>
-                  <h1 className="text-lg sm:text-2xl font-bold text-white">
+                  <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
                     Exam Revision Classes
                   </h1>
-                  <p className="hidden sm:block text-sm text-white/70">
+                  <p className="hidden sm:block text-sm text-on-surface/70">
                     Create and manage revision sessions for upcoming exams
                   </p>
                 </div>
@@ -931,6 +931,6 @@ export default function ExamsPage() {
         {/* Scroll to top button */}
         <ScrollToTopButton threshold={400} />
       </div>
-    </DeskSurface>
+    </PageSurface>
   );
 }

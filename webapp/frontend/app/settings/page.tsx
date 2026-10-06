@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Settings, FolderSync, Shield, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { PathMappingSettings } from "@/components/settings/PathMappingSettings";
 import { PathAliasAdmin } from "@/components/admin/PathAliasAdmin";
@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const availableItems = settingsItems.filter(item => item.available);
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -45,10 +45,10 @@ export default function SettingsPage() {
             <Settings className="h-6 w-6 text-foreground/60" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-on-surface">
               Settings
             </h1>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-on-surface/70">
               Configure your preferences and system settings
             </p>
           </div>
@@ -132,6 +132,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }
