@@ -675,7 +675,7 @@ export const DailyGridView = memo(function DailyGridView({
                                       zIndex: 50
                                     }}
                                     whileTap={{ scale: 0.98 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 40 }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setPopoverClickPosition({ x: e.clientX, y: e.clientY });

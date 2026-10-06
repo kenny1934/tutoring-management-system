@@ -131,7 +131,7 @@ export function ExerciseHistoryPanel({
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            transition={{ type: "spring", damping: 35, stiffness: 300 }}
             className={cn(
               "fixed z-[10002] bg-[#fef9f3] dark:bg-[#1a1611] border-l border-[#d4a574] dark:border-[#6b5a4a] shadow-xl flex flex-col",
               // Mobile: full screen, Desktop: right panel

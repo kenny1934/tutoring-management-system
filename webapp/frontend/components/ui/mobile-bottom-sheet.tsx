@@ -55,7 +55,7 @@ export function MobileBottomSheet({
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            transition={{ type: "spring", damping: 35, stiffness: 300 }}
             className={cn(
               "fixed bottom-0 left-0 right-0 z-[101] md:hidden",
               "bg-background rounded-t-2xl shadow-2xl",
