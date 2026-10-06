@@ -121,19 +121,20 @@
   --shadow-paper-lg: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10);
   --shadow-paper-curl: 2px 2px 4px rgba(0, 0, 0, 0.2);
 
-  /* ===== CORNERS (the Ledger scale) =====
-   * Square corners on everything that isn't round on purpose, as in the
-   * supply order app and the template library. Every rounded-* class reads
+  /* ===== CORNERS (the Tight scale) =====
+   * Small, even corners: 4px on buttons and inputs, 6px on cards, 8px on
+   * panels. It is one step softer than the 2px of the supply order app's
+   * Ledger style, which felt too harsh here. Every rounded-* class reads
    * these, so this block sets the shape of the whole app. Pills, dots and
    * avatars use rounded-full and stay round. The public pages keep their old
    * rounder scale through `[data-shape="classic"]` below. */
-  --radius: 2px;
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 4px;
-  --radius-2xl: 4px;
-  --radius-3xl: 6px;
+  --radius: 0.25rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
   --radius-full: 9999px;
 
   /* ===== M3 EXPRESSIVE MOTION SYSTEM ===== */
@@ -1773,7 +1774,7 @@ html {
 
 /* ===== CLASSIC SHAPE FOR THE PUBLIC PAGES =====
  * The summer and regular intake pages are not part of CSM and keep the look
- * they had before the app moved to the Ledger scale. The boot script in the
+ * they had before the app moved to smaller corners and lighter shadows. The boot script in the
  * root layout puts `data-shape="classic"` on <html> for every public route
  * (lib/shape.ts), and LayoutShell keeps it right on client navigation.
  *

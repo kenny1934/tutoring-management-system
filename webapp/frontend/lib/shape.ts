@@ -1,13 +1,13 @@
 import { PUBLIC_ROUTE_PREFIXES, PUBLIC_SUBDOMAIN_PREFIXES } from "./public-routes";
 
 /**
- * CSM's own pages use the Ledger shape: square corners and light shadows.
+ * CSM's own pages use small corners (the Tight scale) and light shadows.
  * The public summer and regular pages are not part of CSM and keep their old
  * rounder shape, which globals.css restores under `data-shape="classic"` on
  * <html>.
  *
  * This runs inline in <head> before the first paint, so a public page never
- * flashes square. It reads the same two lists as isPublicPath and
+ * flashes the smaller corners. It reads the same two lists as isPublicPath and
  * isPublicSubdomain, so adding a public route stays one edit in
  * public-routes.ts. LayoutShell keeps the attribute right when someone moves
  * between public and staff pages without a full load.

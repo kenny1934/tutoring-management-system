@@ -373,15 +373,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     : "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
-                {/* Marks the current page. Every item uses the one accent colour, so the
-                    dot says "you are here" and nothing else. */}
-                {showExpanded && (
-                  <div className={cn(
-                    "w-1.5 h-1.5 rounded-full bg-primary transition-opacity duration-200",
-                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
-                  )} />
-                )}
-
                 {/* Icon */}
                 <div className="relative">
                   <item.icon className={showExpanded ? "h-5 w-5" : "h-6 w-6"} />
