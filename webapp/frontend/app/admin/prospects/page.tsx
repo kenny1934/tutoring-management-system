@@ -25,7 +25,7 @@ import {
   List as ListIcon,
   LayoutGrid,
 } from "lucide-react";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { applicationSearchHref, prospectsAPI, summerAPI } from "@/lib/api";
@@ -551,16 +551,16 @@ export default function AdminProspectsPage() {
   // API refused them all along, which is why it never leaked anything.
   if (!canViewAdminPages) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           You do not have access to this page.
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
           <HeaderBar
@@ -942,7 +942,7 @@ export default function AdminProspectsPage() {
         year={year ?? 0}
         onDone={refresh}
       />
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

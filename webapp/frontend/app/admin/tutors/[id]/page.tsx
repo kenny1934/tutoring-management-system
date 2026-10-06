@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
@@ -360,17 +360,17 @@ function TutorProfileInner() {
 
   if (tutorLoading) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex h-full items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" />
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (!tutor) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground/60">
           <p>Tutor not found.</p>
           <Link
@@ -381,7 +381,7 @@ function TutorProfileInner() {
             All tutors
           </Link>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
@@ -393,7 +393,7 @@ function TutorProfileInner() {
   const basicPay = Number(tutor.basic_salary ?? 0);
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6 animate-fadeIn">
         {/* Back link — chip so it stays legible on the desk texture */}
         <Link
@@ -931,7 +931,7 @@ function TutorProfileInner() {
           }}
         />
       )}
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

@@ -19,7 +19,7 @@ Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, CalendarX, Downloa
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
@@ -364,7 +364,7 @@ export default function StudentDetailPage() {
 
   if (studentLoading) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Header Skeleton */}
           <div className={cn(
@@ -447,13 +447,13 @@ export default function StudentDetailPage() {
             </div>
           </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (studentError || !student) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
           <StickyNote variant="pink" size="lg" showTape={true}>
             <div className="text-center">
@@ -470,12 +470,12 @@ export default function StudentDetailPage() {
             </div>
           </StickyNote>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Compact Header */}
@@ -822,7 +822,7 @@ export default function StudentDetailPage() {
           location={student.home_location || undefined}
         />
       )}
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

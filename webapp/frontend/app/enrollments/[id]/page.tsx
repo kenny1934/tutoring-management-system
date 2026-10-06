@@ -23,7 +23,7 @@ import {
   earlyBirdDetail,
   type EarlyBirdDeadlineDetail,
 } from "@/components/summer/EarlyBirdDeadlineDialog";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
@@ -584,7 +584,7 @@ export default function EnrollmentDetailPage() {
 
   if (enrollmentLoading) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Header Skeleton */}
           <div className={cn(
@@ -602,13 +602,13 @@ export default function EnrollmentDetailPage() {
             <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
           </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (enrollmentError || !enrollment) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
           <StickyNote variant="pink" size="lg" showTape={true}>
             <div className="text-center">
@@ -625,7 +625,7 @@ export default function EnrollmentDetailPage() {
             </div>
           </StickyNote>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
@@ -686,7 +686,7 @@ export default function EnrollmentDetailPage() {
   );
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Header */}
@@ -1882,6 +1882,6 @@ export default function EnrollmentDetailPage() {
           onCancel={() => setDeadlineBlock(null)}
         />
       )}
-    </DeskSurface>
+    </PageSurface>
   );
 }

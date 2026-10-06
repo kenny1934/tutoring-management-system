@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle } from "@/lib/hooks";
@@ -264,10 +264,10 @@ export default function DiagramPage() {
 
   return (
     <SuperAdminPageGuard>
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex-shrink-0 desk-background border-b border-[#6b5a4a]/30">
+          <div className="flex-shrink-0 surface border-b border-[#6b5a4a]/30">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -283,10 +283,10 @@ export default function DiagramPage() {
                       <GitBranch className="h-6 w-6 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                     </div>
                     <div>
-                      <h1 className="text-lg sm:text-2xl font-bold text-white">
+                      <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
                         Table Relationships
                       </h1>
-                      <p className="hidden sm:block text-sm text-white/70">
+                      <p className="hidden sm:block text-sm text-on-surface/70">
                         Foreign key diagram • {nodes.length} tables • {relationships.length} relationships
                       </p>
                     </div>
@@ -510,7 +510,7 @@ export default function DiagramPage() {
             )}
           </div>
         </div>
-      </DeskSurface>
+      </PageSurface>
     </SuperAdminPageGuard>
   );
 }

@@ -6,7 +6,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { FileText, Lock, FolderOpen, Trash2, X as XIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue, useFocusTrap } from "@/lib/hooks";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -616,7 +616,7 @@ export default function DocumentsPage() {
     : "";
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
@@ -1102,6 +1102,6 @@ export default function DocumentsPage() {
           </div>
         );
       })()}
-    </DeskSurface>
+    </PageSurface>
   );
 }

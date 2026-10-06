@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
 import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag, Plus } from "lucide-react";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -303,7 +303,7 @@ export default function StudentsPage() {
 
   if (loading) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <PageTransition className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
           {/* Toolbar Skeleton */}
           <div className={toolbarStickyClasses}>
@@ -336,13 +336,13 @@ export default function StudentsPage() {
             ))}
           </div>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   if (error) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
           <StickyNote variant="pink" size="lg" showTape={true}>
             <div className="text-center">
@@ -353,12 +353,12 @@ export default function StudentsPage() {
             </div>
           </StickyNote>
         </PageTransition>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <div ref={scrollContainerRef} className={cn(
         "flex-1",
         viewMode === 'my'
@@ -787,7 +787,7 @@ export default function StudentsPage() {
           router.push(`/students/${student.id}`);
         }}
       />
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

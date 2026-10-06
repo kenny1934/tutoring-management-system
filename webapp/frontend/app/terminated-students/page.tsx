@@ -10,7 +10,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats, useStatDetails, useTerminationTrends, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { terminationsAPI, enrollmentsAPI } from "@/lib/api";
@@ -689,17 +689,17 @@ export default function TerminatedStudentsPage() {
 
   if (isGuest) {
     return (
-      <DeskSurface>
+      <PageSurface>
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
           <UserMinus className="h-12 w-12 text-red-500/50" />
           <p>Access denied — Guest role cannot view termination data</p>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
@@ -1307,7 +1307,7 @@ export default function TerminatedStudentsPage() {
           showLocationPrefix={selectedLocation === "All Locations"}
         />
       </Modal>
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

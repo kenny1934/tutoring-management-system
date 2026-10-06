@@ -7,7 +7,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useSessions, useUncheckedAttendance } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
@@ -418,7 +418,7 @@ export default function QuickAttendPage() {
   }, []);
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition>
         <div className="min-h-screen flex flex-col gap-4" style={{ width: '100%', maxWidth: '32rem', margin: '0 auto', padding: '1rem 0.75rem' }}>
           {/* Header card — paper surface for readability on desk */}
@@ -647,7 +647,7 @@ export default function QuickAttendPage() {
           clickPosition={popoverClickPosition}
         />
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

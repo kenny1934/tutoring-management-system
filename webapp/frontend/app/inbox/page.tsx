@@ -8,7 +8,7 @@ import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMes
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
@@ -1439,17 +1439,17 @@ export default function InboxPage() {
 
   if (isGuest) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
           <Inbox className="h-12 w-12 text-red-500/50" />
           <p>Access denied — {effectiveRole} role cannot access the Inbox</p>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="h-full">
         <div className="h-full flex flex-col overflow-hidden gap-1">
           {/* Header */}
@@ -2140,6 +2140,6 @@ export default function InboxPage() {
             </div>
           </>
       )}
-    </DeskSurface>
+    </PageSurface>
   );
 }

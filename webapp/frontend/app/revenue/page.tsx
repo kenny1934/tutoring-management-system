@@ -6,7 +6,7 @@ import { useMonthlyRevenueSummary, useSessionRevenueDetails, useTutors, usePageT
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue } from "@/components/selectors/TutorSelector";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -248,17 +248,17 @@ export default function RevenuePage() {
 
   if (isGuest) {
     return (
-      <DeskSurface fullHeight>
+      <PageSurface fullHeight>
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
           <DollarSign className="h-12 w-12 text-red-500/50" />
           <p>Access denied — Guest role cannot view revenue data</p>
         </div>
-      </DeskSurface>
+      </PageSurface>
     );
   }
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3 p-2 sm:p-4 min-h-full">
           {/* Toolbar - outer div is sticky container, inner div has visual styling */}
@@ -708,6 +708,6 @@ export default function RevenuePage() {
         onClose={closePopover}
         clickPosition={popoverClickPosition}
       />
-    </DeskSurface>
+    </PageSurface>
   );
 }

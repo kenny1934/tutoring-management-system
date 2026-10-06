@@ -142,7 +142,7 @@ function LoginContent() {
       </div>
 
       {/* Layer 4: Wood grain texture (subtle) */}
-      <div className="absolute inset-0 wood-grain-texture opacity-30 dark:opacity-15 pointer-events-none" />
+      <div className="absolute inset-0 surface-texture opacity-30 dark:opacity-15 pointer-events-none" />
 
       {/* Layer 5: Lamp lighting effect - warm desk lamp glow */}
       <div

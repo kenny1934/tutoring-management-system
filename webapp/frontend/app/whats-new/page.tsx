@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { Megaphone, Tag, Bug, Zap, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, markVersionSeen } from "@/lib/hooks";
 import changelogData from "@/lib/changelog-data";
@@ -79,7 +79,7 @@ export default function WhatsNewPage() {
   }, []);
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 max-w-[48rem] mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5 backdrop-blur-sm bg-[rgba(245,240,232,0.6)] dark:bg-[rgba(42,42,42,0.3)] border border-white/20 dark:border-white/10">
@@ -164,6 +164,6 @@ export default function WhatsNewPage() {
           </div>
         )}
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }

@@ -83,6 +83,8 @@
   --color-accent-ink: #a0704b; /* Accent colour used as text, rings and outlines */
   --color-ink-subtle: #8b7355; /* Secondary text */
   --color-ink-strong: #5a3d1f; /* Deep heading text */
+  --color-canvas: #f5efe6; /* The plain page surface, a step darker than paper so cards stand out */
+  --color-on-surface: #2a2219; /* Text drawn straight onto the page surface; the surface blocks set it */
 
   /* ===== GLASSMORPHISM ===== */
   --glass-bg: rgba(255, 255, 255, 0.05);
@@ -151,7 +153,10 @@
   /* Legacy animation easings */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
-  --ease-spring: var(--spring-expressive-default); /* Use M3 Expressive by default */
+  /* Smooth deceleration with no overshoot. The expressive springs above bounce
+   * past their target, which reads as playful, so the staff pages use this
+   * and only lesson mode reaches for a spring by name. */
+  --ease-spring: var(--ease-out);
 
   /* ===== DESK SURFACE COLORS ===== */
   --color-desk-light-base: #8b6f47;
@@ -204,6 +209,7 @@
   --color-accent-ink: #cd853f;
   --color-ink-subtle: #a09080;
   --color-ink-strong: #d4a574;
+  --color-canvas: #13110e;
 }
 
 /* Force light mode for summer public pages (neutralises .dark overrides) */
@@ -1658,72 +1664,110 @@ html {
     0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* ===== TEACHER'S DESK SURFACE ===== */
+/* ===== PAGE SURFACE =====
+ * The background behind the pages, which people choose in the user menu.
+ * Each choice is a block of variables keyed on `data-surface`, and the
+ * classes below only read those variables. <html> carries the person's
+ * choice, and a preview tile can carry its own, because the nearest
+ * attribute wins. To add a background, add an entry to SURFACES in
+ * lib/surfaces.ts and a light and a dark block here that set every
+ * variable. With no attribute at all, the page is plain.
+ *
+ * `--color-on-surface` is the colour of text drawn straight onto the
+ * surface, like the page headings on Settings or Exams. It has to change
+ * with the surface, since white reads on wood but not on a pale page. */
 
-/* Desk Background Base */
-.desk-background {
-  background: linear-gradient(
+:root,
+[data-surface="plain"] {
+  --surface-background: var(--color-canvas);
+  --surface-texture: none;
+  --surface-texture-blend: normal;
+  --surface-lighting: none;
+  --surface-vignette: none;
+  --color-on-surface: var(--color-foreground);
+}
+
+.dark,
+.dark[data-surface="plain"],
+.dark [data-surface="plain"] {
+  --surface-background: var(--color-canvas);
+  --surface-texture: none;
+  --surface-texture-blend: normal;
+  --surface-lighting: none;
+  --surface-vignette: none;
+  --color-on-surface: #ffffff;
+}
+
+/* The wood desk: wood grain under a desk lamp, with darkened edges. */
+[data-surface="wood"] {
+  --surface-background: linear-gradient(
     135deg,
     var(--color-desk-light-base) 0%,
     var(--color-desk-light-highlight) 50%,
     var(--color-desk-light-base) 100%
   );
+  --surface-texture: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpattern id='wood' x='0' y='0' width='200' height='200' patternUnits='userSpaceOnUse'%3E%3C!-- Main grain lines with variation --%3E%3Cpath d='M8 0 Q8 50 10 100 T12 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.22'/%3E%3Cpath d='M25 0 Q24 60 25 120 T26 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M42 0 Q43 45 42 90 T41 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.20'/%3E%3Cpath d='M58 0 Q57 55 58 110 T59 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3Cpath d='M75 0 Q76 48 75 96 T74 200' stroke='%23000' stroke-width='0.7' fill='none' opacity='0.24'/%3E%3Cpath d='M92 0 Q91 52 92 104 T93 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.20'/%3E%3Cpath d='M108 0 Q109 58 108 116 T107 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.19'/%3E%3Cpath d='M125 0 Q124 50 125 100 T126 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.19'/%3E%3Cpath d='M142 0 Q143 54 142 108 T141 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.25'/%3E%3Cpath d='M158 0 Q157 49 158 98 T159 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M175 0 Q176 56 175 112 T174 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.21'/%3E%3Cpath d='M192 0 Q191 51 192 102 T193 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C!-- Wood knots and irregularities --%3E%3Cellipse cx='65' cy='80' rx='8' ry='12' fill='%23000' opacity='0.10' transform='rotate(15 65 80)'/%3E%3Cellipse cx='145' cy='140' rx='6' ry='10' fill='%23000' opacity='0.11' transform='rotate(-8 145 140)'/%3E%3C!-- Fine grain detail --%3E%3Crect width='200' height='200' fill='url(%23noise)' opacity='0.05'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wood)'/%3E%3C/svg%3E");
+  --surface-texture-blend: multiply;
+  --surface-lighting: radial-gradient(
+    ellipse 120% 80% at 20% 10%,
+    var(--color-lamp-glow-light),
+    transparent 70%
+  );
+  --surface-vignette: radial-gradient(
+    ellipse 80% 70% at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+  --color-on-surface: #ffffff;
 }
 
-.dark .desk-background {
-  background: linear-gradient(
+.dark[data-surface="wood"],
+.dark [data-surface="wood"] {
+  --surface-background: linear-gradient(
     135deg,
     var(--color-desk-dark-base) 0%,
     var(--color-desk-dark-highlight) 50%,
     var(--color-desk-dark-base) 100%
   );
-}
-
-/* Wood Grain Texture SVG - Enhanced with natural variation */
-.wood-grain-texture {
-  background-image: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpattern id='wood' x='0' y='0' width='200' height='200' patternUnits='userSpaceOnUse'%3E%3C!-- Main grain lines with variation --%3E%3Cpath d='M8 0 Q8 50 10 100 T12 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.22'/%3E%3Cpath d='M25 0 Q24 60 25 120 T26 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M42 0 Q43 45 42 90 T41 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.20'/%3E%3Cpath d='M58 0 Q57 55 58 110 T59 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3Cpath d='M75 0 Q76 48 75 96 T74 200' stroke='%23000' stroke-width='0.7' fill='none' opacity='0.24'/%3E%3Cpath d='M92 0 Q91 52 92 104 T93 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.20'/%3E%3Cpath d='M108 0 Q109 58 108 116 T107 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.19'/%3E%3Cpath d='M125 0 Q124 50 125 100 T126 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.19'/%3E%3Cpath d='M142 0 Q143 54 142 108 T141 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.25'/%3E%3Cpath d='M158 0 Q157 49 158 98 T159 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M175 0 Q176 56 175 112 T174 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.21'/%3E%3Cpath d='M192 0 Q191 51 192 102 T193 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C!-- Wood knots and irregularities --%3E%3Cellipse cx='65' cy='80' rx='8' ry='12' fill='%23000' opacity='0.10' transform='rotate(15 65 80)'/%3E%3Cellipse cx='145' cy='140' rx='6' ry='10' fill='%23000' opacity='0.11' transform='rotate(-8 145 140)'/%3E%3C!-- Fine grain detail --%3E%3Crect width='200' height='200' fill='url(%23noise)' opacity='0.05'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wood)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 400px 300px;
-  mix-blend-mode: multiply;
-}
-
-.dark .wood-grain-texture {
-  opacity: 0.55;
-  mix-blend-mode: overlay;
-}
-
-/* Desk Lighting Gradient */
-.desk-lighting {
-  background: radial-gradient(
-    ellipse 120% 80% at 20% 10%,
-    var(--color-lamp-glow-light),
-    transparent 70%
-  );
-}
-
-.dark .desk-lighting {
-  background: radial-gradient(
+  --surface-texture: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpattern id='wood' x='0' y='0' width='200' height='200' patternUnits='userSpaceOnUse'%3E%3C!-- Main grain lines with variation --%3E%3Cpath d='M8 0 Q8 50 10 100 T12 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.22'/%3E%3Cpath d='M25 0 Q24 60 25 120 T26 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M42 0 Q43 45 42 90 T41 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.20'/%3E%3Cpath d='M58 0 Q57 55 58 110 T59 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3Cpath d='M75 0 Q76 48 75 96 T74 200' stroke='%23000' stroke-width='0.7' fill='none' opacity='0.24'/%3E%3Cpath d='M92 0 Q91 52 92 104 T93 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.20'/%3E%3Cpath d='M108 0 Q109 58 108 116 T107 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.19'/%3E%3Cpath d='M125 0 Q124 50 125 100 T126 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.19'/%3E%3Cpath d='M142 0 Q143 54 142 108 T141 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.25'/%3E%3Cpath d='M158 0 Q157 49 158 98 T159 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M175 0 Q176 56 175 112 T174 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.21'/%3E%3Cpath d='M192 0 Q191 51 192 102 T193 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C!-- Wood knots and irregularities --%3E%3Cellipse cx='65' cy='80' rx='8' ry='12' fill='%23000' opacity='0.10' transform='rotate(15 65 80)'/%3E%3Cellipse cx='145' cy='140' rx='6' ry='10' fill='%23000' opacity='0.11' transform='rotate(-8 145 140)'/%3E%3C!-- Fine grain detail --%3E%3Crect width='200' height='200' fill='url(%23noise)' opacity='0.05'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wood)'/%3E%3C/svg%3E");
+  --surface-texture-blend: overlay;
+  --surface-lighting: radial-gradient(
     ellipse 100% 70% at 15% 5%,
     var(--color-lamp-glow-dark),
     transparent 60%
   );
-}
-
-/* Vignette Edge Darkening */
-.desk-vignette {
-  background: radial-gradient(
-    ellipse 80% 70% at center,
-    transparent 40%,
-    rgba(0, 0, 0, 0.15) 100%
-  );
-}
-
-.dark .desk-vignette {
-  background: radial-gradient(
+  --surface-vignette: radial-gradient(
     ellipse 75% 65% at center,
     transparent 35%,
     rgba(0, 0, 0, 0.4) 100%
   );
+  --color-on-surface: #ffffff;
+}
+
+.surface {
+  background: var(--surface-background);
+}
+
+/* The texture, lighting and vignette are separate layers so a page can set
+ * the texture's strength with an opacity class. Dark mode always draws the
+ * texture at 55%, as the wood desk always has. */
+.surface-texture {
+  background-image: var(--surface-texture);
+  background-repeat: repeat;
+  background-size: 400px 300px;
+  mix-blend-mode: var(--surface-texture-blend);
+}
+
+.dark .surface-texture {
+  opacity: 0.55;
+}
+
+.surface-lighting {
+  background: var(--surface-lighting);
+}
+
+.surface-vignette {
+  background: var(--surface-vignette);
 }
 
 /* Desk Paper Shadows - Light Mode (Natural sunlight, 45° angle) */
@@ -1873,7 +1917,7 @@ html {
   pointer-events: none;
   
   /* M3 Expressive spring animation */
-  animation: tooltipFadeIn 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards;
+  animation: tooltipFadeIn 250ms var(--ease-out) forwards;
 }
 
 /* Dark mode tooltip */
@@ -1899,7 +1943,7 @@ html {
   z-index: 10000;
   pointer-events: none;
 
-  animation: tooltipFadeIn 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards;
+  animation: tooltipFadeIn 250ms var(--ease-out) forwards;
 }
 
 .dark .tooltip-wrapper:hover::before {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
@@ -910,7 +910,7 @@ export default function AdminRenewalsPage() {
   const showCheckboxes = checkedIds.size > 0;
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sticky Header Section */}
@@ -1680,6 +1680,6 @@ export default function AdminRenewalsPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </DeskSurface>
+    </PageSurface>
   );
 }

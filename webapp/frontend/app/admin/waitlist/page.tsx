@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -444,7 +444,7 @@ export default function AdminWaitlistPage() {
   const activeCount = entries?.length ?? 0;
 
   return (
-    <DeskSurface fullHeight>
+    <PageSurface fullHeight>
       <PageTransition className="h-full p-4 sm:p-6 flex flex-col">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
           {/* Header */}
@@ -1107,7 +1107,7 @@ export default function AdminWaitlistPage() {
         onCancel={() => setDeletingEntry(null)}
       />
       <ScrollToTopButton />
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

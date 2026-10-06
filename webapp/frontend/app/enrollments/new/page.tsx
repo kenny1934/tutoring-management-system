@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
@@ -45,7 +45,7 @@ export default function NewEnrollmentPage() {
   };
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         {authLoading ? (
           <div className="text-center py-12">
@@ -69,6 +69,6 @@ export default function NewEnrollmentPage() {
         renewFromId={renewFromId ? parseInt(renewFromId) : null}
         onSuccess={handleSuccess}
       />
-    </DeskSurface>
+    </PageSurface>
   );
 }

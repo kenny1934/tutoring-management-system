@@ -7,7 +7,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useTutors, usePageTitle, useOverdueEnrollments, useDebouncedValue, useFilteredList } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { enrollmentsAPI } from "@/lib/api";
@@ -453,7 +453,7 @@ export default function OverduePaymentsPage() {
   }, [batchBlocked, mutateOverdue, showToast]);
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <AdminPageGuard accessDeniedMessage="Admin access required to view overdue payments">
       <PageTransition>
         <div className="min-h-screen">
@@ -854,7 +854,7 @@ export default function OverduePaymentsPage() {
         />
       )}
       </AdminPageGuard>
-    </DeskSurface>
+    </PageSurface>
   );
 }
 

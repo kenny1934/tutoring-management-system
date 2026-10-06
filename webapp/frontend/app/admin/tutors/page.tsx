@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { useTutors, usePageTitle } from "@/lib/hooks";
@@ -256,7 +256,7 @@ function TutorsPageInner() {
   );
 
   return (
-    <DeskSurface>
+    <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6">
           {/* Header */}
@@ -358,7 +358,7 @@ function TutorsPageInner() {
           )}
         </div>
       </PageTransition>
-    </DeskSurface>
+    </PageSurface>
   );
 }
 
