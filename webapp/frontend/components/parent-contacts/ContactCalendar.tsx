@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Segmented } from "@/components/controls";
 import type { ParentCommunication, StudentContactStatus } from "@/lib/api";
 import {
   ChevronLeft,
@@ -237,53 +238,30 @@ export function ContactCalendar({
         <div className="flex flex-wrap items-center justify-center sm:justify-between gap-2">
           {/* Navigation */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={goToPrev}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            </button>
+            <IconButton label="Previous" icon={ChevronLeft} size="sm" onClick={goToPrev} />
             <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 min-w-[140px] text-center">
               {headerTitle}
             </h3>
-            <button
-              onClick={goToNext}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors"
-            >
-              <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            </button>
+            <IconButton label="Next" icon={ChevronRight} size="sm" onClick={goToNext} />
           </div>
 
           {/* View Toggle + Today */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={goToToday}
-              className={cn(
-                "px-2 py-1 text-xs rounded-md transition-colors",
-                "bg-white dark:bg-[#2d2618] border border-[#d4a574]/50",
-                "text-gray-600 dark:text-gray-400 hover:text-accent-ink"
-              )}
-            >
+            <Button size="sm" onClick={goToToday}>
               Today
-            </button>
+            </Button>
 
             {/* View selector */}
-            <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-md p-0.5">
-              {(['day', 'week', 'month'] as const).map(v => (
-                <button
-                  key={v}
-                  onClick={() => onViewChange(v)}
-                  className={cn(
-                    "px-2 py-1 text-xs rounded transition-colors capitalize",
-                    view === v
-                      ? "bg-white dark:bg-[#2d2618] text-accent-ink shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  )}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Calendar view"
+              value={view}
+              onChange={onViewChange}
+              options={[
+                { value: "day", label: "Day" },
+                { value: "week", label: "Week" },
+                { value: "month", label: "Month" },
+              ]}
+            />
           </div>
         </div>
       </div>

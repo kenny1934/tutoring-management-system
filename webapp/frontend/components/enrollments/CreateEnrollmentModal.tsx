@@ -13,7 +13,7 @@ import {
   Loader2,
   Search,
   X,
-  ChevronDown,
+  Circle,
   RefreshCw,
   ClipboardList,
 } from "lucide-react";
@@ -36,22 +36,16 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
 import { isHomeBranch } from "@/lib/employment";
+import { Button, IconButton, Input, Select, Label, Segmented } from "@/components/controls";
 
 const ENROLLMENT_TYPES = ["Regular", "Trial", "One-Time"] as const;
 
-const ENROLLMENT_TYPE_COLORS: Record<string, { selected: string; unselected: string }> = {
-  "Regular": {
-    selected: "bg-green-500 text-white border-green-500",
-    unselected: "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-green-400",
-  },
-  "Trial": {
-    selected: "bg-blue-500 text-white border-blue-500",
-    unselected: "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400",
-  },
-  "One-Time": {
-    selected: "bg-purple-500 text-white border-purple-500",
-    unselected: "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-purple-400",
-  },
+// Each type keeps its colour on a small dot, so the three can still be told
+// apart at a glance once the choice sits in a calm segmented control.
+const ENROLLMENT_TYPE_DOTS: Record<string, string> = {
+  "Regular": "fill-green-600 text-green-600 dark:fill-green-400 dark:text-green-400",
+  "Trial": "fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400",
+  "One-Time": "fill-purple-600 text-purple-600 dark:fill-purple-400 dark:text-purple-400",
 };
 
 interface StudentSearchProps {
@@ -89,19 +83,13 @@ function StudentSearch({ value, onChange, disabled, location }: StudentSearchPro
             />
           </div>
           {!disabled && (
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <IconButton label="Clear student" icon={X} size="sm" onClick={() => onChange(null)} />
           )}
         </div>
       ) : (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none" aria-hidden="true" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => {
@@ -111,7 +99,8 @@ function StudentSearch({ value, onChange, disabled, location }: StudentSearchPro
             onFocus={() => search.length >= 2 && setIsOpen(true)}
             onBlur={() => setTimeout(() => setIsOpen(false), 200)}
             placeholder={location ? `Search ${location} students...` : "Search student by name or ID..."}
-            className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            aria-label="Search students"
+            className="pl-10"
             disabled={disabled}
           />
           {isOpen && (
@@ -549,57 +538,36 @@ export function CreateEnrollmentModal({
       footer={
         isSuccess ? (
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => { onSuccess?.(); onClose(); }}
-              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-all"
-            >
+            <Button variant="primary" onClick={() => { onSuccess?.(); onClose(); }}>
               Done
-            </button>
+            </Button>
           </div>
         ) : preview ? (
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="px-4 py-2 text-foreground/70 hover:text-foreground transition-colors"
-            >
+            <Button onClick={() => setPreview(null)}>
               Back
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="primary"
+              icon={CheckCircle2}
+              loading={isSubmitting}
               onClick={handleSubmit}
-              disabled={hasConflicts || isSubmitting}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
-                hasConflicts
-                  ? "bg-gray-300 dark:bg-gray-700 text-foreground/50 cursor-not-allowed"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              )}
+              disabled={hasConflicts}
             >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
-              Create Enrollment
-            </button>
+              Create enrollment
+            </Button>
           </div>
         ) : (
           <div className="flex justify-end">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              icon={Calendar}
+              loading={previewLoading}
               onClick={handlePreview}
-              disabled={!enrollmentData || previewLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-all disabled:opacity-50"
+              disabled={!enrollmentData}
             >
-              {previewLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Calendar className="h-4 w-4" />
-              )}
-              Preview Sessions
-            </button>
+              Preview sessions
+            </Button>
           </div>
         )
       }
@@ -658,80 +626,79 @@ export function CreateEnrollmentModal({
 
           {/* Student */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-2">Student <span className="text-red-600">*</span></label>
+            <Label>Student <span className="text-red-600">*</span></Label>
             <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent} location={location} />
           </div>
 
           {/* Tutor */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Tutor <span className="text-red-600">*</span></label>
+            <Label htmlFor="create-enrollment-tutor">Tutor <span className="text-red-600">*</span></Label>
             <div className="relative">
-              <select
+              <Select
+                id="create-enrollment-tutor"
                 value={tutorId || ""}
                 onChange={(e) => setTutorId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
               >
                 <option value="">Select tutor...</option>
                 {locationTutors.map((t) => (
                   <option key={t.id} value={t.id}>{t.tutor_name}</option>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+              </Select>
             </div>
           </div>
 
           {/* Location */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Location</label>
+            <Label htmlFor="create-enrollment-location">Location</Label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-              <select
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none z-10" aria-hidden="true" />
+              <Select
+                id="create-enrollment-location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="pl-10"
               >
                 <option value="MSA">MSA</option>
                 <option value="MSB">MSB</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+              </Select>
             </div>
           </div>
 
           {/* Day */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Day of Week</label>
+            <Label htmlFor="create-enrollment-day">Day of week</Label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-              <select
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none z-10" aria-hidden="true" />
+              <Select
+                id="create-enrollment-day"
                 value={assignedDay}
                 onChange={(e) => setAssignedDay(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="pl-10"
               >
                 {DAY_NAMES.map((day) => (
                   <option key={day} value={day}>{day}</option>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+              </Select>
             </div>
           </div>
 
           {/* Time */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Time Slot</label>
+            <Label htmlFor={!useCustomTime ? "create-enrollment-time" : undefined}>Time slot</Label>
             {!useCustomTime ? (
               <div className="space-y-1">
                 <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-                  <select
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none z-10" aria-hidden="true" />
+                  <Select
+                    id="create-enrollment-time"
                     value={assignedTime}
                     onChange={(e) => setAssignedTime(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                    className="pl-10"
                   >
                     {availableTimeSlots.map((slot) => (
                       <option key={slot} value={slot}>{slot}</option>
                     ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+                  </Select>
                 </div>
                 <button
                   type="button"
@@ -744,30 +711,24 @@ export function CreateEnrollmentModal({
             ) : (
               <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <input
+                  <Input
                     type="time"
                     value={customTimeStart}
                     onChange={(e) => setCustomTimeStart(e.target.value)}
                     aria-label="Start time"
                     aria-describedby={!isCustomTimeValid && customTimeStart && customTimeEnd ? "custom-time-error" : undefined}
                     aria-invalid={!isCustomTimeValid && customTimeStart && customTimeEnd ? "true" : undefined}
-                    className={cn(
-                      "flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800",
-                      !isCustomTimeValid ? "border-red-400" : "border-field"
-                    )}
+                    className={cn("flex-1", !isCustomTimeValid && "border-red-600 dark:border-red-500")}
                   />
                   <span className="text-foreground/50 text-center" aria-hidden="true">to</span>
-                  <input
+                  <Input
                     type="time"
                     value={customTimeEnd}
                     onChange={(e) => setCustomTimeEnd(e.target.value)}
                     aria-label="End time"
                     aria-describedby={!isCustomTimeValid && customTimeStart && customTimeEnd ? "custom-time-error" : undefined}
                     aria-invalid={!isCustomTimeValid && customTimeStart && customTimeEnd ? "true" : undefined}
-                    className={cn(
-                      "flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800",
-                      !isCustomTimeValid ? "border-red-400" : "border-field"
-                    )}
+                    className={cn("flex-1", !isCustomTimeValid && "border-red-600 dark:border-red-500")}
                   />
                 </div>
                 {!isCustomTimeValid && customTimeStart && customTimeEnd && (
@@ -790,8 +751,10 @@ export function CreateEnrollmentModal({
 
           {/* First Lesson Date */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">First Lesson Date <span className="text-red-600">*</span></label>
-            <input
+            {/* A day mismatch is only a warning, so the date's edge turns amber, not the red of an error. */}
+            <Label htmlFor="create-enrollment-first-date">First lesson date <span className="text-red-600">*</span></Label>
+            <Input
+              id="create-enrollment-first-date"
               type="date"
               value={firstLessonDate}
               onChange={(e) => setFirstLessonDate(e.target.value)}
@@ -799,12 +762,7 @@ export function CreateEnrollmentModal({
               aria-required="true"
               aria-describedby={dayMismatchWarning ? "first-lesson-date-warning" : undefined}
               aria-invalid={dayMismatchWarning ? "true" : undefined}
-              className={cn(
-                "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary",
-                dayMismatchWarning
-                  ? "border-amber-400 dark:border-amber-500"
-                  : "border-field"
-              )}
+              className="aria-[invalid=true]:border-amber-400 dark:aria-[invalid=true]:border-amber-500"
             />
             {dayMismatchWarning && (
               <div id="first-lesson-date-warning" className="flex items-center gap-1.5 mt-1.5 text-amber-700 dark:text-amber-400" role="alert">
@@ -816,8 +774,9 @@ export function CreateEnrollmentModal({
 
           {/* Lessons Paid */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Number of Lessons</label>
-            <input
+            <Label htmlFor="create-enrollment-lessons">Number of lessons</Label>
+            <Input
+              id="create-enrollment-lessons"
               type="number"
               min={1}
               max={52}
@@ -834,18 +793,18 @@ export function CreateEnrollmentModal({
               onBlur={() => {
                 if (lessonsPaid === "" || lessonsPaid < 1) setLessonsPaid(1);
               }}
-              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
 
           {/* Discount */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Discount</label>
+            <Label htmlFor="create-enrollment-discount">Discount</Label>
             <div className="relative">
-              <select
+              <Select
+                id="create-enrollment-discount"
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full pl-3 pr-8 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                className="truncate"
               >
                 <option value="">No discount</option>
                 {discounts.map((d) => (
@@ -853,8 +812,7 @@ export function CreateEnrollmentModal({
                     {d.discount_name}{d.discount_value ? ` ($${d.discount_value})` : ''}
                   </option>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+              </Select>
             </div>
             {lessonsCount < MIN_LESSONS_FOR_DISCOUNT && (
               <p className="mt-1.5 text-xs text-foreground/50">
@@ -881,32 +839,25 @@ export function CreateEnrollmentModal({
           {/* Enrollment Type - hidden when in trial mode or converting from trial */}
           {!trialMode && !convertFromTrial && (
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-2">Enrollment Type</label>
-              <div className="flex gap-2">
-                {ENROLLMENT_TYPES.map((type) => {
-                  const colors = ENROLLMENT_TYPE_COLORS[type];
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => {
-                        setEnrollmentType(type);
-                        if (type === "Regular") {
-                          setLessonsPaid(6);
-                        } else {
-                          setLessonsPaid(1);
-                        }
-                      }}
-                      className={cn(
-                        "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all",
-                        enrollmentType === type ? colors.selected : colors.unselected
-                      )}
-                    >
-                      {type}
-                    </button>
-                  );
-                })}
-              </div>
+              <Label>Enrollment type</Label>
+              <Segmented
+                label="Enrollment type"
+                options={ENROLLMENT_TYPES.map((type) => ({
+                  value: type,
+                  label: type,
+                  icon: Circle,
+                  iconClassName: cn("h-2 w-2", ENROLLMENT_TYPE_DOTS[type]),
+                }))}
+                value={enrollmentType}
+                onChange={(type) => {
+                  setEnrollmentType(type);
+                  if (type === "Regular") {
+                    setLessonsPaid(6);
+                  } else {
+                    setLessonsPaid(1);
+                  }
+                }}
+              />
             </div>
           )}
         </div>
@@ -966,10 +917,10 @@ export function CreateEnrollmentModal({
               <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
                 Found {preview.potential_renewals.length} recent enrollment(s) for this student.
               </p>
-              <select
+              <Select
                 value={selectedRenewalLinkId || ""}
                 onChange={(e) => setSelectedRenewalLinkId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500/30"
+                aria-label="Link as renewal"
               >
                 <option value="">None (create as new enrollment)</option>
                 {preview.potential_renewals.map((renewal) => (
@@ -977,7 +928,7 @@ export function CreateEnrollmentModal({
                     {renewal.tutor_name} • {renewal.lessons_paid} lessons • ended {formatShortDate(renewal.effective_end_date)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 

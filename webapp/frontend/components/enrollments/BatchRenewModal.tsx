@@ -16,6 +16,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, Input } from "@/components/controls";
 import { enrollmentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { formatShortDate } from "@/lib/formatters";
@@ -509,20 +510,19 @@ export function BatchRenewModal({
                 layout
                 className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pt-2 border-t border-gray-200 dark:border-gray-700"
               >
-                <label className="text-sm text-foreground/70">
+                <label htmlFor="batch-renew-lessons" className="text-sm text-foreground/70">
                   Lessons per renewal:
                 </label>
                 <div className="flex items-center gap-1">
-                  <motion.button
+                  <Button
+                    icon={Minus}
+                    aria-label="One lesson fewer"
                     onClick={() => handleLessonsChange(-1)}
                     disabled={lessonsPaid <= 1}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </motion.button>
-                  <input
+                    className="w-8 px-0"
+                  />
+                  <Input
+                    id="batch-renew-lessons"
                     type="number"
                     value={lessonsPaid}
                     onChange={(e) => {
@@ -533,17 +533,15 @@ export function BatchRenewModal({
                     }}
                     min={1}
                     max={52}
-                    className="w-16 px-2 py-1.5 text-center border border-field rounded-lg bg-white dark:bg-gray-800 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <motion.button
+                  <Button
+                    icon={Plus}
+                    aria-label="One lesson more"
                     onClick={() => handleLessonsChange(1)}
                     disabled={lessonsPaid >= 52}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </motion.button>
+                    className="w-8 px-0"
+                  />
                 </div>
               </motion.div>
             )}
@@ -630,36 +628,23 @@ export function BatchRenewModal({
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           {step === "results" && (
             <>
-              <button
-                onClick={handleClose}
-                className="px-4 py-2 text-sm text-foreground/70 hover:text-foreground transition-colors"
-              >
+              <Button onClick={handleClose}>
                 Cancel
-              </button>
-              <motion.button
+              </Button>
+              <Button
+                variant="primary"
+                icon={RefreshCcw}
                 onClick={handleConfirmRenew}
                 disabled={finalEligible.length === 0}
-                whileHover={finalEligible.length > 0 ? { scale: 1.02 } : undefined}
-                whileTap={finalEligible.length > 0 ? { scale: 0.98 } : undefined}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                  finalEligible.length > 0
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed"
-                )}
               >
-                <RefreshCcw className="h-4 w-4" />
-                Renew {finalEligible.length} Enrollment{finalEligible.length !== 1 ? "s" : ""}
-              </motion.button>
+                Renew {finalEligible.length} enrollment{finalEligible.length !== 1 ? "s" : ""}
+              </Button>
             </>
           )}
           {step === "done" && (
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
+            <Button variant="primary" onClick={handleClose}>
               Done
-            </button>
+            </Button>
           )}
         </div>
       )}

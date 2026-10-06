@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 import type { ParentCommunication, StudentContactStatus } from "@/lib/api";
 import {
   User,
@@ -170,20 +171,16 @@ export function ContactDetailPanel({
 
         {/* Footer */}
         <div className="px-4 py-3 border-t border-line bg-tint/50">
-          <button
+          <Button
+            variant="primary"
+            icon={Plus}
+            className="w-full"
             onClick={() => onRecordNew(selectedStudent.student_id)}
             disabled={readOnly}
-            className={cn(
-              "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              readOnly
-                ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                : "bg-primary dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
-            )}
             title={readOnly ? "Read-only access" : undefined}
           >
-            <Plus className="h-4 w-4" />
-            Record Contact for {selectedStudent.student_name.split(' ')[0]}
-          </button>
+            Record contact for {selectedStudent.student_name.split(' ')[0]}
+          </Button>
         </div>
       </div>
     );
@@ -209,20 +206,15 @@ export function ContactDetailPanel({
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Select a contact from the calendar to view details
           </p>
-          <button
+          <Button
+            variant="primary"
+            icon={Plus}
             onClick={() => onRecordNew()}
             disabled={readOnly}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              readOnly
-                ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                : "bg-primary dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
-            )}
             title={readOnly ? "Read-only access" : undefined}
           >
-            <Plus className="h-4 w-4" />
-            Record Contact
-          </button>
+            Record contact
+          </Button>
         </div>
       </div>
     );
@@ -251,45 +243,30 @@ export function ContactDetailPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {onBack && (
-              <button
-                onClick={onBack}
-                className="p-1 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400 hover:text-accent-ink"
-                title="Back to history"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
+              <IconButton label="Back to history" icon={ChevronLeft} size="sm" onClick={onBack} />
             )}
             <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
               Contact Details
             </h3>
           </div>
           <div className="flex items-center gap-1">
-            <button
+            <IconButton
+              label="Edit"
+              icon={Edit2}
+              size="sm"
               onClick={() => onEdit(contact)}
               disabled={readOnly}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                readOnly
-                  ? "text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-accent-ink"
-              )}
               title={readOnly ? "Read-only access" : "Edit"}
-            >
-              <Edit2 className="h-4 w-4" />
-            </button>
-            <button
+            />
+            <IconButton
+              label="Delete"
+              icon={Trash2}
+              size="sm"
+              tone="danger"
               onClick={() => onDelete(contact.id)}
               disabled={readOnly}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                readOnly
-                  ? "text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-600"
-              )}
               title={readOnly ? "Read-only access" : "Delete"}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            />
           </div>
         </div>
       </div>
@@ -438,20 +415,15 @@ export function ContactDetailPanel({
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-line bg-tint/50">
-        <button
+        <Button
+          icon={Plus}
+          className="w-full"
           onClick={() => onRecordNew(contact.student_id)}
           disabled={readOnly}
-          className={cn(
-            "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-            readOnly
-              ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed border border-gray-300 dark:border-gray-600"
-              : "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47] text-accent-ink dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-          )}
           title={readOnly ? "Read-only access" : undefined}
         >
-          <Plus className="h-4 w-4" />
-          Record New Contact for {contact.student_name.split(' ')[0]}
-        </button>
+          Record new contact for {contact.student_name.split(' ')[0]}
+        </Button>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import type { Enrollment, Tutor } from "@/types";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { Button, IconButton, Input, Label, Select, buttonClasses } from "@/components/controls";
 
 /** Stable empty list so a fetch in flight does not recompute the narrowing. */
 const EMPTY_TUTORS: Tutor[] = [];
@@ -338,13 +339,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         )}
       >
         {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-        </button>
+        <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
 
         {/* Header */}
         <div className="mb-3 pr-6">
@@ -390,30 +385,35 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             <div className="space-y-2 p-2 bg-paper rounded-md border border-[#d4a574] dark:border-[#6b5a4a]">
               {/* Day selector */}
               <div className="flex items-center gap-2">
-                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Day:</label>
-                <select
-                  value={editedDay}
-                  onChange={(e) => handleDayChange(e.target.value)}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">Unscheduled</option>
-                  {DAY_OPTIONS.map(day => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
+                <Label htmlFor={`enrollment-${enrollment.id}-day`} className="mb-0 w-12 flex-shrink-0">Day</Label>
+                <div className="flex-1 min-w-0">
+                  <Select
+                    id={`enrollment-${enrollment.id}-day`}
+                    size="sm"
+                    value={editedDay}
+                    onChange={(e) => handleDayChange(e.target.value)}
+                  >
+                    <option value="">Unscheduled</option>
+                    {DAY_OPTIONS.map(day => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </Select>
+                </div>
               </div>
 
               {/* Time selector - shows dropdown or custom input */}
               <div className="flex items-center gap-2">
-                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Time:</label>
+                <Label htmlFor={`enrollment-${enrollment.id}-time`} className="mb-0 w-12 flex-shrink-0">Time</Label>
                 {isCustomTime ? (
                   <div className="flex-1 flex items-center gap-1">
-                    <input
+                    <Input
+                      id={`enrollment-${enrollment.id}-time`}
                       type="text"
+                      size="sm"
                       value={editedTime}
                       onChange={(e) => setEditedTime(e.target.value)}
                       placeholder="e.g., 10:00 - 11:30"
-                      className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                      className="flex-1"
                     />
                     <button
                       onClick={(e) => {
@@ -427,49 +427,57 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     </button>
                   </div>
                 ) : (
-                  <select
-                    value={editedTime}
-                    onChange={(e) => {
-                      if (e.target.value === '__custom__') {
-                        setIsCustomTime(true);
-                        setEditedTime('');
-                      } else {
-                        setEditedTime(e.target.value);
-                      }
-                    }}
-                    className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">Select time...</option>
-                    {timeOptions.map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                    <option value="__custom__">Other (custom)...</option>
-                  </select>
+                  <div className="flex-1 min-w-0">
+                    <Select
+                      id={`enrollment-${enrollment.id}-time`}
+                      size="sm"
+                      value={editedTime}
+                      onChange={(e) => {
+                        if (e.target.value === '__custom__') {
+                          setIsCustomTime(true);
+                          setEditedTime('');
+                        } else {
+                          setEditedTime(e.target.value);
+                        }
+                      }}
+                    >
+                      <option value="">Select time...</option>
+                      {timeOptions.map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                      <option value="__custom__">Other (custom)...</option>
+                    </Select>
+                  </div>
                 )}
               </div>
 
               {/* Location selector from API */}
               <div className="flex items-center gap-2">
-                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Loc:</label>
-                <select
-                  value={editedLocation}
-                  onChange={(e) => handleLocationChange(e.target.value)}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">None</option>
-                  {locations.map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
+                <Label htmlFor={`enrollment-${enrollment.id}-location`} className="mb-0 w-12 flex-shrink-0">Loc</Label>
+                <div className="flex-1 min-w-0">
+                  <Select
+                    id={`enrollment-${enrollment.id}-location`}
+                    size="sm"
+                    value={editedLocation}
+                    onChange={(e) => handleLocationChange(e.target.value)}
+                  >
+                    <option value="">None</option>
+                    {locations.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </Select>
+                </div>
               </div>
 
               {/* Tutor selector - filtered by location */}
               <div className="flex items-center gap-2">
-                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Tutor:</label>
-                <select
+                <Label htmlFor={`enrollment-${enrollment.id}-tutor`} className="mb-0 w-12 flex-shrink-0">Tutor</Label>
+                <div className="flex-1 min-w-0">
+                <Select
+                  id={`enrollment-${enrollment.id}-tutor`}
+                  size="sm"
                   value={editedTutorId || ''}
                   onChange={(e) => setEditedTutorId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 disabled:opacity-50"
                   disabled={!editedLocation}
                 >
                   <option value="">{editedLocation ? 'Select tutor...' : 'Select location first'}</option>
@@ -481,29 +489,33 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                       </option>
                     );
                   })}
-                </select>
+                </Select>
+                </div>
               </div>
 
               {/* Action buttons */}
               <div className="flex gap-2 pt-1">
-                <button
+                <Button
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsEditingSchedule(false);
                   }}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] text-[#8b6914] dark:text-[#cd853f] hover:bg-paper"
+                  className="flex-1"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleSaveSchedule();
                   }}
-                  className="flex-1 text-xs px-2 py-1 rounded bg-primary text-white hover:bg-[#8b5e3c]"
+                  className="flex-1"
                 >
                   Save
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -519,16 +531,18 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     {scheduleSaved ? `${editedDay} ${editedTime}` : (enrollment.assigned_day && enrollment.assigned_time ? `${enrollment.assigned_day} ${enrollment.assigned_time}` : 'Unscheduled')}
                     {scheduleSaved && <span className="text-green-700 text-[11px] ml-1">✓</span>}
                   </span>
-                  <button
+                  <IconButton
+                    label="Edit schedule"
+                    icon={Edit2}
+                    size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsEditingSchedule(true);
                     }}
-                    className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                    title="Edit schedule"
-                  >
-                    <Edit2 className="h-3 w-3 text-gray-500 hover:text-gray-600" />
-                  </button>
+                    // Sits inside a line of text, so it stays smaller than a toolbar button.
+                    className="h-5 w-5"
+                    iconClassName="h-3 w-3"
+                  />
                 </div>
               </div>
 
@@ -740,69 +754,54 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         <div className="pt-3 border-t border-line space-y-2">
           {/* Confirm Payment button - only shown for pending payments */}
           {showMarkAsPaid && (
-            <button
+            <Button
+              size="sm"
               onClick={(e) => {
                 e.stopPropagation();
                 setConfirmPayment(true);
               }}
-              disabled={markingPaid}
-              className={cn(
-                "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-                "bg-green-600 hover:bg-green-700 text-white transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              loading={markingPaid}
+              icon={Check}
+              iconClassName="text-green-700 dark:text-green-400"
+              className="w-full"
             >
-              {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-              Confirm Payment
-            </button>
+              Confirm payment
+            </Button>
           )}
 
           {/* Cancel Enrollment button - shown for pending/overdue without attended sessions */}
           {showCancelButton && (
-            <button
+            <Button
+              size="sm"
               onClick={(e) => {
                 e.stopPropagation();
                 setConfirmCancel(true);
               }}
-              disabled={isCancelling}
-              className={cn(
-                "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-                "bg-red-600 hover:bg-red-700 text-white transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              loading={isCancelling}
+              icon={XCircle}
+              iconClassName="text-red-600 dark:text-red-400"
+              className="w-full"
             >
-              {isCancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-              Cancel Enrollment
-            </button>
+              Cancel enrollment
+            </Button>
           )}
 
           {/* Copy Fee Message button — hidden for waived enrollments, which
               have no fee to ask for */}
           {enrollment.payment_status !== 'Waived' && (
-          <button
+          <Button
+            size="sm"
             onClick={(e) => {
               e.stopPropagation();
               handleCopyFeeMessage();
             }}
-            disabled={isCopying}
-            className={cn(
-              "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-              "border border-line-strong",
-              copySuccess
-                ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
-                : "bg-[#fef9f3] dark:bg-[#2d2618] text-[#8b6914] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
-              "transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
+            loading={isCopying}
+            icon={copySuccess ? Check : Copy}
+            iconClassName={cn(copySuccess && "text-green-700 dark:text-green-400")}
+            className="w-full"
           >
-            {isCopying ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : copySuccess ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-            {isCopying ? 'Copying...' : copySuccess ? 'Copied!' : 'Copy Fee Message'}
-          </button>
+            {isCopying ? 'Copying...' : copySuccess ? 'Copied!' : 'Copy fee message'}
+          </Button>
           )}
 
           {/* View Details link */}
@@ -813,13 +812,11 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               onNavigate?.();
               onClose();
             }}
-            className={cn(
-              "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-              "bg-primary hover:bg-[#8a6040] text-white transition-colors"
-            )}
+            // While the schedule is being edited, Save is the one primary button.
+            className={cn(buttonClasses({ variant: isEditingSchedule ? "secondary" : "primary", size: "sm" }), "w-full")}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
-            View Enrollment Details
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            View enrollment details
           </Link>
         </div>
 

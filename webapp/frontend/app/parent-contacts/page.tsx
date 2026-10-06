@@ -23,6 +23,7 @@ import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
 import { Phone, Plus, Loader2, LayoutList, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import useSWR, { mutate } from "swr";
 
 export default function ParentContactsPage() {
@@ -373,21 +374,16 @@ export default function ParentContactsPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2 sm:ml-auto">
-                <button
+                <Button
+                  variant="primary"
+                  icon={Plus}
                   onClick={() => handleRecordContact()}
                   disabled={isReadOnly}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                    isReadOnly
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : "bg-primary dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
-                  )}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Record Contact</span>
+                  <span className="hidden sm:inline">Record contact</span>
                   <span className="sm:hidden">Add</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>

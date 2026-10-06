@@ -19,6 +19,7 @@ Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, CalendarX, Downloa
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
+import { Button, IconButton, Field, Input, Select, Segmented } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -461,12 +462,9 @@ export default function StudentDetailPage() {
               <p className="text-sm text-gray-900 dark:text-gray-100 mb-4">
                 {studentError instanceof Error ? studentError.message : "Unable to load student data"}
               </p>
-              <button
-                onClick={() => router.back()}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-[#8b6140] transition-colors"
-              >
-                Back to Students
-              </button>
+              <Button variant="primary" onClick={() => router.back()}>
+                Back to students
+              </Button>
             </div>
           </StickyNote>
         </PageTransition>
@@ -489,12 +487,7 @@ export default function StudentDetailPage() {
             )}
           >
             {/* Back Button */}
-            <button
-              onClick={() => router.back()}
-              className="p-1.5 rounded-lg hover:bg-[#d4a574]/20 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-accent-ink" />
-            </button>
+            <IconButton label="Back" icon={ArrowLeft} onClick={() => router.back()} />
 
             {/* Student ID */}
             <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
@@ -992,38 +985,23 @@ function ProfileTab({
                   {personalSaveError}
                 </span>
               )}
-              <button
-                onClick={onCancelPersonal}
-                disabled={isSavingPersonal}
-                className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
-              >
+              <Button variant="quiet" size="sm" onClick={onCancelPersonal} disabled={isSavingPersonal}>
                 Cancel
-              </button>
-              <button
-                onClick={onSavePersonal}
-                disabled={isSavingPersonal}
-                className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
-              >
+              </Button>
+              <Button variant="primary" size="sm" onClick={onSavePersonal} loading={isSavingPersonal}>
                 {isSavingPersonal ? 'Saving...' : 'Save'}
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
+            <IconButton
+              label="Edit personal info"
+              icon={Pencil}
+              size="sm"
               onClick={onEditPersonal}
               disabled={readOnly}
-              className={cn(
-                "p-1 rounded transition-colors group",
-                readOnly
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
-              )}
               title={readOnly ? "Read-only access" : "Edit personal info"}
-            >
-              <Pencil className={cn(
-                "h-3.5 w-3.5",
-                readOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
-              )} />
-            </button>
+              className="disabled:pointer-events-auto disabled:cursor-not-allowed"
+            />
           )}
         </div>
         <div className="space-y-3">
@@ -1066,38 +1044,23 @@ function ProfileTab({
                   {academicSaveError}
                 </span>
               )}
-              <button
-                onClick={onCancelAcademic}
-                disabled={isSavingAcademic}
-                className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
-              >
+              <Button variant="quiet" size="sm" onClick={onCancelAcademic} disabled={isSavingAcademic}>
                 Cancel
-              </button>
-              <button
-                onClick={onSaveAcademic}
-                disabled={isSavingAcademic}
-                className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
-              >
+              </Button>
+              <Button variant="primary" size="sm" onClick={onSaveAcademic} loading={isSavingAcademic}>
                 {isSavingAcademic ? 'Saving...' : 'Save'}
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
+            <IconButton
+              label="Edit academic info"
+              icon={Pencil}
+              size="sm"
               onClick={onEditAcademic}
               disabled={readOnly}
-              className={cn(
-                "p-1 rounded transition-colors group",
-                readOnly
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
-              )}
               title={readOnly ? "Read-only access" : "Edit academic info"}
-            >
-              <Pencil className={cn(
-                "h-3.5 w-3.5",
-                readOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
-              )} />
-            </button>
+              className="disabled:pointer-events-auto disabled:cursor-not-allowed"
+            />
           )}
         </div>
         <div className="space-y-3">
@@ -1146,13 +1109,7 @@ function ProfileTab({
               Discounts & Coupons
             </h3>
             {isAdmin && !isEditingStaffReferral && (
-              <button
-                onClick={handleEditStaffReferral}
-                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-                title="Edit staff referral"
-              >
-                <Pencil className="h-3.5 w-3.5 text-gray-500 group-hover:text-amber-700" />
-              </button>
+              <IconButton label="Edit staff referral" icon={Pencil} size="sm" onClick={handleEditStaffReferral} />
             )}
             {isEditingStaffReferral && (
               <div className="flex items-center gap-2">
@@ -1161,20 +1118,12 @@ function ProfileTab({
                     {staffReferralSaveError}
                   </span>
                 )}
-                <button
-                  onClick={handleCancelStaffReferralEdit}
-                  disabled={isSavingStaffReferral}
-                  className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
-                >
+                <Button variant="quiet" size="sm" onClick={handleCancelStaffReferralEdit} disabled={isSavingStaffReferral}>
                   Cancel
-                </button>
-                <button
-                  onClick={handleSaveStaffReferral}
-                  disabled={isSavingStaffReferral}
-                  className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
-                >
+                </Button>
+                <Button variant="primary" size="sm" onClick={handleSaveStaffReferral} loading={isSavingStaffReferral}>
                   {isSavingStaffReferral ? 'Saving...' : 'Save'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -1225,11 +1174,8 @@ function ProfileTab({
 
               {/* Staff Referral Notes */}
               {staffReferralForm.is_staff_referral && (
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Notes (e.g., which staff member, relationship)
-                  </label>
-                  <input
+                <Field id="staff-referral-notes" label="Notes (e.g., which staff member, relationship)">
+                  <Input
                     type="text"
                     value={staffReferralForm.staff_referral_notes}
                     onChange={(e) => setStaffReferralForm(prev => ({
@@ -1237,9 +1183,8 @@ function ProfileTab({
                       staff_referral_notes: e.target.value
                     }))}
                     placeholder="Enter staff referral details..."
-                    className="w-full px-3 py-2 text-sm rounded-md border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                   />
-                </div>
+                </Field>
               )}
             </div>
           ) : (
@@ -1330,20 +1275,16 @@ function ProfileTab({
               <BookOpen className="h-4 w-4" />
               Enrollments ({enrollments.length})
             </h3>
-            <button
+            <Button
+              size="sm"
+              icon={Plus}
               onClick={onNewEnrollment}
               disabled={!isAdmin}
-              className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-lg text-white text-xs font-medium transition-colors",
-                !isAdmin
-                  ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-                  : "bg-teal-600 hover:bg-teal-700"
-              )}
               title={!isAdmin ? "Admin access required" : undefined}
+              className="disabled:pointer-events-auto disabled:cursor-not-allowed"
             >
-              <Plus className="h-3 w-3" />
-              <span>New</span>
-            </button>
+              New
+            </Button>
           </div>
           <div className="space-y-2">
             {enrollments.map((enrollment) => (
@@ -1427,34 +1368,25 @@ function ProfileTab({
               No enrollments yet
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              <button
+              <Button
+                variant="primary"
+                icon={Plus}
                 onClick={onNewTrial}
                 disabled={readOnly}
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors",
-                  readOnly
-                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-                    : "bg-teal-600 hover:bg-teal-700"
-                )}
                 title={readOnly ? "Read-only access" : undefined}
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed"
               >
-                <Plus className="h-4 w-4" />
-                New Trial
-              </button>
-              <button
+                New trial
+              </Button>
+              <Button
+                icon={Plus}
                 onClick={onNewEnrollment}
                 disabled={!isAdmin}
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
-                  !isAdmin
-                    ? "border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    : "border-teal-600 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20"
-                )}
                 title={!isAdmin ? "Admin access required" : "Create a Regular or One-Time enrollment"}
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed"
               >
-                <Plus className="h-4 w-4" />
-                New Enrollment
-              </button>
+                New enrollment
+              </Button>
             </div>
           </div>
         </div>
@@ -1625,13 +1557,7 @@ function ContactsEditor({ contacts, onChange }: { contacts: StudentContact[]; on
             className={cn(inputClass, "w-24 flex-shrink-0")}
           />
           {contacts.length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeContact(i)}
-              className="p-1 text-gray-500 hover:text-red-600 transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            <IconButton label="Remove contact" icon={Trash2} size="sm" tone="danger" onClick={() => removeContact(i)} />
           )}
         </div>
       ))}
@@ -1641,14 +1567,9 @@ function ContactsEditor({ contacts, onChange }: { contacts: StudentContact[]; on
         ))}
       </datalist>
       {contacts.length < 5 && (
-        <button
-          type="button"
-          onClick={addContact}
-          className="ml-4 text-xs text-amber-700 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1"
-        >
-          <Plus className="h-3 w-3" />
+        <Button variant="quiet" size="sm" icon={Plus} onClick={addContact} className="ml-4">
           Add contact
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -2277,30 +2198,15 @@ function SessionsTab({
     <div className="space-y-4">
       {/* View Mode Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line">
-          <button
-            onClick={() => setViewMode('by-date')}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-              viewMode === 'by-date'
-                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            )}
-          >
-            By Date
-          </button>
-          <button
-            onClick={() => setViewMode('by-enrollment')}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-              viewMode === 'by-enrollment'
-                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            )}
-          >
-            By Enrollment
-          </button>
-        </div>
+        <Segmented<SessionViewMode>
+          label="Arrange lessons"
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { value: 'by-date', label: 'By date' },
+            { value: 'by-enrollment', label: 'By enrollment' },
+          ]}
+        />
 
         <div className="flex items-center gap-2">
           {/* Copy lesson dates (Upcoming / Past / All) */}
@@ -2316,13 +2222,14 @@ function SessionsTab({
           />
 
           {/* Sort Order Toggle (shown in both modes) */}
-          <button
+          <Button
+            variant="quiet"
+            size="sm"
+            icon={sortOrder === 'desc' ? ArrowDown : ArrowUp}
             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] rounded-md transition-colors"
           >
-            {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
-            {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
-          </button>
+            {sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+          </Button>
         </div>
       </div>
 
@@ -2601,17 +2508,9 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
           {upcomingTests.length} upcoming{pastTests.length > 0 && `, ${pastTests.length} past`}
         </span>
         {pastTests.length > 0 && (
-          <button
-            onClick={() => setShowPast(!showPast)}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
-              showPast
-                ? "bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-300"
-                : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
-            )}
-          >
-            {showPast ? "Hide Past" : "Show Past"}
-          </button>
+          <Button size="sm" onClick={() => setShowPast(!showPast)} aria-pressed={showPast}>
+            {showPast ? "Hide past" : "Show past"}
+          </Button>
         )}
       </div>
 
@@ -2623,7 +2522,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
               <BookOpen className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No upcoming tests</p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Click &ldquo;Show Past&rdquo; to view past tests
+                Click &ldquo;Show past&rdquo; to view past tests
               </p>
             </div>
           </StickyNote>
@@ -3265,12 +3164,13 @@ function CoursewareTab({
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          <input
+          <Input
             type="text"
             placeholder="Search exercises..."
+            aria-label="Search exercises"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+            className="pl-9 pr-3"
           />
         </div>
 
@@ -3309,30 +3209,15 @@ function CoursewareTab({
         </button>
 
         {/* Group by toggle */}
-        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line">
-          <button
-            onClick={() => setGroupBy("session")}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-              groupBy === "session"
-                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            )}
-          >
-            By Session
-          </button>
-          <button
-            onClick={() => setGroupBy("pdf")}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-              groupBy === "pdf"
-                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            )}
-          >
-            By PDF
-          </button>
-        </div>
+        <Segmented<"session" | "pdf">
+          label="Group exercises"
+          value={groupBy}
+          onChange={setGroupBy}
+          options={[
+            { value: "session", label: "By session" },
+            { value: "pdf", label: "By PDF" },
+          ]}
+        />
       </div>
 
       {/* Homework status filter. Picking one is how a tutor finds the backlog
@@ -3819,23 +3704,27 @@ function RatingsTab({
 
       {/* Filter/Sort Controls */}
       <div className="flex items-center gap-2">
-        <select
+        <Select
+          size="sm"
+          aria-label="Filter ratings"
           value={filter}
           onChange={(e) => setFilter(e.target.value as 'all' | 'rated' | 'notes')}
-          className="text-xs px-2 py-1.5 rounded-lg border border-field bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="w-auto"
         >
           <option value="all">All ({stats.total})</option>
           <option value="rated">Has rating ({stats.rated})</option>
           <option value="notes">Has comment ({stats.withNotes})</option>
-        </select>
-        <select
+        </Select>
+        <Select
+          size="sm"
+          aria-label="Sort ratings"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'date' | 'rating')}
-          className="text-xs px-2 py-1.5 rounded-lg border border-field bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="w-auto"
         >
           <option value="date">By date</option>
           <option value="rating">By rating</option>
-        </select>
+        </Select>
       </div>
 
       {/* Session Cards */}
@@ -3976,20 +3865,16 @@ function ParentContactsTab({
             {contacts.length} contact{contacts.length !== 1 ? 's' : ''} recorded
           </span>
         </div>
-        <button
+        <Button
+          variant="primary"
+          icon={MessageSquarePlus}
           onClick={onRecordContact}
           disabled={readOnly}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white transition-colors",
-            readOnly
-              ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-              : "bg-primary dark:bg-[#8b6f47] hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
-          )}
           title={readOnly ? "Read-only access" : undefined}
+          className="disabled:pointer-events-auto disabled:cursor-not-allowed"
         >
-          <MessageSquarePlus className="h-4 w-4" />
-          Record Contact
-        </button>
+          Record contact
+        </Button>
       </div>
 
       {/* Empty State */}

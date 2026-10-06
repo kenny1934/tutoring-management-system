@@ -28,6 +28,7 @@ import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { isHomeBranch } from "@/lib/employment";
+import { Button, Input, Segmented } from "@/components/controls";
 
 // Lazy load chart components to keep Recharts (~40KB) out of initial bundle
 const TerminationTrendChart = dynamic(
@@ -788,22 +789,20 @@ export default function TerminatedStudentsPage() {
 
                 {/* Search */}
                 <div className="relative min-w-[200px] max-w-sm">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <input
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                  <Input
+                    size="sm"
                     type="text"
                     placeholder="Search students..."
+                    aria-label="Search students"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className={cn(
-                      "w-full pl-8 pr-8 py-1.5 text-sm rounded-full",
-                      "bg-white dark:bg-[#1a1a1a] border border-field",
-                      "text-foreground placeholder:text-muted-foreground",
-                      "focus:outline-none focus:ring-1 focus:ring-accent-ink"
-                    )}
+                    className="pl-8 pr-8"
                   />
                   {searchTerm && (
                     <button
                       onClick={() => setSearchTerm("")}
+                      aria-label="Clear search"
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -815,62 +814,43 @@ export default function TerminatedStudentsPage() {
               {/* Export + Save Buttons */}
               <div className="flex items-center gap-2">
                 {/* CSV Export */}
-                <button
+                <Button
+                  size="sm"
+                  icon={Download}
                   onClick={() => selectedQuarter && selectedYear && exportTerminatedStudentsCSV(
                     filteredTutorGroups, selectedQuarter, selectedYear,
                     getEffectiveChecked, getEffectiveReason, getEffectiveCategory
                   )}
                   disabled={!selectedQuarter || !selectedYear || terminatedStudents.length === 0}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                    "border border-line-strong",
-                    "text-accent-ink",
-                    "hover:bg-tint",
-                    "disabled:opacity-50"
-                  )}
+                  aria-label="Export as CSV"
                   title="Export as CSV"
                 >
-                  <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">Export</span>
-                </button>
+                </Button>
 
                 {/* Save/Discard - hide for read-only users */}
                 {!isReadOnly && pendingChanges.size > 0 && (
                 <>
-                  <button
+                  <Button
+                    size="sm"
+                    icon={RotateCcw}
                     onClick={handleDiscardChanges}
                     disabled={isSaving}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      "border border-line-strong",
-                      "text-accent-ink",
-                      "hover:bg-tint",
-                      "disabled:opacity-50"
-                    )}
                   >
-                    <RotateCcw className="h-4 w-4" />
                     Discard
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Save}
                     onClick={() => setShowConfirmDialog(true)}
-                    disabled={isSaving}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      "bg-primary text-white",
-                      "hover:bg-[#8b6140]",
-                      "disabled:opacity-50"
-                    )}
+                    loading={isSaving}
                   >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Save Changes
+                    Save changes
                     <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs">
                       {pendingChanges.size}
                     </span>
-                  </button>
+                  </Button>
                 </>
                 )}
               </div>
@@ -1108,12 +1088,13 @@ export default function TerminatedStudentsPage() {
                       Terminated Students ({totalCheckedCount}/{searchTerm ? `${filteredStudentCount} of ${terminatedStudents.length}` : terminatedStudents.length})
                     </h2>
                     {filteredTutorGroups.length > 1 && (
-                      <button
+                      <Button
+                        variant="quiet"
+                        size="sm"
                         onClick={toggleAllGroups}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        {collapsedGroups.size === 0 ? "Collapse All" : "Expand All"}
-                      </button>
+                        {collapsedGroups.size === 0 ? "Collapse all" : "Expand all"}
+                      </Button>
                     )}
                   </div>
 
@@ -1329,18 +1310,15 @@ function SortToggle({ sortBy, onChange }: { sortBy: StatDetailSort; onChange: (v
   return (
     <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
       <span>Sort:</span>
-      <button
-        onClick={() => onChange('id')}
-        className={cn("px-1.5 py-0.5 rounded", sortBy === 'id' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
-      >
-        ID
-      </button>
-      <button
-        onClick={() => onChange('name')}
-        className={cn("px-1.5 py-0.5 rounded", sortBy === 'name' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
-      >
-        Name
-      </button>
+      <Segmented
+        label="Sort by"
+        value={sortBy}
+        onChange={onChange}
+        options={[
+          { value: 'id', label: 'ID' },
+          { value: 'name', label: 'Name' },
+        ]}
+      />
     </div>
   );
 }
@@ -1349,18 +1327,15 @@ function ViewToggle({ viewMode, onChange }: { viewMode: 'list' | 'grid'; onChang
   return (
     <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
       <span>View:</span>
-      <button
-        onClick={() => onChange('list')}
-        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'list' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
-      >
-        <LayoutList className="h-3 w-3" /> List
-      </button>
-      <button
-        onClick={() => onChange('grid')}
-        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'grid' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
-      >
-        <Grid3X3 className="h-3 w-3" /> Grid
-      </button>
+      <Segmented
+        label="View"
+        value={viewMode}
+        onChange={onChange}
+        options={[
+          { value: 'list', label: 'List', icon: LayoutList },
+          { value: 'grid', label: 'Grid', icon: Grid3X3 },
+        ]}
+      />
     </div>
   );
 }
@@ -1442,13 +1417,15 @@ function StatDetailContent({
   const toolbar = (
     <div className="flex items-center gap-2 mb-2">
       <div className="relative flex-1">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <input
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          size="sm"
           type="text"
           placeholder="Search by name or ID..."
+          aria-label="Search by name or ID"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-7 pr-2 py-1 text-xs rounded border border-field bg-transparent focus:outline-none focus:border-accent-ink"
+          className="pl-7"
         />
       </div>
       <SortToggle sortBy={sortBy} onChange={setSortBy} />

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, memo, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { CountBadge, IconButton, Input, Segmented, Select } from "@/components/controls";
 import { ContactStatusBadge, ContactStatusDot } from "./ContactStatusBadge";
 import type { StudentContactStatus } from "@/lib/api";
 import {
@@ -192,68 +193,43 @@ export const StudentContactList = memo(function StudentContactList({
 
           {/* Group Toggle */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-md p-0.5">
-              <button
-                onClick={() => {
-                  setGroupMode('urgency');
-                  if (withinGroupSort === 'urgency') setWithinGroupSort('student_id');
-                }}
-                className={cn(
-                  "p-1 rounded text-xs",
-                  groupMode === 'urgency'
-                    ? "bg-white dark:bg-[#2d2618] text-accent-ink shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-                title="Group by Urgency"
-              >
-                <AlertTriangle className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setGroupMode('grade')}
-                className={cn(
-                  "p-1 rounded text-xs",
-                  groupMode === 'grade'
-                    ? "bg-white dark:bg-[#2d2618] text-accent-ink shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-                title="Group by Grade"
-              >
-                <GraduationCap className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <Segmented<GroupMode>
+              label="Group students"
+              value={groupMode}
+              onChange={(mode) => {
+                setGroupMode(mode);
+                if (mode === 'urgency' && withinGroupSort === 'urgency') setWithinGroupSort('student_id');
+              }}
+              options={[
+                { value: 'urgency', icon: AlertTriangle, label: <span className="sr-only">Urgency</span>, title: "Group by urgency" },
+                { value: 'grade', icon: GraduationCap, label: <span className="sr-only">Grade</span>, title: "Group by grade" },
+              ]}
+            />
             {/* Within-group sort */}
-            <select
+            <Select
+              size="sm"
               value={withinGroupSort}
               onChange={(e) => setWithinGroupSort(e.target.value as WithinGroupSort)}
-              className={cn(
-                "text-xs px-1.5 py-1 rounded-md w-16",
-                "bg-gray-100 dark:bg-gray-800 border-0",
-                "text-gray-600 dark:text-gray-400",
-                "focus:outline-none focus:ring-1 focus:ring-primary"
-              )}
+              className="w-24"
               title="Sort within groups"
+              aria-label="Sort within groups"
             >
               {groupMode !== 'urgency' && <option value="urgency">Urgency</option>}
               <option value="name">Name</option>
               <option value="student_id">ID</option>
-            </select>
+            </Select>
           </div>
         </div>
 
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-          <input
+          <Input
             type="text"
             placeholder={onSearchChange ? "Search students & notes..." : "Search students..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={cn(
-              "w-full pl-7 pr-3 py-1.5 text-sm",
-              "bg-white dark:bg-[#1a1a1a] border border-field rounded-md",
-              "focus:outline-none focus:ring-1 focus:ring-primary",
-              "placeholder:text-gray-400"
-            )}
+            className="pl-7"
           />
         </div>
       </div>
@@ -289,9 +265,7 @@ export const StudentContactList = memo(function StudentContactList({
                   {group.students.length}
                 </span>
                 {groupMode === 'grade' && getUrgentCount(group.students) > 0 && (
-                  <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
-                    {getUrgentCount(group.students)}
-                  </span>
+                  <CountBadge tone="danger" count={getUrgentCount(group.students)} />
                 )}
               </button>
 
@@ -334,22 +308,17 @@ export const StudentContactList = memo(function StudentContactList({
                       {student.pending_follow_up && (
                         <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" title="Follow-up pending" />
                       )}
-                      <button
+                      <IconButton
+                        label="Record contact"
+                        icon={MessageSquarePlus}
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!readOnly) onRecordContact(student.student_id);
                         }}
                         disabled={readOnly}
-                        className={cn(
-                          "p-1 rounded transition-colors",
-                          readOnly
-                            ? "text-gray-300 dark:text-gray-400 cursor-not-allowed"
-                            : "text-gray-500 hover:text-accent-ink hover:bg-gray-200 dark:hover:bg-gray-700"
-                        )}
                         title={readOnly ? "Read-only access" : "Record contact"}
-                      >
-                        <MessageSquarePlus className="h-4 w-4" />
-                      </button>
+                      />
                     </div>
                   ))}
                   {!fullyExpandedGroups.has(group.key) && group.students.length > INITIAL_GROUP_LIMIT && (
