@@ -56,7 +56,7 @@ export function SectionList({
       <div className="flex items-center gap-2 mb-1.5 px-0.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">{title}</span>
         <span className={cn(
-          "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+          "text-[11px] px-1.5 py-0.5 rounded-full font-medium",
           tone === "success"
             ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
             : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
@@ -83,12 +83,12 @@ export function AppChip({ a }: { a: AutoMatchAppSummary | StudentLinkAppSummary 
     <span className="inline-flex items-center gap-1.5 min-w-0">
       <span className="truncate text-sm text-foreground">{a.student_name}</span>
       {a.reference_code && (
-        <span className="shrink-0 text-[10px] font-mono text-muted-foreground">{a.reference_code}</span>
+        <span className="shrink-0 text-[11px] font-mono text-muted-foreground">{a.reference_code}</span>
       )}
       {a.preferred_location && (
-        <span className="shrink-0 text-[10px] text-muted-foreground">{displayLocation(a.preferred_location)}</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground">{displayLocation(a.preferred_location)}</span>
       )}
-      {a.grade && <span className="shrink-0 text-[10px] text-muted-foreground">{a.grade}</span>}
+      {a.grade && <span className="shrink-0 text-[11px] text-muted-foreground">{a.grade}</span>}
     </span>
   );
 }
@@ -98,12 +98,12 @@ export function StudentChip({ s }: { s: StudentSuggestionCandidate }) {
     <span className="inline-flex items-center gap-1.5 min-w-0">
       <span className="truncate text-sm text-foreground">{s.student_name}</span>
       {s.home_location && s.school_student_id && (
-        <span className="shrink-0 text-[10px] font-mono text-muted-foreground">
+        <span className="shrink-0 text-[11px] font-mono text-muted-foreground">
           {s.home_location}-{s.school_student_id}
         </span>
       )}
       {s.grade && (
-        <span className="shrink-0 text-[10px] text-muted-foreground"><GradeLabel grade={s.grade} /></span>
+        <span className="shrink-0 text-[11px] text-muted-foreground"><GradeLabel grade={s.grade} /></span>
       )}
     </span>
   );
@@ -153,7 +153,7 @@ export function StudentSkipRow({
           <div key={s.id} className="flex items-center gap-2">
             <div className="flex-1 min-w-0 space-y-0.5">
               <StudentChip s={s} />
-              <div className="text-[10px] text-muted-foreground">{s.match_reason}</div>
+              <div className="text-[11px] text-muted-foreground">{s.match_reason}</div>
             </div>
             <LinkThisButton onClick={() => onOverride(entry.application.id, s.id)} />
           </div>
@@ -182,12 +182,12 @@ export function ProspectChip({ p }: { p: AutoMatchProspectSummary }) {
   return (
     <span className="inline-flex items-center gap-1 min-w-0">
       <span className={cn(
-        "shrink-0 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded",
+        "shrink-0 text-[11px] font-semibold font-mono px-1.5 py-0.5 rounded",
         branch?.badge || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
       )}>{p.source_branch}</span>
       <span className="truncate text-sm text-foreground">{p.student_name}</span>
       {p.grade && (
-        <span className="shrink-0 text-[10px] text-muted-foreground"><GradeLabel grade={p.grade} /></span>
+        <span className="shrink-0 text-[11px] text-muted-foreground"><GradeLabel grade={p.grade} /></span>
       )}
     </span>
   );
@@ -241,7 +241,7 @@ export function ProspectSkipRow({
             <div className="flex-1 min-w-0 flex items-center gap-1.5">
               <AppChip a={a} />
               {typeof a.similarity === "number" && (
-                <span className="shrink-0 text-[10px] text-muted-foreground">{a.similarity}% name</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{a.similarity}% name</span>
               )}
             </div>
             <LinkThisButton onClick={() => onOverride(entry.prospect.id, a.id)} />

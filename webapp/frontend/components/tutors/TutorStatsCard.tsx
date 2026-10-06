@@ -267,7 +267,7 @@ export const TutorStatsCard = memo(function TutorStatsCard({
                           aria-pressed={slotActive}
                           title={`${slot}: filter this time slot`}
                           className={cn(
-                            "w-full rounded py-0.5 pr-1 text-right font-mono text-[10px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            "w-full rounded py-0.5 pr-1 text-right font-mono text-[11px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                             slotActive
                               ? "bg-amber-200 font-semibold text-amber-900 dark:bg-amber-700/50 dark:text-amber-100"
                               : "text-foreground/40 hover:bg-foreground/5"
@@ -289,7 +289,7 @@ export const TutorStatsCard = memo(function TutorStatsCard({
                               onClick={() => onToggle({ day, time: slot })}
                               title={`${day} ${slot}: ${count} student${count === 1 ? "" : "s"}`}
                               className={cn(
-                                "flex h-6 w-full items-center justify-center rounded text-[10px] font-medium transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                "flex h-6 w-full items-center justify-center rounded text-[11px] font-medium transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                                 count > 0 ? heatTextClass(t) : "bg-foreground/[0.04] text-transparent",
                                 dimmed && "opacity-30"
                               )}

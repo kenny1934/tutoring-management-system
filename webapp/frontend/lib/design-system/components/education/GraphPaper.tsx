@@ -169,7 +169,7 @@ export function GraphPaper({
                   x={`${50 + n * 10}%`}
                   y="52%"
                   textAnchor="middle"
-                  className="fill-current text-[10px]"
+                  className="fill-current text-[11px]"
                 >
                   {n}
                 </text>
@@ -182,7 +182,7 @@ export function GraphPaper({
                   x="52%"
                   y={`${50 - n * 10}%`}
                   textAnchor="start"
-                  className="fill-current text-[10px]"
+                  className="fill-current text-[11px]"
                 >
                   {n}
                 </text>

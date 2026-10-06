@@ -168,7 +168,7 @@ function StudentSuggestionRow({
         />
         {reason && (
           <span
-            className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+            className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
             title="Why this student was suggested"
           >
             {reason}
@@ -1081,7 +1081,7 @@ export function SummerApplicationDetailModal({
         <div className="space-y-3 md:order-2 md:border md:border-gray-200 md:dark:border-gray-700 md:bg-gray-100/60 md:dark:bg-gray-800/50 md:rounded-xl md:p-4">
           {nextStatuses && canEdit && (
             <div>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Move to</span>
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Move to</span>
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
                 {nextStatuses.map((s) => {
                   const colors = STATUS_COLORS[s];
@@ -1105,7 +1105,7 @@ export function SummerApplicationDetailModal({
                 })}
                 <button
                   onClick={() => setShowAllStatuses((v) => !v)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
                 >
                   {showAllStatuses ? "Less" : "All statuses\u2026"}
                 </button>
@@ -1154,11 +1154,11 @@ export function SummerApplicationDetailModal({
               onToggle={() => setOpenStepIdx((i) => (i === 0 ? null : 0))}
               disabled={!canEdit}
               summary={langStream ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
                   {langStream}
                 </span>
               ) : (
-                <span className="text-[10px] italic">Not set</span>
+                <span className="text-[11px] italic">Not set</span>
               )}
             >
               {(() => {
@@ -1171,7 +1171,7 @@ export function SummerApplicationDetailModal({
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
                       {langStream}
                     </span>
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                       <Check className="h-3 w-3" /> from student record
                     </span>
                   </div>
@@ -1203,7 +1203,7 @@ export function SummerApplicationDetailModal({
                     {studentLang && langStream && studentLang !== langStream && (
                       <button
                         onClick={() => setLangStream(studentLang)}
-                        className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline ml-1"
+                        className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline ml-1"
                       >
                         Student is {studentLang}
                       </button>
@@ -1211,7 +1211,7 @@ export function SummerApplicationDetailModal({
                     {studentLang && !langStream && (
                       <button
                         onClick={() => setLangStream(studentLang)}
-                        className="text-[10px] text-accent-ink hover:underline ml-1"
+                        className="text-[11px] text-accent-ink hover:underline ml-1"
                       >
                         Use student&apos;s: {studentLang}
                       </button>
@@ -1246,7 +1246,7 @@ export function SummerApplicationDetailModal({
               ) : studentId ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <span className="text-[10px] italic">Not linked</span>
+                <span className="text-[11px] italic">Not linked</span>
               )}
             >
               {studentId && linkedStudent ? (
@@ -1276,7 +1276,7 @@ export function SummerApplicationDetailModal({
                       )}
                     </div>
                     {linkedStudent.home_location && systemLocation && linkedStudent.home_location !== systemLocation && (
-                      <div className="mt-1 ml-6 text-[10px] text-amber-700 dark:text-amber-400">
+                      <div className="mt-1 ml-6 text-[11px] text-amber-700 dark:text-amber-400">
                         ⚠ Student&apos;s home location ({linkedStudent.home_location}) differs from preferred ({systemLocation})
                       </div>
                     )}
@@ -1309,11 +1309,11 @@ export function SummerApplicationDetailModal({
                   {autoSuggestions.length > 0 && (
                     <div>
                       <div className="flex items-center gap-1.5 mb-1 px-0.5">
-                        <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                        <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
                           Suggested matches
                         </span>
-                        <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
+                        <span className="text-[11px] text-muted-foreground">({autoSuggestions.length})</span>
+                        <span className="ml-auto text-[11px] text-muted-foreground italic">Click a row to link</span>
                       </div>
                       <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
                         {autoSuggestions.map(({ student, reason }) => (
@@ -1330,7 +1330,7 @@ export function SummerApplicationDetailModal({
 
                   <div>
                     {autoSuggestions.length > 0 && (
-                      <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
+                      <div className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
                         Or search manually
                       </div>
                     )}
@@ -1391,7 +1391,7 @@ export function SummerApplicationDetailModal({
                         </button>
                         <button
                           onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
-                          className="text-[10px] text-muted-foreground hover:text-foreground"
+                          className="text-[11px] text-muted-foreground hover:text-foreground"
                         >
                           cancel
                         </button>
@@ -1439,9 +1439,9 @@ export function SummerApplicationDetailModal({
               onToggle={() => setOpenStepIdx((i) => (i === 2 ? null : 2))}
               disabled={!canEdit}
               summary={FEE_SENT_OR_LATER.has(status) ? (
-                <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">{status}</span>
+                <span className="text-[11px] text-green-700 dark:text-green-300 font-medium">{status}</span>
               ) : (
-                <span className="text-[10px] italic">Not sent</span>
+                <span className="text-[11px] italic">Not sent</span>
               )}
             >
               <div className="space-y-2">
@@ -1514,16 +1514,16 @@ export function SummerApplicationDetailModal({
               open={openStepIdx === 3}
               onToggle={() => setOpenStepIdx((i) => (i === 3 ? null : 3))}
               summary={app.published_enrollment_id ? (
-                <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
+                <span className="text-[11px] text-green-700 dark:text-green-300 font-medium">
                   Enrollment #{app.published_enrollment_id}
                 </span>
               ) : publishBlocker ? (
-                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <AlertTriangle className="h-3 w-3" />
                   Blocked
                 </span>
               ) : (
-                <span className="text-[10px] text-accent-ink font-medium">Ready</span>
+                <span className="text-[11px] text-accent-ink font-medium">Ready</span>
               )}
             >
               {app.published_enrollment_id ? (
@@ -1593,7 +1593,7 @@ export function SummerApplicationDetailModal({
 
           {!readOnly && (
             <div>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -1612,7 +1612,7 @@ export function SummerApplicationDetailModal({
         <div className={cn("space-y-4", !readOnly && "md:order-1")}>
           {!readOnly && (
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1651,7 +1651,7 @@ export function SummerApplicationDetailModal({
                           {parseHKTimestamp(e.edited_at).toLocaleString()}
                         </span>
                         <span className={cn(
-                          "px-1 rounded text-[9px] font-medium uppercase",
+                          "px-1 rounded text-[11px] font-medium uppercase",
                           e.edited_via === "admin"
                             ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
                             : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
@@ -1677,19 +1677,19 @@ export function SummerApplicationDetailModal({
             <div className="space-y-3 rounded-lg border border-dashed border-primary/40 p-3 bg-primary/5">
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
-                  <label className="block text-[10px] text-muted-foreground mb-0.5">Student name</label>
+                  <label className="block text-[11px] text-muted-foreground mb-0.5">Student name</label>
                   <input type="text" value={dStudentName} onChange={(e) => setDStudentName(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-0.5">Grade</label>
+                  <label className="block text-[11px] text-muted-foreground mb-0.5">Grade</label>
                   <input type="text" value={dGrade} onChange={(e) => setDGrade(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-0.5">School</label>
+                  <label className="block text-[11px] text-muted-foreground mb-0.5">School</label>
                   <input type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} className={inputClass} />
                 </div>
                 <div className="col-span-2">
-                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
+                  <label className="flex items-center gap-1 text-[11px] text-muted-foreground mb-0.5">
                     <WeChatIcon className="h-3 w-3 text-green-700" />
                     WeChat ID
                   </label>
@@ -1742,14 +1742,14 @@ export function SummerApplicationDetailModal({
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {app.grade && (
                   <span
-                    className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
+                    className="text-[11px] px-1.5 py-0.5 rounded text-gray-800"
                     style={{ backgroundColor: getGradeColor(app.grade, app.lang_stream || undefined) }}
                   >
                     {app.grade}{app.lang_stream || ""}
                   </span>
                 )}
                 {app.school && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
                     {app.school}
                   </span>
                 )}
@@ -1757,7 +1757,7 @@ export function SummerApplicationDetailModal({
                     not resolve, staff can teach the system below. */}
                 {app.school_canonical && (
                   <span
-                    className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
+                    className="text-[11px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
                     title={`"${app.school}" is recognised as this school code`}
                   >
                     {app.school_canonical}
@@ -1776,7 +1776,7 @@ export function SummerApplicationDetailModal({
                   if (originalLabel === verified) return null;
                   return (
                     <span
-                      className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded line-through opacity-60"
+                      className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded line-through opacity-60"
                       title={`Original claim: ${originalLabel} (overridden by verification)`}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -1786,7 +1786,7 @@ export function SummerApplicationDetailModal({
                 })()}
                 {!canEdit ? (
                   <span className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded shrink-0",
+                    "text-[11px] px-1.5 py-0.5 rounded shrink-0",
                     app.verified_branch_origin
                       ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-semibold"
                       : "bg-gray-100 dark:bg-gray-800 text-muted-foreground italic"
@@ -1800,7 +1800,7 @@ export function SummerApplicationDetailModal({
                     title={app.is_existing_student && app.is_existing_student !== "None"
                       ? `Applicant claims: ${app.is_existing_student}`
                       : "Verified branch origin"}
-                    className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-field bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
+                    className="text-[11px] pl-1.5 pr-5 py-0.5 rounded border border-field bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
                   >
                     <option value="">Unverified</option>
                     <option value="New">New</option>
@@ -1872,7 +1872,7 @@ export function SummerApplicationDetailModal({
                   <>
                     {classifiedPrefs.primary.length > 0 && (
                       <div className="mt-1">
-                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Primary pair</div>
+                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Primary pair</div>
                         {classifiedPrefs.primary.map((s, i) => (
                           <div key={`p-${i}`} className="text-sm font-medium text-foreground">{s.day} {s.time}</div>
                         ))}
@@ -1880,7 +1880,7 @@ export function SummerApplicationDetailModal({
                     )}
                     {classifiedPrefs.backup.length > 0 && (
                       <div className="mt-1">
-                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Backup pair</div>
+                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Backup pair</div>
                         {classifiedPrefs.backup.map((s, i) => (
                           <div key={`b-${i}`} className="text-sm font-medium text-foreground">{s.day} {s.time}</div>
                         ))}
@@ -1891,13 +1891,13 @@ export function SummerApplicationDetailModal({
                   <>
                     {pref1 && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-muted-foreground w-6 shrink-0">1st</span>
+                        <span className="text-[11px] text-muted-foreground w-6 shrink-0">1st</span>
                         <span className="text-sm font-medium text-foreground">{pref1}</span>
                       </div>
                     )}
                     {pref2 && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-muted-foreground w-6 shrink-0">2nd</span>
+                        <span className="text-[11px] text-muted-foreground w-6 shrink-0">2nd</span>
                         <span className="text-sm font-medium text-foreground">{pref2}</span>
                       </div>
                     )}
@@ -2017,7 +2017,7 @@ export function SummerApplicationDetailModal({
                     </span>
                     {isPartialPlan && (
                       <span
-                        className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5"
                         title="Flat per-lesson rate, no discounts apply."
                       >
                         Partial
@@ -2044,7 +2044,7 @@ export function SummerApplicationDetailModal({
                       }[planState];
                       return (
                         <span
-                          className={cn("inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 border", PLAN_BADGE.classes)}
+                          className={cn("inline-flex items-center gap-1 text-[11px] font-medium rounded px-1.5 py-0.5 border", PLAN_BADGE.classes)}
                           title={PLAN_BADGE.title}
                         >
                           {PLAN_BADGE.label}
@@ -2228,7 +2228,7 @@ export function SummerApplicationDetailModal({
                           )}
                         >
                           <span className={cn(
-                            "text-[10px] font-semibold tabular-nums px-1.5 rounded shrink-0 w-7 text-center",
+                            "text-[11px] font-semibold tabular-nums px-1.5 rounded shrink-0 w-7 text-center",
                             strikethrough
                               ? cn(strikeBadgeBg, strikeText, "line-through")
                               : "bg-primary/10 text-primary",
@@ -2252,7 +2252,7 @@ export function SummerApplicationDetailModal({
                             {day} {startTime}
                           </span>
                           {(p.grade || p.course_type) && (
-                            <span className="inline-flex items-center text-[10px] font-semibold rounded shrink-0 overflow-hidden">
+                            <span className="inline-flex items-center text-[11px] font-semibold rounded shrink-0 overflow-hidden">
                               {p.grade && (
                                 <span className={cn(
                                   "px-1",
@@ -2377,7 +2377,7 @@ export function SummerApplicationDetailModal({
                   </button>
                   {pendingSiblingCount > 0 && (
                     <span
-                      className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 ring-1 ring-amber-300/60"
+                      className="text-[11px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 ring-1 ring-amber-300/60"
                       title="Sibling claims awaiting verification"
                     >
                       {pendingSiblingCount} pending
@@ -2390,7 +2390,7 @@ export function SummerApplicationDetailModal({
                         setBuddyEditCode("");
                         setBuddyEditValid(null);
                       }}
-                      className="text-[10px] text-accent-ink hover:text-accent-ink-hover underline"
+                      className="text-[11px] text-accent-ink hover:text-accent-ink-hover underline"
                     >
                       Change
                     </button>
@@ -2415,7 +2415,7 @@ export function SummerApplicationDetailModal({
                   <>
                 {buddyEditing ? (
                   <div className="mt-1 space-y-2">
-                    <div className="flex gap-1 text-[10px]">
+                    <div className="flex gap-1 text-[11px]">
                       <button
                         onClick={() => setBuddyEditMode("search")}
                         className={cn(
@@ -2470,21 +2470,21 @@ export function SummerApplicationDetailModal({
                               }
                             }}
                             disabled={buddyEditLoading}
-                            className="text-[10px] px-2 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                            className="text-[11px] px-2 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
                           >
                             {buddyEditLoading ? "..." : "Verify"}
                           </button>
                         </div>
                         {buddyEditValid === true && !buddyEditGroupFull && (
-                          <div className="text-[10px] text-green-700">Valid code</div>
+                          <div className="text-[11px] text-green-700">Valid code</div>
                         )}
                         {buddyEditValid === true && buddyEditGroupFull && (
-                          <div className="text-[10px] text-amber-700">
+                          <div className="text-[11px] text-amber-700">
                             ⚠ Group already has {buddyEditMaxMembers} members — admin override will add a {buddyEditMaxMembers + 1}th (public cap bypassed).
                           </div>
                         )}
                         {buddyEditValid === false && (
-                          <div className="text-[10px] text-red-600">Invalid code</div>
+                          <div className="text-[11px] text-red-600">Invalid code</div>
                         )}
                         {buddyEditValid && (
                           <button
@@ -2495,7 +2495,7 @@ export function SummerApplicationDetailModal({
                                 targetLabel: `code ${buddyEditCode.trim()}`,
                               })
                             }
-                            className="text-[10px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover"
+                            className="text-[11px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover"
                           >
                             Join this group
                           </button>
@@ -2511,10 +2511,10 @@ export function SummerApplicationDetailModal({
                           placeholder="Search by name, ref code, or phone..."
                         />
                         {buddySearchLoading && (
-                          <div className="text-[10px] text-muted-foreground">Searching...</div>
+                          <div className="text-[11px] text-muted-foreground">Searching...</div>
                         )}
                         {!buddySearchLoading && debouncedBuddySearch && buddySearchResults.length === 0 && (
-                          <div className="text-[10px] text-muted-foreground">No matches</div>
+                          <div className="text-[11px] text-muted-foreground">No matches</div>
                         )}
                         {buddySearchResults.length > 0 && (
                           <div className="max-h-40 overflow-y-auto border border-border rounded-lg divide-y divide-border">
@@ -2565,7 +2565,7 @@ export function SummerApplicationDetailModal({
                                     </span>
                                   )}
                                   {sameGroup && (
-                                    <span className="text-[9px] text-muted-foreground shrink-0">
+                                    <span className="text-[11px] text-muted-foreground shrink-0">
                                       same group
                                     </span>
                                   )}
@@ -2580,21 +2580,21 @@ export function SummerApplicationDetailModal({
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border">
                       <button
                         onClick={() => setBuddyPendingAction({ type: "create" })}
-                        className="text-[10px] px-2 py-1 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/10"
+                        className="text-[11px] px-2 py-1 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/10"
                       >
                         Create new group
                       </button>
                       {app.buddy_group_id && (
                         <button
                           onClick={() => setBuddyPendingAction({ type: "remove" })}
-                          className="text-[10px] px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          className="text-[11px] px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
                           Remove from group
                         </button>
                       )}
                       <button
                         onClick={() => setBuddyEditing(false)}
-                        className="text-[10px] px-2 py-1 text-muted-foreground hover:text-foreground underline ml-auto"
+                        className="text-[11px] px-2 py-1 text-muted-foreground hover:text-foreground underline ml-auto"
                       >
                         Close
                       </button>
@@ -2612,7 +2612,7 @@ export function SummerApplicationDetailModal({
                 )}
                 {buddyMembers.length > 0 ? (
                   <div className="mt-1 space-y-0.5">
-                    <span className="text-[10px] text-muted-foreground">Members:</span>
+                    <span className="text-[11px] text-muted-foreground">Members:</span>
                     {buddyMembers.map((b, i) => {
                       const isExited = EXIT_STATUSES.has(b.application_status);
                       const prevExited = i > 0 && EXIT_STATUSES.has(buddyMembers[i - 1].application_status);
@@ -2630,15 +2630,15 @@ export function SummerApplicationDetailModal({
                               {b.student_name}
                             </span>
                             {b.reference_code && (
-                              <span className="text-[10px] font-mono text-muted-foreground">{b.reference_code}</span>
+                              <span className="text-[11px] font-mono text-muted-foreground">{b.reference_code}</span>
                             )}
                             {b.school && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
                                 {b.school}
                               </span>
                             )}
                             {b.grade && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
                                 {b.grade}
                               </span>
                             )}
@@ -2663,7 +2663,7 @@ export function SummerApplicationDetailModal({
                     <div className="flex items-center gap-2">
                       <span
                         className={cn(
-                          "text-[10px] uppercase tracking-wide",
+                          "text-[11px] uppercase tracking-wide",
                           pendingSiblingCount > 0
                             ? "text-amber-700 dark:text-amber-300 font-semibold"
                             : "text-muted-foreground"
@@ -2696,7 +2696,7 @@ export function SummerApplicationDetailModal({
                             <span className="text-sm font-medium text-foreground">{sib.name_en}</span>
                             <span
                               className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                                "text-[11px] px-1.5 py-0.5 rounded font-medium",
                                 branchInfo?.badge ?? "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
                               )}
                               title={branchTitle}
@@ -2705,7 +2705,7 @@ export function SummerApplicationDetailModal({
                             </span>
                             <span
                               className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                                "text-[11px] px-1.5 py-0.5 rounded font-medium",
                                 isConfirmed
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
                                   : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
@@ -2714,7 +2714,7 @@ export function SummerApplicationDetailModal({
                               {sib.verification_status}
                             </span>
                             {declaredByOther && sib.declared_by_name && (
-                              <span className="text-[10px] text-muted-foreground">
+                              <span className="text-[11px] text-muted-foreground">
                                 declared by {sib.declared_by_name}
                               </span>
                             )}
@@ -2741,7 +2741,7 @@ export function SummerApplicationDetailModal({
                               ) : (
                                 <button
                                   onClick={() => verifySibling(sib.id, "Pending")}
-                                  className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                                  className="text-[11px] text-muted-foreground hover:text-foreground underline"
                                 >
                                   Undo
                                 </button>

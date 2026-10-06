@@ -1023,7 +1023,7 @@ export function ExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-between items-center gap-3">
-          <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 hidden sm:inline">
+          <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400 hidden sm:inline">
             Alt+N add · Alt+⌫ del · Ctrl+↵ save · Ctrl+C/V copy
           </span>
           <div className="flex gap-3">
@@ -1051,10 +1051,10 @@ export function ExerciseModal({
             {session.student_name}
           </Link>
           {session.grade && (
-            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+            <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               {session.school}
             </span>
           )}
@@ -1085,7 +1085,7 @@ export function ExerciseModal({
               <History className="h-3.5 w-3.5 text-purple-600" />
               <span className="text-xs text-gray-600 dark:text-gray-300">Recap</span>
               {(prevClasswork.length > 0 || uncheckedHwCount > 0) && (
-                <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full">
+                <span className="text-[11px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full">
                   {prevClasswork.length > 0 && `${prevClasswork.length} CW`}
                   {prevClasswork.length > 0 && uncheckedHwCount > 0 && ' · '}
                   {uncheckedHwCount > 0 && `${uncheckedHwCount} HW`}
@@ -1096,7 +1096,7 @@ export function ExerciseModal({
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); setHistoryPanelOpen(true); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setHistoryPanelOpen(true); } }}
-                className="text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 underline ml-1 cursor-pointer"
+                className="text-[11px] text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 underline ml-1 cursor-pointer"
               >
                 View All
               </span>
@@ -1146,7 +1146,7 @@ export function ExerciseModal({
                     {/* Previous CW */}
                     {prevClasswork.length > 0 && (
                       <div className="mt-1 space-y-0.5">
-                        <span className="text-gray-500 text-[10px]">Classwork:</span>
+                        <span className="text-gray-500 text-[11px]">Classwork:</span>
                         {prevClasswork.map((ex, i) => (
                           <RecapExerciseItem key={i} pdfName={ex.pdf_name || ''} url={ex.url} urlTitle={ex.url_title} pageStart={ex.page_start} pageEnd={ex.page_end} stamp={recapStamp} />
                         ))}
@@ -1157,7 +1157,7 @@ export function ExerciseModal({
                 {/* Homework to check, markable in place */}
                 {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
                   <div className="text-xs">
-                    <span className="text-gray-500 text-[10px]">HW to check:</span>
+                    <span className="text-gray-500 text-[11px]">HW to check:</span>
                     <HomeworkCheckList
                       items={detailedSession.homework_completion}
                       sessionId={session.id}
@@ -1494,7 +1494,7 @@ export function ExerciseModal({
                           value={exercise.url_title}
                           onChange={(e) => { updateExercise(index, "url_title", e.target.value); setIsDirty(true); }}
                           placeholder="Title (auto-fetched or type manually)"
-                          className="text-[10px] text-blue-600 dark:text-blue-400 pl-7 mt-0.5 w-full bg-transparent border-none outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                          className="text-[11px] text-blue-600 dark:text-blue-400 pl-7 mt-0.5 w-full bg-transparent border-none outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         />
                       )}
                     </div>
@@ -1549,7 +1549,7 @@ export function ExerciseModal({
                   {duplicateDetailOpen[exercise.clientId] && duplicateMap[index]?.length > 0 && (
                     <div className="flex gap-2 items-start">
                       <div className="w-5 md:w-10 shrink-0" />
-                      <div className="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-0.5 flex-1">
+                      <div className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-0.5 flex-1">
                         ⚠ Previously assigned:{' '}
                         {duplicateMap[index].map((m, i) => {
                           const date = new Date(m.sessionDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

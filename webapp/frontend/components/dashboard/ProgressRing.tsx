@@ -87,7 +87,7 @@ export function ProgressRing({
         <span
           className={cn(
             "font-medium text-gray-500 dark:text-gray-400 leading-none mt-px",
-            isCompact ? "text-[7px]" : "text-[8px]"
+            isCompact ? "text-[11px]" : "text-[11px]"
           )}
         >
           /{total}
@@ -118,7 +118,7 @@ export function CompactProgressRing({
         <div className="font-semibold text-gray-900 dark:text-gray-100">
           {progress}%
         </div>
-        <div className="text-gray-500 dark:text-gray-400 text-[10px] -mt-0.5">
+        <div className="text-gray-500 dark:text-gray-400 text-[11px] -mt-0.5">
           {label}
         </div>
       </div>

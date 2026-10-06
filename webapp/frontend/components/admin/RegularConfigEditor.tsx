@@ -784,7 +784,7 @@ export function RegularConfigEditor({
 
       {/* Section: Pricing → Step 1 fee cell + Step 4 fee line */}
       <Section title="Pricing" subtitle="Step 1" status={{ filled: assembledPricing !== null }} forceOpen={errorSections.has("pricing")} onOpen={() => setPreviewStep(1)}>
-        <p className="text-[10px] text-muted-foreground mb-2">Shown as the fee cell on Step 1 and the fee line in the Step 4 summary. Leave all fields blank to hide both.</p>
+        <p className="text-[11px] text-muted-foreground mb-2">Shown as the fee cell on Step 1 and the fee line in the Step 4 summary. Leave all fields blank to hide both.</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="pricingBaseFee">Base fee ($)</Label>
@@ -835,7 +835,7 @@ export function RegularConfigEditor({
               />
               <span className="text-xs text-foreground">Collect it this intake</span>
             </label>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-[11px] text-muted-foreground mt-1">
               A one-off fee for new students. Untick to collect it from nobody this
               intake, whatever their history. The amount above is still the standard
               fee, so a seasonal offer can quote it as something it waived.
@@ -853,16 +853,16 @@ export function RegularConfigEditor({
               <span className="text-xs font-semibold text-amber-900 dark:text-amber-300">
                 {promo.name_en}
               </span>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">
+              <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">
                 {promo.code}
               </span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 ${promo.tuition_amount} off tuition
                 {promo.waives_registration_fee ? " · materials fee waived" : ""}
                 {" · "}advertised as ${promo.total_value}
               </span>
               <span
-                className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                className={`ml-auto text-[11px] px-1.5 py-0.5 rounded font-medium ${
                   isPromoActive(promo, hkTodayIso())
                     ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                     : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"
@@ -882,7 +882,7 @@ export function RegularConfigEditor({
                   className={inputClass}
                   disabled={isReadOnly}
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1">
                   The form hides the offer entirely until this date, even when applications are open.
                 </p>
               </div>
@@ -896,7 +896,7 @@ export function RegularConfigEditor({
                   className={inputClass}
                   disabled={isReadOnly}
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1">
                   Leave blank to run until the intake closes.
                 </p>
               </div>
@@ -914,7 +914,7 @@ export function RegularConfigEditor({
           <div className="grid grid-cols-[auto_1fr_1fr_100px_auto_auto] gap-2 items-end">
             <DragHandle controls={dragControls} />
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (ZH)</span>}
               <input
                 value={g.name}
                 onChange={(e) => {
@@ -927,7 +927,7 @@ export function RegularConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (EN)</span>}
               <input
                 value={g.name_en}
                 onChange={(e) => {
@@ -940,7 +940,7 @@ export function RegularConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Value</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Value</span>}
               <input
                 value={g.value || ""}
                 onChange={(e) => {
@@ -953,7 +953,7 @@ export function RegularConfigEditor({
               />
             </div>
             <div title="Hide from the public application form; admins can still pick it">
-              {i === 0 && <span className="text-[10px] text-muted-foreground whitespace-nowrap">Admin only</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground whitespace-nowrap">Admin only</span>}
               <div className="flex items-center justify-center h-9">
                 <input
                   type="checkbox"
@@ -999,7 +999,7 @@ export function RegularConfigEditor({
       {/* Section 4: Language Stream Options → Step 1 */}
       <Section title="Language Stream Options" subtitle="Step 1" status={{ filled: langStreamOptions.length > 0, count: langStreamOptions.length > 0 ? `${langStreamOptions.length}` : undefined }} onOpen={() => setPreviewStep(1)}>
         <Label>Language of Instruction</Label>
-        <p className="text-[10px] text-muted-foreground mb-2">Options shown on the public form. Leave empty to hide the question.</p>
+        <p className="text-[11px] text-muted-foreground mb-2">Options shown on the public form. Leave empty to hide the question.</p>
         <Reorder.Group axis="y" values={langStreamOptions.map(o => o._id)} onReorder={(newOrder) => setLangStreamOptions(reorderByIds(langStreamOptions, newOrder))} className="space-y-0">
         {langStreamOptions.map((o, i) => (
           <ReorderableItem key={o._id} value={o._id} disabled={isReadOnly}>
@@ -1007,7 +1007,7 @@ export function RegularConfigEditor({
           <div className="grid grid-cols-[auto_1fr_1fr_100px_auto] gap-2 items-end">
             <DragHandle controls={dragControls} />
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (ZH)</span>}
               <input
                 value={o.name}
                 onChange={(e) => {
@@ -1020,7 +1020,7 @@ export function RegularConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (EN)</span>}
               <input
                 value={o.name_en}
                 onChange={(e) => {
@@ -1033,7 +1033,7 @@ export function RegularConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Value</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Value</span>}
               <input
                 value={o.value || ""}
                 onChange={(e) => {
@@ -1075,7 +1075,7 @@ export function RegularConfigEditor({
       {/* Section 5: Student Options → Step 2 */}
       <Section title="Student Options" subtitle="Step 2" status={{ filled: existingStudentOptions.length > 0 || centerOptions.length > 0, count: (existingStudentOptions.length + centerOptions.length) > 0 ? `${existingStudentOptions.length + centerOptions.length}` : undefined }} onOpen={() => setPreviewStep(2)}>
         <Label>Existing Student Options & Centers</Label>
-        <p className="text-[10px] text-muted-foreground mb-2">Each student type shows its associated centers below. Centers are matched by name prefix.</p>
+        <p className="text-[11px] text-muted-foreground mb-2">Each student type shows its associated centers below. Centers are matched by name prefix.</p>
         <Reorder.Group axis="y" values={existingStudentOptions.map(o => o._id)} onReorder={(newOrder) => {
           setExistingStudentOptions(reorderByIds(existingStudentOptions, newOrder));
         }} className="space-y-2">
@@ -1090,7 +1090,7 @@ export function RegularConfigEditor({
                 <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 px-3 py-2 items-center bg-gray-50 dark:bg-gray-800/50">
                   <DragHandle controls={dragControls} />
                   <div>
-                    {oi === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+                    {oi === 0 && <span className="text-[11px] text-muted-foreground">Name (ZH)</span>}
                     <input
                       value={opt.name}
                       onChange={(e) => {
@@ -1103,7 +1103,7 @@ export function RegularConfigEditor({
                     />
                   </div>
                   <div>
-                    {oi === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+                    {oi === 0 && <span className="text-[11px] text-muted-foreground">Name (EN)</span>}
                     <input
                       value={opt.name_en}
                       onChange={(e) => {
@@ -1128,19 +1128,19 @@ export function RegularConfigEditor({
                 {/* Nested centers */}
                 {isNone ? (
                   <div className="ml-4 border-l-2 border-primary/20 px-3 py-2">
-                    <span className="text-[10px] text-muted-foreground italic">No centers (students not enrolled)</span>
+                    <span className="text-[11px] text-muted-foreground italic">No centers (students not enrolled)</span>
                   </div>
                 ) : (
                   <>
                     <button type="button" onClick={() => toggleStudentOption(opt._id)} className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                       <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${optExpanded ? "rotate-180" : ""}`} />
-                      <span className="text-[10px] text-muted-foreground font-medium">Centers</span>
-                      <span className="text-[10px] text-muted-foreground">({optionCenters.length})</span>
+                      <span className="text-[11px] text-muted-foreground font-medium">Centers</span>
+                      <span className="text-[11px] text-muted-foreground">({optionCenters.length})</span>
                     </button>
                     {optExpanded && (
                     <div className="ml-4 border-l-2 border-primary/20 px-3 py-2">
                       {optionCenters.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground italic">No centers yet</p>
+                        <p className="text-[11px] text-muted-foreground italic">No centers yet</p>
                       ) : (
                         <Reorder.Group axis="y" values={optionCenters.map(c => c._id)} onReorder={(newKeys) => {
                           const reordered = reorderByIds(optionCenters, newKeys);
@@ -1253,7 +1253,7 @@ export function RegularConfigEditor({
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${locExpanded ? "rotate-180" : ""}`} />
                 <span className="text-xs font-medium text-foreground truncate">{locDisplayName}</span>
                 {!locExpanded && loc.open_days.length > 0 && (
-                  <span className="text-[10px] text-muted-foreground">{loc.open_days.length} days</span>
+                  <span className="text-[11px] text-muted-foreground">{loc.open_days.length} days</span>
                 )}
               </button>
               {!isReadOnly && (
@@ -1397,7 +1397,7 @@ export function RegularConfigEditor({
                         next[i] = { ...loc, time_slots: newTimeSlots };
                         setLocations(next);
                       }}
-                      className="text-[10px] text-accent-ink hover:text-accent-ink-hover font-medium"
+                      className="text-[11px] text-accent-ink hover:text-accent-ink-hover font-medium"
                     >
                       Copy first day to all
                     </button>
@@ -1583,7 +1583,7 @@ export function RegularConfigEditor({
                 className="text-xs font-semibold text-accent-ink/80 hover:text-accent-ink uppercase tracking-wider mb-3 flex items-center gap-1.5"
               >
                 {group}
-                <span className="text-[10px] font-normal normal-case text-muted-foreground">
+                <span className="text-[11px] font-normal normal-case text-muted-foreground">
                   (click to preview)
                 </span>
               </button>
@@ -1592,7 +1592,7 @@ export function RegularConfigEditor({
                   <div key={key} className="space-y-1.5">
                     <div>
                       <span className="text-xs font-medium text-foreground">{label}</span>
-                      <span className="text-[10px] text-muted-foreground ml-2">{help}</span>
+                      <span className="text-[11px] text-muted-foreground ml-2">{help}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -1626,7 +1626,7 @@ export function RegularConfigEditor({
                   <div className="space-y-1.5">
                     <div>
                       <span className="text-xs font-medium text-foreground">Contact By Date</span>
-                      <span className="text-[10px] text-muted-foreground ml-2">Families are contacted on or before this date. Shown in the disclaimer while the date is upcoming.</span>
+                      <span className="text-[11px] text-muted-foreground ml-2">Families are contacted on or before this date. Shown in the disclaimer while the date is upcoming.</span>
                     </div>
                     <div className="max-w-xs">
                       <input

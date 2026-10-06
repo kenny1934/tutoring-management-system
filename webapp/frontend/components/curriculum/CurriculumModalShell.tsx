@@ -122,7 +122,7 @@ export function CurriculumModalShell({
         </div>
 
         {subtitle && (
-          <p className="px-4 py-1.5 text-[10px] text-gray-500 dark:text-gray-400 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+          <p className="px-4 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
             {subtitle}
           </p>
         )}
@@ -162,7 +162,7 @@ export function CurriculumShowMoreFiles({
   const moreAvailable = shown < Math.min(total, SERVER_FILE_CAP);
   if (!moreAvailable && !expanded) return null;
   return (
-    <div className="mt-1.5 flex items-center gap-3 text-[10px]">
+    <div className="mt-1.5 flex items-center gap-3 text-[11px]">
       {moreAvailable && (
         <button
           type="button"

@@ -355,7 +355,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
 
         {/* Make-up tag replaces grade/course-type chips (neither applies). */}
         {isAdhoc ? (
-          <span className="text-[9px] font-bold px-1 rounded bg-amber-200/60 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200">
+          <span className="text-[11px] font-bold px-1 rounded bg-amber-200/60 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200">
             Make-up
           </span>
         ) : (
@@ -363,7 +363,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
             {lesson.grade && (
               <span
                 className={cn(
-                  "text-[9px] font-bold px-1 rounded",
+                  "text-[11px] font-bold px-1 rounded",
                   SUMMER_GRADE_BG[lesson.grade] || "bg-[#e8d4b8]/30 dark:bg-gray-700"
                 )}
               >
@@ -373,7 +373,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
 
             {lesson.course_type && (
               <span className={cn(
-                "text-[9px] font-bold px-0.5 rounded",
+                "text-[11px] font-bold px-0.5 rounded",
                 COURSE_TYPE_COLORS[lesson.course_type] || "text-accent-ink/70"
               )}>
                 {lesson.course_type}
@@ -412,7 +412,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
       </div>
 
       {/* Row 2: Tutor */}
-      <div className="px-1 pb-0.5 text-[9px] text-muted-foreground dark:text-gray-300 text-center truncate">
+      <div className="px-1 pb-0.5 text-[11px] text-muted-foreground dark:text-gray-300 text-center truncate">
         <TutorLink tutorId={lesson.tutor_id} tutorName={lesson.tutor_name} fallback="— tutor —" />
       </div>
 
@@ -426,7 +426,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
               style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
             />
           </div>
-          <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
             {attendingCount}/{lesson.max_students}
           </span>
         </div>
@@ -436,7 +436,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
       {expanded && (
         <div className="px-1.5 pb-1 space-y-0.5">
           {activeSessions.length === 0 && (
-            <div className="text-[9px] text-muted-foreground italic py-1">
+            <div className="text-[11px] text-muted-foreground italic py-1">
               No students assigned.
             </div>
           )}
@@ -538,7 +538,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                       })
                     }
                     className={cn(
-                      "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
+                      "text-[11px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
                       AMBER_BADGE,
                     )}
                     title={`Covering Lesson ${s.lesson_number} (slot default: L${lesson.lesson_number}) — click for session details`}
@@ -548,7 +548,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 ) : (
                   <span
                     className={cn(
-                      "text-[8px] font-bold px-1 rounded shrink-0",
+                      "text-[11px] font-bold px-1 rounded shrink-0",
                       AMBER_BADGE,
                     )}
                     title={`Covering Lesson ${s.lesson_number} (slot default: L${lesson.lesson_number})`}
@@ -560,7 +560,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 <button
                   onClick={handleDivergentClick}
                   className={cn(
-                    "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
+                    "text-[11px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
                     AMBER_BADGE,
                   )}
                   title={
@@ -590,7 +590,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 s.lesson_number != null && (
                   <span
                     className={cn(
-                      "text-[8px] font-bold px-1 rounded shrink-0",
+                      "text-[11px] font-bold px-1 rounded shrink-0",
                       AMBER_BADGE,
                     )}
                     title={`Lesson ${s.lesson_number}`}
@@ -604,7 +604,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                     setEditingSession({ id: s.id, current: s.lesson_number ?? null })
                   }
                   className={cn(
-                    "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
+                    "text-[11px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
                     AMBER_BADGE,
                   )}
                   title={

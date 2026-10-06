@@ -237,7 +237,7 @@ export function BookmarkTab({
                           </div>
 
                           {/* Metadata row */}
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                             {(cw.page_start || cw.page_end) && (
                               <span>
                                 p.{cw.page_start}
@@ -254,7 +254,7 @@ export function BookmarkTab({
 
                           {/* Remarks if any */}
                           {cw.remarks && (
-                            <p className="text-[10px] italic text-foreground/70 mt-1 leading-tight">
+                            <p className="text-[11px] italic text-foreground/70 mt-1 leading-tight">
                               &ldquo;{cw.remarks}&rdquo;
                             </p>
                           )}
@@ -351,7 +351,7 @@ export function BookmarkTab({
         <History className="h-5 w-5 text-white" />
         {openHomeworkCount > 0 && (
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-            <span className="text-[10px] font-bold text-white">{openHomeworkCount}</span>
+            <span className="text-[11px] font-bold text-white">{openHomeworkCount}</span>
           </div>
         )}
       </button>
@@ -410,7 +410,7 @@ export function BookmarkTab({
           {/* Notification badge */}
           {openHomeworkCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-              <span className="text-[10px] font-bold text-white">{openHomeworkCount}</span>
+              <span className="text-[11px] font-bold text-white">{openHomeworkCount}</span>
             </div>
           )}
         </button>

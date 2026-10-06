@@ -287,7 +287,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <Image src="/logo.png" alt="CSM Pro" width={36} height={36} className="h-9 w-auto" priority />
               <div>
                 <span className="font-bold text-xl block">CSM Pro</span>
-                <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resources Orchestration</span>
+                <span className="text-[11px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resources Orchestration</span>
               </div>
             </div>
             <button
@@ -321,7 +321,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               {!isCollapsed && (
                 <div className="text-left">
                   <span className="font-bold text-xl group-hover:text-accent-ink transition-colors block">CSM Pro</span>
-                  <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resource Orchestration</span>
+                  <span className="text-[11px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resource Orchestration</span>
                 </div>
               )}
             </div>
@@ -379,7 +379,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
                   {/* Beta badge for collapsed Documents */}
                   {!showExpanded && item.name === "Documents" && (
-                    <span className="absolute -top-2 -right-3 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
+                    <span className="absolute -top-2 -right-3 text-[11px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
                       Beta
                     </span>
                   )}
@@ -412,7 +412,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     <span className="flex-1">{item.name}</span>
                     {/* Beta badge for Documents */}
                     {item.name === "Documents" && (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                         Beta
                       </span>
                     )}
@@ -484,7 +484,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{item.name}</span>
                         {showOpen && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                             Open
                           </span>
                         )}
@@ -919,7 +919,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
             {/* Version */}
             {process.env.NEXT_PUBLIC_APP_VERSION && process.env.NEXT_PUBLIC_APP_VERSION !== 'dev' && (
-              <p className="text-[10px] text-foreground/30 text-center mt-3 pt-2 border-t border-white/5">
+              <p className="text-[11px] text-foreground/30 text-center mt-3 pt-2 border-t border-white/5">
                 {process.env.NEXT_PUBLIC_APP_VERSION}
               </p>
             )}

@@ -749,7 +749,7 @@ function TutorProfileInner() {
                             {payStatus && (
                               <span
                                 className={cn(
-                                  "flex-shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground/70",
+                                  "flex-shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium text-foreground/70",
                                   payCfg.bgTint
                                 )}
                                 title={`Payment: ${payStatus}`}
@@ -766,7 +766,7 @@ function TutorProfileInner() {
                             <span className="w-9 flex-shrink-0">
                               {e.grade && (
                                 <GradeBadge
-                                  className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
+                                  className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold text-gray-800"
                                   grade={e.grade}
                                   langStream={e.lang_stream}
                                 />
@@ -824,7 +824,7 @@ function TutorProfileInner() {
                           {dayHeaderLabel(g.dateStr)}
                         </span>
                         {g.isToday && (
-                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                             Today
                           </span>
                         )}
@@ -863,13 +863,13 @@ function TutorProfileInner() {
                                   <span className="order-2 w-9 flex-shrink-0">
                                     {s.grade && (
                                       <GradeBadge
-                                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
+                                        className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold text-gray-800"
                                         grade={s.grade}
                                         langStream={s.lang_stream}
                                       />
                                     )}
                                   </span>
-                                  <span className="order-3 w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">
+                                  <span className="order-3 w-7 flex-shrink-0 text-[11px] font-medium text-foreground/40">
                                     {s.lesson_number != null ? `L${s.lesson_number}` : ""}
                                   </span>
                                   {s.school_student_id && (

@@ -792,7 +792,7 @@ export default function RegularArrangementPage() {
                 <div className="flex-1 min-w-0">
                   <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
                     <span>Arrangement</span>
-                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
+                    {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
                   </h1>
                   <p className="hidden sm:block text-xs text-muted-foreground">
                     Create weekly slots and assign applications. Publish once schedules are confirmed.

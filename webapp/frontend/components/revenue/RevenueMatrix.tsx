@@ -217,7 +217,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                   className="flex items-baseline gap-1.5 cursor-pointer select-none rounded hover:bg-[#efe3d3]/60 dark:hover:bg-[#4a3f2c]/60 -mx-1 px-1"
                 >
                   <span>Tutor{sortArrow("tutor")}</span>
-                  <span className="hidden sm:inline text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <span className="hidden sm:inline text-[11px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Session revenue · MOP
                   </span>
                 </div>
@@ -260,7 +260,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                 )}
               >
                 <div>Total{sortArrow("total")}</div>
-                <div className="text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <div className="text-[11px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   click to sort
                 </div>
               </th>

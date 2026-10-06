@@ -40,7 +40,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <Lightbulb className="h-3.5 w-3.5 text-amber-700" />
-        <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
           Daily Puzzle
         </span>
         {userAnswer !== null && (

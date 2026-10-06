@@ -213,7 +213,7 @@ export default function GeometryViewerModal({
             <button
               onClick={handleExportPng}
               title="Export as PNG"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
               <span>PNG</span>
@@ -223,7 +223,7 @@ export default function GeometryViewerModal({
             <button
               onClick={handleCopyImage}
               title="Copy diagram as image"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <Copy className="h-3.5 w-3.5" />
               <span>{copied ? "Copied!" : "Copy Image"}</span>
@@ -232,7 +232,7 @@ export default function GeometryViewerModal({
               <button
                 onClick={handleEditAsNew}
                 title="Edit as new diagram"
-                className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <Pencil className="h-3.5 w-3.5" />
                 <span>Edit as New</span>

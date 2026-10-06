@@ -118,14 +118,14 @@ export function CurriculumTopicFiles({
       key={t.conceptId}
       type="button"
       onClick={() => goTo(t)}
-      className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors max-w-[13rem]"
+      className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors max-w-[13rem]"
       title={t.name}
     >
       <span className="truncate">{t.name}</span>
       {/* Grade badge: a prerequisite chain crosses grades, and without it a
           chip's grade is invisible until after the jump. */}
       {t.grade && (
-        <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+        <span className="text-[11px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
           {t.grade}
         </span>
       )}
@@ -186,16 +186,16 @@ export function CurriculumTopicFiles({
                         setTrail((prev) => prev.slice(0, i));
                         setFileCounts({});
                       }}
-                      className="text-[10px] text-teal-700 dark:text-teal-400 hover:underline truncate max-w-[9rem]"
+                      className="text-[11px] text-teal-700 dark:text-teal-400 hover:underline truncate max-w-[9rem]"
                       title={t.name}
                     >
                       {t.name}
                     </button>
-                    <span className="text-[10px] text-gray-500">›</span>
+                    <span className="text-[11px] text-gray-500">›</span>
                   </span>
                 ))}
                 <span
-                  className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[9rem]"
+                  className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[9rem]"
                   title={current.name}
                 >
                   {current.name}
@@ -206,7 +206,7 @@ export function CurriculumTopicFiles({
               <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
                 {buildsOn.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-gray-500 shrink-0">
+                    <span className="text-[11px] text-gray-500 shrink-0">
                       Builds on
                     </span>
                     {buildsOn.map(chip)}
@@ -214,7 +214,7 @@ export function CurriculumTopicFiles({
                 )}
                 {leadsTo.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-gray-500 shrink-0">
+                    <span className="text-[11px] text-gray-500 shrink-0">
                       Leads to
                     </span>
                     {leadsTo.map(chip)}
@@ -248,7 +248,7 @@ export function CurriculumTopicFiles({
               className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
             >
               {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
                   {evidenceSummary(
                     concept.evidence.weeks_observed,
                     concept.evidence.sources

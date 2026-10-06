@@ -328,7 +328,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
             {label}
             {count > 0 && (
               <span className={cn(
-                "ml-1 text-[10px] tabular-nums",
+                "ml-1 text-[11px] tabular-nums",
                 activeTab === key ? "text-accent-ink" : "text-gray-500"
               )}>
                 {count}
@@ -429,7 +429,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       {file.content_type.split("/").pop()?.toUpperCase()} · {file.sender} · {formatDate(file.date)}
                     </div>
                   </div>
@@ -459,7 +459,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{link.url}</div>
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       {link.domain} · {link.sender} · {formatDate(link.date)}
                     </div>
                   </div>
@@ -482,7 +482,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                 >
                   <AudioPlayer src={item.url} filename={item.filename} duration={item.duration} />
                   <div className="flex items-center justify-between mt-1.5">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       {item.sender} · {formatDate(item.date)}
                     </div>
                     {jumpButton(item.messageId)}
@@ -510,7 +510,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                     dangerouslySetInnerHTML={{ __html: item.rendered }}
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       {item.sender} · {formatDate(item.date)}
                     </div>
                     <div className="flex items-center gap-1">
@@ -544,7 +544,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                     )}
                   </div>
                   <div className="px-2 py-1.5 flex items-center justify-between">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                       {item.sender} · {formatDate(item.date)}
                     </div>
                     {onJumpToMessage && (

@@ -88,7 +88,7 @@ function Chip({
       onClick={onClick}
       title={title}
       className={cn(
-        "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+        "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
         active ? CHIP_ACTIVE : CHIP_INACTIVE,
       )}
     >
@@ -112,7 +112,7 @@ function ToggleChipGroup<V>({
 }) {
   return (
     <div className="inline-flex items-center gap-1">
-      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <span className="text-[11px] text-muted-foreground">{label}</span>
       {options.map((opt) => (
         <Chip
           key={String(opt.value)}
@@ -140,7 +140,7 @@ function SortButton({
     <button
       onClick={onClick}
       className={cn(
-        "px-2 py-0.5 text-[10px] transition-colors",
+        "px-2 py-0.5 text-[11px] transition-colors",
         active
           ? "bg-primary text-primary-foreground"
           : "bg-transparent text-muted-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30",
@@ -372,7 +372,7 @@ export function SummerStudentLessonsTable({
           onClick={() => setRescheduledOnly((v) => !v)}
           aria-pressed={rescheduledOnly}
           className={cn(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+            "inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
             rescheduledOnly
               ? "bg-orange-500 text-white"
               : CHIP_INACTIVE,
@@ -386,7 +386,7 @@ export function SummerStudentLessonsTable({
         {anyLocalFilter && (
           <button
             onClick={clearLocal}
-            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
             title="Clear local filters (status filter from header is not affected)"
           >
             <X className="h-3 w-3" />
@@ -395,7 +395,7 @@ export function SummerStudentLessonsTable({
         )}
 
         <div className="ml-auto inline-flex items-center gap-1.5">
-          <span className="text-[10px] text-muted-foreground">Sort</span>
+          <span className="text-[11px] text-muted-foreground">Sort</span>
           <div className="inline-flex rounded-full overflow-hidden border border-border">
             <SortButton active={sort === "completion"} onClick={() => setSort("completion")}>
               Done
@@ -420,7 +420,7 @@ export function SummerStudentLessonsTable({
             )}
           </button>
 
-          <span className="text-[10px] text-muted-foreground tabular-nums ml-1">
+          <span className="text-[11px] text-muted-foreground tabular-nums ml-1">
             {filtered.length}
             {filtered.length !== students.length && ` / ${students.length}`}
           </span>
@@ -531,11 +531,11 @@ export function SummerStudentLessonsTable({
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900",
                       isHighlighted && "bg-primary/10 dark:bg-primary/10",
                     )}>
-                      <span className={cn("text-[10px] font-bold px-1 rounded", SUMMER_GRADE_BG[student.grade] || "bg-gray-100 dark:bg-gray-700")}>
+                      <span className={cn("text-[11px] font-bold px-1 rounded", SUMMER_GRADE_BG[student.grade] || "bg-gray-100 dark:bg-gray-700")}>
                         {student.grade}{student.lang_stream || ""}
                       </span>
                       {student.sessions_per_week > 1 && (
-                        <span className="text-[8px] font-medium text-orange-700 dark:text-orange-400 ml-0.5">
+                        <span className="text-[11px] font-medium text-orange-700 dark:text-orange-400 ml-0.5">
                           {student.sessions_per_week}x
                         </span>
                       )}
@@ -566,7 +566,7 @@ export function SummerStudentLessonsTable({
                             />
                           )}
                         </div>
-                        <span className="text-[9px] text-muted-foreground w-7 text-right tabular-nums">
+                        <span className="text-[11px] text-muted-foreground w-7 text-right tabular-nums">
                           {student.placed_count}/{target}
                         </span>
                       </div>
@@ -612,14 +612,14 @@ export function SummerStudentLessonsTable({
                                 {isRescheduled && <AlertTriangle className="h-2.5 w-2.5 text-orange-700" />}
                                 {formatCompactDate(lesson.lesson_date)}
                                 {dupes.length > 0 && (
-                                  <span className="ml-0.5 px-1 rounded text-[8px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700 leading-tight">
+                                  <span className="ml-0.5 px-1 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700 leading-tight">
                                     +{dupes.length}
                                   </span>
                                 )}
                               </span>
                               {startTime && (
                                 <span className={cn(
-                                  "text-[9px] leading-none",
+                                  "text-[11px] leading-none",
                                   isRescheduled ? "text-orange-500/70" : "text-muted-foreground",
                                 )}>
                                   {day} {startTime}
@@ -635,13 +635,13 @@ export function SummerStudentLessonsTable({
                           {onFindSlot && !readOnly ? (
                             <button
                               onClick={() => handleFindSlot(student, n)}
-                              className="text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 rounded px-1.5 py-0.5 transition-colors"
+                              className="text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/10 rounded px-1.5 py-0.5 transition-colors"
                               title={`Find slot for L${n}`}
                             >
                               ?
                             </button>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">—</span>
+                            <span className="text-[11px] text-muted-foreground">—</span>
                           )}
                         </td>
                       );

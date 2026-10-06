@@ -23,8 +23,8 @@ import { formatMakeupMessage } from "@/lib/makeup-message";
 
 // Size configurations for buttons
 const sizeClasses = {
-  sm: "px-1 py-0.5 text-[8px]",
-  md: "px-2 py-2 text-xs sm:px-1.5 sm:py-0.5 sm:text-[10px]",
+  sm: "px-1 py-0.5 text-[11px]",
+  md: "px-2 py-2 text-xs sm:px-1.5 sm:py-0.5 sm:text-[11px]",
 } as const;
 
 const iconSizeClasses = {

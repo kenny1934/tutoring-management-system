@@ -53,7 +53,7 @@ function Facet<T extends string | number>({
 
   return (
     <div className="flex items-start gap-2 px-3 py-1.5">
-      <span className="w-12 shrink-0 pt-1 text-[10px] font-bold uppercase tracking-wide text-accent-ink">
+      <span className="w-12 shrink-0 pt-1 text-[11px] font-bold uppercase tracking-wide text-accent-ink">
         {label}
       </span>
       <div className="flex flex-wrap gap-1">
@@ -233,7 +233,7 @@ export function SummerFilterPopover({
                 )}
               </div>
               {isActive && (
-                <p className="mt-1 pb-0.5 text-[10px] leading-snug text-gray-500 dark:text-gray-400">
+                <p className="mt-1 pb-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">
                   Regular sessions are hidden while a summer filter is on.
                 </p>
               )}

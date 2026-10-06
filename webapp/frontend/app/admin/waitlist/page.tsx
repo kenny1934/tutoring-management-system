@@ -550,16 +550,16 @@ export default function AdminWaitlistPage() {
                             >
                               <div className="flex items-center gap-1.5 mb-1">
                                 {e.school_student_id && (
-                                  <span className="text-[10px] text-foreground/40 font-mono">{e.school_student_id}</span>
+                                  <span className="text-[11px] text-foreground/40 font-mono">{e.school_student_id}</span>
                                 )}
                                 <span className="text-sm font-medium text-foreground truncate">{e.student_name}</span>
-                                <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={e.grade} langStream={e.lang_stream} />
-                                {e.school && <span className="text-[10px] text-foreground/40 truncate">{e.school}</span>}
+                                <GradeBadge className="px-1.5 py-0.5 rounded text-[11px] font-medium text-gray-800 flex-shrink-0" grade={e.grade} langStream={e.lang_stream} />
+                                {e.school && <span className="text-[11px] text-foreground/40 truncate">{e.school}</span>}
                               </div>
                               <div className="text-[11px] text-foreground/50 leading-relaxed">
                                 <div className="flex items-center gap-1">
                                   <span className="text-foreground/40">Now:</span>
-                                  <span className={cn("px-1 rounded text-[10px]", BRANCH_COLORS[ctx?.current_location || ""]?.badge || "text-foreground/60")}>
+                                  <span className={cn("px-1 rounded text-[11px]", BRANCH_COLORS[ctx?.current_location || ""]?.badge || "text-foreground/60")}>
                                     {ctx?.current_location}
                                   </span>
                                   {ctx?.current_day} {ctx?.current_time}
@@ -571,7 +571,7 @@ export default function AdminWaitlistPage() {
                                     <div className="flex flex-wrap gap-1">
                                       {e.slot_preferences.map((sp) => (
                                         <span key={sp.id} className="inline-flex items-center gap-0.5">
-                                          <span className={cn("px-1 rounded text-[10px]", BRANCH_COLORS[sp.location]?.badge || "text-foreground/60")}>
+                                          <span className={cn("px-1 rounded text-[11px]", BRANCH_COLORS[sp.location]?.badge || "text-foreground/60")}>
                                             {sp.location}
                                           </span>
                                           {sp.day_of_week && <span>{sp.day_of_week}</span>}
@@ -824,7 +824,7 @@ export default function AdminWaitlistPage() {
                                 <td className="py-1.5 px-3">{row.school}</td>
                                 <td className="py-1.5 px-3">
                                   <span
-                                    className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800"
+                                    className="px-1.5 py-0.5 rounded text-[11px] font-medium text-gray-800"
                                     style={{
                                       backgroundColor: getGradeColor(
                                         row.grade,
@@ -1154,13 +1154,13 @@ function WaitlistRow({
       <td className="py-2.5 px-3">
         <div className="flex items-center gap-2">
           {entry.school_student_id && (
-            <span className="text-[10px] text-foreground/40 font-mono">{entry.school_student_id}</span>
+            <span className="text-[11px] text-foreground/40 font-mono">{entry.school_student_id}</span>
           )}
           <span className="font-medium text-foreground group-hover:underline">
             {entry.student_name}
           </span>
           {entry.entry_type === "Slot Change" && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+            <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
               Slot Change
             </span>
           )}
@@ -1175,7 +1175,7 @@ function WaitlistRow({
           </div>
         )}
         {entry.entry_type === "Slot Change" && ctx?.current_day && (
-          <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+          <div className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">
             Currently: {ctx.current_day} {ctx.current_time} {ctx.current_location}
             {ctx.current_tutor && ` · ${ctx.current_tutor}`}
           </div>
@@ -1206,7 +1206,7 @@ function WaitlistRow({
             {entry.slot_preferences.map((sp) => (
               <span
                 key={sp.id}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-medium text-foreground/60"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[11px] font-medium text-foreground/60"
               >
                 <span className={cn("px-1 rounded", BRANCH_COLORS[sp.location]?.badge || "text-accent-ink")}>{sp.location}</span>
                 {sp.day_of_week && <span>{sp.day_of_week}</span>}

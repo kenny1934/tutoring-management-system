@@ -17,12 +17,12 @@ import { ApiError, curriculumAPI } from "@/lib/api";
  * whether "Revising this" would open a list or record an answer.
  */
 export const RECORD_BTN =
-  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border transition-colors shrink-0 disabled:opacity-50 " +
+  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium border transition-colors shrink-0 disabled:opacity-50 " +
   "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 " +
   "hover:bg-green-200 dark:hover:bg-green-900/50";
 
 const RECORDED_TEXT =
-  "inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 shrink-0";
+  "inline-flex items-center gap-1 text-[11px] text-green-700 dark:text-green-400 shrink-0";
 
 const KIND_QUESTION = "Revision or New Topic?";
 
@@ -146,7 +146,7 @@ export function KindQuestion({
         className
       )}
     >
-      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+      <span className="text-[11px] text-gray-500 dark:text-gray-400">
         {KIND_QUESTION}
       </span>
       <div className="flex items-center gap-1">

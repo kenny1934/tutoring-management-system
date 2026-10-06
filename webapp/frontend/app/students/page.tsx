@@ -920,7 +920,7 @@ function RichPopoverContent({
         {/* Current Enrollment Section */}
         {!loading && (
           <div className="border-t border-[#d4a574]/20 pt-3">
-            <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <h4 className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Current Enrollment
             </h4>
             {activeEnrollment ? (
@@ -1001,7 +1001,7 @@ function RichPopoverContent({
         {/* Last Session Section */}
         {!loading && (
           <div className="border-t border-[#d4a574]/20 pt-3">
-            <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <h4 className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Last Session
             </h4>
             {lastSession ? (
@@ -1011,7 +1011,7 @@ function RichPopoverContent({
                     {formatShortDate(lastSession.session_date)}
                   </span>
                   <span className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                    "text-[11px] px-1.5 py-0.5 rounded font-medium",
                     lastSession.session_status === 'Attended' || lastSession.session_status === 'Attended (Make-up)'
                       ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
                       : lastSession.session_status === 'Cancelled'
@@ -1041,7 +1041,7 @@ function RichPopoverContent({
         {/* Upcoming Test Section */}
         {!loading && (
           <div className="border-t border-[#d4a574]/20 pt-3">
-            <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <h4 className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Upcoming Tests
             </h4>
             {nextTest ? (
@@ -1055,7 +1055,7 @@ function RichPopoverContent({
                         {test.title}
                       </span>
                       <span className={cn(
-                        "text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                        "text-[11px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
                         daysUntil <= 3 ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' :
                         daysUntil <= 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' :
                         'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'

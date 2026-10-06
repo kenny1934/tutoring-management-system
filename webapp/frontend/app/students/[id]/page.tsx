@@ -589,7 +589,7 @@ export default function StudentDetailPage() {
                   {/* Badge for sessions/tests count */}
                   {tab.id === "sessions" && sortedSessions.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
                       isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
                     )}>
                       {sortedSessions.length}
@@ -597,7 +597,7 @@ export default function StudentDetailPage() {
                   )}
                   {tab.id === "courseware" && coursewareHistory.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
                       isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
                     )}>
                       {coursewareHistory.length}
@@ -605,7 +605,7 @@ export default function StudentDetailPage() {
                   )}
                   {tab.id === "tests" && filteredTests.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
                       isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
                     )}>
                       {filteredTests.length}
@@ -613,7 +613,7 @@ export default function StudentDetailPage() {
                   )}
                   {tab.id === "contacts" && parentContacts.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
                       isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
                     )}>
                       {parentContacts.length}
@@ -1957,7 +1957,7 @@ function CopyLessonDatesButton({
         >
           {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
           <span className="hidden sm:inline">Copy {scope}</span>
-          <span className="text-[10px] px-1 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+          <span className="text-[11px] px-1 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
             {pillCount}
           </span>
         </button>
@@ -1976,7 +1976,7 @@ function CopyLessonDatesButton({
 
       {isOpen && (
         <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-line py-1">
-          <div className="px-2 py-1 text-[10px] text-gray-500 uppercase tracking-wider">Scope</div>
+          <div className="px-2 py-1 text-[11px] text-gray-500 uppercase tracking-wider">Scope</div>
           {SCOPE_ORDER.map((s) => {
             const count = sessionsByScope[s].length;
             const disabled = count === 0;
@@ -1993,7 +1993,7 @@ function CopyLessonDatesButton({
                 )}
               >
                 <span className="font-medium capitalize">{s}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
                   {count}
                 </span>
               </button>
@@ -2002,7 +2002,7 @@ function CopyLessonDatesButton({
 
           <div className="my-1 border-t border-line" />
 
-          <div className="px-2 py-1 text-[10px] text-gray-500 uppercase tracking-wider">Copy as</div>
+          <div className="px-2 py-1 text-[11px] text-gray-500 uppercase tracking-wider">Copy as</div>
           {FORMAT_OPTIONS.map(({ key, label, example }) => (
             <button
               key={key}
@@ -2016,7 +2016,7 @@ function CopyLessonDatesButton({
                 <Copy className="h-3 w-3" />
                 {label}
               </div>
-              <div className="text-[10px] text-gray-500 mt-0.5 pl-4.5">{example}{previewSuffix}</div>
+              <div className="text-[11px] text-gray-500 mt-0.5 pl-4.5">{example}{previewSuffix}</div>
             </button>
           ))}
         </div>
@@ -2185,7 +2185,7 @@ function SessionsTab({
       >
         <div className="flex-1 p-3 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] text-gray-500 font-mono">#{session.id}</span>
+            <span className="text-[11px] text-gray-500 font-mono">#{session.id}</span>
             <SessionLessonBadge session={session} size="xs" />
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -2519,7 +2519,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
                 </span>
                 {test.event_type && (
                   <span className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded",
+                    "text-[11px] px-1.5 py-0.5 rounded",
                     test.event_type === 'Test' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" :
                     test.event_type === 'Exam' ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" :
                     "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
@@ -2540,7 +2540,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
               {(() => {
                 const stats = examStatsMap.get(test.id);
                 return stats && stats.slots > 0 ? (
-                  <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">
+                  <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
                     <span className="inline-flex items-center gap-0.5" title="Revision slots created">
                       <GraduationCap className="h-3 w-3" />
                       {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
@@ -2816,7 +2816,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
         {downloadState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
          downloadState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
          <Download className="h-3.5 w-3.5" />}
-        <span className="text-[8px] leading-none">All</span>
+        <span className="text-[11px] leading-none">All</span>
       </button>
       <button type="button" onClick={handleDownloadAnswers} disabled={answersState === 'loading'}
         className={cn(btnClass, "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
@@ -2824,7 +2824,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
         {answersState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
          answersState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
          <Download className="h-3.5 w-3.5" />}
-        <span className="text-[8px] leading-none">Ans</span>
+        <span className="text-[11px] leading-none">Ans</span>
       </button>
     </div>
   );
@@ -3194,7 +3194,7 @@ function CoursewareTab({
     return (
       <span className={cn(
         "flex items-center gap-1 rounded font-medium",
-        small ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs",
+        small ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-0.5 text-xs",
         isCW
           ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
           : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
@@ -3761,7 +3761,7 @@ function RatingsTab({
           <div className="flex-1 flex flex-col gap-2">
             {/* Distribution */}
             <div className="flex-1 p-3 bg-white/30 dark:bg-black/10 rounded-lg">
-              <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Distribution</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Distribution</div>
               <div className="flex items-end justify-center gap-2 h-10">
                 {distribution.map((d, i) => (
                   <div key={d.stars} className="flex flex-col items-center gap-1">
@@ -3772,7 +3772,7 @@ function RatingsTab({
                       className="w-5 bg-amber-400 rounded-t"
                       title={`${d.stars} star: ${d.count}`}
                     />
-                    <span className="text-[9px] text-gray-500 dark:text-gray-400">{d.stars}★</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">{d.stars}★</span>
                   </div>
                 ))}
               </div>
@@ -3781,7 +3781,7 @@ function RatingsTab({
             {/* Trend (only if 2+ ratings) */}
             {ratingOverTime.length >= 2 && (
               <div className="flex-1 p-3 bg-white/30 dark:bg-black/10 rounded-lg">
-                <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Trend (last {ratingOverTime.length})</div>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Trend (last {ratingOverTime.length})</div>
                 <svg viewBox="0 0 200 32" className="w-full h-8">
                   {/* Grid lines */}
                   <line x1="0" y1="8" x2="200" y2="8" stroke="#d1d5db" strokeWidth="0.5" strokeDasharray="2,2" />
@@ -3893,7 +3893,7 @@ function RatingsTab({
                     {delta !== undefined && delta !== 0 && (
                       <span
                         className={cn(
-                          "text-[10px] font-medium",
+                          "text-[11px] font-medium",
                           delta > 0 ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"
                         )}
                         title={`${delta > 0 ? '+' : ''}${delta} from previous`}

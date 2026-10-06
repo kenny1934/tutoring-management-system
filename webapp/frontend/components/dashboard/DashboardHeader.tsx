@@ -112,7 +112,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             >
               <Search className="h-3.5 w-3.5" />
               <span className="hidden @[500px]/header:inline text-sm">Search</span>
-              <kbd className="hidden @[500px]/header:flex items-center gap-0.5 px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded text-[10px] font-medium">
+              <kbd className="hidden @[500px]/header:flex items-center gap-0.5 px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded text-[11px] font-medium">
                 Ctrl+K
               </kbd>
             </button>

@@ -750,7 +750,7 @@ export function SessionDetailPopover({
             <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
               {session.school_student_id || "N/A"}
             </p>
-            <span className="text-[10px] text-gray-500 font-mono">#{session.id}</span>
+            <span className="text-[11px] text-gray-500 font-mono">#{session.id}</span>
             <EditableLessonNumberBadge
               lessonNumber={session.lesson_number}
               movedLessonNumber={session.moved_lesson_number}
@@ -815,7 +815,7 @@ export function SessionDetailPopover({
                     No handover notes were left.
                   </p>
                 )}
-                <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                   {detailedSession.handover_prospect.tutor_name && `— ${detailedSession.handover_prospect.tutor_name}`}
                   {detailedSession.handover_prospect.submitted_at && ` · ${formatShortDate(detailedSession.handover_prospect.submitted_at)}`}
                 </p>
@@ -1040,7 +1040,7 @@ export function SessionDetailPopover({
                     {new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     {session.rescheduled_to.time_slot && ` · ${session.rescheduled_to.time_slot}`}
                   </span>
-                  <SessionStatusTag status={session.rescheduled_to.session_status} size="sm" className="text-[10px] px-1 py-0 truncate max-w-[60px]" />
+                  <SessionStatusTag status={session.rescheduled_to.session_status} size="sm" className="text-[11px] px-1 py-0 truncate max-w-[60px]" />
                 </div>
                 {session.rescheduled_to.tutor_name && <div>{session.rescheduled_to.tutor_name}</div>}
               </div>
@@ -1070,7 +1070,7 @@ export function SessionDetailPopover({
                     {new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     {session.make_up_for.time_slot && ` · ${session.make_up_for.time_slot}`}
                   </span>
-                  <SessionStatusTag status={session.make_up_for.session_status} size="sm" className="text-[10px] px-1 py-0 truncate max-w-[60px]" />
+                  <SessionStatusTag status={session.make_up_for.session_status} size="sm" className="text-[11px] px-1 py-0 truncate max-w-[60px]" />
                 </div>
                 {session.make_up_for.tutor_name && <div>{session.make_up_for.tutor_name}</div>}
               </div>
@@ -1115,7 +1115,7 @@ export function SessionDetailPopover({
                 {testsExpanded ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
                 <AlertTriangle className="h-3 w-3 text-amber-700" />
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Tests</span>
-                <span className="text-[10px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full ml-auto">
+                <span className="text-[11px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full ml-auto">
                   {upcomingTests.length}
                 </span>
               </button>
@@ -1125,7 +1125,7 @@ export function SessionDetailPopover({
                     <div key={test.event_id} className="space-y-1">
                       <div className="flex items-center gap-1.5 text-xs">
                         <span className={cn(
-                          "px-1 py-0.5 rounded text-[10px] font-medium text-white flex-shrink-0",
+                          "px-1 py-0.5 rounded text-[11px] font-medium text-white flex-shrink-0",
                           test.event_type.toLowerCase().includes('quiz') ? 'bg-green-500' :
                           test.event_type.toLowerCase().includes('exam') ? 'bg-purple-500' : 'bg-red-500'
                         )}>
@@ -1147,7 +1147,7 @@ export function SessionDetailPopover({
                         )}
                       </div>
                       {expandedTest === test.event_id && test.description && (
-                        <div className="pl-5 text-[10px] text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-50 dark:bg-gray-800/50 rounded p-1.5 max-h-24 overflow-y-auto">
+                        <div className="pl-5 text-[11px] text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-50 dark:bg-gray-800/50 rounded p-1.5 max-h-24 overflow-y-auto">
                           {test.description}
                         </div>
                       )}
@@ -1176,7 +1176,7 @@ export function SessionDetailPopover({
                 <History className="h-3 w-3 text-[#8b6f47]" />
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Recap</span>
                 {uncheckedHwCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full ml-auto">
+                  <span className="text-[11px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full ml-auto">
                     {uncheckedHwCount}
                   </span>
                 )}
@@ -1233,7 +1233,7 @@ export function SessionDetailPopover({
                   {/* Homework to check, markable in place */}
                   {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
                     <div className="text-xs">
-                      <span className="text-gray-500 text-[10px]">HW to check:</span>
+                      <span className="text-gray-500 text-[11px]">HW to check:</span>
                       <HomeworkCheckList
                         items={detailedSession.homework_completion}
                         sessionId={session.id}
@@ -1278,7 +1278,7 @@ export function SessionDetailPopover({
         </Link>
 
         {/* Keyboard shortcut hint */}
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 text-center">
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 dark:text-gray-400 text-center">
           <span className="font-mono">A</span>=Attended <span className="font-mono">N</span>=No Show <span className="font-mono">C</span>=CW <span className="font-mono">H</span>=HW <span className="font-mono">R</span>=Rate <span className="font-mono">E</span>=Edit
         </div>
       </div>

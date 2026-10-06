@@ -179,7 +179,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
             {examDate.getDate()}
           </span>
           <span className={cn(
-            "text-[10px] font-medium",
+            "text-[11px] font-medium",
             isPast
               ? "text-gray-500"
               : daysUntil <= 7
@@ -426,7 +426,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                               showLink
                               showLocationPrefix={!location}
                               trailing={
-                                <span className="text-[10px] text-amber-700 dark:text-amber-400 ml-auto flex items-center gap-1.5">
+                                <span className="text-[11px] text-amber-700 dark:text-amber-400 ml-auto flex items-center gap-1.5">
                                   {primaryTutor && <span className="text-gray-500 dark:text-gray-400">{primaryTutor}</span>}
                                   <span>• {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}</span>
                                 </span>

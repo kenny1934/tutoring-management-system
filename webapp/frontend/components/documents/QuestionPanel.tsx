@@ -74,7 +74,7 @@ function ResultPreview({ label, text }: { label: string; text: string | null }) 
     <div className="mt-1.5">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[10px] font-medium text-accent-ink hover:underline"
+        className="flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline"
       >
         {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         {label}
@@ -113,7 +113,7 @@ function QuestionCard({
           {number}
         </button>
         {q.marks != null && (
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">{q.marks} marks</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">{q.marks} marks</span>
         )}
         <div className="ml-auto flex items-center gap-0.5">
           {errorMsg && onRetry && (
@@ -150,29 +150,29 @@ function QuestionCard({
         </button>
       )}
       {errorMsg && (
-        <p className="text-[10px] text-red-600 mb-1">Failed: {errorMsg}</p>
+        <p className="text-[11px] text-red-600 mb-1">Failed: {errorMsg}</p>
       )}
       {(q.topic || q.difficulty) && (
         <div className="flex flex-wrap items-center gap-1">
           {q.topic && (
-            <span className="px-1.5 py-0 rounded text-[10px] bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+            <span className="px-1.5 py-0 rounded text-[11px] bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
               {q.topic}
             </span>
           )}
           {q.subtopic && (
-            <span className="px-1.5 py-0 rounded text-[10px] bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400">
+            <span className="px-1.5 py-0 rounded text-[11px] bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400">
               {q.subtopic}
             </span>
           )}
           {q.difficulty && (
-            <span className={cn("px-1.5 py-0 rounded text-[10px]", DIFFICULTY_COLORS[q.difficulty])}>
+            <span className={cn("px-1.5 py-0 rounded text-[11px]", DIFFICULTY_COLORS[q.difficulty])}>
               {q.difficulty}
             </span>
           )}
         </div>
       )}
       {q.sub_questions && q.sub_questions.length > 0 && (
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
           Sub-parts: {q.sub_questions.join(", ")}
         </p>
       )}
@@ -194,7 +194,7 @@ const GEMINI_PRICING = { input: 0.15, output: 0.60 };
 function UsageSummary({ usage }: { usage: { input_tokens: number; output_tokens: number } }) {
   const cost = (usage.input_tokens * GEMINI_PRICING.input + usage.output_tokens * GEMINI_PRICING.output) / 1_000_000;
   return (
-    <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center">
+    <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center">
       {usage.input_tokens.toLocaleString()} in / {usage.output_tokens.toLocaleString()} out &middot; ~${cost.toFixed(3)}
     </p>
   );
@@ -428,7 +428,7 @@ export function QuestionPanel({
           <ListTree className="w-4 h-4 text-accent-ink" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Questions</h3>
           {questions && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">
               {questions.length}
             </span>
           )}
@@ -483,7 +483,7 @@ export function QuestionPanel({
           <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
             <Loader2 className="w-6 h-6 animate-spin" />
             <p className="text-xs">Processing with AI...</p>
-            <p className="text-[10px] text-gray-400/70">This may take a few seconds</p>
+            <p className="text-[11px] text-gray-400/70">This may take a few seconds</p>
           </div>
         ) : !questions || questions.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-12 px-4">

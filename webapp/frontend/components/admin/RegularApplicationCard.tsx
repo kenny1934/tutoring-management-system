@@ -107,7 +107,7 @@ function VerifiedOriginBadge({ value, asFrom }: { value: string; asFrom?: boolea
   return (
     <span
       className={cn(
-        "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded",
+        "shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded",
         isNew
           ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
           : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
@@ -177,7 +177,7 @@ export function RegularOriginChip({
     const centres = (app.current_centers || []).join(", ");
     return (
       <span
-        className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
         title={
           `Applicant says they attend ${app.is_existing_student}` +
           (centres ? ` (${centres})` : "") +
@@ -199,7 +199,7 @@ export function RegularOriginChip({
 
   return (
     <span
-      className="shrink-0 text-[10px] font-semibold text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded"
+      className="shrink-0 text-[11px] font-semibold text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded"
       title="Applicant reports no current MathConcept centre. Not verified, so no new-student offer applies yet."
       onClick={(e) => e.stopPropagation()}
     >
@@ -326,7 +326,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
           </div>
           {branchCode && (
             <span className={cn(
-              "shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold",
+              "shrink-0 text-[11px] px-1.5 py-0.5 rounded font-semibold",
               BRANCH_COLORS[branchCode]?.badge || "bg-gray-100 text-gray-700"
             )}>
               {branchCode}
@@ -347,7 +347,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
             )}
             {app.published_enrollment_id && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
                 title={`Published as enrollment #${app.published_enrollment_id}`}
               >
                 <CheckCircle className="h-3 w-3" />
@@ -365,7 +365,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               {hasPref1 && <PrefChip day={app.preference_1_day!} time={app.preference_1_time!} />}
               {hasPref2 && (
                 <>
-                  <span className="shrink-0 text-[10px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
                   <PrefChip day={app.preference_2_day!} time={app.preference_2_time!} backup />
                 </>
               )}
@@ -426,7 +426,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
           <span className="ml-auto shrink-0 inline-flex items-center gap-2">
             {langChip && (
               <span
-                className="text-[10px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground"
+                className="text-[11px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground"
                 title={`Form filled in ${app.form_language === "zh" ? "Chinese" : "English"}`}
               >
                 {langChip}

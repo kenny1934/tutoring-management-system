@@ -976,7 +976,7 @@ export function CurriculumAtlas({
               aria-pressed={series === s}
               onClick={() => setSeriesOverride(s)}
               className={cn(
-                "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors",
+                "text-[11px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors",
                 series === s
                   ? "bg-teal-600 dark:bg-teal-500 border-teal-600 dark:border-teal-500 text-white"
                   : "border-[#d4a574]/50 dark:border-[#8b6f47]/70 text-gray-500 dark:text-gray-400 hover:border-teal-500 hover:text-teal-700 dark:hover:text-teal-400"
@@ -989,31 +989,31 @@ export function CurriculumAtlas({
         <div className="ml-auto flex items-center gap-2.5 flex-wrap">
           {overlayActive ? (
             <>
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-100/70 dark:bg-teal-900/30 border border-teal-600/60" />
                 Covered
               </span>
               {cohortCovered.size > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                   <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-50/60 dark:bg-teal-900/10 border border-teal-600/25" />
                   Covered in earlier years
                 </span>
               )}
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-600 dark:bg-teal-500 border border-teal-700" />
                 Current
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-amber-500" />
                 Coming up
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm border border-[#d4a574]/50 dark:border-[#8b6f47]/70" />
                 No data
               </span>
             </>
           ) : (
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[11px] text-gray-500">
               {timelineLoading
                 ? "Loading this school's progress…"
                 : offSeries
@@ -1025,7 +1025,7 @@ export function CurriculumAtlas({
                       : "Pick a school above to see its progress on the map"}
             </span>
           )}
-          <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
             <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-line-strong" />
             Extension
           </span>
@@ -1045,7 +1045,7 @@ export function CurriculumAtlas({
             type="button"
             title="Reset the zoom to 100%. You can also hold Ctrl and scroll on the map to zoom."
             onClick={() => applyZoom(1)}
-            className="w-9 text-center text-[10px] tabular-nums text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
+            className="w-9 text-center text-[11px] tabular-nums text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -1133,7 +1133,7 @@ export function CurriculumAtlas({
               <span
                 key={c.grade}
                 className={cn(
-                  "absolute top-0 h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-widest",
+                  "absolute top-0 h-full flex items-center justify-center text-[11px] font-bold uppercase tracking-widest",
                   c.grade === selectedGrade && overlayActive
                     ? "text-teal-700 dark:text-teal-400"
                     : "text-gray-500"
@@ -1161,7 +1161,7 @@ export function CurriculumAtlas({
             {gutterLabels.map((g) => (
               <span
                 key={g.strand}
-                className="absolute left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-widest text-gray-500"
+                className="absolute left-1/2 -translate-x-1/2 text-[11px] uppercase tracking-widest text-gray-500"
                 style={{ writingMode: "vertical-rl", top: g.top }}
                 title={g.label}
               >

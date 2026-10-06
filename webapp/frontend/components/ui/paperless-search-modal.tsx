@@ -1046,7 +1046,7 @@ export function PaperlessSearchModal({
                                             <GradeLabel grade={detail.grade} langStream={detail.lang_stream} />
                                           </span>
                                           <span className={cn(
-                                            "shrink-0 px-1 py-0.5 rounded text-[10px]",
+                                            "shrink-0 px-1 py-0.5 rounded text-[11px]",
                                             detail.exercise_type === 'CW'
                                               ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                                               : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
@@ -1154,7 +1154,7 @@ export function PaperlessSearchModal({
                                 {recent.tags.slice(0, 5).map((tag, i) => (
                                   <span
                                     key={i}
-                                    className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                                    className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
                                   >
                                     {tag}
                                   </span>
@@ -1276,13 +1276,13 @@ export function PaperlessSearchModal({
                           {doc.tags.slice(0, 5).map((tag, i) => (
                             <span
                               key={i}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                              className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
                             >
                               {tag}
                             </span>
                           ))}
                           {doc.tags.length > 5 && (
-                            <span className="text-[10px] text-gray-500">
+                            <span className="text-[11px] text-gray-500">
                               +{doc.tags.length - 5} more
                             </span>
                           )}
@@ -1370,24 +1370,24 @@ export function PaperlessSearchModal({
         {/* Keyboard hints */}
         <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-100 dark:border-gray-800">
           <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">↑↓</kbd>
             navigate
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Enter</kbd>
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">Enter</kbd>
             select
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Space</kbd>
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">Space</kbd>
             preview
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Esc</kbd>
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">Esc</kbd>
             close
           </span>
           {multiSelect && selectedDocs.length > 0 && (
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Ctrl+Enter</kbd>
+              <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">Ctrl+Enter</kbd>
               add all
             </span>
           )}

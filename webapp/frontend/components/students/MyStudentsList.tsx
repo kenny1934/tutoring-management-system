@@ -236,7 +236,7 @@ function EnrollmentRow({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
             {enrollment.school_student_id && (
-              <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px] flex-shrink-0">
+              <span className="text-gray-500 dark:text-gray-400 font-mono text-[11px] flex-shrink-0">
                 {enrollment.school_student_id}
               </span>
             )}
@@ -249,29 +249,29 @@ function EnrollmentRow({
               {enrollment.student_name || "Unknown"}
             </span>
             {enrollment.grade && (
-              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
+              <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
             )}
             {enrollment.school && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
                 {enrollment.school}
               </span>
             )}
           </div>
           {isAllTutors && enrollment.tutor_name && (
-            <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
               <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
             </span>
           )}
           {isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
               <AlertTriangle className="h-4 w-4 text-red-600" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-red-600 uppercase">Overdue</span>
+              <span className="text-[11px] font-bold text-red-600 uppercase">Overdue</span>
             </span>
           )}
           {isPending && !isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
               <HandCoins className="h-4 w-4 text-amber-700" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-amber-700 uppercase">Pending</span>
+              <span className="text-[11px] font-bold text-amber-700 uppercase">Pending</span>
             </span>
           )}
         </div>
@@ -440,7 +440,7 @@ export function MyStudentsList({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
             {enrollment.school_student_id && (
-              <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px] flex-shrink-0">
+              <span className="text-gray-500 dark:text-gray-400 font-mono text-[11px] flex-shrink-0">
                 {enrollment.school_student_id}
               </span>
             )}
@@ -453,29 +453,29 @@ export function MyStudentsList({
               {enrollment.student_name || "Unknown"}
             </span>
             {enrollment.grade && (
-              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
+              <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
             )}
             {enrollment.school && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
                 {enrollment.school}
               </span>
             )}
           </div>
           {isAllTutors && enrollment.tutor_name && (
-            <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
               <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
             </span>
           )}
           {isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
               <AlertTriangle className="h-4 w-4 text-red-600" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-red-600 uppercase">Overdue</span>
+              <span className="text-[11px] font-bold text-red-600 uppercase">Overdue</span>
             </span>
           )}
           {isPending && !isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
               <HandCoins className="h-4 w-4 text-amber-700" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-amber-700 uppercase">Pending</span>
+              <span className="text-[11px] font-bold text-amber-700 uppercase">Pending</span>
             </span>
           )}
         </div>
@@ -549,7 +549,7 @@ export function MyStudentsList({
 
         {/* Group by chips */}
         <div className="flex flex-wrap items-center gap-1 mb-2">
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 mr-0.5">Group:</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400 mr-0.5">Group:</span>
           {GROUP_OPTIONS
             .filter(opt => opt.value !== 'tutor' || isAllTutors)
             .map(({ value, label, icon: Icon }) => (
@@ -559,7 +559,7 @@ export function MyStudentsList({
               aria-pressed={activeGroups.includes(value)}
               aria-label={`Group by ${label}`}
               className={cn(
-                "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
+                "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
                 activeGroups.includes(value)
                   ? "bg-primary text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -573,7 +573,7 @@ export function MyStudentsList({
 
         {/* Sort by buttons with direction toggle */}
         <div className="flex items-center gap-1">
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 mr-0.5">Sort:</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400 mr-0.5">Sort:</span>
           {SORT_OPTIONS.map(({ value, label }) => {
             const isActive = sortOption === value;
             const DirectionIcon = sortDirection === 'asc' ? ArrowUp : ArrowDown;
@@ -582,7 +582,7 @@ export function MyStudentsList({
                 key={value}
                 onClick={() => handleSortClick(value)}
                 className={cn(
-                  "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
+                  "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
                   isActive
                     ? "bg-primary text-white"
                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"

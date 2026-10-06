@@ -112,7 +112,7 @@ function SinglePreview({ url }: { url: string }) {
             {data.description}
           </div>
         )}
-        <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
           <ExternalLink className="w-2.5 h-2.5" />
           <span>{data.domain}</span>
         </div>

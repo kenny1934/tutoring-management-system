@@ -801,7 +801,7 @@ function GroupExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-between items-center gap-3">
-          <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 hidden sm:inline">
+          <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400 hidden sm:inline">
             Alt+N add · Ctrl+V paste · Alt+⌫ del · Ctrl+↵ save
           </span>
           <div className="flex gap-3">
@@ -844,7 +844,7 @@ function GroupExerciseModal({
                   <span className="text-gray-500 dark:text-gray-400">{s.school_student_id}</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">{s.student_name}</span>
                   {s.grade && (
-                    <GradeBadge className="px-1 py-0.5 rounded text-[9px] text-gray-800" grade={s.grade} langStream={s.lang_stream} />
+                    <GradeBadge className="px-1 py-0.5 rounded text-[11px] text-gray-800" grade={s.grade} langStream={s.lang_stream} />
                   )}
                 </div>
               );
@@ -1051,7 +1051,7 @@ function GroupExerciseModal({
                           value={exercise.url_title}
                           onChange={(e) => { updateExercise(index, "url_title", e.target.value); setIsDirty(true); }}
                           placeholder="Title (auto-fetched or type manually)"
-                          className="text-[10px] text-blue-600 dark:text-blue-400 pl-7 mt-0.5 w-full bg-transparent border-none outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                          className="text-[11px] text-blue-600 dark:text-blue-400 pl-7 mt-0.5 w-full bg-transparent border-none outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         />
                       )}
                     </div>

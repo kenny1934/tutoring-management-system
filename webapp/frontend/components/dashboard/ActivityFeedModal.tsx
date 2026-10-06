@@ -341,7 +341,7 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
 
                               {/* Right: Modified by + Time */}
                               <span
-                                className="flex-shrink-0 text-[10px] font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                                className="flex-shrink-0 text-[11px] font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap"
                                 title={formatFullTimestamp(event.time)}
                               >
                                 {event.modified_by && (

@@ -89,12 +89,12 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
                 Tailored revision papers
               </span>
             </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
               Papers tutors made for this test or for earlier similar tests.
             </p>
             {papersForThis.length > 0 && (
               <>
-                <p className="text-[10px] font-medium text-teal-700 dark:text-teal-300 mt-1.5 mb-0.5">
+                <p className="text-[11px] font-medium text-teal-700 dark:text-teal-300 mt-1.5 mb-0.5">
                   Made for this test
                 </p>
                 <div className="space-y-0.5">
@@ -113,7 +113,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
                   ))}
                 </div>
                 {papersSimilar.length > 0 && (
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1.5 mb-0.5">
+                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-1.5 mb-0.5">
                     From similar tests
                   </p>
                 )}
@@ -167,7 +167,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
                 {conceptNameForStream(concept, stream)}
               </div>
               {concept.scope_lines.length > 0 && (
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
                   From the test scope: &ldquo;{concept.scope_lines.slice(0, 2).join(" · ")}&rdquo;
                 </p>
               )}
@@ -183,7 +183,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
                 ))}
               </div>
               {concept.files.length === 0 && (
-                <p className="text-[10px] text-gray-500 mt-0.5">
+                <p className="text-[11px] text-gray-500 mt-0.5">
                   No worksheets mapped to this topic yet.
                 </p>
               )}
@@ -213,11 +213,11 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
 
         {data && data.unmatched_lines.length > 0 && (
           <div className="mx-4 my-3 px-3 py-2 rounded-lg bg-black/[0.04] dark:bg-white/[0.05]">
-            <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">
+            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">
               Not yet matched to a topic
             </p>
             {data.unmatched_lines.map((line) => (
-              <p key={line} className="text-[10px] text-gray-400 dark:text-gray-400">
+              <p key={line} className="text-[11px] text-gray-400 dark:text-gray-400">
                 {line}
               </p>
             ))}

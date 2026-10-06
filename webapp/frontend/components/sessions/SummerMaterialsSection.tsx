@@ -71,7 +71,7 @@ function SummerSectionShell({
             onClick={(e) => { e.stopPropagation(); onConnectDrive(); }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onConnectDrive(); } }}
             title="Pick the courseware Finalised folder once on this computer so files open directly"
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors cursor-pointer ml-1"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors cursor-pointer ml-1"
           >
             <Cable className="h-3 w-3" />
             Connect drive
@@ -163,7 +163,7 @@ export function SummerMaterialsSection({
         )}
         <span className="flex-1" />
         {added ? (
-          <span className="inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 pr-1">
+          <span className="inline-flex items-center gap-1 text-[11px] text-green-700 dark:text-green-400 pr-1">
             <Check className="h-3 w-3" />
             Added
           </span>
@@ -174,7 +174,7 @@ export function SummerMaterialsSection({
               onAdd(fullPath, answer ? buildFullPath(pathPrefix, answer.rel_path) : undefined)
             }
             title={`Add as a ${exerciseType === "CW" ? "classwork" : "homework"} row (answers pre-linked)`}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors"
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors"
           >
             <Plus className="h-2.5 w-2.5" />
             Add
@@ -203,7 +203,7 @@ export function SummerMaterialsSection({
           {renderRow(exerciseType === "CW" ? "Classwork" : "Homework", typed.file, typed.answer)}
           {renderRow("Extra", defaults.extra, defaults.extraAnswer)}
           {!lang && (
-            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400">
               Set the student&apos;s language stream to see their version.
             </p>
           )}
@@ -292,7 +292,7 @@ export function SummerBulkAssignSection({
         </span>
         <span className="flex-1" />
         {isDone ? (
-          <span className="inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 pr-1">
+          <span className="inline-flex items-center gap-1 text-[11px] text-green-700 dark:text-green-400 pr-1">
             <Check className="h-3 w-3" />
             Assigned
           </span>
@@ -302,7 +302,7 @@ export function SummerBulkAssignSection({
             onClick={() => handleAssign(docType)}
             disabled={assigning !== null}
             title={`Each student gets their own language version as ${exerciseType === "CW" ? "classwork" : "homework"}, answers linked`}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
           >
             {assigning === docType ? (
               <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -333,7 +333,7 @@ export function SummerBulkAssignSection({
 
   return (
     <SummerSectionShell summary={summary}>
-      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+      <p className="text-[11px] text-gray-500 dark:text-gray-400">
         {followMode
           ? "Assigns straight away: each student gets their own lesson's version with answers linked."
           : "Assigns straight away: each student gets their own language version with answers linked."}
@@ -348,7 +348,7 @@ export function SummerBulkAssignSection({
       {chapter && (
         <>
           {isMixed && !followMode && (
-            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400">
               Assigns this chapter to all selected students ({formatLessonBreakdown(breakdown)}).
             </p>
           )}

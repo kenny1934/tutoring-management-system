@@ -471,7 +471,7 @@ export function EnrollmentDetailModal({
                         <SessionStatusTag status={session.session_status} size="sm" iconOnly />
                         {session.has_extension_request && (
                           <span className={cn(
-                            "text-[10px] px-1 py-0.5 rounded",
+                            "text-[11px] px-1 py-0.5 rounded",
                             session.extension_request_status === "Pending"
                               ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                               : session.extension_request_status === "Approved"

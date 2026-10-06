@@ -57,7 +57,7 @@ export function CoursewareBanner({ title, className }: CoursewareBannerProps) {
 
       {/* Tab text */}
       <span
-        className="relative z-10 text-[10px] sm:text-xs font-bold uppercase tracking-wide"
+        className="relative z-10 text-[11px] sm:text-xs font-bold uppercase tracking-wide"
         style={{
           color: "#f5f0e8",
           textShadow: "0 1px 2px rgba(0,0,0,0.4)",

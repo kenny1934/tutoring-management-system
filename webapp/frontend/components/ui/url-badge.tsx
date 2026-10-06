@@ -9,7 +9,7 @@ export function UrlBadge({ url }: { url?: string | null }) {
   const badge = getUrlBadge(url);
   if (!badge) return null;
   return (
-    <span className={`ml-1 text-[9px] px-1 rounded ${badge.className}`}>
+    <span className={`ml-1 text-[11px] px-1 rounded ${badge.className}`}>
       {badge.label}
     </span>
   );

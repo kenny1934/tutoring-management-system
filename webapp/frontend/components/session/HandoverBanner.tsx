@@ -73,7 +73,7 @@ export function HandoverBanner({ prospect }: HandoverBannerProps) {
               {prospect.student_name && ` ${prospect.student_name}`}
             </h3>
             {byline && (
-              <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-300">
+              <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-300">
                 {byline}
               </p>
             )}

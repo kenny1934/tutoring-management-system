@@ -363,7 +363,7 @@ export default function UncheckedAttendancePage() {
                         )}
                       >
                         {URGENCY_LEVELS[urgencyFilter].label}
-                        <span className="text-[10px]">×</span>
+                        <span className="text-[11px]">×</span>
                       </Link>
                     )}
                   </div>
@@ -406,7 +406,7 @@ export default function UncheckedAttendancePage() {
                       onClick={() => handleBulkAction('attended')}
                       disabled={bulkActionLoading !== null}
                       className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                        "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
                         bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
                       )}
                       title="Mark all as attended"
@@ -418,7 +418,7 @@ export default function UncheckedAttendancePage() {
                       onClick={() => handleBulkAction('no-show')}
                       disabled={bulkActionLoading !== null}
                       className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                        "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
                         bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
                       )}
                       title="Mark all as no show"
@@ -428,14 +428,14 @@ export default function UncheckedAttendancePage() {
                     </button>
                     <button
                       onClick={toggleSelectAll}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-[#f0e0cc] dark:bg-[#4a3d2e] text-accent-ink hover:bg-[#e8d4b8] dark:hover:bg-[#5a4a38]"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-[#f0e0cc] dark:bg-[#4a3d2e] text-accent-ink hover:bg-[#e8d4b8] dark:hover:bg-[#5a4a38]"
                     >
                       <CheckSquare className="h-3 w-3" />
                       <span className="hidden xs:inline">{isAllSelected ? 'Deselect All' : 'Select All'}</span>
                     </button>
                     <button
                       onClick={clearSelection}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     >
                       <X className="h-3 w-3" />
                       <span className="hidden xs:inline">Clear</span>

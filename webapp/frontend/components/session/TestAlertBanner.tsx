@@ -75,11 +75,11 @@ export function TestAlertBanner({ tests }: TestAlertBannerProps) {
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide flex items-center gap-2">
                   Upcoming Assessments
-                  <span className="text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 bg-amber-500 dark:bg-amber-600 text-white rounded-full">
+                  <span className="text-[11px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 bg-amber-500 dark:bg-amber-600 text-white rounded-full">
                     {tests.length}
                   </span>
                 </h3>
-                <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-300">
+                <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-300">
                   Assessments scheduled within the next 14 days
                 </p>
               </div>
@@ -122,7 +122,7 @@ export function TestAlertBanner({ tests }: TestAlertBannerProps) {
                         )}
                       >
                         <Calendar className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-                        <span className="text-[10px] sm:text-xs font-bold text-white mt-0.5">
+                        <span className="text-[11px] sm:text-xs font-bold text-white mt-0.5">
                           {test.days_until}d
                         </span>
                       </div>

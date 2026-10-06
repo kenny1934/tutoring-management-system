@@ -81,10 +81,10 @@ export function HomeworkCheckSection({
           <ChevronDown className="h-3 w-3 opacity-70" />
         </div>
         <Home className="h-3 w-3 flex-shrink-0 opacity-80" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">
+        <span className="text-[11px] font-semibold uppercase tracking-wider">
           To check
         </span>
-        <span className="ml-auto text-[10px] font-medium tabular-nums">
+        <span className="ml-auto text-[11px] font-medium tabular-nums">
           {done}/{items.length}
         </span>
       </button>

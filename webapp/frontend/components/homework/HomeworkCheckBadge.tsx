@@ -32,7 +32,7 @@ export function HomeworkCheckBadge({
       onClick={onClick}
       title={title}
       className={cn(
-        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap",
         homeworkCountTone(counts.checked, counts.total),
         onClick && "hover:opacity-80 transition-opacity",
         className

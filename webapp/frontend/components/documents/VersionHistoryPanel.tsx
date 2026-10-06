@@ -187,7 +187,7 @@ export function VersionHistoryPanel({
                       <span className="text-xs font-medium text-gray-900 dark:text-white">
                         v{ver.version_number}
                       </span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
                         {versionTypeLabel(ver.version_type)}
                       </span>
                     </div>
@@ -197,11 +197,11 @@ export function VersionHistoryPanel({
                       </p>
                     )}
                     <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
                         {formatRelativeTime(ver.created_at)}
                       </span>
-                      <span className="text-[10px] text-gray-300 dark:text-gray-400">·</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                      <span className="text-[11px] text-gray-300 dark:text-gray-400">·</span>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                         {ver.created_by_name}
                       </span>
                     </div>

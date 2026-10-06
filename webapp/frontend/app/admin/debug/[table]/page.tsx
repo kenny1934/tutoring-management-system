@@ -1947,7 +1947,7 @@ export default function TableBrowserPage() {
                             {col.name}
                           </span>
                           {col.primary_key && (
-                            <span className="ml-auto text-[10px] text-gray-500">PK</span>
+                            <span className="ml-auto text-[11px] text-gray-500">PK</span>
                           )}
                         </button>
                       ))}
@@ -2075,7 +2075,7 @@ export default function TableBrowserPage() {
                   className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                   title="Keyboard shortcuts"
                 >
-                  <span className="kbd-key text-[10px]">?</span>
+                  <span className="kbd-key text-[11px]">?</span>
                 </button>
               </div>
             </div>
@@ -2483,7 +2483,7 @@ export default function TableBrowserPage() {
                               <BarChart3 className="h-3 w-3" aria-hidden="true" />
                             </button>
                           </div>
-                          <div className="flex items-center gap-1 text-[10px] font-normal text-gray-500">
+                          <div className="flex items-center gap-1 text-[11px] font-normal text-gray-500">
                             {getColumnTypeIcon(col.type)}
                             <span>{col.type}</span>
                             {schema?.foreign_keys[col.name] && (
@@ -2504,7 +2504,7 @@ export default function TableBrowserPage() {
                       <tr className="bg-green-50 dark:bg-green-900/20">
                         <td className="px-3 py-2">
                           {cloneSource && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300 font-medium">
+                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300 font-medium">
                               Clone
                             </span>
                           )}

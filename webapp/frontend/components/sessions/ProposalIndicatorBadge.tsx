@@ -40,7 +40,7 @@ export function ProposalIndicatorBadge({
         "transition-all hover:shadow-sm",
         "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1",
         config.className,
-        isSmall ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-xs"
+        isSmall ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
       )}
     >
       <Icon className={cn(config.iconClassName, isSmall ? "h-3 w-3" : "h-3.5 w-3.5")} />
@@ -107,7 +107,7 @@ export function ProposalIndicatorMini({
       className={cn(
         "inline-flex items-center justify-center",
         "rounded-full bg-amber-400 dark:bg-amber-500",
-        "text-[8px] font-bold text-white",
+        "text-[11px] font-bold text-white",
         "min-w-[14px] h-[14px] px-1",
         "transition-all hover:scale-110",
         "focus:outline-none focus:ring-2 focus:ring-amber-400"

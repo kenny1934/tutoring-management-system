@@ -88,7 +88,7 @@ export function BreakdownStrip({
   return (
     <div className="pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
       <div className="flex items-baseline justify-between mb-2">
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{title}</span>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{title}</span>
         {trailing}
       </div>
       <div className="flex flex-wrap gap-1.5">{children}</div>
@@ -115,7 +115,7 @@ export function BarRow({ label, labelClass, barColor, count, total, maxCount, la
       className={cn("flex items-center gap-2.5", onClick && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -mx-1 px-1 rounded")}
       onClick={onClick}
     >
-      <span className={cn("shrink-0 text-right text-[10px] px-1.5 py-0.5 rounded", labelWidth, labelClass)}>
+      <span className={cn("shrink-0 text-right text-[11px] px-1.5 py-0.5 rounded", labelWidth, labelClass)}>
         {label}
       </span>
       <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
@@ -125,7 +125,7 @@ export function BarRow({ label, labelClass, barColor, count, total, maxCount, la
         />
       </div>
       <span className="shrink-0 text-xs font-medium text-foreground tabular-nums w-7 text-right">{count}</span>
-      <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums w-8 text-right">{pct}%</span>
+      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums w-8 text-right">{pct}%</span>
     </div>
   );
 }
@@ -170,8 +170,8 @@ export function StatusPipeline({ entries, total, colors, onStatusFilter }: {
             onClick={onStatusFilter ? () => onStatusFilter(status) : undefined}
           >
             <span className={cn("w-2.5 h-2.5 rounded-sm shrink-0", colors[status]?.dot ?? "bg-gray-400")} />
-            <span className="text-[10px] text-muted-foreground">{status}</span>
-            <span className="text-[10px] font-medium text-foreground tabular-nums">{count}</span>
+            <span className="text-[11px] text-muted-foreground">{status}</span>
+            <span className="text-[11px] font-medium text-foreground tabular-nums">{count}</span>
           </div>
         ))}
       </div>
@@ -271,9 +271,9 @@ export function DonutChart({ segments, onSegmentClick }: { segments: { label: st
               className={cn("flex items-center gap-2", onSegmentClick && "cursor-pointer hover:underline")}
               onClick={onSegmentClick ? () => onSegmentClick(seg.label) : undefined}
             >
-              <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded", seg.pillClass)}>{seg.label}</span>
+              <span className={cn("text-[11px] font-semibold px-1.5 py-0.5 rounded", seg.pillClass)}>{seg.label}</span>
               <span className="text-xs font-medium text-foreground tabular-nums">{seg.count}</span>
-              <span className="text-[10px] text-muted-foreground tabular-nums">{pct}%</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{pct}%</span>
             </div>
           );
         })}
@@ -299,7 +299,7 @@ export function StatCard({ icon: Icon, value, label, colorClass, onClick }: {
       <Icon className={cn("h-4 w-4 shrink-0", colorClass ? "" : "text-muted-foreground")} />
       <div>
         <div className={cn("text-lg font-semibold tabular-nums", colorClass ? "" : "text-foreground")}>{value}</div>
-        <div className="text-[10px] text-muted-foreground">{label}</div>
+        <div className="text-[11px] text-muted-foreground">{label}</div>
       </div>
     </div>
   );
@@ -360,7 +360,7 @@ export function TimelineChart({ days, max }: { days: [string, number][]; max: nu
             <div key={date} className="absolute" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%, -50%)" }}>
               <div className="w-2 h-2 rounded-full bg-primary" title={`${formatCompactDate(date)}: ${count}`} />
               {peakSet.has(i) && count > 0 && (
-                <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
                   {count}
                 </span>
               )}
@@ -368,7 +368,7 @@ export function TimelineChart({ days, max }: { days: [string, number][]; max: nu
           );
         })}
       </div>
-      <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+      <div className="flex justify-between text-[11px] text-muted-foreground mt-0.5">
         <span>{formatCompactDate(days[0][0])}</span>
         {n > 1 && <span>{formatCompactDate(days[n - 1][0])}</span>}
       </div>

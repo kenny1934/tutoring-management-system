@@ -133,7 +133,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
       <div className="space-y-3">
         {/* ID - monospace, small, gray (consistent with StudentInfoBadges) */}
         {s.school_student_id && (
-          <div className="text-[10px] font-mono text-ink-subtle dark:text-[#a89880]">
+          <div className="text-[11px] font-mono text-ink-subtle dark:text-[#a89880]">
             {s.school_student_id}
           </div>
         )}
@@ -197,7 +197,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Student info */}
         <div>
           {s.school_student_id && (
-            <div className="text-[10px] font-mono text-ink-subtle dark:text-[#a89880]">
+            <div className="text-[11px] font-mono text-ink-subtle dark:text-[#a89880]">
               {s.school_student_id}
             </div>
           )}
@@ -245,7 +245,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
       <div className="space-y-3">
         {/* Student ID and name */}
         {e.school_student_id && (
-          <div className="text-[10px] font-mono text-ink-subtle dark:text-[#a89880]">
+          <div className="text-[11px] font-mono text-ink-subtle dark:text-[#a89880]">
             {e.school_student_id}
           </div>
         )}

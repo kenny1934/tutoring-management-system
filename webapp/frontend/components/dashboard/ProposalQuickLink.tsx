@@ -118,7 +118,7 @@ function CompactSlotItem({
             <User className="h-3 w-3 flex-shrink-0" />
             <TutorLink tutorId={slot.proposed_tutor_id} tutorName={slot.proposed_tutor_name} className="truncate" />
             {isTargetTutor && (
-              <span className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
+              <span className="px-1 py-0.5 text-[11px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
                 You
               </span>
             )}
@@ -149,7 +149,7 @@ function CompactSlotItem({
         {slot.slot_status !== "pending" && (
           <span
             className={cn(
-              "px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0",
+              "px-1.5 py-0.5 text-[11px] font-medium rounded flex-shrink-0",
               slot.slot_status === "approved"
                 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                 : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
@@ -259,7 +259,7 @@ function CompactProposalCard({
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <Users className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
             {session?.school_student_id && (
-              <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">
+              <span className="text-[11px] text-gray-500 font-mono flex-shrink-0">
                 {session.school_student_id}
               </span>
             )}
@@ -268,7 +268,7 @@ function CompactProposalCard({
             </span>
             {session?.grade && (
               <GradeBadge
-                className="px-1 py-0.5 text-[9px] font-medium rounded flex-shrink-0 text-gray-800"
+                className="px-1 py-0.5 text-[11px] font-medium rounded flex-shrink-0 text-gray-800"
                 grade={session.grade}
                 langStream={session.lang_stream}
               />
@@ -277,7 +277,7 @@ function CompactProposalCard({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span
               className={cn(
-                "px-1.5 py-0.5 text-[10px] font-medium rounded",
+                "px-1.5 py-0.5 text-[11px] font-medium rounded",
                 proposal.status === "pending"
                   ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                   : proposal.status === "approved"
@@ -297,7 +297,7 @@ function CompactProposalCard({
         </div>
         {/* Collapsed summary - show when not expanded */}
         {!isExpanded && (
-          <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
             {isProposer ? (
               <span className="flex items-center gap-0.5">
                 <Send className="h-2.5 w-2.5" />

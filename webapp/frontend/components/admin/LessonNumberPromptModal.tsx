@@ -116,7 +116,7 @@ export function LessonNumberPromptModal({
                     !isValid && "border-red-400",
                   )}
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1">
                   1–{maxLesson}, or leave blank.
                 </p>
               </div>

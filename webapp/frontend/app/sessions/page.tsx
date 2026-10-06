@@ -2170,7 +2170,7 @@ function SessionsPageContent() {
                         onClick={handleBulkAttended}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
                           bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
                         )}
                         title="Mark all as attended"
@@ -2184,7 +2184,7 @@ function SessionsPageContent() {
                         onClick={handleBulkNoShow}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
                           bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
                         )}
                         title="Mark all as no show"
@@ -2198,7 +2198,7 @@ function SessionsPageContent() {
                         onClick={handleBulkReschedule}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                           bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                         )}
                         title="Mark all as rescheduled"
@@ -2212,7 +2212,7 @@ function SessionsPageContent() {
                         onClick={handleBulkSickLeave}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                           bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                         )}
                         title="Mark all as sick leave"
@@ -2226,7 +2226,7 @@ function SessionsPageContent() {
                         onClick={handleBulkWeatherCancelled}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                           bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                         )}
                         title="Mark all as weather cancelled"
@@ -2255,7 +2255,7 @@ function SessionsPageContent() {
                     {/* Rate button - always visible */}
                     <button
                       onClick={() => setBulkRateModalOpen(true)}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
                       title="Rate selected sessions (R)"
                     >
                       <MessageSquarePlus className="h-3 w-3" />
@@ -2264,7 +2264,7 @@ function SessionsPageContent() {
                     {/* Clear button - always visible */}
                     <button
                       onClick={clearSelection}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     >
                       <X className="h-3 w-3" />
                       <span className="hidden xs:inline">Clear</span>
@@ -2478,7 +2478,7 @@ function SessionsPageContent() {
                                             </span>
                                             <SessionLessonBadge session={session} size="xs" />
                                             {session.grade && (
-                                              <GradeBadge className="text-[10px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
+                                              <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
                                             )}
                                           </div>
 
@@ -2497,10 +2497,10 @@ function SessionsPageContent() {
                                               {session.time_slot}
                                             </span>
                                             {/* Urgency badge */}
-                                            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0", urgencyBadgeConfig.bg, urgencyBadgeConfig.text, urgencyBadgeConfig.border)}>
+                                            <span className={cn("text-[11px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0", urgencyBadgeConfig.bg, urgencyBadgeConfig.text, urgencyBadgeConfig.border)}>
                                               {urgency.daysOld}d old
                                             </span>
-                                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded flex-shrink-0",
+                                            <span className={cn("text-[11px] px-1.5 py-0.5 rounded flex-shrink-0",
                                               urgency.daysRemaining <= 0 ? "bg-red-200 dark:bg-red-900/60 text-red-800 dark:text-red-200 font-bold" :
                                               urgency.daysRemaining <= 15 ? "text-red-600 dark:text-red-400" :
                                               "text-gray-500 dark:text-gray-400"

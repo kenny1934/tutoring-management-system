@@ -148,14 +148,14 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
               they do not teach, which is true of every Supervisor. The
               departure badge means they are going or gone. */}
           {tutor.is_active_tutor === false && !isLeaving(tutor) && (
-            <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            <span className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
               Inactive
             </span>
           )}
           {isLeaving(tutor) && (
             <span
               className={cn(
-                "flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                "flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full",
                 hasDeparted(tutor)
                   ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
                   : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
@@ -168,7 +168,7 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
         <div className="mt-1 flex items-center gap-2 flex-wrap">
           <span
             className={cn(
-              "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+              "text-[11px] font-medium px-1.5 py-0.5 rounded-full",
               ROLE_BADGE[tutor.role] ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
             )}
           >

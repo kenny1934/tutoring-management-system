@@ -99,7 +99,7 @@ export function CurriculumPastPaperRow({
         </span>
         {paper.for_this_event ? (
           <span
-            className="text-[9px] px-1 py-px rounded shrink-0 bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-medium"
+            className="text-[11px] px-1 py-px rounded shrink-0 bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-medium"
             title="Made for this exact test"
           >
             This test
@@ -108,7 +108,7 @@ export function CurriculumPastPaperRow({
           paper.school && (
             <span
               className={cn(
-                "text-[9px] px-1 py-px rounded shrink-0",
+                "text-[11px] px-1 py-px rounded shrink-0",
                 paper.same_school
                   ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-medium"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
@@ -126,7 +126,7 @@ export function CurriculumPastPaperRow({
         {paper.exam_kind && (
           <span
             className={cn(
-              "text-[9px] px-1 py-px rounded shrink-0",
+              "text-[11px] px-1 py-px rounded shrink-0",
               // Canonical kind colours from the exam revisions page (Test
               // red, Exam purple, Quiz green; Mock falls to the muted
               // default, as that page has no Mock type).
@@ -139,7 +139,7 @@ export function CurriculumPastPaperRow({
         )}
         {versionCount > 1 && (
           <span
-            className="text-[9px] px-1 py-px rounded shrink-0 text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06]"
+            className="text-[11px] px-1 py-px rounded shrink-0 text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06]"
             title={`Filed in ${versionCount} versions. The preview and add use this one.`}
           >
             {versionCount} versions
@@ -171,7 +171,7 @@ export function CurriculumPastPaperRow({
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         </button>
       </div>
-      <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
         <span
           title={`Week ${paper.week_number} of the ${paper.academic_year} school year${approxMonthText(paper.academic_year, paper.week_number)}.`}
         >

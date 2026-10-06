@@ -203,7 +203,7 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-const labelCls = "text-[10px] text-gray-500 dark:text-gray-400 ml-0.5";
+const labelCls = "text-[11px] text-gray-500 dark:text-gray-400 ml-0.5";
 
 
 // ─── File leave form ───
@@ -600,7 +600,7 @@ function LeaveCalendarView() {
       {/* Weekday headers */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAY_HEADERS.map((day, i) => (
-          <div key={i} className="text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+          <div key={i} className="text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400">
             {day}
           </div>
         ))}
@@ -635,7 +635,7 @@ function LeaveCalendarView() {
                 onClick={() => clickable && setSelectedDay(selectedDay === dateKey ? null : dateKey)}
               >
                 <span className={cn(
-                  "text-[10px] leading-none",
+                  "text-[11px] leading-none",
                   isToday && "font-bold text-accent-ink",
                   !isToday && holiday && "text-red-600 dark:text-red-400 font-medium",
                   !isToday && !holiday && "text-gray-600 dark:text-gray-400",
@@ -648,7 +648,7 @@ function LeaveCalendarView() {
                       <div key={i} className={cn("w-1.5 h-1.5 rounded-full", leaveTypeColor(e.leave_type))} />
                     ))}
                     {dayEntries.length > 3 && (
-                      <span className="text-[7px] text-gray-500">+{dayEntries.length - 3}</span>
+                      <span className="text-[11px] text-gray-500">+{dayEntries.length - 3}</span>
                     )}
                   </div>
                 )}
@@ -696,7 +696,7 @@ function LeaveCalendarView() {
           {legendTypes.map(type => (
             <div key={type} className="flex items-center gap-1">
               <div className={cn("w-2 h-2 rounded-full", leaveTypeColor(type))} />
-              <span className="text-[10px] text-gray-500 dark:text-gray-400">{type}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">{type}</span>
             </div>
           ))}
         </div>
@@ -810,7 +810,7 @@ function RequestCard({
           <div className="flex items-center gap-1 flex-shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
             {request.status !== "pending" && (
               <span className={cn(
-                "px-1.5 py-0.5 text-[10px] font-medium rounded",
+                "px-1.5 py-0.5 text-[11px] font-medium rounded",
                 request.status === "approved"
                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                   : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
@@ -822,7 +822,7 @@ function RequestCard({
               <button
                 onClick={() => setShowCancelConfirm(true)}
                 disabled={isActing === request.id}
-                className="px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 {isActing === request.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Cancel"}
               </button>
@@ -1027,7 +1027,7 @@ function AllStaffBalancesPanel({
           />
         </div>
         {selectedLocation !== "All Locations" && (
-          <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-accent-ink border border-primary/30">
+          <span className="shrink-0 px-2 py-0.5 text-[11px] font-medium rounded-full bg-primary/10 text-accent-ink border border-primary/30">
             {selectedLocation}
           </span>
         )}
@@ -1047,25 +1047,25 @@ function AllStaffBalancesPanel({
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
-                  <th rowSpan={2} className="sticky top-0 px-2 py-1.5 text-left font-medium uppercase tracking-wider text-[10px] text-gray-500 dark:text-gray-400">
+                  <th rowSpan={2} className="sticky top-0 px-2 py-1.5 text-left font-medium uppercase tracking-wider text-[11px] text-gray-500 dark:text-gray-400">
                     Staff
                   </th>
-                  <th colSpan={5} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">
+                  <th colSpan={5} className="px-2 pt-1.5 pb-0.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">
                     Annual Leave
                   </th>
-                  <th colSpan={3} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">
+                  <th colSpan={3} className="px-2 pt-1.5 pb-0.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">
                     Sick Leave
                   </th>
                 </tr>
                 <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Overtime compensation">OC</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Birthday leave">Bday</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-dashed border-line/60" title="Used (AL + OC + Bday)">Used</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Pool remaining">Rem.</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">Ent.</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Used</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Rem.</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Overtime compensation">OC</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Birthday leave">Bday</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-dashed border-line/60" title="Used (AL + OC + Bday)">Used</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Pool remaining">Rem.</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">Ent.</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Used</th>
+                  <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Rem.</th>
                 </tr>
               </thead>
               <tbody>
@@ -1457,7 +1457,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 >
                   {tab.label}
                   {tab.count && tab.count > 0 && (
-                    <sup className="ml-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400">
+                    <sup className="ml-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
                       {tab.count}
                     </sup>
                   )}

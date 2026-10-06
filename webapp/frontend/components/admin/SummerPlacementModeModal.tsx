@@ -172,7 +172,7 @@ export function SummerPlacementModeModal({
                           {mode.added > 0 && (
                             <span
                               className={cn(
-                                "text-[10px] tabular-nums px-1.5 py-0.5 rounded border",
+                                "text-[11px] tabular-nums px-1.5 py-0.5 rounded border",
                                 overshoots
                                   ? "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                                   : "text-muted-foreground bg-muted/40 border-border"

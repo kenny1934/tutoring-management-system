@@ -89,7 +89,7 @@ export function CurriculumExamStrip({
         <h2 className="text-xs font-semibold text-gray-800 dark:text-gray-200 shrink-0">
           Tests and exams
         </h2>
-        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
           Recorded for this school year. Click one to open its revision pack.
         </span>
       </div>
@@ -118,7 +118,7 @@ export function CurriculumExamStrip({
                 </span>
                 <span
                   className={cn(
-                    "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-px rounded-full",
+                    "text-[11px] font-semibold uppercase tracking-wide px-1.5 py-px rounded-full",
                     // Canonical kind colours from the exam revisions page
                     // (Test red, Exam purple, Quiz green).
                     getTypeColors(event.event_type).bg,
@@ -128,7 +128,7 @@ export function CurriculumExamStrip({
                   {event.event_type || "Test"}
                 </span>
                 {upcoming && (
-                  <span className="text-[9px] font-semibold text-amber-700 dark:text-amber-400">
+                  <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                     {countdownLabel(event)}
                   </span>
                 )}
@@ -139,27 +139,27 @@ export function CurriculumExamStrip({
                   {event.concepts.slice(0, MAX_CHIPS).map((c) => (
                     <span
                       key={c.concept_id}
-                      className="text-[10px] px-1.5 py-px rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 truncate max-w-[10rem]"
+                      className="text-[11px] px-1.5 py-px rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 truncate max-w-[10rem]"
                       title={conceptNameForStream(c, langStream)}
                     >
                       {conceptNameForStream(c, langStream)}
                     </span>
                   ))}
                   {event.concepts.length > MAX_CHIPS && (
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
                       +{event.concepts.length - MAX_CHIPS}
                     </span>
                   )}
                 </span>
               ) : (
-                <span className="text-[10px] italic text-gray-500 dark:text-gray-400">
+                <span className="text-[11px] italic text-gray-500 dark:text-gray-400">
                   No topics recognised for this test
                 </span>
               )}
 
               {event.unmatched_lines.length > 0 && (
                 <span
-                  className="text-[9px] text-gray-500 dark:text-gray-400"
+                  className="text-[11px] text-gray-500 dark:text-gray-400"
                   title="Lines from the test scope that could not be matched to topics. Open the revision pack to see them."
                 >
                   {event.unmatched_lines.length} scope line
@@ -168,7 +168,7 @@ export function CurriculumExamStrip({
                 </span>
               )}
 
-              <span className="mt-auto inline-flex items-center text-[10px] font-medium text-teal-700 dark:text-teal-400">
+              <span className="mt-auto inline-flex items-center text-[11px] font-medium text-teal-700 dark:text-teal-400">
                 Revision pack
                 <ChevronRight className="h-3 w-3" />
               </span>

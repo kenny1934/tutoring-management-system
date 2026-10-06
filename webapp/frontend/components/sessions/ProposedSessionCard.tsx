@@ -64,7 +64,7 @@ export const ProposedSessionCard = memo(function ProposedSessionCard({
     >
       <div className="flex-1 flex flex-col min-w-0 px-1.5 py-0.5">
         {/* Header row: student ID + tutor name */}
-        <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between items-center">
+        <p className="font-bold text-[11px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between items-center">
           <span className="flex items-center gap-0.5">
             {proposedSession.school_student_id || "N/A"}
           </span>
@@ -80,7 +80,7 @@ export const ProposedSessionCard = memo(function ProposedSessionCard({
         {/* Student name + grade badge */}
         <p
           className={cn(
-            "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
+            "font-semibold text-[11px] leading-tight flex items-center gap-0.5 overflow-hidden",
             "text-gray-700 dark:text-gray-300"
           )}
         >
@@ -88,10 +88,10 @@ export const ProposedSessionCard = memo(function ProposedSessionCard({
             {proposedSession.student_name || "Unknown"}
           </span>
           {!isMobile && widthPercent >= 50 && proposedSession.grade && (
-            <GradeBadge className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap" grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
+            <GradeBadge className="text-[11px] px-1 py-px rounded text-gray-800 whitespace-nowrap" grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
           )}
           {!isMobile && widthPercent > 50 && proposedSession.school && (
-            <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+            <span className="text-[11px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
               {proposedSession.school}
             </span>
           )}
@@ -102,7 +102,7 @@ export const ProposedSessionCard = memo(function ProposedSessionCard({
           <div className="flex items-center gap-1 mt-0.5">
             <span
               className={cn(
-                "text-[7px] px-1 py-px rounded font-semibold uppercase",
+                "text-[11px] px-1 py-px rounded font-semibold uppercase",
                 proposedSessionStyles.badge
               )}
             >
@@ -179,12 +179,12 @@ export const ProposedSessionRow = memo(function ProposedSessionRow({
                 {proposedSession.student_name}
               </span>
               <GradeBadge
-                className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 font-medium"
+                className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 font-medium"
                 grade={proposedSession.grade}
                 langStream={proposedSession.lang_stream}
               />
               {proposedSession.school && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                   {proposedSession.school}
                 </span>
               )}

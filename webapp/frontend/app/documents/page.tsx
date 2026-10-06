@@ -827,9 +827,9 @@ export default function DocumentsPage() {
                         {doc.tags?.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {doc.tags.slice(0, 3).map((tag) => (
-                              <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[9px] font-medium", getTagColor(tag))}>{tag}</span>
+                              <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[11px] font-medium", getTagColor(tag))}>{tag}</span>
                             ))}
-                            {doc.tags.length > 3 && <span className="text-[9px] text-gray-500">+{doc.tags.length - 3}</span>}
+                            {doc.tags.length > 3 && <span className="text-[11px] text-gray-500">+{doc.tags.length - 3}</span>}
                           </div>
                         )}
                       </DraggableCard>
@@ -866,7 +866,7 @@ export default function DocumentsPage() {
               </div>
             )}
             {documents && (
-              <p className="text-center text-[10px] text-gray-500 dark:text-gray-400 pb-4">
+              <p className="text-center text-[11px] text-gray-500 dark:text-gray-400 pb-4">
                 Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
               </p>
             )}
@@ -890,7 +890,7 @@ export default function DocumentsPage() {
               <FileText className="w-4 h-4 text-accent-ink" />
               <span className="truncate max-w-[200px]">{activeDragData.docTitle}</span>
               {activeDragData.selectedIds.length > 1 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold">
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-white text-[11px] font-bold">
                   {activeDragData.selectedIds.length}
                 </span>
               )}

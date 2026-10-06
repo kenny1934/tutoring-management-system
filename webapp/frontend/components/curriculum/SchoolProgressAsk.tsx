@@ -79,11 +79,11 @@ const ROW_FRAME =
   "px-3 py-1.5 border-t border-teal-100/60 dark:border-teal-900/40";
 const ROW = `flex items-center gap-2 ${ROW_FRAME}`;
 const QUESTION_TEXT =
-  "text-[10px] text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0";
+  "text-[11px] text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0";
 // Opens something rather than recording it, so it keeps the teal outline the
 // rest of the panel gives to controls that lead somewhere.
 const OUTLINE_BTN =
-  "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0";
+  "inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0";
 const CORRECTION_PROMPT = "Then what are they on?";
 
 export function SchoolProgressAsk({
@@ -237,7 +237,7 @@ export function SchoolProgressAsk({
         <button
           type="button"
           onClick={() => setAnswer({ status: "idle" })}
-          className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1"
+          className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1"
         >
           <Undo2 className="h-3 w-3" />
           Undo
@@ -312,7 +312,7 @@ export function SchoolProgressAsk({
           "flex flex-wrap items-center gap-x-2 gap-y-1"
         )}
       >
-        <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
           {CORRECTION_PROMPT}
         </span>
         {alternatives.map((c) => (
@@ -391,7 +391,7 @@ export function SchoolProgressAsk({
         <button
           type="button"
           onClick={startCorrection}
-          className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
+          className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
         >
           Not this class?
         </button>
@@ -440,7 +440,7 @@ export function SchoolProgressAsk({
           <button
             type="button"
             onClick={notSure}
-            className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors px-1"
+            className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors px-1"
           >
             Not sure
           </button>

@@ -144,7 +144,7 @@ export function HomeworkCheckRow({
             {getExerciseDisplayName(state)}
           </span>
           {pageLabel && (
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
               {pageLabel}
             </span>
           )}
@@ -152,7 +152,7 @@ export function HomeworkCheckRow({
               files themselves are not rendered. */}
           {state.attachment_count > 0 && files.length === 0 && (
             <span
-              className="flex items-center gap-0.5 text-[10px] text-gray-500 flex-shrink-0"
+              className="flex items-center gap-0.5 text-[11px] text-gray-500 flex-shrink-0"
               title={`${state.attachment_count} file${state.attachment_count === 1 ? "" : "s"} handed in`}
             >
               <Paperclip className="h-2.5 w-2.5" />
@@ -175,7 +175,7 @@ export function HomeworkCheckRow({
 
       {/* Where it came from */}
       {!inCheckViewer && source && (
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
           from {source}
           {(state.sessions_ago || 0) > 1 && (
             <span className="ml-1 text-amber-700 dark:text-amber-400">

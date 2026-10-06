@@ -54,7 +54,7 @@ function FilterBanner({
   clearTitle: string;
 }) {
   return (
-    <div className="flex items-center gap-1 text-[10px]">
+    <div className="flex items-center gap-1 text-[11px]">
       {children}
       <button
         onClick={onClear}
@@ -164,7 +164,7 @@ export function SummerUnassignedPanel({
         >
           <PanelRightOpen className="h-4 w-4" />
         </button>
-        <span className="text-[10px] text-muted-foreground font-medium [writing-mode:vertical-lr] rotate-180">
+        <span className="text-[11px] text-muted-foreground font-medium [writing-mode:vertical-lr] rotate-180">
           {applications.length}
         </span>
       </div>
@@ -234,7 +234,7 @@ export function SummerUnassignedPanel({
           <button
             onClick={() => setGradeFilter(null)}
             className={cn(
-              "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+              "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
               gradeFilter === null
                 ? "bg-primary text-primary-foreground"
                 : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
@@ -247,7 +247,7 @@ export function SummerUnassignedPanel({
               key={g}
               onClick={() => setGradeFilter(gradeFilter === g ? null : g)}
               className={cn(
-                "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+                "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
                 gradeFilter === g
                   ? "bg-primary text-primary-foreground"
                   : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
@@ -259,7 +259,7 @@ export function SummerUnassignedPanel({
           <button
             onClick={() => setNoNotesOnly(!noNotesOnly)}
             className={cn(
-              "ml-auto px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+              "ml-auto px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
               noNotesOnly
                 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
                 : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
@@ -271,7 +271,7 @@ export function SummerUnassignedPanel({
           <button
             onClick={() => setBuddiesOnly(!buddiesOnly)}
             className={cn(
-              "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+              "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
               buddiesOnly
                 ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                 : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
@@ -418,7 +418,7 @@ export function SummerUnassignedPanel({
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     <Clock className="h-3 w-3 shrink-0 text-amber-700 dark:text-amber-400" />
                     {sessionsPerWeek > 1 && (
-                      <span className="shrink-0 text-[9px] font-bold px-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                      <span className="shrink-0 text-[11px] font-bold px-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                         2×
                       </span>
                     )}
@@ -427,18 +427,18 @@ export function SummerUnassignedPanel({
                         {classified.primary.map((s, i) => (
                           <span
                             key={`p${i}`}
-                            className="shrink-0 font-mono text-[9px] px-1 py-0 rounded bg-gray-100 dark:bg-gray-800 text-foreground"
+                            className="shrink-0 font-mono text-[11px] px-1 py-0 rounded bg-gray-100 dark:bg-gray-800 text-foreground"
                           >
                             {s.day} {s.time}
                           </span>
                         ))}
                         {classified.backup.length > 0 && (
                           <>
-                            <span className="shrink-0 text-[8px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
                             {classified.backup.map((s, i) => (
                               <span
                                 key={`b${i}`}
-                                className="shrink-0 font-mono text-[9px] px-1 py-0 rounded border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground"
+                                className="shrink-0 font-mono text-[11px] px-1 py-0 rounded border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground"
                               >
                                 {s.day} {s.time}
                               </span>
@@ -447,14 +447,14 @@ export function SummerUnassignedPanel({
                         )}
                       </>
                     ) : (
-                      <span className="text-[9px] text-red-600">No prefs</span>
+                      <span className="text-[11px] text-red-600">No prefs</span>
                     )}
                   </div>
 
                   {/* Row 3: placement dots + unavailability + suggest */}
                   <div className="flex items-center gap-1 mt-1">
                     <PlacementDotStrip sessions={app.sessions} totalLessons={totalLessons} />
-                    <span className="text-[9px] text-muted-foreground tabular-nums">
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
                       {placedCount}/{totalLessons}
                     </span>
                     {app.unavailability_notes && (
@@ -465,7 +465,7 @@ export function SummerUnassignedPanel({
                     {!readOnly && onSuggestStudent && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onSuggestStudent(app.id, app.student_name); }}
-                        className="ml-auto text-[9px] font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
+                        className="ml-auto text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
                         title="Auto-suggest placement for this student"
                       >
                         Suggest

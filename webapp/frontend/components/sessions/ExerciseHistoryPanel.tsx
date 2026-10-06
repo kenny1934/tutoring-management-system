@@ -167,10 +167,10 @@ export function ExerciseHistoryPanel({
                   {parentSession.student_name}
                 </Link>
                 {parentSession.grade && (
-                  <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0" grade={parentSession.grade} langStream={parentSession.lang_stream} />
+                  <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 shrink-0" grade={parentSession.grade} langStream={parentSession.lang_stream} />
                 )}
                 {parentSession.school && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 shrink-0">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 shrink-0">
                     {parentSession.school}
                   </span>
                 )}
@@ -220,7 +220,7 @@ export function ExerciseHistoryPanel({
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1">
                                 <PenTool className="h-2.5 w-2.5 text-red-600" />
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400">CW</span>
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400">CW</span>
                               </div>
                               {cw.map((ex) => (
                                 <RecapExerciseItem
@@ -241,7 +241,7 @@ export function ExerciseHistoryPanel({
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1">
                                 <Home className="h-2.5 w-2.5 text-blue-600" />
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400">HW</span>
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400">HW</span>
                               </div>
                               {hw.map((ex) => (
                                 <RecapExerciseItem

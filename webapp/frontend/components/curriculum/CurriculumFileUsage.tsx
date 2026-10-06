@@ -93,7 +93,7 @@ function UsageLine({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400 rounded px-1 -mx-1",
+        "flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-400 rounded px-1 -mx-1",
         isThisStudent && "bg-amber-50 dark:bg-amber-900/20",
         tag && "opacity-70"
       )}
@@ -123,7 +123,7 @@ function UsageLine({
           <span className="truncate min-w-0">{detail.student_name}</span>
         )}
         {showSchool && detail.school && (
-          <span className="shrink-0 text-[9px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+          <span className="shrink-0 text-[11px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
             {detail.school}
           </span>
         )}
@@ -136,7 +136,7 @@ function UsageLine({
       </span>
       <span
         className={cn(
-          "shrink-0 px-1 rounded text-[9px]",
+          "shrink-0 px-1 rounded text-[11px]",
           detail.exercise_type === "CW"
             ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
             : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
@@ -147,7 +147,7 @@ function UsageLine({
       {pages && <span className="shrink-0 tabular-nums">{pages}</span>}
       {tag && (
         <span
-          className="shrink-0 px-1 rounded text-[9px] bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+          className="shrink-0 px-1 rounded text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
           title={tag.explanation}
         >
           {tag.label}
@@ -202,7 +202,7 @@ function UsageGroup({
 
   if (isLoading && !data) {
     return (
-      <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+      <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
         <Loader2 className="h-3 w-3 animate-spin" />
         Loading the lessons that used this file…
       </div>
@@ -210,7 +210,7 @@ function UsageGroup({
   }
   if (error) {
     return (
-      <p className="text-[10px] text-red-600">
+      <p className="text-[11px] text-red-600">
         The lessons that used this file could not be loaded.
       </p>
     );
@@ -222,10 +222,10 @@ function UsageGroup({
   return (
     <div className="space-y-0.5">
       {heading && (
-        <p className="text-[10px] font-medium text-gray-600 dark:text-gray-400">{heading}</p>
+        <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">{heading}</p>
       )}
       {lines.length === 0 ? (
-        <p className="text-[10px] text-gray-500">No lessons were found for this file.</p>
+        <p className="text-[11px] text-gray-500">No lessons were found for this file.</p>
       ) : (
         lines.map((d) => (
           <UsageLine
@@ -244,13 +244,13 @@ function UsageGroup({
             type="button"
             onClick={() => setLimit((n) => Math.min(n + PAGE_STEP, MAX_LINES))}
             disabled={isValidating}
-            className="flex items-center gap-1 text-[10px] text-teal-700 dark:text-teal-400 hover:underline disabled:opacity-60"
+            className="flex items-center gap-1 text-[11px] text-teal-700 dark:text-teal-400 hover:underline disabled:opacity-60"
           >
             {isValidating && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
             Show more
           </button>
         ) : (
-          <p className="text-[10px] text-gray-500">
+          <p className="text-[11px] text-gray-500">
             Only the latest {MAX_LINES} lessons are shown.
           </p>
         ))}
@@ -315,7 +315,7 @@ export function CurriculumFileUsage({
             <button
               type="button"
               onClick={() => setOthersOpen(true)}
-              className="flex items-center gap-0.5 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
+              className="flex items-center gap-0.5 text-[11px] text-teal-700 dark:text-teal-400 hover:underline"
             >
               <ChevronRight className="h-3 w-3" />
               {otherCount} more at other schools

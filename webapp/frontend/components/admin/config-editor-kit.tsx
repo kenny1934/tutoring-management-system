@@ -114,10 +114,10 @@ export function Section({
           )}
           {title}
           {subtitle && (
-            <span className="text-[10px] font-normal text-muted-foreground">{subtitle}</span>
+            <span className="text-[11px] font-normal text-muted-foreground">{subtitle}</span>
           )}
           {status?.count && (
-            <span className="text-[10px] font-normal text-muted-foreground">({status.count})</span>
+            <span className="text-[11px] font-normal text-muted-foreground">({status.count})</span>
           )}
         </span>
         <ChevronDown

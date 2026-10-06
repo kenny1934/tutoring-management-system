@@ -112,7 +112,7 @@ function WeekAxis({
         className="sticky left-0 z-30 shrink-0 bg-paper flex items-center px-4"
         style={{ width: LABEL_W }}
       >
-        <span className="text-[9px] uppercase tracking-wide text-gray-500">
+        <span className="text-[11px] uppercase tracking-wide text-gray-500">
           Topic
         </span>
       </div>
@@ -120,7 +120,7 @@ function WeekAxis({
         {axisTicks(maxWeek).map((w) => (
           <span
             key={w}
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-500 tabular-nums"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[11px] text-gray-500 tabular-nums"
             style={{ left: `${((w - 0.5) / maxWeek) * 100}%` }}
           >
             {w}
@@ -128,7 +128,7 @@ function WeekAxis({
         ))}
         {currentWeek != null && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-600 bg-paper px-0.5"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[11px] font-medium text-rose-600 bg-paper px-0.5"
             style={{ left: `${((currentWeek - 0.5) / maxWeek) * 100}%` }}
           >
             Now
@@ -179,7 +179,7 @@ const GanttLanes = memo(function GanttLanes({
                 className="flex-1 min-w-0 h-full flex items-center text-left"
               >
                 <span
-                  className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
+                  className="text-[11px] text-gray-600 dark:text-gray-300 truncate"
                   title={conceptNameForStream(lane, stream)}
                 >
                   {conceptNameForStream(lane, stream)}
@@ -243,7 +243,7 @@ const GanttLanes = memo(function GanttLanes({
                   <span
                     key={w.week_number}
                     className={cn(
-                      "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] border",
+                      "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] border",
                       w.rank === 1
                         ? "border-teal-300 dark:border-teal-700 bg-white dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
                         : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-gray-500 dark:text-gray-400"
@@ -294,7 +294,7 @@ const PacingChartRows = memo(function PacingChartRows({
             style={{ width: LABEL_W }}
           >
             <span
-              className="flex-1 min-w-0 text-[10px] text-gray-600 dark:text-gray-300 truncate"
+              className="flex-1 min-w-0 text-[11px] text-gray-600 dark:text-gray-300 truncate"
               title={conceptNameForStream(row, labelStream)}
             >
               {conceptNameForStream(row, labelStream)}
@@ -378,7 +378,7 @@ const PacingChartRows = memo(function PacingChartRows({
                     cell && (
                       <p
                         key={idx}
-                        className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-300"
+                        className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300"
                       >
                         <span
                           className={cn(
@@ -1051,19 +1051,19 @@ export default function CurriculumPage() {
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Weekly topics
               </span>
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[11px] text-gray-500">
                 {timeline.school} {timeline.grade}
                 {timeline.lang_stream ? ` (${timeline.lang_stream})` : ""} · {displayYear}
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-500/90 dark:bg-teal-500/80" />
                 Main topic
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-200 dark:bg-teal-900/60" />
                 Also seen
               </span>
-              <span className="text-[10px] text-gray-500">Click a row for detail</span>
+              <span className="text-[11px] text-gray-500">Click a row for detail</span>
               <div className="ml-auto flex items-center gap-1.5">
                 <input
                   type="text"
@@ -1086,7 +1086,7 @@ export default function CurriculumPage() {
                   title="Type a week number or a date and press Enter"
                 />
                 {weekQueryInvalid && (
-                  <span className="text-[10px] text-rose-600 dark:text-rose-400">
+                  <span className="text-[11px] text-rose-600 dark:text-rose-400">
                     No matching week. Try a number or a date.
                   </span>
                 )}
@@ -1094,7 +1094,7 @@ export default function CurriculumPage() {
                   <button
                     type="button"
                     onClick={() => jumpToWeek(timeline.current_week)}
-                    className="text-[10px] px-1.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                    className="text-[11px] px-1.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
                   >
                     Today
                   </button>
@@ -1175,13 +1175,13 @@ export default function CurriculumPage() {
                       Week {focusWeek}
                       {weekDateLabel(focusWeek) ? ` · ${weekDateLabel(focusWeek)}` : ""}
                       {focusWeek === timeline.current_week && (
-                        <span className="ml-1.5 text-[9px] font-medium text-rose-600">
+                        <span className="ml-1.5 text-[11px] font-medium text-rose-600">
                           this week
                         </span>
                       )}
                     </div>
                     {focusWeekConcepts.length === 0 ? (
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                         No records for this week yet.
                       </p>
                     ) : (
@@ -1198,7 +1198,7 @@ export default function CurriculumPage() {
                             >
                               {conceptNameForStream(c, effectiveStream)}
                             </span>
-                            <span className="text-[9px] text-gray-500 shrink-0">
+                            <span className="text-[11px] text-gray-500 shrink-0">
                               {c.thin
                                 ? "One student only"
                                 : c.rank === 1
@@ -1285,12 +1285,12 @@ export default function CurriculumPage() {
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Typical pace
               </span>
-              <span className="text-[10px] text-gray-500">across all observed years</span>
+              <span className="text-[11px] text-gray-500">across all observed years</span>
               <div className="flex flex-wrap items-center gap-1.5 ml-auto">
                 {pacingCombos.map(({ combo, pacing, slot }, idx) => (
                   <span
                     key={comboKey(combo)}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300"
                   >
                     <span className={cn("h-2 w-2 rounded-full", SLOT_STYLES[slot].dot)} />
                     {comboLabel(combo)}
@@ -1315,7 +1315,7 @@ export default function CurriculumPage() {
                 ))}
                 {compares.length < 2 && compareOptions.length > 0 && (
                   <select
-                    className="text-[10px] px-1.5 py-1 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    className="text-[11px] px-1.5 py-1 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     value=""
                     onChange={(e) => {
                       if (!e.target.value) return;

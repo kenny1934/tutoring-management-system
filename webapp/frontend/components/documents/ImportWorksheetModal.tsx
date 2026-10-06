@@ -30,11 +30,11 @@ function LayoutBadges({ layout }: { layout: DocumentMetadata }) {
   if (layout.watermark?.enabled) badges.push("Watermark");
   if (layout.bodyFontFamily) badges.push(fontLabel(layout.bodyFontFamily));
   if (layout.bodyFontFamilyCjk) badges.push(fontLabel(layout.bodyFontFamilyCjk));
-  if (!badges.length) return <span className="text-[10px] text-gray-500 dark:text-gray-400">Default layout</span>;
+  if (!badges.length) return <span className="text-[11px] text-gray-500 dark:text-gray-400">Default layout</span>;
   return (
     <div className="flex flex-wrap gap-1 mt-0.5">
       {badges.map((b) => (
-        <span key={b} className="px-1.5 py-0 rounded text-[10px] bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400">{b}</span>
+        <span key={b} className="px-1.5 py-0 rounded text-[11px] bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400">{b}</span>
       ))}
     </div>
   );
@@ -391,7 +391,7 @@ export default function ImportWorksheetModal({
             </p>
           </div>
           {usage && (
-            <div className="text-[10px] text-gray-500 dark:text-gray-500 bg-gray-50 dark:bg-white/5 rounded px-3 py-1.5">
+            <div className="text-[11px] text-gray-500 dark:text-gray-500 bg-gray-50 dark:bg-white/5 rounded px-3 py-1.5">
               AI usage: {usage.input_tokens.toLocaleString()} input + {usage.output_tokens.toLocaleString()} output tokens
               {" "}(~${((usage.input_tokens * 0.25 + usage.output_tokens * 1.5) / 1_000_000).toFixed(4)})
             </div>

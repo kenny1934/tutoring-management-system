@@ -452,7 +452,7 @@ export function ScheduleChangeReviewModal({
                                 )}>
                                   {effectiveTime}
                                 </div>
-                                <div className="text-blue-600 text-[10px]">
+                                <div className="text-blue-600 text-[11px]">
                                   ✏️ Manual
                                 </div>
                               </div>
@@ -466,7 +466,7 @@ export function ScheduleChangeReviewModal({
                                   {formatShortDate(session.shifted_date || session.new_date)}
                                 </div>
                                 <div className="text-foreground/50">{session.new_time_slot}</div>
-                                <div className="text-amber-700 text-[10px]">
+                                <div className="text-amber-700 text-[11px]">
                                   ⚠️ {session.holiday_name}
                                 </div>
                               </div>

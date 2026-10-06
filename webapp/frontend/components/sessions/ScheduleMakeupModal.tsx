@@ -121,12 +121,12 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
   const content = (
     <>
       {student.school_student_id && (
-        <span className="text-[9px] text-gray-500 font-mono mr-1">{student.school_student_id}</span>
+        <span className="text-[11px] text-gray-500 font-mono mr-1">{student.school_student_id}</span>
       )}
       <span className={compact ? "" : "text-gray-700 dark:text-gray-300"}>{name}</span>
       {student.grade && (
         <span
-          className={cn(compact ? "ml-1 text-[9px] px-1 rounded" : "text-[9px] px-1 py-0.5 rounded text-gray-800")}
+          className={cn(compact ? "ml-1 text-[11px] px-1 rounded" : "text-[11px] px-1 py-0.5 rounded text-gray-800")}
           style={{ backgroundColor: gradeBg, color: '#374151' }}
         >
           <GradeLabel grade={student.grade} langStream={student.lang_stream} />
@@ -135,7 +135,7 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
       {student.school && (
         <span className={cn(
           "rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
-          compact ? "ml-1 text-[8px] px-1 py-0.5" : "text-[8px] px-1 py-0.5"
+          compact ? "ml-1 text-[11px] px-1 py-0.5" : "text-[11px] px-1 py-0.5"
         )}>
           {student.school}
         </span>
@@ -146,7 +146,7 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
 
   if (compact) {
     return (
-      <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400">
+      <span className="text-[11px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400">
         {content}
       </span>
     );
@@ -199,8 +199,8 @@ function WeightSlider({ label, value, min, max, step, onChange }: WeightSliderPr
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] text-gray-600 dark:text-gray-400">{label}</label>
-        <span className="text-[10px] font-mono text-accent-ink">{value}</span>
+        <label className="text-[11px] text-gray-600 dark:text-gray-400">{label}</label>
+        <span className="text-[11px] font-mono text-accent-ink">{value}</span>
       </div>
       <input
         type="range"
@@ -295,25 +295,25 @@ const SuggestionCard = React.memo(function SuggestionCard({
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f]">{suggestion.tutor_name}</span>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[11px] text-gray-500">
               {suggestion.current_students}/8 students
             </span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
+            <span className="text-[11px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
               Score: {suggestion.calculatedScore}
             </span>
             {breakdown.is_same_tutor && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+              <span className="text-[11px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
                 Same tutor
               </span>
             )}
             {breakdown.slot_majority_lesson != null && (
-              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+              <span className="flex items-center gap-1 text-[11px] text-gray-500">
                 <LessonNumberBadge lessonNumber={breakdown.slot_majority_lesson} size="xs" />
                 {plural(majorityCount, "classmate")}
               </span>
             )}
             {isLessonMatch && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
+              <span className="text-[11px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
                 Same lesson
               </span>
             )}
@@ -330,7 +330,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
       {isExpanded && (
         <div className="px-3 pb-3 border-t border-line">
           {/* Score Breakdown */}
-          <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
+          <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[11px] text-gray-600 dark:text-gray-400">
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
               {isSummerMakeup && (
@@ -418,7 +418,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                     <span>{canOverrideLimit ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                   </div>
-                  <div className={`mt-1 ${canOverrideLimit ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
+                  <div className={`mt-1 ${canOverrideLimit ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[11px]`}>
                     {canOverrideLimit
                       ? `You can proceed despite the ${limitCopy.noun}.`
                       : limitCopy.explanation()}
@@ -1392,14 +1392,14 @@ export function ScheduleMakeupModal({
         <div className={cn("sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-paper border-b-2 flex items-center gap-2 text-xs flex-wrap transition-colors", mode === "propose" ? "border-b-blue-400 dark:border-b-blue-600" : "border-b-green-400 dark:border-b-green-600")}>
           <User className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
           {session.school_student_id && (
-            <span className="text-[9px] text-gray-500 font-mono">{session.school_student_id}</span>
+            <span className="text-[11px] text-gray-500 font-mono">{session.school_student_id}</span>
           )}
           <span className="font-medium text-[#5d4e37] dark:text-[#e8d4b8]">{session.student_name}</span>
           {session.grade && (
-            <GradeBadge className="text-[9px] px-1 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+            <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
-            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+            <span className="text-[11px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               {session.school}
             </span>
           )}
@@ -1426,7 +1426,7 @@ export function ScheduleMakeupModal({
             <div className="flex items-start gap-2">
               <CalendarX className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-0.5">
+                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-0.5">
                   Unavailable Dates (from summer application)
                 </p>
                 <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">
@@ -1481,7 +1481,7 @@ export function ScheduleMakeupModal({
                 PROPOSED SLOTS ({proposalSlots.length}/3)
               </span>
               {proposalSlots.length < 3 && (
-                <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                <span className="text-[11px] text-blue-600 dark:text-blue-400">
                   Click slots below to add more options
                 </span>
               )}
@@ -1575,7 +1575,7 @@ export function ScheduleMakeupModal({
               <Sparkles className="h-3.5 w-3.5" />
               SMART SUGGESTIONS
               {!showSuggestions && sortedSuggestions.length > 0 && (
-                <span className="text-[10px] font-normal text-gray-500">({sortedSuggestions.length} available)</span>
+                <span className="text-[11px] font-normal text-gray-500">({sortedSuggestions.length} available)</span>
               )}
             </div>
             {showSuggestions && (
@@ -1596,7 +1596,7 @@ export function ScheduleMakeupModal({
                         });
                       }}
                       disabled={proposalSlots.length >= 3}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50"
+                      className="flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50"
                     >
                       <Plus className="h-3 w-3" />
                       Quick Add
@@ -1608,7 +1608,7 @@ export function ScheduleMakeupModal({
                         setConfirmSuggestion(sortedSuggestions[0]);
                       }}
                       disabled={isSaving}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50"
+                      className="flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50"
                     >
                       <Check className="h-3 w-3" />
                       Quick Book
@@ -1622,7 +1622,7 @@ export function ScheduleMakeupModal({
                       key={d}
                       onClick={() => { setDaysAhead(d); setVisibleSuggestionCount(5); }}
                       className={cn(
-                        "px-1.5 py-1 text-[10px] transition-colors",
+                        "px-1.5 py-1 text-[11px] transition-colors",
                         daysAhead === d
                           ? "bg-primary text-white"
                           : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -1638,7 +1638,7 @@ export function ScheduleMakeupModal({
                     setShowWeightTuner(!showWeightTuner);
                   }}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors",
+                    "flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors",
                     showWeightTuner
                       ? "bg-primary text-white"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -1665,12 +1665,12 @@ export function ScheduleMakeupModal({
               {showWeightTuner && (
             <div className="mb-3 p-3 bg-paper rounded-lg border border-line">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold text-[#8b6f47] dark:text-[#cd853f]">
+                <span className="text-[11px] font-semibold text-[#8b6f47] dark:text-[#cd853f]">
                   SCORING WEIGHTS
                 </span>
                 <button
                   onClick={() => updateWeights(baseWeights)}
-                  className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-accent-ink transition-colors"
+                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-accent-ink transition-colors"
                 >
                   <RotateCcw className="h-3 w-3" />
                   Reset
@@ -1694,7 +1694,7 @@ export function ScheduleMakeupModal({
                 <WeightSlider label="More Capacity (per spot)" value={weights.moreCapacity} min={0} max={30} step={2}
                   onChange={(v) => updateWeights(w => ({ ...w, moreCapacity: v }))} />
               </div>
-              <div className="mt-2 pt-2 border-t border-line text-[9px] text-gray-500 dark:text-gray-400">
+              <div className="mt-2 pt-2 border-t border-line text-[11px] text-gray-500 dark:text-gray-400">
                 Adjust weights to prioritize different factors. Suggestions re-sort instantly.
               </div>
               </div>
@@ -1818,7 +1818,7 @@ export function ScheduleMakeupModal({
                   className="rounded border-gray-300 accent-primary"
                 />
                 <span className="text-gray-700 dark:text-gray-300">Show all tutors</span>
-                <span className="text-[10px] text-gray-500">(calendar + time slots)</span>
+                <span className="text-[11px] text-gray-500">(calendar + time slots)</span>
               </label>
             </div>
 
@@ -1829,7 +1829,7 @@ export function ScheduleMakeupModal({
                 {filterTimeSlots.length > 0 && (
                   <button
                     onClick={clearTimeSlotFilters}
-                    className="text-[10px] text-accent-ink hover:underline"
+                    className="text-[11px] text-accent-ink hover:underline"
                   >
                     Clear
                   </button>
@@ -1837,16 +1837,16 @@ export function ScheduleMakeupModal({
               </div>
               <div className="flex flex-wrap gap-1">
                 {sessionsLoading ? (
-                  <span className="text-[10px] text-gray-500">Loading...</span>
+                  <span className="text-[11px] text-gray-500">Loading...</span>
                 ) : allTimeSlots.length === 0 ? (
-                  <span className="text-[10px] text-gray-500">No sessions found</span>
+                  <span className="text-[11px] text-gray-500">No sessions found</span>
                 ) : (
                   allTimeSlots.map(slot => (
                     <button
                       key={slot}
                       onClick={() => toggleTimeSlotFilter(slot)}
                       className={cn(
-                        "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                        "px-2 py-0.5 text-[11px] rounded border transition-colors",
                         filterTimeSlots.includes(slot)
                           ? "bg-primary text-white border-primary"
                           : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-primary"
@@ -1867,7 +1867,7 @@ export function ScheduleMakeupModal({
                   <div
                     key={day}
                     className={cn(
-                      "py-1 px-0.5 text-center text-[10px] font-semibold bg-paper",
+                      "py-1 px-0.5 text-center text-[11px] font-semibold bg-paper",
                       idx > 0 && "border-l border-line",
                       (idx === 0 || idx === 6) && "text-accent-ink/70"
                     )}
@@ -1915,7 +1915,7 @@ export function ScheduleMakeupModal({
                       )}
                       {/* Date number - always visible */}
                       <div className={cn(
-                        "text-[10px] font-semibold",
+                        "text-[11px] font-semibold",
                         dayData.isToday && "text-blue-600",
                         dayData.isHoliday && "text-rose-600",
                         !dayData.isHoliday && dayData.isPastLimitDay && "text-red-600 dark:text-red-400",
@@ -1932,7 +1932,7 @@ export function ScheduleMakeupModal({
                           const utilization = dayData.totalStudents / dayData.totalCapacity;
                           return (
                             <div className={cn(
-                              "text-[9px]",
+                              "text-[11px]",
                               utilization < 0.5 ? "text-green-700 dark:text-green-400" :
                               utilization < 0.8 ? "text-[#8b6f47] dark:text-[#cd853f]" :
                               "text-red-600 dark:text-red-400"
@@ -2299,11 +2299,11 @@ export function ScheduleMakeupModal({
               {/* Filter Options */}
               {dayPickerSlots.length > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-white dark:bg-[#1a1a1a]">
-                  <span className="text-[10px] text-gray-500 mr-1">Filter:</span>
+                  <span className="text-[11px] text-gray-500 mr-1">Filter:</span>
                   <button
                     onClick={() => setFilterSameGrade(!filterSameGrade)}
                     className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
+                      "px-2 py-0.5 text-[11px] rounded-full border transition-colors",
                       filterSameGrade
                         ? "bg-primary text-white border-primary"
                         : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-primary"
@@ -2314,7 +2314,7 @@ export function ScheduleMakeupModal({
                   <button
                     onClick={() => setFilterHideFull(!filterHideFull)}
                     className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
+                      "px-2 py-0.5 text-[11px] rounded-full border transition-colors",
                       filterHideFull
                         ? "bg-primary text-white border-primary"
                         : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-primary"
@@ -2323,7 +2323,7 @@ export function ScheduleMakeupModal({
                     Hide full
                   </button>
                   {(filterTimeSlots.length > 0 || filterSameGrade || filterHideFull) && (
-                    <span className="text-[10px] text-gray-500 ml-auto">
+                    <span className="text-[11px] text-gray-500 ml-auto">
                       {filteredDayPickerSlots.reduce((sum, s) => sum + s.tutors.length, 0)} results
                     </span>
                   )}
@@ -2342,7 +2342,7 @@ export function ScheduleMakeupModal({
                     filteredDayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
                       <div key={timeSlot} className="space-y-1.5">
                         {/* Time Slot Header */}
-                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-line pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
+                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[11px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-line pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
                           {timeSlot}
                           {dayPickerDate && (
                             <CopySlotButton date={dayPickerDate} timeSlot={timeSlot} className="-my-1" />
@@ -2388,7 +2388,7 @@ export function ScheduleMakeupModal({
                                       {tutorName}
                                     </span>
                                     <span className={cn(
-                                      "text-[10px] px-1.5 py-0.5 rounded",
+                                      "text-[11px] px-1.5 py-0.5 rounded",
                                       isFull
                                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                                         : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
@@ -2408,7 +2408,7 @@ export function ScheduleMakeupModal({
                                           const slotKey = `${timeSlot}-${tutorId}`;
                                           setExpandedSlotStudents(prev => prev === slotKey ? null : slotKey);
                                         }}
-                                        className="text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                        className="text-[11px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                                       >
                                         {expandedSlotStudents === `${timeSlot}-${tutorId}` ? "Show less" : `+${sessions.length - 3}`}
                                       </button>

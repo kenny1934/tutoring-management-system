@@ -350,7 +350,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         <div className="mb-3 pr-6">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium">{enrollment.school_student_id || "N/A"}</span>
-            <span className="text-[10px] text-gray-500 font-mono">#{enrollment.id}</span>
+            <span className="text-[11px] text-gray-500 font-mono">#{enrollment.id}</span>
           </div>
           <Link
             href={`/students/${enrollment.student_id}`}
@@ -390,7 +390,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             <div className="space-y-2 p-2 bg-paper rounded-md border border-[#d4a574] dark:border-[#6b5a4a]">
               {/* Day selector */}
               <div className="flex items-center gap-2">
-                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Day:</label>
+                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Day:</label>
                 <select
                   value={editedDay}
                   onChange={(e) => handleDayChange(e.target.value)}
@@ -405,7 +405,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
               {/* Time selector - shows dropdown or custom input */}
               <div className="flex items-center gap-2">
-                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Time:</label>
+                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Time:</label>
                 {isCustomTime ? (
                   <div className="flex-1 flex items-center gap-1">
                     <input
@@ -421,7 +421,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                         setIsCustomTime(false);
                         setEditedTime('');
                       }}
-                      className="text-[9px] text-accent-ink hover:underline whitespace-nowrap"
+                      className="text-[11px] text-accent-ink hover:underline whitespace-nowrap"
                     >
                       Back
                     </button>
@@ -450,7 +450,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
               {/* Location selector from API */}
               <div className="flex items-center gap-2">
-                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Loc:</label>
+                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Loc:</label>
                 <select
                   value={editedLocation}
                   onChange={(e) => handleLocationChange(e.target.value)}
@@ -465,7 +465,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
               {/* Tutor selector - filtered by location */}
               <div className="flex items-center gap-2">
-                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Tutor:</label>
+                <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Tutor:</label>
                 <select
                   value={editedTutorId || ''}
                   onChange={(e) => setEditedTutorId(e.target.value ? parseInt(e.target.value) : null)}
@@ -517,7 +517,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 <div className="flex items-center gap-1">
                   <span className="text-gray-900 dark:text-gray-100 font-medium">
                     {scheduleSaved ? `${editedDay} ${editedTime}` : (enrollment.assigned_day && enrollment.assigned_time ? `${enrollment.assigned_day} ${enrollment.assigned_time}` : 'Unscheduled')}
-                    {scheduleSaved && <span className="text-green-700 text-[10px] ml-1">✓</span>}
+                    {scheduleSaved && <span className="text-green-700 text-[11px] ml-1">✓</span>}
                   </span>
                   <button
                     onClick={(e) => {
@@ -654,7 +654,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               )}>
                 {new Date(enrollment.effective_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 {(enrollment.deadline_extension_weeks ?? 0) > 0 && (
-                  <span className="ml-1 text-[10px] text-amber-700 dark:text-amber-400">
+                  <span className="ml-1 text-[11px] text-amber-700 dark:text-amber-400">
                     (+{enrollment.deadline_extension_weeks}w)
                   </span>
                 )}
@@ -681,7 +681,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
           <div className="mb-4 p-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
             <div className="flex items-center gap-1.5 mb-1">
               <CalendarX className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
-              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
                 Unavailable Dates
               </span>
             </div>
@@ -695,7 +695,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         <div className="py-3 border-t border-line">
           <div className="flex items-center gap-1 mb-2">
             <CalendarDays className="h-3.5 w-3.5 text-accent-ink" />
-            <span className="text-[10px] font-bold text-accent-ink uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-accent-ink uppercase tracking-wider">
               Upcoming Sessions
             </span>
           </div>
@@ -724,7 +724,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                       {formatSessionDate(session.session_date)}
                     </span>
                     {session.tutor_name && (
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
                         <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                       </span>
                     )}
