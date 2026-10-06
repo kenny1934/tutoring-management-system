@@ -111,16 +111,16 @@ const MEDAL_CONFIG = [
   { icon: Award, color: "text-amber-700", glow: "drop-shadow-[0_0_6px_rgba(180,83,9,0.5)]" },          // Bronze
 ];
 
-// Fun rotating titles for the ranking header
+// Rotating titles for the ranking header, one picked per visit. Each has to
+// read well before both "(14 days)" and "(all time)".
 const FUN_TITLES = [
-  "This Week's Champions!",
-  "Most Wanted Materials",
-  "Hall of Fame",
-  "Hot Off the Printer",
-  "Courseware Royalty",
-  "Top Picks",
-  "Tutor Favourites",
-  "Greatest Hits",
+  "Most used",
+  "Most assigned",
+  "Top picks",
+  "Tutor favourites",
+  "Most reached for",
+  "Staffroom favourites",
+  "Tried and trusted",
 ];
 
 // Grade options for filter
