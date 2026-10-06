@@ -65,7 +65,7 @@ export function ExitConfirmDialog({
             <div className="p-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <AlertTriangle className="h-6 w-6 text-orange-500" />
+                  <AlertTriangle className="h-6 w-6 text-orange-600" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">

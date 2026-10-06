@@ -590,7 +590,7 @@ export default function StudentDetailPage() {
                   {tab.id === "sessions" && sortedSessions.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
                     )}>
                       {sortedSessions.length}
                     </span>
@@ -598,7 +598,7 @@ export default function StudentDetailPage() {
                   {tab.id === "courseware" && coursewareHistory.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
                     )}>
                       {coursewareHistory.length}
                     </span>
@@ -606,7 +606,7 @@ export default function StudentDetailPage() {
                   {tab.id === "tests" && filteredTests.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
                     )}>
                       {filteredTests.length}
                     </span>
@@ -614,7 +614,7 @@ export default function StudentDetailPage() {
                   {tab.id === "contacts" && parentContacts.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
                     )}>
                       {parentContacts.length}
                     </span>

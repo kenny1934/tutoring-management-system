@@ -464,7 +464,7 @@ function TierName({ children }: { children: React.ReactNode }) {
 
 function SiblingBadge() {
   return (
-    <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+    <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400">
       Sibling
     </span>
   );

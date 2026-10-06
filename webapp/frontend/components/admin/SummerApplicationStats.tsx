@@ -35,7 +35,7 @@ const EXTRA_BAR: Record<string, string> = {
 const EXTRA_PILL: Record<string, string> = {
   MSA: "bg-blue-400/15 text-blue-600 dark:text-blue-400",
   MSB: "bg-purple-400/15 text-purple-600 dark:text-purple-400",
-  New: "bg-green-500/15 text-green-600 dark:text-green-400",
+  New: "bg-green-500/15 text-green-700 dark:text-green-400",
 };
 
 function branchBarColor(b: string) { return BRANCH_INFO[b]?.dot ?? EXTRA_BAR[b] ?? "bg-gray-300 dark:bg-gray-600"; }
