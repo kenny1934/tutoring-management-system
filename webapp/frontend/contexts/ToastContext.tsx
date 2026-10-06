@@ -84,11 +84,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const getIcon = (type: Toast["type"]) => {
     switch (type) {
       case "success":
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+        return <CheckCircle2 className="h-5 w-5 text-green-700" />;
       case "error":
-        return <XCircle className="h-5 w-5 text-red-500" />;
+        return <XCircle className="h-5 w-5 text-red-600" />;
       case "info":
-        return <Info className="h-5 w-5 text-blue-500" />;
+        return <Info className="h-5 w-5 text-blue-600" />;
     }
   };
 
