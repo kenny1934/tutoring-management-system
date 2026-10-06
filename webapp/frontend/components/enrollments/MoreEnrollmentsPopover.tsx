@@ -14,6 +14,7 @@ import {
 import { X, HandCoins, AlertTriangle } from "lucide-react";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/controls";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import type { Enrollment } from "@/types";
 import type { GroupOption, SortOption, SortDirection } from "@/components/students/MyStudentsList";
@@ -144,13 +145,7 @@ export function MoreEnrollmentsPopover({
             <h3 className="font-bold text-gray-900 dark:text-gray-100">
               {enrollments.length} Students
             </h3>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-            </button>
+            <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
           </div>
 
           <div className="space-y-1">

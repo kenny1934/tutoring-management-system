@@ -28,7 +28,6 @@ import {
   MessageSquare,
   FileText,
   Sparkles,
-  Loader2,
   Check,
   Plus,
   X,
@@ -45,6 +44,7 @@ import { StickyNote } from "@/lib/design-system";
 import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { Modal } from "@/components/ui/modal";
+import { Button, IconButton, Field, Input, Label, Select, Textarea, Segmented } from "@/components/controls";
 import { useCooldown } from "@/lib/ui-hooks";
 import { type ReportMode, type ReportSectionToggles, type SectionKey } from "./ProgressReport";
 import { studentsAPI, savedReportsAPI } from "@/lib/api";
@@ -660,13 +660,9 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-line text-gray-600 dark:text-gray-400 hover:bg-tint transition-colors"
-      >
-        <History className="w-3.5 h-3.5" />
+      <Button size="sm" icon={History} onClick={() => setIsOpen(true)}>
         History
-      </button>
+      </Button>
 
       <Modal
         isOpen={isOpen}
@@ -711,20 +707,19 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
+                  <IconButton
+                    label="Open report"
+                    icon={ExternalLink}
+                    size="sm"
                     onClick={() => window.open(`/students/${studentId}/report/saved/${r.id}`, "_blank")}
-                    className="p-1.5 text-gray-500 hover:text-accent-ink transition-colors"
-                    title="Open report"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                  <button
+                  />
+                  <IconButton
+                    label="Delete report"
+                    icon={Trash2}
+                    size="sm"
+                    tone="danger"
                     onClick={() => handleDelete(r.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-600 transition-colors"
-                    title="Delete report"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  />
                 </div>
               </div>
             ))}
@@ -879,13 +874,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-[#8b6140] transition-colors"
-      >
-        <FileText className="w-3.5 h-3.5" />
-        Generate Report
-      </button>
+      <Button variant="primary" size="sm" icon={FileText} onClick={() => setIsOpen(true)}>
+        Generate report
+      </Button>
 
       <Modal
         isOpen={isOpen}
@@ -893,45 +884,39 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
         title="Report Settings"
         size="sm"
         footer={
-          <button
+          <Button
+            variant="primary"
+            icon={FileText}
             onClick={handleGenerate}
             disabled={!radarValid}
-            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-primary text-white hover:bg-[#8b6140] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full"
           >
-            <FileText className="w-3.5 h-3.5" />
-            Generate Report
-          </button>
+            Generate report
+          </Button>
         }
       >
         <div className="space-y-3">
           {/* Mode toggle */}
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Report Type</label>
-            <div className="flex rounded-lg overflow-hidden border border-line">
-              {(["internal", "parent"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    "flex-1 text-xs py-1.5 font-medium transition-colors capitalize",
-                    mode === m
-                      ? "bg-primary text-white"
-                      : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-tint"
-                  )}
-                >
-                  {m === "parent" ? "For Parents" : "Internal"}
-                </button>
-              ))}
-            </div>
+            <Label>Report type</Label>
+            <Segmented
+              label="Report type"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "internal", label: "Internal" },
+                { value: "parent", label: "For parents" },
+              ]}
+            />
           </div>
 
           {/* Date range */}
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Date Range</label>
-            <select
+            <Field id="report-date-range" label="Date range">
+            <Select
+              size="sm"
               value={preset}
               onChange={(e) => setPreset(e.target.value as DatePreset)}
-              className="w-full text-xs border border-field rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
             >
               <option value="1m">Last month</option>
               <option value="3m">Last 3 months</option>
@@ -939,20 +924,25 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               <option value="12m">Last 12 months</option>
               {enrollmentStart && <option value="enrollment">This enrollment</option>}
               <option value="custom">Custom range</option>
-            </select>
+            </Select>
+            </Field>
             {preset === "custom" && (
               <div className="flex gap-2 mt-1.5">
-                <input
+                <Input
+                  size="sm"
                   type="date"
+                  aria-label="Start date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="flex-1 text-xs border border-field rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  className="flex-1"
                 />
-                <input
+                <Input
+                  size="sm"
                   type="date"
+                  aria-label="End date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="flex-1 text-xs border border-field rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  className="flex-1"
                 />
               </div>
             )}
@@ -960,51 +950,33 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
           {/* AI Generation */}
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              AI Content <span className="text-gray-500 dark:text-gray-400">(optional)</span>
-            </label>
+            <Label>
+              AI content <span className="normal-case tracking-normal font-normal">(optional)</span>
+            </Label>
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1.5">
               Generates a learning summary and concept map from student data.
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex rounded-md overflow-hidden border border-line">
-                {([["en", "EN"], ["zh-hant", "中文"]] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => { setLanguage(val); setAiInsights(null); }}
-                    className={cn(
-                      "text-[11px] px-2 py-1 font-medium transition-colors",
-                      language === val
-                        ? "bg-primary text-white"
-                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <button
+              <Segmented
+                label="Report language"
+                value={language}
+                onChange={(val) => { setLanguage(val); setAiInsights(null); }}
+                options={[
+                  { value: "en", label: "EN", title: "English" },
+                  { value: "zh-hant", label: "中文", title: "Traditional Chinese" },
+                ]}
+              />
+              <Button
+                size="sm"
+                icon={isCoolingDown ? Check : Sparkles}
+                iconClassName={isCoolingDown ? "text-green-700 dark:text-green-400" : undefined}
                 onClick={handleGenerateAI}
-                disabled={isGeneratingAI || isCoolingDown}
-                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-line text-gray-600 dark:text-gray-400 hover:bg-tint transition-colors disabled:opacity-50"
+                disabled={isCoolingDown}
+                loading={isGeneratingAI}
+                className="flex-1"
               >
-                {isGeneratingAI ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Generating...
-                  </>
-                ) : isCoolingDown ? (
-                  <>
-                    <Check className="w-3 h-3 text-green-700" />
-                    Generated
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3" />
-                    Generate with AI
-                  </>
-                )}
-              </button>
+                {isGeneratingAI ? "Generating..." : isCoolingDown ? "Generated" : "Generate with AI"}
+              </Button>
             </div>
             {aiError && (
               <p className="text-[11px] text-red-600 mt-1">{aiError}</p>
@@ -1013,21 +985,22 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
           {/* Learning Summary */}
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              Learning Summary <span className="text-gray-500 dark:text-gray-400">(optional)</span>
-            </label>
-            <textarea
+            <Label htmlFor="report-narrative">
+              Learning summary <span className="normal-case tracking-normal font-normal">(optional)</span>
+            </Label>
+            <Textarea
+              id="report-narrative"
               value={narrative}
               onChange={(e) => setNarrative(e.target.value)}
               placeholder="Write a summary or use AI to generate one..."
               rows={3}
-              className="w-full text-xs border border-field rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+              className="resize-none"
             />
           </div>
 
           {/* Section toggles (reorderable) */}
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Sections to Include</label>
+            <Label className="mb-1.5">Sections to include</Label>
             <Reorder.Group
               axis="y"
               values={sectionOrder}
@@ -1053,28 +1026,24 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
           {/* Radar chart config */}
           {sections.showRadarChart && (
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Skills Radar</label>
-              <div className="flex rounded-md overflow-hidden border border-line mb-2 w-fit">
-                {([["numerical", "1-5"], ["labeled", "Labels"]] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => setRadarConfig((prev) => ({ ...prev, display_mode: val }))}
-                    className={cn(
-                      "text-[11px] px-2.5 py-1 font-medium transition-colors",
-                      radarConfig.display_mode === val
-                        ? "bg-primary text-white"
-                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Label>Skills radar</Label>
+              <Segmented
+                label="How radar scores are shown"
+                value={radarConfig.display_mode}
+                onChange={(val) => setRadarConfig((prev) => ({ ...prev, display_mode: val }))}
+                options={[
+                  { value: "numerical", label: "1-5" },
+                  { value: "labeled", label: "Labels" },
+                ]}
+                className="mb-2"
+              />
               <div className="space-y-1.5">
                 {radarConfig.axes.map((axis, i) => (
                   <div key={i} className="flex items-center gap-1.5">
-                    <input
+                    <Input
+                      size="sm"
                       type="text"
+                      aria-label={`Attribute ${i + 1}`}
                       value={axis.label}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1086,9 +1055,11 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       }}
                       placeholder={`Attribute ${i + 1}`}
                       maxLength={30}
-                      className="flex-1 text-xs border border-field rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
+                      className="flex-1"
                     />
-                    <select
+                    <Select
+                      size="sm"
+                      aria-label={`Score for attribute ${i + 1}`}
                       value={axis.score}
                       onChange={(e) => {
                         const val = Number(e.target.value);
@@ -1098,18 +1069,19 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                           return { ...prev, axes: next };
                         });
                       }}
-                      className={cn(
-                        "text-xs border border-field rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300",
-                        radarConfig.display_mode === "numerical" ? "w-14" : "w-28"
-                      )}
+                      className={radarConfig.display_mode === "numerical" ? "w-14" : "w-28"}
                     >
                       {Object.entries(SCORE_LABELS).map(([v, label]) => (
                         <option key={v} value={v}>
                           {radarConfig.display_mode === "numerical" ? v : label}
                         </option>
                       ))}
-                    </select>
-                    <button
+                    </Select>
+                    <IconButton
+                      label="Remove attribute"
+                      icon={X}
+                      size="sm"
+                      tone="danger"
                       onClick={() => {
                         setRadarConfig((prev) => ({
                           ...prev,
@@ -1117,10 +1089,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                         }));
                       }}
                       disabled={radarConfig.axes.length <= 4}
-                      className="p-0.5 text-gray-500 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    />
                   </div>
                 ))}
               </div>
@@ -1144,15 +1113,16 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
           {/* Tutor comment */}
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              Tutor Comment <span className="text-gray-500 dark:text-gray-400">(optional)</span>
-            </label>
-            <textarea
+            <Label htmlFor="report-comment">
+              Tutor comment <span className="normal-case tracking-normal font-normal">(optional)</span>
+            </Label>
+            <Textarea
+              id="report-comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Add observations or recommendations..."
               rows={3}
-              className="w-full text-xs border border-field rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+              className="resize-none"
             />
           </div>
         </div>

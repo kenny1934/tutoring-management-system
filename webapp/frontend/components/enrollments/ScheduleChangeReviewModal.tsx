@@ -26,6 +26,7 @@ import {
 } from "@/lib/api";
 import { formatShortDate } from "@/lib/formatters";
 import { Popover } from "@/components/ui/popover";
+import { Button, Field, IconButton, Input, Label } from "@/components/controls";
 
 interface ScheduleChangeReviewModalProps {
   isOpen: boolean;
@@ -245,53 +246,30 @@ export function ScheduleChangeReviewModal({
       footer={
         previewLoading ? null : previewError ? (
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-foreground/70 hover:text-foreground transition-colors"
-            >
-              Close
-            </button>
+            <Button onClick={onClose}>Close</Button>
           </div>
         ) : (
           <div className="flex justify-between items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-foreground/70 hover:text-foreground transition-colors disabled:opacity-50"
-            >
+            <Button variant="quiet" onClick={onClose} disabled={isSubmitting}>
               Cancel
-            </button>
+            </Button>
             <div className="flex gap-3">
               {hasUpdatableSessions && (
-                <button
-                  type="button"
-                  onClick={handleKeepSessions}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
-                >
-                  Keep All Sessions
-                </button>
+                <Button onClick={handleKeepSessions} disabled={isSubmitting}>
+                  Keep all sessions
+                </Button>
               )}
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={handleApplyChanges}
                 disabled={!canApply || isSubmitting}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
-                  !canApply || hasConflicts
-                    ? "bg-gray-300 dark:bg-gray-700 text-foreground/50 cursor-not-allowed"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                )}
+                loading={isSubmitting}
+                icon={CheckCircle2}
+                // A conflict already greyed this button out, so it still reads as unavailable.
+                className={cn(hasConflicts && "opacity-50 cursor-not-allowed")}
               >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                {hasUpdatableSessions ? "Apply Changes" : "Update Enrollment"}
-              </button>
+                {hasUpdatableSessions ? "Apply changes" : "Update enrollment"}
+              </Button>
             </div>
           </div>
         )
@@ -493,52 +471,49 @@ export function ScheduleChangeReviewModal({
                             <div className="flex items-center justify-center gap-1">
                               <Popover
                                 trigger={
-                                  <button
-                                    type="button"
-                                    className={cn(
-                                      "p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
-                                      sessionHasOverride && "text-blue-600 dark:text-blue-400"
-                                    )}
-                                    title="Adjust date/time"
-                                  >
-                                    <CalendarDays className="h-4 w-4" />
-                                  </button>
+                                  <IconButton
+                                    label="Adjust date and time"
+                                    icon={CalendarDays}
+                                    size="sm"
+                                    iconClassName={cn(sessionHasOverride && "text-blue-600 dark:text-blue-400")}
+                                  />
                                 }
                                 content={
                                   <div className="space-y-3">
-                                    <div>
-                                      <div className="text-xs font-medium text-foreground/70 mb-1">
-                                        Override date
-                                      </div>
-                                      <input
+                                    <Field id={`override-date-${session.session_id}`} label="Override date">
+                                      <Input
                                         type="date"
+                                        size="sm"
                                         value={overrides[session.session_id]?.date || effectiveDate}
                                         onChange={(e) => handleDateOverride(session.session_id, e.target.value)}
                                         min={new Date().toISOString().split('T')[0]}
-                                        className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
                                       />
-                                    </div>
+                                    </Field>
                                     <div>
-                                      <div className="text-xs font-medium text-foreground/70 mb-1">
+                                      <Label htmlFor={`override-start-${session.session_id}`}>
                                         Override time
-                                      </div>
+                                      </Label>
                                       {(() => {
                                         const currentTime = overrides[session.session_id]?.time || session.new_time_slot;
                                         const { start, end } = parseTimeSlot(currentTime);
                                         return (
                                           <div className="flex items-center gap-1">
-                                            <input
+                                            <Input
+                                              id={`override-start-${session.session_id}`}
                                               type="time"
+                                              size="sm"
                                               value={start}
                                               onChange={(e) => handleTimeOverride(session.session_id, e.target.value, end)}
-                                              className="flex-1 px-2 py-1.5 text-sm border border-field rounded-md bg-background"
+                                              className="flex-1"
                                             />
                                             <span className="text-foreground/50">-</span>
-                                            <input
+                                            <Input
                                               type="time"
+                                              size="sm"
                                               value={end}
                                               onChange={(e) => handleTimeOverride(session.session_id, start, e.target.value)}
-                                              className="flex-1 px-2 py-1.5 text-sm border border-field rounded-md bg-background"
+                                              aria-label="Override end time"
+                                              className="flex-1"
                                             />
                                           </div>
                                         );
@@ -558,14 +533,13 @@ export function ScheduleChangeReviewModal({
                                 className="min-w-[200px]"
                               />
                               {sessionHasOverride && (
-                                <button
-                                  type="button"
+                                <IconButton
+                                  label="Clear override"
+                                  icon={X}
+                                  size="sm"
+                                  tone="danger"
                                   onClick={() => clearOverride(session.session_id)}
-                                  className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600"
-                                  title="Clear override"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
+                                />
                               )}
                             </div>
                           </td>

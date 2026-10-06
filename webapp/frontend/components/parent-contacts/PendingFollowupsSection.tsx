@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import type { StudentContactStatus } from "@/lib/api";
 import {
   Bell,
@@ -162,35 +163,26 @@ export function PendingFollowupsSection({
                   {/* Actions */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {followup.follow_up_communication_id && onMarkDone && (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={Check}
+                        iconClassName="text-green-600 dark:text-green-400"
                         onClick={(e) => { e.stopPropagation(); onMarkDone(followup.follow_up_communication_id!, followup.student_name); }}
                         disabled={readOnly}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
-                          readOnly
-                            ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
-                        )}
                         title={readOnly ? "Read-only access" : "Mark follow-up as done"}
                       >
-                        <Check className="h-3.5 w-3.5" />
                         Done
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
+                      size="sm"
+                      icon={MessageSquarePlus}
                       onClick={(e) => { e.stopPropagation(); onRecordContact(followup.student_id); }}
                       disabled={readOnly}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
-                        readOnly
-                          ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                      )}
                       title={readOnly ? "Read-only access" : undefined}
                     >
-                      <MessageSquarePlus className="h-3.5 w-3.5" />
                       Contact
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Copy, Check, X, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, Segmented, Textarea } from "@/components/controls";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -122,50 +123,32 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-foreground/60">Language:</span>
-          <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-            <button
-              onClick={() => setLang('zh')}
-              className={cn(
-                "px-3 py-1 text-xs font-medium transition-colors",
-                lang === 'zh'
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"
-              )}
-            >
-              中文
-            </button>
-            <button
-              onClick={() => setLang('en')}
-              className={cn(
-                "px-3 py-1 text-xs font-medium transition-colors border-l border-gray-300 dark:border-gray-600",
-                lang === 'en'
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"
-              )}
-            >
-              English
-            </button>
-          </div>
+          <Segmented
+            label="Message language"
+            value={lang}
+            onChange={setLang}
+            options={[
+              { value: "zh", label: "中文" },
+              { value: "en", label: "English" },
+            ]}
+          />
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-foreground/60">Lessons:</span>
-            <input
+            <Input
               type="number"
+              size="sm"
               min={1}
               max={52}
               value={lessonsPaid}
               onChange={(e) => setLessonsPaid(Math.max(1, Math.min(52, Number(e.target.value) || 1)))}
-              className="w-16 text-xs px-2 py-1 rounded border border-field bg-white dark:bg-gray-800 text-center"
+              aria-label="Lessons"
+              className="w-16 text-center"
             />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          >
-            <X className="h-4 w-4 text-foreground/50" />
-          </button>
+          <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
         </div>
       </div>
 
@@ -177,15 +160,15 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
             <span className="ml-2 text-sm text-foreground/60">Generating message...</span>
           </div>
         ) : (
-          <textarea
+          <Textarea
             value={message}
             onChange={(e) => isEditable && setMessage(e.target.value)}
             readOnly={!isEditable}
+            aria-label="Fee message"
             className={cn(
-              "w-full h-64 p-3 text-sm font-mono rounded-lg border resize-none transition-colors",
-              isEditable
-                ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-                : "border-field bg-gray-100 dark:bg-gray-900 cursor-default"
+              "h-64 p-3 font-mono resize-none transition-colors",
+              // Read-only, the box sits back on the tint so it reads as a preview.
+              !isEditable && "bg-tint cursor-default"
             )}
           />
         )}
@@ -213,56 +196,23 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
 
         <div className="flex items-center gap-2">
           {showMarkSentButton && (
-            <button
+            <Button
               onClick={handleMarkSent}
-              disabled={markingSent}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+              loading={markingSent}
+              icon={Check}
+              iconClassName="text-orange-700 dark:text-orange-400"
             >
-              {markingSent ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Mark Sent
-            </button>
+              Mark sent
+            </Button>
           )}
           {showUnmarkSentButton && (
-            <button
-              onClick={handleUnmarkSent}
-              disabled={markingSent}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-            >
-              {markingSent ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Undo2 className="h-4 w-4" />
-              )}
-              Unmark Sent
-            </button>
+            <Button onClick={handleUnmarkSent} loading={markingSent} icon={Undo2} variant="quiet">
+              Unmark sent
+            </Button>
           )}
-          <button
-            onClick={handleCopy}
-            disabled={loading}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              copied
-                ? "bg-green-500 text-white"
-                : "bg-primary hover:bg-primary/90 text-primary-foreground"
-            )}
-          >
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                Copy
-              </>
-            )}
-          </button>
+          <Button variant="primary" onClick={handleCopy} disabled={loading} icon={copied ? Check : Copy}>
+            {copied ? "Copied!" : "Copy"}
+          </Button>
         </div>
       </div>
     </div>

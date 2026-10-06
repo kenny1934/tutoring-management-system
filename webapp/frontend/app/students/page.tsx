@@ -32,6 +32,7 @@ import { formatShortDate } from "@/lib/formatters";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { Button, IconButton, Input, Select, Segmented } from "@/components/controls";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -381,30 +382,15 @@ export default function StudentsPage() {
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
             {/* View Toggle */}
-            <div className="flex items-center gap-1 bg-foreground/5 border border-border/30 rounded-xl p-1">
-              <button
-                onClick={() => setViewMode('all')}
-                className={cn(
-                  "px-2 py-1 text-xs rounded-lg transition-colors",
-                  viewMode === 'all'
-                    ? "bg-primary text-primary-foreground shadow-sm font-semibold"
-                    : "text-foreground/70 hover:bg-foreground/8"
-                )}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setViewMode('my')}
-                className={cn(
-                  "px-2 py-1 text-xs rounded-lg transition-colors",
-                  viewMode === 'my'
-                    ? "bg-primary text-primary-foreground shadow-sm font-semibold"
-                    : "text-foreground/70 hover:bg-foreground/8"
-                )}
-              >
-                My Students
-              </button>
-            </div>
+            <Segmented
+              label="Which students"
+              value={viewMode}
+              onChange={setViewMode}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'my', label: 'My students' },
+              ]}
+            />
 
             {/* Tutor Selector - only in "My Students" view */}
             {viewMode === 'my' && (
@@ -422,28 +408,26 @@ export default function StudentsPage() {
               <>
                 {/* Search Input */}
             <div className="relative flex-1 min-w-[140px] max-w-xs">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <input
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+              <Input
+                size="sm"
                 type="text"
                 placeholder="Search..."
+                aria-label="Search students"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onBlur={handleSearchSubmit}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                className="w-full pl-8 pr-3 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
+                className="pl-8"
               />
             </div>
 
             {/* Grade Filter */}
-            <select
+            <Select
+              size="sm"
+              aria-label="Grade"
               value={gradeFilter}
               onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0.5rem center',
-              }}
             >
               <option value="">Grade</option>
               <option value="F1">F1</option>
@@ -452,13 +436,15 @@ export default function StudentsPage() {
               <option value="F4">F4</option>
               <option value="F5">F5</option>
               <option value="F6">F6</option>
-            </select>
+            </Select>
 
             {/* School Filter - Autocomplete */}
             <div className="relative hidden sm:block">
-              <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <input
+              <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+              <Input
+                size="sm"
                 ref={schoolInputRef}
+                aria-label="School"
                 type="text"
                 placeholder="School..."
                 value={schoolSearchInput}
@@ -472,7 +458,7 @@ export default function StudentsPage() {
                   setTimeout(() => setShowSchoolSuggestions(false), 150);
                 }}
                 onKeyDown={handleSchoolKeyDown}
-                className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
+                className="w-28 pl-7 pr-6"
               />
               {schoolFilter && (
                 <button
@@ -481,6 +467,7 @@ export default function StudentsPage() {
                     setSchoolSearchInput('');
                     setCurrentPage(1);
                   }}
+                  aria-label="Clear school filter"
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                 >
                   <X className="h-3 w-3 text-gray-500" />
@@ -510,22 +497,20 @@ export default function StudentsPage() {
             </div>
 
             {/* Sort Dropdown */}
-            <select
+            <div className="hidden sm:block">
+            <Select
+              size="sm"
+              aria-label="Sort by"
               value={sortOption}
               onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0.5rem center',
-              }}
             >
               <option value="id_desc">Newest</option>
               <option value="id_asc">Oldest</option>
               <option value="name_asc">Name A-Z</option>
               <option value="name_desc">Name Z-A</option>
               <option value="school_asc">School A-Z</option>
-            </select>
+            </Select>
+            </div>
 
             {/* Tutor filter chip — appears when navigated here from a dashboard chart with a tutor selected */}
             {tutorIdFilter && (
@@ -561,20 +546,17 @@ export default function StudentsPage() {
             <div className="flex-1" />
 
             {/* Add Student Button */}
-            <button
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Plus}
               onClick={() => setAddStudentModalOpen(true)}
               disabled={!isAdmin}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-sm",
-                !isAdmin
-                  ? "bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              )}
+              aria-label="Add student"
               title={!isAdmin ? "Admin access required" : undefined}
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Student</span>
-            </button>
+              <span className="hidden sm:inline">Add student</span>
+            </Button>
           </div>
           </div>
 
@@ -721,37 +703,25 @@ export default function StudentsPage() {
                   transition={{ delay: 0.3, duration: 0.3 }}
                   className="flex items-center justify-center gap-4 py-4"
                 >
-                  <button
+                  <Button
+                    icon={ChevronLeft}
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className={cn(
-                      "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                      currentPage === 1
-                        ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                        : "bg-primary text-white hover:bg-[#8b6140]"
-                    )}
                   >
-                    <ChevronLeft className="h-4 w-4" />
                     Previous
-                  </button>
+                  </Button>
 
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     Page {currentPage}
                   </span>
 
-                  <button
+                  <Button
                     onClick={() => setCurrentPage(p => p + 1)}
                     disabled={!hasMorePages}
-                    className={cn(
-                      "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                      !hasMorePages
-                        ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                        : "bg-primary text-white hover:bg-[#8b6140]"
-                    )}
                   >
                     Next
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-subtle" aria-hidden="true" />
+                  </Button>
                 </motion.div>
               )}
             </>
@@ -858,15 +828,15 @@ function RichPopoverContent({
             </p>
           </div>
         </div>
-        <button
+        <IconButton
+          label="Close"
+          icon={X}
+          size="sm"
           onClick={(e) => {
             e.stopPropagation();
             onClose();
           }}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-        >
-          <X className="h-4 w-4 text-gray-500" />
-        </button>
+        />
       </div>
 
       {/* Content */}

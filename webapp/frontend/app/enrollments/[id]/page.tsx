@@ -41,6 +41,7 @@ import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
+import { Button, IconButton, Input, Select, Textarea, Label, Segmented, Badge } from "@/components/controls";
 
 // Helper to format day/time as a badge
 function formatScheduleBadge(day?: string, time?: string): string {
@@ -616,12 +617,9 @@ export default function EnrollmentDetailPage() {
               <p className="text-sm text-gray-900 dark:text-gray-100 mb-4">
                 {enrollmentError instanceof Error ? enrollmentError.message : "Unable to load enrollment data"}
               </p>
-              <button
-                onClick={() => router.back()}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-[#8b6140] transition-colors"
-              >
-                Go Back
-              </button>
+              <Button variant="primary" onClick={() => router.back()}>
+                Go back
+              </Button>
             </div>
           </StickyNote>
         </PageTransition>
@@ -636,53 +634,40 @@ export default function EnrollmentDetailPage() {
   // unpublish via the application instead), and Copy lives inside
   // SummerMessagePanel for Summer.
   const markSentAction = !isTutor && (enrollment.fee_message_sent ? (
-    <button
+    <Button
+      icon={Undo2}
+      loading={markingSent}
       onClick={handleUnmarkSent}
-      disabled={markingSent || isReadOnly}
-      className={cn(
-        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-        isReadOnly
-          ? "border border-gray-200 text-gray-500 cursor-not-allowed"
-          : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-      )}
+      disabled={isReadOnly}
       title={isReadOnly ? "Read-only access" : undefined}
     >
-      {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-      Unmark Sent
-    </button>
+      Unmark sent
+    </Button>
   ) : (
-    <button
+    <Button
+      icon={Send}
+      iconClassName="text-blue-600 dark:text-blue-400"
+      loading={markingSent}
       onClick={handleMarkSent}
-      disabled={markingSent || isReadOnly}
-      className={cn(
-        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-        isReadOnly
-          ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
-          : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-      )}
+      disabled={isReadOnly}
       title={isReadOnly ? "Read-only access" : undefined}
     >
-      {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-      Mark Sent
-    </button>
+      Mark sent
+    </Button>
   ));
 
   const confirmPaymentAction = !isTutor &&
     (enrollment.payment_status === "Pending Payment" || enrollment.payment_status === "Overdue") && (
-    <button
+    <Button
+      icon={CreditCard}
+      iconClassName="text-green-700 dark:text-green-400"
+      loading={markingPaid}
       onClick={() => setConfirmPayment(true)}
-      disabled={markingPaid || isReadOnly}
-      className={cn(
-        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50",
-        isReadOnly
-          ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-          : "bg-green-600 hover:bg-green-700"
-      )}
+      disabled={isReadOnly}
       title={isReadOnly ? "Read-only access" : undefined}
     >
-      {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
-      Confirm Payment
-    </button>
+      Confirm payment
+    </Button>
   );
 
   return (
@@ -700,12 +685,7 @@ export default function EnrollmentDetailPage() {
             )}
           >
             {/* Back Button */}
-            <button
-              onClick={() => router.back()}
-              className="p-1.5 rounded-lg hover:bg-[#d4a574]/20 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-accent-ink" />
-            </button>
+            <IconButton label="Back" icon={ArrowLeft} onClick={() => router.back()} />
 
             {/* Enrollment ID */}
             <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
@@ -736,9 +716,9 @@ export default function EnrollmentDetailPage() {
             </Link>
 
             {/* Schedule Badge */}
-            <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium">
+            <Badge tone="info">
               {formatScheduleBadge(enrollment.assigned_day, enrollment.assigned_time)}
-            </span>
+            </Badge>
 
             {/* Summer backlink — routes through the applications page rather
                 than opening inline so the source app gets its full UI. */}
@@ -788,39 +768,22 @@ export default function EnrollmentDetailPage() {
                         {saveError}
                       </span>
                     )}
-                    <button
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
-                    >
+                    <Button variant="quiet" size="sm" onClick={handleCancelEdit} disabled={isSaving}>
                       Cancel
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 disabled:opacity-50"
-                    >
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={handleSave} disabled={isSaving}>
                       {isSaving ? 'Saving...' : 'Save'}
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
+                  <IconButton
+                    label="Edit schedule"
+                    icon={Pencil}
+                    size="sm"
                     onClick={handleEditSchedule}
                     disabled={isReadOnly}
-                    className={cn(
-                      "p-1 rounded transition-colors group",
-                      isReadOnly
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
                     title={isReadOnly ? "Read-only access" : "Edit schedule"}
-                    aria-label="Edit schedule"
-                  >
-                    <Pencil className={cn(
-                      "h-3.5 w-3.5",
-                      isReadOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
-                    )} />
-                  </button>
+                  />
                 )}
               </div>
 
@@ -830,41 +793,42 @@ export default function EnrollmentDetailPage() {
                   <>
                     {/* Day */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Day</label>
-                      <select
+                      <Label htmlFor="edit-enrollment-day" className="w-24 mb-0 flex-shrink-0">Day</Label>
+                      <div className="flex-1 min-w-0">
+                      <Select
+                        id="edit-enrollment-day"
                         value={editForm.assigned_day || ""}
                         onChange={(e) => handleFormChange("assigned_day", e.target.value)}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select day...</option>
                         {DAY_OPTIONS.map(day => (
                           <option key={day} value={day}>{day}</option>
                         ))}
-                      </select>
+                      </Select>
+                      </div>
                     </div>
 
                     {/* Time */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Time</label>
+                      <Label htmlFor="edit-enrollment-time" className="w-24 mb-0 flex-shrink-0">Time</Label>
                       {isCustomTime ? (
                         <div className="flex-1 flex items-center gap-2">
-                          <input
+                          <Input
+                            id="edit-enrollment-time"
                             type="text"
                             placeholder="e.g. 15:00 - 16:30"
                             value={editForm.assigned_time || ""}
                             onChange={(e) => handleFormChange("assigned_time", e.target.value)}
-                            className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
+                            className="flex-1"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setIsCustomTime(false)}
-                            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                          >
+                          <Button variant="quiet" size="sm" onClick={() => setIsCustomTime(false)}>
                             Back
-                          </button>
+                          </Button>
                         </div>
                       ) : (
-                        <select
+                        <div className="flex-1 min-w-0">
+                        <Select
+                          id="edit-enrollment-time"
                           value={timeOptions.includes(editForm.assigned_time || "") ? editForm.assigned_time : ""}
                           onChange={(e) => {
                             if (e.target.value === "__custom__") {
@@ -874,42 +838,45 @@ export default function EnrollmentDetailPage() {
                               handleFormChange("assigned_time", e.target.value);
                             }
                           }}
-                          className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                         >
                           <option value="">Select time...</option>
                           {timeOptions.map(time => (
                             <option key={time} value={time}>{time}</option>
                           ))}
                           <option value="__custom__">Other (custom)...</option>
-                        </select>
+                        </Select>
+                        </div>
                       )}
                     </div>
 
                     {/* Location */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Location</label>
-                      <select
+                      <Label htmlFor="edit-enrollment-location" className="w-24 mb-0 flex-shrink-0">Location</Label>
+                      <div className="flex-1 min-w-0">
+                      <Select
+                        id="edit-enrollment-location"
                         value={editForm.location || ""}
                         onChange={(e) => {
                           handleFormChange("location", e.target.value);
                           handleFormChange("tutor_id", null); // Reset tutor when location changes
                         }}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select location...</option>
                         {locationOptions.map(loc => (
                           <option key={loc} value={loc}>{loc}</option>
                         ))}
-                      </select>
+                      </Select>
+                      </div>
                     </div>
 
                     {/* Tutor */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Tutor</label>
-                      <select
+                      <Label htmlFor="edit-enrollment-tutor" className="w-24 mb-0 flex-shrink-0">Tutor</Label>
+                      <div className="flex-1 min-w-0">
+                      <Select
+                        id="edit-enrollment-tutor"
                         value={editForm.tutor_id || ""}
                         onChange={(e) => handleFormChange("tutor_id", e.target.value ? parseInt(e.target.value) : null)}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select tutor...</option>
                         {filteredTutors.map(tutor => {
@@ -920,33 +887,37 @@ export default function EnrollmentDetailPage() {
                             </option>
                           );
                         })}
-                      </select>
+                      </Select>
+                      </div>
                     </div>
 
                     {/* First Lesson Date */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">First Lesson</label>
-                      <input
+                      <Label htmlFor="edit-enrollment-first-date" className="w-24 mb-0 flex-shrink-0">First lesson</Label>
+                      <Input
+                        id="edit-enrollment-first-date"
                         type="date"
                         value={editForm.first_lesson_date || ""}
                         onChange={(e) => handleFormChange("first_lesson_date", e.target.value)}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
+                        className="flex-1"
                       />
                     </div>
 
                     {/* Enrollment Type */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Type</label>
-                      <select
+                      <Label htmlFor="edit-enrollment-type" className="w-24 mb-0 flex-shrink-0">Type</Label>
+                      <div className="flex-1 min-w-0">
+                      <Select
+                        id="edit-enrollment-type"
                         value={editForm.enrollment_type || ""}
                         onChange={(e) => handleFormChange("enrollment_type", e.target.value)}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select type...</option>
                         {ENROLLMENT_TYPE_OPTIONS.map(type => (
                           <option key={type} value={type}>{type}</option>
                         ))}
-                      </select>
+                      </Select>
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -1073,38 +1044,22 @@ export default function EnrollmentDetailPage() {
                         {saveError}
                       </span>
                     )}
-                    <button
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
-                    >
+                    <Button variant="quiet" size="sm" onClick={handleCancelEdit} disabled={isSaving}>
                       Cancel
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 disabled:opacity-50"
-                    >
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={handleSave} disabled={isSaving}>
                       {isSaving ? 'Saving...' : 'Save'}
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
+                  <IconButton
+                    label="Edit payment"
+                    icon={Pencil}
+                    size="sm"
                     onClick={handleEditPayment}
                     disabled={isReadOnly}
-                    className={cn(
-                      "p-1 rounded transition-colors group",
-                      isReadOnly
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
                     title={isReadOnly ? "Read-only access" : "Edit payment"}
-                  >
-                    <Pencil className={cn(
-                      "h-3.5 w-3.5",
-                      isReadOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
-                    )} />
-                  </button>
+                  />
                 )}
               </div>
               <div className="space-y-4">
@@ -1113,23 +1068,26 @@ export default function EnrollmentDetailPage() {
                   <>
                     {/* Payment Status */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Status</label>
-                      <select
+                      <Label htmlFor="edit-enrollment-payment-status" className="w-24 mb-0 flex-shrink-0">Status</Label>
+                      <div className="flex-1 min-w-0">
+                      <Select
+                        id="edit-enrollment-payment-status"
                         value={editForm.payment_status || ""}
                         onChange={(e) => handleFormChange("payment_status", e.target.value)}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select status...</option>
                         {PAYMENT_STATUS_OPTIONS.map(status => (
                           <option key={status} value={status}>{status}</option>
                         ))}
-                      </select>
+                      </Select>
+                      </div>
                     </div>
 
                     {/* Lessons Paid */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Lessons Paid</label>
-                      <input
+                      <Label htmlFor="edit-enrollment-lessons-paid" className="w-24 mb-0 flex-shrink-0">Lessons paid</Label>
+                      <Input
+                        id="edit-enrollment-lessons-paid"
                         type="number"
                         min="0"
                         value={editForm.lessons_paid || ""}
@@ -1141,29 +1099,30 @@ export default function EnrollmentDetailPage() {
                             setSelectedDiscountId(null);
                           }
                         }}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
+                        className="flex-1"
                       />
                     </div>
 
                     {/* Payment Date */}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 w-24">Payment Date</label>
-                      <input
+                      <Label htmlFor="edit-enrollment-payment-date" className="w-24 mb-0 flex-shrink-0">Payment date</Label>
+                      <Input
+                        id="edit-enrollment-payment-date"
                         type="date"
                         value={editForm.payment_date || ""}
                         onChange={(e) => handleFormChange("payment_date", e.target.value)}
-                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
+                        className="flex-1"
                       />
                     </div>
 
                     {/* Discount */}
                     <div className="flex items-start gap-3">
-                      <label className="text-sm text-gray-500 w-24 pt-1.5">Discount</label>
-                      <div className="flex-1">
-                        <select
+                      <Label htmlFor="edit-enrollment-discount" className="w-24 mb-0 flex-shrink-0 pt-2">Discount</Label>
+                      <div className="flex-1 min-w-0">
+                        <Select
+                          id="edit-enrollment-discount"
                           value={selectedDiscountId || ""}
                           onChange={(e) => setSelectedDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                          className="w-full px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="">No discount</option>
                           {discounts.filter(d => d.is_active).map(discount => (
@@ -1172,7 +1131,7 @@ export default function EnrollmentDetailPage() {
                               {discount.discount_value ? ` ($${discount.discount_value})` : ''}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                         {(editForm.lessons_paid ?? 0) < MIN_LESSONS_FOR_DISCOUNT && (
                           <p className="mt-1 text-xs text-gray-500">
                             Most discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
@@ -1184,9 +1143,10 @@ export default function EnrollmentDetailPage() {
                     {/* New Student - not applicable to Trial */}
                     {editForm.enrollment_type !== 'Trial' && (
                       <div className="flex items-center gap-3">
-                        <label className="text-sm text-gray-500 w-24">New Student</label>
+                        <Label htmlFor="edit-enrollment-new-student" className="w-24 mb-0 flex-shrink-0">New student</Label>
                         <label className="flex items-center gap-2 text-sm cursor-pointer">
                           <input
+                            id="edit-enrollment-new-student"
                             type="checkbox"
                             checked={editForm.is_new_student === true}
                             onChange={(e) => handleFormChange("is_new_student", e.target.checked)}
@@ -1291,9 +1251,9 @@ export default function EnrollmentDetailPage() {
                     {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500 dark:text-gray-400">New Student</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-medium">
-                          {enrollment.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
-                        </span>
+                        <Badge tone="info">
+                          {enrollment.registration_fee === 0 ? "Yes" : "+$100 reg fee"}
+                        </Badge>
                       </div>
                     )}
 
@@ -1407,30 +1367,15 @@ export default function EnrollmentDetailPage() {
                             {/* Language toggle */}
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-500">Language:</span>
-                              <div className="flex rounded overflow-hidden border border-[#d4a574]">
-                                <button
-                                  onClick={() => setFeeLanguage('zh')}
-                                  className={cn(
-                                    "px-2 py-1 text-xs font-medium transition-colors",
-                                    feeLanguage === 'zh'
-                                      ? "bg-primary text-white"
-                                      : "bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-100"
-                                  )}
-                                >
-                                  中文
-                                </button>
-                                <button
-                                  onClick={() => setFeeLanguage('en')}
-                                  className={cn(
-                                    "px-2 py-1 text-xs font-medium transition-colors border-l border-[#d4a574]",
-                                    feeLanguage === 'en'
-                                      ? "bg-primary text-white"
-                                      : "bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-100"
-                                  )}
-                                >
-                                  EN
-                                </button>
-                              </div>
+                              <Segmented
+                                label="Fee message language"
+                                options={[
+                                  { value: 'zh', label: '中文' },
+                                  { value: 'en', label: 'EN' },
+                                ]}
+                                value={feeLanguage}
+                                onChange={setFeeLanguage}
+                              />
                             </div>
 
                             {/* Lessons paid display */}
@@ -1450,15 +1395,14 @@ export default function EnrollmentDetailPage() {
                             </div>
                           ) : (
                             <div>
-                              <textarea
+                              <Textarea
                                 value={feeMessage}
                                 onChange={(e) => isEditingMessage && setFeeMessage(e.target.value)}
                                 readOnly={!isEditingMessage}
+                                aria-label="Fee message"
                                 className={cn(
-                                  "w-full h-48 p-3 text-xs font-mono rounded-lg border resize-none transition-colors",
-                                  isEditingMessage
-                                    ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-                                    : "border-field bg-gray-50 dark:bg-gray-900 cursor-default"
+                                  "h-48 p-3 text-xs font-mono resize-none transition-colors",
+                                  isEditingMessage ? "border-primary" : "bg-tint cursor-default"
                                 )}
                               />
                               <label className="flex items-center gap-2 mt-2 text-xs text-gray-500 cursor-pointer">
@@ -1481,19 +1425,14 @@ export default function EnrollmentDetailPage() {
                           {/* Action buttons - responsive grid */}
                           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2">
                             {/* Copy Fee */}
-                            <button
+                            <Button
+                              icon={copied ? Check : Copy}
+                              iconClassName={copied ? "text-green-700 dark:text-green-400" : undefined}
                               onClick={handleCopyFee}
                               disabled={feeMessageLoading}
-                              className={cn(
-                                "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all",
-                                copied
-                                  ? "bg-green-500 text-white"
-                                  : "bg-primary hover:bg-[#8b6140] text-white"
-                              )}
                             >
-                              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                              {copied ? "Copied!" : "Copy Fee"}
-                            </button>
+                              {copied ? "Copied!" : "Copy fee"}
+                            </Button>
 
                             {/* Mark Sent / Unmark Sent - Admin only */}
                             {markSentAction}
@@ -1503,20 +1442,16 @@ export default function EnrollmentDetailPage() {
 
                             {/* Cancel Enrollment - only for pending/overdue with no completed sessions - Admin only */}
                             {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
-                              <button
+                              <Button
+                                icon={XCircle}
+                                iconClassName="text-red-600 dark:text-red-400"
+                                loading={isCancelling}
                                 onClick={() => setConfirmCancel(true)}
-                                disabled={isCancelling || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
-                                    : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                                )}
+                                disabled={isReadOnly}
                                 title={isReadOnly ? "Read-only access" : undefined}
                               >
-                                {isCancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-                                Cancel Enrollment
-                              </button>
+                                Cancel enrollment
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -1546,20 +1481,15 @@ export default function EnrollmentDetailPage() {
                   Deadline Extension
                 </h3>
                 {!isEditingExtension && (
-                  <button
+                  <Button
+                    size="sm"
+                    icon={Pencil}
                     onClick={handleEditExtension}
                     disabled={isReadOnly}
-                    className={cn(
-                      "text-xs px-2 py-1 rounded-md transition-colors flex items-center gap-1",
-                      isReadOnly
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
-                        : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
-                    )}
                     title={isReadOnly ? "Read-only access" : undefined}
                   >
-                    <Pencil className="h-3 w-3" />
                     Edit
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1567,18 +1497,18 @@ export default function EnrollmentDetailPage() {
                 /* Edit Mode */
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Extension Weeks
-                    </label>
-                    <select
+                    <Label htmlFor="extension-weeks">
+                      Extension weeks
+                    </Label>
+                    <Select
+                      id="extension-weeks"
                       value={extensionForm.weeks}
                       onChange={(e) => setExtensionForm({ ...extensionForm, weeks: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-field rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       {[...Array(53)].map((_, i) => (
                         <option key={i} value={i}>{i} week{i !== 1 ? 's' : ''}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   {/* Preview of new end date */}
@@ -1597,39 +1527,31 @@ export default function EnrollmentDetailPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <Label htmlFor="extension-reason">
                       Reason <span className="text-red-600">*</span>
-                    </label>
-                    <textarea
+                    </Label>
+                    <Textarea
+                      id="extension-reason"
                       value={extensionForm.reason}
                       onChange={(e) => setExtensionForm({ ...extensionForm, reason: e.target.value })}
                       placeholder="Enter reason for extension (required for audit trail)"
                       rows={3}
-                      className="w-full px-3 py-2 border border-field rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                      className="resize-none"
                     />
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setIsEditingExtension(false)}
-                      className="px-4 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
-                    >
+                    <Button onClick={() => setIsEditingExtension(false)}>
                       Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="primary"
+                      loading={isSavingExtension}
                       onClick={handleSaveExtension}
-                      disabled={isSavingExtension || !extensionForm.reason.trim()}
-                      className="px-4 py-2 text-sm rounded-md bg-primary hover:bg-[#8a5f3d] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      disabled={!extensionForm.reason.trim()}
                     >
-                      {isSavingExtension ? (
-                        <>
-                          <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        'Save Extension'
-                      )}
-                    </button>
+                      {isSavingExtension ? 'Saving...' : 'Save extension'}
+                    </Button>
                   </div>
                 </div>
               ) : (

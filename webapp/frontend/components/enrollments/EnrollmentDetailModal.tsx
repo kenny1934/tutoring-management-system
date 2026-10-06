@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
+import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
@@ -17,6 +17,7 @@ import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDeta
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button, IconButton, buttonClasses } from "@/components/controls";
 import type { Enrollment, Session } from "@/types";
 
 interface EnrollmentDetailModalProps {
@@ -248,12 +249,7 @@ export function EnrollmentDetailModal({
           ) : "Enrollment Details"}
         </h2>
         {!hideCloseButton && (
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] rounded-lg transition-colors flex-shrink-0"
-          >
-            <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-          </button>
+          <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
         )}
       </div>
 
@@ -549,10 +545,10 @@ export function EnrollmentDetailModal({
           {!compact && (
             <Link
               href={`/students/${detail.student_id}`}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              className={buttonClasses({ variant: "quiet" })}
             >
-              <ExternalLink className="h-4 w-4" />
-              Student History
+              <ExternalLink className="h-4 w-4 text-ink-subtle" aria-hidden="true" />
+              Student history
             </Link>
           )}
 
@@ -564,95 +560,95 @@ export function EnrollmentDetailModal({
                 {/* Copy Fee - subtle icon button. Hidden for waived
                     enrollments, which have no fee to ask for. */}
                 {detail.payment_status !== 'Waived' && (
-                  <button
+                  <IconButton
+                    label="Copy fee message"
+                    icon={copied ? Check : Copy}
+                    iconClassName={cn(copied && "text-green-700 dark:text-green-400")}
                     onClick={handleCopyFee}
-                    className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
-                    title="Copy fee message"
-                  >
-                    {copied ? <Check className="h-4 w-4 text-green-700" /> : <Copy className="h-4 w-4 text-foreground/60" />}
-                  </button>
+                  />
                 )}
 
                 {/* Mark/Unmark Sent toggle - Admin only */}
                 {!isTutor && (detail.fee_message_sent ? (
-                  <button
+                  <Button
+                    variant="quiet"
+                    size="sm"
                     onClick={handleUnmarkSent}
-                    disabled={markingSent}
-                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50"
-                    title="Unmark Sent"
+                    loading={markingSent}
+                    icon={Undo2}
+                    className="group sm:gap-0 sm:hover:gap-1"
+                    title="Unmark sent"
                   >
-                    {markingSent ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <Undo2 className="h-4 w-4 flex-shrink-0" />}
                     <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[100px]">
-                      Unmark Sent
+                      Unmark sent
                     </span>
-                  </button>
+                  </Button>
                 ) : (
-                  <button
+                  <Button
+                    size="sm"
                     onClick={handleMarkSent}
-                    disabled={markingSent}
-                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all disabled:opacity-50"
-                    title="Mark Sent"
+                    loading={markingSent}
+                    icon={Send}
+                    iconClassName="text-blue-600 dark:text-blue-400"
+                    className="group sm:gap-0 sm:hover:gap-1"
+                    title="Mark sent"
                   >
-                    {markingSent ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <Send className="h-4 w-4 flex-shrink-0" />}
                     <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[80px]">
-                      Mark Sent
+                      Mark sent
                     </span>
-                  </button>
+                  </Button>
                 ))}
 
                 {/* Confirm Payment (only when not paid) - Admin only */}
                 {!isTutor && detail.payment_status !== "Paid" && (
-                  <button
+                  <Button
+                    size="sm"
                     onClick={() => setConfirmPayment(true)}
-                    disabled={markingPaid}
-                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all disabled:opacity-50"
-                    title="Confirm Payment"
+                    loading={markingPaid}
+                    icon={CreditCard}
+                    iconClassName="text-green-700 dark:text-green-400"
+                    className="group sm:gap-0 sm:hover:gap-1"
+                    title="Confirm payment"
                   >
-                    {markingPaid ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <CreditCard className="h-4 w-4 flex-shrink-0" />}
                     <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[120px]">
-                      Confirm Payment
+                      Confirm payment
                     </span>
-                  </button>
+                  </Button>
                 )}
 
                 {/* Cancel Enrollment (only for pending/overdue without attended sessions) - Admin only */}
                 {!isTutor && (detail.payment_status === "Pending Payment" || detail.payment_status === "Overdue") && detail.sessions_finished === 0 && (
-                  <button
+                  <Button
+                    size="sm"
                     onClick={() => setConfirmCancel(true)}
-                    disabled={isCancelling}
-                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all disabled:opacity-50"
-                    title="Cancel Enrollment"
+                    loading={isCancelling}
+                    icon={XCircle}
+                    iconClassName="text-red-600 dark:text-red-400"
+                    className="group sm:gap-0 sm:hover:gap-1"
+                    title="Cancel enrollment"
                   >
-                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <XCircle className="h-4 w-4 flex-shrink-0" />}
                     <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[130px]">
-                      Cancel Enrollment
+                      Cancel enrollment
                     </span>
-                  </button>
+                  </Button>
                 )}
               </>
             )}
 
             {/* Create Renewal button */}
             {onCreateRenewal && (
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleCreateRenewal}
-                className={cn(
-                  "group flex items-center gap-1.5 rounded-lg text-sm font-medium transition-all",
-                  "hover:scale-[1.02] active:scale-[0.98]",
-                  "px-2 py-1.5",
-                  isExpired
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : isUrgent
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "bg-primary hover:bg-[#8b5d3b] text-white"
-                )}
-                title={compact ? "Renew" : "Create Renewal"}
+                icon={RefreshCcw}
+                className="group sm:gap-0 sm:hover:gap-1"
+                title={compact ? "Renew" : "Create renewal"}
               >
-                <RefreshCcw className="h-4 w-4 flex-shrink-0" />
                 <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[110px]">
-                  {compact ? "Renew" : "Create Renewal"}
+                  {compact ? "Renew" : "Create renewal"}
                 </span>
-              </button>
+              </Button>
             )}
           </div>
         </div>

@@ -5,8 +5,8 @@ import { Modal } from "@/components/ui/modal";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/contexts/ToastContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { User, Loader2, GraduationCap, Phone, Building2, MapPin, BookOpen, FlaskConical, AlertTriangle, Hash, Plus, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { User, GraduationCap, Phone, Building2, MapPin, BookOpen, FlaskConical, AlertTriangle, Hash, Plus, Trash2 } from "lucide-react";
+import { Button, IconButton, Field, Input, Label, Select, Segmented } from "@/components/controls";
 import { studentsAPI, StudentCreate } from "@/lib/api";
 import type { Student, StudentContact } from "@/types";
 
@@ -236,10 +236,11 @@ export function AddStudentModal({
 
         {/* Student Name (required) */}
         <div>
-          <label className="block text-sm font-medium text-foreground/70 mb-1">
-            Student Name <span className="text-red-600">*</span>
-          </label>
-          <input
+          <Label htmlFor="add-student-name">
+            Student name <span className="text-red-600">*</span>
+          </Label>
+          <Input
+            id="add-student-name"
             type="text"
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
@@ -247,7 +248,6 @@ export function AddStudentModal({
             required
             aria-required="true"
             aria-describedby={duplicates.length > 0 ? "student-duplicate-warning" : undefined}
-            className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             autoFocus
           />
         </div>
@@ -255,52 +255,39 @@ export function AddStudentModal({
         {/* Grade & Location Row */}
         <div className="grid grid-cols-2 gap-3">
           {/* Grade */}
-          <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1">
-              <GraduationCap className="h-3.5 w-3.5 inline mr-1" />
-              Grade
-            </label>
-            <select
+          <Field id="add-student-grade" label={<><GraduationCap className="h-3 w-3 inline mr-1" aria-hidden="true" />Grade</>}>
+            <Select
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               <option value="">Select grade</option>
               {grade === "P6" && <option value="P6">P6</option>}
               {GRADES.map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {/* Location */}
-          <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1">
-              <MapPin className="h-3.5 w-3.5 inline mr-1" />
-              Location
-            </label>
-            <select
+          <Field id="add-student-location" label={<><MapPin className="h-3 w-3 inline mr-1" aria-hidden="true" />Location</>}>
+            <Select
               value={homeLocation}
               onChange={(e) => setHomeLocation(e.target.value)}
               disabled={isLocationLocked && !initialData?.home_location}
-              className={cn(
-                "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50",
-                isLocationLocked && !initialData?.home_location && "opacity-60 cursor-not-allowed"
-              )}
             >
               {availableLocations.map((loc) => (
                 <option key={loc} value={loc}>{loc}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
         </div>
 
         {/* School (autocomplete) */}
         <div>
-          <label className="block text-sm font-medium text-foreground/70 mb-1">
-            <Building2 className="h-3.5 w-3.5 inline mr-1" />
+          <Label>
+            <Building2 className="h-3 w-3 inline mr-1" aria-hidden="true" />
             School
-          </label>
+          </Label>
           <Autocomplete
             value={school}
             onChange={setSchool}
@@ -311,8 +298,8 @@ export function AddStudentModal({
             blurDelayMs={200}
             placeholder="Search or enter school name"
             wrapperClassName="relative"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            dropdownClassName="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto"
+            className="h-8 w-full min-w-0 rounded border border-field bg-field-fill px-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+            dropdownClassName="absolute z-10 w-full mt-1 bg-field-fill border border-line-strong rounded shadow-lg max-h-40 overflow-y-auto"
             itemClassName="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
             highlightClassName="bg-gray-100 dark:bg-gray-700"
           />
@@ -322,56 +309,34 @@ export function AddStudentModal({
         <div className="grid grid-cols-2 gap-3">
           {/* Language Stream - C/E Toggle */}
           <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1">
-              <BookOpen className="h-3.5 w-3.5 inline mr-1" />
-              Lang Stream
-            </label>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => { setLangStream("C"); setLangStreamManuallySet(true); }}
-                className={cn(
-                  "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all",
-                  langStream === "C"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-primary/50"
-                )}
-              >
-                C
-              </button>
-              <button
-                type="button"
-                onClick={() => { setLangStream("E"); setLangStreamManuallySet(true); }}
-                className={cn(
-                  "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all",
-                  langStream === "E"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-primary/50"
-                )}
-              >
-                E
-              </button>
-            </div>
+            <Label>
+              <BookOpen className="h-3 w-3 inline mr-1" aria-hidden="true" />
+              Lang stream
+            </Label>
+            <Segmented
+              label="Language stream"
+              value={langStream as "C" | "E"}
+              onChange={(v) => { setLangStream(v); setLangStreamManuallySet(true); }}
+              options={[
+                { value: "C", label: "C", title: "Chinese stream" },
+                { value: "E", label: "E", title: "English stream" },
+              ]}
+            />
           </div>
 
           {/* Academic Stream (F4+ only) OR empty space */}
           {showAcademicStream ? (
-            <div>
-              <label className="block text-sm font-medium text-foreground/70 mb-1">
-                <FlaskConical className="h-3.5 w-3.5 inline mr-1" />
-                Academic Stream
-              </label>
-              <select
+            <Field id="add-student-academic-stream" label={<><FlaskConical className="h-3 w-3 inline mr-1" aria-hidden="true" />Academic stream</>}>
+              <Select
                 value={academicStream}
                 onChange={(e) => setAcademicStream(e.target.value)}
-                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">Select stream</option>
                 {ACADEMIC_STREAMS.map((as) => (
                   <option key={as} value={as}>{as}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           ) : (
             <div /> /* Empty placeholder to maintain grid layout */
           )}
@@ -379,14 +344,14 @@ export function AddStudentModal({
 
         {/* Contacts */}
         <div>
-          <label className="block text-sm font-medium text-foreground/70 mb-1">
-            <Phone className="h-3.5 w-3.5 inline mr-1" />
+          <Label>
+            <Phone className="h-3 w-3 inline mr-1" aria-hidden="true" />
             Phone
-          </label>
+          </Label>
           <div className="space-y-2">
             {contacts.map((contact, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input
+                <Input
                   type="tel"
                   value={contact.phone}
                   onChange={(e) => {
@@ -395,9 +360,10 @@ export function AddStudentModal({
                     setContacts(updated);
                   }}
                   placeholder="Phone number"
-                  className="flex-1 px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                  aria-label={`Phone number ${i + 1}`}
+                  className="flex-1"
                 />
-                <input
+                <Input
                   list="add-student-contact-labels"
                   value={contact.label || ''}
                   onChange={(e) => {
@@ -406,16 +372,16 @@ export function AddStudentModal({
                     setContacts(updated);
                   }}
                   placeholder="Label"
-                  className="w-28 px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                  aria-label={`Label for phone number ${i + 1}`}
+                  className="w-28 flex-none"
                 />
                 {contacts.length > 1 && (
-                  <button
-                    type="button"
+                  <IconButton
+                    label="Remove this number"
+                    icon={Trash2}
+                    tone="danger"
                     onClick={() => setContacts(contacts.filter((_, j) => j !== i))}
-                    className="p-1.5 text-gray-500 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  />
                 )}
               </div>
             ))}
@@ -439,31 +405,21 @@ export function AddStudentModal({
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
+          <Button
+            variant="secondary"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleSubmit}
-            disabled={isSubmitting || !studentName.trim()}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-              "bg-primary text-primary-foreground hover:bg-primary/90",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
+            disabled={!studentName.trim()}
+            loading={isSubmitting}
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Create Student"
-            )}
-          </button>
+            {isSubmitting ? "Creating..." : "Create student"}
+          </Button>
         </div>
       </div>
     </Modal>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, Label, Select, Textarea } from "@/components/controls";
 import { useActiveTutors } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -247,12 +248,7 @@ export function RecordContactModal({
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
               {editingContact ? 'Edit Contact Record' : 'Record Parent Contact'}
             </h2>
-            <button
-              onClick={() => onClose(false)}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors"
-            >
-              <X className="h-5 w-5 text-gray-500" />
-            </button>
+            <IconButton label="Close" icon={X} onClick={() => onClose(false)} />
           </div>
 
           {/* Content */}
@@ -266,10 +262,10 @@ export function RecordContactModal({
 
             {/* Student Selection */}
             <div className="space-y-1.5">
-              <label htmlFor="student-search" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Label htmlFor="student-search" className="flex items-center gap-1.5">
                 <User className="h-4 w-4 text-accent-ink" />
                 Student <span className="text-red-600">*</span>
-              </label>
+              </Label>
               <div className="relative">
                 {selectedStudent ? (
                   // Show selected student with badges
@@ -294,7 +290,7 @@ export function RecordContactModal({
                   // Show search input
                   <>
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
-                    <input
+                    <Input
                       id="student-search"
                       type="text"
                       placeholder="Search students..."
@@ -305,11 +301,7 @@ export function RecordContactModal({
                         setShowStudentDropdown(true);
                       }}
                       onFocus={() => setShowStudentDropdown(true)}
-                      className={cn(
-                        "w-full pl-9 pr-3 py-2 text-sm",
-                        "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                        "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      )}
+                      className="pl-9"
                     />
                   </>
                 )}
@@ -375,22 +367,16 @@ export function RecordContactModal({
 
             {/* Contacted By (Tutor) */}
             <div className="space-y-1.5">
-              <label htmlFor="contacted-by" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Label htmlFor="contacted-by" className="flex items-center gap-1.5">
                 <User className="h-4 w-4 text-accent-ink" aria-hidden="true" />
-                Contacted By <span className="text-red-600" aria-hidden="true">*</span>
-              </label>
-              <select
+                Contacted by <span className="text-red-600" aria-hidden="true">*</span>
+              </Label>
+              <Select
                 id="contacted-by"
                 aria-required="true"
                 value={selectedTutorId || ''}
                 onChange={(e) => setSelectedTutorId(e.target.value ? parseInt(e.target.value) : null)}
                 disabled={!canEditTutor}
-                className={cn(
-                  "w-full px-3 py-2 text-sm",
-                  "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  !canEditTutor && "opacity-60 cursor-not-allowed"
-                )}
               >
                 <option value="">Select tutor...</option>
                 {tutors.map(tutor => (
@@ -398,7 +384,7 @@ export function RecordContactModal({
                     {tutor.tutor_name}
                   </option>
                 ))}
-              </select>
+              </Select>
               {!canEditTutor && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {editingContact ? "Only admins can change who contacted" : "Recording as yourself"}
@@ -409,36 +395,26 @@ export function RecordContactModal({
             {/* Contact Date & Time */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label htmlFor="contact-date" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="contact-date" className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4 text-accent-ink" aria-hidden="true" />
                   Date
-                </label>
-                <input
+                </Label>
+                <Input
                   id="contact-date"
                   type="date"
                   value={contactDate}
                   onChange={(e) => setContactDate(e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  )}
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="contact-time" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="contact-time">
                   Time
-                </label>
-                <input
+                </Label>
+                <Input
                   id="contact-time"
                   type="time"
                   value={contactTime}
                   onChange={(e) => setContactTime(e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  )}
                 />
               </div>
             </div>
@@ -446,65 +422,50 @@ export function RecordContactModal({
             {/* Method & Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label htmlFor="contact-method" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="contact-method" className="flex items-center gap-1.5">
                   <span aria-hidden="true">{getMethodIcon(contactMethod)}</span>
                   Method
-                </label>
-                <select
+                </Label>
+                <Select
                   id="contact-method"
                   value={contactMethod}
                   onChange={(e) => setContactMethod(e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  )}
                 >
                   {CONTACT_METHODS.map(method => (
                     <option key={method} value={method}>{method}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="contact-type" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="contact-type" className="flex items-center gap-1.5">
                   <span aria-hidden="true">{getContactTypeIcon(contactType, "h-4 w-4")}</span>
                   Type
-                </label>
-                <select
+                </Label>
+                <Select
                   id="contact-type"
                   value={contactType}
                   onChange={(e) => setContactType(e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  )}
                 >
                   {CONTACT_TYPES.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 
             {/* Notes */}
             <div className="space-y-1.5">
-              <label htmlFor="contact-notes" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Label htmlFor="contact-notes" className="flex items-center gap-1.5">
                 <FileText className="h-4 w-4 text-accent-ink" aria-hidden="true" />
                 Notes
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 id="contact-notes"
                 value={briefNotes}
                 onChange={(e) => setBriefNotes(e.target.value)}
                 placeholder="Brief summary of the conversation..."
                 rows={3}
-                className={cn(
-                  "w-full px-3 py-2 text-sm",
-                  "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  "resize-none"
-                )}
+                className="resize-none"
               />
             </div>
 
@@ -526,20 +487,15 @@ export function RecordContactModal({
 
               {followUpNeeded && (
                 <div className="ml-6 space-y-1.5">
-                  <label htmlFor="follow-up-date" className="text-sm text-gray-600 dark:text-gray-400">
+                  <Label htmlFor="follow-up-date">
                     Follow-up by
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     id="follow-up-date"
                     type="date"
                     value={followUpDate}
                     onChange={(e) => setFollowUpDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className={cn(
-                      "w-full px-3 py-2 text-sm",
-                      "bg-white dark:bg-[#2d2618] border border-field rounded-md",
-                      "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    )}
                   />
                 </div>
               )}
@@ -548,33 +504,17 @@ export function RecordContactModal({
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-line bg-tint/50 rounded-b-lg">
-            <button
-              type="button"
-              onClick={() => onClose(false)}
-              disabled={saving}
-              className={cn(
-                "px-4 py-2 text-sm font-medium rounded-md transition-colors",
-                "text-gray-700 dark:text-gray-300",
-                "hover:bg-gray-100 dark:hover:bg-gray-800",
-                "disabled:opacity-50"
-              )}
-            >
+            <Button onClick={() => onClose(false)} disabled={saving}>
               Cancel
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleSubmit}
-              disabled={saving || !selectedStudentId || !selectedTutorId}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
-                "bg-primary dark:bg-[#8b6f47] text-white",
-                "hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              loading={saving}
+              disabled={!selectedStudentId || !selectedTutorId}
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {editingContact ? 'Update' : 'Save Contact'}
-            </button>
+              {editingContact ? 'Update' : 'Save contact'}
+            </Button>
           </div>
         </div>
       </FloatingFocusManager>
