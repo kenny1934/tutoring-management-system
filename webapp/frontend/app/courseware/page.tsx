@@ -61,6 +61,7 @@ import { getCoursewareFileHandle } from "@/lib/summer-courseware-scan";
 import { buildFullPath } from "@/lib/summer-courseware-defaults";
 import type { SummerCoursewareFile } from "@/types";
 import { cn } from "@/lib/utils";
+import { TONES } from "@/lib/tones";
 import { CopyPathButton } from "@/components/ui/copy-path-button";
 import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
@@ -99,13 +100,13 @@ const SearchSelectionBar = dynamic(
   () => import("@/components/courseware/SearchSelectionBar").then(mod => mod.SearchSelectionBar),
   { ssr: false }
 );
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, TrendingUp } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 import { getDocumentPath, getTrendingPath, type ExtendedPaperlessDocument } from "@/lib/courseware-utils";
 
 // Medal icons for top 3 - using lucide icons with glow effects
 const MEDAL_CONFIG = [
-  { icon: Trophy, color: "text-amber-700", glow: "drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" },      // Gold
+  { icon: Trophy, color: "text-amber-500", glow: "drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" },      // Gold
   { icon: Medal, color: "text-gray-500", glow: "drop-shadow-[0_0_6px_rgba(156,163,175,0.5)]" },        // Silver
   { icon: Award, color: "text-amber-700", glow: "drop-shadow-[0_0_6px_rgba(180,83,9,0.5)]" },          // Bronze
 ];
@@ -157,11 +158,13 @@ function useAnimatedCounter(target: number, duration: number = 1000) {
   return count;
 }
 
-// Hot badge for trending items - compact on mobile
+// Hot badge for items assigned a lot lately, compact on mobile. A soft
+// warning chip: red is kept for things that have gone wrong.
 function HotBadge() {
   return (
-    <span className="inline-flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 text-[11px] font-bold bg-red-500 text-white rounded-full animate-pulse">
-      🔥<span className="hidden sm:inline"> HOT</span>
+    <span className={cn("inline-flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 text-[11px] font-semibold rounded-full", TONES.warning.soft)}>
+      <TrendingUp className="h-3 w-3" aria-hidden="true" />
+      <span className="hidden sm:inline">Hot</span>
     </span>
   );
 }
@@ -519,7 +522,7 @@ function RankingRow({
         "transition-all duration-200",
         isExpanded
           ? "bg-paper"
-          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(160,112,75,0.12)]"
+          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30"
       )}
     >
       <div
@@ -3240,7 +3243,6 @@ export default function CoursewarePage() {
                   {/* Header */}
                   <div className="px-4 py-3 bg-tint border-b border-[#d4a574]/30 flex items-center justify-between">
                     <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
-                      <span className="animate-pulse">🏆</span>
                       {funTitle}
                       <span className="text-xs font-normal text-gray-500 dark:text-gray-400 lowercase">
                         ({timeRange === "recent" ? "14 days" : "all time"})
