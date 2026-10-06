@@ -9,6 +9,7 @@ import { memosAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Field, Input, Label, Textarea } from "@/components/controls";
 import { parseTimeSlot, toDateString } from "@/lib/calendar-utils";
 import type { Student, MemoExercise, TutorMemo } from "@/types";
 import {
@@ -159,14 +160,6 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
     }
   };
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border text-sm",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-  );
-
   return (
     <Modal
       isOpen={isOpen}
@@ -182,37 +175,21 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
       size="lg"
       footer={
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
+          <Button onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            className={cn(
-              "px-4 py-2 text-sm rounded-md font-medium",
-              "bg-amber-500 hover:bg-amber-600 text-white",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1.5" />
-                Saving...
-              </>
-            ) : isEditing ? "Update Memo" : "Save Memo"}
-          </button>
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={!canSave} loading={saving}>
+            {saving ? "Saving..." : isEditing ? "Update memo" : "Save memo"}
+          </Button>
         </div>
       }
     >
       <div className="space-y-4">
         {/* Student Search */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <Label htmlFor="memo-student">
             Student <span className="text-red-600">*</span>
-          </label>
+          </Label>
           {student ? (
             <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
               <div className="flex-1">
@@ -229,14 +206,13 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                   showLocationPrefix
                 />
               </div>
-              <button type="button" onClick={() => setStudent(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                <X className="h-4 w-4" />
-              </button>
+              <IconButton label="Clear student" icon={X} size="sm" onClick={() => setStudent(null)} />
             </div>
           ) : (
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle" />
+              <Input
+                id="memo-student"
                 type="text"
                 value={studentSearch}
                 onChange={(e) => {
@@ -246,7 +222,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                 onFocus={() => studentSearch.length >= 2 && setSearchOpen(true)}
                 onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
                 placeholder="Search student by name or ID..."
-                className="w-full pl-10 pr-4 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 text-sm"
+                className="pl-9"
               />
               {searchOpen && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -292,47 +268,39 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
 
         {/* Date / Time row */}
         <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date <span className="text-red-600">*</span>
-            </label>
-            <input type="date" value={memoDate} onChange={(e) => setMemoDate(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
-            <input
+          <Field id="memo-date" label={<>Date <span className="text-red-600">*</span></>}>
+            <Input type="date" value={memoDate} onChange={(e) => setMemoDate(e.target.value)} />
+          </Field>
+          <Field id="memo-start" label="Start time">
+            <Input
               type="time"
               value={timeSlotStart}
               onChange={(e) => setTimeSlotStart(e.target.value)}
-              className={inputClass}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
-            <input
+          </Field>
+          <Field id="memo-end" label="End time">
+            <Input
               type="time"
               value={timeSlotEnd}
               onChange={(e) => setTimeSlotEnd(e.target.value)}
-              className={inputClass}
             />
-          </div>
+          </Field>
         </div>
 
         {/* Notes */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-          <textarea
+        <Field id="memo-notes" label="Notes">
+          <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             placeholder="What happened in the lesson? Topics covered, observations..."
-            className={cn(inputClass, "resize-none")}
+            className="resize-none"
           />
-        </div>
+        </Field>
 
         {/* Performance Rating */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Performance</label>
+          <Label>Performance</Label>
           <div className="flex items-center gap-2">
             <StarRating rating={rating} onChange={setRating} size="lg" />
             {rating > 0 && (
@@ -344,22 +312,15 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
         {/* Exercises */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Exercises</label>
+            <Label className="mb-0">Exercises</Label>
             <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => addExercise("CW")}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800"
-              >
-                <Plus className="h-3 w-3" /> CW
-              </button>
-              <button
-                type="button"
-                onClick={() => addExercise("HW")}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800"
-              >
-                <Plus className="h-3 w-3" /> HW
-              </button>
+              {/* CW is red and HW blue across the app, so the icon keeps that colour. */}
+              <Button size="sm" icon={Plus} iconClassName="text-red-600 dark:text-red-400" onClick={() => addExercise("CW")}>
+                CW
+              </Button>
+              <Button size="sm" icon={Plus} iconClassName="text-blue-600 dark:text-blue-400" onClick={() => addExercise("HW")}>
+                HW
+              </Button>
             </div>
           </div>
 
@@ -390,40 +351,40 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                   <div className="flex-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center">
                     <div className="flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5 text-gray-500 shrink-0" />
-                      <input
+                      <Input
+                        size="sm"
                         type="text"
                         value={ex.pdf_name}
                         onChange={(e) => updateExercise(i, "pdf_name", e.target.value)}
                         placeholder="PDF path"
-                        className="flex-1 px-2 py-1 text-sm rounded border border-field bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        aria-label="PDF path"
+                        className="flex-1"
                       />
                     </div>
                     <div className="flex items-center gap-1">
-                      <input
+                      <Input
+                        size="sm"
                         type="number"
                         value={ex.page_start ?? ""}
                         onChange={(e) => updateExercise(i, "page_start", e.target.value ? Number(e.target.value) : null)}
                         placeholder="p."
-                        className="w-14 px-1.5 py-1 text-sm text-center rounded border border-field bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        aria-label="First page"
+                        className="w-14 px-1.5 text-center"
                         min={1}
                       />
                       <span className="text-gray-500 text-xs">-</span>
-                      <input
+                      <Input
+                        size="sm"
                         type="number"
                         value={ex.page_end ?? ""}
                         onChange={(e) => updateExercise(i, "page_end", e.target.value ? Number(e.target.value) : null)}
                         placeholder="p."
-                        className="w-14 px-1.5 py-1 text-sm text-center rounded border border-field bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        aria-label="Last page"
+                        className="w-14 px-1.5 text-center"
                         min={1}
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeExercise(i)}
-                      className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <IconButton label="Remove exercise" icon={Trash2} size="sm" tone="danger" onClick={() => removeExercise(i)} />
                   </div>
                 </div>
               ))}

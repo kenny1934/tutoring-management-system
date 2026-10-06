@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ChevronDown, PenTool, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 import { useLocation } from "@/contexts/LocationContext";
 import { sessionsAPI } from "@/lib/api";
 import { formatDateCompact } from "@/lib/formatters";
@@ -144,13 +145,7 @@ export function ExerciseHistoryPanel({
                 <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   Exercise History
                 </h3>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-                >
-                  <X className="h-4 w-4 text-gray-500" />
-                </button>
+                <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
               </div>
               <div className="flex items-center gap-1.5 mt-1">
                 {studentIdDisplay && (
@@ -263,21 +258,16 @@ export function ExerciseHistoryPanel({
 
                   {/* Load More */}
                   {hasMore && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="quiet"
+                      size="sm"
+                      icon={ChevronDown}
+                      loading={loading}
                       onClick={handleLoadMore}
-                      disabled={loading}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors disabled:opacity-50"
+                      className="w-full"
                     >
-                      {loading ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <>
-                          <ChevronDown className="h-3.5 w-3.5" />
-                          Load More
-                        </>
-                      )}
-                    </button>
+                      Load more
+                    </Button>
                   )}
                 </>
               )}

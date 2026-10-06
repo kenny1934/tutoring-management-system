@@ -31,6 +31,7 @@ import type {
   RecordedTopics,
 } from "@/components/curriculum/ConfirmControls";
 import { cn } from "@/lib/utils";
+import { buttonClasses } from "@/components/controls";
 import { getTypeColors } from "@/lib/exam-type-colors";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
@@ -475,7 +476,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                 <button
                   type="button"
                   onClick={() => setPackOpen(true)}
-                  className="text-[11px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+                  className={cn(buttonClasses({ variant: "secondary", size: "sm" }), "px-2 shrink-0")}
                 >
                   All {data.upcoming_exam.scope_concept_count} topics →
                 </button>
@@ -486,7 +487,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
               <Link
                 href={curriculumExplorerHref(data.school, data.grade, data.week_number, linkYear)}
                 target="_blank"
-                className="text-[11px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+                className={cn(buttonClasses({ variant: "secondary", size: "sm" }), "px-2 shrink-0")}
               >
                 See the full year →
               </Link>

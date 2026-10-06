@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { Search, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Ellipsis } from "lucide-react";
+import { Button } from "@/components/controls";
+import { cn } from "@/lib/utils";
 
 type FileActionState = { open?: 'loading' | 'error'; print?: 'loading' | 'error'; message?: string };
 
@@ -20,7 +22,6 @@ interface ActionItem {
   icon: ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  btnClass: string;
 }
 
 export function ExerciseActionButtons({
@@ -60,7 +61,6 @@ export function ExerciseActionButtons({
       label: "Search Shelv",
       icon: <Search className="h-4 w-4 text-amber-700 dark:text-amber-400" />,
       onClick: onPaperlessSearch,
-      btnClass: "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50",
     },
   ];
 
@@ -69,7 +69,6 @@ export function ExerciseActionButtons({
       label: "Browse files",
       icon: <FolderOpen className="h-4 w-4 text-gray-500 dark:text-gray-400" />,
       onClick: onBrowseFile,
-      btnClass: "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
     });
 
     if (hasPdfName) {
@@ -83,7 +82,6 @@ export function ExerciseActionButtons({
           : <ExternalLink className="h-4 w-4 text-gray-500 dark:text-gray-400" />,
         onClick: onOpenFile,
         disabled: fileActionState?.open === 'loading',
-        btnClass: "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
       });
       actions.push({
         label: fileActionState?.print === 'loading' && fileActionState?.message
@@ -95,7 +93,6 @@ export function ExerciseActionButtons({
           : <Printer className="h-4 w-4 text-gray-500 dark:text-gray-400" />,
         onClick: onPrintFile,
         disabled: fileActionState?.print === 'loading',
-        btnClass: "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
       });
     }
   }
@@ -104,37 +101,38 @@ export function ExerciseActionButtons({
     <>
       {/* Desktop: inline icon buttons (md+) */}
       <div className="hidden md:contents">
-        {actions.map((action, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={action.onClick}
-            disabled={action.disabled}
-            className={`p-2.5 rounded-md border transition-colors shrink-0 flex items-center ${action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF" ? "gap-1.5" : "justify-center"} ${action.btnClass}`}
-            title={action.label}
-            aria-label={action.label}
-          >
-            {action.icon}
-            {action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF" && (
-              <span className="text-[11px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
-                {action.label}
-              </span>
-            )}
-          </button>
-        ))}
+        {actions.map((action, i) => {
+          const showsMessage = action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF";
+          return (
+            <Button
+              key={i}
+              onClick={action.onClick}
+              disabled={action.disabled}
+              className={cn("shrink-0", !showsMessage && "w-8 px-0")}
+              title={action.label}
+              aria-label={action.label}
+            >
+              {action.icon}
+              {showsMessage && (
+                <span className="text-[11px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
+                  {action.label}
+                </span>
+              )}
+            </Button>
+          );
+        })}
       </div>
 
       {/* Mobile: overflow menu (below md) */}
       <div ref={menuRef} className="relative md:hidden">
-        <button
-          type="button"
+        <Button
           onClick={() => setMenuOpen(prev => !prev)}
-          className="min-w-[44px] min-h-[44px] p-2.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
+          className="min-w-[44px] min-h-[44px] px-0 shrink-0"
           title="Actions"
           aria-label="Actions menu"
         >
-          <Ellipsis className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-        </button>
+          <Ellipsis className="h-4 w-4 text-ink-subtle" />
+        </Button>
         {menuOpen && (
           <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg py-1">
             {actions.map((action, i) => (

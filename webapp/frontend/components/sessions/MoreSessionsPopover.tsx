@@ -14,6 +14,7 @@ import {
 import { X, HandCoins, GraduationCap, Clock } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/controls";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import type { Session } from "@/types";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
@@ -88,13 +89,7 @@ export function MoreSessionsPopover({
             <h3 className="font-bold text-gray-900 dark:text-gray-100">
               {sessions.filter(isCountableSession).length} Sessions
             </h3>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-            </button>
+            <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
           </div>
 
           <div className="space-y-1.5">

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { StickyNote, ArrowDownToLine, Eye } from "lucide-react";
 import type { TutorMemo } from "@/types";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 
 interface MemoBannerProps {
   memo: TutorMemo;
@@ -59,29 +60,13 @@ export function MemoBanner({ memo, onView, onImport }: MemoBannerProps) {
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          onClick={onView}
-          className={cn(
-            "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors",
-            "border-gray-300 dark:border-gray-600",
-            "hover:bg-gray-100 dark:hover:bg-gray-800",
-            "text-gray-700 dark:text-gray-300"
-          )}
-        >
-          <Eye className="h-3 w-3" />
+        <Button size="sm" icon={Eye} onClick={onView}>
           View
-        </button>
+        </Button>
         {!isLinked && (
-          <button
-            onClick={onImport}
-            className={cn(
-              "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors",
-              "bg-amber-500 hover:bg-amber-600 text-white"
-            )}
-          >
-            <ArrowDownToLine className="h-3 w-3" />
+          <Button variant="primary" size="sm" icon={ArrowDownToLine} onClick={onImport}>
             Import
-          </button>
+          </Button>
         )}
       </div>
     </motion.div>

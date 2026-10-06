@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Copy, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { formatMakeupMessage } from "@/lib/makeup-message";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session } from "@/types";
@@ -68,53 +69,31 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
         )}>
           <div className={cn("flex items-center", compact ? "gap-2" : "gap-3")}>
             <h3 className={cn("font-semibold text-foreground", compact ? "text-xs" : "text-sm")}>Make-up Message</h3>
-            <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-gray-600">
-              <button
-                onClick={() => handleLangChange('zh')}
-                className={cn(
-                  "font-medium transition-colors",
-                  compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
-                  lang === 'zh'
-                    ? "bg-sky-500 text-white"
-                    : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"
-                )}
-              >
-                中文
-              </button>
-              <button
-                onClick={() => handleLangChange('en')}
-                className={cn(
-                  "font-medium transition-colors border-l border-gray-300 dark:border-gray-600",
-                  compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
-                  lang === 'en'
-                    ? "bg-sky-500 text-white"
-                    : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"
-                )}
-              >
-                English
-              </button>
-            </div>
+            <Segmented
+              label="Message language"
+              value={lang}
+              onChange={handleLangChange}
+              options={[
+                { value: "zh", label: "中文" },
+                { value: "en", label: "English" },
+              ]}
+            />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          >
-            <X className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-foreground/50")} />
-          </button>
+          <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
         </div>
 
         {/* Message content */}
         <div className={cn("flex-1 min-h-0 flex flex-col", compact ? "p-3" : "p-4")}>
-          <textarea
+          <Textarea
             value={message}
             onChange={(e) => isEditable && setMessage(e.target.value)}
             readOnly={!isEditable}
+            aria-label="Make-up message"
             className={cn(
-              "w-full p-3 font-mono rounded-lg border resize-none transition-colors flex-1",
+              "p-3 font-mono resize-none flex-1",
               compact ? "sm:flex-none sm:h-36 text-xs" : "sm:flex-none sm:h-48 text-sm",
-              isEditable
-                ? "border-sky-400 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-sky-300/30"
-                : "border-field bg-gray-100 dark:bg-gray-800 cursor-default"
+              // Read-only until "Edit before copying" is ticked, so it sits on the tint.
+              !isEditable && "bg-tint cursor-default"
             )}
           />
         </div>
@@ -145,29 +124,15 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
             )}
           </label>
 
-          <button
+          <Button
+            variant="primary"
+            size={compact ? "sm" : "md"}
+            icon={copied ? Check : Copy}
             onClick={handleCopy}
-            className={cn(
-              "flex items-center gap-2 rounded-lg font-medium transition-all shrink-0 ml-auto",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              compact ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm",
-              copied
-                ? "bg-green-500 text-white"
-                : "bg-sky-500 hover:bg-sky-600 text-white"
-            )}
+            className="shrink-0 ml-auto"
           >
-            {copied ? (
-              <>
-                <Check className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
-                Copy
-              </>
-            )}
-          </button>
+            {copied ? "Copied!" : "Copy"}
+          </Button>
         </div>
       </div>
     </div>

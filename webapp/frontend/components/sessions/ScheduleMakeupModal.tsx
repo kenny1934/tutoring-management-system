@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import useSWR, { mutate } from "swr";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton, Field, Input, Select, Label, Segmented, LABEL_CLASS } from "@/components/controls";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,7 +34,6 @@ import {
   Calendar,
   User,
   Users,
-  Loader2,
   Check,
   Copy,
   AlertTriangle,
@@ -166,22 +165,20 @@ function CopySlotButton({ date, timeSlot, className }: { date: string; timeSlot:
   const copyText = formatCompactDateTimeSlot(new Date(date + 'T00:00:00'), timeSlot);
 
   return (
-    <button
+    <IconButton
+      label={copied ? "Copied" : "Copy slot"}
+      icon={copied ? Check : Copy}
+      iconClassName={copied ? "text-green-700 dark:text-green-400" : undefined}
+      size="sm"
       onClick={(e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(copyText);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className={cn("p-1 hover:bg-accent-ink/10 rounded transition-colors", className)}
+      className={className}
       title={copyText}
-    >
-      {copied ? (
-        <Check className="h-3 w-3 text-green-700 dark:text-green-400" />
-      ) : (
-        <Copy className="h-3 w-3 text-gray-500 dark:text-gray-400" />
-      )}
-    </button>
+    />
   );
 }
 
@@ -378,27 +375,27 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   </div>
                 </div>
               )}
+              {/* Propose mode is blue throughout the modal, so the plus is too. */}
               <Button
                 size="sm"
+                variant="secondary"
+                icon={canAddMore && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !isPastDeadline ? Plus : undefined}
+                iconClassName="text-blue-600 dark:text-blue-400"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddToProposal?.();
                 }}
                 disabled={!canAddMore || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || isPastDeadline}
-                className="w-full h-8 text-xs"
-                variant={canAddMore && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
+                className="w-full"
               >
                 {isPastLimit && !canOverrideLimit && !hasApprovedExtension ? (
                   limitCopy.short
                 ) : isPastDeadline ? (
                   "Past deadline"
                 ) : canAddMore ? (
-                  <>
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add to Proposal
-                  </>
+                  "Add to proposal"
                 ) : (
-                  "3 Slots Selected"
+                  "3 slots selected"
                 )}
               </Button>
             </>
@@ -444,21 +441,21 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   )}
                 </div>
               )}
+              {/* Book mode is green throughout the modal, so the tick is too. */}
               <Button
                 size="sm"
+                variant="secondary"
+                icon={Check}
+                iconClassName="text-green-700 dark:text-green-400"
+                loading={isSaving}
                 onClick={(e) => {
                   e.stopPropagation();
                   onBook();
                 }}
-                disabled={isSaving || isPastDeadline || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)}
-                className="w-full h-8 text-xs"
+                disabled={isPastDeadline || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)}
+                className="w-full"
               >
-                {isSaving ? (
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                ) : (
-                  <Check className="h-3 w-3 mr-1" />
-                )}
-                Book This Slot
+                Book this slot
               </Button>
             </>
           )}
@@ -1343,45 +1340,27 @@ export function ScheduleMakeupModal({
       persistent={isSaving || isProposing}
       footer={
         <div className="flex items-center justify-between w-full">
-          <Button variant="outline" onClick={onClose} disabled={isSaving || isProposing}>
+          <Button variant="secondary" onClick={onClose} disabled={isSaving || isProposing}>
             Cancel
           </Button>
           {mode === "propose" ? (
             <Button
+              variant="primary"
+              icon={Send}
+              loading={isProposing}
               onClick={submitProposal}
-              disabled={readOnly || isProposing || proposalSlots.length === 0 || !selectedProposerTutorId}
+              disabled={readOnly || proposalSlots.length === 0 || !selectedProposerTutorId}
               title={readOnly ? "Read-only access" : undefined}
             >
-              {isProposing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : !selectedProposerTutorId ? (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Select Tutor First
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Proposal ({proposalSlots.length}/3)
-                </>
-              )}
+              {isProposing
+                ? "Sending..."
+                : !selectedProposerTutorId
+                  ? "Select tutor first"
+                  : `Send proposal (${proposalSlots.length}/3)`}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Scheduling...
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Schedule Make-up
-                </>
-              )}
+            <Button variant="primary" icon={Check} loading={isSaving} onClick={handleSchedule} disabled={readOnly || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
+              {isSaving ? "Scheduling..." : "Schedule make-up"}
             </Button>
           )}
         </div>
@@ -1439,32 +1418,16 @@ export function ScheduleMakeupModal({
 
         {/* Mode Toggle - Book vs Propose */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            <button
-              onClick={() => setMode("book")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                mode === "book"
-                  ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 shadow-sm ring-1 ring-green-200 dark:ring-green-800"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              )}
-            >
-              <Check className="h-3 w-3 inline mr-1" />
-              Book Directly
-            </button>
-            <button
-              onClick={() => setMode("propose")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                mode === "propose"
-                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              )}
-            >
-              <Send className="h-3 w-3 inline mr-1" />
-              Propose to Tutor
-            </button>
-          </div>
+          {/* The green and blue icons match the bar along the top, which turns the same colour as the mode. */}
+          <Segmented
+            label="How to schedule"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "book", label: "Book directly", icon: Check, iconClassName: "text-green-700 dark:text-green-400" },
+              { value: "propose", label: "Propose to tutor", icon: Send, iconClassName: "text-blue-600 dark:text-blue-400" },
+            ]}
+          />
           {mode === "propose" && (
             <span className="text-xs text-gray-500">
               Select up to 3 time slots
@@ -1500,13 +1463,13 @@ export function ScheduleMakeupModal({
                     <span className="text-gray-500">{slot.timeSlot}</span>
                     <span className="text-accent-ink">{slot.tutorName}</span>
                   </div>
-                  <button
+                  <IconButton
+                    label="Remove this option"
+                    icon={Trash2}
+                    size="sm"
+                    tone="danger"
                     onClick={() => removeProposalSlot(idx)}
-                    className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                    title="Remove this option"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  />
                 </div>
               ))}
             </div>
@@ -1515,13 +1478,14 @@ export function ScheduleMakeupModal({
 
         {/* Optional Notes Field */}
         <div className="flex items-center gap-2">
-          <input
+          <Input
             type="text"
             value={makeupNotes}
             onChange={(e) => setMakeupNotes(e.target.value)}
             placeholder={mode === "propose" ? "Note for the tutor (optional)" : "Reason for make-up (optional)"}
+            aria-label={mode === "propose" ? "Note for the tutor" : "Reason for make-up"}
             maxLength={500}
-            className="flex-1 px-3 py-1.5 text-sm border border-field rounded-md bg-white dark:bg-gray-800 placeholder:text-gray-400"
+            className="flex-1"
           />
         </div>
 
@@ -1540,14 +1504,8 @@ export function ScheduleMakeupModal({
                     <Clock className="h-3 w-3 inline mr-1" />
                     Enrollment ends: {deadlineError.effective_end_date}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowExtensionModal(true)}
-                    className="text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
-                  >
-                    <Clock className="h-3 w-3 mr-1" />
-                    Request Extension
+                  <Button size="sm" variant="secondary" icon={Clock} onClick={() => setShowExtensionModal(true)}>
+                    Request extension
                   </Button>
                 </div>
               </div>
@@ -1583,7 +1541,11 @@ export function ScheduleMakeupModal({
                 {/* Quick Book / Quick Add Best Suggestion */}
                 {sortedSuggestions.length > 0 && (
                   mode === "propose" ? (
-                    <button
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={Plus}
+                      iconClassName="text-blue-600 dark:text-blue-400"
                       onClick={(e) => {
                         e.stopPropagation();
                         const best = sortedSuggestions[0];
@@ -1596,57 +1558,48 @@ export function ScheduleMakeupModal({
                         });
                       }}
                       disabled={proposalSlots.length >= 3}
-                      className="flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50"
                     >
-                      <Plus className="h-3 w-3" />
-                      Quick Add
-                    </button>
+                      Quick add
+                    </Button>
                   ) : (
-                    <button
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={Check}
+                      iconClassName="text-green-700 dark:text-green-400"
                       onClick={(e) => {
                         e.stopPropagation();
                         setConfirmSuggestion(sortedSuggestions[0]);
                       }}
                       disabled={isSaving}
-                      className="flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50"
                     >
-                      <Check className="h-3 w-3" />
-                      Quick Book
-                    </button>
+                      Quick book
+                    </Button>
                   )
                 )}
                 {/* Days ahead selector */}
-                <div className="flex items-center rounded overflow-hidden border border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-                  {[7, 14, 30].map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => { setDaysAhead(d); setVisibleSuggestionCount(5); }}
-                      className={cn(
-                        "px-1.5 py-1 text-[11px] transition-colors",
-                        daysAhead === d
-                          ? "bg-primary text-white"
-                          : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      )}
-                    >
-                      {d}d
-                    </button>
-                  ))}
+                {/* The whole header row toggles the panel, so clicks here must stop before they reach it. */}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Segmented
+                    label="How far ahead to look"
+                    value={String(daysAhead)}
+                    onChange={(d) => { setDaysAhead(Number(d)); setVisibleSuggestionCount(5); }}
+                    options={[7, 14, 30].map((d) => ({ value: String(d), label: `${d}d`, title: `Next ${d} days` }))}
+                  />
                 </div>
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Settings2}
+                  aria-pressed={showWeightTuner}
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowWeightTuner(!showWeightTuner);
                   }}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors",
-                    showWeightTuner
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  )}
+                  className={showWeightTuner ? "bg-tint" : undefined}
                 >
-                  <Settings2 className="h-3 w-3" />
                   Tune
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -1668,13 +1621,9 @@ export function ScheduleMakeupModal({
                 <span className="text-[11px] font-semibold text-[#8b6f47] dark:text-[#cd853f]">
                   SCORING WEIGHTS
                 </span>
-                <button
-                  onClick={() => updateWeights(baseWeights)}
-                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-accent-ink transition-colors"
-                >
-                  <RotateCcw className="h-3 w-3" />
+                <Button size="sm" variant="quiet" icon={RotateCcw} onClick={() => updateWeights(baseWeights)}>
                   Reset
-                </button>
+                </Button>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {isSummerMakeup && (
@@ -1792,20 +1741,16 @@ export function ScheduleMakeupModal({
           <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
             {/* Month navigation */}
             <div className="flex items-center justify-between px-3 py-2 bg-paper border-b border-line">
-              <Button variant="ghost" size="sm" onClick={goToPreviousMonth} className="h-7 px-2">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+              <IconButton label="Previous month" icon={ChevronLeft} size="sm" onClick={goToPreviousMonth} />
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={goToToday} className="h-6 px-2 text-xs">
+                <Button variant="quiet" size="sm" onClick={goToToday}>
                   Today
                 </Button>
                 <span className="font-semibold text-sm text-[#5d4e37] dark:text-[#e8d4b8]">
                   {getMonthName(viewDate)} {viewDate.getFullYear()}
                 </span>
               </div>
-              <Button variant="ghost" size="sm" onClick={goToNextMonth} className="h-7 px-2">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <IconButton label="Next month" icon={ChevronRight} size="sm" onClick={goToNextMonth} />
             </div>
 
             {/* Toggle - affects both calendar and day picker */}
@@ -1969,9 +1914,7 @@ export function ScheduleMakeupModal({
               <>
             {/* Date (read-only display) */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Selected Date
-              </label>
+              <p className={cn(LABEL_CLASS, "mb-1")}>Selected date</p>
               <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-sm">
                 {selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Click a date on the calendar"}
               </div>
@@ -2025,18 +1968,8 @@ export function ScheduleMakeupModal({
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedDate("")}
-                    className={cn(
-                      "text-xs",
-                      canOverrideLimit
-                        ? "text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
-                        : "text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800"
-                    )}
-                  >
-                    Pick Different Date
+                  <Button size="sm" variant="quiet" onClick={() => setSelectedDate("")}>
+                    Pick different date
                   </Button>
                 </div>
               </div>
@@ -2060,13 +1993,8 @@ export function ScheduleMakeupModal({
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedDate("")}
-                    className="text-xs text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
-                  >
-                    Pick Different Date
+                  <Button size="sm" variant="quiet" onClick={() => setSelectedDate("")}>
+                    Pick different date
                   </Button>
                 </div>
               </div>
@@ -2087,22 +2015,11 @@ export function ScheduleMakeupModal({
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowExtensionModal(true)}
-                    className="text-xs border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800"
-                  >
-                    <Clock className="h-3 w-3 mr-1" />
-                    Request Extension
+                  <Button size="sm" variant="secondary" icon={Clock} onClick={() => setShowExtensionModal(true)}>
+                    Request extension
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedDate("")}
-                    className="text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
-                  >
-                    Pick Different Date
+                  <Button size="sm" variant="quiet" onClick={() => setSelectedDate("")}>
+                    Pick different date
                   </Button>
                 </div>
               </div>
@@ -2110,22 +2027,21 @@ export function ScheduleMakeupModal({
 
             {/* Time Slot */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Time Slot
-              </label>
+              {/* The label points at the preset list. The custom times carry their own labels. */}
+              <Label htmlFor="makeup-time-slot">Time slot</Label>
               {!useCustomTime ? (
                 <div className="space-y-2">
-                  <select
+                  <Select
+                    id="makeup-time-slot"
                     value={selectedTimeSlot}
                     onChange={(e) => setSelectedTimeSlot(e.target.value)}
                     disabled={!selectedDate}
-                    className="w-full px-3 py-2 border border-field rounded-md text-sm bg-white dark:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">{selectedDate ? "Select time slot" : "Select a date first"}</option>
                     {selectedDate && availableTimeSlots.map((slot) => (
                       <option key={slot} value={slot}>{slot}</option>
                     ))}
-                  </select>
+                  </Select>
                   <button
                     type="button"
                     onClick={() => setUseCustomTime(true)}
@@ -2142,30 +2058,24 @@ export function ScheduleMakeupModal({
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <input
+                      <Input
                         type="time"
                         value={customTimeStart}
                         onChange={(e) => setCustomTimeStart(e.target.value)}
                         aria-label="Start time"
                         aria-describedby={isInvalid ? "makeup-custom-time-error" : undefined}
                         aria-invalid={isInvalid ? "true" : undefined}
-                        className={cn(
-                          "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
-                          isInvalid ? "border-red-400" : "border-field"
-                        )}
+                        className="flex-1"
                       />
                       <span className="text-gray-500" aria-hidden="true">to</span>
-                      <input
+                      <Input
                         type="time"
                         value={customTimeEnd}
                         onChange={(e) => setCustomTimeEnd(e.target.value)}
                         aria-label="End time"
                         aria-describedby={isInvalid ? "makeup-custom-time-error" : undefined}
                         aria-invalid={isInvalid ? "true" : undefined}
-                        className={cn(
-                          "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
-                          isInvalid ? "border-red-400" : "border-field"
-                        )}
+                        className="flex-1"
                       />
                     </div>
                     {isInvalid && (
@@ -2188,14 +2098,10 @@ export function ScheduleMakeupModal({
             </div>
 
             {/* Tutor */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tutor
-              </label>
-              <select
+            <Field id="makeup-tutor" label="Tutor">
+              <Select
                 value={selectedTutorId || ""}
                 onChange={(e) => setSelectedTutorId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-field rounded-md text-sm bg-white dark:bg-gray-800"
               >
                 <option value="">Select tutor</option>
                 <TutorOptions
@@ -2203,14 +2109,12 @@ export function ScheduleMakeupModal({
                   location={location}
                   suffix={(tutor) => (tutor.id === session.tutor_id ? " (Original)" : "")}
                 />
-              </select>
-            </div>
+              </Select>
+            </Field>
 
             {/* Location (read-only) */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Location
-              </label>
+              <p className={cn(LABEL_CLASS, "mb-1")}>Location</p>
               <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-sm text-gray-600 dark:text-gray-400">
                 {location || "No location set"}
               </div>
@@ -2254,21 +2158,20 @@ export function ScheduleMakeupModal({
                 }}
                 disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || earlyDeadlineWarning}
                 className="w-full"
-                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
+                variant="secondary"
+                icon={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !earlyDeadlineWarning ? Plus : undefined}
+                iconClassName="text-blue-600 dark:text-blue-400"
               >
                 {isPastLimit && !canOverrideLimit && !hasApprovedExtension ? (
                   limitCopy.short
                 ) : earlyDeadlineWarning ? (
                   "Past deadline"
                 ) : proposalSlots.length >= 3 ? (
-                  "3 Slots Selected"
+                  "3 slots selected"
                 ) : studentsInSlot.length >= 8 ? (
-                  "Slot is Full"
+                  "Slot is full"
                 ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add to Proposal
-                  </>
+                  "Add to proposal"
                 )}
               </Button>
             )}
@@ -2291,8 +2194,10 @@ export function ScheduleMakeupModal({
                     setSelectedDayPickerSlot(null);
                   }}
                   className="p-1 hover:bg-white/20 rounded transition-colors"
+                  aria-label="Close time slots"
+                  title="Close time slots"
                 >
-                  <X className="h-3.5 w-3.5 text-white" />
+                  <X className="h-3.5 w-3.5 text-white" aria-hidden="true" />
                 </button>
               </div>
 
@@ -2464,40 +2369,38 @@ export function ScheduleMakeupModal({
                                         });
                                       }}
                                       disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
-                                      className="w-full mt-2 h-8 text-xs"
-                                      variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !canOverrideLimit) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
+                                      className="w-full mt-2"
+                                      variant="secondary"
+                                      icon={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !canOverrideLimit) && !slotBlockStatus.pastDeadline ? Plus : undefined}
+                                      iconClassName="text-blue-600 dark:text-blue-400"
                                     >
                                       {slotBlockStatus.exceedsLimit && !canOverrideLimit ? (
                                         limitCopy.short
                                       ) : slotBlockStatus.pastDeadline ? (
                                         "Past deadline"
                                       ) : proposalSlots.length >= 3 ? (
-                                        "3 Slots Selected"
+                                        "3 slots selected"
                                       ) : isFull ? (
-                                        "Slot is Full"
+                                        "Slot is full"
                                       ) : (
-                                        <>
-                                          <Plus className="h-3 w-3 mr-1" />
-                                          Add to Proposal
-                                        </>
+                                        "Add to proposal"
                                       )}
                                     </Button>
                                   ) : (
                                     <Button
                                       size="sm"
+                                      variant="secondary"
+                                      icon={Check}
+                                      iconClassName="text-green-700 dark:text-green-400"
+                                      loading={isSaving}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setConfirmBooking({ timeSlot, tutorId, tutorName });
                                       }}
-                                      disabled={isSaving || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
-                                      className="w-full mt-2 h-8 text-xs"
+                                      disabled={isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
+                                      className="w-full mt-2"
                                     >
-                                      {isSaving ? (
-                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                      ) : (
-                                        <Check className="h-3 w-3 mr-1" />
-                                      )}
-                                      {slotBlockStatus.exceedsLimit && !canOverrideLimit ? limitCopy.short : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
+                                      {slotBlockStatus.exceedsLimit && !canOverrideLimit ? limitCopy.short : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is full" : "Book this slot"}
                                     </Button>
                                   )}
                                 </div>

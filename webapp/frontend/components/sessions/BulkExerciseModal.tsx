@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton, CountBadge } from "@/components/controls";
 import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVertical, Clipboard, Globe, ExternalLink } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
@@ -805,15 +805,15 @@ function GroupExerciseModal({
             Alt+N add · Ctrl+V paste · Alt+⌫ del · Ctrl+↵ save
           </span>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={handleCloseAttempt} disabled={isSaving}>
+            <Button onClick={handleCloseAttempt} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={initiateSave} disabled={isSaving || exercises.length === 0}>
+            <Button variant="primary" onClick={initiateSave} disabled={isSaving || exercises.length === 0}>
               {isSaving && saveProgress
                 ? `Saving ${saveProgress.current}/${saveProgress.total}...`
                 : isSaving
                   ? "Saving..."
-                  : `Assign to ${sessions.length} Session${sessions.length > 1 ? 's' : ''}`}
+                  : `Assign to ${sessions.length} session${sessions.length > 1 ? 's' : ''}`}
             </Button>
           </div>
         </div>
@@ -873,45 +873,26 @@ function GroupExerciseModal({
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
           {canBrowseFiles && exercises.some(hasExerciseSource) ? (
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
+              <Button
                 onClick={handlePrintAll}
-                disabled={printAllState === 'loading'}
-                className={cn(
-                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                  "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
-                  printAllState === 'loading' && "opacity-50 cursor-not-allowed"
-                )}
+                loading={printAllState === 'loading'}
+                icon={printAllState === 'error' ? XCircle : Printer}
+                iconClassName={printAllState === 'error' ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}
+                className="px-2 md:px-3"
+                aria-label="Print all"
               >
-                {printAllState === 'loading' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : printAllState === 'error' ? (
-                  <XCircle className="h-4 w-4" />
-                ) : (
-                  <Printer className="h-4 w-4" />
-                )}
-                <span className="hidden md:inline">Print All</span>
-              </button>
-              <button
-                type="button"
+                <span className="hidden md:inline">Print all</span>
+              </Button>
+              <Button
                 onClick={handleDownloadAll}
-                disabled={downloadAllState === 'loading'}
-                className={cn(
-                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                  "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50",
-                  downloadAllState === 'loading' && "opacity-50 cursor-not-allowed"
-                )}
+                loading={downloadAllState === 'loading'}
+                icon={downloadAllState === 'error' ? XCircle : Download}
+                iconClassName={downloadAllState === 'error' ? "text-red-600 dark:text-red-400" : "text-purple-600 dark:text-purple-400"}
+                className="px-2 md:px-3"
               >
-                {downloadAllState === 'loading' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : downloadAllState === 'error' ? (
-                  <XCircle className="h-4 w-4" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                <span className="hidden md:inline">Download All</span>
+                <span className="hidden md:inline">Download all</span>
                 <span className="md:hidden">All</span>
-              </button>
+              </Button>
             </div>
           ) : (
             <div /> // Spacer
@@ -919,32 +900,26 @@ function GroupExerciseModal({
 
           <div className="flex gap-2">
             {clipboardData && (
-              <button
-                type="button"
+              <Button
+                icon={Clipboard}
+                iconClassName="text-teal-700 dark:text-teal-400"
                 onClick={handlePasteRequest}
-                className="flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 hover:bg-teal-200 dark:hover:bg-teal-900/50"
+                className="px-2 md:px-3"
                 title={`Paste ${clipboardData.exercises.length} exercise${clipboardData.exercises.length !== 1 ? 's' : ''} from ${clipboardData.sourceStudentName || 'clipboard'} (Ctrl+V)`}
               >
-                <Clipboard className="h-4 w-4" />
                 <span className="hidden md:inline">Paste</span>
-                <span className="text-[10px] px-1 py-0.5 bg-teal-500 text-white rounded-full min-w-[16px] text-center leading-tight">
-                  {clipboardData.exercises.length}
-                </span>
-              </button>
+                <CountBadge count={clipboardData.exercises.length} tone="neutral" />
+              </Button>
             )}
-            <button
-              type="button"
+            <Button
               onClick={addExercise}
-              className={cn(
-                "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                isCW
-                  ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-              )}
+              icon={Plus}
+              iconClassName={isCW ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}
+              className="px-2 md:px-3"
+              aria-label={`Add ${title.toLowerCase()}`}
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Add {title}</span>
-            </button>
+              <span className="hidden md:inline">Add {title.toLowerCase()}</span>
+            </Button>
           </div>
         </div>
 
@@ -959,10 +934,10 @@ function GroupExerciseModal({
               </span>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" onClick={() => setShowPasteConfirm(false)}>
+              <Button variant="quiet" size="sm" onClick={() => setShowPasteConfirm(false)}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handlePasteConfirm} className="bg-teal-600 hover:bg-teal-700 text-white">
+              <Button size="sm" icon={Clipboard} iconClassName="text-teal-700 dark:text-teal-400" onClick={handlePasteConfirm}>
                 Paste
               </Button>
             </div>
@@ -977,7 +952,7 @@ function GroupExerciseModal({
               ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
               : "text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
           )}>
-            Click &quot;Add {title}&quot; to add exercises for all selected sessions.
+            Click &quot;Add {title.toLowerCase()}&quot; to add exercises for all selected sessions.
           </div>
         ) : (<>
           <Reorder.Group
@@ -1040,7 +1015,7 @@ function GroupExerciseModal({
                         placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF path or URL (drag & drop supported)"}
                         className={cn(
                           inputClass,
-                          "text-xs py-1.5 w-full transition-all",
+                          "text-xs w-full transition-all",
                           exercise.url && "pl-7",
                           isDraggingOver === index && "border-amber-400"
                         )}
@@ -1058,14 +1033,14 @@ function GroupExerciseModal({
 
                     {/* File action buttons (hidden for URL exercises) */}
                     {exercise.url ? (
-                      <button
-                        type="button"
+                      <IconButton
+                        label="Open URL in new tab"
+                        icon={ExternalLink}
+                        size="sm"
+                        iconClassName="text-blue-600 dark:text-blue-400"
                         onClick={() => window.open(exercise.url, '_blank')}
-                        className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex-shrink-0"
-                        title="Open URL in new tab"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                      </button>
+                        className="flex-shrink-0"
+                      />
                     ) : (
                       <>
                         <ExerciseActionButtons
@@ -1124,7 +1099,7 @@ function GroupExerciseModal({
                           onChange={(e) => updateExercise(index, "remarks", e.target.value)}
                           onFocus={() => setFocusedRowIndex(index)}
                           placeholder="Optional notes"
-                          className={cn(inputClass, "text-xs py-1 flex-1")}
+                          className={cn(inputClass, "h-7 px-2 text-xs flex-1")}
                         />
                       </div>
 
@@ -1166,7 +1141,7 @@ function GroupExerciseModal({
             )}
           >
             <Plus className="h-4 w-4" />
-            Add {title}
+            Add {title.toLowerCase()}
           </button>
         </>)}
       </div>
@@ -1240,7 +1215,7 @@ function GroupExerciseModal({
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
           <div className="bg-paper border-2 border-line-strong rounded-lg shadow-xl p-6 w-full max-w-[450px]">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Confirm Bulk Assignment
+              Confirm bulk assignment
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Assign {exercises.filter(hasExerciseSource).length} exercise(s) to {sessions.length} session(s)?
@@ -1256,10 +1231,10 @@ function GroupExerciseModal({
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowSaveConfirm(false)}>
+              <Button onClick={() => setShowSaveConfirm(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
+              <Button variant="primary" onClick={handleSave}>
                 Confirm
               </Button>
             </div>
@@ -1276,10 +1251,10 @@ function GroupExerciseModal({
               You have unsaved changes. Discard them?
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={cancelClose}>
+              <Button onClick={cancelClose}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmDiscard}>
+              <Button variant="danger" onClick={confirmDiscard}>
                 Discard
               </Button>
             </div>

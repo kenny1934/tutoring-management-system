@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, Field, Input, Select, Textarea, LABEL_CLASS } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import { extensionRequestsAPI, enrollmentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
-import { Calendar, Clock, AlertCircle, Send, Loader2, ChevronDown } from "lucide-react";
+import { Calendar, Clock, AlertCircle, Send } from "lucide-react";
 import type { Session, Enrollment } from "@/types";
 
 interface ExtensionRequestModalProps {
@@ -197,18 +197,6 @@ export function ExtensionRequestModal({
     }
   };
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
-
-  const labelClass =
-    "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
-
   return (
     <Modal
       isOpen={isOpen}
@@ -217,21 +205,17 @@ export function ExtensionRequestModal({
       size="md"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting || isLoading}>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting || isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || isLoading || !enrollmentId}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-2" />
-                Submit Request
-              </>
-            )}
+          <Button
+            variant="primary"
+            icon={Send}
+            loading={isSubmitting}
+            onClick={handleSubmit}
+            disabled={isLoading || !enrollmentId}
+          >
+            {isSubmitting ? "Submitting..." : "Submit request"}
           </Button>
         </div>
       }
@@ -308,84 +292,74 @@ export function ExtensionRequestModal({
 
         {/* Enrollment Selector - only shown when student has multiple concurrent enrollments */}
         {showEnrollmentSelector && (
-          <div>
-            <label className={labelClass}>
-              Enrollment to Extend <span className="text-red-600">*</span>
-            </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              This student has multiple active enrollments. Select which one to extend.
-            </p>
-            <div className="relative">
-              <select
-                value={selectedTargetEnrollmentId || ""}
-                onChange={(e) => setSelectedTargetEnrollmentId(Number(e.target.value))}
-                className={cn(inputClass, "appearance-none pr-8")}
-              >
-                {activeRegularEnrollments.map((enrollment) => (
-                  <option key={enrollment.id} value={enrollment.id}>
-                    {enrollment.assigned_day || "Unscheduled"} {enrollment.assigned_time || ""} -
-                    #{enrollment.id} (Ends: {enrollment.effective_end_date || "N/A"})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
-            </div>
-          </div>
+          <Field
+            id="extension-enrollment"
+            label={<>Enrollment to extend <span className="text-red-600">*</span></>}
+            hint="This student has multiple active enrollments. Select which one to extend."
+          >
+            <Select
+              value={selectedTargetEnrollmentId || ""}
+              onChange={(e) => setSelectedTargetEnrollmentId(Number(e.target.value))}
+            >
+              {activeRegularEnrollments.map((enrollment) => (
+                <option key={enrollment.id} value={enrollment.id}>
+                  {enrollment.assigned_day || "Unscheduled"} {enrollment.assigned_time || ""} -
+                  #{enrollment.id} (Ends: {enrollment.effective_end_date || "N/A"})
+                </option>
+              ))}
+            </Select>
+          </Field>
         )}
 
         {/* Reason */}
-        <div>
-          <label className={labelClass}>
-            Reason for Extension <span className="text-red-600">*</span>
-          </label>
-          <textarea
+        <Field
+          id="extension-reason"
+          label={<>Reason for extension <span className="text-red-600">*</span></>}
+        >
+          <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Why is an extension needed? (e.g., student has pending makeups, scheduling conflicts, etc.)"
             rows={3}
-            className={cn(inputClass, "resize-none")}
+            className="resize-none"
           />
-        </div>
+        </Field>
 
         {/* Proposed Reschedule (Optional) */}
         <div className="space-y-3">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Proposed Reschedule Date{" "}
-            <span className="text-gray-500">(optional)</span>
-          </div>
+          <p className={LABEL_CLASS}>
+            Proposed reschedule date <span className="font-normal normal-case tracking-normal">(optional)</span>
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">
+              <label htmlFor="extension-date" className={cn(LABEL_CLASS, "mb-1")}>
                 Date
               </label>
-              <input
+              <Input
+                id="extension-date"
                 type="date"
                 value={proposedDate}
                 onChange={(e) => setProposedDate(e.target.value)}
                 aria-describedby={proposedDateExceedsDeadline ? "extension-date-warning" : undefined}
                 aria-invalid={proposedDateExceedsDeadline ? "true" : undefined}
-                className={inputClass}
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">
-                Time Slot
+              <label htmlFor="extension-time" className={cn(LABEL_CLASS, "mb-1")}>
+                Time slot
               </label>
               {!useCustomTime ? (
                 <div className="space-y-1.5">
-                  <div className="relative">
-                    <select
-                      value={proposedTime}
-                      onChange={(e) => setProposedTime(e.target.value)}
-                      className={cn(inputClass, "appearance-none pr-8")}
-                    >
-                      <option value="">Select time slot</option>
-                      {availableTimeSlots.map((slot) => (
-                        <option key={slot} value={slot}>{slot}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
-                  </div>
+                  <Select
+                    id="extension-time"
+                    value={proposedTime}
+                    onChange={(e) => setProposedTime(e.target.value)}
+                  >
+                    <option value="">Select time slot</option>
+                    {availableTimeSlots.map((slot) => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </Select>
                   <button
                     type="button"
                     onClick={() => setUseCustomTime(true)}
@@ -397,18 +371,21 @@ export function ExtensionRequestModal({
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <input
+                    <Input
+                      id="extension-time"
                       type="time"
                       value={customTimeStart}
                       onChange={(e) => setCustomTimeStart(e.target.value)}
-                      className={cn(inputClass, "flex-1")}
+                      aria-label="Start time"
+                      className="flex-1"
                     />
                     <span className="text-gray-500 text-sm">to</span>
-                    <input
+                    <Input
                       type="time"
                       value={customTimeEnd}
                       onChange={(e) => setCustomTimeEnd(e.target.value)}
-                      className={cn(inputClass, "flex-1")}
+                      aria-label="End time"
+                      className="flex-1"
                     />
                   </div>
                   <button

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Compass, ExternalLink, ChevronDown } from "lucide-react";
+import { buttonClasses } from "@/components/controls";
 
 const RESOURCES = [
   {
@@ -149,11 +150,12 @@ export function ResourceBrowseDropdown() {
         onClick={toggle}
         aria-expanded={open}
         aria-haspopup="true"
-        className="flex items-center gap-0.5 px-1.5 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+        className={`${buttonClasses({ variant: "secondary" })} gap-0.5 px-1.5 flex-shrink-0`}
         title="Browse educational resources"
+        aria-label="Browse educational resources"
       >
-        <Compass className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-        <ChevronDown className={`h-2.5 w-2.5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <Compass className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <ChevronDown className={`h-3 w-3 text-ink-subtle transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
       {visible && pos && createPortal(

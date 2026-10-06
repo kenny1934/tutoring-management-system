@@ -80,9 +80,10 @@ export function ExercisePageRangeInput({
             onFocus={onFocus}
             placeholder="From"
             min="1"
+            aria-invalid={pageStartError || undefined}
             className={cn(
               inputClass,
-              "text-xs py-1 w-14 md:w-[4.5rem]",
+              "h-7 px-2 text-xs w-14 md:w-[4.5rem]",
               pageStartError && "border-red-500 ring-1 ring-red-500"
             )}
           />
@@ -94,9 +95,10 @@ export function ExercisePageRangeInput({
             onFocus={onFocus}
             placeholder="To"
             min="1"
+            aria-invalid={pageEndError || undefined}
             className={cn(
               inputClass,
-              "text-xs py-1 w-14 md:w-[4.5rem]",
+              "h-7 px-2 text-xs w-14 md:w-[4.5rem]",
               pageEndError && "border-red-500 ring-1 ring-red-500"
             )}
           />
@@ -108,9 +110,10 @@ export function ExercisePageRangeInput({
           onChange={(e) => onComplexPagesChange(e.target.value)}
           onFocus={onFocus}
           placeholder="e.g. 1,3,5-7"
+          aria-invalid={complexPagesError || undefined}
           className={cn(
             inputClass,
-            "text-xs py-1 flex-1 min-w-[100px]",
+            "h-7 px-2 text-xs flex-1 min-w-[100px]",
             complexPagesError && "border-red-500 ring-1 ring-red-500"
           )}
           title="Custom page range (e.g., 1,3,5-7)"

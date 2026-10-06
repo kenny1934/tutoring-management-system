@@ -18,6 +18,7 @@ import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Select, CountBadge } from "@/components/controls";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
@@ -1949,23 +1950,20 @@ function SessionsPageContent() {
           <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
           {/* Today button - only show when not on today */}
           {!isTodaySelected && (
-            <button
-              onClick={() => setSelectedDate(new Date())}
-              className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
-            >
+            <Button size="sm" onClick={() => setSelectedDate(new Date())}>
               Today
-            </button>
+            </Button>
           )}
           {/* Jump to the current time slot - today only, while lessons remain */}
           {nowPosition && (
-            <button
+            <Button
+              size="sm"
               onClick={() => scrollToSlot(nowPosition.timeSlot)}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
               title="Jump to the current time slot"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden="true" />
               Now
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -1979,19 +1977,15 @@ function SessionsPageContent() {
 
       {/* Compact Tutor Filter — kept everywhere, including the pending make-ups
           view, where it still narrows the fetch */}
-      <select
+      <Select
         value={tutorFilter}
         onChange={(e) => setTutorFilter(e.target.value)}
-        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-field rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'right 0.5rem center',
-        }}
+        aria-label="Tutor"
+        className="font-medium max-w-[100px] sm:max-w-none truncate"
       >
         <option value="">Tutor</option>
         <TutorOptions tutors={tutorOptions} location={selectedLocation} />
-      </select>
+      </Select>
 
       {/* Summer class filter — every view; hides itself outside the course period */}
       {!isPendingMakeupsView && (
@@ -2007,19 +2001,16 @@ function SessionsPageContent() {
       {/* Record Memo button — unrelated to chasing make-ups, so it stays out of
           that view */}
       {!isPendingMakeupsView && (
-        <button
+        <Button
+          size="sm"
+          icon={StickyNoteIcon}
           onClick={() => setMemoDrawerOpen(true)}
-          className="relative flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+          className="relative"
           title="Record a session memo (for sessions not yet in system)"
         >
-          <StickyNoteIcon className="h-3 w-3" />
           <span className="hidden sm:inline">Memo</span>
-          {(pendingMemoData?.count ?? 0) > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
-              {pendingMemoData!.count}
-            </span>
-          )}
-        </button>
+          <CountBadge count={pendingMemoData?.count ?? 0} className="absolute -top-1.5 -right-1.5" />
+        </Button>
       )}
 
       <div className="flex-1" />
@@ -2135,23 +2126,19 @@ function SessionsPageContent() {
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Sort toggle */}
-                  <button
+                  <Button
+                    size="sm"
+                    icon={ArrowUpDown}
                     onClick={() => {
                       setMakeupSort(prev => prev === 'most' ? 'least' : 'most');
                       setTierShowCount({});
                     }}
-                    className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#1a1a1a] text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
                   >
-                    <ArrowUpDown className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                     {makeupSort === 'most' ? 'Most urgent' : 'Least urgent'}
-                  </button>
-                  <button
-                    onClick={() => setSpecialFilter("")}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded transition-colors"
-                  >
-                    <X className="h-3 w-3" />
+                  </Button>
+                  <Button variant="quiet" size="sm" icon={X} onClick={() => setSpecialFilter("")}>
                     Clear
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -2166,74 +2153,69 @@ function SessionsPageContent() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {/* Attendance actions - conditional based on selected sessions */}
                     {bulkActionsAvailable.attended && (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={CheckCheck}
+                        iconClassName={cn("text-green-700 dark:text-green-400", bulkActionLoading === 'attended' && "animate-pulse")}
                         onClick={handleBulkAttended}
                         disabled={bulkActionLoading !== null}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
-                          bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
-                        )}
+                        className={cn(bulkActionLoading === 'attended' && "cursor-wait")}
                         title="Mark all as attended"
                       >
-                        <CheckCheck className={cn("h-3 w-3", bulkActionLoading === 'attended' && "animate-pulse")} />
                         <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
-                      </button>
+                      </Button>
                     )}
                     {bulkActionsAvailable.noShow && (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={UserX}
+                        iconClassName={cn("text-red-600 dark:text-red-400", bulkActionLoading === 'no-show' && "animate-pulse")}
                         onClick={handleBulkNoShow}
                         disabled={bulkActionLoading !== null}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-                          bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
-                        )}
+                        className={cn(bulkActionLoading === 'no-show' && "cursor-wait")}
                         title="Mark all as no show"
                       >
-                        <UserX className={cn("h-3 w-3", bulkActionLoading === 'no-show' && "animate-pulse")} />
-                        <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
-                      </button>
+                        <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No show'}</span>
+                      </Button>
                     )}
                     {bulkActionsAvailable.reschedule && (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={CalendarClock}
+                        iconClassName={cn("text-orange-700 dark:text-orange-400", bulkActionLoading === 'reschedule' && "animate-pulse")}
                         onClick={handleBulkReschedule}
                         disabled={bulkActionLoading !== null}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-                          bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
-                        )}
+                        className={cn(bulkActionLoading === 'reschedule' && "cursor-wait")}
                         title="Mark all as rescheduled"
                       >
-                        <CalendarClock className={cn("h-3 w-3", bulkActionLoading === 'reschedule' && "animate-pulse")} />
                         <span className="hidden xs:inline">{bulkActionLoading === 'reschedule' ? '...' : 'Reschedule'}</span>
-                      </button>
+                      </Button>
                     )}
                     {bulkActionsAvailable.sickLeave && (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={Ambulance}
+                        iconClassName={cn("text-orange-700 dark:text-orange-400", bulkActionLoading === 'sick-leave' && "animate-pulse")}
                         onClick={handleBulkSickLeave}
                         disabled={bulkActionLoading !== null}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-                          bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
-                        )}
+                        className={cn(bulkActionLoading === 'sick-leave' && "cursor-wait")}
                         title="Mark all as sick leave"
                       >
-                        <Ambulance className={cn("h-3 w-3", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
                         <span className="hidden xs:inline">{bulkActionLoading === 'sick-leave' ? '...' : 'Sick'}</span>
-                      </button>
+                      </Button>
                     )}
                     {bulkActionsAvailable.weatherCancelled && (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={CloudRain}
+                        iconClassName={cn("text-orange-700 dark:text-orange-400", bulkActionLoading === 'weather-cancelled' && "animate-pulse")}
                         onClick={handleBulkWeatherCancelled}
                         disabled={bulkActionLoading !== null}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-                          bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
-                        )}
+                        className={cn(bulkActionLoading === 'weather-cancelled' && "cursor-wait")}
                         title="Mark all as weather cancelled"
                       >
-                        <CloudRain className={cn("h-3 w-3", bulkActionLoading === 'weather-cancelled' && "animate-pulse")} />
                         <span className="hidden xs:inline">{bulkActionLoading === 'weather-cancelled' ? '...' : 'Weather'}</span>
-                      </button>
+                      </Button>
                     )}
                     {/* Exercise actions - always visible */}
                     <ExerciseDropdownButton
@@ -2253,22 +2235,13 @@ function SessionsPageContent() {
                       isProcessing={bulkExerciseProcessing === 'HW'}
                     />
                     {/* Rate button - always visible */}
-                    <button
-                      onClick={() => setBulkRateModalOpen(true)}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
-                      title="Rate selected sessions (R)"
-                    >
-                      <MessageSquarePlus className="h-3 w-3" />
+                    <Button size="sm" icon={MessageSquarePlus} onClick={() => setBulkRateModalOpen(true)} title="Rate selected sessions (R)">
                       <span className="hidden xs:inline">Rate</span>
-                    </button>
+                    </Button>
                     {/* Clear button - always visible */}
-                    <button
-                      onClick={clearSelection}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    >
-                      <X className="h-3 w-3" />
+                    <Button variant="quiet" size="sm" icon={X} onClick={clearSelection}>
                       <span className="hidden xs:inline">Clear</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -2295,13 +2268,9 @@ function SessionsPageContent() {
                         <p className="text-sm text-gray-700 dark:text-gray-300">
                           No summer classes match the grade, type and lesson you picked
                         </p>
-                        <button
-                          onClick={() => setSummerFilter(EMPTY_SUMMER_FILTER)}
-                          className="mt-3 inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
-                        >
-                          <X className="h-3 w-3" />
+                        <Button size="sm" icon={X} onClick={() => setSummerFilter(EMPTY_SUMMER_FILTER)} className="mt-3">
                           Clear summer filter
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -2514,20 +2483,15 @@ function SessionsPageContent() {
 
                                           {/* Action buttons */}
                                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                            <button
+                                            <Button
+                                              size="sm"
+                                              icon={CalendarPlus}
                                               onClick={() => canScheduleMakeup && setMakeupModalSession(session)}
                                               disabled={!canScheduleMakeup}
-                                              className={cn(
-                                                "inline-flex items-center gap-1 text-xs px-2 py-1 rounded font-medium whitespace-nowrap transition-colors",
-                                                canScheduleMakeup
-                                                  ? "bg-teal-100 hover:bg-teal-200 dark:bg-teal-900/30 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-400"
-                                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                              )}
                                               title={!canScheduleMakeup ? "Exceeds 60-day makeup limit" : "Schedule Make-up"}
                                             >
-                                              <CalendarPlus className="h-3.5 w-3.5" />
                                               <span className="hidden sm:inline">Make-up</span>
-                                            </button>
+                                            </Button>
                                           </div>
                                         </div>
 
@@ -2564,7 +2528,8 @@ function SessionsPageContent() {
                                 );
                               })}
                               {hasMore && (
-                                <button
+                                <Button
+                                  variant="quiet"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setTierShowCount(prev => ({
@@ -2572,10 +2537,10 @@ function SessionsPageContent() {
                                       [tierKey]: (prev[tierKey] || TIER_PAGE_SIZE) + TIER_PAGE_SIZE
                                     }));
                                   }}
-                                  className="w-full py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                  className="w-full"
                                 >
                                   Show {Math.min(TIER_PAGE_SIZE, tierSessions.length - showCount)} more ({tierSessions.length - showCount} remaining)
-                                </button>
+                                </Button>
                               )}
                               </>);
                               })()}
@@ -2689,22 +2654,19 @@ function SessionsPageContent() {
                               {listShowsDates ? `${formatWeekdayShort(groupDate)}, ${timeSlot}` : timeSlot}
                             </h3>
                             {isCurrentSlot && <NowChip />}
-                            <button
+                            <IconButton
+                              size="sm"
+                              label="Copy the date and time slot"
+                              icon={copiedSlot === slotKey ? Check : Copy}
+                              iconClassName={copiedSlot === slotKey ? "text-green-700 dark:text-green-400" : undefined}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigator.clipboard.writeText(copyText);
                                 setCopiedSlot(slotKey);
                                 setTimeout(() => setCopiedSlot(null), 2000);
                               }}
-                              className="p-1 hover:bg-accent-ink/10 rounded transition-colors"
                               title={copyText}
-                            >
-                              {copiedSlot === slotKey ? (
-                                <Check className="h-3.5 w-3.5 text-green-700 dark:text-green-400" />
-                              ) : (
-                                <Copy className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                              )}
-                            </button>
+                            />
                             <div>
                               {collapsedSlots.has(slotKey)
                                 ? <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -2721,7 +2683,9 @@ function SessionsPageContent() {
                                 timeSlot={timeSlot}
                                 tutorId={tutorFilter}
                               >
-                                <button
+                                <Button
+                                  size="sm"
+                                  icon={Presentation}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const params = new URLSearchParams({
@@ -2731,12 +2695,10 @@ function SessionsPageContent() {
                                     });
                                     window.open(`/sessions/lesson?${params.toString()}`, '_blank');
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink text-xs font-bold transition-colors"
                                   title="Open lesson mode for this time slot"
                                 >
-                                  <Presentation className="h-3.5 w-3.5" />
                                   Lesson
-                                </button>
+                                </Button>
                               </LessonNudge>
                             )}
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
@@ -3121,12 +3083,7 @@ function SessionsPageContent() {
                 <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
                   Keyboard Shortcuts
                 </span>
-                <button
-                  onClick={() => setShowShortcutHints(false)}
-                  className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <IconButton size="sm" label="Close keyboard shortcuts" icon={X} onClick={() => setShowShortcutHints(false)} />
               </div>
               <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
                 <div className="flex justify-between gap-4">

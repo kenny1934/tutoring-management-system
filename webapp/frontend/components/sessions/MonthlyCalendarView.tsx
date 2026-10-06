@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/contexts/LocationContext";
 import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home, GraduationCap, Clock, Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton, Segmented } from "@/components/controls";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
@@ -246,24 +246,13 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
         !isMobile && "paper-texture"
       )}>
         {/* Previous Month */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={goToPreviousMonth}
-          className="h-7 px-2 text-[#8b6f47] hover:text-[#6b5347] hover:bg-[#f5ede3] dark:text-[#cd853f] dark:hover:bg-[#3d3628]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline ml-1">Prev</span>
+        <Button variant="quiet" size="sm" icon={ChevronLeft} onClick={goToPreviousMonth} aria-label="Previous month">
+          <span className="hidden sm:inline">Prev</span>
         </Button>
 
         {/* Month/Year Display */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={goToToday}
-            className="h-7 px-2 text-xs font-medium text-[#8b6f47] hover:text-[#6b5347] hover:bg-[#f5ede3] dark:text-[#cd853f] dark:hover:bg-[#3d3628]"
-          >
+          <Button size="sm" onClick={goToToday}>
             Today
           </Button>
           <div className="flex items-center gap-1.5">
@@ -275,14 +264,9 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
         </div>
 
         {/* Next Month */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={goToNextMonth}
-          className="h-7 px-2 text-[#8b6f47] hover:text-[#6b5347] hover:bg-[#f5ede3] dark:text-[#cd853f] dark:hover:bg-[#3d3628]"
-        >
-          <span className="hidden sm:inline mr-1">Next</span>
-          <ChevronRight className="h-4 w-4" />
+        <Button variant="quiet" size="sm" onClick={goToNextMonth} aria-label="Next month">
+          <span className="hidden sm:inline">Next</span>
+          <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-ink-subtle" aria-hidden="true" />
         </Button>
       </div>
 
@@ -651,43 +635,20 @@ function DayPopover({
               </button>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-7 w-7 p-0 text-[#8b6f47] hover:text-[#6b5347] hover:bg-[#e8d4b8] dark:text-[#cd853f] dark:hover:bg-[#4a3f2f]"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <IconButton size="sm" label="Close" icon={X} onClick={onClose} />
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-line">
-          <button
-            onClick={() => onTabChange("list")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors",
-              tab === "list"
-                ? "bg-white dark:bg-[#1a1a1a] text-[#5d4e37] dark:text-[#e8d4b8] border-b-2 border-accent-ink"
-                : "text-[#8b6f47] dark:text-[#cd853f] hover:bg-tint"
-            )}
-          >
-            <List className="h-4 w-4" />
-            List View
-          </button>
-          <button
-            onClick={() => onTabChange("grid")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors",
-              tab === "grid"
-                ? "bg-white dark:bg-[#1a1a1a] text-[#5d4e37] dark:text-[#e8d4b8] border-b-2 border-accent-ink"
-                : "text-[#8b6f47] dark:text-[#cd853f] hover:bg-tint"
-            )}
-          >
-            <Grid3X3 className="h-4 w-4" />
-            Grid View
-          </button>
+        <div className="flex justify-center px-3 py-2 border-b border-line">
+          <Segmented
+            label="How to show the day"
+            value={tab}
+            onChange={onTabChange}
+            options={[
+              { value: "list", label: "List view", icon: List },
+              { value: "grid", label: "Grid view", icon: Grid3X3 },
+            ]}
+          />
         </div>
 
         {/* Bulk Action Bar - appears when selections exist */}
@@ -700,70 +661,48 @@ function DayPopover({
               <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Attendance actions - conditional based on selected sessions */}
                 {bulkActionsAvailable.attended && (
-                  <button
-                    disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 cursor-not-allowed opacity-50"
-                    title="Coming soon"
-                  >
-                    <CheckCheck className="h-3 w-3" />
+                  <Button size="sm" icon={CheckCheck} iconClassName="text-green-700 dark:text-green-400" disabled title="Coming soon">
                     <span className="hidden xs:inline">Attended</span>
-                  </button>
+                  </Button>
                 )}
                 {bulkActionsAvailable.noShow && (
-                  <button
-                    disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
-                    title="Coming soon"
-                  >
-                    <UserX className="h-3 w-3" />
-                    <span className="hidden xs:inline">No Show</span>
-                  </button>
+                  <Button size="sm" icon={UserX} iconClassName="text-red-600 dark:text-red-400" disabled title="Coming soon">
+                    <span className="hidden xs:inline">No show</span>
+                  </Button>
                 )}
                 {bulkActionsAvailable.reschedule && (
-                  <button
-                    disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
-                    title="Coming soon"
-                  >
-                    <CalendarClock className="h-3 w-3" />
+                  <Button size="sm" icon={CalendarClock} iconClassName="text-orange-700 dark:text-orange-400" disabled title="Coming soon">
                     <span className="hidden xs:inline">Reschedule</span>
-                  </button>
+                  </Button>
                 )}
                 {bulkActionsAvailable.sickLeave && (
-                  <button
-                    disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
-                    title="Coming soon"
-                  >
-                    <Ambulance className="h-3 w-3" />
+                  <Button size="sm" icon={Ambulance} iconClassName="text-orange-700 dark:text-orange-400" disabled title="Coming soon">
                     <span className="hidden xs:inline">Sick</span>
-                  </button>
+                  </Button>
                 )}
                 {/* Exercise actions - always visible */}
-                <button
+                <Button
+                  size="sm"
+                  icon={PenTool}
+                  iconClassName="text-red-600 dark:text-red-400"
                   onClick={() => setBulkExerciseType("CW")}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                   title="Assign Classwork"
                 >
-                  <PenTool className="h-3 w-3" />
                   <span className="hidden xs:inline">CW</span>
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="sm"
+                  icon={Home}
+                  iconClassName="text-blue-600 dark:text-blue-400"
                   onClick={() => setBulkExerciseType("HW")}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                   title="Assign Homework"
                 >
-                  <Home className="h-3 w-3" />
                   <span className="hidden xs:inline">HW</span>
-                </button>
+                </Button>
                 {/* Clear button - always visible */}
-                <button
-                  onClick={clearSelection}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <X className="h-3 w-3" />
+                <Button variant="quiet" size="sm" icon={X} onClick={clearSelection}>
                   <span className="hidden xs:inline">Clear</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -826,23 +765,11 @@ function DayPopover({
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-line bg-tint">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenFullView("list")}
-            className="h-7 text-xs border-[#d4a574] dark:border-[#8b6f47] text-[#5d4e37] dark:text-[#e8d4b8] hover:bg-[#e8d4b8] dark:hover:bg-[#4a3f2f]"
-          >
-            <List className="h-3 w-3 mr-1" />
-            Open List
+          <Button size="sm" icon={List} onClick={() => onOpenFullView("list")}>
+            Open list
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenFullView("daily")}
-            className="h-7 text-xs border-[#d4a574] dark:border-[#8b6f47] text-[#5d4e37] dark:text-[#e8d4b8] hover:bg-[#e8d4b8] dark:hover:bg-[#4a3f2f]"
-          >
-            <Users className="h-3 w-3 mr-1" />
-            Open Daily
+          <Button size="sm" icon={Users} onClick={() => onOpenFullView("daily")}>
+            Open daily
           </Button>
         </div>
       </motion.div>

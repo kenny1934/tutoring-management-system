@@ -3,10 +3,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { keyIsForOverlayAbove, useOverlayLayer } from "@/hooks/useOverlayLayer";
-import { Button } from "@/components/ui/button";
+import { Button, Field, Label, Textarea } from "@/components/controls";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
@@ -152,15 +151,6 @@ export function RateSessionModal({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, overlayLayer.isTopmost, handleSave]);
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
-
   return (
     <Modal
       isOpen={isOpen}
@@ -201,11 +191,11 @@ export function RateSessionModal({
           </div>
           {/* Buttons */}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={readOnly} title={readOnly ? "Read-only access" : undefined}>
-              Save Changes
+            <Button variant="primary" onClick={handleSave} disabled={readOnly} title={readOnly ? "Read-only access" : undefined}>
+              Save changes
             </Button>
           </div>
         </div>
@@ -243,9 +233,9 @@ export function RateSessionModal({
 
         {/* Performance Rating */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Performance Rating
-          </label>
+          <Label className="mb-0">
+            Performance rating
+          </Label>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
             <StarRating
               rating={rating}
@@ -266,19 +256,16 @@ export function RateSessionModal({
         </div>
 
         {/* Comments */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Comments
-          </label>
-          <textarea
+        <Field id="rate-session-comments" label="Comments">
+          <Textarea
             ref={textareaRef}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add comments..."
             rows={4}
-            className={cn(inputClass, "resize-none")}
+            className="resize-none"
           />
-        </div>
+        </Field>
       </div>
     </Modal>
   );

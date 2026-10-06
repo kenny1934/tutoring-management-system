@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton, Field, Input, Select, Textarea, Label, LABEL_CLASS } from "@/components/controls";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { useActiveTutors, useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
 import { withCurrentTutor, worksAt } from "@/lib/employment";
@@ -495,16 +495,10 @@ export function EditSessionModal({
     }));
   };
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
-
-  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+  // The status picker is a button that opens a list, drawn to match a field.
+  const statusTriggerClass =
+    "h-8 w-full rounded border border-field bg-field-fill px-2.5 text-sm text-gray-900 dark:text-gray-100 " +
+    "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25";
 
   return (
     <Modal
@@ -514,11 +508,11 @@ export function EditSessionModal({
       size="lg"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin) || (isSummerDeadlineExceeded && !isAdmin)}>
-            Save Changes
+          <Button variant="primary" onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin) || (isSummerDeadlineExceeded && !isAdmin)}>
+            Save changes
           </Button>
         </div>
       }
@@ -545,8 +539,10 @@ export function EditSessionModal({
         {/* Date & Time Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className={labelClass}>Date</label>
-            <input
+            {/* Not a Field: the date's description and invalid state come from the warnings below. */}
+            <Label htmlFor="edit-session-date">Date</Label>
+            <Input
+              id="edit-session-date"
               type="date"
               value={form.session_date}
               onChange={(e) => updateField("session_date", e.target.value)}
@@ -557,27 +553,22 @@ export function EditSessionModal({
                 deadlineError ? "session-deadline-error" : undefined
               }
               aria-invalid={is60DayExceeded || isSummerDeadlineExceeded || showEarlyDeadlineWarning || deadlineError ? "true" : undefined}
-              className={inputClass}
             />
           </div>
-          <div>
-            <label className={labelClass}>Start Time</label>
-            <input
+          <Field id="edit-session-start" label="Start time">
+            <Input
               type="time"
               value={form.time_slot_start}
               onChange={(e) => updateField("time_slot_start", e.target.value)}
-              className={inputClass}
             />
-          </div>
-          <div>
-            <label className={labelClass}>End Time</label>
-            <input
+          </Field>
+          <Field id="edit-session-end" label="End time">
+            <Input
               type="time"
               value={form.time_slot_end}
               onChange={(e) => updateField("time_slot_end", e.target.value)}
-              className={inputClass}
             />
-          </div>
+          </Field>
         </div>
 
         {/* 60-day makeup limit warning - hard block for non-Super Admin, override warning for Super Admin */}
@@ -603,13 +594,8 @@ export function EditSessionModal({
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => updateField("session_date", session.session_date)}
-                className={`text-xs ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
-              >
-                Revert Date
+              <Button size="sm" variant="quiet" onClick={() => updateField("session_date", session.session_date)}>
+                Revert date
               </Button>
             </div>
           </div>
@@ -637,13 +623,8 @@ export function EditSessionModal({
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => updateField("session_date", session.session_date)}
-                className={`text-xs ${isAdmin ? 'text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
-              >
-                Revert Date
+              <Button size="sm" variant="quiet" onClick={() => updateField("session_date", session.session_date)}>
+                Revert date
               </Button>
             </div>
           </div>
@@ -683,22 +664,11 @@ export function EditSessionModal({
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowExtensionModal(true)}
-                className="text-xs border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800"
-              >
-                <Clock className="h-3 w-3 mr-1" />
-                Request Extension
+              <Button size="sm" variant="secondary" icon={Clock} onClick={() => setShowExtensionModal(true)}>
+                Request extension
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => updateField("session_date", session.session_date)}
-                className="text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
-              >
-                Revert Date
+              <Button size="sm" variant="quiet" onClick={() => updateField("session_date", session.session_date)}>
+                Revert date
               </Button>
             </div>
           </div>
@@ -717,14 +687,8 @@ export function EditSessionModal({
                   <Clock className="h-3 w-3 inline mr-1" />
                   Enrollment ends: {deadlineError.effective_end_date}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowExtensionModal(true)}
-                  className="text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
-                >
-                  <Clock className="h-3 w-3 mr-1" />
-                  Request Extension
+                <Button size="sm" variant="secondary" icon={Clock} onClick={() => setShowExtensionModal(true)}>
+                  Request extension
                 </Button>
               </div>
             </div>
@@ -733,12 +697,10 @@ export function EditSessionModal({
 
         {/* Location & Tutor Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Location</label>
-            <select
+          <Field id="edit-session-location" label="Location">
+            <Select
               value={form.location}
               onChange={(e) => updateField("location", e.target.value)}
-              className={inputClass}
             >
               <option value="">Select location...</option>
               {locations?.filter(loc => loc !== "Various").map((loc) => (
@@ -746,34 +708,33 @@ export function EditSessionModal({
                   {loc}
                 </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Tutor</label>
-            <select
+            </Select>
+          </Field>
+          <Field id="edit-session-tutor" label="Tutor">
+            <Select
               value={form.tutor_id || ""}
               onChange={(e) =>
                 updateField("tutor_id", e.target.value ? Number(e.target.value) : null)
               }
-              className={inputClass}
             >
               <option value="">Select tutor...</option>
               <TutorOptions tutors={filteredTutors} location={form.location} />
-            </select>
-          </div>
+            </Select>
+          </Field>
         </div>
 
         {/* Status & Rating Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Status</label>
+            <Label htmlFor="edit-session-status">Status</Label>
             <div className="relative" ref={statusDropdownRef}>
               {/* Trigger Button */}
               <button
+                id="edit-session-status"
                 type="button"
                 onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
                 className={cn(
-                  inputClass,
+                  statusTriggerClass,
                   "flex items-center justify-between gap-2 cursor-pointer"
                 )}
               >
@@ -834,8 +795,8 @@ export function EditSessionModal({
             </div>
           </div>
           <div>
-            <label className={labelClass}>Performance Rating</label>
-            <div className="flex items-center gap-2 h-10">
+            <Label>Performance rating</Label>
+            <div className="flex items-center gap-2 h-8">
               <StarRating
                 rating={form.performance_rating}
                 onChange={(rating) => updateField("performance_rating", rating)}
@@ -852,40 +813,30 @@ export function EditSessionModal({
         </div>
 
         {/* Comments */}
-        <div>
-          <label className={labelClass}>Comments</label>
-          <textarea
+        <Field id="edit-session-comments" label="Comments">
+          <Textarea
             value={form.notes}
             onChange={(e) => updateField("notes", e.target.value)}
             placeholder="Add comments..."
             rows={3}
-            className={cn(inputClass, "resize-none")}
+            className="resize-none"
           />
-        </div>
+        </Field>
 
         {/* Exercises Section */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className={labelClass}>Today's Courseware</label>
+            <p className={LABEL_CLASS}>Today&apos;s courseware</p>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => addExercise("CW")}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                <PenTool className="h-3 w-3" />
+              {/* CW is red and HW blue wherever they appear, so the icons keep those colours. */}
+              <Button size="sm" variant="secondary" icon={Plus} onClick={() => addExercise("CW")}>
+                <PenTool className="h-3.5 w-3.5 text-red-600 dark:text-red-400" aria-hidden="true" />
                 CW
-              </button>
-              <button
-                type="button"
-                onClick={() => addExercise("HW")}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                <Home className="h-3 w-3" />
+              </Button>
+              <Button size="sm" variant="secondary" icon={Plus} onClick={() => addExercise("HW")}>
+                <Home className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                 HW
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -926,14 +877,15 @@ export function EditSessionModal({
                     {/* Fields */}
                     <div className="flex-1 space-y-2">
                       {/* PDF Name */}
-                      <input
+                      <Input
+                        size="sm"
                         type="text"
                         value={exercise.pdf_name}
                         onChange={(e) =>
                           updateExercise(index, "pdf_name", e.target.value)
                         }
                         placeholder="PDF path"
-                        className={cn(inputClass, "text-xs py-1.5")}
+                        aria-label="PDF path"
                       />
 
                       {/* Page Range Mode Selection */}
@@ -956,7 +908,8 @@ export function EditSessionModal({
                             className="text-amber-700 focus:ring-amber-400"
                           />
                           <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
-                          <input
+                          <Input
+                            size="sm"
                             type="number"
                             value={exercise.page_start}
                             onChange={(e) => {
@@ -969,14 +922,11 @@ export function EditSessionModal({
                             placeholder="From"
                             min="1"
                             disabled={exercise.page_mode !== 'simple'}
-                            className={cn(
-                              inputClass,
-                              "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
-                            )}
+                            className="w-16"
                           />
                           <span className="text-xs text-gray-500">–</span>
-                          <input
+                          <Input
+                            size="sm"
                             type="number"
                             value={exercise.page_end}
                             onChange={(e) => {
@@ -989,11 +939,7 @@ export function EditSessionModal({
                             placeholder="To"
                             min="1"
                             disabled={exercise.page_mode !== 'simple'}
-                            className={cn(
-                              inputClass,
-                              "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
-                            )}
+                            className="w-16"
                           />
                         </label>
 
@@ -1016,7 +962,8 @@ export function EditSessionModal({
                             className="text-amber-700 focus:ring-amber-400"
                           />
                           <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Custom:</span>
-                          <input
+                          <Input
+                            size="sm"
                             type="text"
                             value={exercise.complex_pages}
                             onChange={(e) => {
@@ -1029,11 +976,7 @@ export function EditSessionModal({
                             }}
                             placeholder="e.g. 1,3,5-7"
                             disabled={exercise.page_mode !== 'custom'}
-                            className={cn(
-                              inputClass,
-                              "text-xs py-1 flex-1",
-                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed"
-                            )}
+                            className="flex-1"
                             title="Custom page range (e.g., 1,3,5-7)"
                           />
                         </label>
@@ -1042,25 +985,26 @@ export function EditSessionModal({
                       {/* Remarks */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 dark:text-gray-400 w-14 shrink-0">Remarks:</span>
-                        <input
+                        <Input
+                          size="sm"
                           type="text"
                           value={exercise.remarks}
                           onChange={(e) => updateExercise(index, "remarks", e.target.value)}
                           placeholder="Optional notes"
-                          className={cn(inputClass, "text-xs py-1 flex-1")}
+                          aria-label="Remarks"
+                          className="flex-1"
                         />
                       </div>
                     </div>
 
                     {/* Delete button */}
-                    <button
-                      type="button"
+                    <IconButton
+                      label="Remove exercise"
+                      icon={Trash2}
+                      size="sm"
+                      tone="danger"
                       onClick={() => removeExercise(index)}
-                      className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
-                      title="Remove exercise"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    />
                   </div>
                 </div>
               ))}
