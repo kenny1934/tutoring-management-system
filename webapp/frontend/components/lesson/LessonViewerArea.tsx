@@ -86,7 +86,7 @@ export function LessonViewerArea({
       type="button"
       onClick={draft.openLessonDraft}
       title={LESSON_DRAFT_DESCRIPTION}
-      className="flex items-center gap-1.5 min-h-10 px-4 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+      className="flex items-center gap-1.5 min-h-10 px-4 rounded-lg text-sm bg-primary text-white hover:bg-[#8b6040] transition-colors"
     >
       <NotebookPen className="h-4 w-4" />
       Open the lesson draft

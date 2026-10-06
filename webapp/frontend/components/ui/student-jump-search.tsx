@@ -186,7 +186,7 @@ export function StudentJumpSearch({
                 )}
                 <span className="flex-1 min-w-0 truncate">{entry.name}</span>
                 {entry.placed ? (
-                  <span className="text-[10px] text-green-600 dark:text-green-400 shrink-0">
+                  <span className="text-[10px] text-green-700 dark:text-green-400 shrink-0">
                     placed
                   </span>
                 ) : (

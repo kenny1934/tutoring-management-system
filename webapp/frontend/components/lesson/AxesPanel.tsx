@@ -51,12 +51,12 @@ export const PANEL_CARD = cn(
   "absolute right-2 top-2 z-30 max-h-[calc(100%-1rem)] max-w-[calc(100%-1rem)] overflow-auto rounded-lg border p-3 text-sm shadow-lg",
   "border-line bg-paper text-[#6b4c30] dark:text-[#d4a574]",
 );
-export const FIELD = "rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1e1a14] outline-none focus:border-[#a0704b]";
+export const FIELD = "rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1e1a14] outline-none focus:border-primary";
 export const TEXT_BUTTON = "min-h-11 rounded-md px-3 hover:bg-[#f5ebe0] dark:hover:bg-[#3a3228]";
 /** The button that goes on to placing, such as Place the axes. */
 export const MAIN_BUTTON = cn(
-  "min-h-11 rounded-md bg-[#a0704b] px-4 font-medium text-white hover:bg-[#8a5f3f]",
-  "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#a0704b]",
+  "min-h-11 rounded-md bg-primary px-4 font-medium text-white hover:bg-[#8a5f3f]",
+  "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary",
 );
 
 interface NumberFieldProps {
@@ -148,7 +148,7 @@ function AxisSection({ axis, settings, onChange }: { axis: AxisName; settings: A
             type="checkbox"
             checked={degrees}
             onChange={(e) => onChange(withDegrees(settings, e.target.checked))}
-            className="h-5 w-5 accent-[#a0704b]"
+            className="h-5 w-5 accent-primary"
           />
           Degrees
         </label>

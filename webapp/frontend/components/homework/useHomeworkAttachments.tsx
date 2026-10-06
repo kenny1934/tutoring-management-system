@@ -94,7 +94,7 @@ export function useHomeworkAttachments({
             "p-1 rounded transition-colors",
             files.length
               ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300",
+              : "text-gray-500 hover:text-gray-600 dark:hover:text-gray-300",
             busy && "cursor-not-allowed opacity-60"
           )}
         >
@@ -139,7 +139,7 @@ export function useHomeworkAttachments({
                 title={file.file_name || "Open PDF"}
                 className="flex items-center gap-1 h-12 px-2 rounded border border-gray-200 dark:border-gray-700 text-[10px] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors max-w-[8rem]"
               >
-                <FileText className="h-3.5 w-3.5 flex-shrink-0 text-red-500" />
+                <FileText className="h-3.5 w-3.5 flex-shrink-0 text-red-600" />
                 <span className="truncate">{file.file_name || "PDF"}</span>
               </a>
             )}

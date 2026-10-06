@@ -116,11 +116,11 @@ export function PendingFollowupsSection({
                 >
                   {/* Status Icon */}
                   {isOverdue ? (
-                    <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                    <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
                   ) : isToday ? (
-                    <Clock className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                    <Clock className="h-4 w-4 text-orange-700 flex-shrink-0" />
                   ) : (
-                    <Bell className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    <Bell className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   )}
 
                   {/* Content */}
@@ -142,7 +142,7 @@ export function PendingFollowupsSection({
                       isOverdue
                         ? "text-red-600 dark:text-red-400"
                         : isToday
-                          ? "text-orange-600 dark:text-orange-400"
+                          ? "text-orange-700 dark:text-orange-400"
                           : "text-gray-500 dark:text-gray-400"
                     )}>
                       {followup.follow_up_date ? (
@@ -168,8 +168,8 @@ export function PendingFollowupsSection({
                         className={cn(
                           "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
                           readOnly
-                            ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+                            ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
                         )}
                         title={readOnly ? "Read-only access" : "Mark follow-up as done"}
                       >
@@ -183,7 +183,7 @@ export function PendingFollowupsSection({
                       className={cn(
                         "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
                         readOnly
-                          ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                          ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                           : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                       )}
                       title={readOnly ? "Read-only access" : undefined}

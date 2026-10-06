@@ -96,8 +96,8 @@ type QualityFilter = QualityTier | "all" | "review";
 type SectionKey = "review" | "ready" | "unplaceable";
 
 function getQualityLabel(score: number): { tier: QualityTier; text: string; className: string } {
-  if (score > 0.8) return { tier: "good", text: "Good fit", className: "text-green-600 dark:text-green-400" };
-  if (score >= 0.5) return { tier: "okay", text: "Okay fit", className: "text-yellow-600 dark:text-yellow-400" };
+  if (score > 0.8) return { tier: "good", text: "Good fit", className: "text-green-700 dark:text-green-400" };
+  if (score >= 0.5) return { tier: "okay", text: "Okay fit", className: "text-yellow-700 dark:text-yellow-400" };
   return { tier: "poor", text: "Poor fit", className: "text-red-600 dark:text-red-400" };
 }
 
@@ -157,9 +157,9 @@ function getSlotSummary(assignments: SummerSuggestionItem["lesson_assignments"])
 }
 
 const SLOT_LEGEND_DOT_COLORS = [
-  "text-amber-400 dark:text-amber-500",
-  "text-blue-400 dark:text-blue-500",
-  "text-emerald-400 dark:text-emerald-500",
+  "text-amber-700 dark:text-amber-500",
+  "text-blue-600 dark:text-blue-400",
+  "text-emerald-700 dark:text-emerald-500",
 ];
 
 // Pairs where curriculum order matters: L1<L2, L3<L4, L5<L6, L7<L8
@@ -307,8 +307,8 @@ function LessonRow({
             >
               <div className={cn(
                 "text-[10px] font-semibold",
-                isMakeup ? "text-blue-500 dark:text-blue-400"
-                  : isSwapped ? "text-amber-600 dark:text-amber-400" : "text-foreground/80"
+                isMakeup ? "text-blue-600 dark:text-blue-400"
+                  : isSwapped ? "text-amber-700 dark:text-amber-400" : "text-foreground/80"
               )}>
                 L{a.lesson_number}{isMakeup ? " ✱" : isSwapped ? " ↕" : ""}
               </div>
@@ -531,7 +531,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
                         isPreviewEnd && !isPreviewStart && "rounded-r-full rounded-l-none",
                         isPreviewStart && isPreviewEnd && "rounded-full",
                       ),
-                      isPreviewInterior && cn("rounded-none", modeIsExclude ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300" : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300"),
+                      isPreviewInterior && cn("rounded-none", modeIsExclude ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300" : "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"),
                     )}
                     title={marker ? marker.tooltip : selectable ? dateStr : undefined}
                   >
@@ -942,8 +942,8 @@ export function SummerAutoSuggestModal({
                 <li>Tries to place buddies together when requested</li>
               </ul>
               <div className="mt-2 pt-1.5 border-t border-[#e8d4b8]/30 space-y-0.5">
-                <div><span className="text-green-600 dark:text-green-400 font-semibold">Good fit</span> = all pairs in the right order</div>
-                <div><span className="text-yellow-600 dark:text-yellow-400 font-semibold">Okay fit</span> = most pairs in order, some may be swapped</div>
+                <div><span className="text-green-700 dark:text-green-400 font-semibold">Good fit</span> = all pairs in the right order</div>
+                <div><span className="text-yellow-700 dark:text-yellow-400 font-semibold">Okay fit</span> = most pairs in order, some may be swapped</div>
                 <div><span className="text-red-600 dark:text-red-400 font-semibold">Poor fit</span> = several pairs out of order — consider adjusting manually</div>
               </div>
             </div>
@@ -951,7 +951,7 @@ export function SummerAutoSuggestModal({
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-600 dark:text-amber-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-amber-700 dark:text-amber-400" />
               <p className="text-sm text-muted-foreground">
                 Running algorithm...
               </p>
@@ -1122,15 +1122,15 @@ export function SummerAutoSuggestModal({
                                       </span>
                                     )}
                                     {flags.pendingMakeup && (
-                                      <span title="Has pending make-up lesson(s)" className="text-blue-500 dark:text-blue-400 text-[11px] leading-none">✱</span>
+                                      <span title="Has pending make-up lesson(s)" className="text-blue-600 dark:text-blue-400 text-[11px] leading-none">✱</span>
                                     )}
                                     {flags.outOfOrder && (
-                                      <span title="Lesson pairs out of order" className="text-amber-600 dark:text-amber-400">
+                                      <span title="Lesson pairs out of order" className="text-amber-700 dark:text-amber-400">
                                         <ArrowUpDown className="h-3 w-3" />
                                       </span>
                                     )}
                                     {flags.unavailabilityNote && (
-                                      <span title="Has unavailability note — cross-check manually" className="text-amber-600 dark:text-amber-400">
+                                      <span title="Has unavailability note — cross-check manually" className="text-amber-700 dark:text-amber-400">
                                         <AlertTriangle className="h-3 w-3" />
                                       </span>
                                     )}
@@ -1148,7 +1148,7 @@ export function SummerAutoSuggestModal({
                               className={cn(
                                 "relative shrink-0 p-1.5 rounded-md transition-colors",
                                 isAdjusting
-                                  ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30"
+                                  ? "text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30"
                                   : "text-muted-foreground hover:text-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800"
                               )}
                               title="Adjust date constraints"
@@ -1291,12 +1291,12 @@ export function SummerAutoSuggestModal({
                               )}
 
                               {p.unavailability_notes && (
-                                <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded px-2 py-1.5">
+                                <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded px-2 py-1.5">
                                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                                   <div>
                                     <span className="font-semibold">Unavailability note:</span>{" "}
                                     <span>{p.unavailability_notes}</span>
-                                    <div className="text-[10px] text-amber-500 mt-0.5">
+                                    <div className="text-[10px] text-amber-700 mt-0.5">
                                       Not parsed by algorithm — please cross-check manually
                                     </div>
                                   </div>
@@ -1312,7 +1312,7 @@ export function SummerAutoSuggestModal({
                                       <span className="font-semibold">
                                         {sorted.length} lesson{sorted.length > 1 ? "s" : ""} pending make-up
                                       </span>
-                                      <span className="text-blue-500"> — L{sorted.join(", L")}</span>
+                                      <span className="text-blue-600"> — L{sorted.join(", L")}</span>
                                       <div className="text-[10px] text-blue-500/80 mt-0.5">
                                         Will be created as &quot;{RESCHEDULED_STATUS}&quot; on original date
                                       </div>
@@ -1326,7 +1326,7 @@ export function SummerAutoSuggestModal({
                                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                                   <div>
                                     <span className="font-semibold">{adjustErrors[group.appId]}</span>
-                                    <div className="text-[10px] text-red-500 mt-0.5">
+                                    <div className="text-[10px] text-red-600 mt-0.5">
                                       Try adjusting your date selection and re-suggest
                                     </div>
                                   </div>
@@ -1415,7 +1415,7 @@ export function SummerAutoSuggestModal({
                       <section className="pt-2 border-t border-[#e8d4b8]/50">
                         <button
                           onClick={() => setSectionsOpen((s) => ({ ...s, unplaceable: !s.unplaceable }))}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 mb-1.5 hover:text-orange-700 transition-colors"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1.5 hover:text-orange-700 transition-colors"
                         >
                           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !sectionsOpen.unplaceable && "-rotate-90")} />
                           <UserX className="h-3.5 w-3.5" />

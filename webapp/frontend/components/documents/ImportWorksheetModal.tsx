@@ -30,7 +30,7 @@ function LayoutBadges({ layout }: { layout: DocumentMetadata }) {
   if (layout.watermark?.enabled) badges.push("Watermark");
   if (layout.bodyFontFamily) badges.push(fontLabel(layout.bodyFontFamily));
   if (layout.bodyFontFamilyCjk) badges.push(fontLabel(layout.bodyFontFamilyCjk));
-  if (!badges.length) return <span className="text-[10px] text-gray-400 dark:text-gray-500">Default layout</span>;
+  if (!badges.length) return <span className="text-[10px] text-gray-500 dark:text-gray-400">Default layout</span>;
   return (
     <div className="flex flex-wrap gap-1 mt-0.5">
       {badges.map((b) => (
@@ -226,14 +226,14 @@ export default function ImportWorksheetModal({
             <FolderOpen className="w-8 h-8 text-accent-ink shrink-0" />
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Browse courseware files</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Select from your worksheet folders</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Select from your worksheet folders</p>
             </div>
           </button>
 
           {/* Secondary: Drag-and-drop / file picker */}
           <div className="relative my-3">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200 dark:border-gray-700/30" /></div>
-            <div className="relative flex justify-center"><span className="px-2 text-xs text-gray-400 dark:text-gray-500 bg-paper">or</span></div>
+            <div className="relative flex justify-center"><span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-paper">or</span></div>
           </div>
 
           <div
@@ -246,10 +246,10 @@ export default function ImportWorksheetModal({
               "hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
             )}
           >
-            <Upload className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+            <Upload className="w-6 h-6 text-gray-500 dark:text-gray-400" />
             <div className="text-center">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Drop a PDF here or click to upload</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Max 25MB</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Max 25MB</p>
             </div>
           </div>
           <input
@@ -263,7 +263,7 @@ export default function ImportWorksheetModal({
               e.target.value = "";
             }}
           />
-          {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
 
           <FolderTreeModal
             isOpen={showFileBrowser}
@@ -298,14 +298,14 @@ export default function ImportWorksheetModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Document title"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/30"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer" onClick={() => setRemoveHandwriting(v => !v)}>
               <div className={cn(
                 "relative w-10 h-5 rounded-full transition-colors",
-                removeHandwriting ? "bg-[#a0704b]" : "bg-gray-300 dark:bg-gray-600"
+                removeHandwriting ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"
               )}>
                 <div className={cn(
                   "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
@@ -329,7 +329,7 @@ export default function ImportWorksheetModal({
                   className={cn(
                     "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-sm transition-colors",
                     selectedTemplateId === null
-                      ? "bg-[#a0704b]/10 border border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
+                      ? "bg-primary/10 border border-primary/30 text-accent-ink dark:text-[#cd853f]"
                       : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-400"
                   )}
                 >
@@ -347,11 +347,11 @@ export default function ImportWorksheetModal({
                       className={cn(
                         "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-sm transition-colors",
                         isSelected
-                          ? "bg-[#a0704b]/10 border border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
+                          ? "bg-primary/10 border border-primary/30 text-accent-ink dark:text-[#cd853f]"
                           : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300"
                       )}
                     >
-                      {isSelected ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Stamp className="w-3.5 h-3.5 shrink-0 text-purple-500" />}
+                      {isSelected ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Stamp className="w-3.5 h-3.5 shrink-0 text-purple-600" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{tpl.title}</p>
                         {layout && <LayoutBadges layout={layout} />}
@@ -363,7 +363,7 @@ export default function ImportWorksheetModal({
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
         </>
       )}
 
@@ -383,7 +383,7 @@ export default function ImportWorksheetModal({
       {/* Done step */}
       {step === "done" && (
         <div className="flex flex-col items-center gap-4 py-6">
-          <CheckCircle2 className="w-10 h-10 text-green-500" />
+          <CheckCircle2 className="w-10 h-10 text-green-700" />
           <div className="text-center">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Worksheet imported!</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -391,7 +391,7 @@ export default function ImportWorksheetModal({
             </p>
           </div>
           {usage && (
-            <div className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-white/5 rounded px-3 py-1.5">
+            <div className="text-[10px] text-gray-500 dark:text-gray-500 bg-gray-50 dark:bg-white/5 rounded px-3 py-1.5">
               AI usage: {usage.input_tokens.toLocaleString()} input + {usage.output_tokens.toLocaleString()} output tokens
               {" "}(~${((usage.input_tokens * 0.25 + usage.output_tokens * 1.5) / 1_000_000).toFixed(4)})
             </div>

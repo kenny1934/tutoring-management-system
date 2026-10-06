@@ -54,7 +54,7 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
 
     if (error) {
       return (
-        <div className="text-center py-6 text-red-500 dark:text-red-400 text-sm">
+        <div className="text-center py-6 text-red-600 dark:text-red-400 text-sm">
           Error: {error}
         </div>
       );
@@ -90,7 +90,7 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
                   ? `${enrollment.assigned_day} ${enrollment.assigned_time}`
                   : "TBD"}
                 {enrollment.tutor_name && (
-                  <span className="text-gray-400 dark:text-gray-500">
+                  <span className="text-gray-500 dark:text-gray-400">
                     • <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name} />
                   </span>
                 )}

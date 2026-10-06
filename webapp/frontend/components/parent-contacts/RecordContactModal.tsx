@@ -267,8 +267,8 @@ export function RecordContactModal({
             {/* Student Selection */}
             <div className="space-y-1.5">
               <label htmlFor="student-search" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <User className="h-4 w-4 text-[#a0704b]" />
-                Student <span className="text-red-500">*</span>
+                <User className="h-4 w-4 text-accent-ink" />
+                Student <span className="text-red-600">*</span>
               </label>
               <div className="relative">
                 {selectedStudent ? (
@@ -293,7 +293,7 @@ export function RecordContactModal({
                 ) : (
                   // Show search input
                   <>
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
                     <input
                       id="student-search"
                       type="text"
@@ -308,7 +308,7 @@ export function RecordContactModal({
                       className={cn(
                         "w-full pl-9 pr-3 py-2 text-sm",
                         "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                        "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                        "focus:outline-none focus:ring-2 focus:ring-primary/50"
                       )}
                     />
                   </>
@@ -320,7 +320,7 @@ export function RecordContactModal({
                   )}>
                     {loadingStudents ? (
                       <div className="p-3 text-center">
-                        <Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" />
+                        <Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-500" />
                       </div>
                     ) : filteredStudents.length === 0 ? (
                       <div className="p-3 text-center text-sm text-gray-500">
@@ -366,7 +366,7 @@ export function RecordContactModal({
                     setSelectedStudentId(null);
                     setStudentSearch('');
                   }}
-                  className="text-xs text-[#a0704b] hover:underline"
+                  className="text-xs text-accent-ink hover:underline"
                 >
                   Change student
                 </button>
@@ -376,8 +376,8 @@ export function RecordContactModal({
             {/* Contacted By (Tutor) */}
             <div className="space-y-1.5">
               <label htmlFor="contacted-by" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <User className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
-                Contacted By <span className="text-red-500" aria-hidden="true">*</span>
+                <User className="h-4 w-4 text-accent-ink" aria-hidden="true" />
+                Contacted By <span className="text-red-600" aria-hidden="true">*</span>
               </label>
               <select
                 id="contacted-by"
@@ -388,7 +388,7 @@ export function RecordContactModal({
                 className={cn(
                   "w-full px-3 py-2 text-sm",
                   "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                  "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   !canEditTutor && "opacity-60 cursor-not-allowed"
                 )}
               >
@@ -410,7 +410,7 @@ export function RecordContactModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label htmlFor="contact-date" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Calendar className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
+                  <Calendar className="h-4 w-4 text-accent-ink" aria-hidden="true" />
                   Date
                 </label>
                 <input
@@ -421,7 +421,7 @@ export function RecordContactModal({
                   className={cn(
                     "w-full px-3 py-2 text-sm",
                     "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 />
               </div>
@@ -437,7 +437,7 @@ export function RecordContactModal({
                   className={cn(
                     "w-full px-3 py-2 text-sm",
                     "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 />
               </div>
@@ -457,7 +457,7 @@ export function RecordContactModal({
                   className={cn(
                     "w-full px-3 py-2 text-sm",
                     "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 >
                   {CONTACT_METHODS.map(method => (
@@ -477,7 +477,7 @@ export function RecordContactModal({
                   className={cn(
                     "w-full px-3 py-2 text-sm",
                     "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 >
                   {CONTACT_TYPES.map(type => (
@@ -490,7 +490,7 @@ export function RecordContactModal({
             {/* Notes */}
             <div className="space-y-1.5">
               <label htmlFor="contact-notes" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <FileText className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
+                <FileText className="h-4 w-4 text-accent-ink" aria-hidden="true" />
                 Notes
               </label>
               <textarea
@@ -502,7 +502,7 @@ export function RecordContactModal({
                 className={cn(
                   "w-full px-3 py-2 text-sm",
                   "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                  "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   "resize-none"
                 )}
               />
@@ -516,10 +516,10 @@ export function RecordContactModal({
                   type="checkbox"
                   checked={followUpNeeded}
                   onChange={(e) => setFollowUpNeeded(e.target.checked)}
-                  className="rounded border-[#d4a574] text-[#a0704b] focus:ring-[#a0704b]"
+                  className="rounded border-[#d4a574] text-accent-ink focus:ring-primary"
                 />
                 <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Bell className="h-4 w-4 text-blue-500" aria-hidden="true" />
+                  <Bell className="h-4 w-4 text-blue-600" aria-hidden="true" />
                   Follow-up needed
                 </span>
               </label>
@@ -538,7 +538,7 @@ export function RecordContactModal({
                     className={cn(
                       "w-full px-3 py-2 text-sm",
                       "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                      "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                      "focus:outline-none focus:ring-2 focus:ring-primary/50"
                     )}
                   />
                 </div>
@@ -567,7 +567,7 @@ export function RecordContactModal({
               disabled={saving || !selectedStudentId || !selectedTutorId}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
-                "bg-[#a0704b] dark:bg-[#8b6f47] text-white",
+                "bg-primary dark:bg-[#8b6f47] text-white",
                 "hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}

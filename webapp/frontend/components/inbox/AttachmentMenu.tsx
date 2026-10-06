@@ -51,7 +51,7 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled || isUploading}
-        className="p-1.5 text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors disabled:opacity-50"
+        className="p-1.5 text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors disabled:opacity-50"
         title="Attach file"
       >
         {isUploading ? (
@@ -75,7 +75,7 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
             onClick={() => handleOptionClick(option.id)}
             className="w-full px-3 py-2 text-sm text-left hover:bg-tint flex items-center gap-2.5 text-gray-700 dark:text-gray-300 transition-colors"
           >
-            <option.icon className="h-4 w-4 text-gray-400" />
+            <option.icon className="h-4 w-4 text-gray-500" />
             {option.label}
           </button>
         ))}

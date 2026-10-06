@@ -77,7 +77,7 @@ export default function SettingsPage() {
                       <Icon className={cn(
                         "h-5 w-5 shrink-0",
                         isActive
-                          ? "text-amber-600 dark:text-amber-400"
+                          ? "text-amber-700 dark:text-amber-400"
                           : "text-foreground/40"
                       )} />
                       <div className="flex-1 min-w-0">
@@ -97,7 +97,7 @@ export default function SettingsPage() {
                         "h-4 w-4 shrink-0 transition-transform",
                         isActive ? "rotate-90" : "",
                         isActive
-                          ? "text-amber-600 dark:text-amber-400"
+                          ? "text-amber-700 dark:text-amber-400"
                           : "text-foreground/40"
                       )} />
                     </button>

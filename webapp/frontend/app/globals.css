@@ -40,8 +40,11 @@
   --color-popover-foreground: #2a2219;
 
   /* ===== BRAND COLORS ===== */
-  --color-primary: #a0704b; /* Golden Oak */
-  --color-primary-hover: #cd853f; /* Lighter oak on hover */
+  /* Golden oak, one shade darker than it started, so white text on a
+   * button clears 4.5:1 (5.3:1) and it still reads as the same oak. Hover
+   * goes darker, not lighter, so the text keeps its contrast. */
+  --color-primary: #8f6240;
+  --color-primary-hover: #7a5336;
   --color-primary-foreground: #FFFFFF;
 
   /* Secondary & Muted */
@@ -63,7 +66,7 @@
   --color-border: #e8d4b8; /* Warm tan border */
   --color-border-subtle: #f5e6d3;
   --color-input: #e8d4b8;
-  --color-ring: #a0704b;
+  --color-ring: #8f6240;
 
   /* ===== ROLE TOKENS =====
    * Each token is named for the job it does on screen, never for the colour
@@ -80,8 +83,9 @@
   --color-line-strong: #d4a574; /* Borders that need to stand out */
   --color-paper: #fef9f3; /* The cream surface cards and panels sit on */
   --color-tint: #f5ede3; /* Tinted panels, table headers and hover fills */
-  --color-accent-ink: #a0704b; /* Accent colour used as text, rings and outlines */
-  --color-ink-subtle: #8b7355; /* Secondary text */
+  --color-accent-ink: #8f6240; /* The accent as text; fills use primary. 5.0:1 on cream */
+  --color-accent-ink-hover: #7a5336; /* Accent text under the pointer */
+  --color-ink-subtle: #7d674c; /* Secondary text, 5.1:1 on cream */
   --color-ink-strong: #5a3d1f; /* Deep heading text */
   --color-canvas: #f5efe6; /* The plain page surface, a step darker than paper so cards stand out */
   --color-on-surface: #2a2219; /* Text drawn straight onto the page surface; the surface blocks set it */
@@ -209,6 +213,7 @@
   --color-paper: #2d2618;
   --color-tint: #3d3628;
   --color-accent-ink: #cd853f;
+  --color-accent-ink-hover: #dda15e;
   --color-ink-subtle: #a09080;
   --color-ink-strong: #d4a574;
   --color-canvas: #13110e;
@@ -1787,6 +1792,12 @@ html {
  * the only shadow variants the public pages use. Setting only --tw-shadow keeps
  * coloured shadows working, since the colour is read on the element itself. */
 [data-shape="classic"] {
+  /* The oak as it was before the contrast pass. */
+  --color-primary: #a0704b;
+  --color-primary-hover: #cd853f;
+  --color-ring: #a0704b;
+  --color-accent-ink: #a0704b;
+  --color-ink-subtle: #8b7355;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-md: 6px;
@@ -1794,6 +1805,12 @@ html {
   --radius-xl: 28px;
   --radius-2xl: 1rem;
   --radius-3xl: 1.5rem;
+}
+
+/* Dark mode's accent text was already light enough, so the public pages keep it. */
+.dark[data-shape="classic"] {
+  --color-accent-ink: #cd853f;
+  --color-ink-subtle: #a09080;
 }
 
 [data-shape="classic"] .shadow-sm { --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }

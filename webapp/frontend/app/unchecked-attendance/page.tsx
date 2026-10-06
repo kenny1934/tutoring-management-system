@@ -45,34 +45,34 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     borderColor: 'border-red-200 dark:border-red-800',
     textColor: 'text-red-600 dark:text-red-400',
     badgeBg: 'bg-red-100 dark:bg-red-900/40',
-    iconColor: 'text-red-500',
+    iconColor: 'text-red-600',
   },
   High: {
     label: '4-7 Days',
     sectionLabel: 'High (4-7 Days Overdue)',
     bgColor: 'bg-orange-50 dark:bg-orange-900/20',
     borderColor: 'border-orange-200 dark:border-orange-800',
-    textColor: 'text-orange-600 dark:text-orange-400',
+    textColor: 'text-orange-700 dark:text-orange-400',
     badgeBg: 'bg-orange-100 dark:bg-orange-900/40',
-    iconColor: 'text-orange-500',
+    iconColor: 'text-orange-700',
   },
   Medium: {
     label: '2-3 Days',
     sectionLabel: 'Medium (2-3 Days Overdue)',
     bgColor: 'bg-amber-50 dark:bg-amber-900/20',
     borderColor: 'border-amber-200 dark:border-amber-800',
-    textColor: 'text-amber-600 dark:text-amber-400',
+    textColor: 'text-amber-700 dark:text-amber-400',
     badgeBg: 'bg-amber-100 dark:bg-amber-900/40',
-    iconColor: 'text-amber-500',
+    iconColor: 'text-amber-700',
   },
   Low: {
     label: '0-1 Days',
     sectionLabel: 'Low (0-1 Days Overdue)',
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
-    textColor: 'text-yellow-600 dark:text-yellow-400',
+    textColor: 'text-yellow-700 dark:text-yellow-400',
     badgeBg: 'bg-yellow-100 dark:bg-yellow-900/40',
-    iconColor: 'text-yellow-500',
+    iconColor: 'text-yellow-700',
   },
 };
 
@@ -406,7 +406,7 @@ export default function UncheckedAttendancePage() {
                       onClick={() => handleBulkAction('attended')}
                       disabled={bulkActionLoading !== null}
                       className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
                         bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
                       )}
                       title="Mark all as attended"
@@ -462,7 +462,7 @@ export default function UncheckedAttendancePage() {
                         "p-3 rounded-lg border text-center transition-all",
                         config.bgColor,
                         config.borderColor,
-                        isActive && "ring-2 ring-offset-2 ring-[#a0704b]"
+                        isActive && "ring-2 ring-offset-2 ring-primary"
                       )}
                     >
                       <div className={cn("text-2xl font-bold", config.textColor)}>
@@ -542,7 +542,7 @@ export default function UncheckedAttendancePage() {
                                     ) : sectionState === 'partial' ? (
                                       <Minus className="h-4 w-4 text-accent-ink" />
                                     ) : (
-                                      <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                      <Square className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                                     )}
                                   </button>
                                 </th>
@@ -586,7 +586,7 @@ export default function UncheckedAttendancePage() {
                                         ) : isSelected ? (
                                           <CheckSquare className="h-4 w-4 text-accent-ink" />
                                         ) : (
-                                          <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+                                          <Square className="h-4 w-4 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
                                         )}
                                       </button>
                                     </td>

@@ -83,7 +83,7 @@ export function ExitConfirmDialog({
                 type="button"
                 onClick={onSaveAndExit}
                 disabled={isSaving}
-                className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-[#a0704b] text-white hover:bg-[#8b5d3b] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-primary text-white hover:bg-[#8b5d3b] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {isSaving ? "Downloading..." : "Download all and exit"}

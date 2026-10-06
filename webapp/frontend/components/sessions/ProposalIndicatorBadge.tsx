@@ -46,7 +46,7 @@ export function ProposalIndicatorBadge({
       <Icon className={cn(config.iconClassName, isSmall ? "h-3 w-3" : "h-3.5 w-3.5")} />
       <span>{config.badgeText}</span>
       {showArrow && (
-        <ChevronRight className={cn("text-amber-600 dark:text-amber-400", isSmall ? "h-2.5 w-2.5" : "h-3 w-3")} />
+        <ChevronRight className={cn("text-amber-700 dark:text-amber-400", isSmall ? "h-2.5 w-2.5" : "h-3 w-3")} />
       )}
     </button>
   );

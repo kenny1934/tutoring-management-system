@@ -127,7 +127,7 @@ export function MoreSessionsPopover({
                             Cancelled
                           </span>
                         ) : isSessionUnpaid(session) && (
-                          <HandCoins className="h-3 w-3 text-red-500" />
+                          <HandCoins className="h-3 w-3 text-red-600" />
                         )}
                       </span>
                       {!tutorFilter && session.tutor_name && (
@@ -137,11 +137,11 @@ export function MoreSessionsPopover({
                     <p className={cn(
                       "text-sm font-semibold flex items-center gap-1 overflow-hidden",
                       isCancelledEnrollment
-                        ? "text-gray-400 dark:text-gray-500"
+                        ? "text-gray-500 dark:text-gray-400"
                         : isSessionUnpaid(session)
                           ? "text-red-600 dark:text-red-400"
                           : statusConfig.strikethrough
-                            ? "text-gray-400 dark:text-gray-500"
+                            ? "text-gray-500 dark:text-gray-400"
                             : "text-gray-900 dark:text-gray-100",
                       statusConfig.strikethrough && "line-through"
                     )}>
@@ -153,10 +153,10 @@ export function MoreSessionsPopover({
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                       )}
                       {session.exam_revision_slot_id && (
-                        <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
+                        <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-600 flex-shrink-0" /></span>
                       )}
                       {session.extension_request_id && (
-                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
+                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-700 flex-shrink-0" /></span>
                       )}
                     </p>
                   </div>

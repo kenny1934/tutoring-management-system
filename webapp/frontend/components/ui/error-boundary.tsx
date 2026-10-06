@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       return (
         <div className="flex flex-col items-center justify-center p-6 text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <AlertTriangle className="h-8 w-8 text-red-500 mb-3" />
+          <AlertTriangle className="h-8 w-8 text-red-600 mb-3" />
           <h3 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-1">
             Something went wrong
           </h3>
@@ -113,7 +113,7 @@ export function PageErrorBoundary({ children }: { children: ReactNode }) {
       fallback={
         <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background">
           <div className="max-w-md text-center">
-            <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <AlertTriangle className="h-16 w-16 text-red-600 mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-foreground mb-2">
               Something went wrong
             </h1>

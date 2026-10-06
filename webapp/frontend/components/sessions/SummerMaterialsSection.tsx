@@ -61,7 +61,7 @@ function SummerSectionShell({
           "hover:from-amber-100 hover:to-white dark:hover:from-amber-900/30 dark:hover:to-[#1a1a1a]"
         )}
       >
-        <Sun className="h-3.5 w-3.5 text-amber-500" />
+        <Sun className="h-3.5 w-3.5 text-amber-700" />
         <span className="text-xs text-gray-600 dark:text-gray-300">Summer Materials</span>
         {summary}
         {driveDisconnected && onConnectDrive && (
@@ -78,9 +78,9 @@ function SummerSectionShell({
           </span>
         )}
         {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+          <ChevronDown className="h-3.5 w-3.5 text-gray-500 ml-auto" />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+          <ChevronRight className="h-3.5 w-3.5 text-gray-500 ml-auto" />
         )}
       </button>
       {expanded && (
@@ -163,7 +163,7 @@ export function SummerMaterialsSection({
         )}
         <span className="flex-1" />
         {added ? (
-          <span className="inline-flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 pr-1">
+          <span className="inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 pr-1">
             <Check className="h-3 w-3" />
             Added
           </span>
@@ -186,7 +186,7 @@ export function SummerMaterialsSection({
 
   const typed = rowDefaults(defaults, exerciseType);
   const summary = (
-    <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+    <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
       {lessonChapter ? chapterLabel(lessonChapter) : `L${session.lesson_number}`}
     </span>
   );
@@ -292,7 +292,7 @@ export function SummerBulkAssignSection({
         </span>
         <span className="flex-1" />
         {isDone ? (
-          <span className="inline-flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 pr-1">
+          <span className="inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 pr-1">
             <Check className="h-3 w-3" />
             Assigned
           </span>
@@ -317,7 +317,7 @@ export function SummerBulkAssignSection({
   };
 
   const summary = (
-    <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+    <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
       {cwGrade}
       {isMixed
         ? ` · ${formatLessonBreakdown(breakdown)}`
@@ -333,7 +333,7 @@ export function SummerBulkAssignSection({
 
   return (
     <SummerSectionShell summary={summary}>
-      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+      <p className="text-[10px] text-gray-500 dark:text-gray-400">
         {followMode
           ? "Assigns straight away: each student gets their own lesson's version with answers linked."
           : "Assigns straight away: each student gets their own language version with answers linked."}

@@ -268,7 +268,7 @@ export default function MathEditorModal({
               className={cn(
                 "p-2 sm:p-1 rounded transition-colors",
                 sourceMode
-                  ? "bg-tint text-[#a0704b]"
+                  ? "bg-tint text-accent-ink"
                   : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
               )}
             >
@@ -295,7 +295,7 @@ export default function MathEditorModal({
               onChange={(e) => setLatex(e.target.value)}
               autoFocus
               spellCheck={false}
-              className="w-full rounded-lg border border-line bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-[#a0704b] resize-none"
+              className="w-full rounded-lg border border-line bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-primary resize-none"
               style={{ minHeight: "80px" }}
               placeholder="e.g. \frac{a}{b}"
             />
@@ -320,7 +320,7 @@ export default function MathEditorModal({
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-16 text-sm text-gray-400">
+            <div className="flex items-center justify-center h-16 text-sm text-gray-500">
               Loading math editor...
             </div>
           )}
@@ -331,7 +331,7 @@ export default function MathEditorModal({
           <button
             type="button"
             onClick={() => setShowTemplates((s) => !s)}
-            className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 hover:text-[#a0704b] dark:hover:text-[#c9a96e] transition-colors"
+            className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-accent-ink dark:hover:text-[#c9a96e] transition-colors"
           >
             {showTemplates ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Templates
@@ -375,7 +375,7 @@ export default function MathEditorModal({
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-md transition-colors",
                   mode === "inline"
-                    ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#2a2a2a] text-accent-ink shadow-sm"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
@@ -387,26 +387,26 @@ export default function MathEditorModal({
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-md transition-colors",
                   mode === "block"
-                    ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#2a2a2a] text-accent-ink shadow-sm"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
                 Block
               </button>
             </div>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 ml-0.5">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 ml-0.5">
               {modeDescription}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 hidden sm:inline">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 hidden sm:inline">
               Ctrl+Enter
             </span>
             {isEditing && (
               <button
                 onClick={handleDelete}
-                className="px-3 py-2.5 sm:py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="px-3 py-2.5 sm:py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               >
                 Delete
               </button>
@@ -420,7 +420,7 @@ export default function MathEditorModal({
             <button
               onClick={handleInsert}
               disabled={!latex.trim()}
-              className="px-4 py-2.5 sm:py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 sm:py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isEditing ? "Update" : "Insert"}
             </button>

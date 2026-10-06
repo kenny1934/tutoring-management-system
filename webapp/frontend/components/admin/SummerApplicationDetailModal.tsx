@@ -75,7 +75,7 @@ function CopyButton({ value, className = "p-0.5", iconClassName = "h-3 w-3" }: {
       className={cn(className, "text-muted-foreground hover:text-foreground")}
       title="Copy to clipboard"
     >
-      {copied ? <Check className={cn(iconClassName, "text-green-500")} /> : <Copy className={iconClassName} />}
+      {copied ? <Check className={cn(iconClassName, "text-green-700")} /> : <Copy className={iconClassName} />}
     </button>
   );
 }
@@ -107,7 +107,7 @@ function ReceiptCodeBlock({
                 className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
                 title="Copy to clipboard"
               >
-                {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{result.reason}</div>
@@ -130,7 +130,7 @@ function FieldValue({ label, value, mono, copyable }: { label: React.ReactNode; 
       <span className={`text-sm text-foreground ${mono ? "font-mono" : ""}`}>{value}</span>
       {copyable && (
         <button onClick={() => copy(value)} className="p-0.5 text-muted-foreground hover:text-foreground">
-          {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-700" /> : <Copy className="h-3 w-3" />}
         </button>
       )}
     </div>
@@ -176,7 +176,7 @@ function StudentSuggestionRow({
         )}
       </div>
       <span
-        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary opacity-0 group-hover/row:opacity-100 transition-opacity"
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-accent-ink opacity-0 group-hover/row:opacity-100 transition-opacity"
         aria-hidden
       >
         Link <ArrowRight className="h-3 w-3" />
@@ -1203,7 +1203,7 @@ export function SummerApplicationDetailModal({
                     {studentLang && langStream && studentLang !== langStream && (
                       <button
                         onClick={() => setLangStream(studentLang)}
-                        className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
+                        className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline ml-1"
                       >
                         Student is {studentLang}
                       </button>
@@ -1211,7 +1211,7 @@ export function SummerApplicationDetailModal({
                     {studentLang && !langStream && (
                       <button
                         onClick={() => setLangStream(studentLang)}
-                        className="text-[10px] text-primary hover:underline ml-1"
+                        className="text-[10px] text-accent-ink hover:underline ml-1"
                       >
                         Use student&apos;s: {studentLang}
                       </button>
@@ -1230,7 +1230,7 @@ export function SummerApplicationDetailModal({
               disabled={!canEdit}
               summary={studentId && linkedStudent ? (
                 <span className="inline-flex items-center gap-1 text-foreground">
-                  <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
+                  <UserCheck className="h-3 w-3 text-green-700 shrink-0" />
                   <StudentInfoBadges
                     compact
                     showLink
@@ -1253,7 +1253,7 @@ export function SummerApplicationDetailModal({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 text-green-500 shrink-0" />
+                      <UserCheck className="h-4 w-4 text-green-700 shrink-0" />
                       <StudentInfoBadges
                         student={{
                           student_id: linkedStudent.id,
@@ -1276,7 +1276,7 @@ export function SummerApplicationDetailModal({
                       )}
                     </div>
                     {linkedStudent.home_location && systemLocation && linkedStudent.home_location !== systemLocation && (
-                      <div className="mt-1 ml-6 text-[10px] text-amber-600 dark:text-amber-400">
+                      <div className="mt-1 ml-6 text-[10px] text-amber-700 dark:text-amber-400">
                         ⚠ Student&apos;s home location ({linkedStudent.home_location}) differs from preferred ({systemLocation})
                       </div>
                     )}
@@ -1523,7 +1523,7 @@ export function SummerApplicationDetailModal({
                   Blocked
                 </span>
               ) : (
-                <span className="text-[10px] text-primary font-medium">Ready</span>
+                <span className="text-[10px] text-accent-ink font-medium">Ready</span>
               )}
             >
               {app.published_enrollment_id ? (
@@ -1564,7 +1564,7 @@ export function SummerApplicationDetailModal({
                       className={cn(
                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                         publishBlocker
-                          ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
+                          ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
                           : "bg-primary text-primary-foreground hover:bg-primary/90",
                       )}
                     >
@@ -1626,7 +1626,7 @@ export function SummerApplicationDetailModal({
                   <button
                     type="button"
                     onClick={() => setEditingDetails((v) => !v)}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:text-accent-ink/80"
                   >
                     <Pencil className="h-3 w-3" />
                     {editingDetails ? "Done editing" : "Edit details"}
@@ -1690,7 +1690,7 @@ export function SummerApplicationDetailModal({
                 </div>
                 <div className="col-span-2">
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
-                    <WeChatIcon className="h-3 w-3 text-green-600" />
+                    <WeChatIcon className="h-3 w-3 text-green-700" />
                     WeChat ID
                   </label>
                   <input type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} className={inputClass} />
@@ -1828,12 +1828,12 @@ export function SummerApplicationDetailModal({
           {(app.wechat_id || app.contact_phone) && (
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg shrink-0">
-                <Phone className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <Phone className="h-5 w-5 text-green-700 dark:text-green-400" />
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Contact</div>
                 <FieldValue
-                  label={<span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span>}
+                  label={<span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-700" />WeChat</span>}
                   value={app.wechat_id}
                   copyable
                 />
@@ -1859,7 +1859,7 @@ export function SummerApplicationDetailModal({
           {(classifiedPrefs.primary.length > 0 || classifiedPrefs.backup.length > 0 || app.unavailability_notes || (app.sessions_per_week ?? 1) > 1) && (
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg shrink-0">
-                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <Clock className="h-5 w-5 text-amber-700 dark:text-amber-400" />
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Schedule Preferences</div>
@@ -1904,7 +1904,7 @@ export function SummerApplicationDetailModal({
                   </>
                 )}
                 {app.unavailability_notes && (
-                  <div className="text-xs text-red-500 dark:text-red-400 mt-1">Unavailable: {app.unavailability_notes}</div>
+                  <div className="text-xs text-red-600 dark:text-red-400 mt-1">Unavailable: {app.unavailability_notes}</div>
                 )}
               </div>
             </div>
@@ -1915,7 +1915,7 @@ export function SummerApplicationDetailModal({
           {/* Placement Info */}
           <div className="flex items-start gap-3">
             <div className="p-1.5 bg-teal-100 dark:bg-teal-900/30 rounded-lg shrink-0">
-              <Grid3X3 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+              <Grid3X3 className="h-5 w-5 text-teal-700 dark:text-teal-400" />
             </div>
             <div className="min-w-0 flex-1">
               {(() => {
@@ -1987,7 +1987,7 @@ export function SummerApplicationDetailModal({
                       className={cn(
                         "inline-flex items-center gap-1 text-[11px]",
                         messagePanel === key
-                          ? "font-medium text-primary"
+                          ? "font-medium text-accent-ink"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                       title={title}
@@ -2011,7 +2011,7 @@ export function SummerApplicationDetailModal({
                     <span className="text-muted-foreground">Session plan:</span>
                     <span className={cn(
                       "tabular-nums font-medium",
-                      isPartialPlan ? "text-amber-600 dark:text-amber-400" : "text-foreground",
+                      isPartialPlan ? "text-amber-700 dark:text-amber-400" : "text-foreground",
                     )}>
                       {planCurrent} lessons
                     </span>
@@ -2161,7 +2161,7 @@ export function SummerApplicationDetailModal({
                       const strikethrough = cfg ? !!cfg.strikethrough : isPreRescheduled;
                       const opacityValue = cfg ? cfg.opacity : (isPreRescheduled ? 0.8 : undefined);
                       const rowBg = cfg ? cfg.bgTint : sessionStatusBg(p.session_status);
-                      const strikeText = cfg ? cfg.textClass : "text-orange-600 dark:text-orange-400";
+                      const strikeText = cfg ? cfg.textClass : "text-orange-700 dark:text-orange-400";
                       const strikeBadgeBg = cfg && p.session_status.endsWith("- Make-up Booked")
                         ? "bg-gray-100 dark:bg-gray-800/30"
                         : cfg && (p.session_status === "Cancelled" || p.session_status === "No Show")
@@ -2238,10 +2238,10 @@ export function SummerApplicationDetailModal({
                           {cfg
                             ? <cfg.Icon className={cn("h-3.5 w-3.5 shrink-0", cfg.iconClass ?? cfg.textClass)} />
                             : isPreConfirmed
-                              ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                              ? <Check className="h-3.5 w-3.5 shrink-0 text-green-700" />
                               : isPreRescheduled
-                                ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-                                : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                                ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-700" />
+                                : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-700" />}
                           <span className={cn(
                             "font-medium tabular-nums w-16 shrink-0",
                             strikethrough ? cn("line-through", strikeText) : "text-foreground"
@@ -2321,7 +2321,7 @@ export function SummerApplicationDetailModal({
                                         setPendingAction({ kind: "reschedule", ...target });
                                       }}
                                       title="Request Reschedule"
-                                      className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
+                                      className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-400 transition-colors"
                                     >
                                       <CalendarClock className="h-3 w-3" />
                                     </button>
@@ -2390,7 +2390,7 @@ export function SummerApplicationDetailModal({
                         setBuddyEditCode("");
                         setBuddyEditValid(null);
                       }}
-                      className="text-[10px] text-primary hover:text-primary-hover underline"
+                      className="text-[10px] text-accent-ink hover:text-accent-ink-hover underline"
                     >
                       Change
                     </button>
@@ -2476,10 +2476,10 @@ export function SummerApplicationDetailModal({
                           </button>
                         </div>
                         {buddyEditValid === true && !buddyEditGroupFull && (
-                          <div className="text-[10px] text-green-600">Valid code</div>
+                          <div className="text-[10px] text-green-700">Valid code</div>
                         )}
                         {buddyEditValid === true && buddyEditGroupFull && (
-                          <div className="text-[10px] text-amber-600">
+                          <div className="text-[10px] text-amber-700">
                             ⚠ Group already has {buddyEditMaxMembers} members — admin override will add a {buddyEditMaxMembers + 1}th (public cap bypassed).
                           </div>
                         )}
@@ -2556,7 +2556,7 @@ export function SummerApplicationDetailModal({
                                     )}
                                   </span>
                                   {r.buddy_code ? (
-                                    <span className="font-mono text-primary shrink-0">
+                                    <span className="font-mono text-accent-ink shrink-0">
                                       {r.buddy_code}
                                     </span>
                                   ) : (
@@ -2763,7 +2763,7 @@ export function SummerApplicationDetailModal({
           {effectiveDiscount && typeof baseFee === "number" && baseFee > 0 && (
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg shrink-0">
-                <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <DollarSign className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Fee</div>

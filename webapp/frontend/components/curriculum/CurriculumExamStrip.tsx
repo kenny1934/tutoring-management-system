@@ -85,11 +85,11 @@ export function CurriculumExamStrip({
       )}
     >
       <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
-        <CalendarClock className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0 self-center" />
+        <CalendarClock className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400 shrink-0 self-center" />
         <h2 className="text-xs font-semibold text-gray-800 dark:text-gray-200 shrink-0">
           Tests and exams
         </h2>
-        <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
           Recorded for this school year. Click one to open its revision pack.
         </span>
       </div>
@@ -146,20 +146,20 @@ export function CurriculumExamStrip({
                     </span>
                   ))}
                   {event.concepts.length > MAX_CHIPS && (
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
                       +{event.concepts.length - MAX_CHIPS}
                     </span>
                   )}
                 </span>
               ) : (
-                <span className="text-[10px] italic text-gray-400 dark:text-gray-500">
+                <span className="text-[10px] italic text-gray-500 dark:text-gray-400">
                   No topics recognised for this test
                 </span>
               )}
 
               {event.unmatched_lines.length > 0 && (
                 <span
-                  className="text-[9px] text-gray-400 dark:text-gray-500"
+                  className="text-[9px] text-gray-500 dark:text-gray-400"
                   title="Lines from the test scope that could not be matched to topics. Open the revision pack to see them."
                 >
                   {event.unmatched_lines.length} scope line

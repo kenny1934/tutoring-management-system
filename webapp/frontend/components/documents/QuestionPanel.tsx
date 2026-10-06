@@ -113,7 +113,7 @@ function QuestionCard({
           {number}
         </button>
         {q.marks != null && (
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">{q.marks} marks</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400">{q.marks} marks</span>
         )}
         <div className="ml-auto flex items-center gap-0.5">
           {errorMsg && onRetry && (
@@ -124,8 +124,8 @@ function QuestionCard({
               title="Retry this question"
             >
               {retrying
-                ? <Loader2 className="w-3 h-3 text-red-400 animate-spin" />
-                : <RotateCw className="w-3 h-3 text-red-400" />}
+                ? <Loader2 className="w-3 h-3 text-red-600 animate-spin" />
+                : <RotateCw className="w-3 h-3 text-red-600" />}
             </button>
           )}
           <button
@@ -137,7 +137,7 @@ function QuestionCard({
               setTimeout(() => setCopied(false), 1500);
             }}
           >
-            {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400" />}
+            {copied ? <Check className="w-3 h-3 text-green-700" /> : <Copy className="w-3 h-3 text-gray-500" />}
           </button>
         </div>
       </div>
@@ -150,7 +150,7 @@ function QuestionCard({
         </button>
       )}
       {errorMsg && (
-        <p className="text-[10px] text-red-500 mb-1">Failed: {errorMsg}</p>
+        <p className="text-[10px] text-red-600 mb-1">Failed: {errorMsg}</p>
       )}
       {(q.topic || q.difficulty) && (
         <div className="flex flex-wrap items-center gap-1">
@@ -172,7 +172,7 @@ function QuestionCard({
         </div>
       )}
       {q.sub_questions && q.sub_questions.length > 0 && (
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
           Sub-parts: {q.sub_questions.join(", ")}
         </p>
       )}
@@ -194,7 +194,7 @@ const GEMINI_PRICING = { input: 0.15, output: 0.60 };
 function UsageSummary({ usage }: { usage: { input_tokens: number; output_tokens: number } }) {
   const cost = (usage.input_tokens * GEMINI_PRICING.input + usage.output_tokens * GEMINI_PRICING.output) / 1_000_000;
   return (
-    <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+    <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center">
       {usage.input_tokens.toLocaleString()} in / {usage.output_tokens.toLocaleString()} out &middot; ~${cost.toFixed(3)}
     </p>
   );
@@ -425,7 +425,7 @@ export function QuestionPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <div className="flex items-center gap-2">
-          <ListTree className="w-4 h-4 text-[#a0704b]" />
+          <ListTree className="w-4 h-4 text-accent-ink" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Questions</h3>
           {questions && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">
@@ -458,7 +458,7 @@ export function QuestionPanel({
       {isStale && !loading && (
         <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 text-[11px] text-amber-700 dark:text-amber-300 flex items-center justify-between">
           <span>Document changed — questions may be outdated</span>
-          <button onClick={handleExtract} disabled={loading || processing} className="text-amber-600 dark:text-amber-400 hover:underline font-medium ml-2">Refresh</button>
+          <button onClick={handleExtract} disabled={loading || processing} className="text-amber-700 dark:text-amber-400 hover:underline font-medium ml-2">Refresh</button>
         </div>
       )}
       {successMsg && (
@@ -475,22 +475,22 @@ export function QuestionPanel({
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex flex-col items-center gap-3 py-12 text-gray-400">
+          <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
             <Loader2 className="w-6 h-6 animate-spin" />
             <p className="text-xs">Extracting questions...</p>
           </div>
         ) : processing && retryingIndex === null ? (
-          <div className="flex flex-col items-center gap-3 py-12 text-gray-400">
+          <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
             <Loader2 className="w-6 h-6 animate-spin" />
             <p className="text-xs">Processing with AI...</p>
             <p className="text-[10px] text-gray-400/70">This may take a few seconds</p>
           </div>
         ) : !questions || questions.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-12 px-4">
-            <Sparkles className="w-8 h-8 text-[#a0704b]/50" />
+            <Sparkles className="w-8 h-8 text-accent-ink/50" />
             <div className="text-center">
               <p className="text-sm text-gray-600 dark:text-gray-300">No questions extracted yet</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Parse the document to identify individual questions
               </p>
             </div>
@@ -501,7 +501,7 @@ export function QuestionPanel({
             >
               Extract Questions
             </button>
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {error && <p className="text-xs text-red-600">{error}</p>}
           </div>
         ) : (
           <div className="py-2">
@@ -516,7 +516,7 @@ export function QuestionPanel({
                 onRetry={errorMap.has(q.index) ? () => handleRetry(q.index) : undefined}
               />
             ))}
-            {error && <p className="text-xs text-red-500 px-4 py-2">{error}</p>}
+            {error && <p className="text-xs text-red-600 px-4 py-2">{error}</p>}
             {usage && <div className="px-4 py-2"><UsageSummary usage={usage} /></div>}
           </div>
         )}

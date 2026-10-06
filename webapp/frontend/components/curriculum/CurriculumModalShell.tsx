@@ -122,7 +122,7 @@ export function CurriculumModalShell({
         </div>
 
         {subtitle && (
-          <p className="px-4 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+          <p className="px-4 py-1.5 text-[10px] text-gray-500 dark:text-gray-400 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
             {subtitle}
           </p>
         )}
@@ -174,7 +174,7 @@ export function CurriculumShowMoreFiles({
         </button>
       )}
       {!moreAvailable && total > shown && (
-        <span className="text-gray-400">
+        <span className="text-gray-500">
           Showing the first {shown} of {total} files.
         </span>
       )}

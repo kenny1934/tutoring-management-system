@@ -177,15 +177,15 @@ function ExamCalendarView({
                 className={cn(
                   "relative p-2 min-h-[70px] border-b border-r border-line/50 text-left transition-colors",
                   !isCurrentMonth && "bg-gray-50 dark:bg-gray-900/30",
-                  isSelected && "bg-[#f5ede3] dark:bg-[#3d3628] ring-2 ring-inset ring-[#a0704b]",
+                  isSelected && "bg-[#f5ede3] dark:bg-[#3d3628] ring-2 ring-inset ring-primary",
                   !isSelected && hasExams && "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
                 )}
               >
                 <span className={cn(
                   "inline-flex items-center justify-center w-7 h-7 rounded-full text-sm",
-                  isToday && "bg-[#a0704b] text-white font-bold",
+                  isToday && "bg-primary text-white font-bold",
                   !isToday && isCurrentMonth && "text-gray-900 dark:text-gray-100",
-                  !isToday && !isCurrentMonth && "text-gray-400 dark:text-gray-600"
+                  !isToday && !isCurrentMonth && "text-gray-500 dark:text-gray-400"
                 )}>
                   {date.getDate()}
                 </span>
@@ -558,7 +558,7 @@ export default function ExamsPage() {
       <PageSurface fullHeight>
         <div className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+            <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
           </div>
         </div>
       </PageSurface>
@@ -582,7 +582,7 @@ export default function ExamsPage() {
               </button>
               <div className="flex items-center gap-3">
                 <div className="hidden sm:block p-2 rounded-lg bg-tint">
-                  <GraduationCap className="h-6 w-6 text-[#a0704b]" />
+                  <GraduationCap className="h-6 w-6 text-accent-ink" />
                 </div>
                 <div>
                   <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
@@ -597,7 +597,7 @@ export default function ExamsPage() {
               {canManageEvents && (
                 <button
                   onClick={handleOpenCreateEvent}
-                  className="ml-auto flex items-center gap-1.5 px-2 sm:px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] hover:bg-[#8a5f3d] text-white transition-colors"
+                  className="ml-auto flex items-center gap-1.5 px-2 sm:px-3 py-2 text-sm font-medium rounded-lg bg-primary hover:bg-[#8a5f3d] text-white transition-colors"
                   title="Add Event"
                 >
                   <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -619,7 +619,7 @@ export default function ExamsPage() {
           <div className="px-4 py-3 flex flex-wrap gap-2 sm:gap-3 items-center">
             {/* Search - full width on mobile */}
             <div className="relative w-full sm:w-auto sm:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search exams..."
@@ -717,7 +717,7 @@ export default function ExamsPage() {
                 className={cn(
                   "p-1.5 rounded-md transition-colors",
                   viewStyle === "list"
-                    ? "bg-[#a0704b] text-white"
+                    ? "bg-primary text-white"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 )}
                 title="List view"
@@ -729,7 +729,7 @@ export default function ExamsPage() {
                 className={cn(
                   "p-1.5 rounded-md transition-colors",
                   viewStyle === "calendar"
-                    ? "bg-[#a0704b] text-white"
+                    ? "bg-primary text-white"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 )}
                 title="Calendar view"
@@ -753,10 +753,10 @@ export default function ExamsPage() {
                   "px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300",
                   isDefaultDateRange
                     ? "border-[#e8d4b8] dark:border-[#6b5a4a]"
-                    : "border-[#a0704b] ring-1 ring-[#a0704b]/30"
+                    : "border-primary ring-1 ring-primary/30"
                 )}
               />
-              <span className="text-gray-400 text-sm">to</span>
+              <span className="text-gray-500 text-sm">to</span>
               <input
                 type="date"
                 value={toDate}
@@ -766,13 +766,13 @@ export default function ExamsPage() {
                   "px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300",
                   isDefaultDateRange
                     ? "border-[#e8d4b8] dark:border-[#6b5a4a]"
-                    : "border-[#a0704b] ring-1 ring-[#a0704b]/30"
+                    : "border-primary ring-1 ring-primary/30"
                 )}
               />
               {!isDefaultDateRange && (
                 <button
                   onClick={setNext30Days}
-                  className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="p-1 rounded-md text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   title="Reset date filter"
                 >
                   <X className="h-4 w-4" />
@@ -787,7 +787,7 @@ export default function ExamsPage() {
                 className={cn(
                   "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
                   activePreset === 'thisWeek'
-                    ? "bg-[#a0704b] text-white border-[#a0704b]"
+                    ? "bg-primary text-white border-primary"
                     : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                 )}
               >
@@ -798,7 +798,7 @@ export default function ExamsPage() {
                 className={cn(
                   "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
                   activePreset === 'next2Weeks'
-                    ? "bg-[#a0704b] text-white border-[#a0704b]"
+                    ? "bg-primary text-white border-primary"
                     : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                 )}
               >
@@ -809,7 +809,7 @@ export default function ExamsPage() {
                 className={cn(
                   "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
                   activePreset === 'thisMonth'
-                    ? "bg-[#a0704b] text-white border-[#a0704b]"
+                    ? "bg-primary text-white border-primary"
                     : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                 )}
               >
@@ -820,7 +820,7 @@ export default function ExamsPage() {
                 className={cn(
                   "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
                   activePreset === 'next30Days'
-                    ? "bg-[#a0704b] text-white border-[#a0704b]"
+                    ? "bg-primary text-white border-primary"
                     : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                 )}
               >
@@ -840,7 +840,7 @@ export default function ExamsPage() {
         <div className="px-4 sm:px-6 pt-4 pb-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
             </div>
           ) : sortedExams.length === 0 ? (
             <div className={cn(

@@ -162,11 +162,11 @@ export const StudentContactList = memo(function StudentContactList({
 
   const getGroupIcon = (key: string) => {
     if (groupMode === 'grade') {
-      return <GraduationCap className="h-4 w-4 text-[#a0704b]" />;
+      return <GraduationCap className="h-4 w-4 text-accent-ink" />;
     }
     // For urgency mode, use status indicators
     if (key === 'Contact Needed' || key === 'Never Contacted') {
-      return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      return <AlertTriangle className="h-4 w-4 text-red-600" />;
     }
     return <ContactStatusDot status={key} />;
   };
@@ -201,7 +201,7 @@ export const StudentContactList = memo(function StudentContactList({
                 className={cn(
                   "p-1 rounded text-xs",
                   groupMode === 'urgency'
-                    ? "bg-white dark:bg-[#2d2618] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#2d2618] text-accent-ink shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
                 )}
                 title="Group by Urgency"
@@ -213,7 +213,7 @@ export const StudentContactList = memo(function StudentContactList({
                 className={cn(
                   "p-1 rounded text-xs",
                   groupMode === 'grade'
-                    ? "bg-white dark:bg-[#2d2618] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#2d2618] text-accent-ink shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
                 )}
                 title="Group by Grade"
@@ -229,7 +229,7 @@ export const StudentContactList = memo(function StudentContactList({
                 "text-xs px-1.5 py-1 rounded-md w-16",
                 "bg-gray-100 dark:bg-gray-800 border-0",
                 "text-gray-600 dark:text-gray-400",
-                "focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                "focus:outline-none focus:ring-1 focus:ring-primary"
               )}
               title="Sort within groups"
             >
@@ -242,7 +242,7 @@ export const StudentContactList = memo(function StudentContactList({
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
           <input
             type="text"
             placeholder={onSearchChange ? "Search students & notes..." : "Search students..."}
@@ -251,7 +251,7 @@ export const StudentContactList = memo(function StudentContactList({
             className={cn(
               "w-full pl-7 pr-3 py-1.5 text-sm",
               "bg-white dark:bg-[#1a1a1a] border border-[#d4a574]/50 dark:border-[#6b5a4a] rounded-md",
-              "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+              "focus:outline-none focus:ring-1 focus:ring-primary",
               "placeholder:text-gray-400"
             )}
           />
@@ -277,9 +277,9 @@ export const StudentContactList = memo(function StudentContactList({
                 )}
               >
                 {expandedGroups.has(group.key) ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0" />
                 )}
                 {getGroupIcon(group.key)}
                 <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -343,8 +343,8 @@ export const StudentContactList = memo(function StudentContactList({
                         className={cn(
                           "p-1 rounded transition-colors",
                           readOnly
-                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                            : "text-gray-400 hover:text-[#a0704b] hover:bg-gray-200 dark:hover:bg-gray-700"
+                            ? "text-gray-300 dark:text-gray-400 cursor-not-allowed"
+                            : "text-gray-500 hover:text-accent-ink hover:bg-gray-200 dark:hover:bg-gray-700"
                         )}
                         title={readOnly ? "Read-only access" : "Record contact"}
                       >

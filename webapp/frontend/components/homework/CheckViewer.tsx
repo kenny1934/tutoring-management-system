@@ -158,7 +158,7 @@ export function CheckViewer({
 
   const header = (
     <div className="flex items-center gap-1 pl-3 pr-1 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-      <BookCheck className="h-4 w-4 flex-none text-[#a0704b]" />
+      <BookCheck className="h-4 w-4 flex-none text-accent-ink" />
       <div className="min-w-0 flex-1 py-1.5 pl-1">
         <div className="flex items-baseline gap-1.5 min-w-0">
           {live.studentName && (
@@ -177,7 +177,7 @@ export function CheckViewer({
           <p className="truncate text-[11px] text-ink-subtle">
             from {source}
             {(hw.sessions_ago || 0) > 1 && (
-              <span className="ml-1 text-amber-600 dark:text-amber-400">· {hw.sessions_ago} sessions ago</span>
+              <span className="ml-1 text-amber-700 dark:text-amber-400">· {hw.sessions_ago} sessions ago</span>
             )}
           </p>
         )}
@@ -288,7 +288,7 @@ export function CheckViewer({
               <button
                 type="button"
                 onClick={retryAnswer}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-primary text-white hover:bg-[#8b6040] transition-colors"
               >
                 <Search className="h-3.5 w-3.5" />
                 Search again

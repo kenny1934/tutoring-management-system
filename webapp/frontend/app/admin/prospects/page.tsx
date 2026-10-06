@@ -642,7 +642,7 @@ export default function AdminProspectsPage() {
             {choice.length > 0 && (
               <button
                 onClick={() => setChoice([])}
-                className="text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors ml-1"
+                className="text-[11px] font-medium text-muted-foreground hover:text-accent-ink transition-colors ml-1"
               >
                 clear
               </button>
@@ -689,7 +689,7 @@ export default function AdminProspectsPage() {
                   {...triggerProps}
                   className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
                     selectFilterCount > 0 || open
-                      ? "border-primary/50 text-primary"
+                      ? "border-primary/50 text-accent-ink"
                       : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
                   }`}
                 >
@@ -706,7 +706,7 @@ export default function AdminProspectsPage() {
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
-                className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                className="text-xs font-medium text-muted-foreground hover:text-accent-ink transition-colors"
               >
                 Clear all
               </button>
@@ -762,7 +762,7 @@ export default function AdminProspectsPage() {
               ))}
               <button
                 onClick={clearAllFilters}
-                className="text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors ml-1"
+                className="text-[11px] font-medium text-muted-foreground hover:text-accent-ink transition-colors ml-1"
               >
                 Clear all
               </button>
@@ -839,7 +839,7 @@ export default function AdminProspectsPage() {
                       {colVisible("phone") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>}
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                       {colVisible("pref") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Preferred time / tutor notes">Pref</th>}
-                      {colVisible("wechat") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>}
+                      {colVisible("wechat") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-700" />WeChat</span></th>}
                       {colVisible("remark") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>}
                       {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><span className="inline-flex items-center gap-1"><MessageSquare className="h-3 w-3" />Notes</span></th>}
                       <SortTh label="Outreach" sortKey="outreach_status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -1073,7 +1073,7 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={`Find and link a ${course} application`}
-        className="text-[10px] font-medium text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors"
+        className="text-[10px] font-medium text-muted-foreground hover:text-accent-ink px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors"
       >
         + Link
       </button>
@@ -1206,7 +1206,7 @@ function InlineSelect<T extends string>({
                 setOpen(false);
                 if (opt !== value) onChange(opt);
               }}
-              className={`block w-full text-left text-xs px-2 py-1 rounded hover:bg-primary/10 ${opt === value ? "font-semibold text-primary" : "text-foreground"}`}
+              className={`block w-full text-left text-xs px-2 py-1 rounded hover:bg-primary/10 ${opt === value ? "font-semibold text-accent-ink" : "text-foreground"}`}
             >
               {opt}
             </button>
@@ -1371,7 +1371,7 @@ const ProspectRow = memo(function ProspectRow({
             // title prop, so passing one there typed as an error and never
             // reached the DOM.
             <span title={p.contact_notes} className="inline-flex">
-              <MessageSquare className="h-3 w-3 text-primary/60" />
+              <MessageSquare className="h-3 w-3 text-accent-ink/60" />
             </span>
           ) : (
             <span className="text-xs text-muted-foreground/30">-</span>
@@ -1441,7 +1441,7 @@ function SortTh({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 transition-colors ${active ? "text-primary" : "hover:text-primary"}`}
+        className={`inline-flex items-center gap-1 transition-colors ${active ? "text-accent-ink" : "hover:text-accent-ink"}`}
         aria-label={`Sort by ${label || sortKey}`}
       >
         {icon}
@@ -1483,15 +1483,15 @@ function HeaderBar({
     <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-          <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <GraduationCap className="h-5 w-5 text-amber-700 dark:text-amber-400" />
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
             P6 Prospects
-            <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-accent-ink transition-colors">
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
-            {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+            {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
           </h1>
           <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
         </div>

@@ -288,7 +288,7 @@ function BranchCompare({
               type="button"
               onClick={() => onPick(r.key)}
               title={`Show only ${r.label ?? r.key}`}
-              className="text-left rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 hover:border-[#a0704b]/60 transition-colors"
+              className="text-left rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 hover:border-primary/60 transition-colors"
             >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-foreground">{r.label ?? r.key}</span>
@@ -440,7 +440,7 @@ export default function RegularRetentionPage() {
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <Users className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                <Users className="h-5 w-5 text-sky-700 dark:text-sky-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Retention</h1>
@@ -471,7 +471,7 @@ export default function RegularRetentionPage() {
                           onClick={() => { setBranch(null); close(); }}
                           className={cn(
                             "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
-                            branch === null && "font-semibold text-primary"
+                            branch === null && "font-semibold text-accent-ink"
                           )}
                         >
                           All branches
@@ -483,7 +483,7 @@ export default function RegularRetentionPage() {
                             onClick={() => { setBranch(b); close(); }}
                             className={cn(
                               "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
-                              b === branch && "font-semibold text-primary"
+                              b === branch && "font-semibold text-accent-ink"
                             )}
                           >
                             {b}
@@ -511,7 +511,7 @@ export default function RegularRetentionPage() {
                           onClick={() => { setYear(y); setBranch(null); close(); }}
                           className={cn(
                             "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
-                            y === year && "font-semibold text-primary"
+                            y === year && "font-semibold text-accent-ink"
                           )}
                         >
                           {y}

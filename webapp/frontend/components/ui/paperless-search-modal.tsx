@@ -689,7 +689,7 @@ export function PaperlessSearchModal({
 
             {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <input
             ref={searchInputRef}
             type="text"
@@ -708,7 +708,7 @@ export function PaperlessSearchModal({
             disabled={isConfigured === false}
           />
           {isLoading && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 animate-spin" />
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-700 animate-spin" />
           )}
         </div>
 
@@ -722,7 +722,7 @@ export function PaperlessSearchModal({
           <div className="-mt-2">
             <button
               onClick={() => setHintsExpanded(!hintsExpanded)}
-              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
             >
               <ChevronDown className={cn("h-3 w-3 transition-transform", hintsExpanded && "rotate-180")} />
               {hintsExpanded ? "Hide syntax tips" : "Show syntax tips"}
@@ -787,7 +787,7 @@ export function PaperlessSearchModal({
                         type="checkbox"
                         checked={selectedTagIds.includes(tag.id)}
                         onChange={() => handleTagToggle(tag.id)}
-                        className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500"
+                        className="rounded border-gray-300 dark:border-gray-600 text-amber-700 focus:ring-amber-500"
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">{tag.name}</span>
                     </label>
@@ -855,7 +855,7 @@ export function PaperlessSearchModal({
         {/* Error Message */}
         {error && !isLoading && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-            <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+            <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
             <span className="text-sm text-red-700 dark:text-red-300">{error}</span>
           </div>
         )}
@@ -877,7 +877,7 @@ export function PaperlessSearchModal({
 
               {/* Trending section - empty fallback */}
               {!trendingLoading && topTrending.length === 0 && (studentGrade || school) && (
-                <div className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   No trending for {studentGrade}{school && ` @ ${school}`}
                 </div>
               )}
@@ -892,7 +892,7 @@ export function PaperlessSearchModal({
                       {studentGrade && ` for ${studentGrade}`}
                       {school && ` @ ${school}`}
                     </span>
-                    <span className="text-gray-400 dark:text-gray-500">(Last 14 days)</span>
+                    <span className="text-gray-500 dark:text-gray-400">(Last 14 days)</span>
                   </div>
                   <div className="space-y-1">
                     {topTrending.map((item, index) => {
@@ -933,9 +933,9 @@ export function PaperlessSearchModal({
                               isExpanded && "rounded-b-none border-b-0"
                             )}
                           >
-                            {index < 3 && <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
+                            {index < 3 && <Flame className="h-3.5 w-3.5 text-orange-700 shrink-0" />}
                             <span className="flex-1 truncate text-sm text-gray-900 dark:text-gray-100">{item.filename}</span>
-                            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 flex items-center gap-1.5">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 flex items-center gap-1.5">
                               {item.assignment_count}×
                               <span className="flex items-center gap-0.5">
                                 <User className="h-3 w-3" />
@@ -945,7 +945,7 @@ export function PaperlessSearchModal({
                             {/* Preview button - always show, checks on-demand */}
                             {unavailableTrending.has(item.filename) ? (
                               <div className="p-1 shrink-0" title="Not available in Shelv">
-                                <EyeOff className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+                                <EyeOff className="h-4 w-4 text-gray-300 dark:text-gray-400" />
                               </div>
                             ) : (
                               <button
@@ -954,7 +954,7 @@ export function PaperlessSearchModal({
                                   handlePreviewTrending(item);
                                 }}
                                 disabled={checkingPreview.has(item.filename)}
-                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
+                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
                                 title={checkingPreview.has(item.filename) ? 'Checking...' : 'Preview PDF'}
                                 aria-label={`Preview ${item.filename}`}
                               >
@@ -976,8 +976,8 @@ export function PaperlessSearchModal({
                               className={cn(
                                 "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0",
                                 isExpanded
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                                  ? "text-amber-700 dark:text-amber-400"
+                                  : "text-gray-500 hover:text-amber-700 dark:hover:text-amber-400"
                               )}
                               title={isExpanded ? "Hide usage details" : "Show usage details"}
                               aria-label={isExpanded ? `Hide usage details for ${item.filename}` : `Show usage details for ${item.filename}`}
@@ -988,9 +988,9 @@ export function PaperlessSearchModal({
                             {/* Multi-select checkbox */}
                             {multiSelect && (
                               isChecked ? (
-                                <CheckSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <CheckSquare className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0" />
                               ) : (
-                                <Square className="h-4 w-4 text-gray-400 shrink-0" />
+                                <Square className="h-4 w-4 text-gray-500 shrink-0" />
                               )
                             )}
                           </div>
@@ -1020,7 +1020,7 @@ export function PaperlessSearchModal({
                                           key={`${detail.session_id}-${detail.exercise_id}-${i}`}
                                           className="flex items-center gap-2 text-gray-600 dark:text-gray-400"
                                         >
-                                          <span className="text-gray-400 dark:text-gray-500 w-20 shrink-0">
+                                          <span className="text-gray-500 dark:text-gray-400 w-20 shrink-0">
                                             {detail.session_date
                                               ? new Date(detail.session_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
                                               : '-'}
@@ -1033,7 +1033,7 @@ export function PaperlessSearchModal({
                                               title={`${displayId} ${detail.student_name}`}
                                               onClick={(e) => e.stopPropagation()}
                                             >
-                                              <span className="text-gray-400 dark:text-gray-500 mr-1">{displayId}</span>
+                                              <span className="text-gray-500 dark:text-gray-400 mr-1">{displayId}</span>
                                               <span className="group-hover:underline">{detail.student_name}</span>
                                             </Link>
                                           ) : (
@@ -1042,7 +1042,7 @@ export function PaperlessSearchModal({
                                               <span>{detail.student_name}</span>
                                             </span>
                                           )}
-                                          <span className="shrink-0 text-gray-400 dark:text-gray-500">
+                                          <span className="shrink-0 text-gray-500 dark:text-gray-400">
                                             <GradeLabel grade={detail.grade} langStream={detail.lang_stream} />
                                           </span>
                                           <span className={cn(
@@ -1053,7 +1053,7 @@ export function PaperlessSearchModal({
                                           )}>
                                             {detail.exercise_type}
                                           </span>
-                                          <span className="shrink-0 text-gray-400 dark:text-gray-500 truncate max-w-[60px]" title={detail.tutor_name}>
+                                          <span className="shrink-0 text-gray-500 dark:text-gray-400 truncate max-w-[60px]" title={detail.tutor_name}>
                                             {detail.tutor_name}
                                           </span>
                                           {canAccessLocation ? (
@@ -1064,7 +1064,7 @@ export function PaperlessSearchModal({
                                               title="Go to session"
                                               onClick={(e) => e.stopPropagation()}
                                             >
-                                              <ExternalLink className="h-3 w-3 text-gray-400 hover:text-[#a0704b]" />
+                                              <ExternalLink className="h-3 w-3 text-gray-500 hover:text-accent-ink" />
                                             </Link>
                                           ) : (
                                             <div className="p-1 shrink-0 w-5" />
@@ -1097,7 +1097,7 @@ export function PaperlessSearchModal({
                     </span>
                     <button
                       onClick={handleClearRecent}
-                      className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
+                      className="text-xs text-gray-500 hover:text-red-600 flex items-center gap-1"
                     >
                       <Trash2 className="h-3 w-3" />
                       Clear
@@ -1138,7 +1138,7 @@ export function PaperlessSearchModal({
                                 e.currentTarget.nextElementSibling?.classList.remove('hidden');
                               }}
                             />
-                            <FileText className="h-6 w-6 text-gray-400 hidden" />
+                            <FileText className="h-6 w-6 text-gray-500 hidden" />
                           </div>
 
                           {/* Content */}
@@ -1169,7 +1169,7 @@ export function PaperlessSearchModal({
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-8 w-8 p-0 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setPreviewDoc({
@@ -1188,9 +1188,9 @@ export function PaperlessSearchModal({
                             </Button>
                             {multiSelect ? (
                               isChecked ? (
-                                <CheckSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                                <CheckSquare className="h-5 w-5 text-amber-700 dark:text-amber-400" />
                               ) : (
-                                <Square className="h-5 w-5 text-gray-400" />
+                                <Square className="h-5 w-5 text-gray-500" />
                               )
                             ) : (
                               <Button size="sm" variant="outline" className="text-xs">
@@ -1207,7 +1207,7 @@ export function PaperlessSearchModal({
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">Type to search for documents</p>
-                  <p className="text-xs mt-1 text-gray-400">
+                  <p className="text-xs mt-1 text-gray-500">
                     Recent selections will appear here
                   </p>
                 </div>
@@ -1254,7 +1254,7 @@ export function PaperlessSearchModal({
                           e.currentTarget.nextElementSibling?.classList.remove('hidden');
                         }}
                       />
-                      <FileText className="h-6 w-6 text-gray-400 hidden" />
+                      <FileText className="h-6 w-6 text-gray-500 hidden" />
                     </div>
 
                     {/* Content */}
@@ -1267,7 +1267,7 @@ export function PaperlessSearchModal({
                           {path}
                         </p>
                       ) : (
-                        <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                           No path available
                         </p>
                       )}
@@ -1282,7 +1282,7 @@ export function PaperlessSearchModal({
                             </span>
                           ))}
                           {doc.tags.length > 5 && (
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-gray-500">
                               +{doc.tags.length - 5} more
                             </span>
                           )}
@@ -1296,7 +1296,7 @@ export function PaperlessSearchModal({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 w-8 p-0 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                        className="h-8 w-8 p-0 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400"
                         onClick={(e) => {
                           e.stopPropagation();
                           setPreviewDoc(doc);
@@ -1308,12 +1308,12 @@ export function PaperlessSearchModal({
                       {/* Select indicator */}
                       {multiSelect ? (
                         isChecked ? (
-                          <CheckSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          <CheckSquare className="h-5 w-5 text-amber-700 dark:text-amber-400" />
                         ) : (
-                          <Square className="h-5 w-5 text-gray-400" />
+                          <Square className="h-5 w-5 text-gray-500" />
                         )
                       ) : isSelected ? (
-                        <Check className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        <Check className="h-5 w-5 text-amber-700 dark:text-amber-400" />
                       ) : (
                         <Button size="sm" variant="outline" className="text-xs" disabled={!path}>
                           Use
@@ -1368,7 +1368,7 @@ export function PaperlessSearchModal({
         )}
 
         {/* Keyboard hints */}
-        <div className="text-xs text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-100 dark:border-gray-800">
+        <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-100 dark:border-gray-800">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
             navigate

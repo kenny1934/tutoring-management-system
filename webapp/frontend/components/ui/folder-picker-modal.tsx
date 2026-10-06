@@ -62,9 +62,9 @@ function FolderButton({
       )}
     >
       {isShared ? (
-        <FolderSync className="h-5 w-5 text-green-500 dark:text-green-400 shrink-0" />
+        <FolderSync className="h-5 w-5 text-green-700 dark:text-green-400 shrink-0" />
       ) : (
-        <Folder className="h-5 w-5 text-amber-500 dark:text-amber-400 shrink-0" />
+        <Folder className="h-5 w-5 text-amber-700 dark:text-amber-400 shrink-0" />
       )}
       <span className="flex-1 text-left font-medium text-gray-900 dark:text-gray-100 truncate">
         {folder.name}
@@ -72,7 +72,7 @@ function FolderButton({
       {!isShared && (
         <button
           onClick={(e) => onRemove(e, folder.id)}
-          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 transition-colors shrink-0"
           title="Remove folder"
         >
           <X className="h-4 w-4" />
@@ -209,14 +209,14 @@ export function FolderPickerModal({
               </h3>
               {sharedFolders.length === 0 ? (
                 <div className="p-4 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-center">
-                  <FolderSync className="h-8 w-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+                  <FolderSync className="h-8 w-8 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     No shared drives configured.
                   </p>
                   <Link
                     href="/settings"
                     onClick={onClose}
-                    className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400 hover:underline"
+                    className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400 hover:underline"
                   >
                     <Settings className="h-3.5 w-3.5" />
                     Set up in Settings → Path Mappings
@@ -246,7 +246,7 @@ export function FolderPickerModal({
                 <span className="font-normal normal-case ml-1">(this computer only)</span>
               </h3>
               {personalFolders.length === 0 && !showPersonalWarning && !renamingFolder ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   No personal folders added.
                 </p>
               ) : (
@@ -269,7 +269,7 @@ export function FolderPickerModal({
               {showPersonalWarning && (
                 <div className="p-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
                   <div className="flex gap-2 mb-3">
-                    <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <Info className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       Personal folders are only accessible on this computer. Files from personal folders cannot be shared with others.
                     </p>
@@ -361,7 +361,7 @@ export function FolderPickerModal({
         )}
 
         {/* Help text */}
-        <div className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
           Click a folder to browse and select a file from it.
         </div>
       </div>

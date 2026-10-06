@@ -169,7 +169,7 @@ export function RateSessionModal({
       title={
         <div className="flex items-center gap-2">
           <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">
-            <MessageSquarePlus className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <MessageSquarePlus className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           </span>
           <span>Rate & Comment</span>
         </div>
@@ -178,22 +178,22 @@ export function RateSessionModal({
       footer={
         <div className="space-y-2">
           {/* Keyboard shortcuts hint */}
-          <div className="hidden sm:flex items-center justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+          <div className="hidden sm:flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">1-5</kbd>
               <span>rate</span>
             </span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="text-gray-300 dark:text-gray-400">·</span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">0</kbd>
               <span>clear</span>
             </span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="text-gray-300 dark:text-gray-400">·</span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Tab</kbd>
               <span>comment</span>
             </span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="text-gray-300 dark:text-gray-400">·</span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
               <span>save</span>
@@ -253,12 +253,12 @@ export function RateSessionModal({
               size="lg"
             />
             {rating > 0 && (
-              <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+              <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
                 ({rating}/5)
               </span>
             )}
             {rating === 0 && (
-              <span className="text-sm text-gray-400 dark:text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 Click to rate
               </span>
             )}

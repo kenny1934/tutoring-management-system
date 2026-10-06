@@ -81,13 +81,13 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
       <button
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
-        className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+        className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary/50"
         title={pathList.length > 1 ? "Select path to copy" : "Copy path"}
         aria-haspopup={pathList.length > 1 ? "listbox" : undefined}
         aria-expanded={pathList.length > 1 ? isOpen : undefined}
       >
         {showCheckmark ? (
-          <Check className="h-4 w-4 text-green-600" />
+          <Check className="h-4 w-4 text-green-700" />
         ) : (
           <Copy className="h-4 w-4 text-gray-500" />
         )}
@@ -124,7 +124,7 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
                 aria-selected={i === focusedIndex}
               >
                 {copied === path ? (
-                  <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                  <Check className="h-3 w-3 text-green-700 flex-shrink-0" />
                 ) : (
                   <Copy className="h-3 w-3 text-gray-500 flex-shrink-0" />
                 )}

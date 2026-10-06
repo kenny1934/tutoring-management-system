@@ -42,11 +42,11 @@ function formatRelativeTime(dateStr: string): string {
 function VersionTypeIcon({ type }: { type: DocumentVersion["version_type"] }) {
   switch (type) {
     case "manual":
-      return <Bookmark className="w-3.5 h-3.5 text-amber-500" />;
+      return <Bookmark className="w-3.5 h-3.5 text-amber-700" />;
     case "session_start":
-      return <Play className="w-3.5 h-3.5 text-blue-500" />;
+      return <Play className="w-3.5 h-3.5 text-blue-600" />;
     default:
-      return <Clock className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />;
+      return <Clock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />;
   }
 }
 
@@ -164,11 +164,11 @@ export function VersionHistoryPanel({
       {/* Version list */}
       <div className="flex-1 overflow-y-auto">
         {loading && versions.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
+          <div className="flex items-center justify-center py-12 text-gray-500">
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
         ) : versions.length === 0 ? (
-          <div className="px-4 py-12 text-center text-xs text-gray-400 dark:text-gray-500">
+          <div className="px-4 py-12 text-center text-xs text-gray-500 dark:text-gray-400">
             No versions yet. Versions are created automatically as you edit.
           </div>
         ) : (
@@ -187,21 +187,21 @@ export function VersionHistoryPanel({
                       <span className="text-xs font-medium text-gray-900 dark:text-white">
                         v{ver.version_number}
                       </span>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
                         {versionTypeLabel(ver.version_type)}
                       </span>
                     </div>
                     {ver.label && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 truncate mt-0.5">
+                      <p className="text-xs text-amber-700 dark:text-amber-400 truncate mt-0.5">
                         {ver.label}
                       </p>
                     )}
                     <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
                         {formatRelativeTime(ver.created_at)}
                       </span>
-                      <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                      <span className="text-[10px] text-gray-300 dark:text-gray-400">·</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                         {ver.created_by_name}
                       </span>
                     </div>
@@ -211,7 +211,7 @@ export function VersionHistoryPanel({
                   <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => onPreview(ver.id)}
-                      className="p-1 rounded hover:bg-line/50 text-gray-400 hover:text-blue-500"
+                      className="p-1 rounded hover:bg-line/50 text-gray-500 hover:text-blue-600"
                       title="Preview this version"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -219,7 +219,7 @@ export function VersionHistoryPanel({
                     <button
                       onClick={() => handleRestore(ver.id)}
                       disabled={restoringId === ver.id}
-                      className="p-1 rounded hover:bg-line/50 text-gray-400 hover:text-green-600 disabled:opacity-50"
+                      className="p-1 rounded hover:bg-line/50 text-gray-500 hover:text-green-700 disabled:opacity-50"
                       title="Restore this version"
                     >
                       {restoringId === ver.id ? (
@@ -231,7 +231,7 @@ export function VersionHistoryPanel({
                     <button
                       onClick={() => handleDelete(ver.id)}
                       disabled={deletingId === ver.id}
-                      className="p-1 rounded hover:bg-line/50 text-gray-400 hover:text-red-500 disabled:opacity-50"
+                      className="p-1 rounded hover:bg-line/50 text-gray-500 hover:text-red-600 disabled:opacity-50"
                       title="Delete this version"
                     >
                       {deletingId === ver.id ? (

@@ -114,7 +114,7 @@ export function BrowsePdfPreview({
       <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-auto relative">
         {previewLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+            <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
           </div>
         ) : (
           <iframe
@@ -161,7 +161,7 @@ export function BrowsePdfPreview({
           </button>
           <button
             onClick={() => previewNode && onCopyPath(previewNode.path)}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-primary text-white hover:bg-[#8b6340]"
           >
             {copiedPath === previewNode?.path ? (
               <Check className="h-4 w-4" />

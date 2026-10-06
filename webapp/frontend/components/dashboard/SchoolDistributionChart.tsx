@@ -58,7 +58,7 @@ function CustomTooltip({
       <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg">
         <div className="font-medium text-gray-900 dark:text-gray-100">Others</div>
         <div className="text-sm text-gray-600 dark:text-gray-400">{data.value} students ({percentage}%)</div>
-        <div className="text-xs text-[#a0704b] dark:text-[#d4a574] mt-1">Click for breakdown</div>
+        <div className="text-xs text-accent-ink dark:text-[#d4a574] mt-1">Click for breakdown</div>
       </div>
     );
   }
@@ -108,7 +108,7 @@ function OthersPopover({
         </div>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
+          className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1"
         >
           ×
         </button>
@@ -172,7 +172,7 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
           className={cn(
             "p-1 rounded transition-colors",
             view === type
-              ? "bg-[#a0704b] text-white"
+              ? "bg-primary text-white"
               : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           )}
         >
@@ -422,7 +422,7 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
         </div>
       ) : error ? (
         <div className="h-[250px] flex flex-col items-center justify-center gap-3">
-          <div className="text-red-500 dark:text-red-400 text-sm">Failed to load data</div>
+          <div className="text-red-600 dark:text-red-400 text-sm">Failed to load data</div>
           {onRetry && (
             <button
               onClick={onRetry}

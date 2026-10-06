@@ -224,7 +224,7 @@ export const RegularConfigPreview = memo(function RegularConfigPreview({
         <button
           type="button"
           onClick={() => setLang(lang === "zh" ? "en" : "zh")}
-          className="text-xs text-primary hover:text-primary-hover font-medium"
+          className="text-xs text-accent-ink hover:text-accent-ink-hover font-medium"
         >
           {lang === "zh" ? "EN" : "中文"}
         </button>

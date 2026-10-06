@@ -299,7 +299,7 @@ export function ScheduleChangeReviewModal({
     >
       {previewLoading ? (
         <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent-ink" />
           <p className="mt-2 text-foreground/60">Analyzing schedule change impact...</p>
         </div>
       ) : previewError ? (
@@ -341,11 +341,11 @@ export function ScheduleChangeReviewModal({
           {/* Warnings */}
           {hasWarnings && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-1">
                 <AlertTriangle className="h-4 w-4" />
                 <span className="font-medium text-sm">Warnings</span>
               </div>
-              <ul className="text-xs text-amber-600 dark:text-amber-400 space-y-0.5">
+              <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
                 {preview.warnings.map((warning, i) => (
                   <li key={i}>• {warning}</li>
                 ))}
@@ -396,7 +396,7 @@ export function ScheduleChangeReviewModal({
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <CheckCircle2 className="h-4 w-4 text-green-700 dark:text-green-400" />
                   <span className="font-medium text-sm text-green-700 dark:text-green-300">
                     Will Be Updated ({preview.updatable_sessions.length} sessions)
                   </span>
@@ -448,11 +448,11 @@ export function ScheduleChangeReviewModal({
                                 </div>
                                 <div className={cn(
                                   "text-foreground/50",
-                                  hasTimeOverride && "text-blue-500 dark:text-blue-400"
+                                  hasTimeOverride && "text-blue-600 dark:text-blue-400"
                                 )}>
                                   {effectiveTime}
                                 </div>
-                                <div className="text-blue-500 text-[10px]">
+                                <div className="text-blue-600 text-[10px]">
                                   ✏️ Manual
                                 </div>
                               </div>
@@ -462,11 +462,11 @@ export function ScheduleChangeReviewModal({
                                 <div className="font-medium line-through text-foreground/40">
                                   {formatShortDate(session.new_date)}
                                 </div>
-                                <div className="font-medium text-amber-600 dark:text-amber-400">
+                                <div className="font-medium text-amber-700 dark:text-amber-400">
                                   {formatShortDate(session.shifted_date || session.new_date)}
                                 </div>
                                 <div className="text-foreground/50">{session.new_time_slot}</div>
-                                <div className="text-amber-500 text-[10px]">
+                                <div className="text-amber-700 text-[10px]">
                                   ⚠️ {session.holiday_name}
                                 </div>
                               </div>
@@ -483,7 +483,7 @@ export function ScheduleChangeReviewModal({
                               <div className="flex items-center gap-1">
                                 <span className="text-foreground/40 line-through">{session.current_tutor_name}</span>
                                 <ArrowRight className="h-2.5 w-2.5 text-foreground/30" />
-                                <span className="text-green-600 dark:text-green-400">{session.new_tutor_name}</span>
+                                <span className="text-green-700 dark:text-green-400">{session.new_tutor_name}</span>
                               </div>
                             ) : (
                               <span>{session.new_tutor_name}</span>
@@ -561,7 +561,7 @@ export function ScheduleChangeReviewModal({
                                 <button
                                   type="button"
                                   onClick={() => clearOverride(session.session_id)}
-                                  className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
+                                  className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600"
                                   title="Clear override"
                                 >
                                   <X className="h-3 w-3" />
@@ -578,7 +578,7 @@ export function ScheduleChangeReviewModal({
             </div>
           ) : (
             <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-              <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+              <CheckCircle2 className="h-8 w-8 text-green-700 mx-auto mb-2" />
               <p className="text-sm text-foreground/70">
                 No future sessions need to be updated.
               </p>

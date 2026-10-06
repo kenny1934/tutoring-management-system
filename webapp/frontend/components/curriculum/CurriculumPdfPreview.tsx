@@ -142,7 +142,7 @@ export function CurriculumPdfPreview({
                 </>
               ) : (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+                  <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
                   <p className="text-xs text-gray-500 dark:text-gray-400">{progress}</p>
                 </>
               )}

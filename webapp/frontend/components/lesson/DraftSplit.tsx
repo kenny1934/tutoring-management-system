@@ -109,7 +109,7 @@ export function DraftSplit({ children }: { children: ReactNode }) {
         onPointerUp={up}
         onPointerCancel={() => setDragAt(null)}
         onKeyDown={onKeyDown}
-        className="relative z-10 w-2 flex-shrink-0 cursor-col-resize touch-none select-none bg-[#e8dcc8] dark:bg-[#1e1a14] focus-visible:outline-2 focus-visible:outline-[#a0704b]"
+        className="relative z-10 w-2 flex-shrink-0 cursor-col-resize touch-none select-none bg-[#e8dcc8] dark:bg-[#1e1a14] focus-visible:outline-2 focus-visible:outline-primary"
       >
         <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#d4c4a8] dark:bg-[#3a3228]" />
         {/* The grip is wider than the border, so a finger finds it easily */}
@@ -123,7 +123,7 @@ export function DraftSplit({ children }: { children: ReactNode }) {
       {dragAt !== null && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 z-30 w-0.5 translate-x-1/2 bg-[#a0704b]"
+          className="pointer-events-none absolute inset-y-0 z-30 w-0.5 translate-x-1/2 bg-primary"
           style={{ right: `${dragAt * 100}%` }}
         />
       )}

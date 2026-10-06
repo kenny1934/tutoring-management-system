@@ -29,7 +29,7 @@ export function FilterChip({
       className={cn(
         "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
         active
-          ? "bg-[#a0704b] text-white"
+          ? "bg-primary text-white"
           : "bg-gray-100 dark:bg-gray-800 text-foreground/50 hover:text-foreground/70"
       )}
     >
@@ -71,7 +71,7 @@ export function FilterSelect({
       className={cn(
         "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
         value !== null
-          ? "border-[#a0704b] bg-[#a0704b] text-white"
+          ? "border-primary bg-primary text-white"
           : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80",
         className
       )}

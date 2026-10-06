@@ -941,15 +941,15 @@ export default function SummerApplicationsPage() {
             <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                  <ClipboardList className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                  <ClipboardList className="h-5 w-5 text-sky-700 dark:text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
                     <span className="truncate">Summer Applications</span>
-                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
                   </h1>
                   <p className="hidden sm:block text-xs text-muted-foreground">
                     Review and process summer course applications
@@ -1031,11 +1031,11 @@ export default function SummerApplicationsPage() {
                             >
                               <span className="flex-1 text-foreground">{c.year}</span>
                               {c.is_active && (
-                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                                <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
                                   Active
                                 </span>
                               )}
-                              {active && <Check className="h-3 w-3 text-primary" />}
+                              {active && <Check className="h-3 w-3 text-accent-ink" />}
                             </button>
                           );
                         })}
@@ -1119,7 +1119,7 @@ export default function SummerApplicationsPage() {
                           )}
                           <span className="flex-1 text-foreground">{s ?? "All statuses"}</span>
                           <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-                          {active && <Check className="h-3 w-3 text-primary" />}
+                          {active && <Check className="h-3 w-3 text-accent-ink" />}
                         </button>
                       );
                     };
@@ -1232,7 +1232,7 @@ export default function SummerApplicationsPage() {
                             <span className="flex-1 text-foreground">
                               {VIEW_PRESET_CONFIG[p].label}
                             </span>
-                            {active && <Check className="h-3 w-3 text-primary" />}
+                            {active && <Check className="h-3 w-3 text-accent-ink" />}
                           </button>
                         );
                       })}
@@ -1313,7 +1313,7 @@ export default function SummerApplicationsPage() {
                           type="checkbox"
                           checked={pendingSiblingOnly}
                           onChange={(e) => setPendingSiblingOnly(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                          className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
                         />
                         <span className="text-xs text-foreground">Pending sibling verification</span>
                       </label>
@@ -1322,7 +1322,7 @@ export default function SummerApplicationsPage() {
                           type="checkbox"
                           checked={unverifiedBranchOnly}
                           onChange={(e) => setUnverifiedBranchOnly(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                          className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
                         />
                         <span className="text-xs text-foreground">Unverified branch origin</span>
                       </label>
@@ -1374,7 +1374,7 @@ export default function SummerApplicationsPage() {
                     type="checkbox"
                     checked={allVisibleChecked}
                     onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                    className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer shrink-0"
                     title={allVisibleChecked ? "Deselect all visible" : "Select all visible"}
                   />
                 )}
@@ -1437,7 +1437,7 @@ export default function SummerApplicationsPage() {
                   {hasFilters && (
                     <button
                       onClick={clearFilters}
-                      className="mt-2 text-xs text-primary hover:text-primary/80"
+                      className="mt-2 text-xs text-accent-ink hover:text-accent-ink/80"
                     >
                       Clear filters
                     </button>
@@ -1651,7 +1651,7 @@ export default function SummerApplicationsPage() {
               >
                 <div className="flex justify-between items-center mb-3">
                   <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Shortcuts</span>
-                  <button onClick={() => setShowShortcutHints(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  <button onClick={() => setShowShortcutHints(false)} className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                     <X className="h-4 w-4" />
                   </button>
                 </div>

@@ -78,8 +78,8 @@ export const PRIORITIES: Record<PriorityLevel, { label: string; textClass: strin
   },
   High: {
     label: "High",
-    textClass: "text-orange-600 dark:text-orange-400",
-    badgeClass: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30",
+    textClass: "text-orange-700 dark:text-orange-400",
+    badgeClass: "text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30",
     borderClass: "border-l-4 border-l-orange-400",
   },
   Urgent: {

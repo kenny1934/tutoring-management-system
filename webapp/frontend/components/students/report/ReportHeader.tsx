@@ -4,7 +4,7 @@ interface ReportHeaderProps {
 
 export function ReportHeader({ dateRangeLabel }: ReportHeaderProps) {
   return (
-    <div className="flex flex-col items-center gap-2 md:flex-row md:gap-4 mb-6 pb-4 border-b-2 border-[#a0704b]">
+    <div className="flex flex-col items-center gap-2 md:flex-row md:gap-4 mb-6 pb-4 border-b-2 border-primary">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/report-logo.png"
@@ -12,7 +12,7 @@ export function ReportHeader({ dateRangeLabel }: ReportHeaderProps) {
         className="h-10 md:h-14 w-auto"
       />
       <div className="flex-1 text-center">
-        <h1 className="text-lg md:text-2xl font-bold text-[#a0704b] tracking-wide">
+        <h1 className="text-lg md:text-2xl font-bold text-accent-ink tracking-wide">
           MathConcept Secondary Academy
         </h1>
         <h2 className="text-base md:text-lg font-semibold text-gray-700 mt-1">

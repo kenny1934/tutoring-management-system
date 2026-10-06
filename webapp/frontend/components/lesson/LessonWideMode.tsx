@@ -756,7 +756,7 @@ export function LessonWideMode({
         <button
           onClick={() => setMobileExerciseListOpen(true)}
           className={cn(
-            "fixed right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform",
+            "fixed right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#8f6240] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform",
             // Above the page bar and the Pen Tray's collapsed button, which sits in the same corner.
             selectedEntry?.exercise?.pdf_name ? "bottom-36" : "bottom-4",
           )}

@@ -181,7 +181,7 @@ export function ExerciseHistoryPanel({
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {!initialLoaded && loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-purple-500" />
+                  <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
                 </div>
               ) : sessions.length === 0 ? (
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-8">
@@ -219,7 +219,7 @@ export function ExerciseHistoryPanel({
                           {cw.length > 0 && (
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1">
-                                <PenTool className="h-2.5 w-2.5 text-red-500" />
+                                <PenTool className="h-2.5 w-2.5 text-red-600" />
                                 <span className="text-[10px] text-gray-500 dark:text-gray-400">CW</span>
                               </div>
                               {cw.map((ex) => (
@@ -240,7 +240,7 @@ export function ExerciseHistoryPanel({
                           {hw.length > 0 && (
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1">
-                                <Home className="h-2.5 w-2.5 text-blue-500" />
+                                <Home className="h-2.5 w-2.5 text-blue-600" />
                                 <span className="text-[10px] text-gray-500 dark:text-gray-400">HW</span>
                               </div>
                               {hw.map((ex) => (

@@ -104,7 +104,7 @@ export function ExerciseDropdownButton({
               "w-full flex items-center gap-2 px-3 py-1.5 text-[11px]",
               hasExercises
                 ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                : "text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                : "text-gray-500 dark:text-gray-400 cursor-not-allowed"
             )}
           >
             <Download className="h-3 w-3" />
@@ -120,7 +120,7 @@ export function ExerciseDropdownButton({
               "w-full flex items-center gap-2 px-3 py-1.5 text-[11px]",
               hasExercises
                 ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                : "text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                : "text-gray-500 dark:text-gray-400 cursor-not-allowed"
             )}
           >
             <Printer className="h-3 w-3" />

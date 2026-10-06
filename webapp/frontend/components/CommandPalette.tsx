@@ -730,10 +730,10 @@ export function CommandPalette() {
               onClick={() => setQuery("")}
               className="p-1 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] rounded transition-colors"
             >
-              <X className="h-4 w-4 text-gray-400" />
+              <X className="h-4 w-4 text-gray-500" />
             </button>
           )}
-          <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 max-sm:hidden">
+          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 max-sm:hidden">
             <kbd className="px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#3d3628]">
               Ctrl+K
             </kbd>
@@ -762,7 +762,7 @@ export function CommandPalette() {
               const cmd = nestedCommands.find(c => c.id === id);
               return (
                 <Fragment key={id}>
-                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                  <ChevronRight className="h-3 w-3 text-gray-500" />
                   <button
                     onClick={() => {
                       setCommandPath(prev => prev.slice(0, idx + 1));
@@ -815,7 +815,7 @@ export function CommandPalette() {
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 No results for &quot;{query}&quot;
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Try @student, #session, = calc, or ? for help
               </p>
             </div>
@@ -847,7 +847,7 @@ export function CommandPalette() {
                       )}>
                         {typeLabels[type]}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {typeItems.length}
                       </span>
                     </div>
@@ -907,14 +907,14 @@ export function CommandPalette() {
                 <>
                   <div className="px-4 py-1.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+                      <Clock className="h-3 w-3 text-gray-500 dark:text-gray-400" />
                       <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Recent
                       </span>
                     </div>
                     <button
                       onClick={clearAllRecentSearches}
-                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      className="text-xs text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     >
                       Clear
                     </button>
@@ -940,7 +940,7 @@ export function CommandPalette() {
 
               {/* Actions */}
               <div className="px-4 py-1.5 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-purple-500" />
+                <Sparkles className="h-3 w-3 text-purple-600" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Actions
                 </span>
@@ -951,7 +951,7 @@ export function CommandPalette() {
                   item={action}
                   index={recentSearches.length + idx}
                   isSelected={recentSearches.length + idx === selectedIndex}
-                  iconColorClass="text-purple-500 dark:text-purple-400"
+                  iconColorClass="text-purple-600 dark:text-purple-400"
                   onClick={() => action.execute?.()}
                 />
               ))}
@@ -960,7 +960,7 @@ export function CommandPalette() {
               {nestedCommands.length > 0 && (
                 <>
                   <div className="px-4 py-1.5 flex items-center gap-2">
-                    <Filter className="h-3 w-3 text-blue-500" />
+                    <Filter className="h-3 w-3 text-blue-600" />
                     <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                       Commands
                     </span>
@@ -977,9 +977,9 @@ export function CommandPalette() {
                       }}
                       index={recentSearches.length + actionCommands.length + idx}
                       isSelected={recentSearches.length + actionCommands.length + idx === selectedIndex}
-                      iconColorClass="text-blue-500 dark:text-blue-400"
+                      iconColorClass="text-blue-600 dark:text-blue-400"
                       showEnterIcon={false}
-                      badge={<ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
+                      badge={<ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
                       onClick={() => {
                         setCommandPath([cmd.id]);
                         setSelectedIndex(0);
@@ -991,7 +991,7 @@ export function CommandPalette() {
 
               {/* Quick Actions */}
               <div className="px-4 py-1.5 flex items-center gap-2">
-                <Zap className="h-3 w-3 text-amber-500" />
+                <Zap className="h-3 w-3 text-amber-700" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Quick Actions
                 </span>
@@ -1017,7 +1017,7 @@ export function CommandPalette() {
 
               {/* Quick Navigation */}
               <div className="px-4 py-1.5 flex items-center gap-2">
-                <Grid3x3 className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+                <Grid3x3 className="h-3 w-3 text-gray-500 dark:text-gray-400" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Pages
                 </span>
@@ -1040,8 +1040,8 @@ export function CommandPalette() {
                     }}
                     index={index}
                     isSelected={index === selectedIndex}
-                    iconColorClass={isAdminPage ? "text-amber-500 dark:text-amber-400" : undefined}
-                    badge={isAdminPage ? <Shield className="h-3 w-3 text-amber-500 dark:text-amber-400" /> : undefined}
+                    iconColorClass={isAdminPage ? "text-amber-700 dark:text-amber-400" : undefined}
+                    badge={isAdminPage ? <Shield className="h-3 w-3 text-amber-700 dark:text-amber-400" /> : undefined}
                     onClick={() => {
                       router.push(page.href);
                       close();

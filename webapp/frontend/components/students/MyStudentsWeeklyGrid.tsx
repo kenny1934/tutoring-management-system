@@ -246,13 +246,13 @@ export function MyStudentsWeeklyGrid({
                       "border-r last:border-r-0 border-line transition-all",
                       isCollapsed ? "py-1 px-0.5" : "py-1 px-1.5",
                       "bg-paper",
-                      hasNoEnrollments && "cursor-pointer hover:bg-tint focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]"
+                      hasNoEnrollments && "cursor-pointer hover:bg-tint focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
                     )}
                   >
                     {isCollapsed ? (
                       <div className="h-full flex items-center justify-center">
                         <span
-                          className="text-[9px] font-bold whitespace-nowrap text-gray-400 dark:text-gray-500"
+                          className="text-[9px] font-bold whitespace-nowrap text-gray-500 dark:text-gray-400"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
                           aria-hidden="true"
                         >
@@ -493,19 +493,19 @@ export function MyStudentsWeeklyGrid({
                                           {enrollment.school_student_id || "N/A"}
                                           {isOverdue && (
                                             <>
-                                              <AlertTriangle className="h-2.5 w-2.5 text-red-500 flex-shrink-0" aria-hidden="true" />
+                                              <AlertTriangle className="h-2.5 w-2.5 text-red-600 flex-shrink-0" aria-hidden="true" />
                                               <span className="sr-only">Overdue payment</span>
                                             </>
                                           )}
                                           {isPending && !isOverdue && (
                                             <>
-                                              <HandCoins className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" aria-hidden="true" />
+                                              <HandCoins className="h-2.5 w-2.5 text-amber-700 flex-shrink-0" aria-hidden="true" />
                                               <span className="sr-only">Pending payment</span>
                                             </>
                                           )}
                                         </span>
                                         {isAllTutors && enrollment.tutor_name && (
-                                          <span className="text-[8px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                                          <span className="text-[8px] text-gray-500 dark:text-gray-400 flex-shrink-0">
                                             <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
                                           </span>
                                         )}
@@ -555,7 +555,7 @@ export function MyStudentsWeeklyGrid({
                                     className={cn(
                                       "cursor-pointer rounded px-1.5 py-0.5 text-center transition-opacity",
                                       hasHighlightedHidden
-                                        ? "bg-[#a0704b] border-2 border-[#8b6140] ring-2 ring-[#a0704b]/50"
+                                        ? "bg-primary border-2 border-[#8b6140] ring-2 ring-primary/50"
                                         : "bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-600",
                                       "shadow-sm hover:shadow-md transition-all flex-shrink-0",
                                       !hasMatchingHidden && "opacity-30"

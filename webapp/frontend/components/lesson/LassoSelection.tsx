@@ -119,7 +119,7 @@ export function LassoSelection({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
-        className="absolute pointer-events-auto touch-none cursor-move rounded-md border-dashed border-[#a0704b]"
+        className="absolute pointer-events-auto touch-none cursor-move rounded-md border-dashed border-primary"
         style={{
           left: percent((box.left + box.right) / 2, width),
           top: percent((box.top + box.bottom) / 2, height),
@@ -137,7 +137,7 @@ export function LassoSelection({
           className="absolute right-0 bottom-0 grid h-12 w-12 place-items-center cursor-nwse-resize"
           style={{ transform: `translate(50%, 50%) ${unscale}` }}
         >
-          <i className="block h-4 w-4 rounded-full border-2 border-[#a0704b] bg-white" />
+          <i className="block h-4 w-4 rounded-full border-2 border-primary bg-white" />
         </span>
 
         {/* The bar, with any panel it opens on the side away from the ink */}
@@ -203,7 +203,7 @@ export function LassoSelection({
                       onClick={() => onRecolour(kind, swatch)}
                       className={cn(
                         "grid h-11 w-11 place-items-center rounded-lg hover:bg-[#f5ebe0]",
-                        picked === swatch.color && "bg-[#f5ebe0] ring-2 ring-inset ring-[#a0704b]",
+                        picked === swatch.color && "bg-[#f5ebe0] ring-2 ring-inset ring-primary",
                       )}
                     >
                       <SwatchMark swatch={swatch} className="shadow-[0_0_0_1.5px_rgba(0,0,0,0.15)]" />
@@ -217,7 +217,7 @@ export function LassoSelection({
           {/* The other pages scroll inside the panel when there are more than fit */}
           {panel === "move" && targets.length > 0 && (
             <div className={panelClass}>
-              <p className="px-1 text-xs font-medium text-[#8b7355]">Move the ink to</p>
+              <p className="px-1 text-xs font-medium text-ink-subtle">Move the ink to</p>
               <div className="flex max-h-[86px] max-w-[19rem] flex-wrap gap-1.5 overflow-y-auto touch-pan-y">
                 {targets.map((page) => (
                   <button

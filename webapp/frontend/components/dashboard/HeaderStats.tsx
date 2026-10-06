@@ -150,7 +150,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
 
                   {/* Search */}
                   <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                     <input
                       type="text"
                       placeholder="Search students..."
@@ -160,7 +160,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                         "w-full pl-7 pr-3 py-1.5 text-sm rounded-md",
                         "bg-white dark:bg-[#1a1a1a]",
                         "border border-line-strong",
-                        "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+                        "focus:outline-none focus:ring-1 focus:ring-primary",
                         "placeholder:text-gray-400"
                       )}
                     />
@@ -171,7 +171,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 <div className="max-h-[300px] overflow-y-auto">
                   {isLoading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
                     </div>
                   ) : filteredStudents.length === 0 ? (
                     <div className="py-6 text-center text-sm text-gray-500">
@@ -241,7 +241,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
 
         {/* Revenue stat - hidden by default with eye toggle */}
         <div className="flex items-center gap-1.5 text-sm">
-          <DollarSign className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <DollarSign className="h-4 w-4 text-amber-700 dark:text-amber-400" />
 
           {isRevenueVisible ? (
             // Revenue visible state
@@ -258,7 +258,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 title="Hide revenue"
               >
-                <EyeOff className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                <EyeOff className="h-3.5 w-3.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
               </button>
             </>
           ) : showConfirmation ? (
@@ -270,14 +270,14 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
                 title="Confirm"
               >
-                <Check className="h-3.5 w-3.5 text-green-500" />
+                <Check className="h-3.5 w-3.5 text-green-700" />
               </button>
               <button
                 onClick={() => setShowConfirmation(false)}
                 className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                 title="Cancel"
               >
-                <X className="h-3.5 w-3.5 text-red-500" />
+                <X className="h-3.5 w-3.5 text-red-600" />
               </button>
             </div>
           ) : (
@@ -291,7 +291,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 title="Show revenue"
               >
-                <Eye className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                <Eye className="h-3.5 w-3.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
               </button>
             </>
           )}

@@ -142,7 +142,7 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
           className={cn(
             "text-xs font-semibold transition-colors",
             weekOffset === 0
-              ? "text-primary"
+              ? "text-accent-ink"
               : "text-foreground/70 hover:text-foreground"
           )}
         >
@@ -199,7 +199,7 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
                 {/* Day label */}
                 <span className={cn(
                   "text-[10px] font-semibold",
-                  isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/60"
+                  isToday ? "text-accent-ink" : isHoliday ? "text-rose-600" : "text-foreground/60"
                 )}>
                   {DAY_LABELS[i]}
                 </span>
@@ -208,14 +208,14 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
                 <div className="flex items-center gap-0.5">
                   <span className={cn(
                     "text-xs font-bold",
-                    isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/80"
+                    isToday ? "text-accent-ink" : isHoliday ? "text-rose-600" : "text-foreground/80"
                   )}>
                     {day.getDate()}
                   </span>
                   {isHoliday && (
                     <CalendarDays className={cn(
                       "h-2.5 w-2.5",
-                      isToday ? "text-primary" : "text-rose-500"
+                      isToday ? "text-accent-ink" : "text-rose-600"
                     )} />
                   )}
                 </div>

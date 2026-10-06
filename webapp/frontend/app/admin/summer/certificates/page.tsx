@@ -79,7 +79,7 @@ function PickerDropdown({ label, align, items }: {
               key={item.key}
               type="button"
               onClick={() => { item.onSelect(); close(); }}
-              className={cn(menuItemClass, item.selected && "font-semibold text-primary")}
+              className={cn(menuItemClass, item.selected && "font-semibold text-accent-ink")}
             >
               {item.label}
             </button>
@@ -229,7 +229,7 @@ export default function SummerCertificatesPage() {
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <Award className="h-5 w-5 text-amber-700 dark:text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Certificates</h1>

@@ -164,7 +164,7 @@ export function HomeworkCheckRow({
               type="button"
               onClick={() => checkViewer?.open({ homework: state, sessionId })}
               title="Open the worksheet with its answers"
-              className="ml-auto self-center flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium text-[#a0704b] hover:bg-[#a0704b]/10 dark:text-[#d4a574] dark:hover:bg-[#d4a574]/10 transition-colors"
+              className="ml-auto self-center flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium text-accent-ink hover:bg-primary/10 dark:text-[#d4a574] dark:hover:bg-[#d4a574]/10 transition-colors"
             >
               <BookCheck className="h-3 w-3" />
               Answers
@@ -178,7 +178,7 @@ export function HomeworkCheckRow({
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
           from {source}
           {(state.sessions_ago || 0) > 1 && (
-            <span className="ml-1 text-amber-600 dark:text-amber-400">
+            <span className="ml-1 text-amber-700 dark:text-amber-400">
               · {state.sessions_ago} sessions ago
             </span>
           )}
@@ -202,7 +202,7 @@ export function HomeworkCheckRow({
                   "flex items-center justify-center h-6 w-6 rounded transition-colors",
                   active
                     ? activeClass
-                    : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700",
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
                   (readOnly || saving) && "cursor-not-allowed opacity-60"
                 )}
               >
@@ -226,7 +226,7 @@ export function HomeworkCheckRow({
             "p-1 rounded transition-colors",
             hasComment
               ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300",
+              : "text-gray-500 hover:text-gray-600 dark:hover:text-gray-300",
             readOnly && "cursor-not-allowed opacity-60"
           )}
         >

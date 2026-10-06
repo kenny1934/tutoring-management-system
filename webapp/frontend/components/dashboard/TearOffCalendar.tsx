@@ -23,7 +23,7 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
       )}
     >
       {/* Month section - warm brown to match theme */}
-      <div className="flex items-center justify-center px-2 bg-[#a0704b] dark:bg-[#8b5a3a] rounded-l-md">
+      <div className="flex items-center justify-center px-2 bg-primary dark:bg-[#8b5a3a] rounded-l-md">
         <span className="text-[10px] font-bold text-white tracking-wide">
           {month}
         </span>
@@ -47,7 +47,7 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
 
         {/* Weather section */}
         {weatherLoading ? (
-          <span className="text-xs text-gray-400 animate-pulse ml-1">...</span>
+          <span className="text-xs text-gray-500 animate-pulse ml-1">...</span>
         ) : weather ? (
           <div
             className="flex items-center gap-1 ml-1 pl-1.5 border-l border-line"

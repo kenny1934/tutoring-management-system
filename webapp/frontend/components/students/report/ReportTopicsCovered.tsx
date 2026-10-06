@@ -15,7 +15,7 @@ function formatPageRange(start?: number, end?: number): string {
 export function ReportTopicsCovered({ data }: ReportTopicsCoveredProps) {
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[80px] text-sm text-gray-400">
+      <div className="flex items-center justify-center h-[80px] text-sm text-gray-500">
         No exercises recorded
       </div>
     );

@@ -38,9 +38,9 @@ interface CardStatus {
 // Urgency config
 const URGENCY_CONFIG: Record<string, { label: string; color: string; border: string; text: string }> = {
   Critical: { label: "7+ days overdue", color: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800", text: "text-red-600 dark:text-red-400" },
-  High: { label: "4-7 days overdue", color: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-200 dark:border-orange-800", text: "text-orange-600 dark:text-orange-400" },
-  Medium: { label: "2-3 days overdue", color: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800", text: "text-amber-600 dark:text-amber-400" },
-  Low: { label: "0-1 days overdue", color: "bg-yellow-50 dark:bg-yellow-900/20", border: "border-yellow-200 dark:border-yellow-800", text: "text-yellow-600 dark:text-yellow-400" },
+  High: { label: "4-7 days overdue", color: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-200 dark:border-orange-800", text: "text-orange-700 dark:text-orange-400" },
+  Medium: { label: "2-3 days overdue", color: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800", text: "text-amber-700 dark:text-amber-400" },
+  Low: { label: "0-1 days overdue", color: "bg-yellow-50 dark:bg-yellow-900/20", border: "border-yellow-200 dark:border-yellow-800", text: "text-yellow-700 dark:text-yellow-400" },
 };
 
 const URGENCY_ORDER = ["Critical", "High", "Medium", "Low"];
@@ -468,7 +468,7 @@ export default function QuickAttendPage() {
           {/* Loading */}
           {isLoading && (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-[#a0704b]" />
+              <Loader2 className="h-6 w-6 animate-spin text-accent-ink" />
             </div>
           )}
 
@@ -481,7 +481,7 @@ export default function QuickAttendPage() {
               className="bg-paper rounded-xl border border-line paper-texture text-center py-10 px-4 space-y-4 relative overflow-hidden"
             >
               {completedCount > 0 && <Confetti />}
-              <PartyPopper className="h-14 w-14 mx-auto text-amber-400" />
+              <PartyPopper className="h-14 w-14 mx-auto text-amber-700" />
               <p className="text-lg font-semibold text-[#5c3d2e] dark:text-[#e8d4b8]">All caught up!</p>
               {completedCount > 0 ? (
                 <div className="space-y-2">
@@ -491,19 +491,19 @@ export default function QuickAttendPage() {
                   <div className="flex justify-center gap-4 text-xs text-[#8b6f47] dark:text-[#a89070]">
                     {completionSummary.attended > 0 && (
                       <span className="flex items-center gap-1">
-                        <Check className="h-3 w-3 text-green-500" />
+                        <Check className="h-3 w-3 text-green-700" />
                         {completionSummary.attended} attended
                       </span>
                     )}
                     {completionSummary.noShow > 0 && (
                       <span className="flex items-center gap-1">
-                        <X className="h-3 w-3 text-red-500" />
+                        <X className="h-3 w-3 text-red-600" />
                         {completionSummary.noShow} no-show
                       </span>
                     )}
                     {completionSummary.rescheduled > 0 && (
                       <span className="flex items-center gap-1">
-                        <CalendarClock className="h-3 w-3 text-orange-500" />
+                        <CalendarClock className="h-3 w-3 text-orange-700" />
                         {completionSummary.rescheduled} rescheduled
                       </span>
                     )}
@@ -582,7 +582,7 @@ export default function QuickAttendPage() {
           {!isLoading && visibleOverdueCount > 0 && (
             <section className="space-y-3">
               <button onClick={() => setOverdueExpanded((v) => !v)} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-paper/90">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
                 <h2 className="text-xs font-semibold text-[#5c3d2e] dark:text-[#e8d4b8] uppercase tracking-wider">
                   Overdue ({visibleOverdueCount})
                 </h2>
@@ -702,7 +702,7 @@ function RatingStrip({ sessionId, studentName, onRate, onSkipRating }: {
         className="flex items-center gap-2 px-3 py-2 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/80 dark:bg-green-900/10"
         onClick={(e) => e.stopPropagation()}
       >
-        <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+        <Check className="h-3.5 w-3.5 text-green-700 flex-shrink-0" />
         <span className="text-xs font-medium text-[#3d2b1f] dark:text-[#e8d4b8] truncate">
           {studentName}
         </span>
@@ -806,7 +806,7 @@ const SessionCard = React.memo(function SessionCard({
       <div className="relative">
         {canDrag && (
           <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">
-            <motion.span className="flex items-center gap-1.5 font-semibold text-green-600 dark:text-green-400 bg-green-100/90 dark:bg-green-900/60 px-2.5 py-1 rounded-lg" style={{ opacity: rightLabelOpacity }}>
+            <motion.span className="flex items-center gap-1.5 font-semibold text-green-700 dark:text-green-400 bg-green-100/90 dark:bg-green-900/60 px-2.5 py-1 rounded-lg" style={{ opacity: rightLabelOpacity }}>
               <Check className="h-5 w-5" /> Attended
             </motion.span>
             <motion.span className="flex items-center gap-1.5 font-semibold text-red-600 dark:text-red-400 bg-red-100/90 dark:bg-red-900/60 px-2.5 py-1 rounded-lg" style={{ opacity: leftLabelOpacity }}>

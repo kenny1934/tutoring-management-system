@@ -62,7 +62,7 @@ export default function ThreadSearchBar({
 
   return (
     <div className="flex items-center gap-2 px-4 py-2 border-b border-line/60 bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
-      <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+      <Search className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
       <input
         ref={inputRef}
         type="text"
@@ -83,7 +83,7 @@ export default function ThreadSearchBar({
         className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none"
       />
       {threadSearch && (
-        <span className="text-xs text-gray-400 whitespace-nowrap">
+        <span className="text-xs text-gray-500 whitespace-nowrap">
           {matchCount > 0 ? `${clampedIdx + 1}/${matchCount}` : "0 found"}
         </span>
       )}
@@ -94,14 +94,14 @@ export default function ThreadSearchBar({
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             title="Previous match (Shift+Enter)"
           >
-            <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
+            <ChevronUp className="h-3.5 w-3.5 text-gray-500" />
           </button>
           <button
             onClick={() => { const next = (clampedIdx + 1) % matchCount; setSearchMatchIdx(next); scrollToMatch(next); }}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             title="Next match (Enter)"
           >
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+            <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
           </button>
         </div>
       )}
@@ -109,7 +109,7 @@ export default function ThreadSearchBar({
         onClick={onClose}
         className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
       >
-        <X className="h-3.5 w-3.5 text-gray-400" />
+        <X className="h-3.5 w-3.5 text-gray-500" />
       </button>
     </div>
   );

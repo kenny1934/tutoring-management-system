@@ -238,7 +238,7 @@ export function EnrollStudentModal({
         {/* Search */}
         <div className="flex-shrink-0 px-6 py-3 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             <input
               type="text"
               placeholder="Search students..."
@@ -254,18 +254,18 @@ export function EnrollStudentModal({
         <div className="flex-1 overflow-y-auto p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Users className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+              <Users className="h-10 w-10 text-gray-300 dark:text-gray-400 mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {searchQuery
                   ? "No matching students found"
                   : "No eligible students for this revision slot"}
               </p>
               {!searchQuery && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-xs">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs">
                   Eligible students must match the exam&apos;s school/grade criteria and have pending sessions at this location
                 </p>
               )}
@@ -278,7 +278,7 @@ export function EnrollStudentModal({
                   className={cn(
                     "rounded-lg border overflow-hidden transition-all",
                     "border-line",
-                    expandedStudentId === student.student_id && "ring-2 ring-[#a0704b] ring-offset-1"
+                    expandedStudentId === student.student_id && "ring-2 ring-primary ring-offset-1"
                   )}
                 >
                   {/* Student header */}
@@ -297,9 +297,9 @@ export function EnrollStudentModal({
                         {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
                       </span>
                       {expandedStudentId === student.student_id ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                        <ChevronUp className="h-4 w-4 text-gray-500" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
                       )}
                     </div>
                   </button>
@@ -336,13 +336,13 @@ export function EnrollStudentModal({
                                   ? "border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 opacity-60 cursor-not-allowed"
                                   : selectedSession?.studentId === student.student_id &&
                                       selectedSession?.sessionId === session.id
-                                    ? "border-[#a0704b] bg-[#a0704b]/10 ring-2 ring-[#a0704b]/30"
-                                    : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-[#a0704b]/50"
+                                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                                    : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-primary/50"
                               )}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                                  <Calendar className="h-3.5 w-3.5 text-gray-500" />
                                   <span className="text-gray-700 dark:text-gray-300">
                                     {new Date(session.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                                   </span>
@@ -388,7 +388,7 @@ export function EnrollStudentModal({
                           disabled={enrollingStudent === student.student_id}
                           className={cn(
                             "mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                            "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",
+                            "bg-primary hover:bg-[#8a5f3e] text-white",
                             "disabled:opacity-50 disabled:cursor-not-allowed"
                           )}
                         >

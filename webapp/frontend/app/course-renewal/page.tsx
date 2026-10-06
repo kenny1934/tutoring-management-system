@@ -251,7 +251,7 @@ export default function CourseRenewalPage() {
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <CalendarCheck className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                <CalendarCheck className="h-5 w-5 text-sky-700 dark:text-sky-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Course Renewal</h1>
@@ -399,7 +399,7 @@ export default function CourseRenewalPage() {
                 // empty list here is usually good news, and which good news it
                 // is depends on the list you are on.
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
-                  <Check className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  <Check className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
                   <p className="text-sm">{EMPTY_LIST_TEXT[state]}</p>
                 </div>
               ) : (

@@ -40,7 +40,7 @@ function renderMarkdown(text: string) {
     }
     const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (linkMatch) {
-      return <a key={i} href={linkMatch[2]} className="underline text-primary">{linkMatch[1]}</a>;
+      return <a key={i} href={linkMatch[2]} className="underline text-accent-ink">{linkMatch[1]}</a>;
     }
     return part;
   });

@@ -261,7 +261,7 @@ export function ContactCalendar({
               className={cn(
                 "px-2 py-1 text-xs rounded-md transition-colors",
                 "bg-white dark:bg-[#2d2618] border border-[#d4a574]/50",
-                "text-gray-600 dark:text-gray-400 hover:text-[#a0704b]"
+                "text-gray-600 dark:text-gray-400 hover:text-accent-ink"
               )}
             >
               Today
@@ -276,7 +276,7 @@ export function ContactCalendar({
                   className={cn(
                     "px-2 py-1 text-xs rounded transition-colors capitalize",
                     view === v
-                      ? "bg-white dark:bg-[#2d2618] text-[#a0704b] shadow-sm"
+                      ? "bg-white dark:bg-[#2d2618] text-accent-ink shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
                   )}
                 >
@@ -292,7 +292,7 @@ export function ContactCalendar({
       <div className="flex-1 overflow-auto p-2">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-6 w-6 animate-spin text-[#a0704b]" />
+            <Loader2 className="h-6 w-6 animate-spin text-accent-ink" />
           </div>
         ) : view === 'month' ? (
           <div className="h-full flex flex-col">
@@ -322,7 +322,7 @@ export function ContactCalendar({
                       day.isCurrentMonth
                         ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
                         : "bg-gray-50 dark:bg-gray-800/50 border-transparent",
-                      day.isToday && "ring-2 ring-[#a0704b] ring-offset-1"
+                      day.isToday && "ring-2 ring-primary ring-offset-1"
                     )}
                   >
                     {/* Day number */}
@@ -332,8 +332,8 @@ export function ContactCalendar({
                           "text-xs font-medium",
                           day.isCurrentMonth
                             ? "text-gray-900 dark:text-gray-100"
-                            : "text-gray-400 dark:text-gray-500",
-                          day.isToday && "text-[#a0704b]"
+                            : "text-gray-500 dark:text-gray-400",
+                          day.isToday && "text-accent-ink"
                         )}
                       >
                         {day.day}
@@ -353,7 +353,7 @@ export function ContactCalendar({
                             "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
                             getContactTypeDot(event.contact_type),
                             "text-white hover:brightness-110",
-                            selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
+                            selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
                           )}
                           title={`${event.student_name} - ${event.contact_type}`}
                         >
@@ -363,7 +363,7 @@ export function ContactCalendar({
                       {dayEvents.length > 3 && (
                         <button
                           onClick={(e) => openPopover(day.dateKey, e)}
-                          className="w-full text-[10px] text-gray-500 dark:text-gray-400 text-center hover:text-[#a0704b] hover:underline transition-colors"
+                          className="w-full text-[10px] text-gray-500 dark:text-gray-400 text-center hover:text-accent-ink hover:underline transition-colors"
                         >
                           +{dayEvents.length - 3} more
                         </button>
@@ -389,7 +389,7 @@ export function ContactCalendar({
                       "w-full text-left px-1.5 py-0.5 rounded text-[10px] truncate transition-all",
                       getContactTypeDot(event.contact_type),
                       "text-white hover:brightness-110",
-                      selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
+                      selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
                     )}
                     title={`${event.student_name} - ${event.contact_type}`}
                   >
@@ -409,7 +409,7 @@ export function ContactCalendar({
                   key={day.dateKey}
                   className={cn(
                     "text-center text-xs font-medium py-1",
-                    day.isToday ? "text-[#a0704b]" : "text-gray-500 dark:text-gray-400"
+                    day.isToday ? "text-accent-ink" : "text-gray-500 dark:text-gray-400"
                   )}
                 >
                   {DAYS_OF_WEEK[day.date.getDay()]} {day.day}
@@ -429,7 +429,7 @@ export function ContactCalendar({
                     className={cn(
                       "p-1 rounded border transition-colors overflow-auto",
                       "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700",
-                      day.isToday && "ring-2 ring-[#a0704b] ring-offset-1"
+                      day.isToday && "ring-2 ring-primary ring-offset-1"
                     )}
                   >
                     {hasFollowup && (
@@ -446,7 +446,7 @@ export function ContactCalendar({
                             "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
                             getContactTypeDot(event.contact_type),
                             "text-white hover:brightness-110",
-                            selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
+                            selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
                           )}
                           title={`${event.student_name} - ${event.contact_type}`}
                         >
@@ -454,7 +454,7 @@ export function ContactCalendar({
                         </button>
                       ))}
                       {dayEvents.length === 0 && (
-                        <p className="text-[10px] text-gray-400 text-center py-2">—</p>
+                        <p className="text-[10px] text-gray-500 text-center py-2">—</p>
                       )}
                     </div>
                   </div>
@@ -484,7 +484,7 @@ export function ContactCalendar({
                     "w-full text-left p-3 rounded-lg border transition-all",
                     "hover:bg-gray-50 dark:hover:bg-gray-800/50",
                     selectedContactId === event.id
-                      ? "border-[#a0704b] bg-tint"
+                      ? "border-primary bg-tint"
                       : "border-gray-200 dark:border-gray-700"
                   )}
                 >

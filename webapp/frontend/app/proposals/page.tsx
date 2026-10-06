@@ -256,7 +256,7 @@ export default function ProposalsPage() {
             </Link>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-tint">
-                <CalendarClock className="h-6 w-6 text-[#a0704b]" />
+                <CalendarClock className="h-6 w-6 text-accent-ink" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-on-surface">
@@ -282,7 +282,7 @@ export default function ProposalsPage() {
               className={cn(
                 "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
                 activeTab === "for-me"
-                  ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                  ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
               )}
             >
@@ -299,7 +299,7 @@ export default function ProposalsPage() {
               className={cn(
                 "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
                 activeTab === "by-me"
-                  ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                  ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
               )}
             >
@@ -317,7 +317,7 @@ export default function ProposalsPage() {
                 className={cn(
                   "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
                   activeTab === "all"
-                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                    ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
                 )}
               >
@@ -337,7 +337,7 @@ export default function ProposalsPage() {
             {/* Search and Sort */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:flex-none sm:w-[450px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search student or tutor..."
@@ -371,7 +371,7 @@ export default function ProposalsPage() {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap transition-colors",
                       isActive
-                        ? "bg-[#a0704b] text-white"
+                        ? "bg-primary text-white"
                         : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 border border-line hover:bg-gray-50 dark:hover:bg-gray-900/20"
                     )}
                   >
@@ -425,7 +425,7 @@ export default function ProposalsPage() {
                 id={`proposal-${proposal.id}`}
                 className={cn(
                   "transition-all duration-300",
-                  highlightedProposalId === proposal.id && "ring-2 ring-[#a0704b] ring-offset-2 rounded-xl"
+                  highlightedProposalId === proposal.id && "ring-2 ring-primary ring-offset-2 rounded-xl"
                 )}
               >
                 <ProposalCardFull

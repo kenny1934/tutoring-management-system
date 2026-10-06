@@ -95,7 +95,7 @@ export function StudentPickerPopover({
                 <Square className="h-3.5 w-3.5 flex-shrink-0" />
               )}
               {studentId && (
-                <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
+                <span className="text-[10px] font-mono text-ink-subtle dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
               )}
               <span className="truncate">{session.student_name}</span>
               {session.grade && (
@@ -115,8 +115,8 @@ export function StudentPickerPopover({
           className={cn(
             "w-full py-1.5 rounded-md text-xs font-medium transition-colors",
             noneSelected
-              ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-              : "bg-[#a0704b] hover:bg-[#8b6040] text-white"
+              ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              : "bg-primary hover:bg-[#8b6040] text-white"
           )}
         >
           Assign to {pickerIds.size} student{pickerIds.size !== 1 ? "s" : ""}

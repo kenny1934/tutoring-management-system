@@ -85,7 +85,7 @@ export function MemoListDrawer({ isOpen, onClose }: MemoListDrawerProps) {
         title={
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">
-              <StickyNote className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <StickyNote className="h-4 w-4 text-amber-700 dark:text-amber-400" />
             </span>
             <span>Session Memos</span>
           </div>
@@ -123,10 +123,10 @@ export function MemoListDrawer({ isOpen, onClose }: MemoListDrawerProps) {
           {/* Memo list */}
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
             </div>
           ) : memos.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <StickyNote className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No {filter === "all" ? "" : filter} memos found</p>
             </div>

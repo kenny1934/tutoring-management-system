@@ -131,9 +131,9 @@ export function StudentSkipRow({
     return (
       <div className="flex items-center gap-2 px-3 py-2 text-sm bg-green-50/50 dark:bg-green-900/10">
         <div className="flex-1 min-w-0"><AppChip a={entry.application} /></div>
-        <ArrowRight className="h-3.5 w-3.5 text-green-600 shrink-0" />
+        <ArrowRight className="h-3.5 w-3.5 text-green-700 shrink-0" />
         <div className="flex-1 min-w-0">{picked && <StudentChip s={picked} />}</div>
-        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+        <CheckCircle2 className="h-4 w-4 text-green-700 shrink-0" />
       </div>
     );
   }
@@ -219,9 +219,9 @@ export function ProspectSkipRow({
     return (
       <div className="flex items-center gap-2 px-3 py-2 text-sm bg-green-50/50 dark:bg-green-900/10">
         <div className="flex-1 min-w-0"><ProspectChip p={entry.prospect} /></div>
-        <ArrowRight className="h-3.5 w-3.5 text-green-600 shrink-0" />
+        <ArrowRight className="h-3.5 w-3.5 text-green-700 shrink-0" />
         <div className="flex-1 min-w-0">{picked && <AppChip a={picked} />}</div>
-        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+        <CheckCircle2 className="h-4 w-4 text-green-700 shrink-0" />
       </div>
     );
   }

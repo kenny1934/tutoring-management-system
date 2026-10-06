@@ -25,7 +25,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
         <select
           value={filters.from_tutor_id || ""}
           onChange={(e) => onChange({ ...filters, from_tutor_id: e.target.value ? Number(e.target.value) : undefined })}
-          className="text-xs px-2 py-1 border border-line rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b] appearance-none cursor-pointer"
+          className="text-xs px-2 py-1 border border-line rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
         >
           <option value="" className="bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100">Any sender</option>
           {[...tutors].sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))).map(t => (
@@ -60,7 +60,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
           className={cn(
             "flex items-center gap-1 text-xs px-2 py-1 border rounded-full transition-colors",
             filters.has_attachments
-              ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+              ? "border-primary bg-primary/10 text-accent-ink"
               : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           )}
         >
@@ -77,7 +77,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
             className={cn(
               "text-xs px-2 py-1 border rounded-full transition-colors",
               filters.priority === p
-                ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+                ? "border-primary bg-primary/10 text-accent-ink"
                 : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             )}
           >
@@ -90,7 +90,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
           <button
             type="button"
             onClick={() => onChange({})}
-            className="flex items-center gap-1 text-xs px-2 py-1 text-red-500 hover:text-red-600 transition-colors"
+            className="flex items-center gap-1 text-xs px-2 py-1 text-red-600 hover:text-red-600 transition-colors"
           >
             <X className="h-3 w-3" />
             Clear

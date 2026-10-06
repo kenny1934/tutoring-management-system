@@ -105,8 +105,8 @@ import { getDocumentPath, getTrendingPath, type ExtendedPaperlessDocument } from
 
 // Medal icons for top 3 - using lucide icons with glow effects
 const MEDAL_CONFIG = [
-  { icon: Trophy, color: "text-amber-500", glow: "drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" },      // Gold
-  { icon: Medal, color: "text-gray-400", glow: "drop-shadow-[0_0_6px_rgba(156,163,175,0.5)]" },        // Silver
+  { icon: Trophy, color: "text-amber-700", glow: "drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" },      // Gold
+  { icon: Medal, color: "text-gray-500", glow: "drop-shadow-[0_0_6px_rgba(156,163,175,0.5)]" },        // Silver
   { icon: Award, color: "text-amber-700", glow: "drop-shadow-[0_0_6px_rgba(180,83,9,0.5)]" },          // Bronze
 ];
 
@@ -348,7 +348,7 @@ function SchoolAutocomplete({
           "w-36 pl-8 pr-3 py-2 text-sm rounded-md min-h-[40px]",
           "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
           "text-gray-700 dark:text-gray-300 placeholder-gray-500",
-          "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+          "focus:outline-none focus:ring-2 focus:ring-primary/50"
         )}
         role="combobox"
         aria-expanded={showSuggestions && filtered.length > 0}
@@ -439,7 +439,7 @@ function Podium({
                 onClick={(e) => handleClick(e, item.filename)}
                 onKeyDown={(e) => e.key === 'Enter' && handleClick(e, item.filename)}
               className={cn(
-                "flex flex-col items-center transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded-lg p-2 cursor-pointer",
+                "flex flex-col items-center transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg p-2 cursor-pointer",
                 i === 1 ? "order-first sm:order-none" : "" // Gold first on mobile
               )}
             >
@@ -527,7 +527,7 @@ function RankingRow({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
         role="button"
         tabIndex={0}
-        className="w-full px-3 sm:px-4 py-3 flex items-center gap-3 cursor-pointer text-left min-h-[52px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/50"
+        className="w-full px-3 sm:px-4 py-3 flex items-center gap-3 cursor-pointer text-left min-h-[52px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/50"
         aria-expanded={isExpanded}
       >
         {/* Rank */}
@@ -594,7 +594,7 @@ function RankingRow({
                   ? "bg-gradient-to-r from-gray-300 to-gray-400"
                   : rank === 3
                   ? "bg-gradient-to-r from-amber-600 to-amber-700"
-                  : "bg-gradient-to-r from-[#a0704b] to-[#c4956a]"
+                  : "bg-gradient-to-r from-[#8f6240] to-[#c4956a]"
               )}
               style={{ width: `${progressPercent}%` }}
             />
@@ -655,7 +655,7 @@ function UsageDetailPanel({
   if (isLoading) {
     return (
       <div className="px-4 pb-4 flex items-center justify-center py-6">
-        <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+        <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
         <span className="ml-2 text-sm text-gray-500">Loading details...</span>
       </div>
     );
@@ -700,7 +700,7 @@ function UsageDetailPanel({
                 {canAccessLocation ? (
                   <Link
                     href={`/students/${detail.student_id}`}
-                    className="group text-accent-ink font-medium truncate block focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded"
+                    className="group text-accent-ink font-medium truncate block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
                     title={detail.student_name}
                   >
                     <span className="text-gray-500 dark:text-gray-400 mr-1">{displayId}</span>
@@ -768,15 +768,15 @@ function UsageDetailPanel({
               {canAccessLocation ? (
                 <Link
                   href={`/sessions/${detail.session_id}`}
-                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary/50"
                   title="Go to session"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <ExternalLink className="h-3.5 w-3.5 text-gray-500 hover:text-[#a0704b]" />
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-500 hover:text-accent-ink" />
                 </Link>
               ) : (
                 <div className="p-2 flex-shrink-0" title="Access restricted">
-                  <ExternalLink className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600" />
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-300 dark:text-gray-400" />
                 </div>
               )}
             </div>
@@ -788,7 +788,7 @@ function UsageDetailPanel({
         {hasMore && (
           <button
             onClick={() => setDisplayCount((c) => c + 10)}
-            className="w-full px-3 py-3 text-sm font-medium text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-line/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/50 min-h-[44px]"
+            className="w-full px-3 py-3 text-sm font-medium text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-line/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/50 min-h-[44px]"
           >
             See more...
           </button>
@@ -1474,7 +1474,7 @@ function CoursewareBrowserTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
         <span className="ml-2 text-gray-500">Loading folders...</span>
       </div>
     );
@@ -1488,7 +1488,7 @@ function CoursewareBrowserTab() {
       <div className="flex justify-center py-12">
         <StickyNote variant="yellow" size="lg" showTape rotation={1}>
           <div className="text-center">
-            <FolderTree className="h-12 w-12 mx-auto mb-4 text-[#a0704b]" />
+            <FolderTree className="h-12 w-12 mx-auto mb-4 text-accent-ink" />
             <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No folders configured</p>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               Set up shared drives in Settings → Path Mappings to browse files here.
@@ -1496,7 +1496,7 @@ function CoursewareBrowserTab() {
             {fsSupported && (
               <button
                 onClick={handleAddFolder}
-                className="flex items-center gap-2 mx-auto px-4 py-2 rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
+                className="flex items-center gap-2 mx-auto px-4 py-2 rounded bg-primary text-white hover:bg-[#8b6340]"
               >
                 <FolderPlus className="h-4 w-4" />
                 Add Folder
@@ -1523,7 +1523,7 @@ function CoursewareBrowserTab() {
                 onClick={() => { setSummerOpen(false); navigateTo(-1); }}
                 className={cn(
                   "shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
-                  isAtRoot && !summerOpen && "text-amber-600"
+                  isAtRoot && !summerOpen && "text-amber-700"
                 )}
                 title="Root"
               >
@@ -1532,7 +1532,7 @@ function CoursewareBrowserTab() {
               {isAtRoot && !summerOpen && fsSupported && (
                 <button
                   onClick={handleAddFolder}
-                  className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-500"
+                  className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-700"
                   title="Add local folder"
                 >
                   <FolderPlus className="h-4 w-4" />
@@ -1540,8 +1540,8 @@ function CoursewareBrowserTab() {
               )}
               {summerOpen && (
                 <>
-                  <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
-                  <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                  <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
+                  <span className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400 whitespace-nowrap">
                     <Sun className="h-3.5 w-3.5" />
                     Summer Course {SUMMER_YEAR}
                   </span>
@@ -1549,12 +1549,12 @@ function CoursewareBrowserTab() {
               )}
               {currentPath.map((segment, i) => (
                 <Fragment key={i}>
-                  <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                  <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
                   <button
                     onClick={() => navigateTo(i)}
                     className={cn(
-                      "hover:text-amber-500 truncate max-w-[120px] transition-colors",
-                      i === currentPath.length - 1 && "font-medium text-amber-600 dark:text-amber-400"
+                      "hover:text-amber-700 truncate max-w-[120px] transition-colors",
+                      i === currentPath.length - 1 && "font-medium text-amber-700 dark:text-amber-400"
                     )}
                     title={segment}
                   >
@@ -1572,7 +1572,7 @@ function CoursewareBrowserTab() {
                 className={cn(
                   "p-1 rounded transition-colors",
                   viewMode === "list"
-                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400"
                     : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                 )}
                 title="List view"
@@ -1584,7 +1584,7 @@ function CoursewareBrowserTab() {
                 className={cn(
                   "p-1 rounded transition-colors",
                   viewMode === "grid"
-                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400"
                     : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                 )}
                 title="Grid view"
@@ -1611,7 +1611,7 @@ function CoursewareBrowserTab() {
 
             {/* Search input */}
             <div className="relative flex-1 max-w-[200px]">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1626,13 +1626,13 @@ function CoursewareBrowserTab() {
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   title="Clear search"
                 >
-                  <X className="h-3 w-3 text-gray-400" />
+                  <X className="h-3 w-3 text-gray-500" />
                 </button>
               )}
             </div>
 
-            {loadingDates && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />}
-            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+            {loadingDates && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700" />}
+            <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
               {searchQuery.trim()
                 ? `${sortedContents.length} of ${sortedContentsRaw.length} items`
                 : hasMore
@@ -1648,14 +1648,14 @@ function CoursewareBrowserTab() {
         {/* Error banner */}
         {error && (
           <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
-            <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+            <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
             <span className="flex-1 text-sm text-red-700 dark:text-red-300">{error}</span>
             <button
               onClick={() => {
                 setError(null);
                 if (currentPath.length > 0) navigateTo(-1);
               }}
-              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500"
+              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-600"
               title="Dismiss"
             >
               <X className="h-4 w-4" />
@@ -1670,7 +1670,7 @@ function CoursewareBrowserTab() {
                   loadRootFolders();
                 }
               }}
-              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500"
+              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-600"
               title="Retry"
             >
               <RefreshCw className="h-4 w-4" />
@@ -1697,14 +1697,14 @@ function CoursewareBrowserTab() {
               className="flex items-center gap-3 px-3 py-2 mb-1 rounded-lg cursor-pointer border border-[#e8d4b8] dark:border-[#5a4d3a] bg-[#fdf6ec]/70 dark:bg-[#2a2318]/60 hover:bg-[#f8eedd] dark:hover:bg-[#332b1c] transition-colors"
             >
               <div className="w-3.5" />
-              <Sun className="h-5 w-5 text-amber-500 shrink-0" />
+              <Sun className="h-5 w-5 text-amber-700 shrink-0" />
               <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 Summer Course {SUMMER_YEAR}
               </span>
               <span className="text-xs text-ink-subtle shrink-0">
                 Courseware drive
               </span>
-              <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+              <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
             </div>
           )}
           {summerOpen && summerIndex ? (
@@ -1769,7 +1769,7 @@ function CoursewareBrowserTab() {
                           checked={isSelected}
                           onChange={() => {}}
                           onClick={(e) => handleCheckboxClick(e, node, index)}
-                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-700 focus:ring-amber-500 cursor-pointer"
                         />
                       </div>
                     )}
@@ -1778,10 +1778,10 @@ function CoursewareBrowserTab() {
 
                     {/* Icon */}
                     {node.kind === "folder" ? (
-                      node.isShared ? <FolderSync className="h-5 w-5 text-green-500 shrink-0" /> :
-                      <Folder className="h-5 w-5 text-amber-500 shrink-0" />
+                      node.isShared ? <FolderSync className="h-5 w-5 text-green-700 shrink-0" /> :
+                      <Folder className="h-5 w-5 text-amber-700 shrink-0" />
                     ) : (
-                      <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                      <FileText className="h-5 w-5 text-red-600 shrink-0" />
                     )}
 
                     {/* Name */}
@@ -1791,9 +1791,9 @@ function CoursewareBrowserTab() {
 
                     {/* Warning for unavailable folders */}
                     {node.kind === "folder" && unavailableFolders.has(node.id) && (
-                      <span title="Folder unavailable"><AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /></span>
+                      <span title="Folder unavailable"><AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" /></span>
                     )}
-                    {node.kind === "folder" && <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
+                    {node.kind === "folder" && <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />}
 
                     {/* Copy path button for files */}
                     {node.kind === "file" && (
@@ -1807,7 +1807,7 @@ function CoursewareBrowserTab() {
                         )}
                         title="Copy path"
                       >
-                        {copiedPath === node.path ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
+                        {copiedPath === node.path ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
                       </button>
                     )}
 
@@ -1815,7 +1815,7 @@ function CoursewareBrowserTab() {
                     {isAtRoot && node.kind === "folder" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
-                        className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
+                        className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600"
                         title="Remove folder"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1861,7 +1861,7 @@ function CoursewareBrowserTab() {
                           checked={isSelected}
                           onChange={() => {}}
                           onClick={(e) => handleCheckboxClick(e, node, index)}
-                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-700 focus:ring-amber-500 cursor-pointer"
                         />
                       </div>
                     )}
@@ -1870,7 +1870,7 @@ function CoursewareBrowserTab() {
                     {isAtRoot && node.kind === "folder" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
-                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600"
                         title="Remove folder"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1880,15 +1880,15 @@ function CoursewareBrowserTab() {
                     {/* Warning for unavailable folders */}
                     {node.kind === "folder" && unavailableFolders.has(node.id) && (
                       <div className="absolute top-1 left-1 p-0.5 rounded bg-amber-100 dark:bg-amber-900/50" title="Folder unavailable">
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
                       </div>
                     )}
 
                     {/* Icon */}
                     {node.kind === "folder" ? (
-                      node.isShared ? <FolderSync className="h-10 w-10 text-green-500" /> : <Folder className="h-10 w-10 text-amber-500" />
+                      node.isShared ? <FolderSync className="h-10 w-10 text-green-700" /> : <Folder className="h-10 w-10 text-amber-700" />
                     ) : (
-                      <FileText className="h-10 w-10 text-red-500" />
+                      <FileText className="h-10 w-10 text-red-600" />
                     )}
 
                     {/* Name */}
@@ -1905,16 +1905,16 @@ function CoursewareBrowserTab() {
           {hasMore && (
             <button
               onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
-              className="w-full py-3 mt-2 text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 mt-2 text-sm text-amber-700 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               Show {Math.min(remainingCount, ITEMS_PER_PAGE)} more
-              <span className="text-gray-400">({remainingCount} remaining)</span>
+              <span className="text-gray-500">({remainingCount} remaining)</span>
             </button>
           )}
         </div>
 
         {/* Footer: Keyboard hints (pointless on touch, so reclaim the space) */}
-        <div className="pointer-coarse:hidden p-2 border-t border-line text-[10px] text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="pointer-coarse:hidden p-2 border-t border-line text-[10px] text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
               {viewMode === "grid" ? "←↑↓→" : "↑↓"}
@@ -2370,7 +2370,7 @@ function CoursewareSearchTab() {
 
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <input
             type="text"
             value={query}
@@ -2379,11 +2379,11 @@ function CoursewareSearchTab() {
             className={cn(
               "w-full pl-10 pr-10 py-2.5 text-sm rounded-md",
               "bg-paper border border-[#d4a574] dark:border-[#6b5a4a]",
-              "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+              "focus:outline-none focus:ring-2 focus:ring-primary/50"
             )}
           />
           {loading && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 animate-spin" />
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-700 animate-spin" />
           )}
         </div>
 
@@ -2392,7 +2392,7 @@ function CoursewareSearchTab() {
           <div className="-mt-1">
             <button
               onClick={() => setShowAdvancedHints(!showAdvancedHints)}
-              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
             >
               <ChevronDown className={cn("h-3 w-3 transition-transform", showAdvancedHints && "rotate-180")} />
               {showAdvancedHints ? "Hide syntax tips" : "Show syntax tips"}
@@ -2453,7 +2453,7 @@ function CoursewareSearchTab() {
                         type="checkbox"
                         checked={selectedTagIds.includes(tag.id)}
                         onChange={() => handleTagToggle(tag.id)}
-                        className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500"
+                        className="rounded border-gray-300 dark:border-gray-600 text-amber-700 focus:ring-amber-500"
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">{tag.name}</span>
                     </label>
@@ -2521,7 +2521,7 @@ function CoursewareSearchTab() {
       {/* Error message */}
       {error && (
         <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <AlertCircle className="h-4 w-4 text-red-500" />
+          <AlertCircle className="h-4 w-4 text-red-600" />
           <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
         </div>
       )}
@@ -2545,12 +2545,12 @@ function CoursewareSearchTab() {
             {/* Trending Section */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Flame className="h-5 w-5 text-orange-500" />
+                <Flame className="h-5 w-5 text-orange-700" />
                 <h3 className="font-medium text-gray-900 dark:text-gray-100">Trending Courseware</h3>
               </div>
               {trendingLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 text-amber-500 animate-spin" />
+                  <Loader2 className="h-6 w-6 text-amber-700 animate-spin" />
                 </div>
               ) : top10Trending.length > 0 ? (
                 <div className="space-y-1">
@@ -2576,9 +2576,9 @@ function CoursewareSearchTab() {
                             e.stopPropagation();
                             toggleSelectionTrending(item, index);
                           }}
-                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
+                          className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-500 shrink-0"
                         />
-                        {index < 3 && <Flame className="h-4 w-4 text-orange-500 shrink-0" />}
+                        {index < 3 && <Flame className="h-4 w-4 text-orange-700 shrink-0" />}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                             {item.filename}
@@ -2596,9 +2596,9 @@ function CoursewareSearchTab() {
                           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                         >
                           {copiedPath === getTrendingPath(item) ? (
-                            <Check className="h-4 w-4 text-green-500" />
+                            <Check className="h-4 w-4 text-green-700" />
                           ) : (
-                            <Copy className="h-4 w-4 text-gray-400" />
+                            <Copy className="h-4 w-4 text-gray-500" />
                           )}
                         </button>
                       </div>
@@ -2615,12 +2615,12 @@ function CoursewareSearchTab() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-gray-400" />
+                    <Clock className="h-5 w-5 text-gray-500" />
                     <h3 className="font-medium text-gray-900 dark:text-gray-100">Recent Documents</h3>
                   </div>
                   <button
                     onClick={() => { clearRecentDocuments(); setRecentDocs([]); }}
-                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    className="text-xs text-gray-500 hover:text-red-600 transition-colors"
                   >
                     Clear
                   </button>
@@ -2647,9 +2647,9 @@ function CoursewareSearchTab() {
                             e.stopPropagation();
                             toggleSelectionRecent(doc);
                           }}
-                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
+                          className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-500 shrink-0"
                         />
-                        <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                        <FileText className="h-4 w-4 text-red-600 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                             {doc.title}
@@ -2660,7 +2660,7 @@ function CoursewareSearchTab() {
                           onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title); }}
                           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                         >
-                          <Eye className="h-4 w-4 text-gray-400" />
+                          <Eye className="h-4 w-4 text-gray-500" />
                         </button>
                       </div>
                     );
@@ -2707,9 +2707,9 @@ function CoursewareSearchTab() {
                     e.stopPropagation();
                     toggleSelection(doc);
                   }}
-                  className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
+                  className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-500 shrink-0"
                 />
-                <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                <FileText className="h-5 w-5 text-red-600 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
                     {doc.title || doc.original_file_name}
@@ -2733,7 +2733,7 @@ function CoursewareSearchTab() {
                         </span>
                       ))}
                       {doc.tags.length > 3 && (
-                        <span className="text-[10px] text-gray-400">+{doc.tags.length - 3}</span>
+                        <span className="text-[10px] text-gray-500">+{doc.tags.length - 3}</span>
                       )}
                     </div>
                   )}
@@ -2744,14 +2744,14 @@ function CoursewareSearchTab() {
                     className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                     title="Preview"
                   >
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-4 w-4 text-gray-500" />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleCopyPath(getDocumentPath(doc)); }}
                     className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
                   >
                     {copiedPath === getDocumentPath(doc) ? (
-                      <Check className="h-3 w-3 text-green-500" />
+                      <Check className="h-3 w-3 text-green-700" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
@@ -2785,7 +2785,7 @@ function CoursewareSearchTab() {
       </div>
 
       {/* Keyboard hints footer */}
-      <div className="px-4 py-2 border-t border-line text-xs text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="px-4 py-2 border-t border-line text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
           navigate
@@ -2960,9 +2960,9 @@ export default function CoursewarePage() {
       <button
         onClick={() => setTimeRange("recent")}
         className={cn(
-          "px-3 py-2 text-sm font-medium transition-colors min-h-[40px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/70",
+          "px-3 py-2 text-sm font-medium transition-colors min-h-[40px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/70",
           timeRange === "recent"
-            ? "bg-[#a0704b] text-white"
+            ? "bg-primary text-white"
             : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
         )}
         aria-pressed={timeRange === "recent"}
@@ -2972,9 +2972,9 @@ export default function CoursewarePage() {
       <button
         onClick={() => setTimeRange("all-time")}
         className={cn(
-          "px-3 py-2 text-sm font-medium transition-colors border-l border-[#d4a574] dark:border-[#6b5a4a] min-h-[40px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/70",
+          "px-3 py-2 text-sm font-medium transition-colors border-l border-[#d4a574] dark:border-[#6b5a4a] min-h-[40px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/70",
           timeRange === "all-time"
-            ? "bg-[#a0704b] text-white"
+            ? "bg-primary text-white"
             : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
         )}
         aria-pressed={timeRange === "all-time"}
@@ -3003,7 +3003,7 @@ export default function CoursewarePage() {
         "px-3 py-2 text-sm font-medium rounded-md min-h-[40px]",
         "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
         "text-gray-700 dark:text-gray-300",
-        "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+        "focus:outline-none focus:ring-2 focus:ring-primary/50",
         "cursor-pointer"
       )}
       aria-label={label}
@@ -3049,10 +3049,10 @@ export default function CoursewarePage() {
                       aria-selected={activeTab === tab.id}
                       className={cn(
                         "px-3 py-2 text-sm font-medium transition-colors min-h-[40px] flex items-center gap-1.5",
-                        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/70",
+                        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/70",
                         "border-l border-[#d4a574] dark:border-[#6b5a4a] first:border-l-0",
                         activeTab === tab.id
-                          ? "bg-[#a0704b] text-white"
+                          ? "bg-primary text-white"
                           : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                       )}
                     >
@@ -3084,14 +3084,14 @@ export default function CoursewarePage() {
                             "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md min-h-[40px]",
                             "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
                             "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
-                            "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
-                            filtersOpen && "ring-2 ring-[#a0704b]/50"
+                            "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                            filtersOpen && "ring-2 ring-primary/50"
                           )}
                         >
                           <Filter className="h-4 w-4" />
                           <span>Filters</span>
                           {activeCount > 0 && (
-                            <span className="ml-1 h-5 w-5 flex items-center justify-center text-[10px] font-bold bg-[#a0704b] text-white rounded-full">
+                            <span className="ml-1 h-5 w-5 flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full">
                               {activeCount}
                             </span>
                           )}

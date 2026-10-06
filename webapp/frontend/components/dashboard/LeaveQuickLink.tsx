@@ -113,7 +113,7 @@ function classifyRange(
   return { workingDays, excluded };
 }
 
-const inputCls = "w-full text-sm border border-[#d4a574]/40 dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
+const inputCls = "w-full text-sm border border-[#d4a574]/40 dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-primary";
 
 
 type ExcludedDay = { date: string; reason: "holiday" | "rdo"; label: string };
@@ -176,7 +176,7 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
           <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {Number(remaining.toFixed(2))}
           </span>
-          <span className="text-xs text-gray-400">/{Number(total.toFixed(2))}</span>
+          <span className="text-xs text-gray-500">/{Number(total.toFixed(2))}</span>
         </div>
       </div>
       {expanded && (
@@ -330,7 +330,7 @@ function FileLeaveForm({
           ))}
         </select>
         {remaining !== null && (
-          <p className={cn("text-[11px] mt-0.5 ml-0.5", remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500")}>
+          <p className={cn("text-[11px] mt-0.5 ml-0.5", remaining > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600")}>
             {remaining.toFixed(2)} days remaining
           </p>
         )}
@@ -347,7 +347,7 @@ function FileLeaveForm({
           <input id="leave-end" type="date" value={endDate} min={startDate} onChange={(e) => { setEndDate(e.target.value); setDaysManual(false); }} className={inputCls} />
         </div>
       </div>
-      {dateError && <p className="text-[11px] text-red-500 -mt-1 ml-0.5">End date must be after start date</p>}
+      {dateError && <p className="text-[11px] text-red-600 -mt-1 ml-0.5">End date must be after start date</p>}
 
       {/* Time range (same-day only) */}
       {isSameDay && (
@@ -390,7 +390,7 @@ function FileLeaveForm({
 
       {/* Balance warning */}
       {remaining !== null && days && Number(days) > remaining && (
-        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+        <p className="text-[11px] text-amber-700 dark:text-amber-400">
           This will exceed your available balance ({remaining.toFixed(2)} days remaining). It will still be submitted for approval.
         </p>
       )}
@@ -409,7 +409,7 @@ function FileLeaveForm({
             reason: reason || undefined,
           })}
           disabled={!canSubmit}
-          className="px-3 py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
+          className="px-3 py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
         >
           {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
         </button>
@@ -499,7 +499,7 @@ function FileOvertimeForm({
             description: description || undefined,
           })}
           disabled={!canSubmit}
-          className="px-3 py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
+          className="px-3 py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
         >
           {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
         </button>
@@ -600,7 +600,7 @@ function LeaveCalendarView() {
       {/* Weekday headers */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAY_HEADERS.map((day, i) => (
-          <div key={i} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500">
+          <div key={i} className="text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400">
             {day}
           </div>
         ))}
@@ -609,7 +609,7 @@ function LeaveCalendarView() {
       {/* Calendar grid */}
       {loadingCal ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+          <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
         </div>
       ) : (
         <div className="grid grid-cols-7">
@@ -636,7 +636,7 @@ function LeaveCalendarView() {
               >
                 <span className={cn(
                   "text-[10px] leading-none",
-                  isToday && "font-bold text-[#a0704b]",
+                  isToday && "font-bold text-accent-ink",
                   !isToday && holiday && "text-red-600 dark:text-red-400 font-medium",
                   !isToday && !holiday && "text-gray-600 dark:text-gray-400",
                 )}>
@@ -648,7 +648,7 @@ function LeaveCalendarView() {
                       <div key={i} className={cn("w-1.5 h-1.5 rounded-full", leaveTypeColor(e.leave_type))} />
                     ))}
                     {dayEntries.length > 3 && (
-                      <span className="text-[7px] text-gray-400">+{dayEntries.length - 3}</span>
+                      <span className="text-[7px] text-gray-500">+{dayEntries.length - 3}</span>
                     )}
                   </div>
                 )}
@@ -674,7 +674,7 @@ function LeaveCalendarView() {
                 <span className="text-red-700 dark:text-red-400 font-medium truncate">
                   {holidayMap.get(selectedDay)!.name}
                 </span>
-                <span className="text-gray-400 dark:text-gray-500 ml-auto flex-shrink-0">
+                <span className="text-gray-500 dark:text-gray-400 ml-auto flex-shrink-0">
                   {holidayMap.get(selectedDay)!.holiday_type === "public_holiday" ? "PH" : "SH"}
                 </span>
               </div>
@@ -683,7 +683,7 @@ function LeaveCalendarView() {
               <div key={i} className="flex items-center gap-2 text-[11px]">
                 <div className={cn("w-2 h-2 rounded-full flex-shrink-0", leaveTypeColor(e.leave_type))} />
                 <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{e.staff_name}</span>
-                <span className="text-gray-400 dark:text-gray-500 ml-auto flex-shrink-0">{e.leave_type}</span>
+                <span className="text-gray-500 dark:text-gray-400 ml-auto flex-shrink-0">{e.leave_type}</span>
               </div>
             ))}
           </div>
@@ -909,7 +909,7 @@ function RequestCard({
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Note (optional)"
               rows={2}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         }
@@ -930,7 +930,7 @@ function RequestCard({
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Reason (optional)"
               rows={2}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         }
@@ -964,8 +964,8 @@ type TabId = "balances" | "requests" | "pending" | "calendar" | "all-staff";
 /** Color tier for a remaining-days value. Mirrors ARK's `remainingColor`. */
 function remainingColorCls(v: number): string {
   if (v < 2) return "text-red-600 dark:text-red-400";
-  if (v < 5) return "text-amber-600 dark:text-amber-400";
-  return "text-emerald-600 dark:text-emerald-400";
+  if (v < 5) return "text-amber-700 dark:text-amber-400";
+  return "text-emerald-700 dark:text-emerald-400";
 }
 
 function fmt(n: number): string {
@@ -1006,7 +1006,7 @@ function AllStaffBalancesPanel({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+        <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
       </div>
     );
   }
@@ -1016,18 +1016,18 @@ function AllStaffBalancesPanel({
       {/* Search + branch badge */}
       <div className="sticky top-0 z-10 px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line/60 flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search staff..."
             aria-label="Search staff"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-[#d4a574]/40 dark:border-[#6b5a4a] bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-[#d4a574]/40 dark:border-[#6b5a4a] bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         {selectedLocation !== "All Locations" && (
-          <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#a0704b]/10 text-accent-ink border border-[#a0704b]/30">
+          <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-accent-ink border border-primary/30">
             {selectedLocation}
           </span>
         )}
@@ -1035,7 +1035,7 @@ function AllStaffBalancesPanel({
 
       {filtered.length === 0 ? (
         <div className="text-center py-8 px-4">
-          <Users className="h-8 w-8 mx-auto mb-2 text-gray-400 opacity-50" />
+          <Users className="h-8 w-8 mx-auto mb-2 text-gray-500 opacity-50" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {(data?.length ?? 0) === 0 ? "No balances to show" : "No staff match this filter"}
           </p>
@@ -1059,8 +1059,8 @@ function AllStaffBalancesPanel({
                 </tr>
                 <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
                   <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500" title="Overtime compensation">OC</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500" title="Birthday leave">Bday</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Overtime compensation">OC</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Birthday leave">Bday</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-dashed border-line/60" title="Used (AL + OC + Bday)">Used</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Pool remaining">Rem.</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">Ent.</th>
@@ -1079,8 +1079,8 @@ function AllStaffBalancesPanel({
                       {r.staff_name}
                     </td>
                     <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-line/40">{fmt(Number(r.al_entitlement))}</td>
-                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-400 dark:text-gray-500">{fmtOrDash(Number(r.al_oc))}</td>
-                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-400 dark:text-gray-500">{fmtOrDash(Number(r.al_bday))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-500 dark:text-gray-400">{fmtOrDash(Number(r.al_oc))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-500 dark:text-gray-400">{fmtOrDash(Number(r.al_bday))}</td>
                     <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-dashed border-line/40">{fmt(Number(r.al_used))}</td>
                     <td className={cn("px-1.5 py-1.5 text-right font-mono tabular-nums font-semibold", remainingColorCls(Number(r.al_remaining)))}>{fmt(Number(r.al_remaining))}</td>
                     <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-line/40">{fmt(Number(r.sl_entitlement))}</td>
@@ -1105,13 +1105,13 @@ function AllStaffBalancesPanel({
                 </div>
                 <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
                   <div className="text-gray-500 dark:text-gray-400">
-                    AL pool <span className="text-gray-400">{fmt(Number(r.al_used))} used /</span>{" "}
+                    AL pool <span className="text-gray-500">{fmt(Number(r.al_used))} used /</span>{" "}
                     <span className={cn("font-semibold font-mono tabular-nums", remainingColorCls(Number(r.al_remaining)))}>
                       {fmt(Number(r.al_remaining))} left
                     </span>
                   </div>
                   <div className="text-gray-500 dark:text-gray-400">
-                    SL <span className="text-gray-400">{fmt(Number(r.sl_used))} used /</span>{" "}
+                    SL <span className="text-gray-500">{fmt(Number(r.sl_used))} used /</span>{" "}
                     <span className={cn("font-semibold font-mono tabular-nums", remainingColorCls(Number(r.sl_remaining)))}>
                       {fmt(Number(r.sl_remaining))} left
                     </span>
@@ -1391,8 +1391,8 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                     onClick={() => setShowForm("leave")}
                     className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
                       showForm === "leave"
-                        ? "text-[#a0704b] dark:text-[#cd853f]"
-                        : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        ? "text-accent-ink dark:text-[#cd853f]"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     )}
                   >
                     <Palmtree className="h-3.5 w-3.5" />
@@ -1403,7 +1403,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                     className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
                       showForm === "overtime"
                         ? "text-indigo-600 dark:text-indigo-400"
-                        : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     )}
                   >
                     <Clock className="h-3.5 w-3.5" />
@@ -1449,7 +1449,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                   className={cn(
                     "flex-1 px-2 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
                     activeTab === tab.id
-                      ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                      ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
                     i === 0 && "rounded-tl-lg",
                     i === tabs.length - 1 && "rounded-tr-lg",
@@ -1457,7 +1457,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 >
                   {tab.label}
                   {tab.count && tab.count > 0 && (
-                    <sup className="ml-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                    <sup className="ml-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400">
                       {tab.count}
                     </sup>
                   )}
@@ -1469,13 +1469,13 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             <div className="flex-1 overflow-y-auto">
               {isArkError ? (
                 <div className="text-center py-8 px-4">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400 opacity-50" />
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-500 opacity-50" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Could not connect to ARK
                   </p>
                   <button
                     onClick={handleOpenArk}
-                    className="mt-2 text-xs text-[#a0704b] hover:underline"
+                    className="mt-2 text-xs text-accent-ink hover:underline"
                   >
                     Open ARK directly
                   </button>
@@ -1483,7 +1483,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
               ) : activeTab === "balances" ? (
                 loadingBalances ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                    <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
                   </div>
                 ) : visibleBalances.length === 0 ? (
                   <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
@@ -1507,7 +1507,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                         className={cn(
                           "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
                           requestFilter === f
-                            ? "bg-[#a0704b] text-white"
+                            ? "bg-primary text-white"
                             : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                         )}
                       >
@@ -1517,11 +1517,11 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                   </div>
                   {loadingRequests ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                      <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
                     </div>
                   ) : sortedMyRequests.length === 0 ? (
                     <div className="text-center py-8">
-                      <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400 opacity-50" />
+                      <Clock className="h-8 w-8 mx-auto mb-2 text-gray-500 opacity-50" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {requestFilter === "upcoming" ? "No upcoming leave" : "No past requests"}
                       </p>
@@ -1546,11 +1546,11 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 // Pending review tab (admin)
                 loadingPending ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                    <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
                   </div>
                 ) : (pendingRequests ?? []).length === 0 ? (
                   <div className="text-center py-8">
-                    <Check className="h-8 w-8 mx-auto mb-2 text-green-400 opacity-50" />
+                    <Check className="h-8 w-8 mx-auto mb-2 text-green-700 opacity-50" />
                     <p className="text-sm text-gray-500 dark:text-gray-400">All caught up!</p>
                   </div>
                 ) : (
@@ -1584,7 +1584,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
               {!isViewingOther && !isSupervisor && (
                 <button
                   onClick={() => setShowForm("leave")}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-md transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-primary hover:bg-[#8b5f3c] rounded-md transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   New Request

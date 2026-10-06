@@ -198,10 +198,10 @@ export function MoreEnrollmentsPopover({
                             <span className="flex items-center gap-1">
                               {enrollment.school_student_id || "N/A"}
                               {isOverdue && (
-                                <AlertTriangle className="h-3 w-3 text-red-500" />
+                                <AlertTriangle className="h-3 w-3 text-red-600" />
                               )}
                               {isPending && !isOverdue && (
-                                <HandCoins className="h-3 w-3 text-amber-500" />
+                                <HandCoins className="h-3 w-3 text-amber-700" />
                               )}
                             </span>
                             {enrollment.tutor_name && (

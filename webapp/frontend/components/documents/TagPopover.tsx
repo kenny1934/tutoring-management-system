@@ -48,7 +48,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
                 }
                 if (e.key === "Escape") onClose();
               }}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>
@@ -65,7 +65,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
                 <div className={cn(
                   "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
                   checked
-                    ? "bg-[#a0704b] border-[#a0704b] text-white"
+                    ? "bg-primary border-primary text-white"
                     : "border-gray-300 dark:border-gray-600"
                 )}>
                   {checked && (
@@ -93,7 +93,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
             </button>
           )}
           {filtered.length === 0 && !showCreate && (
-            <p className="px-2 py-3 text-xs text-gray-400 text-center">No tags found</p>
+            <p className="px-2 py-3 text-xs text-gray-500 text-center">No tags found</p>
           )}
         </div>
       </div>

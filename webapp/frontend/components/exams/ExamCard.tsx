@@ -134,7 +134,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
       "rounded-xl border overflow-hidden",
       "bg-white dark:bg-[#1a1a1a] border-line",
       "paper-texture transition-all",
-      highlighted && "ring-2 ring-[#a0704b] ring-offset-2"
+      highlighted && "ring-2 ring-primary ring-offset-2"
     )}>
       {/* Header - Always visible */}
       <div
@@ -164,7 +164,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
               ? "text-gray-500"
               : daysUntil <= 7
               ? "text-red-600 dark:text-red-400"
-              : "text-amber-600 dark:text-amber-400"
+              : "text-amber-700 dark:text-amber-400"
           )}>
             {examDate.toLocaleDateString("en-US", { month: "short" })}
           </span>
@@ -184,7 +184,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
               ? "text-gray-500"
               : daysUntil <= 7
               ? "text-red-600 dark:text-red-400"
-              : "text-amber-600 dark:text-amber-400"
+              : "text-amber-700 dark:text-amber-400"
           )}>
             {examDate.getFullYear()}
           </span>
@@ -278,15 +278,15 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                   className="p-1.5 rounded-md hover:bg-[#d4a574]/30 transition-colors"
                   title="Edit event"
                 >
-                  <Pencil className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                  <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                 </button>
               )}
 
               {/* Expand indicator */}
               {isExpanded ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
+                <ChevronUp className="h-5 w-5 text-gray-500" />
               ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <ChevronDown className="h-5 w-5 text-gray-500" />
               )}
             </div>
           </div>
@@ -319,8 +319,8 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                 title={readOnly ? "Read-only access" : undefined}
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-                  "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",
-                  "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+                  "bg-primary hover:bg-[#8a5f3e] text-white",
+                  "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
                   "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
@@ -332,11 +332,11 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
             {/* Slots */}
             {exam.revision_slots.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <BookOpen className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-2" />
+                <BookOpen className="h-10 w-10 text-gray-300 dark:text-gray-400 mb-2" />
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   No revision slots created yet
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Click &quot;Create Slot&quot; to schedule a revision session
                 </p>
               </div>
@@ -375,9 +375,9 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                   </span>
                 </div>
                 {showEligibleStudents ? (
-                  <ChevronUp className="h-4 w-4 text-amber-500" />
+                  <ChevronUp className="h-4 w-4 text-amber-700" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-amber-500" />
+                  <ChevronDown className="h-4 w-4 text-amber-700" />
                 )}
               </button>
 
@@ -386,7 +386,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                 <div className="border-t border-amber-200 dark:border-amber-800 p-3">
                   {loadingEligible ? (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
+                      <Loader2 className="h-5 w-5 animate-spin text-amber-700" />
                     </div>
                   ) : eligibleStudents.length === 0 ? (
                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
@@ -408,7 +408,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                             ))}
                           </select>
                           {tutorFilter && (
-                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                            <span className="text-xs text-amber-700 dark:text-amber-400">
                               {filteredEligible.length} student{filteredEligible.length !== 1 ? "s" : ""}
                             </span>
                           )}
@@ -426,7 +426,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                               showLink
                               showLocationPrefix={!location}
                               trailing={
-                                <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto flex items-center gap-1.5">
+                                <span className="text-[10px] text-amber-700 dark:text-amber-400 ml-auto flex items-center gap-1.5">
                                   {primaryTutor && <span className="text-gray-500 dark:text-gray-400">{primaryTutor}</span>}
                                   <span>• {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}</span>
                                 </span>

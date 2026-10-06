@@ -168,7 +168,7 @@ const TrialCard = React.memo(function TrialCard({
       {/* Converted info */}
       {trial.trial_status === 'converted' && trial.subsequent_enrollment_id && (
         <div className="mt-2 pt-2 border-t border-line">
-          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+          <span className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
             <RefreshCcw className="h-3 w-3" />
             Enrolled in regular course
           </span>
@@ -521,7 +521,7 @@ export default function TrialsPage() {
             <div className="flex flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
-                  <FlaskConical className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600 dark:text-teal-400" />
+                  <FlaskConical className="h-5 w-5 sm:h-6 sm:w-6 text-teal-700 dark:text-teal-400" />
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold text-foreground">

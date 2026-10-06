@@ -667,7 +667,7 @@ export function SummerConfigEditor({
             {isNew ? "New Config" : `Edit ${year} Config`}
           </h2>
           {isDirty && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
               (unsaved)
             </span>
           )}
@@ -904,7 +904,7 @@ export function SummerConfigEditor({
                   <span className="text-xs font-medium text-muted-foreground">{d.code || `Discount ${i + 1}`}</span>
                 </div>
                 {!isReadOnly && (
-                  <button type="button" onClick={() => deleteWithUndo(discounts, i, setDiscounts, "Discount")} className="p-1 text-red-500 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => deleteWithUndo(discounts, i, setDiscounts, "Discount")} className="p-1 text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
                 )}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -980,7 +980,7 @@ export function SummerConfigEditor({
                   { _id: genId("d"), code: "", name_zh: "", name_en: "", amount: 0, conditions: {} },
                 ])
               }
-              className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+              className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
             >
               <Plus className="h-3 w-3" /> Add Discount
             </button>
@@ -1056,7 +1056,7 @@ export function SummerConfigEditor({
               <button
                 type="button"
                 onClick={() => deleteWithUndo(grades, i, setGrades, "Grade")}
-                className="p-2 text-red-500 hover:text-red-700"
+                className="p-2 text-red-600 hover:text-red-700"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -1072,7 +1072,7 @@ export function SummerConfigEditor({
             onClick={() =>
               setGrades([...grades, { _id: genId("g"), name: "", name_en: "", value: "" }])
             }
-            className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+            className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
             <Plus className="h-3 w-3" /> Add Grade
           </button>
@@ -1132,7 +1132,7 @@ export function SummerConfigEditor({
               <button
                 type="button"
                 onClick={() => deleteWithUndo(langStreamOptions, i, setLangStreamOptions, "Language Stream")}
-                className="p-2 text-red-500 hover:text-red-700"
+                className="p-2 text-red-600 hover:text-red-700"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -1148,7 +1148,7 @@ export function SummerConfigEditor({
             onClick={() =>
               setLangStreamOptions([...langStreamOptions, { _id: genId("ls"), name: "", name_en: "", value: "" }])
             }
-            className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+            className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
             <Plus className="h-3 w-3" /> Add Language Stream
           </button>
@@ -1202,7 +1202,7 @@ export function SummerConfigEditor({
                     <button
                       type="button"
                       onClick={() => deleteWithUndo(existingStudentOptions, oi, setExistingStudentOptions, "Option")}
-                      className="p-2 text-red-500 hover:text-red-700"
+                      className="p-2 text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1266,7 +1266,7 @@ export function SummerConfigEditor({
                                 <button
                                   type="button"
                                   onClick={() => deleteWithUndo(centerOptions, flatIdx, setCenterOptions, "Center")}
-                                  className="p-2 text-red-500 hover:text-red-700"
+                                  className="p-2 text-red-600 hover:text-red-700"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -1290,7 +1290,7 @@ export function SummerConfigEditor({
                             next.splice(insertAt, 0, { _id: genId("c"), name: "", name_en });
                             setCenterOptions(next);
                           }}
-                          className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+                          className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
                         >
                           <Plus className="h-3 w-3" /> Add Center
                         </button>
@@ -1309,7 +1309,7 @@ export function SummerConfigEditor({
           <button
             type="button"
             onClick={() => setExistingStudentOptions([...existingStudentOptions, { _id: genId("o"), name: "", name_en: "" }])}
-            className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+            className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
             <Plus className="h-3 w-3" /> Add Student Option
           </button>
@@ -1342,7 +1342,7 @@ export function SummerConfigEditor({
               {!isReadOnly && (
                 <div className="flex items-center gap-1 shrink-0">
                   <DragHandle controls={dragControls} />
-                  <button type="button" onClick={() => deleteWithUndo(locations, i, setLocations, "Location")} className="p-1 text-red-500 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => deleteWithUndo(locations, i, setLocations, "Location")} className="p-1 text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
                 </div>
               )}
             </div>
@@ -1480,7 +1480,7 @@ export function SummerConfigEditor({
                         next[i] = { ...loc, time_slots: newTimeSlots };
                         setLocations(next);
                       }}
-                      className="text-[10px] text-primary hover:text-primary-hover font-medium"
+                      className="text-[10px] text-accent-ink hover:text-accent-ink-hover font-medium"
                     >
                       Copy first day to all
                     </button>
@@ -1504,7 +1504,7 @@ export function SummerConfigEditor({
                               newTimeSlots[day] = newSlots;
                               next[i] = { ...loc, time_slots: newTimeSlots };
                               setLocations(next);
-                            }} className="hover:text-red-500"><X className="h-3 w-3" /></button>
+                            }} className="hover:text-red-600"><X className="h-3 w-3" /></button>
                           )}
                         </span>
                       ))}
@@ -1546,7 +1546,7 @@ export function SummerConfigEditor({
               ]);
               setExpandedLocations((prev) => new Set(prev).add(newId));
             }}
-            className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+            className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
             <Plus className="h-3 w-3" /> Add Location
           </button>
@@ -1565,7 +1565,7 @@ export function SummerConfigEditor({
         </p>
         <div className="space-y-5">
           <div>
-            <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-2">Hero line</div>
+            <div className="text-xs font-semibold text-accent-ink/80 uppercase tracking-wider mb-2">Hero line</div>
             <BilingualTextField
               label="Headline"
               zhValue={courseIntro?.headline?.zh || ""}
@@ -1581,12 +1581,12 @@ export function SummerConfigEditor({
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider">Pillars</div>
+              <div className="text-xs font-semibold text-accent-ink/80 uppercase tracking-wider">Pillars</div>
               {!isReadOnly && (
                 <button
                   type="button"
                   onClick={addIntroPillar}
-                  className="text-xs text-primary hover:text-primary-hover flex items-center gap-1"
+                  className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1"
                 >
                   <Plus className="h-3 w-3" /> Add pillar
                 </button>
@@ -1635,7 +1635,7 @@ export function SummerConfigEditor({
           </div>
 
           <div>
-            <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-2">Philosophy paragraph</div>
+            <div className="text-xs font-semibold text-accent-ink/80 uppercase tracking-wider mb-2">Philosophy paragraph</div>
             <BilingualTextField
               label="Philosophy"
               zhValue={courseIntro?.philosophy?.zh || ""}
@@ -1663,7 +1663,7 @@ export function SummerConfigEditor({
               <button
                 type="button"
                 onClick={() => setPreviewStep(step)}
-                className="text-xs font-semibold text-primary/80 hover:text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5"
+                className="text-xs font-semibold text-accent-ink/80 hover:text-accent-ink uppercase tracking-wider mb-3 flex items-center gap-1.5"
               >
                 {group}
                 <span className="text-[10px] font-normal normal-case text-muted-foreground">

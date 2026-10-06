@@ -24,7 +24,7 @@ export function SearchSelectionBar({
       </span>
       <button
         onClick={onClear}
-        className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+        className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
       >
         Clear all
       </button>

@@ -52,8 +52,8 @@ export function PrintIconButton({ onPrint, isPrinting, title, label, iconClassNa
       )}
     >
       {isPrinting
-        ? <Loader2 className={cn("h-4 w-4 animate-spin text-[#a0906e] dark:text-[#8a7a60]", iconClassName)} />
-        : <Printer className={cn("h-4 w-4 text-[#a0906e] dark:text-[#8a7a60]", iconClassName)} />}
+        ? <Loader2 className={cn("h-4 w-4 animate-spin text-ink-subtle dark:text-[#8a7a60]", iconClassName)} />
+        : <Printer className={cn("h-4 w-4 text-ink-subtle dark:text-[#8a7a60]", iconClassName)} />}
     </button>
   );
 }

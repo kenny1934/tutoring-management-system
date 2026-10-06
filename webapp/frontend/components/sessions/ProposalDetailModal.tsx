@@ -32,7 +32,7 @@ export function ProposalDetailModal({
       size="lg"
       title={
         <div className="flex items-center gap-2">
-          <CalendarClock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <CalendarClock className="h-5 w-5 text-amber-700 dark:text-amber-400" />
           <span>Make-up Proposal</span>
         </div>
       }

@@ -378,8 +378,8 @@ export function SummerUnassignedPanel({
                                       "h-2.5 w-2.5",
                                       i < buddyGroupSize
                                         ? (buddyUnlocked
-                                            ? "text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400"
-                                            : "text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400")
+                                            ? "text-green-700 dark:text-green-400 fill-green-600 dark:fill-green-400"
+                                            : "text-amber-700 dark:text-amber-400 fill-amber-600 dark:fill-amber-400")
                                         : "text-muted-foreground/40"
                                     )}
                                   />
@@ -416,7 +416,7 @@ export function SummerUnassignedPanel({
 
                   {/* Row 2: preferences — same pill style as applications card */}
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <Clock className="h-3 w-3 shrink-0 text-amber-700 dark:text-amber-400" />
                     {sessionsPerWeek > 1 && (
                       <span className="shrink-0 text-[9px] font-bold px-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                         2×
@@ -447,7 +447,7 @@ export function SummerUnassignedPanel({
                         )}
                       </>
                     ) : (
-                      <span className="text-[9px] text-red-500">No prefs</span>
+                      <span className="text-[9px] text-red-600">No prefs</span>
                     )}
                   </div>
 
@@ -459,13 +459,13 @@ export function SummerUnassignedPanel({
                     </span>
                     {app.unavailability_notes && (
                       <span title={app.unavailability_notes} className="shrink-0">
-                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                        <AlertTriangle className="h-3 w-3 text-amber-700" />
                       </span>
                     )}
                     {!readOnly && onSuggestStudent && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onSuggestStudent(app.id, app.student_name); }}
-                        className="ml-auto text-[9px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
+                        className="ml-auto text-[9px] font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
                         title="Auto-suggest placement for this student"
                       >
                         Suggest

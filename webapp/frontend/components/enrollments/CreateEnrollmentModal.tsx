@@ -607,7 +607,7 @@ export function CreateEnrollmentModal({
       {isSuccess ? (
         /* Success Screen */
         <div className="flex flex-col items-center justify-center py-8 sm:py-12 gap-3 sm:gap-4">
-          <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-500" />
+          <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-700" />
           <div className="text-center space-y-2 sm:space-y-3">
             <p className="text-base sm:text-lg font-medium">Enrollment Created</p>
 
@@ -642,7 +642,7 @@ export function CreateEnrollmentModal({
         </div>
       ) : renewalLoading ? (
         <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent-ink" />
           <p className="mt-2 text-foreground/60">Loading renewal data...</p>
         </div>
       ) : !preview ? (
@@ -658,13 +658,13 @@ export function CreateEnrollmentModal({
 
           {/* Student */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-2">Student <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-foreground mb-2">Student <span className="text-red-600">*</span></label>
             <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent} location={location} />
           </div>
 
           {/* Tutor */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Tutor <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-foreground mb-2">Tutor <span className="text-red-600">*</span></label>
             <div className="relative">
               <select
                 value={tutorId || ""}
@@ -736,7 +736,7 @@ export function CreateEnrollmentModal({
                 <button
                   type="button"
                   onClick={() => setUseCustomTime(true)}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-accent-ink hover:underline"
                 >
                   Use custom time
                 </button>
@@ -771,7 +771,7 @@ export function CreateEnrollmentModal({
                   />
                 </div>
                 {!isCustomTimeValid && customTimeStart && customTimeEnd && (
-                  <p id="custom-time-error" className="text-xs text-red-500" role="alert">End time must be after start time</p>
+                  <p id="custom-time-error" className="text-xs text-red-600" role="alert">End time must be after start time</p>
                 )}
                 <button
                   type="button"
@@ -780,7 +780,7 @@ export function CreateEnrollmentModal({
                     setCustomTimeStart("");
                     setCustomTimeEnd("");
                   }}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-accent-ink hover:underline"
                 >
                   Use preset time slots
                 </button>
@@ -790,7 +790,7 @@ export function CreateEnrollmentModal({
 
           {/* First Lesson Date */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">First Lesson Date <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-foreground mb-2">First Lesson Date <span className="text-red-600">*</span></label>
             <input
               type="date"
               value={firstLessonDate}
@@ -807,7 +807,7 @@ export function CreateEnrollmentModal({
               )}
             />
             {dayMismatchWarning && (
-              <div id="first-lesson-date-warning" className="flex items-center gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400" role="alert">
+              <div id="first-lesson-date-warning" className="flex items-center gap-1.5 mt-1.5 text-amber-700 dark:text-amber-400" role="alert">
                 <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                 <span className="text-xs">{dayMismatchWarning}</span>
               </div>
@@ -871,7 +871,7 @@ export function CreateEnrollmentModal({
                   type="checkbox"
                   checked={isNewStudent === true}
                   onChange={(e) => setIsNewStudent(e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                  className="rounded border-gray-300 text-accent-ink focus:ring-primary"
                 />
                 New Student (+$100 reg fee)
               </label>
@@ -927,11 +927,11 @@ export function CreateEnrollmentModal({
           {/* Warnings */}
           {hasWarnings && (
             <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
+              <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 mb-1">
                 <AlertTriangle className="h-4 w-4" />
                 <span className="font-medium text-sm">Warnings</span>
               </div>
-              <ul className="text-xs text-orange-600 dark:text-orange-400 space-y-0.5">
+              <ul className="text-xs text-orange-700 dark:text-orange-400 space-y-0.5">
                 {preview.warnings.map((warning, i) => (
                   <li key={i}>• {warning}</li>
                 ))}
@@ -1016,13 +1016,13 @@ export function CreateEnrollmentModal({
                       </td>
                       <td className="px-3 py-1.5">
                         {session.is_holiday ? (
-                          <span className="text-yellow-600 dark:text-yellow-400">
+                          <span className="text-yellow-700 dark:text-yellow-400">
                             Holiday: {session.holiday_name}
                           </span>
                         ) : session.conflict ? (
                           <span className="text-red-600 dark:text-red-400">Conflict</span>
                         ) : (
-                          <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                          <span className="text-green-700 dark:text-green-400 flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" /> OK
                           </span>
                         )}

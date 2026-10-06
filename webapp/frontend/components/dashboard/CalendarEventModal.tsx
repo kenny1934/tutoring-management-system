@@ -356,7 +356,7 @@ export function CalendarEventModal({
             </div>
             <div className={cn(
               "font-semibold text-[#5c4934] dark:text-[#e8d4b8]",
-              !generatedTitle && "text-gray-400 italic"
+              !generatedTitle && "text-gray-500 italic"
             )}>
               {generatedTitle || "Select school, grade, and type..."}
             </div>
@@ -365,7 +365,7 @@ export function CalendarEventModal({
           {/* Event Type Buttons */}
           <div>
             <label className="block text-sm font-medium text-[#5c4934] dark:text-[#e8d4b8] mb-2">
-              Event Type <span className="text-red-500">*</span>
+              Event Type <span className="text-red-600">*</span>
             </label>
             <div className="flex gap-2">
               {Object.entries(EVENT_TYPE_COLORS).map(([type, colors]) => (
@@ -393,7 +393,7 @@ export function CalendarEventModal({
             <div>
               <label className="block text-sm font-medium text-[#5c4934] dark:text-[#e8d4b8] mb-1">
                 <School className="h-3.5 w-3.5 inline mr-1" />
-                School <span className="text-red-500">*</span>
+                School <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
@@ -421,7 +421,7 @@ export function CalendarEventModal({
             <div>
               <label className="block text-sm font-medium text-[#5c4934] dark:text-[#e8d4b8] mb-1">
                 <GraduationCap className="h-3.5 w-3.5 inline mr-1" />
-                Grade <span className="text-red-500">*</span>
+                Grade <span className="text-red-600">*</span>
               </label>
               <select
                 value={grade}
@@ -510,7 +510,7 @@ export function CalendarEventModal({
             <div>
               <label className="block text-sm font-medium text-[#5c4934] dark:text-[#e8d4b8] mb-1">
                 <Calendar className="h-3.5 w-3.5 inline mr-1" />
-                Start Date <span className="text-red-500">*</span>
+                Start Date <span className="text-red-600">*</span>
               </label>
               <input
                 type="date"
@@ -617,7 +617,7 @@ export function CalendarEventModal({
                 className={cn(
                   "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5",
                   hasRevisionSlots
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                     : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                 )}
               >

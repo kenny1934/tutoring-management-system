@@ -255,14 +255,14 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     danger: {
       bg: "bg-red-50 dark:bg-red-900/20",
       border: "border-red-200 dark:border-red-800",
-      icon: "text-red-500",
+      icon: "text-red-600",
       text: "text-red-700 dark:text-red-300",
       badge: "bg-red-500 text-white",
     },
     warning: {
       bg: "bg-orange-50 dark:bg-orange-900/20",
       border: "border-orange-200 dark:border-orange-800",
-      icon: "text-orange-500",
+      icon: "text-orange-700",
       text: "text-orange-700 dark:text-orange-300",
       badge: "bg-orange-500 text-white",
     },

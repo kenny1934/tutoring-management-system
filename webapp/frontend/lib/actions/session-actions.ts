@@ -84,7 +84,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Mark Attended (A)',
     shortLabel: 'Attended',
     icon: CheckCircle2,
-    colorClass: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    colorClass: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
     isVisible: (s: Session, ctx?: VisibilityContext) => {
       if (!isNotAttended(s)) return false;
       // Tutors can only mark attendance on their own sessions
@@ -132,7 +132,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Request Reschedule',
     shortLabel: 'Reschedule',
     icon: CalendarClock,
-    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -147,7 +147,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Mark Sick Leave',
     shortLabel: 'Sick',
     icon: Ambulance,
-    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -162,7 +162,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Weather Cancelled',
     shortLabel: 'Weather',
     icon: CloudRain,
-    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -181,7 +181,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Schedule Make-up Class',
     shortLabel: 'Make-up',
     icon: CalendarPlus,
-    colorClass: 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400',
+    colorClass: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400',
     isVisible: isPendingMakeup,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -213,8 +213,8 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Add Classwork (C)',
     shortLabel: 'CW',
     icon: PenTool,
-    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
-    iconColorClass: 'text-red-500 dark:text-red-400',
+    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    iconColorClass: 'text-red-600 dark:text-red-400',
     isVisible: (s) => !hideCwHw(s),
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -229,8 +229,8 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Add Homework (H)',
     shortLabel: 'HW',
     icon: Home,
-    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
-    iconColorClass: 'text-blue-500 dark:text-blue-400',
+    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    iconColorClass: 'text-blue-600 dark:text-blue-400',
     isVisible: (s) => !hideCwHw(s),
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -249,7 +249,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Rate & Comment (R)',
     shortLabel: 'Rate',
     icon: MessageSquarePlus,
-    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
     isVisible: () => true, // Always visible
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -288,7 +288,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Copy Make-up Message',
     shortLabel: 'Msg',
     icon: MessageSquareText,
-    colorClass: 'bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400',
+    colorClass: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
     pushRight: true,
     isVisible: hasMakeupInfo,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],

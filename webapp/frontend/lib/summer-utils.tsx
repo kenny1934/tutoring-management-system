@@ -270,7 +270,7 @@ export function IconLabel({
 }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <Icon className="h-4 w-4 shrink-0 text-primary/70" />
+      <Icon className="h-4 w-4 shrink-0 text-accent-ink/70" />
       <span>{children}</span>
     </span>
   );
@@ -286,7 +286,7 @@ export function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-2.5 text-sm text-foreground">
-      <Icon className="h-4 w-4 shrink-0 mt-0.5 text-primary/70" />
+      <Icon className="h-4 w-4 shrink-0 mt-0.5 text-accent-ink/70" />
       <span>{children}</span>
     </div>
   );
@@ -339,8 +339,8 @@ export const SUMMER_GRADE_BORDER: Record<string, string> = {
 export const SUMMER_GRADE_TEXT: Record<string, string> = {
   F1: "text-blue-600 dark:text-blue-400",
   F2: "text-purple-600 dark:text-purple-400",
-  F3: "text-orange-600 dark:text-orange-400",
-  F4: "text-emerald-600 dark:text-emerald-400",
+  F3: "text-orange-700 dark:text-orange-400",
+  F4: "text-emerald-700 dark:text-emerald-400",
 };
 
 export const DAY_ABBREV: Record<string, string> = {

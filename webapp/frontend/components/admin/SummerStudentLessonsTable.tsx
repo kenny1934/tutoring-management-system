@@ -462,7 +462,7 @@ export function SummerStudentLessonsTable({
               ))
             ) : error ? (
               <tr>
-                <td colSpan={3 + lessonColumns.length} className="px-4 py-8 text-center text-xs text-red-500">
+                <td colSpan={3 + lessonColumns.length} className="px-4 py-8 text-center text-xs text-red-600">
                   Failed to load students. Please refresh.
                 </td>
               </tr>
@@ -508,7 +508,7 @@ export function SummerStudentLessonsTable({
                       <div className="flex items-center gap-1 min-w-0">
                         <button
                           onClick={() => onClickStudent?.(student.application_id)}
-                          className="text-[11px] font-medium truncate text-left hover:text-primary hover:underline"
+                          className="text-[11px] font-medium truncate text-left hover:text-accent-ink hover:underline"
                           title={student.student_name}
                         >
                           {student.student_name}
@@ -535,7 +535,7 @@ export function SummerStudentLessonsTable({
                         {student.grade}{student.lang_stream || ""}
                       </span>
                       {student.sessions_per_week > 1 && (
-                        <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 ml-0.5">
+                        <span className="text-[8px] font-medium text-orange-700 dark:text-orange-400 ml-0.5">
                           {student.sessions_per_week}x
                         </span>
                       )}
@@ -605,11 +605,11 @@ export function SummerStudentLessonsTable({
                             <div className="flex flex-col items-center gap-0">
                               <span className={cn(
                                 "text-[11px] tabular-nums flex items-center gap-0.5",
-                                isRescheduled && "line-through text-orange-600 dark:text-orange-400",
+                                isRescheduled && "line-through text-orange-700 dark:text-orange-400",
                               )}>
-                                {status === "Confirmed" && <Check className="h-2.5 w-2.5 text-green-500" />}
-                                {status === "Tentative" && <Clock className="h-2.5 w-2.5 text-yellow-500" />}
-                                {isRescheduled && <AlertTriangle className="h-2.5 w-2.5 text-orange-500" />}
+                                {status === "Confirmed" && <Check className="h-2.5 w-2.5 text-green-700" />}
+                                {status === "Tentative" && <Clock className="h-2.5 w-2.5 text-yellow-700" />}
+                                {isRescheduled && <AlertTriangle className="h-2.5 w-2.5 text-orange-700" />}
                                 {formatCompactDate(lesson.lesson_date)}
                                 {dupes.length > 0 && (
                                   <span className="ml-0.5 px-1 rounded text-[8px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700 leading-tight">

@@ -326,7 +326,7 @@ export const DailyGridView = memo(function DailyGridView({
           <div className="text-center hidden sm:block">
             <p className={cn(
               "text-sm font-bold",
-              isToday ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-900 dark:text-gray-100"
+              isToday ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-900 dark:text-gray-100"
             )}>
               {fullDateDisplay}
             </p>
@@ -397,7 +397,7 @@ export const DailyGridView = memo(function DailyGridView({
                     {isCollapsed ? (
                       <div className="h-full flex items-center justify-center">
                         <span
-                          className="text-[9px] font-bold whitespace-nowrap text-gray-400 dark:text-gray-500"
+                          className="text-[9px] font-bold whitespace-nowrap text-gray-500 dark:text-gray-400"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
                         >
                           {getTutorSortName(tutor.tutor_name).split(' ')[0] || tutor.tutor_name}
@@ -473,7 +473,7 @@ export const DailyGridView = memo(function DailyGridView({
                     {/* Collapsed tutor expand indicator */}
                     {isCollapsed && (
                       <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+                        <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-400" />
                       </div>
                     )}
 
@@ -704,7 +704,7 @@ export const DailyGridView = memo(function DailyGridView({
                                               Cancelled
                                             </span>
                                           ) : isSessionUnpaid(session) && (
-                                            <HandCoins className="h-2.5 w-2.5 text-red-500" />
+                                            <HandCoins className="h-2.5 w-2.5 text-red-600" />
                                           )}
                                         </span>
                                         <span className="text-[8px]">{session.time_slot?.split('-')[0]}</span>
@@ -712,11 +712,11 @@ export const DailyGridView = memo(function DailyGridView({
                                       <p className={cn(
                                         "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
                                         isCancelledEnrollment
-                                          ? "text-gray-400 dark:text-gray-500"
+                                          ? "text-gray-500 dark:text-gray-400"
                                           : isSessionUnpaid(session)
                                             ? "text-red-600 dark:text-red-400"
                                             : statusConfig.strikethrough
-                                              ? "text-gray-400 dark:text-gray-500"
+                                              ? "text-gray-500 dark:text-gray-400"
                                               : "text-gray-900 dark:text-gray-100",
                                         statusConfig.strikethrough && "line-through"
                                       )}>
@@ -728,10 +728,10 @@ export const DailyGridView = memo(function DailyGridView({
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                                         )}
                                         {session.exam_revision_slot_id && (
-                                          <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
+                                          <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-600 flex-shrink-0" /></span>
                                         )}
                                         {session.extension_request_id && (
-                                          <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
+                                          <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-700 flex-shrink-0" /></span>
                                         )}
                                       </p>
                                     </div>

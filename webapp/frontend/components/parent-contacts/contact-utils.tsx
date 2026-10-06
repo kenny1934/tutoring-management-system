@@ -100,7 +100,7 @@ export const InPersonIcon = ({ className }: { className?: string }) => (
 export function getMethodIcon(method: string, size: string = "h-4 w-4") {
   switch (method) {
     case 'WeChat':
-      return <WeChatIcon className={cn(size, "text-green-600")} />;
+      return <WeChatIcon className={cn(size, "text-green-700")} />;
     case 'Phone':
       return <Phone className={cn(size, "text-blue-600")} />;
     case 'In-Person':

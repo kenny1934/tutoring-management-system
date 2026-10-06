@@ -42,8 +42,8 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         className={cn(
           "p-1.5 rounded transition-colors",
           isOpen
-            ? "text-[#a0704b] bg-[#f5ede3]/60 dark:bg-[#3d3628]/50"
-            : "text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            ? "text-accent-ink bg-[#f5ede3]/60 dark:bg-[#3d3628]/50"
+            : "text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
         )}
         title="Message templates"
       >
@@ -64,7 +64,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
               <button
                 type="button"
                 onClick={() => setShowCreate(!showCreate)}
-                className="p-1 text-gray-400 hover:text-[#a0704b] rounded transition-colors"
+                className="p-1 text-gray-500 hover:text-accent-ink rounded transition-colors"
                 title="Create template"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -73,7 +73,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
             <button
               type="button"
               onClick={close}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+              className="p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -87,20 +87,20 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Template name"
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="Template content"
               rows={2}
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button
               type="button"
               onClick={handleCreate}
               disabled={!newTitle.trim() || !newContent.trim()}
-              className="w-full px-2 py-1 text-xs font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-full px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Save template
             </button>
@@ -110,7 +110,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         <div className="py-1">
           {personalTemplates.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">My Templates</div>
+              <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">My Templates</div>
               {personalTemplates.map(t => (
                 <div key={t.id} className="group flex items-center">
                   <button
@@ -119,13 +119,13 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                     className="flex-1 text-left px-3 py-1.5 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors"
                   >
                     <div className="font-medium text-gray-700 dark:text-gray-200 text-xs">{t.title}</div>
-                    <div className="text-[11px] text-gray-400 truncate">{t.content}</div>
+                    <div className="text-[11px] text-gray-500 truncate">{t.content}</div>
                   </button>
                   {onDelete && (
                     <button
                       type="button"
                       onClick={() => { if (window.confirm("Delete this template?")) onDelete(t.id); }}
-                      className="p-1.5 mr-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1.5 mr-1 text-gray-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -137,7 +137,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
 
           {globalTemplates.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Quick Replies</div>
+              <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Quick Replies</div>
               {globalTemplates.map(t => (
                 <button
                   key={t.id}
@@ -146,14 +146,14 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                   className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors"
                 >
                   <div className="font-medium text-gray-700 dark:text-gray-200 text-xs">{t.title}</div>
-                  <div className="text-[11px] text-gray-400 truncate">{t.content}</div>
+                  <div className="text-[11px] text-gray-500 truncate">{t.content}</div>
                 </button>
               ))}
             </>
           )}
 
           {templates.length === 0 && (
-            <div className="px-3 py-3 text-xs text-gray-400 text-center">No templates yet</div>
+            <div className="px-3 py-3 text-xs text-gray-500 text-center">No templates yet</div>
           )}
         </div>
       </FloatingDropdown>

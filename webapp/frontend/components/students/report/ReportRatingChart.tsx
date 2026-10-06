@@ -9,7 +9,7 @@ interface ReportRatingChartProps {
 export function ReportRatingChart({ data }: ReportRatingChartProps) {
   if (data.monthly_trend.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[200px] text-sm text-gray-400">
+      <div className="flex items-center justify-center h-[200px] text-sm text-gray-500">
         No rated sessions
       </div>
     );

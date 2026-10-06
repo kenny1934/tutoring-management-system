@@ -218,7 +218,7 @@ export function BilingualTextField({
 // Inline validation helper text
 export function ValidationHint({ message }: { message: string | null }) {
   if (!message) return null;
-  return <p className="text-xs text-red-500 mt-1">{message}</p>;
+  return <p className="text-xs text-red-600 mt-1">{message}</p>;
 }
 
 // Image thumbnail preview
@@ -311,7 +311,7 @@ export function TimeSlotAdder({ lastSlot, onAdd }: { lastSlot?: string; onAdd: (
 
   if (!show) {
     return (
-      <button type="button" onClick={() => { const d = getDefaults(); setStart(d.start); setEnd(d.end); setShow(true); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary-hover border border-dashed border-primary/40 rounded-md hover:border-primary/60">
+      <button type="button" onClick={() => { const d = getDefaults(); setStart(d.start); setEnd(d.end); setShow(true); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-accent-ink hover:text-accent-ink-hover border border-dashed border-primary/40 rounded-md hover:border-primary/60">
         <Plus className="h-3 w-3" /> Add
       </button>
     );
@@ -327,7 +327,7 @@ export function TimeSlotAdder({ lastSlot, onAdd }: { lastSlot?: string; onAdd: (
           onAdd(`${start} - ${end}`);
           setShow(false);
         }
-      }} className="p-1 text-primary hover:text-primary-hover"><Plus className="h-3.5 w-3.5" /></button>
+      }} className="p-1 text-accent-ink hover:text-accent-ink-hover"><Plus className="h-3.5 w-3.5" /></button>
       <button type="button" onClick={() => setShow(false)} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
     </div>
   );

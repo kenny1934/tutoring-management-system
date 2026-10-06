@@ -112,11 +112,11 @@ export function ExtensionRequestsList({
   const getStatusIcon = (status: ExtensionRequestStatus) => {
     switch (status) {
       case "Pending":
-        return <Clock className="h-4 w-4 text-amber-500" />;
+        return <Clock className="h-4 w-4 text-amber-700" />;
       case "Approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-green-700" />;
       case "Rejected":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-red-600" />;
     }
   };
 
@@ -201,7 +201,7 @@ export function ExtensionRequestsList({
       {/* Filters and Sort */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-400" />
+          <Filter className="h-4 w-4 text-gray-500" />
           <div className="flex gap-1">
             {(["Pending", "Approved", "Rejected", "all"] as const).map((status) => (
               <button
@@ -222,7 +222,7 @@ export function ExtensionRequestsList({
 
         {/* Sort buttons */}
         <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-gray-400" />
+          <ArrowUpDown className="h-4 w-4 text-gray-500" />
           <div className="flex gap-1">
             {([
               { value: 'requested_at', label: 'Date' },
@@ -367,12 +367,12 @@ export function ExtensionRequestsList({
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Requested{" "}
                       {new Date(request.requested_at).toLocaleDateString()}
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-500" />
                 </div>
               </div>
 
@@ -385,7 +385,7 @@ export function ExtensionRequestsList({
                   by {request.reviewed_by} on{" "}
                   {new Date(request.reviewed_at).toLocaleDateString()}
                   {request.review_notes && (
-                    <span className="ml-2 text-gray-400">
+                    <span className="ml-2 text-gray-500">
                       "{request.review_notes}"
                     </span>
                   )}
@@ -398,7 +398,7 @@ export function ExtensionRequestsList({
           {hasMore && (
             <button
               onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
-              className="w-full py-3 text-sm font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors border border-dashed border-amber-300 dark:border-amber-700"
+              className="w-full py-3 text-sm font-medium text-amber-700 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors border border-dashed border-amber-300 dark:border-amber-700"
             >
               Show {remainingCount} more request{remainingCount !== 1 ? "s" : ""}
             </button>

@@ -49,7 +49,7 @@ export function ExercisePageRangeInput({
             onPageModeChange("simple");
             onComplexPagesChange("");
           }}
-          className="text-amber-500 focus:ring-amber-400"
+          className="text-amber-700 focus:ring-amber-400"
         />
         <span className="text-xs text-gray-600 dark:text-gray-400">Range</span>
       </label>
@@ -65,7 +65,7 @@ export function ExercisePageRangeInput({
             onPageStartChange("");
             onPageEndChange("");
           }}
-          className="text-amber-500 focus:ring-amber-400"
+          className="text-amber-700 focus:ring-amber-400"
         />
         <span className="text-xs text-gray-600 dark:text-gray-400">Custom</span>
       </label>
@@ -86,7 +86,7 @@ export function ExercisePageRangeInput({
               pageStartError && "border-red-500 ring-1 ring-red-500"
             )}
           />
-          <span className="text-xs text-gray-400">–</span>
+          <span className="text-xs text-gray-500">–</span>
           <input
             type="number"
             value={pageEnd}

@@ -78,7 +78,7 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <button type="button" onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }}
           className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded" title="Open URL" aria-label="Open URL">
-          <ExternalLink className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+          <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
         </button>
       </div>
     );
@@ -121,15 +121,15 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
     <div className="flex items-center gap-0.5 flex-shrink-0">
       <button type="button" onClick={handleOpen} disabled={openState === 'loading'}
         className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Open file" aria-label="Open file">
-        {openState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
-         openState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
-         <ExternalLink className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+        {openState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-500" /> :
+         openState === 'error' ? <XCircle className="h-4 w-4 text-red-600" /> :
+         <ExternalLink className="h-4 w-4 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />}
       </button>
       <button type="button" onClick={handlePrint} disabled={printState === 'loading'}
         className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Print file" aria-label="Print file">
-        {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
-         printState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
-         <Printer className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+        {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-500" /> :
+         printState === 'error' ? <XCircle className="h-4 w-4 text-red-600" /> :
+         <Printer className="h-4 w-4 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />}
       </button>
     </div>
   );
@@ -205,7 +205,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
   return (
     <div className="flex items-center gap-1">
       <button type="button" onClick={handlePrintAll} disabled={printState === 'loading'}
-        className={cn(btnClass, "text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30")}
+        className={cn(btnClass, "text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30")}
         title="Print All">
         {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
          printState === 'error' ? <XCircle className="h-4 w-4" /> :
@@ -220,7 +220,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
         <span className="text-[9px] leading-none">All</span>
       </button>
       <button type="button" onClick={handleDownloadAnswers} disabled={answersState === 'loading'}
-        className={cn(btnClass, "text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
+        className={cn(btnClass, "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
         title="Download Answers">
         {answersState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
          answersState === 'error' ? <XCircle className="h-4 w-4" /> :
@@ -662,7 +662,7 @@ export default function SessionDetailPage() {
                           className="flex items-center gap-2 cursor-pointer rounded-lg px-2 py-0.5 -mx-2 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                           title="Open Classwork editor"
                         >
-                          <PenTool className="h-5 w-5 text-red-500 dark:text-red-400" />
+                          <PenTool className="h-5 w-5 text-red-600 dark:text-red-400" />
                           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Classwork</h3>
                         </button>
                         <BulkExerciseActions exercises={cwExercises} stamp={printStamp} sessionDate={session.session_date} schoolStudentId={session.school_student_id} studentName={session.student_name} exerciseType="CW" />
@@ -707,7 +707,7 @@ export default function SessionDetailPage() {
                           className="flex items-center gap-2 cursor-pointer rounded-lg px-2 py-0.5 -mx-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
                           title="Open Homework editor"
                         >
-                          <Home className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                          <Home className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Homework</h3>
                         </button>
                         <BulkExerciseActions exercises={hwExercises} stamp={printStamp} sessionDate={session.session_date} schoolStudentId={session.school_student_id} studentName={session.student_name} exerciseType="HW" />
@@ -863,7 +863,7 @@ export default function SessionDetailPage() {
               </span>
               <button
                 onClick={() => setShowShortcutHints(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="h-4 w-4" />
               </button>

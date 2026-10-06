@@ -95,7 +95,7 @@ function ExerciseItem({
       >
         <div className="flex items-start gap-1.5 min-w-0">
           {isUrlExercise && (
-            <YouTubeThumbnail url={exercise.url} className="mt-0.5" fallbackIcon={<ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />} />
+            <YouTubeThumbnail url={exercise.url} className="mt-0.5" fallbackIcon={<ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-600 dark:text-blue-400" />} />
           )}
           <div className="flex-1 min-w-0">
             {/* File name */}
@@ -111,7 +111,7 @@ function ExerciseItem({
 
             {/* Page range */}
             {pageLabel && (
-              <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
+              <span className="text-[10px] text-ink-subtle dark:text-[#8a7a60]">
                 {pageLabel}
               </span>
             )}
@@ -125,7 +125,7 @@ function ExerciseItem({
               </span>
             )}
             {hasAnnotations && (
-              <span className="w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
+              <span className="w-2 h-2 rounded-full bg-primary" title="Has annotations" />
             )}
           </div>
         </div>
@@ -180,7 +180,7 @@ function ExerciseSection({
           <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
             {label}
           </span>
-          <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">
+          <span className="text-[10px] text-ink-subtle dark:text-[#706050]">
             ({exercises.length})
           </span>
         </div>
@@ -191,7 +191,7 @@ function ExerciseSection({
             title={`Edit ${label}`}
             aria-label={`Edit ${label}`}
           >
-            <Pencil className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+            <Pencil className="h-3 w-3 text-ink-subtle dark:text-[#8a7a60]" />
           </button>
         )}
       </div>
@@ -217,13 +217,13 @@ function ExerciseSection({
           {!isReadOnly ? (
             <button
               onClick={onEdit}
-              className="w-full flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-[#d4c4a8] dark:border-[#5a4d3a] text-[#a0906e] dark:text-[#8a7a60] hover:bg-[#e8d4b8]/30 dark:hover:bg-[#3a3228]/50 hover:text-[#8b6040] dark:hover:text-[#a09080] transition-colors"
+              className="w-full flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-[#d4c4a8] dark:border-[#5a4d3a] text-ink-subtle dark:text-[#8a7a60] hover:bg-[#e8d4b8]/30 dark:hover:bg-[#3a3228]/50 hover:text-[#8b6040] dark:hover:text-[#a09080] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Add {label}
             </button>
           ) : (
-            <p className="text-xs text-[#b0a090] dark:text-[#706050] italic text-center">
+            <p className="text-xs text-ink-subtle dark:text-[#706050] italic text-center">
               No {label.toLowerCase()} yet
             </p>
           )}
@@ -287,18 +287,18 @@ function SessionBlock({
           "transition-transform",
           expanded ? "rotate-0" : "-rotate-90"
         )}>
-          <ChevronDown className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
+          <ChevronDown className="h-3.5 w-3.5 text-ink-subtle dark:text-[#8a7a60]" />
         </div>
-        <Calendar className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
+        <Calendar className="h-3.5 w-3.5 text-ink-subtle dark:text-[#8a7a60]" />
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold text-[#6b5a42] dark:text-[#c4a882]">
             {label}
           </span>
-          <span className="ml-1.5 text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
+          <span className="ml-1.5 text-[10px] text-ink-subtle dark:text-[#8a7a60]">
             {sessionDate} · {session.time_slot}
           </span>
         </div>
-        <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums">
+        <span className="text-[10px] text-ink-subtle dark:text-[#706050] tabular-nums">
           {totalCount}
         </span>
       </button>
@@ -317,7 +317,7 @@ function SessionBlock({
               <ExerciseSection
                 label="Classwork"
                 icon={PenTool}
-                iconColor="text-rose-500 dark:text-rose-400"
+                iconColor="text-rose-600 dark:text-rose-400"
                 exercises={cwExercises}
                 selectedExerciseId={selectedExerciseId}
                 onExerciseSelect={onExerciseSelect}
@@ -331,7 +331,7 @@ function SessionBlock({
               <ExerciseSection
                 label="Homework"
                 icon={BookOpen}
-                iconColor="text-blue-500 dark:text-blue-400"
+                iconColor="text-blue-600 dark:text-blue-400"
                 exercises={hwExercises}
                 selectedExerciseId={selectedExerciseId}
                 onExerciseSelect={onExerciseSelect}
@@ -378,7 +378,7 @@ export function LessonExerciseSidebar({
         <p className="text-sm text-ink-subtle">
           No sessions found
         </p>
-        <p className="text-xs text-[#b0a090] dark:text-[#706050]">
+        <p className="text-xs text-ink-subtle dark:text-[#706050]">
           Create an enrollment and schedule sessions first.
         </p>
       </div>

@@ -83,7 +83,7 @@ export function CurriculumPastPaperRow({
             }
             className={cn(
               hitArea,
-              "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+              "rounded text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
             )}
           >
             <Plus className="h-3 w-3" />
@@ -164,14 +164,14 @@ export function CurriculumPastPaperRow({
             hitArea,
             "rounded shrink-0 transition-colors",
             copied
-              ? "text-teal-600"
-              : "text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30"
+              ? "text-teal-700"
+              : "text-gray-500 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30"
           )}
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         </button>
       </div>
-      <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+      <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
         <span
           title={`Week ${paper.week_number} of the ${paper.academic_year} school year${approxMonthText(paper.academic_year, paper.week_number)}.`}
         >

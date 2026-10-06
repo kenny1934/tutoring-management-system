@@ -97,7 +97,7 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
     <div className="space-y-6">
       {error && (
         <div className="flex gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 shrink-0" />
+          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
           <span className="text-sm text-red-800 dark:text-red-200">{error}</span>
         </div>
       )}
@@ -137,7 +137,7 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
                 <button
                   onClick={() => handleDeleteAlias(alias.id, alias.alias)}
                   disabled={saving}
-                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50"
                   title="Delete alias"
                 >
                   <Trash2 className="h-4 w-4" />

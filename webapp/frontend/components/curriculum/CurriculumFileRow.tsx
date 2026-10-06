@@ -128,7 +128,7 @@ export function CurriculumFileBadges({
       </span>
       {file.lang && (
         <span
-          className="text-[9px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 shrink-0"
+          className="text-[9px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 shrink-0"
           title={file.lang === "e" ? "English version" : "Chinese version"}
         >
           {file.lang === "e" ? "EN" : "中"}
@@ -147,7 +147,7 @@ export function CurriculumFileBadges({
               "inline-flex items-center gap-0.5 text-[9px] shrink-0 rounded border cursor-pointer transition-colors",
               coarse ? "px-1.5 py-0.5" : "px-1 py-px",
               schoolCount > 0
-                ? "text-teal-600 dark:text-teal-400 font-medium border-teal-200 dark:border-teal-800"
+                ? "text-teal-700 dark:text-teal-400 font-medium border-teal-200 dark:border-teal-800"
                 : "text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700",
               "hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 dark:hover:bg-teal-900/30 dark:hover:border-teal-600 dark:hover:text-teal-300",
               usageOpen &&
@@ -165,8 +165,8 @@ export function CurriculumFileBadges({
             className={cn(
               "text-[9px] shrink-0",
               schoolCount > 0
-                ? "text-teal-600 dark:text-teal-400 font-medium"
-                : "text-gray-400"
+                ? "text-teal-700 dark:text-teal-400 font-medium"
+                : "text-gray-500"
             )}
             title={usageTitle}
           >
@@ -210,7 +210,7 @@ export function CurriculumFileRow({
             title="Add to the session"
             className={cn(
               hitArea,
-              "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+              "rounded text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
             )}
           >
             <Plus className="h-3 w-3" />
@@ -237,7 +237,7 @@ export function CurriculumFileRow({
           title="Preview this worksheet"
           className={cn(
             hitArea,
-            "rounded shrink-0 text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
+            "rounded shrink-0 text-gray-500 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
           )}
         >
           <Eye className="h-3 w-3" />
@@ -250,8 +250,8 @@ export function CurriculumFileRow({
             hitArea,
             "rounded shrink-0 transition-colors",
             copied
-              ? "text-teal-600"
-              : "text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30"
+              ? "text-teal-700"
+              : "text-gray-500 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30"
           )}
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}

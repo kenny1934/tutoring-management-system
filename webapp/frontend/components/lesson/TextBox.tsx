@@ -131,7 +131,7 @@ export function TextBox({ at, size, color, italic, text, width, uiScale, onChang
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           spellCheck={false}
-          className="block resize-none overflow-hidden rounded-sm bg-white/85 p-0 outline-none ring-2 ring-[#a0704b] placeholder:text-[#a0704b]/60"
+          className="block resize-none overflow-hidden rounded-sm bg-white/85 p-0 outline-none ring-2 ring-primary placeholder:text-accent-ink/60"
           style={{
             width: widest + size * 0.5,
             height: lines.length * lineHeight,

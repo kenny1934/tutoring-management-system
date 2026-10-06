@@ -121,7 +121,7 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
   const content = (
     <>
       {student.school_student_id && (
-        <span className="text-[9px] text-gray-400 font-mono mr-1">{student.school_student_id}</span>
+        <span className="text-[9px] text-gray-500 font-mono mr-1">{student.school_student_id}</span>
       )}
       <span className={compact ? "" : "text-gray-700 dark:text-gray-300"}>{name}</span>
       {student.grade && (
@@ -177,9 +177,9 @@ function CopySlotButton({ date, timeSlot, className }: { date: string; timeSlot:
       title={copyText}
     >
       {copied ? (
-        <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
+        <Check className="h-3 w-3 text-green-700 dark:text-green-400" />
       ) : (
-        <Copy className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+        <Copy className="h-3 w-3 text-gray-500 dark:text-gray-400" />
       )}
     </button>
   );
@@ -200,7 +200,7 @@ function WeightSlider({ label, value, min, max, step, onChange }: WeightSliderPr
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <label className="text-[10px] text-gray-600 dark:text-gray-400">{label}</label>
-        <span className="text-[10px] font-mono text-[#a0704b]">{value}</span>
+        <span className="text-[10px] font-mono text-accent-ink">{value}</span>
       </div>
       <input
         type="range"
@@ -209,7 +209,7 @@ function WeightSlider({ label, value, min, max, step, onChange }: WeightSliderPr
         step={step}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
+        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
       />
     </div>
   );
@@ -298,7 +298,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
             <span className="text-[10px] text-gray-500">
               {suggestion.current_students}/8 students
             </span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
+            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
               Score: {suggestion.calculatedScore}
             </span>
             {breakdown.is_same_tutor && (
@@ -320,9 +320,9 @@ const SuggestionCard = React.memo(function SuggestionCard({
           </div>
         </div>
         {isExpanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
         )}
       </div>
 
@@ -418,7 +418,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                     <span>{canOverrideLimit ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                   </div>
-                  <div className={`mt-1 ${canOverrideLimit ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
+                  <div className={`mt-1 ${canOverrideLimit ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
                     {canOverrideLimit
                       ? `You can proceed despite the ${limitCopy.noun}.`
                       : limitCopy.explanation()}
@@ -437,7 +437,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                         e.stopPropagation();
                         onRequestExtension();
                       }}
-                      className="mt-1 text-amber-600 dark:text-amber-400 underline hover:text-amber-700 dark:hover:text-amber-300"
+                      className="mt-1 text-amber-700 dark:text-amber-400 underline hover:text-amber-700 dark:hover:text-amber-300"
                     >
                       Request Extension
                     </button>
@@ -1390,9 +1390,9 @@ export function ScheduleMakeupModal({
       <div className="space-y-4">
         {/* Original Session Info - Compact sticky bar */}
         <div className={cn("sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-paper border-b-2 flex items-center gap-2 text-xs flex-wrap transition-colors", mode === "propose" ? "border-b-blue-400 dark:border-b-blue-600" : "border-b-green-400 dark:border-b-green-600")}>
-          <User className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
+          <User className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
           {session.school_student_id && (
-            <span className="text-[9px] text-gray-400 font-mono">{session.school_student_id}</span>
+            <span className="text-[9px] text-gray-500 font-mono">{session.school_student_id}</span>
           )}
           <span className="font-medium text-[#5d4e37] dark:text-[#e8d4b8]">{session.student_name}</span>
           {session.grade && (
@@ -1404,27 +1404,27 @@ export function ScheduleMakeupModal({
             </span>
           )}
           <LessonNumberBadge lessonNumber={missedLesson} size="xs" />
-          <span className="text-gray-400">|</span>
+          <span className="text-gray-500">|</span>
           <span className="text-gray-600 dark:text-gray-400">{session.session_date}</span>
-          <span className="text-gray-400">|</span>
+          <span className="text-gray-500">|</span>
           <span className="text-gray-600 dark:text-gray-400">{session.time_slot}</span>
-          <span className="text-gray-400">|</span>
+          <span className="text-gray-500">|</span>
           <span className="text-gray-600 dark:text-gray-400">{session.location}</span>
           {session.tutor_name && (
             <>
-              <span className="text-gray-400">|</span>
+              <span className="text-gray-500">|</span>
               <span className="text-gray-600 dark:text-gray-400">{session.tutor_name}</span>
             </>
           )}
-          <span className="text-gray-400">|</span>
-          <span className="text-orange-600 dark:text-orange-400">{session.session_status}</span>
+          <span className="text-gray-500">|</span>
+          <span className="text-orange-700 dark:text-orange-400">{session.session_status}</span>
         </div>
 
         {/* Summer unavailability notes — dates the parent flagged on the application, so the make-up isn't booked on a day the student can't attend */}
         {enrollment?.summer_unavailability_notes && (
           <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
             <div className="flex items-start gap-2">
-              <CalendarX className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <CalendarX className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-0.5">
                   Unavailable Dates (from summer application)
@@ -1498,11 +1498,11 @@ export function ScheduleMakeupModal({
                       {new Date(slot.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
                     <span className="text-gray-500">{slot.timeSlot}</span>
-                    <span className="text-[#a0704b]">{slot.tutorName}</span>
+                    <span className="text-accent-ink">{slot.tutorName}</span>
                   </div>
                   <button
                     onClick={() => removeProposalSlot(idx)}
-                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                     title="Remove this option"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1536,7 +1536,7 @@ export function ScheduleMakeupModal({
             {deadlineError && (
               <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs text-red-500 dark:text-red-400">
+                  <div className="text-xs text-red-600 dark:text-red-400">
                     <Clock className="h-3 w-3 inline mr-1" />
                     Enrollment ends: {deadlineError.effective_end_date}
                   </div>
@@ -1544,7 +1544,7 @@ export function ScheduleMakeupModal({
                     size="sm"
                     variant="outline"
                     onClick={() => setShowExtensionModal(true)}
-                    className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
                   >
                     <Clock className="h-3 w-3 mr-1" />
                     Request Extension
@@ -1624,7 +1624,7 @@ export function ScheduleMakeupModal({
                       className={cn(
                         "px-1.5 py-1 text-[10px] transition-colors",
                         daysAhead === d
-                          ? "bg-[#a0704b] text-white"
+                          ? "bg-primary text-white"
                           : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                       )}
                     >
@@ -1640,7 +1640,7 @@ export function ScheduleMakeupModal({
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors",
                     showWeightTuner
-                      ? "bg-[#a0704b] text-white"
+                      ? "bg-primary text-white"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                   )}
                 >
@@ -1670,7 +1670,7 @@ export function ScheduleMakeupModal({
                 </span>
                 <button
                   onClick={() => updateWeights(baseWeights)}
-                  className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-[#a0704b] transition-colors"
+                  className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-accent-ink transition-colors"
                 >
                   <RotateCcw className="h-3 w-3" />
                   Reset
@@ -1762,7 +1762,7 @@ export function ScheduleMakeupModal({
                       {visibleSuggestionCount < sortedSuggestions.length && (
                         <button
                           onClick={() => setVisibleSuggestionCount(Math.min(visibleSuggestionCount + 10, sortedSuggestions.length))}
-                          className="text-xs text-[#a0704b] hover:text-[#8b5d3b] hover:underline transition-colors"
+                          className="text-xs text-accent-ink hover:text-[#8b5d3b] hover:underline transition-colors"
                         >
                           Show 10 more ({sortedSuggestions.length - visibleSuggestionCount} remaining)
                         </button>
@@ -1815,10 +1815,10 @@ export function ScheduleMakeupModal({
                   type="checkbox"
                   checked={showAllTutors}
                   onChange={(e) => setShowAllTutors(e.target.checked)}
-                  className="rounded border-gray-300 accent-[#a0704b]"
+                  className="rounded border-gray-300 accent-primary"
                 />
                 <span className="text-gray-700 dark:text-gray-300">Show all tutors</span>
-                <span className="text-[10px] text-gray-400">(calendar + time slots)</span>
+                <span className="text-[10px] text-gray-500">(calendar + time slots)</span>
               </label>
             </div>
 
@@ -1829,7 +1829,7 @@ export function ScheduleMakeupModal({
                 {filterTimeSlots.length > 0 && (
                   <button
                     onClick={clearTimeSlotFilters}
-                    className="text-[10px] text-[#a0704b] hover:underline"
+                    className="text-[10px] text-accent-ink hover:underline"
                   >
                     Clear
                   </button>
@@ -1837,9 +1837,9 @@ export function ScheduleMakeupModal({
               </div>
               <div className="flex flex-wrap gap-1">
                 {sessionsLoading ? (
-                  <span className="text-[10px] text-gray-400">Loading...</span>
+                  <span className="text-[10px] text-gray-500">Loading...</span>
                 ) : allTimeSlots.length === 0 ? (
-                  <span className="text-[10px] text-gray-400">No sessions found</span>
+                  <span className="text-[10px] text-gray-500">No sessions found</span>
                 ) : (
                   allTimeSlots.map(slot => (
                     <button
@@ -1848,8 +1848,8 @@ export function ScheduleMakeupModal({
                       className={cn(
                         "px-2 py-0.5 text-[10px] rounded border transition-colors",
                         filterTimeSlots.includes(slot)
-                          ? "bg-[#a0704b] text-white border-[#a0704b]"
-                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-[#a0704b]"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-primary"
                       )}
                     >
                       {slot.split(' - ')[0]}
@@ -1895,7 +1895,7 @@ export function ScheduleMakeupModal({
                         dayData.isHoliday && !isAdmin && "cursor-not-allowed",
                         !dayData.isHoliday && dayData.isPastLimitDay && "bg-red-50 dark:bg-red-900/20",
                         !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
-                        dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
+                        dayData.isSelected && "ring-2 ring-inset ring-primary dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
                         !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
                         !dayData.isSelected && dayData.isHoliday && isAdmin && dayData.isCurrentMonth && "hover:bg-rose-100 dark:hover:bg-rose-900/20",
                         dayData.isToday && "ring-1 ring-inset ring-blue-400"
@@ -1904,22 +1904,22 @@ export function ScheduleMakeupModal({
                       {/* Scheduling-limit indicator - takes priority over deadline */}
                       {!dayData.isHoliday && dayData.isPastLimitDay && dayData.isCurrentMonth && (
                         <div className="absolute top-0.5 right-0.5" title={limitCopy.label}>
-                          <AlertTriangle className="h-2.5 w-2.5 text-red-500" />
+                          <AlertTriangle className="h-2.5 w-2.5 text-red-600" />
                         </div>
                       )}
                       {/* Past deadline indicator */}
                       {!dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && dayData.isCurrentMonth && (
                         <div className="absolute top-0.5 right-0.5" title="Past enrollment deadline">
-                          <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                          <AlertTriangle className="h-2.5 w-2.5 text-amber-700" />
                         </div>
                       )}
                       {/* Date number - always visible */}
                       <div className={cn(
                         "text-[10px] font-semibold",
-                        dayData.isToday && "text-blue-500",
-                        dayData.isHoliday && "text-rose-500",
+                        dayData.isToday && "text-blue-600",
+                        dayData.isHoliday && "text-rose-600",
                         !dayData.isHoliday && dayData.isPastLimitDay && "text-red-600 dark:text-red-400",
-                        !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "text-amber-600 dark:text-amber-400",
+                        !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "text-amber-700 dark:text-amber-400",
                         !dayData.isToday && !dayData.isHoliday && !dayData.isPastLimitDay && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
                       )}>
                         {dayData.date.getDate()}
@@ -1933,9 +1933,9 @@ export function ScheduleMakeupModal({
                           return (
                             <div className={cn(
                               "text-[9px]",
-                              utilization < 0.5 ? "text-green-600 dark:text-green-400" :
+                              utilization < 0.5 ? "text-green-700 dark:text-green-400" :
                               utilization < 0.8 ? "text-[#8b6f47] dark:text-[#cd853f]" :
-                              "text-red-500 dark:text-red-400"
+                              "text-red-600 dark:text-red-400"
                             )}>
                               {dayData.totalStudents}/{dayData.totalCapacity}
                             </div>
@@ -1959,7 +1959,7 @@ export function ScheduleMakeupModal({
               {showManualForm ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               <span>CUSTOM TIME & TUTOR</span>
               {!showManualForm && selectedDate && effectiveTimeSlot && (
-                <span className="font-normal text-gray-400">
+                <span className="font-normal text-gray-500">
                   — {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {effectiveTimeSlot}
                 </span>
               )}
@@ -1986,7 +1986,7 @@ export function ScheduleMakeupModal({
             {isPastLimit && hasApprovedExtension && !earlyDeadlineWarning && (
               <div id="makeup-60day-warning" className="p-3 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700">
                 <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
+                  <Check className="h-4 w-4 flex-shrink-0 text-green-700 dark:text-green-400" aria-hidden="true" />
                   <p className="text-sm text-green-800 dark:text-green-200">
                     Extension approved — 60-day limit waived
                   </p>
@@ -2003,7 +2003,7 @@ export function ScheduleMakeupModal({
                 <div className="flex items-start gap-2">
                   <AlertTriangle className={cn(
                     "h-4 w-4 mt-0.5 flex-shrink-0",
-                    canOverrideLimit ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
+                    canOverrideLimit ? "text-orange-700 dark:text-orange-400" : "text-red-600 dark:text-red-400"
                   )} aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className={cn(
@@ -2016,7 +2016,7 @@ export function ScheduleMakeupModal({
                     </p>
                     <p className={cn(
                       "text-xs mt-0.5",
-                      canOverrideLimit ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
+                      canOverrideLimit ? "text-orange-700 dark:text-orange-400" : "text-red-600 dark:text-red-400"
                     )}>
                       {limitCopy.explanation(rootOriginalDate)}
                       {" "}Last allowed date: {lastAllowedDate}
@@ -2032,7 +2032,7 @@ export function ScheduleMakeupModal({
                     className={cn(
                       "text-xs",
                       canOverrideLimit
-                        ? "text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
+                        ? "text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
                         : "text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800"
                     )}
                   >
@@ -2046,12 +2046,12 @@ export function ScheduleMakeupModal({
             {selectedDateIsHoliday && isAdmin && (
               <div id="makeup-holiday-warning" role="alert" className="p-3 border rounded-lg bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-700 dark:text-orange-400" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-orange-800 dark:text-orange-200">
                       Admin Override: Scheduling on a holiday
                     </p>
-                    <p className="text-xs mt-0.5 text-orange-600 dark:text-orange-400">
+                    <p className="text-xs mt-0.5 text-orange-700 dark:text-orange-400">
                       {holidayNamesByDate.get(selectedDate)
                         ? `${selectedDate} is a holiday (${holidayNamesByDate.get(selectedDate)}). `
                         : `${selectedDate} is a holiday. `}
@@ -2064,7 +2064,7 @@ export function ScheduleMakeupModal({
                     size="sm"
                     variant="ghost"
                     onClick={() => setSelectedDate("")}
-                    className="text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
+                    className="text-xs text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
                   >
                     Pick Different Date
                   </Button>
@@ -2076,12 +2076,12 @@ export function ScheduleMakeupModal({
             {earlyDeadlineWarning && !deadlineError && (
               <div id="makeup-deadline-warning" role="alert" className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-amber-800 dark:text-amber-200">
                       This is the student&apos;s regular slot ({currentEnrollment?.assigned_day} {currentEnrollment?.assigned_time}) past the enrollment deadline
                     </p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                       Enrollment ends: {effectiveEndDate}
                     </p>
                   </div>
@@ -2100,7 +2100,7 @@ export function ScheduleMakeupModal({
                     size="sm"
                     variant="ghost"
                     onClick={() => setSelectedDate("")}
-                    className="text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
+                    className="text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
                   >
                     Pick Different Date
                   </Button>
@@ -2130,7 +2130,7 @@ export function ScheduleMakeupModal({
                     type="button"
                     onClick={() => setUseCustomTime(true)}
                     disabled={!selectedDate}
-                    className="text-xs text-[#a0704b] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-xs text-accent-ink hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Use custom time
                   </button>
@@ -2169,7 +2169,7 @@ export function ScheduleMakeupModal({
                       />
                     </div>
                     {isInvalid && (
-                      <p id="makeup-custom-time-error" className="text-xs text-red-500" role="alert">End time must be after start time</p>
+                      <p id="makeup-custom-time-error" className="text-xs text-red-600" role="alert">End time must be after start time</p>
                     )}
                     <button
                       type="button"
@@ -2178,7 +2178,7 @@ export function ScheduleMakeupModal({
                         setCustomTimeStart("");
                         setCustomTimeEnd("");
                       }}
-                      className="text-xs text-[#a0704b] hover:underline"
+                      className="text-xs text-accent-ink hover:underline"
                     >
                       Use preset times
                     </button>
@@ -2233,7 +2233,7 @@ export function ScheduleMakeupModal({
 
             {/* Slot capacity warning */}
             {studentsInSlot.length >= 8 && (
-              <div className="flex items-center gap-2 text-xs text-red-500">
+              <div className="flex items-center gap-2 text-xs text-red-600">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 This slot is full (8 students)
               </div>
@@ -2280,7 +2280,7 @@ export function ScheduleMakeupModal({
           {showDayPicker && dayPickerDate && (
             <div className="lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
               {/* Header - Fixed outside scroll */}
-              <div className="flex items-center justify-between px-3 py-2.5 bg-[#a0704b] dark:bg-[#8b6f47]">
+              <div className="flex items-center justify-between px-3 py-2.5 bg-primary dark:bg-[#8b6f47]">
                 <span className="text-xs font-semibold text-white">
                   {new Date(dayPickerDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                 </span>
@@ -2305,8 +2305,8 @@ export function ScheduleMakeupModal({
                     className={cn(
                       "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
                       filterSameGrade
-                        ? "bg-[#a0704b] text-white border-[#a0704b]"
-                        : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-[#a0704b]"
+                        ? "bg-primary text-white border-primary"
+                        : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-primary"
                     )}
                   >
                     Same grade
@@ -2316,14 +2316,14 @@ export function ScheduleMakeupModal({
                     className={cn(
                       "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
                       filterHideFull
-                        ? "bg-[#a0704b] text-white border-[#a0704b]"
-                        : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-[#a0704b]"
+                        ? "bg-primary text-white border-primary"
+                        : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-primary"
                     )}
                   >
                     Hide full
                   </button>
                   {(filterTimeSlots.length > 0 || filterSameGrade || filterHideFull) && (
-                    <span className="text-[10px] text-gray-400 ml-auto">
+                    <span className="text-[10px] text-gray-500 ml-auto">
                       {filteredDayPickerSlots.reduce((sum, s) => sum + s.tutors.length, 0)} results
                     </span>
                   )}
@@ -2391,7 +2391,7 @@ export function ScheduleMakeupModal({
                                       "text-[10px] px-1.5 py-0.5 rounded",
                                       isFull
                                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                                        : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                                     )}>
                                       {studentCount}/8
                                     </span>
@@ -2426,7 +2426,7 @@ export function ScheduleMakeupModal({
                                 {isSelected ? (
                                   <ChevronDown className="h-4 w-4 text-accent-ink" />
                                 ) : (
-                                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                                  <ChevronRight className="h-4 w-4 text-gray-500" />
                                 )}
                               </div>
 

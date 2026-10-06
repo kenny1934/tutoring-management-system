@@ -234,7 +234,7 @@ export function FileSearchModal({
         onClose={onClose}
         title={
           <div className="flex items-center gap-2">
-            <Search className="h-5 w-5 text-amber-500" />
+            <Search className="h-5 w-5 text-amber-700" />
             <span>Find {batchTotalCount} Files</span>
           </div>
         }
@@ -261,7 +261,7 @@ export function FileSearchModal({
         <div className="space-y-4">
           {/* Explanation */}
           <div className="flex gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-            <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+            <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-sm text-blue-700 dark:text-blue-300">
               <p className="font-medium mb-1">Searching for {batchTotalCount} dropped files</p>
               <p className="text-blue-600 dark:text-blue-400 text-xs">
@@ -273,7 +273,7 @@ export function FileSearchModal({
           {/* Progress indicator */}
           {batchSearchingCount > 0 && (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-              <Loader2 className="h-5 w-5 text-amber-500 animate-spin shrink-0" />
+              <Loader2 className="h-5 w-5 text-amber-700 animate-spin shrink-0" />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 Searching... ({batchTotalCount - batchSearchingCount}/{batchTotalCount} complete)
               </span>
@@ -302,7 +302,7 @@ export function FileSearchModal({
       onClose={onClose}
       title={
         <div className="flex items-center gap-2">
-          <Search className="h-5 w-5 text-amber-500" />
+          <Search className="h-5 w-5 text-amber-700" />
           <span>Find File</span>
         </div>
       }
@@ -311,7 +311,7 @@ export function FileSearchModal({
       <div className="space-y-4">
         {/* Explanation box */}
         <div className="flex gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+          <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
           <div className="text-sm text-blue-700 dark:text-blue-300">
             <p className="font-medium mb-1">Why search?</p>
             <p className="text-blue-600 dark:text-blue-400 text-xs">
@@ -327,7 +327,7 @@ export function FileSearchModal({
             type="checkbox"
             checked={searchLocalFolders}
             onChange={(e) => handleLocalToggle(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+            className="w-4 h-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
           />
           <div className="flex-1">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -338,14 +338,14 @@ export function FileSearchModal({
             </p>
           </div>
           {searchLocalFolders && progress?.phase === 'local' && (
-            <Loader2 className="h-4 w-4 text-amber-500 animate-spin shrink-0" />
+            <Loader2 className="h-4 w-4 text-amber-700 animate-spin shrink-0" />
           )}
         </label>
 
         {/* Search progress */}
         {isSearching && progress && progress.phase !== "done" && (
           <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-            <Loader2 className="h-5 w-5 text-amber-500 animate-spin shrink-0" />
+            <Loader2 className="h-5 w-5 text-amber-700 animate-spin shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {progress.phase === "shelv"
@@ -366,7 +366,7 @@ export function FileSearchModal({
         {/* Error state */}
         {error && !isSearching && (
           <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+            <AlertCircle className="h-5 w-5 text-amber-700 shrink-0" />
             <div className="text-sm text-amber-700 dark:text-amber-300">{error}</div>
           </div>
         )}
@@ -376,7 +376,7 @@ export function FileSearchModal({
           <div className="space-y-4">
             {/* Summary */}
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <CheckCircle2 className="h-4 w-4 text-green-700" />
               Found {results.length} matching file{results.length !== 1 ? "s" : ""}
             </div>
 
@@ -429,7 +429,7 @@ export function FileSearchModal({
         )}
 
         {/* Help text */}
-        <div className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
           Click a result to use that file path.
         </div>
       </div>
@@ -464,9 +464,9 @@ function ResultRow({
       )}
     >
       {isSelected && (
-        <Check className="h-4 w-4 text-green-500 shrink-0" />
+        <Check className="h-4 w-4 text-green-700 shrink-0" />
       )}
-      <FileText className={cn("h-4 w-4 shrink-0", isSelected ? "text-green-600" : "text-red-500")} />
+      <FileText className={cn("h-4 w-4 shrink-0", isSelected ? "text-green-700" : "text-red-600")} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
@@ -528,13 +528,13 @@ function BatchFileRow({
       >
         {/* Status indicator */}
         {state.isSearching ? (
-          <Loader2 className="h-4 w-4 text-amber-500 animate-spin shrink-0" />
+          <Loader2 className="h-4 w-4 text-amber-700 animate-spin shrink-0" />
         ) : state.error ? (
-          <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
         ) : state.selectedPath ? (
-          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+          <CheckCircle2 className="h-4 w-4 text-green-700 shrink-0" />
         ) : (
-          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+          <AlertCircle className="h-4 w-4 text-amber-700 shrink-0" />
         )}
 
         {/* Filename */}
@@ -543,13 +543,13 @@ function BatchFileRow({
             {state.filename}
           </div>
           {state.error ? (
-            <div className="text-xs text-red-500 dark:text-red-400">{state.error}</div>
+            <div className="text-xs text-red-600 dark:text-red-400">{state.error}</div>
           ) : state.selectedPath && selectedResult ? (
             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
               → {getContainingFolder(selectedResult)}
             </div>
           ) : state.isSearching ? (
-            <div className="text-xs text-gray-400">Searching...</div>
+            <div className="text-xs text-gray-500">Searching...</div>
           ) : null}
         </div>
 

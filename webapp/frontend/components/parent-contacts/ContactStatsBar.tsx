@@ -49,8 +49,8 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
         <div className="flex items-baseline gap-1.5">
           <span className={cn(
             "text-sm font-semibold",
-            stats.contact_coverage_percent >= 75 ? "text-green-600 dark:text-green-400" :
-            stats.contact_coverage_percent >= 50 ? "text-yellow-600 dark:text-yellow-400" :
+            stats.contact_coverage_percent >= 75 ? "text-green-700 dark:text-green-400" :
+            stats.contact_coverage_percent >= 50 ? "text-yellow-700 dark:text-yellow-400" :
             "text-red-600 dark:text-red-400"
           )}>
             {stats.contact_coverage_percent}%
@@ -75,11 +75,11 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">this week</span>
         {weekTrend > 0 ? (
-          <TrendingUp className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+          <TrendingUp className="h-3.5 w-3.5 text-green-700 flex-shrink-0" />
         ) : weekTrend < 0 ? (
-          <TrendingDown className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+          <TrendingDown className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
         ) : (
-          <Minus className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+          <Minus className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
         )}
       </div>
 
@@ -104,7 +104,7 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
                 <span className="text-gray-600 dark:text-gray-300">{counts[type]}</span>
               </span>
             ))}
-            <span className="text-gray-400 dark:text-gray-500 hidden sm:inline">30d</span>
+            <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">30d</span>
           </div>
         </div>
       )}
@@ -117,8 +117,8 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
         )}>
           <span className={cn(
             "text-sm font-semibold",
-            stats.average_days_since_contact <= 28 ? "text-green-600 dark:text-green-400" :
-            stats.average_days_since_contact <= 50 ? "text-yellow-600 dark:text-yellow-400" :
+            stats.average_days_since_contact <= 28 ? "text-green-700 dark:text-green-400" :
+            stats.average_days_since_contact <= 50 ? "text-yellow-700 dark:text-yellow-400" :
             "text-red-600 dark:text-red-400"
           )}>
             {Math.round(stats.average_days_since_contact)}d

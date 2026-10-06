@@ -156,7 +156,7 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
           className={cn(
             "p-1 rounded transition-colors",
             view === type
-              ? "bg-[#a0704b] text-white"
+              ? "bg-primary text-white"
               : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           )}
         >
@@ -502,7 +502,7 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
             className={cn(
               "p-1 rounded border transition-colors",
               splitByStream
-                ? "bg-[#a0704b] text-white border-[#a0704b]"
+                ? "bg-primary text-white border-primary"
                 : "bg-[#f5ede3] dark:bg-[#3d3628] text-gray-500 dark:text-gray-400 border-[#e8d4b8] dark:border-[#6b5a4a] hover:text-gray-700 dark:hover:text-gray-300"
             )}
           >
@@ -519,7 +519,7 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
         </div>
       ) : error ? (
         <div className="h-[250px] flex flex-col items-center justify-center gap-3">
-          <div className="text-red-500 dark:text-red-400 text-sm">Failed to load data</div>
+          <div className="text-red-600 dark:text-red-400 text-sm">Failed to load data</div>
           {onRetry && (
             <button
               onClick={onRetry}

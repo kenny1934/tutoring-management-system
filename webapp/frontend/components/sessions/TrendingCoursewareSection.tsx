@@ -123,19 +123,19 @@ export function TrendingCoursewareSection({
               "hover:from-orange-100 hover:to-white dark:hover:from-orange-900/30 dark:hover:to-[#1a1a1a]"
             )}
           >
-            <TrendingUp className="h-3.5 w-3.5 text-orange-500" />
+            <TrendingUp className="h-3.5 w-3.5 text-orange-700" />
             <span className="text-xs text-gray-600 dark:text-gray-300">
               Trending
               {grade && ` for ${grade}`}
               {school && ` @ ${school}`}
             </span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               ({trendingData.length} popular)
             </span>
             {trendingExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+              <ChevronDown className="h-3.5 w-3.5 text-gray-500 ml-auto" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+              <ChevronRight className="h-3.5 w-3.5 text-gray-500 ml-auto" />
             )}
           </button>
 
@@ -158,12 +158,12 @@ export function TrendingCoursewareSection({
                       onClick={() => onAdd(firstPath)}
                       title={`Click to add ${item.filename} as new exercise`}
                     >
-                      {index < 3 && <Flame className="h-3 w-3 text-orange-500 shrink-0" />}
+                      {index < 3 && <Flame className="h-3 w-3 text-orange-700 shrink-0" />}
                       {index >= 3 && <div className="w-3" />}
                       <span className="flex-1 truncate text-gray-700 dark:text-gray-300 text-xs">
                         {item.filename}
                       </span>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 flex items-center gap-1">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0 flex items-center gap-1">
                         {item.assignment_count}×
                         <User className="h-2.5 w-2.5" />
                         {item.unique_student_count}
@@ -171,7 +171,7 @@ export function TrendingCoursewareSection({
                       {/* Preview button */}
                       {previewStatus === 'unavailable' ? (
                         <div className="p-1 shrink-0" title="Not available in Shelv" onClick={(e) => e.stopPropagation()}>
-                          <EyeOff className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600" />
+                          <EyeOff className="h-3.5 w-3.5 text-gray-300 dark:text-gray-400" />
                         </div>
                       ) : (
                         <button
@@ -180,7 +180,7 @@ export function TrendingCoursewareSection({
                             handlePreviewTrending(item);
                           }}
                           disabled={previewStatus === 'checking'}
-                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
+                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
                           title={previewStatus === 'checking' ? 'Checking...' : 'Preview PDF'}
                         >
                           {previewStatus === 'checking' ? (
@@ -203,8 +203,8 @@ export function TrendingCoursewareSection({
                         className={cn(
                           "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0",
                           isExpanded
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                            ? "text-amber-700 dark:text-amber-400"
+                            : "text-gray-500 hover:text-amber-700 dark:hover:text-amber-400"
                         )}
                         title={isExpanded ? "Hide usage details" : "Show usage details"}
                       >
@@ -236,7 +236,7 @@ export function TrendingCoursewareSection({
                                     key={`${detail.session_id}-${detail.exercise_id}-${i}`}
                                     className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 text-[10px]"
                                   >
-                                    <span className="text-gray-400 dark:text-gray-500 w-16 shrink-0">
+                                    <span className="text-gray-500 dark:text-gray-400 w-16 shrink-0">
                                       {detail.session_date
                                         ? new Date(detail.session_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                         : '-'}
@@ -256,7 +256,7 @@ export function TrendingCoursewareSection({
                                         {detail.student_name}
                                       </span>
                                     )}
-                                    <span className="shrink-0 text-gray-400 dark:text-gray-500">
+                                    <span className="shrink-0 text-gray-500 dark:text-gray-400">
                                       <GradeLabel grade={detail.grade} />
                                     </span>
                                     <span className={cn(
@@ -275,7 +275,7 @@ export function TrendingCoursewareSection({
                                         title="Go to session"
                                         onClick={(e) => e.stopPropagation()}
                                       >
-                                        <ExternalLink className="h-2.5 w-2.5 text-gray-400 hover:text-[#a0704b]" />
+                                        <ExternalLink className="h-2.5 w-2.5 text-gray-500 hover:text-accent-ink" />
                                       </Link>
                                     ) : (
                                       <div className="p-0.5 shrink-0 w-3.5" />

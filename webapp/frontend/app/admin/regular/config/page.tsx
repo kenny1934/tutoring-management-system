@@ -171,13 +171,13 @@ export default function AdminRegularConfigPage() {
           <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <CalendarDays className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                <CalendarDays className="h-5 w-5 text-sky-700 dark:text-sky-400" />
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">Regular Course Config</h1>
                 <p className="text-xs text-muted-foreground">
                   Manage yearly regular course configurations
-                  {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
+                  {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
                 </p>
               </div>
             </div>
@@ -262,8 +262,8 @@ export default function AdminRegularConfigPage() {
                             onClick={() => setToggleTarget({ id: config.id, year: config.year, activate: !config.is_active })}
                             className={`flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
                               config.is_active
-                                ? "text-amber-600 hover:text-amber-700 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                                : "text-green-600 hover:text-green-700 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                ? "text-amber-700 hover:text-amber-700 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                : "text-green-700 hover:text-green-700 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20"
                             }`}
                           >
                             <Power className="h-3.5 w-3.5" />
@@ -330,7 +330,7 @@ export default function AdminRegularConfigPage() {
               max={2099}
             />
             {cloneDuplicateWarning && (
-              <p className="text-sm text-amber-600 mt-2">
+              <p className="text-sm text-amber-700 mt-2">
                 A config for {cloneYear} already exists. Clone anyway?
               </p>
             )}

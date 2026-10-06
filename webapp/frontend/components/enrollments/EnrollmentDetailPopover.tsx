@@ -350,7 +350,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         <div className="mb-3 pr-6">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium">{enrollment.school_student_id || "N/A"}</span>
-            <span className="text-[10px] text-gray-400 font-mono">#{enrollment.id}</span>
+            <span className="text-[10px] text-gray-500 font-mono">#{enrollment.id}</span>
           </div>
           <Link
             href={`/students/${enrollment.student_id}`}
@@ -500,7 +500,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     e.stopPropagation();
                     handleSaveSchedule();
                   }}
-                  className="flex-1 text-xs px-2 py-1 rounded bg-[#a0704b] text-white hover:bg-[#8b5e3c]"
+                  className="flex-1 text-xs px-2 py-1 rounded bg-primary text-white hover:bg-[#8b5e3c]"
                 >
                   Save
                 </button>
@@ -517,7 +517,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 <div className="flex items-center gap-1">
                   <span className="text-gray-900 dark:text-gray-100 font-medium">
                     {scheduleSaved ? `${editedDay} ${editedTime}` : (enrollment.assigned_day && enrollment.assigned_time ? `${enrollment.assigned_day} ${enrollment.assigned_time}` : 'Unscheduled')}
-                    {scheduleSaved && <span className="text-green-600 text-[10px] ml-1">✓</span>}
+                    {scheduleSaved && <span className="text-green-700 text-[10px] ml-1">✓</span>}
                   </span>
                   <button
                     onClick={(e) => {
@@ -527,7 +527,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                     title="Edit schedule"
                   >
-                    <Edit2 className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                    <Edit2 className="h-3 w-3 text-gray-500 hover:text-gray-600" />
                   </button>
                 </div>
               </div>
@@ -654,7 +654,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               )}>
                 {new Date(enrollment.effective_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 {(enrollment.deadline_extension_weeks ?? 0) > 0 && (
-                  <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
+                  <span className="ml-1 text-[10px] text-amber-700 dark:text-amber-400">
                     (+{enrollment.deadline_extension_weeks}w)
                   </span>
                 )}
@@ -680,7 +680,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         {enrollment.summer_unavailability_notes && (
           <div className="mb-4 p-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
             <div className="flex items-center gap-1.5 mb-1">
-              <CalendarX className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <CalendarX className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
               <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
                 Unavailable Dates
               </span>
@@ -700,12 +700,12 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </span>
           </div>
           {sessionsLoading ? (
-            <div className="flex items-center gap-1 text-xs text-gray-400">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>Loading...</span>
             </div>
           ) : upcomingSessions.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">No upcoming sessions</p>
+            <p className="text-xs text-gray-500 italic">No upcoming sessions</p>
           ) : (
             <div className="space-y-1">
               {upcomingSessions.map((session) => (
@@ -815,7 +815,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             }}
             className={cn(
               "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-              "bg-[#a0704b] hover:bg-[#8a6040] text-white transition-colors"
+              "bg-primary hover:bg-[#8a6040] text-white transition-colors"
             )}
           >
             <ExternalLink className="h-3.5 w-3.5" />

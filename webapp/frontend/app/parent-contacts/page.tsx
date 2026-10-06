@@ -380,7 +380,7 @@ export default function ParentContactsPage() {
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                     isReadOnly
                       ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : "bg-[#a0704b] dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
+                      : "bg-primary dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
                   )}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
@@ -400,7 +400,7 @@ export default function ParentContactsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors",
                   mobileTab === 'list'
-                    ? "bg-white dark:bg-[#1a1a1a] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#1a1a1a] text-accent-ink shadow-sm"
                     : "text-gray-600 dark:text-gray-400"
                 )}
               >
@@ -412,7 +412,7 @@ export default function ParentContactsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors",
                   mobileTab === 'calendar'
-                    ? "bg-white dark:bg-[#1a1a1a] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#1a1a1a] text-accent-ink shadow-sm"
                     : "text-gray-600 dark:text-gray-400"
                 )}
               >
@@ -424,7 +424,7 @@ export default function ParentContactsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors",
                   mobileTab === 'details'
-                    ? "bg-white dark:bg-[#1a1a1a] text-[#a0704b] shadow-sm"
+                    ? "bg-white dark:bg-[#1a1a1a] text-accent-ink shadow-sm"
                     : "text-gray-600 dark:text-gray-400",
                   !selectedContact && !selectedStudentId && "opacity-50"
                 )}

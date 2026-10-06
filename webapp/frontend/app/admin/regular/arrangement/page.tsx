@@ -787,12 +787,12 @@ export default function RegularArrangementPage() {
                   it sits inline between the title and the location select. */}
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <Grid3X3 className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
                     <span>Arrangement</span>
-                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
                   </h1>
                   <p className="hidden sm:block text-xs text-muted-foreground">
                     Create weekly slots and assign applications. Publish once schedules are confirmed.
@@ -832,7 +832,7 @@ export default function RegularArrangementPage() {
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <span>{unassignedApps.length} unassigned</span>
                   <span>{assignedCount} assigned</span>
-                  <span className="text-green-600 dark:text-green-400">{publishedCount} published</span>
+                  <span className="text-green-700 dark:text-green-400">{publishedCount} published</span>
                 </div>
 
                 <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />

@@ -190,11 +190,11 @@ export const ProposedSessionRow = memo(function ProposedSessionRow({
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-              <User className="h-3 w-3 text-gray-400" />
+              <User className="h-3 w-3 text-gray-500" />
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {proposedSession.tutor_name}
               </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
                 @ {proposedSession.location}
               </span>
             </div>

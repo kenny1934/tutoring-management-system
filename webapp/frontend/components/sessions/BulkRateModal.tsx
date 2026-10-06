@@ -247,10 +247,10 @@ export function BulkRateModal({
         title={
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">
-              <MessageSquarePlus className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <MessageSquarePlus className="h-4 w-4 text-amber-700 dark:text-amber-400" />
             </span>
             <span>Rate & Comment</span>
-            <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">
+            <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
               ({sessions.length} session{sessions.length !== 1 ? "s" : ""})
             </span>
           </div>
@@ -259,22 +259,22 @@ export function BulkRateModal({
         footer={
           <div className="space-y-2">
             {/* Keyboard shortcuts hint */}
-            <div className="hidden sm:flex items-center justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+            <div className="hidden sm:flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">1-5</kbd>
                 <span>rate</span>
               </span>
-              <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+              <span className="text-gray-300 dark:text-gray-400">&middot;</span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">&uarr;&darr;</kbd>
                 <span>navigate</span>
               </span>
-              <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+              <span className="text-gray-300 dark:text-gray-400">&middot;</span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Tab</kbd>
                 <span>comment</span>
               </span>
-              <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+              <span className="text-gray-300 dark:text-gray-400">&middot;</span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
                 <span>save all</span>
@@ -320,7 +320,7 @@ export function BulkRateModal({
                 {/* Session header row */}
                 <div className="flex items-center gap-2 px-3 py-2">
                   {/* Student info */}
-                  <span className="text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">
+                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400 shrink-0">
                     {session.school_student_id}
                   </span>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -351,12 +351,12 @@ export function BulkRateModal({
                       size="lg"
                     />
                     {data && data.rating > 0 && (
-                      <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                      <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
                         ({data.rating}/5)
                       </span>
                     )}
                     {(!data || data.rating === 0) && (
-                      <span className="text-sm text-gray-400 dark:text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         Click to rate
                       </span>
                     )}

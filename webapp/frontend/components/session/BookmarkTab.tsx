@@ -38,9 +38,9 @@ function CopyButton({ text }: { text: string }) {
       title="Copy full path"
     >
       {copyState === 'copied' ? (
-        <Check className="h-3 w-3 text-green-500" />
+        <Check className="h-3 w-3 text-green-700" />
       ) : copyState === 'failed' ? (
-        <X className="h-3 w-3 text-red-500" />
+        <X className="h-3 w-3 text-red-600" />
       ) : (
         <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
       )}

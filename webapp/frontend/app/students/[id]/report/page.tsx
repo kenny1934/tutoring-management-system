@@ -216,7 +216,7 @@ function StudentReportPageInner() {
   if (!student || !progress) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-red-500">Failed to load student data</div>
+        <div className="text-red-600">Failed to load student data</div>
       </div>
     );
   }
@@ -253,7 +253,7 @@ function StudentReportPageInner() {
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             {saved ? (
-              <><Check className="w-3.5 h-3.5 text-green-600" /> Saved</>
+              <><Check className="w-3.5 h-3.5 text-green-700" /> Saved</>
             ) : isSaving ? "Saving..." : (
               <><BookmarkPlus className="w-3.5 h-3.5" /> Save</>
             )}
@@ -268,12 +268,12 @@ function StudentReportPageInner() {
                 <Share2 className="w-3.5 h-3.5" />
                 {isSharing ? "Creating..." : "Share Link"}
               </button>
-              {shareError && <span className="text-xs text-red-500">{shareError}</span>}
+              {shareError && <span className="text-xs text-red-600">{shareError}</span>}
             </>
           )}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-[#8b6140] transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
             Print / Save PDF
@@ -284,7 +284,7 @@ function StudentReportPageInner() {
       {/* Share URL popup */}
       {shareUrl && (
         <div className="report-toolbar sticky top-[41px] z-10 bg-green-50 dark:bg-green-950/30 border-b border-green-200 dark:border-green-800 px-4 py-2 flex items-center gap-3">
-          <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+          <Check className="w-4 h-4 text-green-700 dark:text-green-400 flex-shrink-0" />
           <span className="text-sm text-green-800 dark:text-green-300 flex-shrink-0">Share link created (expires in 30 days):</span>
           <code className="text-xs bg-white dark:bg-black/20 border border-green-200 dark:border-green-800 rounded px-2 py-1 truncate flex-1">{shareUrl}</code>
           <button
@@ -305,13 +305,13 @@ function StudentReportPageInner() {
                 setTimeout(() => setShareError(""), 3000);
               }
             }}
-            className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex-shrink-0"
+            className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex-shrink-0"
           >
             Revoke
           </button>
           <button
             onClick={() => setShareUrl("")}
-            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 text-lg leading-none flex-shrink-0"
+            className="text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 text-lg leading-none flex-shrink-0"
           >
             &times;
           </button>

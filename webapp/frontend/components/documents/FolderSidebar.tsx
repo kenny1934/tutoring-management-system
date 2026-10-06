@@ -100,9 +100,9 @@ function FolderTreeItem({
         className={cn(
           "group/folder flex items-center gap-2 px-2 py-1.5 md:py-1 [@media(pointer:coarse)]:py-2 rounded-lg cursor-pointer text-sm transition-all duration-150",
           isOver
-            ? "ring-2 ring-[#a0704b] bg-[#f5ede3] dark:bg-[#2d2618]"
+            ? "ring-2 ring-primary bg-[#f5ede3] dark:bg-[#2d2618]"
             : isActive
-              ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+              ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
               : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
@@ -125,7 +125,7 @@ function FolderTreeItem({
           </button>
         )}
 
-        <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+        <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
         {node.document_count > 0 && (
           <span className="text-[9px] font-semibold tabular-nums bg-accent-ink/10 text-accent-ink px-1.5 py-0.5 rounded-full shrink-0">
@@ -399,7 +399,7 @@ export default function FolderSidebar({
             className={cn(
               "p-1.5 rounded transition-colors",
               activeFolderId === null && activeTags.length === 0 && activeTab !== "trash"
-                ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
+                ? "bg-[#f5ede3] dark:bg-[#2d2618] text-accent-ink"
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
             )}
             title="All Documents"
@@ -417,7 +417,7 @@ export default function FolderSidebar({
               )}
               title="Starred"
             >
-              <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-400" : "")} />
+              <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-700" : "")} />
             </button>
           )}
           {tree.length > 0 && (
@@ -430,7 +430,7 @@ export default function FolderSidebar({
               className={cn(
                 "p-1.5 rounded transition-colors",
                 activeFolderId === node.id
-                  ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
+                  ? "bg-[#f5ede3] dark:bg-[#2d2618] text-accent-ink"
                   : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
               )}
               title={node.name}
@@ -447,7 +447,7 @@ export default function FolderSidebar({
                 className={cn(
                   "relative p-1.5 rounded transition-colors",
                   activeTab === "trash"
-                    ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
+                    ? "bg-[#f5ede3] dark:bg-[#2d2618] text-accent-ink"
                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
                 )}
                 title="Trash"
@@ -488,13 +488,13 @@ export default function FolderSidebar({
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
                 isOverAllDocs
-                  ? "ring-2 ring-[#a0704b] bg-[#f5ede3] dark:bg-[#2d2618]"
+                  ? "ring-2 ring-primary bg-[#f5ede3] dark:bg-[#2d2618]"
                   : activeFolderId === null && activeTab !== "trash"
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
                     : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
               )}
             >
-              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
               <span className="flex-1 text-left">All Documents</span>
               {totalDocCount !== undefined && (
                 <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
@@ -510,11 +510,11 @@ export default function FolderSidebar({
                 className={cn(
                   "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
                   isStarredActive
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
                     : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
                 )}
               >
-                <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-400" : "text-gray-400")} />
+                <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-700" : "text-gray-500")} />
                 <span className="flex-1 text-left">Starred</span>
               </button>
             </div>
@@ -543,17 +543,17 @@ export default function FolderSidebar({
           {folders.length > 5 && (
             <div className="px-3 pb-1">
               <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Filter folders..."
                   value={folderSearch}
                   onChange={(e) => setFolderSearch(e.target.value)}
-                  className="w-full pl-7 pr-6 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                  className="w-full pl-7 pr-6 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
                 {folderSearch && (
                   <button onClick={() => setFolderSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                    <X className="w-2.5 h-2.5 text-gray-400" />
+                    <X className="w-2.5 h-2.5 text-gray-500" />
                   </button>
                 )}
               </div>
@@ -590,12 +590,12 @@ export default function FolderSidebar({
             {!isReadOnly && tree.length === 0 && !creating && (
               <div className="mx-1 mt-2 px-3 py-4 rounded-xl border border-dashed border-[#e8d4b8] dark:border-[#4a3a2a] bg-[#fef9f3]/60 dark:bg-white/[0.02] text-center">
                 <FolderOpen className="w-6 h-6 mx-auto mb-1.5 text-[#c4a882] dark:text-[#6b5a4a]" />
-                <p className="text-[11px] text-gray-500 dark:text-gray-500 mb-2 leading-relaxed">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2 leading-relaxed">
                   Organise your documents into folders
                 </p>
                 <button
                   onClick={() => setCreating({ parentId: null })}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#a0704b] text-white hover:bg-[#8b5e3c] transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary text-white hover:bg-[#8b5e3c] transition-colors"
                 >
                   <Plus className="w-3 h-3" />
                   New folder
@@ -609,7 +609,7 @@ export default function FolderSidebar({
             <div className="relative px-3 pt-3 pb-3 mt-1">
               <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
-                Tags <span className="font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">(right-click to manage)</span>
+                Tags <span className="font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400">(right-click to manage)</span>
               </span>
               <div className="flex flex-wrap gap-1">
                 {allTags.map((tag) => (
@@ -625,7 +625,7 @@ export default function FolderSidebar({
                     className={cn(
                       "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer",
                       activeTags.includes(tag)
-                        ? "ring-2 ring-[#a0704b]/60 ring-offset-1 dark:ring-offset-[#1a1a1a] shadow-[0_0_0_3px_rgba(160,112,75,0.08)] scale-[1.04]"
+                        ? "ring-2 ring-primary/60 ring-offset-1 dark:ring-offset-[#1a1a1a] shadow-[0_0_0_3px_rgba(160,112,75,0.08)] scale-[1.04]"
                         : "hover:scale-[1.03] hover:shadow-sm",
                       getTagColor(tag)
                     )}
@@ -677,7 +677,7 @@ export default function FolderSidebar({
             className={cn(
               "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
               activeTab === "trash"
-                ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
                 : "text-gray-500 dark:text-gray-400 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
             )}
           >
@@ -711,7 +711,7 @@ export default function FolderSidebar({
                 if (e.key === "Enter") handleSubmitRename();
                 if (e.key === "Escape") setRenamingFolder(null);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40 mb-3"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
             />
             <div className="flex gap-2">
               <button
@@ -753,7 +753,7 @@ export default function FolderSidebar({
                 }
                 if (e.key === "Escape") setRenamingTag(null);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40 mb-3"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
             />
             <div className="flex gap-2">
               <button onClick={() => setRenamingTag(null)} className="flex-1 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors rounded-lg border border-border">

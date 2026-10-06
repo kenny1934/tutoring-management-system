@@ -100,7 +100,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
   return (
     <div>
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
         <input
           ref={inputRef}
           type="text"
@@ -142,7 +142,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
             type="button"
             onClick={clear}
             aria-label="Clear search"
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -176,7 +176,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                     </span>
                   )}
                   {c.codes.length > 0 && (
-                    <span className="text-[9px] text-gray-400 ml-auto shrink-0">
+                    <span className="text-[9px] text-gray-500 ml-auto shrink-0">
                       {c.codes.map((code) => code.code).join(" · ")}
                     </span>
                   )}
@@ -185,7 +185,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
             </div>
             <p
               className={cn(
-                "px-3 py-1.5 text-[10px] text-gray-400 dark:text-gray-500",
+                "px-3 py-1.5 text-[10px] text-gray-500 dark:text-gray-400",
                 matches.length > 0 &&
                   "border-t border-[#d4a574]/30 dark:border-[#8b6f47]/40"
               )}
@@ -211,11 +211,11 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
               Search results
             </span>
             {scope && (
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-gray-500">
                 with {scope.school} {scope.grade} evidence
               </span>
             )}
-            {isLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-400 ml-auto" />}
+            {isLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
           </div>
 
           {error && !results && !isLoading && (
@@ -263,7 +263,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-gray-400 mt-0.5">
+                    <p className="text-[10px] text-gray-500 mt-0.5">
                       No files mapped to this topic yet.
                     </p>
                   )}

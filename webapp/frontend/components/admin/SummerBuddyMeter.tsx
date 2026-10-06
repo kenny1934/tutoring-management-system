@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 type Tone = "green" | "emerald";
 
 const FILLED: Record<Tone, string> = {
-  green: "text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400",
-  emerald: "text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400",
+  green: "text-green-700 dark:text-green-400 fill-green-600 dark:fill-green-400",
+  emerald: "text-emerald-700 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400",
 };
 
 const UNLOCKED_BG: Record<Tone, string> = {
@@ -44,7 +44,7 @@ export function SummerBuddyMeter({
             i < count
               ? unlocked
                 ? FILLED[tone]
-                : "text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400"
+                : "text-amber-700 dark:text-amber-400 fill-amber-600 dark:fill-amber-400"
               : "text-muted-foreground/40",
           )}
         />

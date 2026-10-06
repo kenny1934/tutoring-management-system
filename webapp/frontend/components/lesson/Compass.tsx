@@ -543,7 +543,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
           className="pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center cursor-nesw-resize"
           style={{ left: resizeAt[0], top: resizeAt[1], width: cm, height: cm }}
         >
-          <i className="grid h-5 w-5 place-items-center rounded-full border-2 border-[#a0704b] bg-white text-[#a0704b]">
+          <i className="grid h-5 w-5 place-items-center rounded-full border-2 border-primary bg-white text-accent-ink">
             <MoveDiagonal2 className="h-3 w-3" strokeWidth={2.5} />
           </i>
         </span>
@@ -561,7 +561,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
           className="pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center cursor-grab"
           style={{ left: knob[0], top: knob[1], width: cm, height: cm }}
         >
-          <i className="block h-5 w-5 rounded-full border-2 border-[#a0704b] bg-white shadow" />
+          <i className="block h-5 w-5 rounded-full border-2 border-primary bg-white shadow" />
         </span>
 
         <button
@@ -570,7 +570,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
           aria-pressed={lifted}
           title={lifted ? "Put the pencil down, so turning draws again (U)" : "Lift the pencil, so turning doesn't draw (U)"}
           onClick={toggleLifted}
-          className={cn(BUTTON_CLASS, lifted && "bg-[#a0704b] text-white hover:bg-[#8a5f3f]")}
+          className={cn(BUTTON_CLASS, lifted && "bg-primary text-white hover:bg-[#8a5f3f]")}
           style={{ left: hinge[0] - 2.2 * cm, top: hinge[1], width: 0.8 * cm, height: 0.8 * cm }}
         >
           <PencilOff className="h-1/2 w-1/2" style={{ transform: upright }} />

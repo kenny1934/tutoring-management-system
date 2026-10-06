@@ -188,7 +188,7 @@ export function TutorSelector({
       >
         <User className={cn(
           "h-3.5 w-3.5 flex-shrink-0",
-          isSelected ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500"
+          isSelected ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400"
         )} />
         <span className={cn(
           "text-gray-900 dark:text-gray-100",
@@ -201,7 +201,7 @@ export function TutorSelector({
             {departure}
           </span>
         ) : homeBranch ? (
-          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+          <span className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0">
             {homeBranch}
           </span>
         ) : null}
@@ -219,7 +219,7 @@ export function TutorSelector({
           "flex items-center gap-1.5 px-3 py-1.5 text-sm",
           "bg-white dark:bg-[#1a1a1a]",
           "border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-          "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+          "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800",
           className
@@ -233,7 +233,7 @@ export function TutorSelector({
         <span className="truncate max-w-[150px]">
           {isAllTutorsSelected ? "All Tutors" : (selectedTutor?.tutor_name || placeholder)}
         </span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-[#a0704b] transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("h-3.5 w-3.5 text-accent-ink transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {/* Dropdown menu */}
@@ -288,7 +288,7 @@ export function TutorSelector({
                 >
                   <Users className={cn(
                     "h-3.5 w-3.5 flex-shrink-0",
-                    isAllTutorsSelected ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500"
+                    isAllTutorsSelected ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400"
                   )} />
                   <span className={cn(
                     "text-gray-900 dark:text-gray-100",
@@ -316,7 +316,7 @@ export function TutorSelector({
                 {visitingTutors.length > 0 && (
                   <>
                     <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
-                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Covering from another branch
                       </div>
                     </div>

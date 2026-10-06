@@ -84,7 +84,7 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
         <button
           type="button"
           onClick={() => onChange({ ...state, useCustom: true })}
-          className="text-[11px] text-primary hover:underline"
+          className="text-[11px] text-accent-ink hover:underline"
         >
           Use custom time
         </button>
@@ -119,12 +119,12 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
         />
       </div>
       {showInvalid && (
-        <p className="text-[11px] text-red-500">End time must be after start time.</p>
+        <p className="text-[11px] text-red-600">End time must be after start time.</p>
       )}
       <button
         type="button"
         onClick={() => onChange({ ...state, useCustom: false, start: "", end: "" })}
-        className="text-[11px] text-primary hover:underline"
+        className="text-[11px] text-accent-ink hover:underline"
       >
         Use preset time slots
       </button>

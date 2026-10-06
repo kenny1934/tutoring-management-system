@@ -1023,7 +1023,7 @@ export function ExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-between items-center gap-3">
-          <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 hidden sm:inline">
+          <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 hidden sm:inline">
             Alt+N add · Alt+⌫ del · Ctrl+↵ save · Ctrl+C/V copy
           </span>
           <div className="flex gap-3">
@@ -1101,9 +1101,9 @@ export function ExerciseModal({
                 View All
               </span>
               {recapExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+                <ChevronDown className="h-3.5 w-3.5 text-gray-500 ml-auto" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+                <ChevronRight className="h-3.5 w-3.5 text-gray-500 ml-auto" />
               )}
             </button>
 
@@ -1132,13 +1132,13 @@ export function ExerciseModal({
                           className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                           title="Open in new tab"
                         >
-                          <ExternalLink className="h-3 w-3 text-gray-400" />
+                          <ExternalLink className="h-3 w-3 text-gray-500" />
                         </Link>
                       </div>
                       {detailedSession.previous_session.performance_rating && (
                         <div className="flex">
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className={cn("h-2.5 w-2.5", i < starCount ? "fill-yellow-400 text-yellow-400" : "text-gray-300")} />
+                            <Star key={i} className={cn("h-2.5 w-2.5", i < starCount ? "fill-yellow-400 text-yellow-700" : "text-gray-300")} />
                           ))}
                         </div>
                       )}
@@ -1207,7 +1207,7 @@ export function ExerciseModal({
                 disabled={printAllState === 'loading'}
                 className={cn(
                   "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                  "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
+                  "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
                   printAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -1246,7 +1246,7 @@ export function ExerciseModal({
                 disabled={downloadAllAnswersState === 'loading'}
                 className={cn(
                   "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                  "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50",
+                  "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50",
                   downloadAllAnswersState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -1334,7 +1334,7 @@ export function ExerciseModal({
               <button
                 type="button"
                 onClick={handlePasteRequest}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-200 dark:hover:bg-teal-900/50"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 hover:bg-teal-200 dark:hover:bg-teal-900/50"
                 title={`Paste ${clipboardData.exercises.length} exercise${clipboardData.exercises.length !== 1 ? 's' : ''} from ${clipboardData.sourceStudentName || 'clipboard'} (Ctrl+V)`}
               >
                 <Clipboard className="h-3 w-3" />
@@ -1351,7 +1351,7 @@ export function ExerciseModal({
         {showPasteConfirm && clipboardData && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800">
             <div className="flex items-center gap-2 min-w-0">
-              <Clipboard className="h-4 w-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+              <Clipboard className="h-4 w-4 text-teal-700 dark:text-teal-400 flex-shrink-0" />
               <span className="text-sm text-teal-700 dark:text-teal-300">
                 Paste {clipboardData.exercises.length} exercise{clipboardData.exercises.length !== 1 ? 's' : ''}
                 {clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}?
@@ -1397,8 +1397,8 @@ export function ExerciseModal({
           <div className={cn(
             "text-center py-8 text-sm border-2 border-dashed rounded-lg",
             isCW
-              ? "text-red-500 dark:text-red-400 border-red-200 dark:border-red-800"
-              : "text-blue-500 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+              ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
+              : "text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
           )}>
             No {title.toLowerCase()} assigned yet. Click "Add {title}" to add one.
           </div>
@@ -1441,7 +1441,7 @@ export function ExerciseModal({
                           className="cursor-grab active:cursor-grabbing touch-none p-0.5"
                           onPointerDown={(e) => dragControls.start(e)}
                         >
-                          <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                          <GripVertical className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                         </div>
                       )}
                       {!readOnly && (
@@ -1452,9 +1452,9 @@ export function ExerciseModal({
                           title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
                         >
                           {selectedIndices.has(index) ? (
-                            <CheckSquare className="h-4 w-4 text-teal-500 dark:text-teal-400" />
+                            <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                           ) : (
-                            <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            <Square className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                       )}
@@ -1463,7 +1463,7 @@ export function ExerciseModal({
                     {/* Resource input (PDF path or URL) */}
                     <div className="relative flex-1 min-w-0">
                       {exercise.url && (
-                        <YouTubeThumbnail url={exercise.url} className="absolute left-2 top-[8px]" fallbackIcon={<Globe className="absolute left-2 top-[8px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />} />
+                        <YouTubeThumbnail url={exercise.url} className="absolute left-2 top-[8px]" fallbackIcon={<Globe className="absolute left-2 top-[8px] h-3.5 w-3.5 text-blue-600 dark:text-blue-400 pointer-events-none" />} />
                       )}
                       <input
                         ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
@@ -1507,7 +1507,7 @@ export function ExerciseModal({
                         className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex-shrink-0"
                         title="Previously assigned exercise"
                       >
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
                       </button>
                     )}
 
@@ -1519,7 +1519,7 @@ export function ExerciseModal({
                         className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex-shrink-0"
                         title="Open URL in new tab"
                       >
-                        <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                        <ExternalLink className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                       </button>
                     ) : (
                       <>
@@ -1549,7 +1549,7 @@ export function ExerciseModal({
                   {duplicateDetailOpen[exercise.clientId] && duplicateMap[index]?.length > 0 && (
                     <div className="flex gap-2 items-start">
                       <div className="w-5 md:w-10 shrink-0" />
-                      <div className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-0.5 flex-1">
+                      <div className="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-0.5 flex-1">
                         ⚠ Previously assigned:{' '}
                         {duplicateMap[index].map((m, i) => {
                           const date = new Date(m.sessionDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -1653,8 +1653,8 @@ export function ExerciseModal({
               className={cn(
                 "w-full flex items-center justify-center gap-1.5 py-2 text-sm rounded-lg border-2 border-dashed transition-colors",
                 isCW
-                  ? "text-red-400 dark:text-red-500 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400"
-                  : "text-blue-400 dark:text-blue-500 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 dark:hover:text-blue-400"
+                  ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
+                  : "text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400"
               )}
             >
               <Plus className="h-4 w-4" />

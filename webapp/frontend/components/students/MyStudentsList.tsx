@@ -258,20 +258,20 @@ function EnrollmentRow({
             )}
           </div>
           {isAllTutors && enrollment.tutor_name && (
-            <span className="text-[9px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+            <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
               <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
             </span>
           )}
           {isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
-              <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-red-500 uppercase">Overdue</span>
+              <AlertTriangle className="h-4 w-4 text-red-600" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-red-600 uppercase">Overdue</span>
             </span>
           )}
           {isPending && !isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
-              <HandCoins className="h-4 w-4 text-amber-500" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-amber-500 uppercase">Pending</span>
+              <HandCoins className="h-4 w-4 text-amber-700" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-amber-700 uppercase">Pending</span>
             </span>
           )}
         </div>
@@ -462,20 +462,20 @@ export function MyStudentsList({
             )}
           </div>
           {isAllTutors && enrollment.tutor_name && (
-            <span className="text-[9px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+            <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
               <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
             </span>
           )}
           {isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
-              <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-red-500 uppercase">Overdue</span>
+              <AlertTriangle className="h-4 w-4 text-red-600" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-red-600 uppercase">Overdue</span>
             </span>
           )}
           {isPending && !isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
-              <HandCoins className="h-4 w-4 text-amber-500" aria-hidden="true" />
-              <span className="text-[9px] font-bold text-amber-500 uppercase">Pending</span>
+              <HandCoins className="h-4 w-4 text-amber-700" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-amber-700 uppercase">Pending</span>
             </span>
           )}
         </div>
@@ -520,13 +520,13 @@ export function MyStudentsList({
       <div className="p-2 border-b border-line bg-paper">
         {/* Search input */}
         <div className="relative mb-2">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search name, ID, school, grade..."
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b] focus:border-transparent"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
 
@@ -540,7 +540,7 @@ export function MyStudentsList({
             )}
           </span>
           {unpaidCount > 0 && (
-            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+            <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
               <HandCoins className="h-3 w-3" aria-hidden="true" />
               <span>{unpaidCount} unpaid</span>
             </span>
@@ -559,9 +559,9 @@ export function MyStudentsList({
               aria-pressed={activeGroups.includes(value)}
               aria-label={`Group by ${label}`}
               className={cn(
-                "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b] focus:ring-offset-1",
+                "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
                 activeGroups.includes(value)
-                  ? "bg-[#a0704b] text-white"
+                  ? "bg-primary text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               )}
             >
@@ -582,9 +582,9 @@ export function MyStudentsList({
                 key={value}
                 onClick={() => handleSortClick(value)}
                 className={cn(
-                  "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b] focus:ring-offset-1",
+                  "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
                   isActive
-                    ? "bg-[#a0704b] text-white"
+                    ? "bg-primary text-white"
                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 )}
               >
@@ -639,14 +639,14 @@ export function MyStudentsList({
                       className={cn(
                         "sticky top-0 z-10 -mx-2 px-2 py-1 border-b mb-2 cursor-pointer transition-colors",
                         isGroupSelected
-                          ? "bg-[#a0704b]/20 dark:bg-[#cd853f]/20 border-[#a0704b] dark:border-[#cd853f]"
+                          ? "bg-primary/20 dark:bg-[#cd853f]/20 border-primary dark:border-[#cd853f]"
                           : "bg-[#f5ede3] dark:bg-[#3d3628] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#ebe0d4] dark:hover:bg-[#4d4638]"
                       )}
                     >
                       <span className={cn(
                         "text-xs font-bold uppercase",
                         isGroupSelected
-                          ? "text-[#a0704b] dark:text-[#cd853f]"
+                          ? "text-accent-ink dark:text-[#cd853f]"
                           : "text-gray-700 dark:text-gray-300"
                       )}>
                         {getGroupLabel(groupKey)}
@@ -654,7 +654,7 @@ export function MyStudentsList({
                       <span className={cn(
                         "text-xs ml-2",
                         isGroupSelected
-                          ? "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                          ? "text-accent-ink/70 dark:text-[#cd853f]/70"
                           : "text-gray-500 dark:text-gray-400"
                       )}>
                         ({groupEnrollments.length})

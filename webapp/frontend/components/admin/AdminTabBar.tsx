@@ -38,7 +38,7 @@ export function AdminTabBar({
                 className={cn(
                   "px-3 py-2 text-sm font-medium border-b-2 transition-colors",
                   isActive
-                    ? "border-primary text-primary"
+                    ? "border-primary text-accent-ink"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
                 )}
               >

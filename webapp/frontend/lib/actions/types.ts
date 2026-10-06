@@ -39,7 +39,7 @@ export interface ActionConfig<T = any> {
   /** Lucide icon component to display */
   icon: LucideIcon;
 
-  /** Tailwind classes for button styling (e.g., "bg-green-100 text-green-600") */
+  /** Tailwind classes for button styling (e.g., "bg-green-100 text-green-700") */
   colorClass: string;
 
   /** Optional override for icon color (e.g., for CW/HW colored icons) */

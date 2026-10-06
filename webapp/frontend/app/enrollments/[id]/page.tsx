@@ -618,7 +618,7 @@ export default function EnrollmentDetailPage() {
               </p>
               <button
                 onClick={() => router.back()}
-                className="px-4 py-2 bg-[#a0704b] text-white rounded-lg hover:bg-[#8b6140] transition-colors"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-[#8b6140] transition-colors"
               >
                 Go Back
               </button>
@@ -642,7 +642,7 @@ export default function EnrollmentDetailPage() {
       className={cn(
         "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
         isReadOnly
-          ? "border border-gray-200 text-gray-400 cursor-not-allowed"
+          ? "border border-gray-200 text-gray-500 cursor-not-allowed"
           : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
       )}
       title={isReadOnly ? "Read-only access" : undefined}
@@ -657,7 +657,7 @@ export default function EnrollmentDetailPage() {
       className={cn(
         "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
         isReadOnly
-          ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+          ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
           : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
       )}
       title={isReadOnly ? "Read-only access" : undefined}
@@ -784,7 +784,7 @@ export default function EnrollmentDetailPage() {
                 {isEditingSchedule ? (
                   <div className="flex items-center gap-2">
                     {saveError && (
-                      <span className="text-xs text-red-500 max-w-[120px] truncate" title={saveError}>
+                      <span className="text-xs text-red-600 max-w-[120px] truncate" title={saveError}>
                         {saveError}
                       </span>
                     )}
@@ -798,7 +798,7 @@ export default function EnrollmentDetailPage() {
                     <button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 disabled:opacity-50"
+                      className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 disabled:opacity-50"
                     >
                       {isSaving ? 'Saving...' : 'Save'}
                     </button>
@@ -818,7 +818,7 @@ export default function EnrollmentDetailPage() {
                   >
                     <Pencil className={cn(
                       "h-3.5 w-3.5",
-                      isReadOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+                      isReadOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
                     )} />
                   </button>
                 )}
@@ -984,7 +984,7 @@ export default function EnrollmentDetailPage() {
                     {enrollment.location && (
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                          <MapPin className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                          <MapPin className="h-6 w-6 text-amber-700 dark:text-amber-400" />
                         </div>
                         <div>
                           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -1019,7 +1019,7 @@ export default function EnrollmentDetailPage() {
                         )}>
                           {formatShortDate(enrollment.effective_end_date)}
                           {(enrollment.deadline_extension_weeks ?? 0) > 0 && (
-                            <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+                            <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">
                               (+{enrollment.deadline_extension_weeks}w ext)
                             </span>
                           )}
@@ -1069,7 +1069,7 @@ export default function EnrollmentDetailPage() {
                 {isEditingPayment ? (
                   <div className="flex items-center gap-2">
                     {saveError && (
-                      <span className="text-xs text-red-500 max-w-[120px] truncate" title={saveError}>
+                      <span className="text-xs text-red-600 max-w-[120px] truncate" title={saveError}>
                         {saveError}
                       </span>
                     )}
@@ -1083,7 +1083,7 @@ export default function EnrollmentDetailPage() {
                     <button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 disabled:opacity-50"
+                      className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 disabled:opacity-50"
                     >
                       {isSaving ? 'Saving...' : 'Save'}
                     </button>
@@ -1102,7 +1102,7 @@ export default function EnrollmentDetailPage() {
                   >
                     <Pencil className={cn(
                       "h-3.5 w-3.5",
-                      isReadOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+                      isReadOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
                     )} />
                   </button>
                 )}
@@ -1174,7 +1174,7 @@ export default function EnrollmentDetailPage() {
                           ))}
                         </select>
                         {(editForm.lessons_paid ?? 0) < MIN_LESSONS_FOR_DISCOUNT && (
-                          <p className="mt-1 text-xs text-gray-400">
+                          <p className="mt-1 text-xs text-gray-500">
                             Most discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
                           </p>
                         )}
@@ -1190,7 +1190,7 @@ export default function EnrollmentDetailPage() {
                             type="checkbox"
                             checked={editForm.is_new_student === true}
                             onChange={(e) => handleFormChange("is_new_student", e.target.checked)}
-                            className="rounded border-amber-300 text-primary focus:ring-primary"
+                            className="rounded border-amber-300 text-accent-ink focus:ring-primary"
                           />
                           +$100 reg fee
                         </label>
@@ -1218,11 +1218,11 @@ export default function EnrollmentDetailPage() {
                             <CreditCard className={cn(
                               "h-6 w-6",
                               displayStatus === 'Paid'
-                                ? "text-green-600 dark:text-green-400"
+                                ? "text-green-700 dark:text-green-400"
                                 : displayStatus === 'Overdue'
                                   ? "text-red-600 dark:text-red-400"
                                   : displayStatus === 'Pending Payment'
-                                    ? "text-amber-600 dark:text-amber-400"
+                                    ? "text-amber-700 dark:text-amber-400"
                                     : "text-gray-600 dark:text-gray-400"
                             )} />
                           </div>
@@ -1230,11 +1230,11 @@ export default function EnrollmentDetailPage() {
                             <p className={cn(
                               "text-lg font-semibold",
                               displayStatus === 'Paid'
-                                ? "text-green-600 dark:text-green-400"
+                                ? "text-green-700 dark:text-green-400"
                                 : displayStatus === 'Overdue'
                                   ? "text-red-600 dark:text-red-400"
                                   : displayStatus === 'Pending Payment'
-                                    ? "text-amber-600 dark:text-amber-400"
+                                    ? "text-amber-700 dark:text-amber-400"
                                     : "text-gray-600 dark:text-gray-400"
                             )}>
                               {displayStatus}
@@ -1330,7 +1330,7 @@ export default function EnrollmentDetailPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Session Progress</p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
-                      <p className="text-lg font-bold text-green-600 dark:text-green-400">{sessionStats.completed}</p>
+                      <p className="text-lg font-bold text-green-700 dark:text-green-400">{sessionStats.completed}</p>
                       <p className="text-xs text-gray-500">Attended</p>
                     </div>
                     <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
@@ -1338,7 +1338,7 @@ export default function EnrollmentDetailPage() {
                       <p className="text-xs text-gray-500">Scheduled</p>
                     </div>
                     <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
-                      <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{sessionStats.pendingMakeup}</p>
+                      <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{sessionStats.pendingMakeup}</p>
                       <p className="text-xs text-gray-500">Pending</p>
                     </div>
                   </div>
@@ -1348,7 +1348,7 @@ export default function EnrollmentDetailPage() {
                 <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => setShowFeePanel(!showFeePanel)}
-                    className="w-full flex items-center justify-between px-3 py-2 -mx-3 rounded-lg text-sm font-medium text-accent-ink hover:bg-[#a0704b]/10 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 -mx-3 rounded-lg text-sm font-medium text-accent-ink hover:bg-primary/10 transition-colors"
                   >
                     <span className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4" />
@@ -1413,7 +1413,7 @@ export default function EnrollmentDetailPage() {
                                   className={cn(
                                     "px-2 py-1 text-xs font-medium transition-colors",
                                     feeLanguage === 'zh'
-                                      ? "bg-[#a0704b] text-white"
+                                      ? "bg-primary text-white"
                                       : "bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-100"
                                   )}
                                 >
@@ -1424,7 +1424,7 @@ export default function EnrollmentDetailPage() {
                                   className={cn(
                                     "px-2 py-1 text-xs font-medium transition-colors border-l border-[#d4a574]",
                                     feeLanguage === 'en'
-                                      ? "bg-[#a0704b] text-white"
+                                      ? "bg-primary text-white"
                                       : "bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-100"
                                   )}
                                 >
@@ -1445,7 +1445,7 @@ export default function EnrollmentDetailPage() {
                           {/* Fee message textarea */}
                           {feeMessageLoading ? (
                             <div className="flex items-center justify-center py-8">
-                              <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                              <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
                               <span className="ml-2 text-sm text-gray-500">Generating...</span>
                             </div>
                           ) : (
@@ -1457,7 +1457,7 @@ export default function EnrollmentDetailPage() {
                                 className={cn(
                                   "w-full h-48 p-3 text-xs font-mono rounded-lg border resize-none transition-colors",
                                   isEditingMessage
-                                    ? "border-[#a0704b] bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#a0704b]/30"
+                                    ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
                                     : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 cursor-default"
                                 )}
                               />
@@ -1466,11 +1466,11 @@ export default function EnrollmentDetailPage() {
                                   type="checkbox"
                                   checked={isEditingMessage}
                                   onChange={(e) => setIsEditingMessage(e.target.checked)}
-                                  className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+                                  className="rounded border-gray-300 text-accent-ink focus:ring-primary"
                                 />
                                 Edit before copying
                                 {isEditingMessage && feeMessage !== originalFeeMessage && (
-                                  <button onClick={handleResetMessage} className="text-[#a0704b] hover:underline ml-1">
+                                  <button onClick={handleResetMessage} className="text-accent-ink hover:underline ml-1">
                                     Reset
                                   </button>
                                 )}
@@ -1488,7 +1488,7 @@ export default function EnrollmentDetailPage() {
                                 "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all",
                                 copied
                                   ? "bg-green-500 text-white"
-                                  : "bg-[#a0704b] hover:bg-[#8b6140] text-white"
+                                  : "bg-primary hover:bg-[#8b6140] text-white"
                               )}
                             >
                               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1509,7 +1509,7 @@ export default function EnrollmentDetailPage() {
                                 className={cn(
                                   "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
                                   isReadOnly
-                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
                                     : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                                 )}
                                 title={isReadOnly ? "Read-only access" : undefined}
@@ -1552,7 +1552,7 @@ export default function EnrollmentDetailPage() {
                     className={cn(
                       "text-xs px-2 py-1 rounded-md transition-colors flex items-center gap-1",
                       isReadOnly
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
                         : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
                     )}
                     title={isReadOnly ? "Read-only access" : undefined}
@@ -1573,7 +1573,7 @@ export default function EnrollmentDetailPage() {
                     <select
                       value={extensionForm.weeks}
                       onChange={(e) => setExtensionForm({ ...extensionForm, weeks: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#a0704b] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       {[...Array(53)].map((_, i) => (
                         <option key={i} value={i}>{i} week{i !== 1 ? 's' : ''}</option>
@@ -1598,14 +1598,14 @@ export default function EnrollmentDetailPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Reason <span className="text-red-500">*</span>
+                      Reason <span className="text-red-600">*</span>
                     </label>
                     <textarea
                       value={extensionForm.reason}
                       onChange={(e) => setExtensionForm({ ...extensionForm, reason: e.target.value })}
                       placeholder="Enter reason for extension (required for audit trail)"
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-[#a0704b] focus:border-transparent resize-none"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     />
                   </div>
 
@@ -1619,7 +1619,7 @@ export default function EnrollmentDetailPage() {
                     <button
                       onClick={handleSaveExtension}
                       disabled={isSavingExtension || !extensionForm.reason.trim()}
-                      className="px-4 py-2 text-sm rounded-md bg-[#a0704b] hover:bg-[#8a5f3d] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-4 py-2 text-sm rounded-md bg-primary hover:bg-[#8a5f3d] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {isSavingExtension ? (
                         <>
@@ -1662,7 +1662,7 @@ export default function EnrollmentDetailPage() {
                     <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                       <button
                         onClick={() => setShowExtensionHistory(!showExtensionHistory)}
-                        className="text-xs text-[#a0704b] hover:text-[#8a5f3d] flex items-center gap-1"
+                        className="text-xs text-accent-ink hover:text-[#8a5f3d] flex items-center gap-1"
                       >
                         <History className="h-3 w-3" />
                         {showExtensionHistory ? 'Hide' : 'View'} Extension History
@@ -1746,25 +1746,25 @@ export default function EnrollmentDetailPage() {
                       className={cn(
                         "flex rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors",
                         statusConfig.bgTint,
-                        popoverSession?.id === session.id && "ring-2 ring-[#a0704b]"
+                        popoverSession?.id === session.id && "ring-2 ring-primary"
                       )}
                     >
                       <div className="flex-1 p-3 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+                          <span className="text-[10px] text-gray-500 font-mono">#{session.id}</span>
                           <SessionLessonBadge session={session} size="xs" />
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
-                          <span className="text-xs text-gray-400">|</span>
+                          <span className="text-xs text-gray-500">|</span>
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                             {session.time_slot}
                           </span>
                           {session.financial_status && (
                             <>
-                              <span className="text-xs text-gray-400">|</span>
+                              <span className="text-xs text-gray-500">|</span>
                               {session.financial_status === "Paid" ? (
-                                <span className="flex items-center gap-0.5 text-xs text-green-600">
+                                <span className="flex items-center gap-0.5 text-xs text-green-700">
                                   <CheckCircle2 className="h-3 w-3" />
                                   <span className="hidden sm:inline">Paid</span>
                                 </span>
@@ -1784,7 +1784,7 @@ export default function EnrollmentDetailPage() {
                           <Link
                             href={`/sessions/${session.id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-accent-ink transition-colors"
+                            className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-accent-ink transition-colors"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </Link>

@@ -62,7 +62,7 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
       title={
         <div className="flex items-center gap-2">
           <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">
-            <ArrowDownToLine className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <ArrowDownToLine className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           </span>
           <span>Import Memo Data</span>
         </div>
@@ -118,11 +118,11 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
               type="checkbox"
               checked={importNotes}
               onChange={(e) => setImportNotes(e.target.checked)}
-              className="mt-0.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              className="mt-0.5 rounded border-gray-300 text-amber-700 focus:ring-amber-400"
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1">
-                <StickyNote className="h-3.5 w-3.5 text-amber-500" />
+                <StickyNote className="h-3.5 w-3.5 text-amber-700" />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Notes</span>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3">{memo.notes}</p>
@@ -142,11 +142,11 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
               type="checkbox"
               checked={importExercises}
               onChange={(e) => setImportExercises(e.target.checked)}
-              className="mt-0.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              className="mt-0.5 rounded border-gray-300 text-amber-700 focus:ring-amber-400"
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1">
-                <FileText className="h-3.5 w-3.5 text-amber-500" />
+                <FileText className="h-3.5 w-3.5 text-amber-700" />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                   Exercises ({memo.exercises.length})
                 </span>
@@ -164,7 +164,7 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
                     </span>
                     <span className="truncate">{ex.pdf_name}</span>
                     {ex.page_start && (
-                      <span className="text-gray-400 shrink-0">
+                      <span className="text-gray-500 shrink-0">
                         p.{ex.page_start}{ex.page_end ? `-${ex.page_end}` : ""}
                       </span>
                     )}
@@ -187,11 +187,11 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
               type="checkbox"
               checked={importRating}
               onChange={(e) => setImportRating(e.target.checked)}
-              className="mt-0.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              className="mt-0.5 rounded border-gray-300 text-amber-700 focus:ring-amber-400"
             />
             <div className="flex-1">
               <div className="flex items-center gap-1.5 mb-1">
-                <Star className="h-3.5 w-3.5 text-amber-500" />
+                <Star className="h-3.5 w-3.5 text-amber-700" />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Performance Rating</span>
               </div>
               <div className="flex items-center gap-1.5">

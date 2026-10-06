@@ -39,7 +39,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
     <div className={cn("py-1.5 px-4 sm:px-6", className)}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+        <Lightbulb className="h-3.5 w-3.5 text-amber-700" />
         <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
           Daily Puzzle
         </span>
@@ -89,7 +89,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
                 userAnswer === null && [
                   "bg-white dark:bg-[#1a1a1a]",
                   "border-[#d4a574] dark:border-[#8b6f47]",
-                  "text-[#a0704b] dark:text-[#cd853f]",
+                  "text-accent-ink dark:text-[#cd853f]",
                   "hover:bg-tint",
                   "hover:scale-[1.02] active:scale-[0.98]",
                   "cursor-pointer",

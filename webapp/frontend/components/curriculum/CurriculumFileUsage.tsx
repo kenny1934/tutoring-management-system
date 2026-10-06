@@ -99,7 +99,7 @@ function UsageLine({
       )}
       title={isThisStudent ? "This is the student you are setting work for." : undefined}
     >
-      <span className="w-[4.5rem] shrink-0 tabular-nums text-gray-400 dark:text-gray-500">
+      <span className="w-[4.5rem] shrink-0 tabular-nums text-gray-500 dark:text-gray-400">
         {formatDayFirstDate(detail.session_date)}
       </span>
       {/* The name and its school badge share the stretchy middle of the line,
@@ -129,7 +129,7 @@ function UsageLine({
         )}
       </span>
       <span
-        className="truncate max-w-[7rem] text-gray-400 dark:text-gray-500"
+        className="truncate max-w-[7rem] text-gray-500 dark:text-gray-400"
         title={`Set by ${detail.tutor_name}`}
       >
         {detail.tutor_name}
@@ -161,7 +161,7 @@ function UsageLine({
           title="Show this lesson's details"
           aria-label={`Show the lesson on ${formatDayFirstDate(detail.session_date)} with ${detail.student_name}`}
         >
-          <Info className="h-2.5 w-2.5 text-gray-400 hover:text-[#a0704b]" />
+          <Info className="h-2.5 w-2.5 text-gray-500 hover:text-accent-ink" />
         </button>
       ) : (
         <span className="w-3.5 shrink-0" />
@@ -210,7 +210,7 @@ function UsageGroup({
   }
   if (error) {
     return (
-      <p className="text-[10px] text-red-500">
+      <p className="text-[10px] text-red-600">
         The lessons that used this file could not be loaded.
       </p>
     );
@@ -250,7 +250,7 @@ function UsageGroup({
             Show more
           </button>
         ) : (
-          <p className="text-[10px] text-gray-400">
+          <p className="text-[10px] text-gray-500">
             Only the latest {MAX_LINES} lessons are shown.
           </p>
         ))}

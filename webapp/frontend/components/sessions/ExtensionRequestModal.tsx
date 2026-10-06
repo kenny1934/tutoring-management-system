@@ -261,7 +261,7 @@ export function ExtensionRequestModal({
       <div className="space-y-5">
         {/* Info Banner */}
         <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="h-5 w-5 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-amber-800 dark:text-amber-200">
               {isProactive ? "Request Deadline Extension" : "Enrollment deadline exceeded"}
@@ -310,7 +310,7 @@ export function ExtensionRequestModal({
         {showEnrollmentSelector && (
           <div>
             <label className={labelClass}>
-              Enrollment to Extend <span className="text-red-500">*</span>
+              Enrollment to Extend <span className="text-red-600">*</span>
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
               This student has multiple active enrollments. Select which one to extend.
@@ -328,7 +328,7 @@ export function ExtensionRequestModal({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
             </div>
           </div>
         )}
@@ -336,7 +336,7 @@ export function ExtensionRequestModal({
         {/* Reason */}
         <div>
           <label className={labelClass}>
-            Reason for Extension <span className="text-red-500">*</span>
+            Reason for Extension <span className="text-red-600">*</span>
           </label>
           <textarea
             value={reason}
@@ -351,7 +351,7 @@ export function ExtensionRequestModal({
         <div className="space-y-3">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Proposed Reschedule Date{" "}
-            <span className="text-gray-400">(optional)</span>
+            <span className="text-gray-500">(optional)</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -384,12 +384,12 @@ export function ExtensionRequestModal({
                         <option key={slot} value={slot}>{slot}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
                   </div>
                   <button
                     type="button"
                     onClick={() => setUseCustomTime(true)}
-                    className="text-xs text-[#a0704b] hover:underline"
+                    className="text-xs text-accent-ink hover:underline"
                   >
                     Use custom time
                   </button>
@@ -418,7 +418,7 @@ export function ExtensionRequestModal({
                       setCustomTimeStart("");
                       setCustomTimeEnd("");
                     }}
-                    className="text-xs text-[#a0704b] hover:underline"
+                    className="text-xs text-accent-ink hover:underline"
                   >
                     Use preset times
                   </button>
@@ -429,7 +429,7 @@ export function ExtensionRequestModal({
           {/* Warning if proposed date exceeds projected deadline */}
           {proposedDateExceedsDeadline && (
             <div id="extension-date-warning" role="alert" className="flex items-start gap-2 p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 This date is after the projected deadline ({projectedDeadline}). The
                 makeup may still exceed the enrollment deadline even with the extension.

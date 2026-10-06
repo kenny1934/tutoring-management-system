@@ -358,7 +358,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
               className={cn(
                 "w-2.5 h-2.5 rounded-full mt-1.5 shrink-0",
                 e.payment_status === "Paid" || e.payment_status === "Active"
-                  ? "bg-[#a0704b]"
+                  ? "bg-primary"
                   : e.payment_status === "Cancelled" || e.payment_status === "Waived"
                     ? "bg-gray-400"
                     : "bg-amber-500"
@@ -428,7 +428,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
       {hasMore && onViewAll && (
         <button
           onClick={onViewAll}
-          className="text-xs text-[#a0704b] hover:text-[#8b6140] font-medium mt-1 transition-colors"
+          className="text-xs text-accent-ink hover:text-[#8b6140] font-medium mt-1 transition-colors"
         >
           View all {data.length} enrollments →
         </button>
@@ -455,9 +455,9 @@ function ContactSummaryCard({ data }: { data: StudentProgress["contacts"] }) {
   const contactFreshness = daysSinceContact == null
     ? null
     : daysSinceContact <= 14
-      ? "text-green-600 dark:text-green-400"
+      ? "text-green-700 dark:text-green-400"
       : daysSinceContact <= 30
-        ? "text-amber-600 dark:text-amber-400"
+        ? "text-amber-700 dark:text-amber-400"
         : "text-red-600 dark:text-red-400";
 
   return (
@@ -620,18 +620,18 @@ function SectionToggleItem({ sectionKey, label, ai, checked, onToggle }: {
         className="cursor-grab active:cursor-grabbing touch-none p-0.5"
         onPointerDown={(e) => controls.start(e)}
       >
-        <GripVertical className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+        <GripVertical className="w-3 h-3 text-gray-500 dark:text-gray-400" />
       </div>
       <label className="flex items-center gap-2 cursor-pointer flex-1">
         <input
           type="checkbox"
           checked={checked}
           onChange={onToggle}
-          className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+          className="rounded border-gray-300 text-accent-ink focus:ring-primary"
         />
         <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
           {label}
-          {ai && <Sparkles className="w-3 h-3 text-amber-500" />}
+          {ai && <Sparkles className="w-3 h-3 text-amber-700" />}
         </span>
       </label>
     </Reorder.Item>
@@ -675,12 +675,12 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
         size="sm"
       >
         {deleteError && (
-          <p className="text-xs text-red-500 mb-2">{deleteError}</p>
+          <p className="text-xs text-red-600 mb-2">{deleteError}</p>
         )}
         {!reports ? (
-          <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
+          <p className="text-sm text-gray-500 text-center py-6">Loading...</p>
         ) : reports.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
+          <p className="text-sm text-gray-500 text-center py-6">
             No saved reports yet. Generate a report and click Save to keep a record.
           </p>
         ) : (
@@ -701,11 +701,11 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
                       {r.mode === "parent" ? "Parent" : "Internal"}
                     </span>
                     {r.date_range_label && (
-                      <span className="text-[10px] text-gray-400">{r.date_range_label}</span>
+                      <span className="text-[10px] text-gray-500">{r.date_range_label}</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-300 truncate">{r.label}</p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-[10px] text-gray-500">
                     {formatShortDate(r.created_at)}
                     {r.creator_name && ` by ${r.creator_name}`}
                   </p>
@@ -713,14 +713,14 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => window.open(`/students/${studentId}/report/saved/${r.id}`, "_blank")}
-                    className="p-1.5 text-gray-400 hover:text-[#a0704b] transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-accent-ink transition-colors"
                     title="Open report"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => handleDelete(r.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-red-600 transition-colors"
                     title="Delete report"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -881,7 +881,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-[#8b6140] transition-colors"
       >
         <FileText className="w-3.5 h-3.5" />
         Generate Report
@@ -896,7 +896,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
           <button
             onClick={handleGenerate}
             disabled={!radarValid}
-            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-primary text-white hover:bg-[#8b6140] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FileText className="w-3.5 h-3.5" />
             Generate Report
@@ -915,7 +915,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   className={cn(
                     "flex-1 text-xs py-1.5 font-medium transition-colors capitalize",
                     mode === m
-                      ? "bg-[#a0704b] text-white"
+                      ? "bg-primary text-white"
                       : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-tint"
                   )}
                 >
@@ -961,9 +961,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
           {/* AI Generation */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              AI Content <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+              AI Content <span className="text-gray-500 dark:text-gray-400">(optional)</span>
             </label>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1.5">
               Generates a learning summary and concept map from student data.
             </p>
             <div className="flex items-center gap-2">
@@ -975,7 +975,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     className={cn(
                       "text-[10px] px-2 py-1 font-medium transition-colors",
                       language === val
-                        ? "bg-[#a0704b] text-white"
+                        ? "bg-primary text-white"
                         : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
                     )}
                   >
@@ -995,7 +995,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   </>
                 ) : isCoolingDown ? (
                   <>
-                    <Check className="w-3 h-3 text-green-600" />
+                    <Check className="w-3 h-3 text-green-700" />
                     Generated
                   </>
                 ) : (
@@ -1007,14 +1007,14 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               </button>
             </div>
             {aiError && (
-              <p className="text-[10px] text-red-500 mt-1">{aiError}</p>
+              <p className="text-[10px] text-red-600 mt-1">{aiError}</p>
             )}
           </div>
 
           {/* Learning Summary */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              Learning Summary <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+              Learning Summary <span className="text-gray-500 dark:text-gray-400">(optional)</span>
             </label>
             <textarea
               value={narrative}
@@ -1062,7 +1062,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     className={cn(
                       "text-[10px] px-2.5 py-1 font-medium transition-colors",
                       radarConfig.display_mode === val
-                        ? "bg-[#a0704b] text-white"
+                        ? "bg-primary text-white"
                         : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
                     )}
                   >
@@ -1117,7 +1117,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                         }));
                       }}
                       disabled={radarConfig.axes.length <= 4}
-                      className="p-0.5 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-0.5 text-gray-500 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -1130,14 +1130,14 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     ...prev,
                     axes: [...prev.axes, { label: "", score: 3 }],
                   }))}
-                  className="flex items-center gap-1 text-[10px] text-[#a0704b] hover:text-[#8b6140] font-medium mt-1.5 transition-colors"
+                  className="flex items-center gap-1 text-[10px] text-accent-ink hover:text-[#8b6140] font-medium mt-1.5 transition-colors"
                 >
                   <Plus className="w-3 h-3" />
                   Add attribute
                 </button>
               )}
               {!radarValid && (
-                <p className="text-[10px] text-amber-600 mt-1">Fill in at least 4 attributes to include the radar chart</p>
+                <p className="text-[10px] text-amber-700 mt-1">Fill in at least 4 attributes to include the radar chart</p>
               )}
             </div>
           )}
@@ -1145,7 +1145,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
           {/* Tutor comment */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              Tutor Comment <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+              Tutor Comment <span className="text-gray-500 dark:text-gray-400">(optional)</span>
             </label>
             <textarea
               value={comment}

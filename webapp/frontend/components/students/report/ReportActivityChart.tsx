@@ -9,7 +9,7 @@ interface ReportActivityChartProps {
 export function ReportActivityChart({ data }: ReportActivityChartProps) {
   if (data.length === 0 || data.every((d) => d.sessions_attended === 0 && d.exercises_assigned === 0)) {
     return (
-      <div className="flex items-center justify-center h-[200px] text-sm text-gray-400">
+      <div className="flex items-center justify-center h-[200px] text-sm text-gray-500">
         No activity data
       </div>
     );

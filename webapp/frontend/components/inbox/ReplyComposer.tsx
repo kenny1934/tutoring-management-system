@@ -272,23 +272,23 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     >
       {isReplyDragging && (
         <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
-          <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop files here</span>
+          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Drop files here</span>
         </div>
       )}
       {replyTo && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-l-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2a2520] rounded-t-lg animate-in slide-in-from-bottom-2 fade-in duration-200">
-          <Reply className="h-3 w-3 text-[#a0704b] flex-shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 border-l-2 border-primary bg-[#faf6f1] dark:bg-[#2a2520] rounded-t-lg animate-in slide-in-from-bottom-2 fade-in duration-200">
+          <Reply className="h-3 w-3 text-accent-ink flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-semibold text-[#a0704b]">{replyTo.senderName}</span>
+            <span className="text-xs font-semibold text-accent-ink">{replyTo.senderName}</span>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate m-0">{replyTo.preview}</p>
           </div>
-          <button type="button" onClick={() => setReplyTo(null)} className="p-0.5 rounded-full text-gray-400 hover:text-red-500 transition-colors flex-shrink-0" title="Cancel reply" aria-label="Cancel reply">
+          <button type="button" onClick={() => setReplyTo(null)} className="p-0.5 rounded-full text-gray-500 hover:text-red-600 transition-colors flex-shrink-0" title="Cancel reply" aria-label="Cancel reply">
             <X className="h-3 w-3" />
           </button>
         </div>
       )}
       {showDraftRestored && (
-        <div className="text-[11px] text-gray-400 dark:text-gray-500 px-1 pb-1 animate-in fade-in duration-200">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 px-1 pb-1 animate-in fade-in duration-200">
           Draft restored
         </div>
       )}
@@ -329,13 +329,13 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               style={{ cursor: replyFiles.length > 1 ? "grab" : undefined }}
               as="div"
             >
-              {replyFiles.length > 1 && <GripVertical className="h-3 w-3 text-gray-400 flex-shrink-0" />}
-              <FileText className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
+              {replyFiles.length > 1 && <GripVertical className="h-3 w-3 text-gray-500 flex-shrink-0" />}
+              <FileText className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
               <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{file.filename}</span>
               <button
                 type="button"
                 onClick={() => setReplyFiles(prev => prev.filter((f) => f.url !== file.url))}
-                className="p-0.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                className="p-0.5 text-gray-500 hover:text-red-600 transition-colors flex-shrink-0"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -366,7 +366,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
           ))}
           {isReplyUploading && (
             <div className="h-12 w-12 flex items-center justify-center rounded-lg border border-dashed border-line">
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
             </div>
           )}
         </Reorder.Group>
@@ -389,7 +389,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               disabled={isReplySending || !hasContent}
               title="Send (Ctrl+Enter)"
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm shadow-sm transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed",
+                "flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-[#8b5f3c] text-white text-sm shadow-sm transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed",
                 onScheduleSend ? "rounded-l-full" : "rounded-full"
               )}
             >
@@ -401,7 +401,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                 type="button"
                 disabled={isReplySending || !hasContent}
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
-                className="px-1.5 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-r-full border-l border-white/20 transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed"
+                className="px-1.5 py-1.5 bg-primary hover:bg-[#8b5f3c] text-white rounded-r-full border-l border-white/20 transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed"
                 title="Schedule send"
               >
                 <ChevronDown className="h-3.5 w-3.5" />
@@ -419,7 +419,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                       onClick={() => handleScheduleReply(preset.time)}
                       className="w-full px-3 py-2 text-sm text-left hover:bg-tint flex items-center gap-2 text-gray-700 dark:text-gray-300"
                     >
-                      <Clock className="h-3.5 w-3.5 text-gray-400" />
+                      <Clock className="h-3.5 w-3.5 text-gray-500" />
                       {preset.label}
                     </button>
                   ))}
@@ -435,7 +435,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-tint transition-colors text-left"
                       >
-                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                        <Calendar className="h-3.5 w-3.5 text-gray-500" />
                         <span className="text-gray-700 dark:text-gray-300">Pick date & time</span>
                       </button>
                     ) : (
@@ -445,14 +445,14 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                           value={customScheduleDate}
                           onChange={(e) => setCustomScheduleDate(e.target.value)}
                           min={new Date().toISOString().split("T")[0]}
-                          className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                          className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
                         />
                         <input
                           type="time"
                           value={customScheduleTime}
                           onChange={(e) => setCustomScheduleTime(e.target.value)}
                           min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                          className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                          className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
                         />
                         <div className="flex gap-1">
                           <button
@@ -466,7 +466,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                             type="button"
                             onClick={handleCustomScheduleReply}
                             disabled={!customScheduleDate}
-                            className="flex-1 px-2 py-1 text-xs font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                            className="flex-1 px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
                           >
                             Set
                           </button>

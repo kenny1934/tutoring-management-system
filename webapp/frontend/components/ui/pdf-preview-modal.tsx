@@ -394,7 +394,7 @@ export function PdfPreviewModal({
           </div>
           <div className="flex items-center gap-3">
             {/* Keyboard hints */}
-            <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+            <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
               {onSelect && "Enter to use · "}D dark · O open
             </span>
             {onSelect && (
@@ -565,7 +565,7 @@ export function PdfPreviewModal({
 
               {/* Page count display */}
               {totalPages && (
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   ({totalPages} pages)
                 </span>
               )}
@@ -590,7 +590,7 @@ export function PdfPreviewModal({
                       rangeError ? "focus:ring-red-500/50" : "focus:ring-amber-500/50"
                     )}
                   />
-                  <span className="text-gray-400">to</span>
+                  <span className="text-gray-500">to</span>
                   <input
                     type="number"
                     min="1"
@@ -609,7 +609,7 @@ export function PdfPreviewModal({
                     )}
                   />
                   {rangeError && (
-                    <p className="text-xs text-red-500">{rangeError}</p>
+                    <p className="text-xs text-red-600">{rangeError}</p>
                   )}
                 </div>
               )}
@@ -635,13 +635,13 @@ export function PdfPreviewModal({
                     )}
                   />
                   {rangeError && (
-                    <p className="text-xs text-red-500 mt-1">{rangeError}</p>
+                    <p className="text-xs text-red-600 mt-1">{rangeError}</p>
                   )}
                 </div>
               )}
 
               {/* Optional helper text */}
-              <span className="text-xs text-gray-400 dark:text-gray-500 hidden md:inline">
+              <span className="text-xs text-gray-500 dark:text-gray-400 hidden md:inline">
                 {useComplexRange
                   ? "Commas for individual, hyphens for ranges"
                   : "Leave empty to use all pages"}
@@ -662,7 +662,7 @@ export function PdfPreviewModal({
         {/* Cleaned version indicator */}
         {showCleanedVersion && cleanedPdfUrl && (
           <div className="py-2 px-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-            <p className="text-sm text-green-600 dark:text-green-400">
+            <p className="text-sm text-green-700 dark:text-green-400">
               Viewing cleaned version (handwriting removed)
             </p>
           </div>
@@ -673,7 +673,7 @@ export function PdfPreviewModal({
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
               <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
+                <Loader2 className="h-8 w-8 text-amber-700 animate-spin" />
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   Loading PDF...
                 </span>
@@ -684,7 +684,7 @@ export function PdfPreviewModal({
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
               <div className="text-center">
-                <p className="text-red-500 dark:text-red-400 mb-2">{error}</p>
+                <p className="text-red-600 dark:text-red-400 mb-2">{error}</p>
                 <Button variant="outline" size="sm" onClick={handleOpenInNewTab}>
                   Try opening in new tab
                 </Button>

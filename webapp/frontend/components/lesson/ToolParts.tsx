@@ -143,7 +143,7 @@ export function useReadingInView(
 }
 
 /** The white dot on a handle that a finger drags, such as the protractor's resize handle. */
-export const HANDLE_DOT = "block h-4 w-4 rounded-full border-2 border-[#a0704b] bg-white";
+export const HANDLE_DOT = "block h-4 w-4 rounded-full border-2 border-primary bg-white";
 
 /**
  * Take a finger or the mouse on a handle, such as the compasses' grip, for

@@ -28,7 +28,7 @@ export function FocusSidebarButton({ icon: Icon, label, open, onOpen, labelClass
       aria-expanded={open}
       aria-label={label}
       title={label}
-      className={cn(buttonBase, "bg-[#a0704b] text-white hover:bg-[#8b6040]")}
+      className={cn(buttonBase, "bg-primary text-white hover:bg-[#8b6040]")}
     >
       <Icon className="h-5 w-5 flex-none" />
       <span className={labelClass}>{label}</span>
@@ -44,7 +44,7 @@ export function LeaveFocusButton({ onLeave, labelClass }: { onLeave: () => void;
       onClick={onLeave}
       aria-label="Leave focus"
       title="Leave focus mode (F)"
-      className={cn(buttonBase, "border border-[#a0704b] text-[#6b4c30] dark:text-[#d4a574] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228]")}
+      className={cn(buttonBase, "border border-primary text-[#6b4c30] dark:text-[#d4a574] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228]")}
     >
       <Minimize2 className="h-5 w-5 flex-none" />
       <span className={labelClass}>Leave focus</span>

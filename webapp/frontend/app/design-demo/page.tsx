@@ -505,11 +505,11 @@ export default function DesignDemoPage() {
                   <h3 className="font-bold text-xl">Attendance Record</h3>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-3xl font-bold text-green-600">95%</div>
+                      <div className="text-3xl font-bold text-green-700">95%</div>
                       <div className="text-sm text-muted-foreground">Present</div>
                     </div>
                     <div>
-                      <div className="text-3xl font-bold text-yellow-600">3</div>
+                      <div className="text-3xl font-bold text-yellow-700">3</div>
                       <div className="text-sm text-muted-foreground">Late</div>
                     </div>
                     <div>

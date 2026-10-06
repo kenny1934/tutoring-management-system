@@ -196,7 +196,7 @@ export function ResizableNodeWrapper({
               className={cn(
                 "p-1 rounded transition-colors",
                 effectiveAlign === value
-                  ? "bg-[#a0704b] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-500 dark:text-gray-400 hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
               )}
               title={label}
@@ -217,7 +217,7 @@ export function ResizableNodeWrapper({
               className={cn(
                 "p-1 rounded transition-colors",
                 effectiveAlign === value
-                  ? "bg-[#a0704b] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-500 dark:text-gray-400 hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
               )}
               title={label}
