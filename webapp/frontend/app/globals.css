@@ -90,6 +90,7 @@
   --color-canvas: #f5efe6; /* The plain page surface, a step darker than paper so cards stand out */
   --color-on-surface: #2a2219; /* Text drawn straight onto the page surface; the surface blocks set it */
   --color-field: #9c876f; /* The edge of a text field: 3.4:1 on white, the 3:1 an input's edge needs */
+  --color-field-fill: #ffffff; /* Inside a text field, and the face of a secondary button, so both stand off the cream */
 
   /* ===== GLASSMORPHISM ===== */
   --glass-bg: rgba(255, 255, 255, 0.05);
@@ -219,6 +220,7 @@
   --color-ink-strong: #d4a574;
   --color-canvas: #13110e;
   --color-field: #857160;
+  --color-field-fill: #1a1a1a;
 }
 
 /* Force light mode for summer public pages (neutralises .dark overrides) */
