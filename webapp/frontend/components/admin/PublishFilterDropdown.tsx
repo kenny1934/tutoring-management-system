@@ -172,7 +172,7 @@ export function PublishFilterDropdown({
                 <span className={cn("w-1.5 h-1.5 rounded-full shrink-0 mt-1", STATUS_DOT.unpublished)} />
                 <span className="flex-1">
                   <span className="block text-foreground font-medium">Ready to publish</span>
-                  <span className="block text-[10px] text-muted-foreground">
+                  <span className="block text-[11px] text-muted-foreground">
                     Paid &amp; not yet published
                   </span>
                 </span>

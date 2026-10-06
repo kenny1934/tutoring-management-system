@@ -172,7 +172,7 @@ export function ResourceBrowseDropdown() {
             <p className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
               Browse Resources
             </p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
               Open a site, find content, copy the link, paste it here
             </p>
           </div>
@@ -199,10 +199,10 @@ export function ResourceBrowseDropdown() {
                     <ExternalLink className="h-2.5 w-2.5 text-gray-300 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <code className="text-[9px] text-gray-500 dark:text-gray-400 truncate">
+                    <code className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                       {r.linkFormat}
                     </code>
-                    <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
                       &middot; {r.hint}
                     </span>
                   </div>
@@ -212,7 +212,7 @@ export function ResourceBrowseDropdown() {
           </div>
 
           <div className="px-3 py-1.5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
-            <p className="text-[9px] text-gray-500 dark:text-gray-400 text-center">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center">
               Any URL works &mdash; unsupported sites open in new tab
             </p>
           </div>

@@ -79,7 +79,7 @@ function AnswerActionButton({ state, message, onClick, Icon, title, size, busy }
         : <Icon className={cn(iconClass, "text-gray-500 dark:text-gray-400")} />}
       {showMessage && (
         <span className={cn(
-          "text-[10px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap truncate",
+          "text-[11px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap truncate",
           msgMaxW,
           size === 'sm' && "hidden md:inline"
         )}>{message}</span>

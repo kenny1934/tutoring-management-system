@@ -481,7 +481,7 @@ export default function OverduePaymentsPage() {
                         )}
                       >
                         {URGENCY_LEVELS[urgencyFilter].label}
-                        <span className="text-[10px]">×</span>
+                        <span className="text-[11px]">×</span>
                       </Link>
                     )}
                   </div>
@@ -870,7 +870,7 @@ function TierBadge({ enrollment }: { enrollment: OverdueEnrollment }) {
     <div className="mt-0.5">
       <span
         className={cn(
-          "inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-medium",
+          "inline-block px-1.5 py-0.5 rounded text-[11px] font-mono font-medium",
           isOverride
             ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
             : "bg-[#f5e6d3] text-accent-ink dark:bg-[#3d2e1e] dark:text-[#cd853f]"
@@ -960,7 +960,7 @@ function OverdueRow({
         {enrollment.payment_deadline && enrollment.deadline_source === "payment_deadline" ? (
           <span className="flex flex-col">
             <span className="font-medium text-accent-ink">{enrollment.payment_deadline}</span>
-            <span className="text-[10px] text-muted-foreground">lesson {enrollment.first_lesson_date}</span>
+            <span className="text-[11px] text-muted-foreground">lesson {enrollment.first_lesson_date}</span>
           </span>
         ) : (
           enrollment.first_lesson_date

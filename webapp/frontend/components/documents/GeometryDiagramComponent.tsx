@@ -77,7 +77,7 @@ export function GeometryDiagramComponent({
           )}
           {/* Edit hint — shown when selected */}
           {selected && (
-            <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/60 text-white text-[10px] rounded-md pointer-events-none print:hidden">
+            <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/60 text-white text-[11px] rounded-md pointer-events-none print:hidden">
               <Pencil className="w-3 h-3" />
               Double-click to edit
             </div>

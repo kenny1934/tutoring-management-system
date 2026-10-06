@@ -163,7 +163,7 @@ export function TrendingCoursewareSection({
                       <span className="flex-1 truncate text-gray-700 dark:text-gray-300 text-xs">
                         {item.filename}
                       </span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0 flex items-center gap-1">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 flex items-center gap-1">
                         {item.assignment_count}×
                         <User className="h-2.5 w-2.5" />
                         {item.unique_student_count}
@@ -221,7 +221,7 @@ export function TrendingCoursewareSection({
                           </div>
                         ) : usageDetails && usageDetails.length > 0 ? (
                           <div className="space-y-1">
-                            <div className="text-[10px] font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">
                               Recent sessions using this file:
                             </div>
                             <div className="text-xs space-y-0.5 max-h-24 overflow-y-auto">
@@ -234,7 +234,7 @@ export function TrendingCoursewareSection({
                                 return (
                                   <div
                                     key={`${detail.session_id}-${detail.exercise_id}-${i}`}
-                                    className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 text-[10px]"
+                                    className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 text-[11px]"
                                   >
                                     <span className="text-gray-500 dark:text-gray-400 w-16 shrink-0">
                                       {detail.session_date
@@ -260,7 +260,7 @@ export function TrendingCoursewareSection({
                                       <GradeLabel grade={detail.grade} />
                                     </span>
                                     <span className={cn(
-                                      "shrink-0 px-1 rounded text-[9px]",
+                                      "shrink-0 px-1 rounded text-[11px]",
                                       detail.exercise_type === 'CW'
                                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                                         : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
@@ -286,7 +286,7 @@ export function TrendingCoursewareSection({
                             </div>
                           </div>
                         ) : (
-                          <div className="text-[10px] text-gray-500">
+                          <div className="text-[11px] text-gray-500">
                             No usage details available
                           </div>
                         )}

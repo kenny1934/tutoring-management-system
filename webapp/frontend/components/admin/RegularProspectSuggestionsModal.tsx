@@ -98,16 +98,16 @@ export function RegularProspectSuggestionsModal({
                     <div className="flex-1 min-w-0 space-y-0.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="truncate text-sm text-foreground">{s.student_name}</span>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">{s.source_branch}</span>
-                        {s.grade && <span className="shrink-0 text-[10px] text-muted-foreground">{s.grade}</span>}
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{s.source_branch}</span>
+                        {s.grade && <span className="shrink-0 text-[11px] text-muted-foreground">{s.grade}</span>}
                         {s.phone_1 && (
-                          <span className="shrink-0 text-[10px] font-mono text-muted-foreground">{s.phone_1}</span>
+                          <span className="shrink-0 text-[11px] font-mono text-muted-foreground">{s.phone_1}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span
                           className={cn(
-                            "text-[10px] px-1.5 py-0 rounded-full font-medium",
+                            "text-[11px] px-1.5 py-0 rounded-full font-medium",
                             s.match_type === "student"
                               ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
                               : "bg-primary/10 text-primary"
@@ -117,7 +117,7 @@ export function RegularProspectSuggestionsModal({
                           {s.similarity != null ? ` ${s.similarity}%` : ""}
                         </span>
                         {s.already_linked && (
-                          <span className="text-[10px] text-amber-700 dark:text-amber-400">
+                          <span className="text-[11px] text-amber-700 dark:text-amber-400">
                             already linked to another application
                           </span>
                         )}

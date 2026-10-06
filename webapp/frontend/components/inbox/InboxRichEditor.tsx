@@ -798,7 +798,7 @@ export default function InboxRichEditor({
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-center text-gray-500 mt-1.5">
+                <p className="text-[11px] text-center text-gray-500 mt-1.5">
                   {tableHover[0] > 0 ? `${tableHover[0]} × ${tableHover[1]}` : "Select size"}
                 </p>
               </FloatingDropdown>

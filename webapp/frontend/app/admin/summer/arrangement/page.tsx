@@ -1088,7 +1088,7 @@ export default function SummerArrangementPage() {
               <div className="flex-1 min-w-0">
                 <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
                   <span>Timetable Arrangement</span>
-                  {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
+                  {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
                 </h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
               </div>

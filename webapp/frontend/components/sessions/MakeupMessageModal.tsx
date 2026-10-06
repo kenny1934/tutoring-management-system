@@ -73,7 +73,7 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
                 onClick={() => handleLangChange('zh')}
                 className={cn(
                   "font-medium transition-colors",
-                  compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-xs",
+                  compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
                   lang === 'zh'
                     ? "bg-sky-500 text-white"
                     : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -85,7 +85,7 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
                 onClick={() => handleLangChange('en')}
                 className={cn(
                   "font-medium transition-colors border-l border-gray-300 dark:border-gray-600",
-                  compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-xs",
+                  compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
                   lang === 'en'
                     ? "bg-sky-500 text-white"
                     : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"

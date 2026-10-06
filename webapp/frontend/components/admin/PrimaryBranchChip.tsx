@@ -34,7 +34,7 @@ function ProspectChip({
 }) {
   const code = formatProspectCode(prospect.source_branch, prospect.primary_student_id);
   const chipClass = cn(
-    "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded transition-opacity hover:opacity-80",
+    "shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold font-mono px-1.5 py-0.5 rounded transition-opacity hover:opacity-80",
     BRANCH_INFO[prospect.source_branch]?.badge ||
       "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   );
@@ -114,7 +114,7 @@ export function PrimaryBranchChip({
     if (verified === "New") {
       return (
         <span
-          className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
+          className="shrink-0 text-[11px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
           title="Verified: new student"
           onClick={(e) => e.stopPropagation()}
         >
@@ -125,7 +125,7 @@ export function PrimaryBranchChip({
     const branchColors = BRANCH_INFO[verified]?.badge || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
     return (
       <span
-        className={cn("shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded", branchColors)}
+        className={cn("shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold font-mono px-1.5 py-0.5 rounded", branchColors)}
         title={`Verified: existing student at ${verified}`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -138,7 +138,7 @@ export function PrimaryBranchChip({
   if (claimsExisting) {
     return (
       <span
-        className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
         title="Applicant claims to be an existing student — not yet verified"
         onClick={(e) => e.stopPropagation()}
       >
@@ -149,7 +149,7 @@ export function PrimaryBranchChip({
 
   return (
     <span
-      className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
+      className="shrink-0 text-[11px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
       title="New student — no prior enrolment"
       onClick={(e) => e.stopPropagation()}
     >

@@ -110,7 +110,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         <div className="py-1">
           {personalTemplates.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">My Templates</div>
+              <div className="px-3 py-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">My Templates</div>
               {personalTemplates.map(t => (
                 <div key={t.id} className="group flex items-center">
                   <button
@@ -137,7 +137,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
 
           {globalTemplates.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Quick Replies</div>
+              <div className="px-3 py-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Quick Replies</div>
               {globalTemplates.map(t => (
                 <button
                   key={t.id}

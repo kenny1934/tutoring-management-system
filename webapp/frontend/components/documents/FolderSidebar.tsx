@@ -128,7 +128,7 @@ function FolderTreeItem({
         <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
         {node.document_count > 0 && (
-          <span className="text-[9px] font-semibold tabular-nums bg-accent-ink/10 text-accent-ink px-1.5 py-0.5 rounded-full shrink-0">
+          <span className="text-[11px] font-semibold tabular-nums bg-accent-ink/10 text-accent-ink px-1.5 py-0.5 rounded-full shrink-0">
             {node.document_count}
           </span>
         )}
@@ -497,7 +497,7 @@ export default function FolderSidebar({
               <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
               <span className="flex-1 text-left">All Documents</span>
               {totalDocCount !== undefined && (
-                <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
+                <span className="text-[11px] opacity-50 tabular-nums">{totalDocCount}</span>
               )}
             </button>
           </div>
@@ -524,7 +524,7 @@ export default function FolderSidebar({
           <div className="relative px-3 pt-3 pb-1">
             <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Folders
               </span>
               {!isReadOnly && (
@@ -608,7 +608,7 @@ export default function FolderSidebar({
           {allTags.length > 0 && (
             <div className="relative px-3 pt-3 pb-3 mt-1">
               <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
                 Tags <span className="font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400">(right-click to manage)</span>
               </span>
               <div className="flex flex-wrap gap-1">
@@ -632,7 +632,7 @@ export default function FolderSidebar({
                   >
                     {tag}
                     {tagCounts?.[tag] != null && tagCounts[tag] > 0 && (
-                      <span className="ml-1 text-[9px] font-semibold tabular-nums bg-black/10 dark:bg-white/10 px-1 rounded-full">{tagCounts[tag]}</span>
+                      <span className="ml-1 text-[11px] font-semibold tabular-nums bg-black/10 dark:bg-white/10 px-1 rounded-full">{tagCounts[tag]}</span>
                     )}
                   </button>
                 ))}
@@ -684,7 +684,7 @@ export default function FolderSidebar({
             <Trash2 className="w-4 h-4" />
             Trash
             {(trashCount ?? 0) > 0 && (
-              <span className="ml-auto text-[9px] font-semibold tabular-nums bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">
+              <span className="ml-auto text-[11px] font-semibold tabular-nums bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">
                 {trashCount}
               </span>
             )}

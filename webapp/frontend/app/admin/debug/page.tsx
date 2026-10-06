@@ -172,7 +172,7 @@ export default function DebugPanelPage() {
                                 </span>
                               </div>
                               {!table.allow_hard_delete && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
                                   No Delete
                                 </span>
                               )}

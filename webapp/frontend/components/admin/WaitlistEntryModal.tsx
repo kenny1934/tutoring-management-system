@@ -358,7 +358,7 @@ export function WaitlistEntryModal({
                     {linkedStudent?.student_name || studentId}
                   </span>
                   {linkedStudent?.grade && (
-                    <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={linkedStudent.grade} langStream={linkedStudent.lang_stream} />
+                    <GradeBadge className="px-1.5 py-0.5 rounded text-[11px] font-medium text-gray-800 flex-shrink-0" grade={linkedStudent.grade} langStream={linkedStudent.lang_stream} />
                   )}
                   {linkedStudent?.school && (
                     <span className="text-xs text-green-700 dark:text-green-400 flex-shrink-0">
@@ -398,7 +398,7 @@ export function WaitlistEntryModal({
                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                       >
                         {s.school_student_id && (
-                          <span className="text-[10px] font-mono text-foreground/40 flex-shrink-0">
+                          <span className="text-[11px] font-mono text-foreground/40 flex-shrink-0">
                             {s.school_student_id}
                           </span>
                         )}
@@ -406,10 +406,10 @@ export function WaitlistEntryModal({
                           {s.student_name}
                         </span>
                         {s.grade && (
-                          <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={s.grade} langStream={s.lang_stream} />
+                          <GradeBadge className="px-1.5 py-0.5 rounded text-[11px] font-medium text-gray-800 flex-shrink-0" grade={s.grade} langStream={s.lang_stream} />
                         )}
                         {s.school && (
-                          <span className="text-[10px] text-foreground/50 flex-shrink-0">
+                          <span className="text-[11px] text-foreground/50 flex-shrink-0">
                             {s.school}
                           </span>
                         )}

@@ -289,7 +289,7 @@ export function EnrollStudentModal({
                     <StudentInfoBadges student={student} showLink showLocationPrefix={showLocationPrefix} />
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {student.is_past_deadline && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        <span className="px-1.5 py-0.5 text-[11px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                           Past deadline
                         </span>
                       )}
@@ -355,7 +355,7 @@ export function EnrollStudentModal({
                                 <div className="flex items-center gap-1.5">
                                   {exceeded && (
                                     <span className={cn(
-                                      "px-1.5 py-0.5 text-[10px] font-medium rounded",
+                                      "px-1.5 py-0.5 text-[11px] font-medium rounded",
                                       isSuperAdmin
                                         ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
                                         : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"

@@ -187,7 +187,7 @@ export function TopicCorrectionPicker({
           onOpenChange(true);
           setState({ status: "picking" });
         }}
-        className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
+        className="inline-flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
       >
         <MessageSquarePlus className="h-3 w-3" />
         {triggerLabel}
@@ -240,7 +240,7 @@ export function TopicCorrectionPicker({
                   {conceptNameForStream(c, stream)}
                 </span>
                 {c.grade && (
-                  <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+                  <span className="text-[11px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
                     {c.grade}
                   </span>
                 )}
@@ -249,7 +249,7 @@ export function TopicCorrectionPicker({
           </div>
         )}
         {query.trim() && matches.length === 0 && (
-          <p className="mt-1 text-[10px] text-gray-500">
+          <p className="mt-1 text-[11px] text-gray-500">
             No matching topic. Try another name or a chapter code.
           </p>
         )}

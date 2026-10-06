@@ -278,7 +278,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             {markableIds.length > 0 && (
               <Link
                 href="/quick-attend"
-                className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded-md shadow-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 transition-colors"
+                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md shadow-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 transition-colors"
                 title="Quick attendance marking"
               >
                 <ClipboardCheck className="h-3 w-3" />
@@ -288,7 +288,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             {/* Record Memo button */}
             <button
               onClick={() => setMemoDrawerOpen(true)}
-              className="relative flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded-md shadow-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+              className="relative flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md shadow-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
               title="Record a session memo"
             >
               <StickyNote className="h-3 w-3" />
@@ -480,7 +480,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('attended')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
                     bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
                   )}
                   title="Mark all as attended"
@@ -494,7 +494,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('no-show')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
                     bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
                   )}
                   title="Mark all as no show"
@@ -508,7 +508,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('reschedule')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                     bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                   )}
                   title="Mark all as rescheduled"
@@ -522,7 +522,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('sick-leave')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                     bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                   )}
                   title="Mark all as sick leave"
@@ -536,7 +536,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('weather-cancelled')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                     bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                   )}
                   title="Mark all as weather cancelled"
@@ -567,7 +567,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
               {/* Clear button - always visible */}
               <button
                 onClick={clearSelection}
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               >
                 <X className="h-3 w-3" />
                 <span className="hidden xs:inline">Clear</span>
@@ -710,21 +710,21 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
 
           {/* Grade badge */}
           <GradeBadge
-            className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
+            className="text-[11px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
             grade={session.grade}
             langStream={session.lang_stream}
           />
 
           {/* School badge */}
           {session.school && (
-            <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
               {session.school}
             </span>
           )}
 
           {/* Payment indicator */}
           {isCancelledEnrollment && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
               Cancelled
             </span>
           )}
@@ -752,7 +752,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
 
           {/* Tutor */}
           {session.tutor_name && (
-            <span className="hidden sm:inline text-[10px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
+            <span className="hidden sm:inline text-[11px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
               <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
             </span>
           )}
@@ -822,20 +822,20 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
 
           {/* Grade badge */}
           <GradeBadge
-            className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
+            className="text-[11px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
             grade={proposedSession.grade}
             langStream={proposedSession.lang_stream}
           />
 
           {/* School badge */}
           {proposedSession.school && (
-            <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
               {proposedSession.school}
             </span>
           )}
 
           {/* PROPOSED badge */}
-          <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-600">
+          <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-600">
             Proposed
           </span>
         </div>
@@ -843,7 +843,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
         {/* Right: Tutor */}
         <div className="flex-shrink-0 flex items-center gap-2">
           {proposedSession.tutor_name && (
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
               <TutorLink tutorId={proposedSession.tutor_id} tutorName={proposedSession.tutor_name} />
             </span>
           )}

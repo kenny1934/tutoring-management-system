@@ -197,11 +197,11 @@ export function TutorSelector({
           {tutor.tutor_name}
         </span>
         {departure ? (
-          <span className="ml-auto text-[10px] text-rose-600 dark:text-rose-400 flex-shrink-0">
+          <span className="ml-auto text-[11px] text-rose-600 dark:text-rose-400 flex-shrink-0">
             {departure}
           </span>
         ) : homeBranch ? (
-          <span className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+          <span className="ml-auto text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
             {homeBranch}
           </span>
         ) : null}
@@ -316,7 +316,7 @@ export function TutorSelector({
                 {visitingTutors.length > 0 && (
                   <>
                     <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
-                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Covering from another branch
                       </div>
                     </div>

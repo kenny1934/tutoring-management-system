@@ -73,7 +73,7 @@ export function ProspectJourneyChip({
     : "Came up from a primary branch";
 
   const chipClass = cn(
-    "shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap",
+    "shrink-0 inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap",
     canViewAdminPages && "transition-opacity hover:opacity-80",
     journey.attended_summer
       ? "text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20"

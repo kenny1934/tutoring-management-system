@@ -306,13 +306,13 @@ function LessonRow({
               }
             >
               <div className={cn(
-                "text-[10px] font-semibold",
+                "text-[11px] font-semibold",
                 isMakeup ? "text-blue-600 dark:text-blue-400"
                   : isSwapped ? "text-amber-700 dark:text-amber-400" : "text-foreground/80"
               )}>
                 L{a.lesson_number}{isMakeup ? " ✱" : isSwapped ? " ↕" : ""}
               </div>
-              <div className={cn("text-[9px] truncate", isMakeup ? "text-blue-400/70 dark:text-blue-500/60 line-through" : "text-muted-foreground")}>
+              <div className={cn("text-[11px] truncate", isMakeup ? "text-blue-400/70 dark:text-blue-500/60 line-through" : "text-muted-foreground")}>
                 {dayAbbr} {formatCompactDate(a.lesson_date)}
               </div>
               {/* Capacity bar — skip for makeup lessons */}
@@ -331,7 +331,7 @@ function LessonRow({
       {slotLegend && (
         <div className="flex items-center gap-3 mt-1">
           {slotLegend.map((s, i) => (
-            <span key={i} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+            <span key={i} className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <span className={cn("text-sm leading-none", SLOT_LEGEND_DOT_COLORS[s.colorIdx])}>&#9632;</span>
               {s.label}
             </span>
@@ -450,7 +450,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
             setRangeStart(null);
           }}
           className={cn(
-            "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
+            "text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors",
             mode === "exclude"
               ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
               : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
@@ -466,7 +466,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
             setRangeStart(null);
           }}
           className={cn(
-            "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
+            "text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors",
             mode === "include"
               ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
               : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
@@ -475,14 +475,14 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
           Only available on:
         </button>
         {rangeStart && (
-          <span className="text-[9px] text-muted-foreground italic">Click end date...</span>
+          <span className="text-[11px] text-muted-foreground italic">Click end date...</span>
         )}
       </div>
 
       <div className="flex gap-3" onMouseLeave={() => setHoverDate(null)}>
         {months.map(({ year, month, label, dates }) => (
           <div key={`${year}-${month}`} className="shrink-0">
-            <div className="text-[10px] font-semibold text-center mb-1 text-gray-700 dark:text-gray-300">{label}</div>
+            <div className="text-[11px] font-semibold text-center mb-1 text-gray-700 dark:text-gray-300">{label}</div>
             <div className="grid grid-cols-7">
               {DAY_NAMES.map((d) => (
                 <div key={d} className="w-7 h-5 flex items-center justify-center text-[9px] font-medium text-muted-foreground">{d}</div>
@@ -555,12 +555,12 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
       {ranges.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
           {ranges.map(([s, e], idx) => (
-            <span key={idx} className={cn("inline-flex items-center gap-0.5 text-[10px] font-medium pl-1.5 pr-0.5 py-0.5 rounded-full", mode === "exclude" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300")}>
+            <span key={idx} className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium pl-1.5 pr-0.5 py-0.5 rounded-full", mode === "exclude" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300")}>
               {formatRangeLabel(s, e)}
               <button onClick={() => removeRange(idx)} className="hover:bg-black/10 dark:hover:bg-white/10 rounded-full p-0.5"><X className="h-2.5 w-2.5" /></button>
             </span>
           ))}
-          <button onClick={() => { onConstraintsChange(appId, { ranges: [] }); setRangeStart(null); }} className="text-[9px] text-muted-foreground hover:text-foreground hover:underline ml-0.5">Clear</button>
+          <button onClick={() => { onConstraintsChange(appId, { ranges: [] }); setRangeStart(null); }} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline ml-0.5">Clear</button>
         </div>
       )}
 
@@ -568,7 +568,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
         onClick={handleResuggest}
         disabled={readjusting}
         className={cn(
-          "text-[10px] font-medium px-2.5 py-1 rounded-md text-white flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full justify-center",
+          "text-[11px] font-medium px-2.5 py-1 rounded-md text-white flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full justify-center",
           resuggestFlash ? "bg-green-600" : "bg-amber-600 hover:bg-amber-700"
         )}
       >
@@ -1002,7 +1002,7 @@ export function SummerAutoSuggestModal({
                           key={k}
                           onClick={() => setQualityFilter(k)}
                           className={cn(
-                            "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors border",
+                            "text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors border",
                             active
                               ? k === "review"
                                 ? "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700"
@@ -1091,16 +1091,16 @@ export function SummerAutoSuggestModal({
                                 <span className="text-sm font-medium truncate">
                                   {p.student_name}
                                 </span>
-                                <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", gradeBg)}>
+                                <span className={cn("text-[11px] font-bold px-1.5 py-0.5 rounded", gradeBg)}>
                                   {p.student_grade}
                                 </span>
                                 {p.sessions_per_week > 1 && (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                                     {p.sessions_per_week}x/wk
                                   </span>
                                 )}
                                 {(p.placed_count ?? 0) > 0 && (
-                                  <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded">
+                                  <span className="text-[11px] font-medium text-primary bg-primary/10 px-1 rounded">
                                     {p.placed_count}/{p.lessons_paid ?? 8}
                                   </span>
                                 )}
@@ -1109,7 +1109,7 @@ export function SummerAutoSuggestModal({
                                     <span className="text-[11px] text-foreground/70 font-medium truncate">
                                       {group.hasOptions ? `${group.options.length} options` : getSlotSummary(p.lesson_assignments)}
                                     </span>
-                                    <span className={cn("text-[10px] font-semibold", quality.className)}>
+                                    <span className={cn("text-[11px] font-semibold", quality.className)}>
                                       {quality.text}
                                     </span>
                                   </>
@@ -1184,7 +1184,7 @@ export function SummerAutoSuggestModal({
                                 const fmt = (s: { day: string; time: string }) =>
                                   `${DAY_ABBREV[s.day] || s.day} ${s.time}`.trim();
                                 return (
-                                  <div className="text-[10px] text-muted-foreground space-y-0.5">
+                                  <div className="text-[11px] text-muted-foreground space-y-0.5">
                                     {primary.length > 0 && (
                                       <div>
                                         {isPair ? "Primary: " : "Pref: "}
@@ -1248,7 +1248,7 @@ export function SummerAutoSuggestModal({
                                                     toggleMakeupFor(opt.application_id, opt.option_label, ln, algoFlag);
                                                   }}
                                                 />
-                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                <div className="text-[11px] text-muted-foreground mt-0.5">
                                                   {formatReason(opt.reason, opt.sequence_score, info.makeupNumbers)}
                                                 </div>
                                               </>
@@ -1281,7 +1281,7 @@ export function SummerAutoSuggestModal({
                                             toggleMakeupFor(p.application_id, p.option_label, ln, algoFlag);
                                           }}
                                         />
-                                        <div className="text-[10px] text-muted-foreground mt-1">
+                                        <div className="text-[11px] text-muted-foreground mt-1">
                                           {formatReason(p.reason, p.sequence_score, info.makeupNumbers)}
                                         </div>
                                       </>
@@ -1296,7 +1296,7 @@ export function SummerAutoSuggestModal({
                                   <div>
                                     <span className="font-semibold">Unavailability note:</span>{" "}
                                     <span>{p.unavailability_notes}</span>
-                                    <div className="text-[10px] text-amber-700 mt-0.5">
+                                    <div className="text-[11px] text-amber-700 mt-0.5">
                                       Not parsed by algorithm — please cross-check manually
                                     </div>
                                   </div>
@@ -1313,7 +1313,7 @@ export function SummerAutoSuggestModal({
                                         {sorted.length} lesson{sorted.length > 1 ? "s" : ""} pending make-up
                                       </span>
                                       <span className="text-blue-600"> — L{sorted.join(", L")}</span>
-                                      <div className="text-[10px] text-blue-500/80 mt-0.5">
+                                      <div className="text-[11px] text-blue-500/80 mt-0.5">
                                         Will be created as &quot;{RESCHEDULED_STATUS}&quot; on original date
                                       </div>
                                     </div>
@@ -1326,7 +1326,7 @@ export function SummerAutoSuggestModal({
                                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                                   <div>
                                     <span className="font-semibold">{adjustErrors[group.appId]}</span>
-                                    <div className="text-[10px] text-red-600 mt-0.5">
+                                    <div className="text-[11px] text-red-600 mt-0.5">
                                       Try adjusting your date selection and re-suggest
                                     </div>
                                   </div>

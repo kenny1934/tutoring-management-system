@@ -424,7 +424,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             </h2>
             {msg.priority && msg.priority !== "Normal" && (
               <span className={cn(
-                "text-[10px] px-2 py-0.5 rounded-full font-medium capitalize flex-shrink-0",
+                "text-[11px] px-2 py-0.5 rounded-full font-medium capitalize flex-shrink-0",
                 PRIORITIES[msg.priority as PriorityLevel]?.badgeClass
               )}>
                 {msg.priority}

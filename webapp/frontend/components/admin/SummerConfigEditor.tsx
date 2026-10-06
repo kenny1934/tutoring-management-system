@@ -909,19 +909,19 @@ export function SummerConfigEditor({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <span className="text-[10px] text-muted-foreground">Code</span>
+                  <span className="text-[11px] text-muted-foreground">Code</span>
                   <input value={d.code} onChange={(e) => { const next = [...discounts]; next[i] = { ...d, code: e.target.value }; setDiscounts(next); }} className={inputClass} disabled={isReadOnly} placeholder="early_bird" />
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground">Amount ($)</span>
+                  <span className="text-[11px] text-muted-foreground">Amount ($)</span>
                   <input type="number" value={d.amount} onChange={(e) => { const next = [...discounts]; next[i] = { ...d, amount: parseInt(e.target.value) || 0 }; setDiscounts(next); }} className={inputClass} disabled={isReadOnly} />
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground">Name (ZH)</span>
+                  <span className="text-[11px] text-muted-foreground">Name (ZH)</span>
                   <input value={d.name_zh} onChange={(e) => { const next = [...discounts]; next[i] = { ...d, name_zh: e.target.value }; setDiscounts(next); }} className={inputClass} disabled={isReadOnly} />
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground">Name (EN)</span>
+                  <span className="text-[11px] text-muted-foreground">Name (EN)</span>
                   <input value={d.name_en} onChange={(e) => { const next = [...discounts]; next[i] = { ...d, name_en: e.target.value }; setDiscounts(next); }} className={inputClass} disabled={isReadOnly} />
                 </div>
               </div>
@@ -930,7 +930,7 @@ export function SummerConfigEditor({
                 <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">Conditions</summary>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Early-bird deadline</span>
+                    <span className="text-[11px] text-muted-foreground">Early-bird deadline</span>
                     <input
                       type="date"
                       value={(d.conditions?.before_date as string) || ""}
@@ -946,7 +946,7 @@ export function SummerConfigEditor({
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Min group size</span>
+                    <span className="text-[11px] text-muted-foreground">Min group size</span>
                     <input
                       type="number"
                       min={2}
@@ -997,7 +997,7 @@ export function SummerConfigEditor({
           <div className="grid grid-cols-[auto_1fr_1fr_100px_auto_auto] gap-2 items-end">
             <DragHandle controls={dragControls} />
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (ZH)</span>}
               <input
                 value={g.name}
                 onChange={(e) => {
@@ -1010,7 +1010,7 @@ export function SummerConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (EN)</span>}
               <input
                 value={g.name_en}
                 onChange={(e) => {
@@ -1023,7 +1023,7 @@ export function SummerConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Value</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Value</span>}
               <input
                 value={g.value || ""}
                 onChange={(e) => {
@@ -1036,7 +1036,7 @@ export function SummerConfigEditor({
               />
             </div>
             <div title="Hide from the public application form; admins can still pick it">
-              {i === 0 && <span className="text-[10px] text-muted-foreground whitespace-nowrap">Admin only</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground whitespace-nowrap">Admin only</span>}
               <div className="flex items-center justify-center h-9">
                 <input
                   type="checkbox"
@@ -1082,7 +1082,7 @@ export function SummerConfigEditor({
       {/* Section 4b: Language Stream Options → Step 1 */}
       <Section title="Language Stream Options" subtitle="Step 1" status={{ filled: langStreamOptions.length > 0, count: langStreamOptions.length > 0 ? `${langStreamOptions.length}` : undefined }} onOpen={() => setPreviewStep(1)}>
         <Label>Language of Instruction</Label>
-        <p className="text-[10px] text-muted-foreground mb-2">Options shown on the public form. Leave empty to hide the question.</p>
+        <p className="text-[11px] text-muted-foreground mb-2">Options shown on the public form. Leave empty to hide the question.</p>
         <Reorder.Group axis="y" values={langStreamOptions.map(o => o._id)} onReorder={(newOrder) => setLangStreamOptions(reorderByIds(langStreamOptions, newOrder))} className="space-y-0">
         {langStreamOptions.map((o, i) => (
           <ReorderableItem key={o._id} value={o._id} disabled={isReadOnly}>
@@ -1090,7 +1090,7 @@ export function SummerConfigEditor({
           <div className="grid grid-cols-[auto_1fr_1fr_100px_auto] gap-2 items-end">
             <DragHandle controls={dragControls} />
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (ZH)</span>}
               <input
                 value={o.name}
                 onChange={(e) => {
@@ -1103,7 +1103,7 @@ export function SummerConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Name (EN)</span>}
               <input
                 value={o.name_en}
                 onChange={(e) => {
@@ -1116,7 +1116,7 @@ export function SummerConfigEditor({
               />
             </div>
             <div>
-              {i === 0 && <span className="text-[10px] text-muted-foreground">Value</span>}
+              {i === 0 && <span className="text-[11px] text-muted-foreground">Value</span>}
               <input
                 value={o.value || ""}
                 onChange={(e) => {
@@ -1158,7 +1158,7 @@ export function SummerConfigEditor({
       {/* Section 5: Student Options → Step 2 */}
       <Section title="Student Options" subtitle="Step 2" status={{ filled: existingStudentOptions.length > 0 || centerOptions.length > 0, count: (existingStudentOptions.length + centerOptions.length) > 0 ? `${existingStudentOptions.length + centerOptions.length}` : undefined }} onOpen={() => setPreviewStep(2)}>
         <Label>Existing Student Options & Centers</Label>
-        <p className="text-[10px] text-muted-foreground mb-2">Each student type shows its associated centers below. Centers are matched by name prefix.</p>
+        <p className="text-[11px] text-muted-foreground mb-2">Each student type shows its associated centers below. Centers are matched by name prefix.</p>
         <Reorder.Group axis="y" values={existingStudentOptions.map(o => o._id)} onReorder={(newOrder) => {
           setExistingStudentOptions(reorderByIds(existingStudentOptions, newOrder));
         }} className="space-y-2">
@@ -1173,7 +1173,7 @@ export function SummerConfigEditor({
                 <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 px-3 py-2 items-center bg-gray-50 dark:bg-gray-800/50">
                   <DragHandle controls={dragControls} />
                   <div>
-                    {oi === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+                    {oi === 0 && <span className="text-[11px] text-muted-foreground">Name (ZH)</span>}
                     <input
                       value={opt.name}
                       onChange={(e) => {
@@ -1186,7 +1186,7 @@ export function SummerConfigEditor({
                     />
                   </div>
                   <div>
-                    {oi === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+                    {oi === 0 && <span className="text-[11px] text-muted-foreground">Name (EN)</span>}
                     <input
                       value={opt.name_en}
                       onChange={(e) => {
@@ -1211,19 +1211,19 @@ export function SummerConfigEditor({
                 {/* Nested centers */}
                 {isNone ? (
                   <div className="ml-4 border-l-2 border-primary/20 px-3 py-2">
-                    <span className="text-[10px] text-muted-foreground italic">No centers (students not enrolled)</span>
+                    <span className="text-[11px] text-muted-foreground italic">No centers (students not enrolled)</span>
                   </div>
                 ) : (
                   <>
                     <button type="button" onClick={() => toggleStudentOption(opt._id)} className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                       <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${optExpanded ? "rotate-180" : ""}`} />
-                      <span className="text-[10px] text-muted-foreground font-medium">Centers</span>
-                      <span className="text-[10px] text-muted-foreground">({optionCenters.length})</span>
+                      <span className="text-[11px] text-muted-foreground font-medium">Centers</span>
+                      <span className="text-[11px] text-muted-foreground">({optionCenters.length})</span>
                     </button>
                     {optExpanded && (
                     <div className="ml-4 border-l-2 border-primary/20 px-3 py-2">
                       {optionCenters.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground italic">No centers yet</p>
+                        <p className="text-[11px] text-muted-foreground italic">No centers yet</p>
                       ) : (
                         <Reorder.Group axis="y" values={optionCenters.map(c => c._id)} onReorder={(newKeys) => {
                           const reordered = reorderByIds(optionCenters, newKeys);
@@ -1336,7 +1336,7 @@ export function SummerConfigEditor({
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${locExpanded ? "rotate-180" : ""}`} />
                 <span className="text-xs font-medium text-foreground truncate">{locDisplayName}</span>
                 {!locExpanded && loc.open_days.length > 0 && (
-                  <span className="text-[10px] text-muted-foreground">{loc.open_days.length} days</span>
+                  <span className="text-[11px] text-muted-foreground">{loc.open_days.length} days</span>
                 )}
               </button>
               {!isReadOnly && (
@@ -1480,7 +1480,7 @@ export function SummerConfigEditor({
                         next[i] = { ...loc, time_slots: newTimeSlots };
                         setLocations(next);
                       }}
-                      className="text-[10px] text-accent-ink hover:text-accent-ink-hover font-medium"
+                      className="text-[11px] text-accent-ink hover:text-accent-ink-hover font-medium"
                     >
                       Copy first day to all
                     </button>
@@ -1666,7 +1666,7 @@ export function SummerConfigEditor({
                 className="text-xs font-semibold text-accent-ink/80 hover:text-accent-ink uppercase tracking-wider mb-3 flex items-center gap-1.5"
               >
                 {group}
-                <span className="text-[10px] font-normal normal-case text-muted-foreground">
+                <span className="text-[11px] font-normal normal-case text-muted-foreground">
                   — click to preview
                 </span>
               </button>
@@ -1675,7 +1675,7 @@ export function SummerConfigEditor({
                   <div key={key} className="space-y-1.5">
                     <div>
                       <span className="text-xs font-medium text-foreground">{label}</span>
-                      <span className="text-[10px] text-muted-foreground ml-2">{help}</span>
+                      <span className="text-[11px] text-muted-foreground ml-2">{help}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>

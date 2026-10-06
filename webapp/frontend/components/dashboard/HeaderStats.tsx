@@ -136,7 +136,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         Active Students ({stats.active_students})
                       </span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
                         Students with sessions in past/next 14 days
                       </span>
                     </div>

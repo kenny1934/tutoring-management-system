@@ -57,7 +57,7 @@ function StudentDoneBadge({ file }: { file: CurriculumFile }) {
   return (
     <span
       className={cn(
-        "text-[9px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0",
+        "text-[11px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0",
         pages && "border-dashed border-amber-300 dark:border-amber-700"
       )}
       title={
@@ -109,7 +109,7 @@ export function CurriculumFileBadges({
       {file.school_code && (
         <span
           className={cn(
-            "text-[9px] px-1 py-px rounded shrink-0",
+            "text-[11px] px-1 py-px rounded shrink-0",
             file.from_school
               ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-medium"
               : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
@@ -123,12 +123,12 @@ export function CurriculumFileBadges({
           {file.school_code}
         </span>
       )}
-      <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+      <span className="text-[11px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
         {file.role ? ROLE_LABELS[file.role] || file.role : "Worksheet"}
       </span>
       {file.lang && (
         <span
-          className="text-[9px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 shrink-0"
+          className="text-[11px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 shrink-0"
           title={file.lang === "e" ? "English version" : "Chinese version"}
         >
           {file.lang === "e" ? "EN" : "中"}
@@ -144,7 +144,7 @@ export function CurriculumFileBadges({
             onClick={onToggleUsage}
             aria-expanded={usageOpen}
             className={cn(
-              "inline-flex items-center gap-0.5 text-[9px] shrink-0 rounded border cursor-pointer transition-colors",
+              "inline-flex items-center gap-0.5 text-[11px] shrink-0 rounded border cursor-pointer transition-colors",
               coarse ? "px-1.5 py-0.5" : "px-1 py-px",
               schoolCount > 0
                 ? "text-teal-700 dark:text-teal-400 font-medium border-teal-200 dark:border-teal-800"
@@ -163,7 +163,7 @@ export function CurriculumFileBadges({
         ) : (
           <span
             className={cn(
-              "text-[9px] shrink-0",
+              "text-[11px] shrink-0",
               schoolCount > 0
                 ? "text-teal-700 dark:text-teal-400 font-medium"
                 : "text-gray-500"

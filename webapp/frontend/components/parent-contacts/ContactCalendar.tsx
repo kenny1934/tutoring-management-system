@@ -350,7 +350,7 @@ export function ContactCalendar({
                           key={event.id}
                           onClick={() => onEventClick(event)}
                           className={cn(
-                            "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
+                            "w-full text-left px-1 py-0.5 rounded text-[11px] truncate transition-all",
                             getContactTypeDot(event.contact_type),
                             "text-white hover:brightness-110",
                             selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
@@ -363,7 +363,7 @@ export function ContactCalendar({
                       {dayEvents.length > 3 && (
                         <button
                           onClick={(e) => openPopover(day.dateKey, e)}
-                          className="w-full text-[10px] text-gray-500 dark:text-gray-400 text-center hover:text-accent-ink hover:underline transition-colors"
+                          className="w-full text-[11px] text-gray-500 dark:text-gray-400 text-center hover:text-accent-ink hover:underline transition-colors"
                         >
                           +{dayEvents.length - 3} more
                         </button>
@@ -386,7 +386,7 @@ export function ContactCalendar({
                     key={event.id}
                     onClick={() => onEventClick(event)}
                     className={cn(
-                      "w-full text-left px-1.5 py-0.5 rounded text-[10px] truncate transition-all",
+                      "w-full text-left px-1.5 py-0.5 rounded text-[11px] truncate transition-all",
                       getContactTypeDot(event.contact_type),
                       "text-white hover:brightness-110",
                       selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
@@ -443,7 +443,7 @@ export function ContactCalendar({
                           key={event.id}
                           onClick={() => onEventClick(event)}
                           className={cn(
-                            "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
+                            "w-full text-left px-1 py-0.5 rounded text-[11px] truncate transition-all",
                             getContactTypeDot(event.contact_type),
                             "text-white hover:brightness-110",
                             selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
@@ -454,7 +454,7 @@ export function ContactCalendar({
                         </button>
                       ))}
                       {dayEvents.length === 0 && (
-                        <p className="text-[10px] text-gray-500 text-center py-2">—</p>
+                        <p className="text-[11px] text-gray-500 text-center py-2">—</p>
                       )}
                     </div>
                   </div>

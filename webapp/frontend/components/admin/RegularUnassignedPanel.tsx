@@ -93,18 +93,18 @@ function SuggestionList({
   );
 
   if (error) {
-    return <div className="p-2 text-[10px] text-red-600">Failed to load suggestions.</div>;
+    return <div className="p-2 text-[11px] text-red-600">Failed to load suggestions.</div>;
   }
   if (!data) {
     return (
-      <div className="flex items-center justify-center gap-1 p-2 text-[10px] text-muted-foreground">
+      <div className="flex items-center justify-center gap-1 p-2 text-[11px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" /> Finding slots...
       </div>
     );
   }
   if (data.suggestions.length === 0) {
     return (
-      <div className="p-2 text-[10px] text-muted-foreground">
+      <div className="p-2 text-[11px] text-muted-foreground">
         No open slots match. Create a slot with free capacity first.
       </div>
     );
@@ -123,7 +123,7 @@ function SuggestionList({
           className="w-full text-left px-2 py-1.5 hover:bg-primary/10 transition-colors disabled:cursor-default disabled:hover:bg-transparent"
           title="Assign to this slot"
         >
-          <div className="flex items-center gap-1.5 text-[10px]">
+          <div className="flex items-center gap-1.5 text-[11px]">
             <span className="font-semibold font-mono">
               {DAY_ABBREV[s.slot_day] || s.slot_day} {s.time_slot}
             </span>
@@ -142,7 +142,7 @@ function SuggestionList({
               {s.reasons.map((r) => (
                 <span
                   key={r}
-                  className="text-[8px] px-1 py-0 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                  className="text-[11px] px-1 py-0 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
                 >
                   {reasonLabel(r)}
                 </span>
@@ -167,7 +167,7 @@ function SuggestionList({
  *  chips' translucent fills resolve to on screen. */
 const panelPillClass = (active: boolean, solid = false) =>
   cn(
-    "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+    "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
     active
       ? "bg-primary text-primary-foreground"
       : solid
@@ -310,7 +310,7 @@ export function RegularUnassignedPanel({
         >
           <PanelRightOpen className="h-4 w-4" />
         </button>
-        <span className="text-[10px] text-muted-foreground font-medium [writing-mode:vertical-lr] rotate-180">
+        <span className="text-[11px] text-muted-foreground font-medium [writing-mode:vertical-lr] rotate-180">
           {applications.length}
         </span>
       </div>
@@ -430,7 +430,7 @@ export function RegularUnassignedPanel({
           {/* Demand-bar filter, set by clicking a sparkline in the grid */}
           {demandFilterLabel && (
             <div className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-1">
-              <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-accent-ink">
+              <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-accent-ink">
                 {demandFilterLabel}
               </span>
               <button
@@ -562,7 +562,7 @@ export function RegularUnassignedPanel({
                     {/* School stays on its own line: the suggest ranking scores
                         schoolmates, so it earns the room a chip would not. */}
                     {app.school && (
-                      <div className="mt-0.5 text-[9px] text-muted-foreground truncate" title={app.school}>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground truncate" title={app.school}>
                         {app.school}
                       </div>
                     )}
@@ -570,16 +570,16 @@ export function RegularUnassignedPanel({
                     {/* Row 2: preferences */}
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
                       {app.preference_1_day && app.preference_1_time ? (
-                        <span className="shrink-0 font-mono text-[9px] px-1 py-0 rounded bg-gray-100 dark:bg-gray-800 text-foreground" title="First choice">
+                        <span className="shrink-0 font-mono text-[11px] px-1 py-0 rounded bg-gray-100 dark:bg-gray-800 text-foreground" title="First choice">
                           {DAY_ABBREV[app.preference_1_day] || app.preference_1_day} {app.preference_1_time}
                         </span>
                       ) : (
-                        <span className="text-[9px] text-red-600">No preference</span>
+                        <span className="text-[11px] text-red-600">No preference</span>
                       )}
                       {app.preference_2_day && app.preference_2_time && (
                         <>
-                          <span className="shrink-0 text-[8px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
-                          <span className="shrink-0 font-mono text-[9px] px-1 py-0 rounded border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground" title="Backup choice">
+                          <span className="shrink-0 text-[11px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
+                          <span className="shrink-0 font-mono text-[11px] px-1 py-0 rounded border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground" title="Backup choice">
                             {DAY_ABBREV[app.preference_2_day] || app.preference_2_day} {app.preference_2_time}
                           </span>
                         </>
@@ -591,7 +591,7 @@ export function RegularUnassignedPanel({
                             setSuggestForId(suggestOpen ? null : app.id);
                           }}
                           onPointerDown={(e) => e.stopPropagation()}
-                          className="ml-auto text-[9px] font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
+                          className="ml-auto text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
                           title="Suggest matching slots"
                         >
                           Suggest
@@ -614,7 +614,7 @@ export function RegularUnassignedPanel({
                         onPointerDown={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-between px-2 py-1 bg-paper border-b border-line/60">
-                          <span className="text-[9px] font-medium text-muted-foreground">Suggested slots</span>
+                          <span className="text-[11px] font-medium text-muted-foreground">Suggested slots</span>
                           <button
                             onClick={() => setSuggestForId(null)}
                             className="p-0.5 text-muted-foreground hover:text-foreground"

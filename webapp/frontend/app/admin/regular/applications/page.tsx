@@ -389,7 +389,7 @@ export default function RegularApplicationsPage() {
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
-                  {isReadOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
+                  {isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
                 </h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">
                   Review September intake applications and publish confirmed schedules
@@ -465,7 +465,7 @@ export default function RegularApplicationsPage() {
                         >
                           <span className="flex-1 text-foreground">{c.year}</span>
                           {c.is_active && (
-                            <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                            <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
                               Active
                             </span>
                           )}

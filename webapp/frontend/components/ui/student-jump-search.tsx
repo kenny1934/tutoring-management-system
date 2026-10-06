@@ -174,23 +174,23 @@ export function StudentJumpSearch({
                 )}
               >
                 <span
-                  className="inline-flex items-center justify-center text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800 shrink-0"
+                  className="inline-flex items-center justify-center text-[11px] font-semibold px-1.5 py-0.5 rounded text-gray-800 shrink-0"
                   style={{ backgroundColor: getGradeColor(entry.grade, entry.langStream ?? undefined) }}
                 >
                   {entry.grade}{entry.langStream ?? ""}
                 </span>
                 {entry.studentId && (
-                  <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                  <span className="text-[11px] font-mono text-muted-foreground shrink-0">
                     {entry.studentId}
                   </span>
                 )}
                 <span className="flex-1 min-w-0 truncate">{entry.name}</span>
                 {entry.placed ? (
-                  <span className="text-[10px] text-green-700 dark:text-green-400 shrink-0">
+                  <span className="text-[11px] text-green-700 dark:text-green-400 shrink-0">
                     placed
                   </span>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground shrink-0">
+                  <span className="text-[11px] text-muted-foreground shrink-0">
                     unplaced
                   </span>
                 )}

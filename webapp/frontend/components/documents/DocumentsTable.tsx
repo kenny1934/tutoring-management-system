@@ -267,15 +267,15 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     {doc.is_template && <Stamp className="w-3 h-3 shrink-0 text-purple-600" />}
                     {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-700" />}
                     {hasChildren && (
-                      <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-gray-500">
+                      <span className="shrink-0 flex items-center gap-0.5 text-[11px] text-gray-500">
                         <GitBranch className="w-3 h-3" />
                       </span>
                     )}
                     {questionCount > 0 && (
-                      <span className="shrink-0 text-[9px] font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hidden lg:inline tabular-nums">{questionCount}Q</span>
+                      <span className="shrink-0 text-[11px] font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hidden lg:inline tabular-nums">{questionCount}Q</span>
                     )}
                     {(doc.version_count ?? 0) > 1 && (
-                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-500 hidden lg:inline-flex" title={`${doc.version_count} versions`}>
+                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-gray-500 hidden lg:inline-flex" title={`${doc.version_count} versions`}>
                         <Clock className="w-3 h-3" />v{doc.version_count}</span>
                     )}
                   </div>
@@ -295,12 +295,12 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                   ) : (
                     <div className="flex items-center gap-1">
                       {(doc.tags || []).slice(0, 2).map((tag) => (
-                        <span key={tag} className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", getTagColor(tag))}>
+                        <span key={tag} className={cn("px-1.5 py-0.5 rounded text-[11px] font-medium", getTagColor(tag))}>
                           {tag}
                         </span>
                       ))}
                       {(doc.tags || []).length > 2 && (
-                        <span className="text-[10px] text-gray-500 cursor-default" title={doc.tags!.slice(2).join(", ")}>+{doc.tags!.length - 2}</span>
+                        <span className="text-[11px] text-gray-500 cursor-default" title={doc.tags!.slice(2).join(", ")}>+{doc.tags!.length - 2}</span>
                       )}
                     </div>
                   )}

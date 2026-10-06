@@ -211,7 +211,7 @@ function MemoCard({ memo, onEdit, onDelete, isDeleting, isConfirmingDelete, onCa
         />
         <span
           className={cn(
-            "shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded uppercase",
+            "shrink-0 px-1.5 py-0.5 text-[11px] font-semibold rounded uppercase",
             isPending
               ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
               : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"

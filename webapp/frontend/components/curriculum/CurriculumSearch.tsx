@@ -171,12 +171,12 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                     {conceptDisplayName(c)}
                   </span>
                   {c.grade && (
-                    <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+                    <span className="text-[11px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
                       {c.grade}
                     </span>
                   )}
                   {c.codes.length > 0 && (
-                    <span className="text-[9px] text-gray-500 ml-auto shrink-0">
+                    <span className="text-[11px] text-gray-500 ml-auto shrink-0">
                       {c.codes.map((code) => code.code).join(" · ")}
                     </span>
                   )}
@@ -185,7 +185,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
             </div>
             <p
               className={cn(
-                "px-3 py-1.5 text-[10px] text-gray-500 dark:text-gray-400",
+                "px-3 py-1.5 text-[11px] text-gray-500 dark:text-gray-400",
                 matches.length > 0 &&
                   "border-t border-[#d4a574]/30 dark:border-[#8b6f47]/40"
               )}
@@ -211,7 +211,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
               Search results
             </span>
             {scope && (
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[11px] text-gray-500">
                 with {scope.school} {scope.grade} evidence
               </span>
             )}
@@ -241,13 +241,13 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                       {conceptNameForStream(concept, scope?.lang_stream || null)}
                     </span>
                     {concept.concept_grade && (
-                      <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+                      <span className="text-[11px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
                         {concept.concept_grade}
                       </span>
                     )}
                   </div>
                   {evidenceText(concept) && (
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                       {evidenceText(concept)}
                     </p>
                   )}
@@ -263,7 +263,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-gray-500 mt-0.5">
+                    <p className="text-[11px] text-gray-500 mt-0.5">
                       No files mapped to this topic yet.
                     </p>
                   )}
@@ -276,7 +276,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                           name: conceptNameForStream(concept, scope?.lang_stream || null),
                         })
                       }
-                      className="mt-1 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
+                      className="mt-1 text-[11px] text-teal-700 dark:text-teal-400 hover:underline"
                     >
                       See all {concept.file_count} files
                     </button>

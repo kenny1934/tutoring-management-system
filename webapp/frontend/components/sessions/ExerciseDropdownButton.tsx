@@ -49,7 +49,7 @@ export function ExerciseDropdownButton({
 
   return (
     <div ref={ref} className="relative">
-      <div className={cn("flex items-center rounded text-[10px] font-medium", baseColors)}>
+      <div className={cn("flex items-center rounded text-[11px] font-medium", baseColors)}>
         {/* Main button - Assign */}
         <button
           onClick={onAssign}

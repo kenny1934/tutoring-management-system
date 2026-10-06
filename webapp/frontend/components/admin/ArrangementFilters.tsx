@@ -27,7 +27,7 @@ export function FilterChip({
       aria-pressed={active}
       title={title}
       className={cn(
-        "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+        "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
         active
           ? "bg-primary text-white"
           : "bg-gray-100 dark:bg-gray-800 text-foreground/50 hover:text-foreground/70"
@@ -69,7 +69,7 @@ export function FilterSelect({
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
       className={cn(
-        "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
+        "ml-1 px-1.5 py-0.5 rounded text-[11px] font-medium cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
         value !== null
           ? "border-primary bg-primary text-white"
           : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80",

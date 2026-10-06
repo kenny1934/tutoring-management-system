@@ -53,7 +53,7 @@ import type {
 } from "@/types";
 
 const inputClass = "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
-const smallLabelClass = "block text-[10px] text-muted-foreground mb-0.5";
+const smallLabelClass = "block text-[11px] text-muted-foreground mb-0.5";
 
 const PUBLISH_ERROR_TITLES: Record<string, string> = {
   no_linked_student: "No linked student",
@@ -184,7 +184,7 @@ function StudentSuggestionRow({
         />
         {reason && (
           <span
-            className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+            className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
             title="Why this student was suggested"
           >
             {reason}
@@ -970,7 +970,7 @@ export function RegularApplicationDetailModal({
             <div className="space-y-4">
               {!readOnly && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -1009,7 +1009,7 @@ export function RegularApplicationDetailModal({
                               {parseHKTimestamp(e.edited_at).toLocaleString()}
                             </span>
                             <span className={cn(
-                              "px-1 rounded text-[9px] font-medium uppercase",
+                              "px-1 rounded text-[11px] font-medium uppercase",
                               e.edited_via === "admin"
                                 ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
                                 : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
@@ -1139,12 +1139,12 @@ export function RegularApplicationDetailModal({
                       {/* The grade on the form is the one being entered, so it
                           is never put through the summer window's promotion. */}
                       <EnteringGradeBadge
-                        className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
+                        className="text-[11px] px-1.5 py-0.5 rounded text-gray-800"
                         grade={app.grade}
                         langStream={effectiveStream(app)}
                       />
                       {app.school && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
                           {app.school}
                         </span>
                       )}
@@ -1154,7 +1154,7 @@ export function RegularApplicationDetailModal({
                           anyway. */}
                       {app.school_canonical && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
+                          className="text-[11px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
                           title={`"${app.school}" is recognised as this school code`}
                         >
                           {app.school_canonical}
@@ -1180,7 +1180,7 @@ export function RegularApplicationDetailModal({
                               ? `Applicant claims: ${app.is_existing_student}`
                               : "Where this student came from. Choose New only when they have attended no MathConcept centre."
                           }
-                          className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-field bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
+                          className="text-[11px] pl-1.5 pr-5 py-0.5 rounded border border-field bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
                         >
                           <option value="">Unverified</option>
                           <option value="New">New</option>
@@ -1283,7 +1283,7 @@ export function RegularApplicationDetailModal({
                       <>
                         {prefText(app.preference_1_day, app.preference_1_time) && (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground w-6 shrink-0">1st</span>
+                            <span className="text-[11px] text-muted-foreground w-6 shrink-0">1st</span>
                             <span className="text-sm font-medium text-foreground">
                               {prefText(app.preference_1_day, app.preference_1_time)}
                             </span>
@@ -1291,7 +1291,7 @@ export function RegularApplicationDetailModal({
                         )}
                         {prefText(app.preference_2_day, app.preference_2_time) && (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground w-6 shrink-0">2nd</span>
+                            <span className="text-[11px] text-muted-foreground w-6 shrink-0">2nd</span>
                             <span className="text-sm font-medium text-foreground">
                               {prefText(app.preference_2_day, app.preference_2_time)}
                             </span>
@@ -1415,7 +1415,7 @@ export function RegularApplicationDetailModal({
               {canEdit && (
                 <div>
                   {nextStatuses.length > 0 && (
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                       Move to
                     </span>
                   )}
@@ -1445,7 +1445,7 @@ export function RegularApplicationDetailModal({
                     <button
                       type="button"
                       onClick={() => setShowAllStatuses((v) => !v)}
-                      className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+                      className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
                     >
                       {showAllStatuses ? "Less" : "All statuses…"}
                     </button>
@@ -1491,7 +1491,7 @@ export function RegularApplicationDetailModal({
                 ) : pickedStudentId ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <span className="text-[10px] italic">Not linked</span>
+                  <span className="text-[11px] italic">Not linked</span>
                 )}
               >
                 <div className="space-y-2">
@@ -1550,7 +1550,7 @@ export function RegularApplicationDetailModal({
                     {linkedStudent.home_location &&
                       systemLocation &&
                       linkedStudent.home_location !== systemLocation && (
-                        <div className="ml-5 text-[10px] text-amber-700 dark:text-amber-400">
+                        <div className="ml-5 text-[11px] text-amber-700 dark:text-amber-400">
                           Home branch ({linkedStudent.home_location}) differs from the branch applied for ({systemLocation}).
                         </div>
                       )}
@@ -1576,11 +1576,11 @@ export function RegularApplicationDetailModal({
                     {autoSuggestions.length > 0 && (
                       <div>
                         <div className="flex items-center gap-1.5 mb-1 px-0.5">
-                          <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                          <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
                             Suggested matches
                           </span>
-                          <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
-                          <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
+                          <span className="text-[11px] text-muted-foreground">({autoSuggestions.length})</span>
+                          <span className="ml-auto text-[11px] text-muted-foreground italic">Click a row to link</span>
                         </div>
                         <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
                           {autoSuggestions.map(({ student, reason }) => (
@@ -1597,7 +1597,7 @@ export function RegularApplicationDetailModal({
 
                     <div>
                       {autoSuggestions.length > 0 && (
-                        <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
+                        <div className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
                           Or search manually
                         </div>
                       )}
@@ -1657,7 +1657,7 @@ export function RegularApplicationDetailModal({
                           <button
                             type="button"
                             onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
-                            className="text-[10px] text-muted-foreground hover:text-foreground"
+                            className="text-[11px] text-muted-foreground hover:text-foreground"
                           >
                             cancel
                           </button>
@@ -1717,7 +1717,7 @@ export function RegularApplicationDetailModal({
                     {app.prospect_journey ? (
                       <ProspectJourneyChip journey={app.prospect_journey} onProspectClick={onProspectClick} />
                     ) : (
-                      <span className="text-[10px] italic text-muted-foreground">Not a tracked prospect</span>
+                      <span className="text-[11px] italic text-muted-foreground">Not a tracked prospect</span>
                     )}
                     {canEdit && (
                       <div className="ml-auto flex items-center gap-2">
@@ -1759,11 +1759,11 @@ export function RegularApplicationDetailModal({
                 onToggle={() => setOpenStepIdx((i) => (i === 1 ? null : 1))}
                 disabled={!canEdit}
                 summary={FEE_SENT_OR_LATER.has(status) ? (
-                  <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
+                  <span className="text-[11px] text-green-700 dark:text-green-300 font-medium">
                     {status}
                   </span>
                 ) : (
-                  <span className="text-[10px] italic">Not sent</span>
+                  <span className="text-[11px] italic">Not sent</span>
                 )}
               >
                 <div className="space-y-2">
@@ -1829,16 +1829,16 @@ export function RegularApplicationDetailModal({
                 open={openStepIdx === 2}
                 onToggle={() => setOpenStepIdx((i) => (i === 2 ? null : 2))}
                 summary={enrollmentId ? (
-                  <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
+                  <span className="text-[11px] text-green-700 dark:text-green-300 font-medium">
                     Enrollment #{enrollmentId}
                   </span>
                 ) : publishBlockers.length > 0 ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                     <AlertTriangle className="h-3 w-3" />
                     Blocked
                   </span>
                 ) : (
-                  <span className="text-[10px] text-accent-ink font-medium">Ready</span>
+                  <span className="text-[11px] text-accent-ink font-medium">Ready</span>
                 )}
               >
               {enrollmentId ? (
@@ -2042,7 +2042,7 @@ export function RegularApplicationDetailModal({
                         the verified origin. This intake charges the fee to
                         nobody, so it is only ever mentioned as something the
                         offer spared a genuinely new student. */}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       {registrationFee > 0
                         ? "Includes the one-off $100 materials fee. No previous enrolment with the Secondary Academy."
                         : !intakeChargesFee
@@ -2104,7 +2104,7 @@ export function RegularApplicationDetailModal({
 
               {!readOnly && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}

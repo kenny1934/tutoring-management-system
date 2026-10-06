@@ -180,22 +180,22 @@ export function RateSessionModal({
           {/* Keyboard shortcuts hint */}
           <div className="hidden sm:flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">1-5</kbd>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[11px]">1-5</kbd>
               <span>rate</span>
             </span>
             <span className="text-gray-300 dark:text-gray-400">·</span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">0</kbd>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[11px]">0</kbd>
               <span>clear</span>
             </span>
             <span className="text-gray-300 dark:text-gray-400">·</span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Tab</kbd>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[11px]">Tab</kbd>
               <span>comment</span>
             </span>
             <span className="text-gray-300 dark:text-gray-400">·</span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[11px]">Ctrl+Enter</kbd>
               <span>save</span>
             </span>
           </div>
@@ -221,10 +221,10 @@ export function RateSessionModal({
             {session.student_name}
           </span>
           {session.grade && (
-            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+            <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               {session.school}
             </span>
           )}

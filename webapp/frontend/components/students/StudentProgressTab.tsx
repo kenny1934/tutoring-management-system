@@ -60,7 +60,7 @@ function DeltaBadge({ delta, format, tooltip }: { delta: number; format: (v: num
   const isUp = delta > 0;
   const badge = (
     <span className={cn(
-      "inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+      "inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full",
       isUp ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
     )}>
       {isUp ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
@@ -224,7 +224,7 @@ function AttendanceDonut({ data }: { data: StudentProgress["attendance"] }) {
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center">
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{data.attendance_rate}%</div>
-          <div className="text-[10px] text-gray-500 dark:text-gray-400">attendance</div>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">attendance</div>
         </div>
       </div>
       {/* Legend */}
@@ -376,7 +376,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
               )}
               {e.enrollment_type && (
                 <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                  "text-[11px] px-1.5 py-0.5 rounded font-medium",
                   e.enrollment_type === "Trial"
                     ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
                     : e.enrollment_type === "One-Time"
@@ -387,7 +387,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
                 </span>
               )}
               <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                "text-[11px] px-1.5 py-0.5 rounded font-medium",
                 e.payment_status === "Paid"
                   ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
                   : e.payment_status === "Cancelled" || e.payment_status === "Waived"
@@ -693,7 +693,7 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className={cn(
-                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                      "text-[11px] font-medium px-1.5 py-0.5 rounded-full",
                       r.mode === "parent"
                         ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                         : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
@@ -701,11 +701,11 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
                       {r.mode === "parent" ? "Parent" : "Internal"}
                     </span>
                     {r.date_range_label && (
-                      <span className="text-[10px] text-gray-500">{r.date_range_label}</span>
+                      <span className="text-[11px] text-gray-500">{r.date_range_label}</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-300 truncate">{r.label}</p>
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[11px] text-gray-500">
                     {formatShortDate(r.created_at)}
                     {r.creator_name && ` by ${r.creator_name}`}
                   </p>
@@ -963,7 +963,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
               AI Content <span className="text-gray-500 dark:text-gray-400">(optional)</span>
             </label>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1.5">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1.5">
               Generates a learning summary and concept map from student data.
             </p>
             <div className="flex items-center gap-2">
@@ -973,7 +973,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     key={val}
                     onClick={() => { setLanguage(val); setAiInsights(null); }}
                     className={cn(
-                      "text-[10px] px-2 py-1 font-medium transition-colors",
+                      "text-[11px] px-2 py-1 font-medium transition-colors",
                       language === val
                         ? "bg-primary text-white"
                         : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
@@ -1007,7 +1007,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               </button>
             </div>
             {aiError && (
-              <p className="text-[10px] text-red-600 mt-1">{aiError}</p>
+              <p className="text-[11px] text-red-600 mt-1">{aiError}</p>
             )}
           </div>
 
@@ -1060,7 +1060,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     key={val}
                     onClick={() => setRadarConfig((prev) => ({ ...prev, display_mode: val }))}
                     className={cn(
-                      "text-[10px] px-2.5 py-1 font-medium transition-colors",
+                      "text-[11px] px-2.5 py-1 font-medium transition-colors",
                       radarConfig.display_mode === val
                         ? "bg-primary text-white"
                         : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
@@ -1130,14 +1130,14 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     ...prev,
                     axes: [...prev.axes, { label: "", score: 3 }],
                   }))}
-                  className="flex items-center gap-1 text-[10px] text-accent-ink hover:text-[#8b6140] font-medium mt-1.5 transition-colors"
+                  className="flex items-center gap-1 text-[11px] text-accent-ink hover:text-[#8b6140] font-medium mt-1.5 transition-colors"
                 >
                   <Plus className="w-3 h-3" />
                   Add attribute
                 </button>
               )}
               {!radarValid && (
-                <p className="text-[10px] text-amber-700 mt-1">Fill in at least 4 attributes to include the radar chart</p>
+                <p className="text-[11px] text-amber-700 mt-1">Fill in at least 4 attributes to include the radar chart</p>
               )}
             </div>
           )}

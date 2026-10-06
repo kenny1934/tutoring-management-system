@@ -379,7 +379,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                 >
                   <span
                     className={cn(
-                      "shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded mt-1",
+                      "shrink-0 px-1.5 py-0.5 text-[11px] font-bold rounded mt-1",
                       ex.exercise_type === "CW"
                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                         : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"

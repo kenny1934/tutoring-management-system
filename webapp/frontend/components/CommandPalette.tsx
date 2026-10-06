@@ -842,7 +842,7 @@ export function CommandPalette() {
                   <div key={type}>
                     <div className="px-4 py-1.5 flex items-center gap-2">
                       <span className={cn(
-                        "text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded",
+                        "text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded",
                         typeBadgeColors[type]
                       )}>
                         {typeLabels[type]}
@@ -1082,13 +1082,13 @@ export function CommandPalette() {
               Select
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border border-[#e8d4b8] dark:border-[#3d3628] text-[10px]">
+              <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border border-[#e8d4b8] dark:border-[#3d3628] text-[11px]">
                 Esc
               </kbd>
               {query ? "Clear" : "Close"}
             </span>
             <span className="flex items-center gap-1">
-              <span className="text-[10px]">?</span>
+              <span className="text-[11px]">?</span>
               Help
             </span>
           </div>

@@ -188,7 +188,7 @@ function GradeBadge({ row }: { row: RegularRetentionChaseRow }) {
       />
       {row.rung === "admin_only" && (
         <span
-          className="text-[10px] text-muted-foreground"
+          className="text-[11px] text-muted-foreground"
           title="This grade is not on the public form, so staff enter the application"
         >
           admin only
@@ -1370,7 +1370,7 @@ function MoreFilters({
           <SlidersHorizontal className="h-3.5 w-3.5" />
           Filters
           {count > 0 && (
-            <span className="min-w-[1rem] rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground tabular-nums">
+            <span className="min-w-[1rem] rounded-full bg-primary px-1 text-center text-[11px] leading-4 text-primary-foreground tabular-nums">
               {count}
             </span>
           )}
@@ -1597,7 +1597,7 @@ export function ChaseListBody({
                         {r.follow_up_needed && r.follow_up_date && (
                           <span
                             className={cn(
-                              "ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
+                              "ml-1.5 px-1 py-0.5 rounded text-[11px] font-medium whitespace-nowrap",
                               due
                                 ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
                                 : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
@@ -1624,14 +1624,14 @@ export function ChaseListBody({
                       <span className="ml-1.5"><LadderRung row={r} /></span>
                       {r.decline_reason_category && r.state !== "declined" && (
                         <span
-                          className="ml-1.5 text-[10px] text-rose-600 dark:text-rose-400"
+                          className="ml-1.5 text-[11px] text-rose-600 dark:text-rose-400"
                           title="Somebody marked this student as not returning, but they have a live application. Worth checking."
                         >
                           conflict
                         </span>
                       )}
                       {r.state === "declined" && r.decline_reason_category && (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground">
+                        <span className="ml-1.5 text-[11px] text-muted-foreground">
                           {r.decline_reason_category}
                         </span>
                       )}
@@ -1701,7 +1701,7 @@ export function ChaseListBody({
 export function LadderRung({ row }: { row: RegularRetentionChaseRow }) {
   if (row.state !== "applied" || !row.application_status) return null;
   return (
-    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+    <span className="text-[11px] text-muted-foreground whitespace-nowrap">
       {regularStatusLabel(row.application_status, "en")}
     </span>
   );

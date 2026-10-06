@@ -69,7 +69,7 @@ export function StudentInfoBadges({
 
   const nameClass = cn(
     "font-semibold text-gray-900 dark:text-white",
-    compact ? "text-[10px]" : "text-sm",
+    compact ? "text-[11px]" : "text-sm",
     onNameClick && "cursor-pointer hover:text-accent-ink hover:underline text-left truncate",
   );
 
@@ -79,7 +79,7 @@ export function StudentInfoBadges({
         <span
           className={cn(
             "text-gray-500 dark:text-gray-400 font-mono",
-            compact ? "text-[9px]" : "text-[10px]",
+            compact ? "text-[11px]" : "text-[11px]",
           )}
         >
           {studentIdDisplay}
@@ -107,7 +107,7 @@ export function StudentInfoBadges({
         <span
           className={cn(
             "rounded text-gray-800",
-            compact ? "text-[8px] font-bold px-1 py-0" : "text-[10px] px-1.5 py-0.5",
+            compact ? "text-[11px] font-bold px-1 py-0" : "text-[11px] px-1.5 py-0.5",
           )}
           style={{ backgroundColor: getGradeColor(gradeForColor, student.lang_stream) }}
         >
@@ -118,7 +118,7 @@ export function StudentInfoBadges({
         <span
           className={cn(
             "rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300",
-            compact ? "text-[8px] px-1 py-0" : "text-[10px] px-1.5 py-0.5",
+            compact ? "text-[11px] px-1 py-0" : "text-[11px] px-1.5 py-0.5",
           )}
         >
           {student.school}

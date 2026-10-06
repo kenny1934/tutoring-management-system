@@ -277,7 +277,7 @@ export function SummerFindSlotDialog({
                               <span>{formatShortDate(result.date)}</span>
                               <span className="text-muted-foreground">{result.time_slot}</span>
                               <span className={cn(
-                                "text-[10px] font-bold px-1 rounded",
+                                "text-[11px] font-bold px-1 rounded",
                                 result.lesson_match
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                   : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
@@ -287,7 +287,7 @@ export function SummerFindSlotDialog({
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {result.tutor_name && (
-                                <TutorLink tutorId={result.tutor_id} tutorName={result.tutor_name} className="text-[10px] text-muted-foreground" />
+                                <TutorLink tutorId={result.tutor_id} tutorName={result.tutor_name} className="text-[11px] text-muted-foreground" />
                               )}
                               <div className="flex-1 h-1 bg-[#e8d4b8]/30 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div
@@ -295,13 +295,13 @@ export function SummerFindSlotDialog({
                                   style={{ width: `${Math.min(pct, 100)}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] text-muted-foreground">{result.current_count}/{result.max_students}</span>
+                              <span className="text-[11px] text-muted-foreground">{result.current_count}/{result.max_students}</span>
                             </div>
                           </div>
                           <button
                             onClick={() => handlePlaceResult(result)}
                             disabled={isFull || placingId !== null}
-                            className="px-2.5 py-1 text-[10px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                            className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                           >
                             {isPlacing ? <Loader2 className="h-3 w-3 animate-spin" /> : "Place"}
                           </button>
@@ -318,7 +318,7 @@ export function SummerFindSlotDialog({
                   {/* Divider */}
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex-1 h-px bg-line/50" />
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Or pick manually</span>
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Or pick manually</span>
                     <div className="flex-1 h-px bg-line/50" />
                   </div>
 
@@ -377,8 +377,8 @@ export function SummerFindSlotDialog({
                           key={dateStr}
                           className="bg-paper text-center py-1"
                         >
-                          <div className="text-[10px] font-medium text-muted-foreground">{DAY_ABBREV[dayName]}</div>
-                          <div className="text-[9px] text-muted-foreground">{formatCompactDate(dateStr)}</div>
+                          <div className="text-[11px] font-medium text-muted-foreground">{DAY_ABBREV[dayName]}</div>
+                          <div className="text-[11px] text-muted-foreground">{formatCompactDate(dateStr)}</div>
                         </div>
                       );
                     })}
@@ -388,7 +388,7 @@ export function SummerFindSlotDialog({
                       <React.Fragment key={ts}>
                         {/* Time label */}
                         <div
-                          className="bg-paper flex items-center justify-center text-[9px] text-muted-foreground font-medium px-0.5"
+                          className="bg-paper flex items-center justify-center text-[11px] text-muted-foreground font-medium px-0.5"
                         >
                           {ts.split(" - ")[0]}
                         </div>
@@ -415,7 +415,7 @@ export function SummerFindSlotDialog({
                               onClick={() => !isFull && !placingId && handlePlace(lesson.slot_id, lesson.lesson_id, lesson.lesson_number, lesson.date)}
                               disabled={isFull || placingId !== null}
                               className={cn(
-                                "min-h-[32px] flex flex-col items-center justify-center text-[10px] transition-colors",
+                                "min-h-[32px] flex flex-col items-center justify-center text-[11px] transition-colors",
                                 isFull
                                   ? "bg-gray-100 dark:bg-gray-800 opacity-40 cursor-not-allowed"
                                   : isMatch
@@ -430,7 +430,7 @@ export function SummerFindSlotDialog({
                               )}>
                                 L{lesson.lesson_number}
                               </span>
-                              <span className="text-[8px] text-muted-foreground">
+                              <span className="text-[11px] text-muted-foreground">
                                 {count}/{lesson.max_students}
                               </span>
                               {isPlacing && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
@@ -441,7 +441,7 @@ export function SummerFindSlotDialog({
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-center gap-3 mt-2 text-[10px] text-muted-foreground">
+                  <div className="flex items-center justify-center gap-3 mt-2 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <span className="inline-block w-3 h-3 rounded bg-green-200 dark:bg-green-800 border border-green-400" /> match
                     </span>

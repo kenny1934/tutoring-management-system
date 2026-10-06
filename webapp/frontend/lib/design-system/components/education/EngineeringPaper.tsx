@@ -90,7 +90,7 @@ export function EngineeringPaper({
           {/* Top measurement scale */}
           <div className="absolute top-0 left-0 right-0 h-6 bg-gray-100/80 dark:bg-gray-800/80 border-b border-gray-400 dark:border-gray-600 flex items-center justify-around text-xs text-gray-600 dark:text-gray-400 font-mono">
             {Array.from({ length: 20 }, (_, i) => (
-              <span key={i} className="text-[10px]">
+              <span key={i} className="text-[11px]">
                 {i % 5 === 0 ? i : "·"}
               </span>
             ))}
@@ -99,7 +99,7 @@ export function EngineeringPaper({
           {/* Left measurement scale */}
           <div className="absolute top-0 left-0 bottom-0 w-6 bg-gray-100/80 dark:bg-gray-800/80 border-r border-gray-400 dark:border-gray-600 flex flex-col items-center justify-around text-xs text-gray-600 dark:text-gray-400 font-mono">
             {Array.from({ length: 15 }, (_, i) => (
-              <span key={i} className="text-[10px] -rotate-90">
+              <span key={i} className="text-[11px] -rotate-90">
                 {i % 5 === 0 ? i : "·"}
               </span>
             ))}

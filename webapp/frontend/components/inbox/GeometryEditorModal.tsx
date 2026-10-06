@@ -1511,7 +1511,7 @@ export default function GeometryEditorModal({
             {/* Curve mode selector */}
             <div className="flex items-center gap-1 px-4 pt-2 pb-1">
               {editingCurve && (
-                <span className="text-[10px] text-accent-ink dark:text-[#c9a96e] font-medium mr-1">Editing:</span>
+                <span className="text-[11px] text-accent-ink dark:text-[#c9a96e] font-medium mr-1">Editing:</span>
               )}
               {([
                 { mode: "fx" as CurveMode, label: "f(x)" },
@@ -1523,7 +1523,7 @@ export default function GeometryEditorModal({
                   onClick={() => { if (!editingCurve) setCurveMode(mode); }}
                   disabled={!!editingCurve}
                   className={cn(
-                    "px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors disabled:cursor-default",
+                    "px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors disabled:cursor-default",
                     curveMode === mode
                       ? "bg-primary text-white"
                       : "text-gray-500 dark:text-gray-400 hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30"
@@ -1611,19 +1611,19 @@ export default function GeometryEditorModal({
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">t:</span>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">t:</span>
                       <input
                         type="text"
                         value={tMinInput}
                         onChange={(e) => setTMinInput(e.target.value)}
-                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-field rounded outline-none text-gray-800 dark:text-gray-200"
+                        className="w-10 px-1 py-0.5 text-[11px] font-mono text-center bg-white dark:bg-[#2a2518] border border-field rounded outline-none text-gray-800 dark:text-gray-200"
                       />
-                      <span className="text-[10px] text-gray-500">to</span>
+                      <span className="text-[11px] text-gray-500">to</span>
                       <input
                         type="text"
                         value={tMaxInput}
                         onChange={(e) => setTMaxInput(e.target.value)}
-                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-field rounded outline-none text-gray-800 dark:text-gray-200"
+                        className="w-10 px-1 py-0.5 text-[11px] font-mono text-center bg-white dark:bg-[#2a2518] border border-field rounded outline-none text-gray-800 dark:text-gray-200"
                       />
                     </div>
                     <button
@@ -1635,7 +1635,7 @@ export default function GeometryEditorModal({
                     {editingCurve && (
                       <button
                         onClick={handleCancelEdit}
-                        className="px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                        className="px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                       >
                         Cancel
                       </button>
@@ -1698,7 +1698,7 @@ export default function GeometryEditorModal({
                   {editingCurve && (
                     <button
                       onClick={handleCancelEdit}
-                      className="px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                      className="px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                     >
                       Cancel
                     </button>
@@ -1710,7 +1710,7 @@ export default function GeometryEditorModal({
             {/* Hint text */}
             {curveMode === "implicit" && !editingCurve && (
               <div className="px-4 pb-1.5 -mt-1">
-                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">
                   Enter the expression = 0. E.g. x²+y²-1 for a unit circle
                 </span>
               </div>
@@ -1856,7 +1856,7 @@ export default function GeometryEditorModal({
               Selected: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedEl.elType}</span>
             </span>
             {getElementPoints(boardRef.current, selectedEl).length >= 2 && (
-              <span className="text-[10px] text-accent-ink dark:text-[#c9a96e] ml-1">Drag any point to move</span>
+              <span className="text-[11px] text-accent-ink dark:text-[#c9a96e] ml-1">Drag any point to move</span>
             )}
             <div className="flex items-center gap-0.5 ml-2">
               {COLOR_PALETTE.map((c) => (
@@ -1921,7 +1921,7 @@ export default function GeometryEditorModal({
         )}
 
         {/* Tool hint */}
-        <div className="flex items-center px-4 py-1 text-[10px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center px-4 py-1 text-[11px] text-gray-500 dark:text-gray-400">
           <span>
             {shapePreset
               ? "Click on the board to place the shape"
@@ -1937,7 +1937,7 @@ export default function GeometryEditorModal({
           {tool === "polygon" && pendingCount >= 3 && (
             <button
               onClick={handleClosePolygon}
-              className="ml-auto px-2.5 py-0.5 text-[10px] font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] transition-colors"
+              className="ml-auto px-2.5 py-0.5 text-[11px] font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] transition-colors"
             >
               Close Polygon
             </button>
@@ -1993,7 +1993,7 @@ export default function GeometryEditorModal({
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-line/40 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
               {objectCount} object{objectCount !== 1 ? "s" : ""}
             </span>
             <div className="flex items-center gap-0.5">
@@ -2023,7 +2023,7 @@ export default function GeometryEditorModal({
               onClick={handleExportPng}
               disabled={objectCount === 0}
               title="Export as PNG"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-30"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-30"
             >
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">PNG</span>

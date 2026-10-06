@@ -233,7 +233,7 @@ export function SummerBuddyBoard({
                   {need} more
                 </span>
                 <span className="h-px flex-1 bg-amber-200/70 dark:bg-amber-900/40" />
-                <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                   {groups.length}
                 </span>
               </div>
@@ -301,7 +301,7 @@ export function SummerBuddyBoard({
                   <div className="flex-1 min-w-0 flex items-center gap-2">
                     <PrimaryBranchChip app={a} />
                     <span className="truncate font-medium text-foreground">{a.student_name}</span>
-                    {a.grade && <span className="text-[10px] text-muted-foreground">{a.grade}</span>}
+                    {a.grade && <span className="text-[11px] text-muted-foreground">{a.grade}</span>}
                   </div>
                   <StatusBadge status={a.application_status} />
                 </button>
@@ -337,7 +337,7 @@ function BoardSection({
           {title}
         </span>
         <span className={cn(
-          "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+          "text-[11px] px-1.5 py-0.5 rounded-full font-medium",
           tone === "amber"
             ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
             : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
@@ -387,17 +387,17 @@ function GroupCard({
           title={meterTitle}
         />
         {group.crossBranch && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Cross-branch
           </span>
         )}
         {currentTier && nextTier && needed > 0 && (
-          <span className="ml-auto text-[10px] text-muted-foreground">
+          <span className="ml-auto text-[11px] text-muted-foreground">
             {needed} more for <TierName>{nextTier.label}</TierName>
           </span>
         )}
         {!nextTier && currentTier && (
-          <span className="ml-auto text-[10px] text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-0.5">
+          <span className="ml-auto text-[11px] text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-0.5">
             <Check className="h-3 w-3" /> Max tier
           </span>
         )}
@@ -414,7 +414,7 @@ function GroupCard({
               <PrimaryBranchChip app={a} />
               <span className="truncate text-sm font-medium text-foreground">{a.student_name}</span>
               {a.preferred_location && (
-                <span className="shrink-0 text-[10px] text-muted-foreground">
+                <span className="shrink-0 text-[11px] text-muted-foreground">
                   {displayLocation(a.preferred_location)}
                 </span>
               )}
@@ -430,14 +430,14 @@ function GroupCard({
               className="flex items-center gap-2 px-3 py-2 text-sm bg-muted/20"
             >
               <div className="flex-1 min-w-0 flex items-center gap-2">
-                <span className="shrink-0 text-[10px] font-semibold font-mono text-muted-foreground">
+                <span className="shrink-0 text-[11px] font-semibold font-mono text-muted-foreground">
                   {s.source_branch}
                 </span>
                 <span className="truncate text-foreground">{s.name_en}</span>
                 <SiblingBadge />
               </div>
               <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                "text-[11px] px-1.5 py-0.5 rounded-full font-medium",
                 s.verification_status === "Confirmed"
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
@@ -464,7 +464,7 @@ function TierName({ children }: { children: React.ReactNode }) {
 
 function SiblingBadge() {
   return (
-    <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+    <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
       Sibling
     </span>
   );

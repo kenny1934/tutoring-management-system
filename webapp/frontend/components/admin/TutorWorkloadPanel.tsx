@@ -166,7 +166,7 @@ export function TutorWorkloadPanel<T extends WorkloadSlot>({
                       <span
                         key={grade}
                         className={cn(
-                          "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                          "px-1.5 py-0.5 rounded text-[11px] font-medium",
                           SUMMER_GRADE_BG[grade] ??
                             "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
                         )}

@@ -239,18 +239,18 @@ const ThreadItem = React.memo(function ThreadItem({
               <span className="flex items-center gap-0.5 text-accent-ink flex-shrink-0">
                 <AlarmClock className="h-3 w-3" />
                 {msg.snoozed_until && (
-                  <span className="text-[10px] whitespace-nowrap">{formatSnoozeUntil(msg.snoozed_until)}</span>
+                  <span className="text-[11px] whitespace-nowrap">{formatSnoozeUntil(msg.snoozed_until)}</span>
                 )}
               </span>
             )}
             {msg.to_tutor_id === null && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+              <span className="text-[11px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
                 Broadcast
               </span>
             )}
             {msg.priority !== "Normal" && (
               <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                "text-[11px] px-1.5 py-0.5 rounded-full font-medium",
                 priorityConfig.badgeClass
               )}>
                 {priorityConfig.label}
@@ -1558,7 +1558,7 @@ export default function InboxPage() {
                                   type="button"
                                   onClick={() => setTagsExpanded(!tagsExpanded)}
                                   className={cn(
-                                    "w-full flex items-center gap-1 px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200",
+                                    "w-full flex items-center gap-1 px-3 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200",
                                     categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
                                   )}
                                 >
@@ -1582,7 +1582,7 @@ export default function InboxPage() {
                                 </button>
                               ) : (
                                 <div className={cn(
-                                  "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap transition-opacity duration-200",
+                                  "px-3 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap transition-opacity duration-200",
                                   categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
                                 )}>
                                   {section.label}
@@ -2068,7 +2068,7 @@ export default function InboxPage() {
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Select a conversation</p>
                   {!isReadOnlyInbox && (
-                    <p className="text-xs mt-1 opacity-60">or press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-mono">c</kbd> to compose</p>
+                    <p className="text-xs mt-1 opacity-60">or press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[11px] font-mono">c</kbd> to compose</p>
                   )}
                 </div>
               </div>
@@ -2132,7 +2132,7 @@ export default function InboxPage() {
                   ["?", "This help"],
                 ].map(([key, desc]) => (
                   <div key={key} className="contents">
-                    <kbd className="text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[10px] text-center">{key}</kbd>
+                    <kbd className="text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[11px] text-center">{key}</kbd>
                     <span className="text-gray-500 dark:text-gray-400 py-0.5">{desc}</span>
                   </div>
                 ))}

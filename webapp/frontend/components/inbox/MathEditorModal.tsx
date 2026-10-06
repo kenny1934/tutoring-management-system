@@ -394,13 +394,13 @@ export default function MathEditorModal({
                 Block
               </button>
             </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 ml-0.5">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 ml-0.5">
               {modeDescription}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 hidden sm:inline">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 hidden sm:inline">
               Ctrl+Enter
             </span>
             {isEditing && (

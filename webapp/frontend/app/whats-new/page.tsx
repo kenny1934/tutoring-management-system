@@ -119,7 +119,7 @@ export default function WhatsNewPage() {
                     </span>
                   </div>
                   {idx === 0 && (
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-primary/10 text-primary">
+                    <span className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-primary/10 text-primary">
                       Latest
                     </span>
                   )}

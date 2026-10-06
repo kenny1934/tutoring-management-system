@@ -157,7 +157,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
               {WEEKDAYS.map((day, i) => (
                 <div
                   key={i}
-                  className="text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400"
+                  className="text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400"
                 >
                   {day}
                 </div>

@@ -1360,7 +1360,7 @@ export function FolderTreeModal({
                             </button>
                           </div>
                           {sel.error && (
-                            <p className="text-[10px] text-red-600 pl-1">{sel.error}</p>
+                            <p className="text-[11px] text-red-600 pl-1">{sel.error}</p>
                           )}
                         </div>
                       ))}
@@ -1583,7 +1583,7 @@ export function FolderTreeModal({
                 </div>
 
                 {/* Keyboard shortcuts hint */}
-                <div className="text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="flex items-center gap-1">
                     <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
                       {viewMode === "grid" ? "←↑↓→" : "↑↓"}

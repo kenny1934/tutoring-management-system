@@ -94,7 +94,7 @@ function WeekSection({
                   >
                     {conceptNameForStream(c, langStream)}
                   </p>
-                  <p className="text-[10px] text-foreground/50">
+                  <p className="text-[11px] text-foreground/50">
                     Seen in {evidenceSourcesText(c.sources, c.thin)}
                   </p>
                 </div>

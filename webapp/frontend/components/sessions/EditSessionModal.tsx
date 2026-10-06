@@ -533,10 +533,10 @@ export function EditSessionModal({
             {session.student_name}
           </span>
           {session.grade && (
-            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+            <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               {session.school}
             </span>
           )}

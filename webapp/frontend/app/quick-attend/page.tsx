@@ -440,7 +440,7 @@ export default function QuickAttendPage() {
 
             {/* Progress bar — always rendered to prevent layout shift */}
             <div className="px-4 py-2.5">
-              <div className="flex justify-between text-[10px] font-medium text-[#8b6f47] dark:text-[#a89070] mb-1">
+              <div className="flex justify-between text-[11px] font-medium text-[#8b6f47] dark:text-[#a89070] mb-1">
                 <span>{completedCount}/{progressTotal} done</span>
                 <span>{Math.round(progressFraction * 100)}%</span>
               </div>
@@ -710,7 +710,7 @@ function RatingStrip({ sessionId, studentName, onRate, onSkipRating }: {
           <StarRating rating={0} onChange={(r) => onRate(sessionId, r)} size="sm" />
           <button
             onClick={() => onSkipRating(sessionId)}
-            className="text-[10px] text-accent-ink/60 hover:text-accent-ink transition-colors"
+            className="text-[11px] text-accent-ink/60 hover:text-accent-ink transition-colors"
           >
             Skip
           </button>
@@ -852,19 +852,19 @@ const SessionCard = React.memo(function SessionCard({
               <span className="font-semibold text-[#3d2b1f] dark:text-[#e8d4b8]">{studentName}</span>
               <LessonNumberBadge lessonNumber={lessonNumber} size="xs" />
               <GradeBadge
-                className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"
+                className="text-[11px] px-1.5 py-0.5 rounded font-medium text-gray-800"
                 grade={grade}
                 langStream={langStream}
               />
               {school && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                   {school}
                 </span>
               )}
               {sessionStatus !== "Scheduled" && (
                 <SessionStatusTag status={sessionStatus} iconOnly size="sm" />
               )}
-              <Link href={`/sessions/${sessionId}`} onClick={(e) => e.stopPropagation()} className="ml-auto text-[10px] text-accent-ink/60 hover:text-accent-ink transition-colors flex items-center gap-0.5">
+              <Link href={`/sessions/${sessionId}`} onClick={(e) => e.stopPropagation()} className="ml-auto text-[11px] text-accent-ink/60 hover:text-accent-ink transition-colors flex items-center gap-0.5">
                 #{sessionId}
                 <ExternalLink className="h-2.5 w-2.5" />
               </Link>

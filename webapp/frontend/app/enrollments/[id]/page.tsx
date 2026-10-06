@@ -1751,7 +1751,7 @@ export default function EnrollmentDetailPage() {
                     >
                       <div className="flex-1 p-3 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] text-gray-500 font-mono">#{session.id}</span>
+                          <span className="text-[11px] text-gray-500 font-mono">#{session.id}</span>
                           <SessionLessonBadge session={session} size="xs" />
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}

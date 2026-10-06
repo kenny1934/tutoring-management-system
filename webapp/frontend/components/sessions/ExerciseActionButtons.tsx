@@ -116,7 +116,7 @@ export function ExerciseActionButtons({
           >
             {action.icon}
             {action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF" && (
-              <span className="text-[10px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
+              <span className="text-[11px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
                 {action.label}
               </span>
             )}

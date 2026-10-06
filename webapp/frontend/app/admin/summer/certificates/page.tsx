@@ -367,11 +367,11 @@ export default function SummerCertificatesPage() {
                             <GradeBadge
                               grade={row.linked_student.grade}
                               langStream={row.linked_student.lang_stream}
-                              className="rounded text-gray-800 text-[10px] px-1.5 py-0.5"
+                              className="rounded text-gray-800 text-[11px] px-1.5 py-0.5"
                             />
                           ) : (
                             <span
-                              className="rounded text-gray-800 text-[10px] px-1.5 py-0.5"
+                              className="rounded text-gray-800 text-[11px] px-1.5 py-0.5"
                               style={{ backgroundColor: getGradeColor(row.grade, row.lang_stream ?? undefined) }}
                             >
                               {row.grade}

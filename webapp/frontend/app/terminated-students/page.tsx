@@ -1327,7 +1327,7 @@ function useSortedStudents(students: StatDetailStudent[], sortBy: StatDetailSort
 
 function SortToggle({ sortBy, onChange }: { sortBy: StatDetailSort; onChange: (v: StatDetailSort) => void }) {
   return (
-    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
       <span>Sort:</span>
       <button
         onClick={() => onChange('id')}
@@ -1347,7 +1347,7 @@ function SortToggle({ sortBy, onChange }: { sortBy: StatDetailSort; onChange: (v
 
 function ViewToggle({ viewMode, onChange }: { viewMode: 'list' | 'grid'; onChange: (v: 'list' | 'grid') => void }) {
   return (
-    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
       <span>View:</span>
       <button
         onClick={() => onChange('list')}
@@ -1749,7 +1749,7 @@ function TimetableGridTable({
         <tbody>
           {timeSlots.map(time => (
             <tr key={time}>
-              <td className="px-2 py-2 text-[10px] font-mono text-muted-foreground border-r border-line align-top whitespace-nowrap">
+              <td className="px-2 py-2 text-[11px] font-mono text-muted-foreground border-r border-line align-top whitespace-nowrap">
                 {time}
               </td>
               {days.map(day => {
@@ -1769,7 +1769,7 @@ function TimetableGridTable({
                           onClick={(e) => onStudentClick(e, s)}
                         >
                           {s.school_student_id && (
-                            <span className="text-gray-500 dark:text-gray-400 font-mono text-[9px] shrink-0">
+                            <span className="text-gray-500 dark:text-gray-400 font-mono text-[11px] shrink-0">
                               {showLocationPrefix && s.home_location ? `${s.home_location}-` : ''}{s.school_student_id}
                             </span>
                           )}
@@ -1777,18 +1777,18 @@ function TimetableGridTable({
                             {s.student_name}
                           </span>
                           <GradeBadge
-                            className="text-[8px] px-1 py-px rounded shrink-0 text-gray-800"
+                            className="text-[11px] px-1 py-px rounded shrink-0 text-gray-800"
                             grade={s.grade}
                             langStream={s.lang_stream}
                             showStream={false}
                           />
                           {showTransferFromInfo && (s as EnrolledStudent).transferred_from_tutor && (
-                            <span className="text-[9px] text-blue-600 dark:text-blue-400 shrink-0 truncate">
+                            <span className="text-[11px] text-blue-600 dark:text-blue-400 shrink-0 truncate">
                               {"\u2190"} {(s as EnrolledStudent).transferred_from_tutor}
                             </span>
                           )}
                           {showTransferInfo && (s as ExitedStudent).transferred_to_tutor && (
-                            <span className="text-[9px] text-blue-600 dark:text-blue-400 shrink-0 truncate">
+                            <span className="text-[11px] text-blue-600 dark:text-blue-400 shrink-0 truncate">
                               {"\u2192"} {(s as ExitedStudent).transferred_to_tutor}
                             </span>
                           )}
@@ -1889,7 +1889,7 @@ function TimetableGridEnrollTransfer({
             />
             {enrolledGrid.unscheduled.length > 0 && (
               <div className="mt-2">
-                <p className="text-[10px] text-muted-foreground mb-1">Unscheduled ({enrolledGrid.unscheduled.length})</p>
+                <p className="text-[11px] text-muted-foreground mb-1">Unscheduled ({enrolledGrid.unscheduled.length})</p>
                 <ul className="space-y-0.5">
                   {enrolledGrid.unscheduled.map(s => (
                     <StudentDetailItem key={s.student_id} student={s} onClick={onStudentClick} fetchingEnrollmentId={fetchingEnrollmentId} transferredFromTutor={(s as EnrolledStudent).transferred_from_tutor} showLocationPrefix={showLocationPrefix} />
@@ -1919,7 +1919,7 @@ function TimetableGridEnrollTransfer({
             />
             {exitedGrid.unscheduled.length > 0 && (
               <div className="mt-2">
-                <p className="text-[10px] text-muted-foreground mb-1">Unscheduled ({exitedGrid.unscheduled.length})</p>
+                <p className="text-[11px] text-muted-foreground mb-1">Unscheduled ({exitedGrid.unscheduled.length})</p>
                 <ul className="space-y-0.5">
                   {exitedGrid.unscheduled.map(s => (
                     <StudentDetailItem key={s.student_id} student={s} onClick={onStudentClick} fetchingEnrollmentId={fetchingEnrollmentId} transferredToTutor={(s as ExitedStudent).transferred_to_tutor} showLocationPrefix={showLocationPrefix} />

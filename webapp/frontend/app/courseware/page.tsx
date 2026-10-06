@@ -160,7 +160,7 @@ function useAnimatedCounter(target: number, duration: number = 1000) {
 // Hot badge for trending items - compact on mobile
 function HotBadge() {
   return (
-    <span className="inline-flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
+    <span className="inline-flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 text-[11px] font-bold bg-red-500 text-white rounded-full animate-pulse">
       🔥<span className="hidden sm:inline"> HOT</span>
     </span>
   );
@@ -458,7 +458,7 @@ function Podium({
               </div>
 
               {/* Stats */}
-              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {item.assignment_count} uses
               </div>
 
@@ -1914,7 +1914,7 @@ function CoursewareBrowserTab() {
         </div>
 
         {/* Footer: Keyboard hints (pointless on touch, so reclaim the space) */}
-        <div className="pointer-coarse:hidden p-2 border-t border-line text-[10px] text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="pointer-coarse:hidden p-2 border-t border-line text-[11px] text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
               {viewMode === "grid" ? "←↑↓→" : "↑↓"}
@@ -2727,13 +2727,13 @@ function CoursewareSearchTab() {
                       {doc.tags.slice(0, 3).map((tag) => (
                         <span
                           key={tag}
-                          className="px-1.5 py-0.5 text-[10px] rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                          className="px-1.5 py-0.5 text-[11px] rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                         >
                           {tag}
                         </span>
                       ))}
                       {doc.tags.length > 3 && (
-                        <span className="text-[10px] text-gray-500">+{doc.tags.length - 3}</span>
+                        <span className="text-[11px] text-gray-500">+{doc.tags.length - 3}</span>
                       )}
                     </div>
                   )}
@@ -2787,15 +2787,15 @@ function CoursewareSearchTab() {
       {/* Keyboard hints footer */}
       <div className="px-4 py-2 border-t border-line text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
+          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">↑↓</kbd>
           navigate
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Enter</kbd>
+          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">Enter</kbd>
           copy
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Space</kbd>
+          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">Space</kbd>
           preview
         </span>
       </div>

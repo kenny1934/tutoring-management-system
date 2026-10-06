@@ -121,7 +121,7 @@ const SeenBadge = React.memo(function SeenBadge({
             </svg>
           )}
           {showProgressBar && (
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-0.5">
               {readCount}/{totalRecipients}
             </span>
           )}
@@ -158,7 +158,7 @@ const SeenBadge = React.memo(function SeenBadge({
             )}
             <div className="max-h-[200px] overflow-y-auto">
               {readReceipts.length > 0 && (
-                <div className="px-3 pt-1 pb-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Read</div>
+                <div className="px-3 pt-1 pb-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Read</div>
               )}
               {readReceipts.map((receipt) => (
                 <div key={receipt.tutor_id} className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -166,7 +166,7 @@ const SeenBadge = React.memo(function SeenBadge({
                     <Check className="h-3 w-3 text-blue-600 flex-shrink-0" />
                     <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{receipt.tutor_name}</span>
                   </div>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {new Date(receipt.read_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                   </span>
                 </div>
@@ -434,7 +434,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
                     <span className="text-sm flex-shrink-0">{detail.emoji || "❤️"}</span>
                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{detail.tutor_name}</span>
                   </div>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {new Date(detail.liked_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                   </span>
                 </div>
@@ -777,13 +777,13 @@ const MessageBubble = React.memo(function MessageBubble({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => { onDelete(m.id); setShowDeleteConfirm(false); }}
-                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-red-500 text-white hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors"
+                      className="px-1.5 py-0.5 text-[11px] font-medium rounded bg-red-500 text-white hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors"
                     >
                       Delete
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors"
+                      className="px-1.5 py-0.5 text-[11px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors"
                     >
                       Cancel
                     </button>

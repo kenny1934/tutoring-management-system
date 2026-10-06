@@ -248,7 +248,7 @@ export function RegularApplicationStats({ applications, filters, readOnly = fals
             {unrecognised.map(([spelling, count]) => (
               <div key={spelling} className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-foreground">{spelling}</span>
-                <span className="text-[10px] text-muted-foreground tabular-nums">×{count}</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">×{count}</span>
                 {!readOnly && (
                   <SchoolAliasAssign raw={spelling} onAssigned={onAliasCreated} className="ml-auto" />
                 )}

@@ -155,7 +155,7 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
                 {memo.exercises.map((ex, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
                     <span className={cn(
-                      "px-1 py-0.5 rounded text-[10px] font-bold",
+                      "px-1 py-0.5 rounded text-[11px] font-bold",
                       ex.exercise_type === "CW"
                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                         : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"

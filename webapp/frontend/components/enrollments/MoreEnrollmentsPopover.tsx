@@ -216,10 +216,10 @@ export function MoreEnrollmentsPopover({
                           )}>
                             <span className="truncate">{enrollment.student_name || "Unknown"}</span>
                             {enrollment.grade && (
-                              <GradeBadge className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={enrollment.grade} langStream={enrollment.lang_stream} />
+                              <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={enrollment.grade} langStream={enrollment.lang_stream} />
                             )}
                             {enrollment.school && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{enrollment.school}</span>
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{enrollment.school}</span>
                             )}
                           </p>
                         </div>

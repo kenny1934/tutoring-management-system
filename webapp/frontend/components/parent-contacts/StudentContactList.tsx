@@ -325,7 +325,7 @@ export const StudentContactList = memo(function StudentContactList({
                           }}
                           showLocationPrefix={showLocationPrefix}
                           trailing={student.last_contact_date && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400">
                               {student.days_since_contact}d ago
                             </span>
                           )}

@@ -217,7 +217,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
         {downloadState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
          downloadState === 'error' ? <XCircle className="h-4 w-4" /> :
          <Download className="h-4 w-4" />}
-        <span className="text-[9px] leading-none">All</span>
+        <span className="text-[11px] leading-none">All</span>
       </button>
       <button type="button" onClick={handleDownloadAnswers} disabled={answersState === 'loading'}
         className={cn(btnClass, "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
@@ -225,7 +225,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
         {answersState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
          answersState === 'error' ? <XCircle className="h-4 w-4" /> :
          <Download className="h-4 w-4" />}
-        <span className="text-[9px] leading-none">Ans</span>
+        <span className="text-[11px] leading-none">Ans</span>
       </button>
     </div>
   );

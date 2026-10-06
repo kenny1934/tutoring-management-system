@@ -28,7 +28,7 @@ export function TutorAvatar({ name, id, pictureUrl, size = "md", isOnline }: {
   isOnline?: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
-  const sizeClass = size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
+  const sizeClass = size === "sm" ? "w-6 h-6 text-[11px]" : "w-8 h-8 text-xs";
   const dotSize = size === "sm" ? "w-2 h-2" : "w-2.5 h-2.5";
 
   const validPicture = pictureUrl?.startsWith("http") ? pictureUrl : undefined;

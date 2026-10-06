@@ -473,7 +473,7 @@ function ResultRow({
             {filename}
           </span>
           {result.match === "exact" && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 shrink-0">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 shrink-0">
               Exact
             </span>
           )}

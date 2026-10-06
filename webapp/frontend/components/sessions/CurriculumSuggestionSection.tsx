@@ -236,7 +236,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
       session.student_id
     ) {
       return (
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 px-1">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 px-1">
           School Progress suggestions cover F1 to F3 for now.
         </p>
       );
@@ -261,7 +261,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
         <div className={cn("flex items-center gap-2 px-3 py-2", SECTION_HEADER_BG)}>
           <GraduationCap className="h-3.5 w-3.5 text-teal-700" />
           <span className="text-xs text-gray-600 dark:text-gray-300 shrink-0">School Progress</span>
-          <span className="text-[10px] text-gray-500 hidden sm:inline shrink-0">
+          <span className="text-[11px] text-gray-500 hidden sm:inline shrink-0">
             {session.school} · {session.grade}
           </span>
           <span className="h-2.5 w-28 rounded bg-teal-100 dark:bg-teal-900/40 animate-pulse" />
@@ -281,7 +281,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
     // apologising. Nothing else on this line changes.
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1">
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
           No School Progress suggestions for this week yet.
         </p>
         {data.ask?.state === "ask" && (
@@ -406,18 +406,18 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
       >
         <GraduationCap className="h-3.5 w-3.5 text-teal-700" />
         <span className="text-xs text-gray-600 dark:text-gray-300 shrink-0">School Progress</span>
-        <span className="text-[10px] text-gray-500 hidden sm:inline shrink-0">
+        <span className="text-[11px] text-gray-500 hidden sm:inline shrink-0">
           {data.school} · {data.grade}
         </span>
         {!expanded && data.suggestions.length > 0 && (
-          <span className="text-[10px] text-teal-700 dark:text-teal-400 truncate">
+          <span className="text-[11px] text-teal-700 dark:text-teal-400 truncate">
             {conceptNameForStream(data.suggestions[0], stream)}
           </span>
         )}
         {examDate && (
           <span
             className={cn(
-              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]",
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px]",
               kindColors.bg,
               kindColors.text
             )}
@@ -460,7 +460,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
       {expanded && (
         <div className="border-t border-teal-100 dark:border-teal-900/50">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pt-2">
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1 min-w-0">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 flex-1 min-w-0">
               {subtitle}
             </p>
             {/* Chips, not inline links: buried in the grey subtitle these
@@ -475,7 +475,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                 <button
                   type="button"
                   onClick={() => setPackOpen(true)}
-                  className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+                  className="text-[11px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
                 >
                   All {data.upcoming_exam.scope_concept_count} topics →
                 </button>
@@ -486,7 +486,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
               <Link
                 href={curriculumExplorerHref(data.school, data.grade, data.week_number, linkYear)}
                 target="_blank"
-                className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+                className="text-[11px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
               >
                 See the full year →
               </Link>
@@ -502,7 +502,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
               <div className="px-2 py-1.5 rounded-lg bg-teal-50/60 dark:bg-teal-900/15 border border-teal-100 dark:border-teal-900/40">
                 <div className="flex items-center gap-1 mb-0.5">
                   <History className="h-3 w-3 text-teal-700 dark:text-teal-400 shrink-0" />
-                  <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
                     Tailored revision papers
                   </span>
                 </div>
@@ -554,13 +554,13 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                         <span className="min-w-0">{topicName}</span>
                         <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 text-teal-600/70 dark:text-teal-400/70 group-hover:text-teal-700 dark:group-hover:text-teal-400" />
                       </button>
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">
                         {evidenceLine(concept, examLabel)}
                       </div>
                       {(vocabById.get(concept.concept_id)?.builds_on_ids?.length ??
                         0) > 0 && (
                         <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                          <span className="text-[10px] text-gray-500 shrink-0">
+                          <span className="text-[11px] text-gray-500 shrink-0">
                             Builds on
                           </span>
                           {vocabById
@@ -582,7 +582,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                                   // Trailing chevron: the app's sign that a pill opens
                                   // a bigger surface, so this cannot be mistaken for
                                   // one of the record buttons on the row above.
-                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/30 dark:border-teal-400/30 text-teal-700/90 dark:text-teal-400/90 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors max-w-[10rem]"
+                                  className="inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded-full border border-teal-600/30 dark:border-teal-400/30 text-teal-700/90 dark:text-teal-400/90 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors max-w-[10rem]"
                                 >
                                   <span className="truncate">{name}</span>
                                   <ChevronRight className="h-3 w-3 shrink-0" />
@@ -682,7 +682,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                     <button
                       type="button"
                       onClick={openTopic}
-                      className="mt-1 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
+                      className="mt-1 text-[11px] text-teal-700 dark:text-teal-400 hover:underline"
                     >
                       See all {concept.file_count} files
                     </button>

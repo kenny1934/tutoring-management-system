@@ -124,7 +124,7 @@ export default function AudioPlayer({ src, filename, className, duration: initia
             );
           })}
         </div>
-        <div className="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+        <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>

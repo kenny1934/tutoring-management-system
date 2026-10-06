@@ -25,7 +25,7 @@ export function AdminNoteLine({
     <span
       className={cn(
         "inline-flex items-start gap-1 min-w-0 text-amber-700 dark:text-amber-400",
-        compact && "text-[9px] leading-snug",
+        compact && "text-[11px] leading-snug",
         className,
       )}
       title={text}

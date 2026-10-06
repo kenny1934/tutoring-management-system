@@ -52,7 +52,7 @@ export function SummerClassChip({ classInfo, className }: SummerClassChipProps) 
       title={formatSummerClassLabel(classInfo)}
       className={cn(
         "inline-flex items-center gap-px px-1 py-px rounded font-bold whitespace-nowrap",
-        "text-[7px] leading-tight",
+        "text-[11px] leading-tight",
         "bg-amber-100 text-amber-900 border border-amber-400",
         "dark:bg-amber-900/50 dark:text-amber-100 dark:border-amber-600",
         className,

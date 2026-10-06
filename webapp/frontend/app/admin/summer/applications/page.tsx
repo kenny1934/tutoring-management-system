@@ -949,7 +949,7 @@ export default function SummerApplicationsPage() {
                     <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
+                    {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
                   </h1>
                   <p className="hidden sm:block text-xs text-muted-foreground">
                     Review and process summer course applications
@@ -1031,7 +1031,7 @@ export default function SummerApplicationsPage() {
                             >
                               <span className="flex-1 text-foreground">{c.year}</span>
                               {c.is_active && (
-                                <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                                <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
                                   Active
                                 </span>
                               )}
@@ -1215,7 +1215,7 @@ export default function SummerApplicationsPage() {
                 >
                   {(close) => (
                     <>
-                      <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <div className="px-3 pt-1 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Group by
                       </div>
                       {ALL_PRESETS.map((p) => {

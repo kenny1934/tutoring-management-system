@@ -65,7 +65,7 @@ export function BrowseSelectionPanel({
               </button>
             </div>
             {sel.error && (
-              <p className="text-[10px] text-red-600 pl-1">{sel.error}</p>
+              <p className="text-[11px] text-red-600 pl-1">{sel.error}</p>
             )}
           </div>
         ))}

@@ -241,7 +241,7 @@ export function ExtensionRequestsList({
               >
                 {label}
                 {sortOption === value && (
-                  <span className="text-[10px]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  <span className="text-[11px]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                 )}
               </button>
             ))}

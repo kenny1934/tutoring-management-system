@@ -199,7 +199,7 @@ function ExamCalendarView({
                       <div
                         key={exam.id}
                         className={cn(
-                          "text-[10px] px-1 py-0.5 rounded truncate",
+                          "text-[11px] px-1 py-0.5 rounded truncate",
                           colors.bg, colors.text
                         )}
                         title={exam.title}
@@ -209,7 +209,7 @@ function ExamCalendarView({
                       );
                     })}
                     {dayExams.length > 2 && (
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 px-1">
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 px-1">
                         +{dayExams.length - 2} more
                       </div>
                     )}

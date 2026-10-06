@@ -637,7 +637,7 @@ export function SessionSelectorModal({
 
                       {/* Session count */}
                       {dayData.sessionCount > 0 && (
-                        <div className="text-[10px] text-[#8b6f47] dark:text-[#cd853f]">
+                        <div className="text-[11px] text-[#8b6f47] dark:text-[#cd853f]">
                           {dayData.sessionCount} session
                           {dayData.sessionCount !== 1 ? "s" : ""}
                           {dayData.selectedCount > 0 && (
@@ -946,7 +946,7 @@ function SessionDayPicker({
                 <div key={timeSlot}>
                   {/* Time slot header */}
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-medium text-[#8b6f47] dark:text-[#cd853f] whitespace-nowrap">
+                    <span className="text-[11px] font-mono font-medium text-[#8b6f47] dark:text-[#cd853f] whitespace-nowrap">
                       {timeSlot}
                     </span>
                     <div className="flex-1 border-t border-[#d4a574] dark:border-[#6b5a4a]" />
@@ -999,7 +999,7 @@ function SessionDayPicker({
                             {/* Session info - mimics MonthlyCalendarView SessionCard */}
                             <div className="flex-1 min-w-0">
                               {/* Top row: school_student_id */}
-                              <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
+                              <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
                                 <span className="flex-shrink-0">
                                   {selectedLocation === "All Locations" && session.location && `${session.location}-`}
                                   {session.school_student_id || "N/A"}
@@ -1015,17 +1015,17 @@ function SessionDayPicker({
                                   {session.student_name || "Unknown"}
                                 </span>
                                 {session.grade && (
-                                  <GradeBadge className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
+                                  <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
                                 )}
                                 {session.school && (
-                                  <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                                  <span className="text-[11px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
                                     {session.school}
                                   </span>
                                 )}
                               </div>
 
                               {/* Bottom row: tutor name */}
-                              <div className="text-[10px] text-[#8b6f47] dark:text-[#cd853f] truncate">
+                              <div className="text-[11px] text-[#8b6f47] dark:text-[#cd853f] truncate">
                                 {session.tutor_name || "No tutor"}
                               </div>
                             </div>

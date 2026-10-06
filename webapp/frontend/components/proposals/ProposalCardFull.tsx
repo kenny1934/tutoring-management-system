@@ -84,7 +84,7 @@ function StudentInSlot({ session }: { session: Session }) {
       <span className="text-gray-500 font-mono">{session.school_student_id}</span>
       <span className="text-gray-700 dark:text-gray-300">{session.student_name}</span>
       <GradeBadge
-        className="px-1 py-0.5 text-[10px] font-medium rounded text-gray-800"
+        className="px-1 py-0.5 text-[11px] font-medium rounded text-gray-800"
         grade={session.grade}
         langStream={session.lang_stream}
       />
@@ -402,7 +402,7 @@ function SlotItem({
               {/* Role indicator when not the target tutor */}
               {actingAs && (
                 <span className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full font-medium text-center",
+                  "text-[11px] px-2 py-0.5 rounded-full font-medium text-center",
                   actingAs === "admin"
                     ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
                     : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
@@ -685,7 +685,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                         {session.student_name}
                       </span>
                       {session.grade && (
-                        <GradeBadge className="px-1 py-0.5 text-[10px] font-medium rounded flex-shrink-0 text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+                        <GradeBadge className="px-1 py-0.5 text-[11px] font-medium rounded flex-shrink-0 text-gray-800" grade={session.grade} langStream={session.lang_stream} />
                       )}
                     </>
                   )}

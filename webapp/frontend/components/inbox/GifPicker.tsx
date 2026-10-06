@@ -159,7 +159,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
 
         {/* GIPHY attribution */}
         <div className="px-2 py-1.5 border-t border-line flex items-center justify-center">
-          <span className="text-[10px] text-gray-500">Powered by GIPHY</span>
+          <span className="text-[11px] text-gray-500">Powered by GIPHY</span>
         </div>
       </FloatingDropdown>
     </div>

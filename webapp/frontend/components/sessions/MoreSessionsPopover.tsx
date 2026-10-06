@@ -123,7 +123,7 @@ export function MoreSessionsPopover({
                         {session.school_student_id || "N/A"}
                         <SessionLessonBadge session={session} size="xs" />
                         {isCancelledEnrollment ? (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                             Cancelled
                           </span>
                         ) : isSessionUnpaid(session) && (
@@ -147,10 +147,10 @@ export function MoreSessionsPopover({
                     )}>
                       <span className="truncate">{session.student_name || "Unknown"}</span>
                       {session.grade && (
-                        <GradeBadge className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
+                        <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
                       )}
                       {session.school && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                       )}
                       {session.exam_revision_slot_id && (
                         <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-600 flex-shrink-0" /></span>
