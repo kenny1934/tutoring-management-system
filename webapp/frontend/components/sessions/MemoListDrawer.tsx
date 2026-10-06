@@ -11,6 +11,7 @@ import { memosAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
+import { Button, Segmented } from "@/components/controls";
 import type { TutorMemo } from "@/types";
 import {
   StickyNote,
@@ -95,29 +96,10 @@ export function MemoListDrawer({ isOpen, onClose }: MemoListDrawerProps) {
         <div className="space-y-4">
           {/* Header row: filter pills + new button */}
           <div className="flex items-center justify-between">
-            <div className="flex gap-1">
-              {filters.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-full border transition-colors",
-                    filter === f.value
-                      ? "bg-amber-500 text-white border-amber-500"
-                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  )}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setCreatingNew(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500 hover:bg-amber-600 text-white transition-colors"
-            >
-              <Plus className="h-3 w-3" />
-              New Memo
-            </button>
+            <Segmented label="Show memos" value={filter} onChange={setFilter} options={filters} />
+            <Button variant="primary" size="sm" icon={Plus} onClick={() => setCreatingNew(true)}>
+              New memo
+            </Button>
           </div>
 
           {/* Memo list */}
@@ -246,38 +228,22 @@ function MemoCard({ memo, onEdit, onDelete, isDeleting, isConfirmingDelete, onCa
       <div className="flex items-center gap-1.5">
         {isPending ? (
           <>
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors"
-            >
-              <Pencil className="h-3 w-3" />
+            <Button size="sm" icon={Pencil} onClick={onEdit}>
               Edit
-            </button>
+            </Button>
             {isConfirmingDelete ? (
               <div className="flex items-center gap-1">
-                <button
-                  onClick={onDelete}
-                  disabled={isDeleting}
-                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
-                >
-                  {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                <Button variant="danger" size="sm" icon={Trash2} loading={isDeleting} onClick={onDelete}>
                   Confirm
-                </button>
-                <button
-                  onClick={onCancelDelete}
-                  className="px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
-                >
+                </Button>
+                <Button size="sm" onClick={onCancelDelete}>
                   Cancel
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
-                onClick={onDelete}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
-              >
-                <Trash2 className="h-3 w-3" />
+              <Button size="sm" icon={Trash2} iconClassName="text-red-600 dark:text-red-400" onClick={onDelete}>
                 Delete
-              </button>
+              </Button>
             )}
           </>
         ) : (

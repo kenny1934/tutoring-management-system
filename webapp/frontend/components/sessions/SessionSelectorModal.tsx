@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import useSWR from "swr";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/controls";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -369,37 +369,31 @@ export function SessionSelectorModal({
         <div className="flex items-center justify-between w-full">
           {showConfirmation ? (
             <>
-              <Button variant="outline" onClick={() => setShowConfirmation(false)} disabled={isSaving}>
-                <ChevronLeft className="h-4 w-4 mr-1" />
+              <Button variant="secondary" icon={ChevronLeft} onClick={() => setShowConfirmation(false)} disabled={isSaving}>
                 Back
               </Button>
               <Button
+                variant="primary"
+                icon={Check}
+                loading={isSaving}
                 onClick={handleAssign}
-                disabled={isSaving}
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Assigning... ({saveProgress?.current}/{saveProgress?.total})
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Confirm Assignment
-                  </>
-                )}
+                {isSaving
+                  ? `Assigning... (${saveProgress?.current}/${saveProgress?.total})`
+                  : "Confirm assignment"}
               </Button>
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={onClose} disabled={isSaving}>
+              <Button variant="secondary" onClick={onClose} disabled={isSaving}>
                 Cancel
               </Button>
               <Button
+                variant="primary"
+                icon={ChevronRight}
                 onClick={() => setShowConfirmation(true)}
                 disabled={selections.size === 0}
               >
-                <ChevronRight className="h-4 w-4 mr-2" />
                 Review ({selections.size})
               </Button>
             </>
@@ -523,35 +517,16 @@ export function SessionSelectorModal({
         <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
           {/* Month navigation */}
           <div className="flex items-center justify-between px-3 py-2 bg-paper border-b border-line">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={goToPreviousMonth}
-              className="h-7 px-2"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+            <IconButton label="Previous month" icon={ChevronLeft} size="sm" onClick={goToPreviousMonth} />
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={goToToday}
-                className="h-6 px-2 text-xs"
-              >
+              <Button variant="quiet" size="sm" onClick={goToToday}>
                 Today
               </Button>
               <span className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
                 {getMonthName(viewDate)} {viewDate.getFullYear()}
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={goToNextMonth}
-              className="h-7 px-2"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <IconButton label="Next month" icon={ChevronRight} size="sm" onClick={goToNextMonth} />
           </div>
 
           {/* Loading state */}
@@ -667,13 +642,8 @@ export function SessionSelectorModal({
                   </span>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                onClick={() => setSelections(new Map())}
-              >
-                Clear All
+              <Button variant="quiet" size="sm" onClick={() => setSelections(new Map())}>
+                Clear all
               </Button>
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -701,12 +671,13 @@ export function SessionSelectorModal({
                       {sel.session.session_date} {sel.session.time_slot?.split("-")[0]?.trim()}
                     </span>
                   </div>
-                  <button
+                  <IconButton
+                    label="Remove from selection"
+                    icon={X}
+                    size="sm"
+                    tone="danger"
                     onClick={() => removeSelection(sel.sessionId)}
-                    className="p-0.5 text-gray-500 hover:text-red-600 transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  />
                 </div>
               ))}
             </div>
@@ -875,18 +846,16 @@ function SessionDayPicker({
           <div className="flex items-center gap-2">
             {/* Tutor filter dropdown */}
             <div className="relative">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={filterTutorId === "all" ? Users : User}
                 onClick={() => setShowTutorDropdown(!showTutorDropdown)}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+                aria-expanded={showTutorDropdown}
               >
-                {filterTutorId === "all" ? (
-                  <Users className="h-3 w-3 text-accent-ink" />
-                ) : (
-                  <User className="h-3 w-3 text-accent-ink" />
-                )}
                 <span className="max-w-[80px] truncate">{selectedTutorName}</span>
-                <ChevronDown className={cn("h-3 w-3 transition-transform", showTutorDropdown && "rotate-180")} />
-              </button>
+                <ChevronDown className={cn("h-3 w-3 transition-transform text-ink-subtle", showTutorDropdown && "rotate-180")} aria-hidden="true" />
+              </Button>
               {showTutorDropdown && (
                 <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
                   <button
@@ -915,12 +884,7 @@ function SessionDayPicker({
                 </div>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-[#e8d4b8] dark:hover:bg-[#4a3f2f] transition-colors"
-            >
-              <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-            </button>
+            <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
           </div>
         </div>
 
@@ -1096,21 +1060,11 @@ function SessionDayPicker({
               </button>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => onClearAll(filteredSessions)}
-              >
+              <Button variant="quiet" size="sm" onClick={() => onClearAll(filteredSessions)}>
                 Clear
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => onSelectAll(filteredSessions, defaultType)}
-              >
-                Select All
+              <Button variant="quiet" size="sm" onClick={() => onSelectAll(filteredSessions, defaultType)}>
+                Select all
               </Button>
             </div>
           </div>

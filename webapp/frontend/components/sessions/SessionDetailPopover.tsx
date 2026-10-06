@@ -18,7 +18,7 @@ import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonClasses, IconButton, CountBadge } from "@/components/controls";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
 import type { Session, UpcomingTestAlert, MakeupProposal, HomeworkCompletion } from "@/types";
@@ -667,13 +667,7 @@ export function SessionDetailPopover({
             "w-[280px]"
           )}
         >
-          <button
-            onClick={onClose}
-            className="absolute top-2 right-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-          </button>
+          <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
           <div className="animate-pulse space-y-3">
             <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded" />
             <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded" />
@@ -736,13 +730,7 @@ export function SessionDetailPopover({
         )}
       >
         {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-        </button>
+        <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
 
         {/* Header */}
         <div className="mb-3 pr-6">
@@ -1115,9 +1103,7 @@ export function SessionDetailPopover({
                 {testsExpanded ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
                 <AlertTriangle className="h-3 w-3 text-amber-700" />
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Tests</span>
-                <span className="text-[11px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full ml-auto">
-                  {upcomingTests.length}
-                </span>
+                <CountBadge count={upcomingTests.length} tone="warning" className="ml-auto" />
               </button>
               {testsExpanded && (
                 <div className="mt-1.5 space-y-1.5 pl-4">
@@ -1175,11 +1161,7 @@ export function SessionDetailPopover({
                 {recapExpanded ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
                 <History className="h-3 w-3 text-[#8b6f47]" />
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Recap</span>
-                {uncheckedHwCount > 0 && (
-                  <span className="text-[11px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full ml-auto">
-                    {uncheckedHwCount}
-                  </span>
-                )}
+                <CountBadge count={uncheckedHwCount} tone="warning" className="ml-auto" />
               </button>
               {recapExpanded && (
                 <div className="mt-1.5 space-y-2 pl-4">
@@ -1271,10 +1253,10 @@ export function SessionDetailPopover({
             onNavigate?.();
             onClose();
           }}
-          className={buttonVariants({ size: "sm", className: "w-full flex items-center justify-center gap-2 whitespace-nowrap" })}
+          className={cn(buttonClasses({ variant: "primary", size: "sm" }), "w-full")}
         >
-          View Details
-          <ExternalLink className="h-4 w-4" />
+          View details
+          <ExternalLink className="h-3.5 w-3.5" />
         </Link>
 
         {/* Keyboard shortcut hint */}

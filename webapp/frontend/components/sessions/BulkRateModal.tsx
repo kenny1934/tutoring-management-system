@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { keyIsForOverlayAbove, useOverlayLayer } from "@/hooks/useOverlayLayer";
-import { Button } from "@/components/ui/button";
+import { Button, Textarea } from "@/components/controls";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -286,14 +286,16 @@ export function BulkRateModal({
                 {isDirty ? `${changedSessionIds.length} changed` : ""}
               </span>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={handleCloseAttempt}>
+                <Button onClick={handleCloseAttempt}>
                   Cancel
                 </Button>
                 <Button
+                  variant="primary"
                   onClick={handleSaveAll}
-                  disabled={!isDirty || saving || readOnly}
+                  disabled={!isDirty || readOnly}
+                  loading={saving}
                 >
-                  {saving ? "Saving..." : "Save All"}
+                  {saving ? "Saving..." : "Save all"}
                 </Button>
               </div>
             </div>
@@ -363,7 +365,7 @@ export function BulkRateModal({
                   </div>
 
                   {/* Comment textarea */}
-                  <textarea
+                  <Textarea
                     ref={(el) => {
                       if (el) textareaRefs.current.set(session.id, el);
                       else textareaRefs.current.delete(session.id);
@@ -374,14 +376,8 @@ export function BulkRateModal({
                     placeholder="Add comments..."
                     rows={2}
                     readOnly={readOnly}
-                    className={cn(
-                      "w-full px-3 py-2 rounded-md border text-sm resize-none",
-                      "bg-white dark:bg-gray-900",
-                      "border-field",
-                      "text-gray-900 dark:text-gray-100",
-                      "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-                      "placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                    )}
+                    aria-label={`Comments for ${session.student_name}`}
+                    className="min-h-0 resize-none"
                   />
                 </div>
               </div>
@@ -398,10 +394,10 @@ export function BulkRateModal({
               You have unsaved changes. Discard them?
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={cancelClose}>
+              <Button onClick={cancelClose}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmDiscard}>
+              <Button variant="danger" onClick={confirmDiscard}>
                 Discard
               </Button>
             </div>

@@ -12,6 +12,7 @@
  */
 import { UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import { departureLabel } from "@/lib/employment";
 import type { LeaverOverrun } from "@/types";
 
@@ -40,12 +41,9 @@ export function AfterLastDayBanner({
           <span className="font-medium">Sessions After a Tutor&apos;s Last Day</span>
           <span className="text-rose-600 dark:text-rose-400">({total} total)</span>
         </div>
-        <button
-          onClick={onClear}
-          className="text-xs font-medium px-2 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
-        >
+        <Button size="sm" onClick={onClear}>
           Clear
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-rose-700 dark:text-rose-300">
         These lessons are still assigned to someone who will not be here to teach them.

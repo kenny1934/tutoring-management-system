@@ -4,7 +4,7 @@ import React, { useEffect, useState, memo } from "react";
 import useSWR from "swr";
 import { useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/controls";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useSession, usePageTitle, useMemoForSession, preloadCurriculumSuggestions } from "@/lib/hooks";
@@ -76,10 +76,7 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
   if (url && !pdfName) {
     return (
       <div className="flex items-center gap-0.5 flex-shrink-0">
-        <button type="button" onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }}
-          className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded" title="Open URL" aria-label="Open URL">
-          <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-        </button>
+        <IconButton label="Open URL" icon={ExternalLink} iconClassName="text-blue-600 dark:text-blue-400" onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }} />
       </div>
     );
   }
@@ -517,18 +514,14 @@ export default function SessionDetailPage() {
       <div>
         {/* Mobile: Navigation bar with back + context */}
         <div className="sm:hidden flex items-center gap-2 mb-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={goBack} aria-label="Back to sessions">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <IconButton label="Back to sessions" icon={ArrowLeft} className="-ml-2" onClick={goBack} />
           <span className="text-sm text-muted-foreground">Session</span>
           <span className="text-sm text-muted-foreground font-mono">#{session.id}</span>
         </div>
 
         {/* Desktop: Side-by-side layout */}
         <div className="hidden sm:flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={goBack} aria-label="Back to sessions">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <IconButton label="Back to sessions" icon={ArrowLeft} onClick={goBack} />
           <div className="flex-1 min-w-0">
             <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
           </div>
@@ -861,12 +854,7 @@ export default function SessionDetailPage() {
               <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
                 Keyboard Shortcuts
               </span>
-              <button
-                onClick={() => setShowShortcutHints(false)}
-                className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <IconButton label="Close" icon={X} size="sm" onClick={() => setShowShortcutHints(false)} />
             </div>
             <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
               <div className="flex justify-between gap-4">

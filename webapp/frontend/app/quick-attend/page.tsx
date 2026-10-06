@@ -23,6 +23,7 @@ import {
   ChevronDown, ChevronUp, CalendarClock, ExternalLink, Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import type { Session, UncheckedAttendanceReminder } from "@/types";
 import { useHaptic } from "@/lib/useHaptic";
@@ -890,42 +891,33 @@ const SessionCard = React.memo(function SessionCard({
             <AnimatePresence mode="wait">
               {state === "pending" && !dismissed && (
                 <motion.div key="buttons" initial={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.15 }} className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                  <button
+                  <Button
                     onClick={() => { haptic.trigger("medium"); onAttended(sessionId); }}
-                    disabled={isMarking}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium text-sm transition-colors",
-                      "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
-                      "hover:bg-green-200 dark:hover:bg-green-900/50 active:bg-green-300 dark:active:bg-green-800/50 disabled:opacity-50"
-                    )}
+                    loading={isMarking}
+                    icon={Check}
+                    iconClassName="text-green-700 dark:text-green-400"
+                    className="h-10 flex-1 active:bg-tint"
                   >
-                    {isMarking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                     Attended
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => { haptic.trigger("medium"); onNoShow(sessionId); }}
-                    disabled={isMarking}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium text-sm transition-colors",
-                      "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-                      "hover:bg-red-200 dark:hover:bg-red-900/50 active:bg-red-300 dark:active:bg-red-800/50 disabled:opacity-50"
-                    )}
+                    loading={isMarking}
+                    icon={X}
+                    iconClassName="text-red-600 dark:text-red-400"
+                    className="h-10 flex-1 active:bg-tint"
                   >
-                    {isMarking ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                    No Show
-                  </button>
-                  <button
+                    No show
+                  </Button>
+                  <Button
                     onClick={() => { haptic.trigger("medium"); onReschedule(sessionId); }}
-                    disabled={isMarking}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium text-sm transition-colors",
-                      "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
-                      "hover:bg-orange-200 dark:hover:bg-orange-900/50 active:bg-orange-300 dark:active:bg-orange-800/50 disabled:opacity-50"
-                    )}
+                    loading={isMarking}
+                    icon={CalendarClock}
+                    iconClassName="text-orange-700 dark:text-orange-400"
+                    className="h-10 flex-1 active:bg-tint"
                   >
-                    {isMarking ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
                     Resched
-                  </button>
+                  </Button>
                 </motion.div>
               )}
 

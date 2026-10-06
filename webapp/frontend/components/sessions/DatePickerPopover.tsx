@@ -14,6 +14,7 @@ import {
 } from "@floating-ui/react";
 import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IconButton, Input } from "@/components/controls";
 import {
   toDateString,
   getMonthCalendarDates,
@@ -135,21 +136,11 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
           >
             {/* Month navigation header */}
             <div className="flex items-center justify-between px-1 pb-2">
-              <button
-                onClick={() => setViewMonth(getPreviousMonth(viewMonth))}
-                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
+              <IconButton label="Previous month" icon={ChevronLeft} size="sm" onClick={() => setViewMonth(getPreviousMonth(viewMonth))} />
               <span className="text-sm font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
                 {getMonthName(viewMonth)} {viewMonth.getFullYear()}
               </span>
-              <button
-                onClick={() => setViewMonth(getNextMonth(viewMonth))}
-                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <IconButton label="Next month" icon={ChevronRight} size="sm" onClick={() => setViewMonth(getNextMonth(viewMonth))} />
             </div>
 
             {/* Weekday headers */}
@@ -192,20 +183,14 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
 
             {/* Keyboard input */}
             <div className="border-t border-line mt-2 pt-2">
-              <input
+              <Input
+                size="sm"
                 type="text"
+                aria-label="Type a date"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleInputKeyDown}
                 placeholder="YYYY-MM-DD"
-                className={cn(
-                  "w-full px-2 py-1 text-xs",
-                  "bg-white dark:bg-[#1a1a1a]",
-                  "border border-field rounded",
-                  "focus:outline-none focus:ring-1 focus:ring-primary",
-                  "text-gray-700 dark:text-gray-300",
-                  "placeholder:text-gray-400 dark:placeholder:text-gray-600"
-                )}
               />
             </div>
           </div>

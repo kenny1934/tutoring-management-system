@@ -40,30 +40,27 @@ export function ExerciseDropdownButton({
 
   const isCW = exerciseType === "CW";
   const Icon = isCW ? PenTool : Home;
-  const baseColors = isCW
-    ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-    : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400";
-  const hoverColors = isCW
-    ? "hover:bg-red-200 dark:hover:bg-red-900/50"
-    : "hover:bg-blue-200 dark:hover:bg-blue-900/50";
+  // A small secondary split button. Classwork and homework keep their red and
+  // blue on the icon, so the two are still told apart at a glance.
+  const iconColour = isCW ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400";
 
   return (
     <div ref={ref} className="relative">
-      <div className={cn("flex items-center rounded text-[11px] font-medium", baseColors)}>
+      <div className="flex h-7 items-stretch rounded border border-line-strong bg-field-fill text-xs font-medium text-gray-800 dark:text-gray-200">
         {/* Main button - Assign */}
         <button
           onClick={onAssign}
           disabled={isProcessing}
           className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-l",
-            isProcessing ? "opacity-50 cursor-wait" : hoverColors
+            "flex items-center gap-1 px-2.5 rounded-l transition-colors",
+            isProcessing ? "opacity-50 cursor-wait" : "hover:bg-tint"
           )}
           title={`Assign ${exerciseType === "CW" ? "Classwork" : "Homework"}`}
         >
           {isProcessing ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className={cn("h-3.5 w-3.5 animate-spin", iconColour)} />
           ) : (
-            <Icon className="h-3 w-3" />
+            <Icon className={cn("h-3.5 w-3.5", iconColour)} />
           )}
           <span className="hidden xs:inline">{exerciseType}</span>
         </button>
@@ -73,15 +70,13 @@ export function ExerciseDropdownButton({
           onClick={() => setOpen(!open)}
           disabled={isProcessing}
           className={cn(
-            "flex items-center px-0.5 py-1 rounded-r border-l",
-            isCW
-              ? "border-red-300 dark:border-red-700"
-              : "border-blue-300 dark:border-blue-700",
-            isProcessing ? "opacity-50 cursor-wait" : hoverColors
+            "flex items-center px-1 rounded-r border-l border-line transition-colors",
+            isProcessing ? "opacity-50 cursor-wait" : "hover:bg-tint"
           )}
           title="More actions"
+          aria-label="More actions"
         >
-          <ChevronDown className="h-2.5 w-2.5" />
+          <ChevronDown className="h-3 w-3 text-ink-subtle" />
         </button>
       </div>
 

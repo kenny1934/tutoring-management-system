@@ -7,6 +7,7 @@ import { searchAnswerFile, openAnswerFileWithFallback, downloadAnswerFileWithFal
 import { convertToAliasPath } from "@/lib/file-system";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
+import { IconButton, buttonClasses } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 
 interface ExerciseAnswerSectionProps {
@@ -56,9 +57,7 @@ function AnswerActionButton({ state, message, onClick, Icon, title, size, busy }
   size: 'sm' | 'md';
   busy: boolean;
 }) {
-  const iconClass = size === 'sm' ? "h-3 w-3" : "h-3.5 w-3.5";
-  const btnPadding = size === 'sm' ? "px-1.5 py-1" : "px-2 py-1.5";
-  const gap = size === 'sm' ? "gap-1" : "gap-1.5";
+  const iconClass = "h-3.5 w-3.5";
   const msgMaxW = size === 'sm' ? "max-w-[120px]" : "max-w-[140px]";
   const isLoading = state === 'loading';
   const showMessage = isLoading && message;
@@ -68,15 +67,17 @@ function AnswerActionButton({ state, message, onClick, Icon, title, size, busy }
       type="button"
       onClick={onClick}
       disabled={busy}
+      aria-label={title}
       className={cn(
-        `min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 ${btnPadding} rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center`,
-        showMessage && gap
+        buttonClasses({ variant: "secondary", size: "sm" }),
+        "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 shrink-0",
+        !showMessage && "w-7 px-0"
       )}
       title={showMessage ? message : title}
     >
-      {isLoading ? <Loader2 className={cn(iconClass, "text-gray-500 animate-spin")} />
+      {isLoading ? <Loader2 className={cn(iconClass, "text-ink-subtle animate-spin")} />
         : state === 'error' ? <XCircle className={cn(iconClass, "text-red-600")} />
-        : <Icon className={cn(iconClass, "text-gray-500 dark:text-gray-400")} />}
+        : <Icon className={cn(iconClass, "text-ink-subtle")} />}
       {showMessage && (
         <span className={cn(
           "text-[11px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap truncate",
@@ -211,17 +212,13 @@ export function ExerciseAnswerSection({
     <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-700">
       {/* Header row with toggle and action buttons */}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
+        <IconButton
+          label={expanded ? "Hide the answer" : "Show the answer"}
+          icon={expanded ? ChevronDown : ChevronRight}
+          size="sm"
           onClick={toggleExpanded}
-          className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-        >
-          {expanded ? (
-            <ChevronDown className="h-3 w-3 text-gray-500" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-gray-500" />
-          )}
-        </button>
+          aria-expanded={expanded}
+        />
         <span className="text-xs text-gray-500 dark:text-gray-400">Answer:</span>
 
         {answerPdfName ? (
@@ -246,22 +243,18 @@ export function ExerciseAnswerSection({
               onClick={handleSearch}
               disabled={searchState === 'searching' || !pdfName}
               className={cn(
-                "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-1.5 py-1 rounded-md border transition-colors shrink-0 flex items-center justify-center",
-                searchState === 'searching'
-                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30"
-                  : searchState === 'not_found'
-                  ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30"
-                  : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
-                !pdfName && "opacity-50 cursor-not-allowed"
+                buttonClasses({ variant: "secondary", size: "sm" }),
+                "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 w-7 px-0 shrink-0"
               )}
               title={!pdfName ? "Set PDF first" : searchState === 'not_found' ? "Answer not found" : "Search for answer file"}
+              aria-label={!pdfName ? "Set PDF first" : searchState === 'not_found' ? "Answer not found" : "Search for answer file"}
             >
               {searchState === 'searching' ? (
-                <Loader2 className="h-3 w-3 text-amber-700 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 text-amber-700 animate-spin" />
               ) : searchState === 'not_found' ? (
-                <XCircle className="h-3 w-3 text-red-600" />
+                <XCircle className="h-3.5 w-3.5 text-red-600" />
               ) : (
-                <Search className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+                <Search className="h-3.5 w-3.5 text-ink-subtle" />
               )}
             </button>
           </>
@@ -280,17 +273,21 @@ export function ExerciseAnswerSection({
               onPaste={handleAnswerPaste}
               onFocus={onFocus}
               placeholder="Answer PDF path"
-              className={cn(inputClass, "text-xs py-1 flex-1")}
+              className={cn(inputClass, "h-7 px-2 text-xs flex-1")}
             />
             {/* Browse for answer file - right next to path */}
             {canBrowseFiles && onBrowseAnswer && (
               <button
                 type="button"
                 onClick={onBrowseAnswer}
-                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
+                className={cn(
+                  buttonClasses({ variant: "secondary", size: "sm" }),
+                  "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 w-7 px-0 shrink-0"
+                )}
                 title="Browse for answer file"
+                aria-label="Browse for answer file"
               >
-                <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                <FolderOpen className="h-3.5 w-3.5 text-ink-subtle" />
               </button>
             )}
             {answerPdfName && (
@@ -301,14 +298,14 @@ export function ExerciseAnswerSection({
             )}
             {/* Clear answer */}
             {answerPdfName && (
-              <button
-                type="button"
+              <IconButton
+                label="Clear answer"
+                icon={X}
+                size="sm"
+                tone="danger"
                 onClick={handleClear}
-                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 ml-auto px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0 flex items-center justify-center"
-                title="Clear answer"
-              >
-                <X className="h-3.5 w-3.5 text-red-600" />
-              </button>
+                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 ml-auto"
+              />
             )}
           </div>
 

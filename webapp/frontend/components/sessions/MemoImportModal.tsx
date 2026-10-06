@@ -8,7 +8,8 @@ import { memosAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import type { TutorMemo } from "@/types";
-import { ArrowDownToLine, FileText, StickyNote, Star, Loader2, Check } from "lucide-react";
+import { ArrowDownToLine, FileText, StickyNote, Star, Check } from "lucide-react";
+import { Button } from "@/components/controls";
 
 interface MemoImportModalProps {
   isOpen: boolean;
@@ -70,33 +71,12 @@ export function MemoImportModal({ isOpen, onClose, memo, sessionId, onImported }
       size="md"
       footer={
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
+          <Button onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={nothingToImport || importing}
-            className={cn(
-              "px-4 py-2 text-sm rounded-md font-medium",
-              "bg-amber-500 hover:bg-amber-600 text-white",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
-          >
-            {importing ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1.5" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Check className="h-3.5 w-3.5 inline mr-1.5" />
-                Import Selected
-              </>
-            )}
-          </button>
+          </Button>
+          <Button variant="primary" icon={Check} onClick={handleImport} disabled={nothingToImport} loading={importing}>
+            {importing ? "Importing..." : "Import selected"}
+          </Button>
         </div>
       }
     >

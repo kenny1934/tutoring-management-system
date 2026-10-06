@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, ChevronUp, ExternalLink, Eye, EyeOff, Flame, Info, Loader2, TrendingUp, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/controls";
 import { api } from "@/lib/api";
 import type { PaperlessDocument } from "@/lib/api";
 import type { CoursewarePopularity } from "@/types";
@@ -174,42 +175,35 @@ export function TrendingCoursewareSection({
                           <EyeOff className="h-3.5 w-3.5 text-gray-300 dark:text-gray-400" />
                         </div>
                       ) : (
-                        <button
+                        <IconButton
+                          label="Preview PDF"
+                          title={previewStatus === 'checking' ? 'Checking...' : 'Preview PDF'}
+                          icon={previewStatus === 'checking' ? Loader2 : Eye}
+                          iconClassName={previewStatus === 'checking' ? "animate-spin" : undefined}
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handlePreviewTrending(item);
                           }}
                           disabled={previewStatus === 'checking'}
-                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
-                          title={previewStatus === 'checking' ? 'Checking...' : 'Preview PDF'}
-                        >
-                          {previewStatus === 'checking' ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Eye className="h-3.5 w-3.5" />
-                          )}
-                        </button>
+                        />
                       )}
                       {/* Copy path button */}
                       <div onClick={(e) => e.stopPropagation()}>
                         <CopyPathButton paths={item.normalized_paths} filename={item.filename} />
                       </div>
                       {/* Info/details button */}
-                      <button
+                      <IconButton
+                        label={isExpanded ? "Hide usage details" : "Show usage details"}
+                        icon={isExpanded ? ChevronUp : Info}
+                        iconClassName={isExpanded ? "text-accent-ink" : undefined}
+                        size="sm"
+                        aria-expanded={isExpanded}
                         onClick={(e) => {
                           e.stopPropagation();
                           setDetailItem(isExpanded ? null : item);
                         }}
-                        className={cn(
-                          "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0",
-                          isExpanded
-                            ? "text-amber-700 dark:text-amber-400"
-                            : "text-gray-500 hover:text-amber-700 dark:hover:text-amber-400"
-                        )}
-                        title={isExpanded ? "Hide usage details" : "Show usage details"}
-                      >
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}
-                      </button>
+                      />
                     </div>
                     {/* Expandable usage details section */}
                     {isExpanded && (

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Sun, ChevronDown, ChevronRight, FileText, FileCheck, Plus, Loader2, Cable, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import {
@@ -141,25 +142,13 @@ export function SummerMaterialsSection({
         <span className="w-16 flex-shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400">
           {label}
         </span>
-        <button
-          type="button"
-          onClick={() => open(file.rel_path)}
-          title={`Open ${file.file_name}`}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-300 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors"
-        >
-          <FileText className="h-3 w-3" />
+        <Button variant="quiet" size="sm" icon={FileText} onClick={() => open(file.rel_path)} title={`Open ${file.file_name}`} className="px-1.5">
           Open
-        </button>
+        </Button>
         {answer && (
-          <button
-            type="button"
-            onClick={() => open(answer.rel_path)}
-            title={`Open ${answer.file_name}`}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-300 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors"
-          >
-            <FileCheck className="h-3 w-3" />
+          <Button variant="quiet" size="sm" icon={FileCheck} onClick={() => open(answer.rel_path)} title={`Open ${answer.file_name}`} className="px-1.5">
             Ans
-          </button>
+          </Button>
         )}
         <span className="flex-1" />
         {added ? (
@@ -168,17 +157,16 @@ export function SummerMaterialsSection({
             Added
           </span>
         ) : (
-          <button
-            type="button"
+          <Button
+            size="sm"
+            icon={Plus}
             onClick={() =>
               onAdd(fullPath, answer ? buildFullPath(pathPrefix, answer.rel_path) : undefined)
             }
             title={`Add as a ${exerciseType === "CW" ? "classwork" : "homework"} row (answers pre-linked)`}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors"
           >
-            <Plus className="h-2.5 w-2.5" />
             Add
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -297,20 +285,16 @@ export function SummerBulkAssignSection({
             Assigned
           </span>
         ) : (
-          <button
-            type="button"
+          <Button
+            size="sm"
+            icon={Plus}
+            loading={assigning === docType}
             onClick={() => handleAssign(docType)}
             disabled={assigning !== null}
             title={`Each student gets their own language version as ${exerciseType === "CW" ? "classwork" : "homework"}, answers linked`}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
           >
-            {assigning === docType ? (
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            ) : (
-              <Plus className="h-2.5 w-2.5" />
-            )}
             Assign to {sessions.length} student{sessions.length !== 1 ? "s" : ""}
-          </button>
+          </Button>
         )}
       </div>
     );
