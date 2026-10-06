@@ -14,7 +14,7 @@ Three places keep more character on purpose. **Lesson mode** keeps its board too
 
 These are the rules people refer to when reviewing a screen. Each has its reasoning, so you can tell when an exception is fair.
 
-- **Colour means status.** Colour should tell the reader how something stands: done, waiting, wrong. A page section or a navigation item doesn't get its own colour just to look lively. When everything is coloured, nothing stands out.
+- **Colour has a job.** Colour earns its place in two ways. It tells the reader how something stands (done, waiting, wrong), or it tells similar things apart at a glance, like the session statuses or the test, exam and quiz types on the dashboard calendar. People recognise a colour faster than they read a word, so a colour that does either job stays, softened if it's loud. What goes is colour with no job: a page section, a navigation item or a stat icon given its own hue just to look lively. When everything is coloured, nothing stands out.
 - **One accent per screen.** The oak accent marks the action the person came to take, and the current place in the navigation. If three buttons on a screen are oak, two of them should be plain.
 - **Large areas soft, small marks solid.** A big block of colour, like the status strip on a session card, uses a pale fill with a dark icon, because a bright block that size shouts. A small mark, like an icon-only status badge, uses a solid fill with a white icon, because a pale fill that small can't be told apart from its neighbours.
 - **Keep the icon.** Tutors scan a day's sessions by status. The status icon (clock, tick, pencil, flask) is what they pick out first, so a status always shows its icon, even where the style is otherwise quiet.
