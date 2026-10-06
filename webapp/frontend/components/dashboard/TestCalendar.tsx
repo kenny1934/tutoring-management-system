@@ -8,6 +8,7 @@ import { useCalendarSync } from "@/lib/hooks/index";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarEvent, Holiday } from "@/types";
 import { cn } from "@/lib/utils";
+import { TONES } from "@/lib/tones";
 import { toDateString } from "@/lib/calendar-utils";
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, Trash2 } from "lucide-react";
 import { CalendarEventModal } from "./CalendarEventModal";
@@ -35,12 +36,14 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string 
   Holiday: { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-400" },
 };
 
-// Days until urgency colors
+// How soon a test is, as a soft chip: red within three days, then orange, then
+// amber, then neutral. The steps stay distinct at a glance, but none of them is
+// a solid block, so the countdown doesn't outshout the test it belongs to.
 const getUrgencyColor = (daysUntil: number) => {
-  if (daysUntil <= 3) return "bg-red-500 text-white";
-  if (daysUntil <= 7) return "bg-orange-500 text-white";
-  if (daysUntil <= 14) return "bg-yellow-500 text-gray-900";
-  return "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300";
+  if (daysUntil <= 3) return TONES.danger.soft;
+  if (daysUntil <= 7) return "bg-orange-50 text-orange-800 ring-1 ring-inset ring-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:ring-orange-800/60";
+  if (daysUntil <= 14) return TONES.warning.soft;
+  return TONES.neutral.soft;
 };
 
 // Get month calendar dates (includes days from prev/next month to fill grid)
@@ -580,10 +583,10 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           {canManageEvents && (
             <button
               onClick={() => handleOpenCreate()}
-              className="ml-2 hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
+              className="ml-2 hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-line bg-card text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
               title="Create new calendar event"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3 text-ink-subtle" />
               Add
             </button>
           )}

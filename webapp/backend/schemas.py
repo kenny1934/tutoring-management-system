@@ -1018,6 +1018,11 @@ class ActivityEvent(BaseModel):
     modified_by: Optional[str] = Field(None, max_length=255, description="User who triggered this activity")
 
 
+class GreetingLine(BaseModel):
+    """The line under the dashboard greeting, or None on a day with nothing to say"""
+    line: Optional[str] = None
+
+
 # ============================================
 # Query Parameter Schemas
 # ============================================

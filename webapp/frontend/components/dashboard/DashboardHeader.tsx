@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { TONES } from "@/lib/tones";
 import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, CalendarClock } from "lucide-react";
 import useSWR from "swr";
 import { parentCommunicationsAPI } from "@/lib/api";
@@ -18,7 +19,7 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTerminationReviewCount } from "@/lib/hooks";
+import { useTerminationReviewCount, useGreetingLine } from "@/lib/hooks";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
@@ -38,9 +39,6 @@ interface DashboardHeaderProps {
   lastUpdated?: Date | null;
 }
 
-// Random greeting emojis
-const greetingEmojis = ["🎯","🌟","✨","🎉","🚀","💫","🔥","⚡","🎊","🪄","☀️","🌅","☕","🌻","🐣","🌙","🌈","🦄","🎈","🎭","🎨","🎪","💪","⭐","📊","📈", "💼","🏆","🎓","🌺","🦋","🍀","🌸","🎀","💎","🏅","🎖️","🏵️","🎗️","🔮","🎰","🎲","🃏","🎴","🎱","🧿","💝","🎁","🛍️","🎯","🏹","🐶","🐱","🐰","🦊","🐻","🐼","🐨","🦁","🐯","🐸","🐵","🐧","🦉","🐺","🦒","🐢","🐙","🦀","🐳","🐬","🦜","🐹","🦝","🦥","🦦","🐝","🐞","🦩","🦚","🐴","🦔","🐇","🐥","🦕","🦖"];
-
 // Quick link definitions
 const quickLinks = [
   { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
@@ -59,15 +57,11 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const { user, isAdmin, isGuest } = useAuth();
 
 
-  // Daily emoji - deterministic based on date to avoid hydration mismatch
-  const greetingEmoji = useMemo(() => {
-    const today = new Date();
-    const dayIndex = today.getFullYear() * 366 + today.getMonth() * 31 + today.getDate();
-    return greetingEmojis[dayIndex % greetingEmojis.length];
-  }, []);
-
   // Derive tutor ID from prop or auth user
   const currentTutorId = tutorId ?? user?.id;
+
+  // One line worth noticing about the tutor's day, when there is one.
+  const greetingLine = useGreetingLine(currentTutorId, !isGuest && currentTutorId != null);
 
   // Fetch contact-needed count for Parent Contacts badge (shares SWR cache with NotificationBell)
   // Skip for guests — endpoint is guest-blocked
@@ -93,10 +87,15 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       {/* Top section: Welcome + Date/Weather + Location */}
       <div className="px-4 sm:px-6 py-2 border-b border-line bg-tint">
         <div className="flex items-center justify-between gap-3">
-          {/* Welcome message */}
-          <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
-            Welcome back, {getTutorFirstName(userName)} {greetingEmoji}
-          </p>
+          {/* Welcome message, and the day's line under it */}
+          <div className="min-w-0">
+            <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
+              Welcome back, {getTutorFirstName(userName)}
+            </p>
+            {greetingLine && (
+              <p className="text-xs sm:text-sm text-ink-subtle">{greetingLine}</p>
+            )}
+          </div>
 
           {/* Right side: Search + Date/Weather + Location */}
           <div className="flex items-center gap-2 @[500px]/header:gap-3">
@@ -122,9 +121,9 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
 
             {/* Location Badge - hidden when container is narrow */}
             {location && location !== "All Locations" && (
-              <div className="hidden @[500px]/header:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-full">
-                <MapPin className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              <div className="hidden @[500px]/header:flex items-center gap-2 px-3 py-1.5 border border-line rounded-full">
+                <MapPin className="h-3.5 w-3.5 text-ink-subtle" />
+                <span className="text-sm font-medium text-ink-subtle">
                   {location}
                 </span>
               </div>
@@ -335,12 +334,12 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   {link.id === 'terminated' && 'Termed'}
                 </span>
                 {link.id === 'parents' && contactNeeded?.count != null && contactNeeded.count > 0 && (
-                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-orange-500 rounded-full">
+                  <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid)}>
                     {contactNeeded.count > 99 ? "99+" : contactNeeded.count}
                   </span>
                 )}
                 {link.id === 'terminated' && reviewCount?.in_review_period && reviewCount.count > 0 && (
-                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-orange-500 rounded-full">
+                  <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid)}>
                     {reviewCount.count > 99 ? "99+" : reviewCount.count}
                   </span>
                 )}

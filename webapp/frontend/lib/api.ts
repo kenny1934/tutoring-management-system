@@ -1019,6 +1019,11 @@ export const statsAPI = {
     return fetchAPI<ActivityEvent[]>(`/activity-feed${query ? `?${query}` : ""}`);
   },
 
+  getGreetingLine: (tutorId?: number) => {
+    const query = tutorId ? `?tutor_id=${tutorId}` : "";
+    return fetchAPI<{ line: string | null }>(`/greeting-line${query}`);
+  },
+
   getActiveStudents: (location?: string, tutorId?: number) => {
     const params = new URLSearchParams();
     if (location && location !== "All Locations") params.set("location", location);
