@@ -146,14 +146,14 @@ export default function GeometryViewerModal({
 
       {/* Modal */}
       <div
-        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col"
+        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col"
         style={{ maxWidth: "52rem", maxHeight: "80vh" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="geometry-viewer-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line/40">
           <h3 id="geometry-viewer-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             Interactive Diagram
           </h3>
@@ -171,7 +171,7 @@ export default function GeometryViewerModal({
           {jsxLoaded ? (
             <div
               ref={containerRef}
-              className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
+              className="w-full rounded-lg border border-line overflow-hidden"
               style={{ height: "450px", touchAction: "manipulation" }}
             />
           ) : (
@@ -182,7 +182,7 @@ export default function GeometryViewerModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center justify-between px-4 py-2 border-t border-line/40">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5">
               <button

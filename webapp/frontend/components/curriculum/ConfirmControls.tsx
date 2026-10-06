@@ -110,7 +110,7 @@ export function RecordedNote({
  *  Shared by the header, the loading placeholder and the question row beneath
  *  them, so the strip reads as one block rather than stacked boxes. */
 export const SECTION_HEADER_BG =
-  "bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]";
+  "bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20";
 
 export const REVISION_TITLE =
   "Record that the school is revising this topic for the test. Revision does not move the topic timeline.";

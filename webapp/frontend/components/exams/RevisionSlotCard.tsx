@@ -110,7 +110,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
   return (
     <div className={cn(
       "rounded-lg border",
-      "bg-[#faf6f1]/30 dark:bg-[#2d2820]/30 border-[#e8d4b8] dark:border-[#6b5a4a]"
+      "bg-[#faf6f1]/30 dark:bg-[#2d2820]/30 border-line"
     )}>
       {/* Slot header */}
       <div className="px-4 py-3 flex items-center gap-4">
@@ -216,7 +216,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
 
       {/* Expanded content - enrolled students */}
       {isExpanded && (
-        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3">
+        <div className="border-t border-line px-4 py-3">
           {loadingDetail ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
@@ -242,8 +242,8 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                   onClick={(e) => handleStudentClick(e, student.session_id)}
                   className={cn(
                     "flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer transition-colors",
-                    "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50",
-                    "hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/60",
+                    "bg-white dark:bg-[#1a1a1a] border border-line/50",
+                    "hover:bg-tint/60",
                     selectedSessionId === student.session_id && isLoadingSession && "opacity-70"
                   )}
                 >
@@ -279,7 +279,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
 
           {/* Notes */}
           {slot.notes && (
-            <div className="mt-3 pt-3 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+            <div className="mt-3 pt-3 border-t border-line/50">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 <span className="font-medium">Notes:</span> {slot.notes}
               </p>

@@ -292,7 +292,7 @@ function VariantChildrenDropdown({ items }: { items: { id: number; title: string
         <ChevronDown className="w-2.5 h-2.5 ml-0.5 inline" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[12rem] max-h-48 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[12rem] max-h-48 overflow-y-auto">
           {items.map(c => (
             <a
               key={c.id}
@@ -1330,7 +1330,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
 }`}</style>
       {/* Top bar */}
-      <div className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div className="border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 pt-2 pb-1">
         <button
           onClick={() => router.push("/documents")}
@@ -1391,7 +1391,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         {/* History, Layout, Copy All — visible on md+, collapsed into overflow menu on smaller screens */}
         <button
           onClick={() => { setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-line text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
           title="Version history"
         >
           <History className="w-3.5 h-3.5" />
@@ -1402,7 +1402,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           onClick={() => !isReadOnly && setPageLayoutOpen(true)}
           disabled={isReadOnly}
           className={cn(
-            "hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
+            "hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-line transition-colors",
             isReadOnly ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
           )}
           title="Page layout settings"
@@ -1413,7 +1413,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
         <button
           onClick={handleCopyAll}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-line text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
           title="Copy all content as plain text with LaTeX"
         >
           {allCopied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1435,7 +1435,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             <EllipsisVertical className="w-3.5 h-3.5" />
           </button>
           {showMoreMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
               <button
                 onClick={() => { setShowMoreMenu(false); setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
@@ -1483,7 +1483,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             </button>
           </div>
           {showPrintMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
               <button
                 onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
@@ -1560,9 +1560,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       </div>
 
       {/* Toolbar — Tabbed layout */}
-      <div ref={toolbarRef} className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div ref={toolbarRef} className="border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
         {/* Tab row: persistent controls + tab switcher + labels toggle */}
-        <div className="flex items-center gap-0.5 [@media(pointer:coarse)]:gap-1 px-3 py-1 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center gap-0.5 [@media(pointer:coarse)]:gap-1 px-3 py-1 border-b border-line/40">
           {/* Persistent: Undo/Redo */}
           <ToolbarBtn icon={Undo2} label="Undo" isActive={false} onClick={() => editor.chain().focus().undo().run()} />
           <ToolbarBtn icon={Redo2} label="Redo" isActive={false} onClick={() => editor.chain().focus().redo().run()} />
@@ -1624,7 +1624,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {activeMenu === "heading" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
                     {HEADING_OPTIONS.map((h) => (
                       <button
                         key={h.label}
@@ -1666,7 +1666,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {activeMenu === "fontFamily" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem] max-h-[20rem] overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem] max-h-[20rem] overflow-y-auto">
                     {FONT_FAMILIES.map((ff) => (
                       <button
                         key={ff.label}
@@ -1707,7 +1707,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {activeMenu === "fontSize" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1">
                     <div className="grid grid-cols-4 gap-0.5 min-w-[8rem]">
                       {FONT_SIZES.map((fs) => (
                         <button
@@ -1730,7 +1730,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                         </button>
                       ))}
                     </div>
-                    <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                    <div className="h-px bg-line my-1" />
                     <form
                       className="px-1 py-1"
                       onSubmit={(e) => {
@@ -1842,7 +1842,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   {showLabels && <span className="text-[9px] leading-none">Align</span>}
                 </button>
                 {activeMenu === "align" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[8rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[8rem]">
                     {ALIGN_OPTIONS.map((item) => (
                       <button
                         key={item.value}
@@ -1883,7 +1883,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   {showLabels && <span className="text-[9px] leading-none">Spacing</span>}
                 </button>
                 {activeMenu === "lineSpacing" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[7rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[7rem]">
                     {LINE_SPACINGS.map((ls) => {
                       const currentSpacing = editor.getAttributes("paragraph").lineSpacing || editor.getAttributes("heading").lineSpacing || null;
                       const isActive = ls.value === currentSpacing;
@@ -1927,13 +1927,13 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   )}
                 </div>
                 {activeMenu === "orderedListStart" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 min-w-[10rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2 min-w-[10rem]">
                     <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1 block">Start number</label>
                     <input
                       type="number"
                       min={1}
                       defaultValue={editor.getAttributes("orderedList").start ?? 1}
-                      className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                      className="w-full px-2 py-1 text-xs border border-line rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -1969,7 +1969,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   showLabel={showLabels}
                 />
                 {linkPopoverOpen && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex items-center gap-1.5" style={{ width: "18rem" }}>
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2 flex items-center gap-1.5" style={{ width: "18rem" }}>
                     <input
                       ref={linkInputRef}
                       type="url"
@@ -2031,7 +2031,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   {showLabels && <span className="text-[9px] leading-none">Table</span>}
                 </button>
                 {activeMenu === "table" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2">
                     {editor.isActive("table") ? (
                       <div className="flex flex-col gap-0.5">
                         <button onClick={() => { editor.chain().focus().addRowBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
@@ -2046,7 +2046,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                         <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column right
                         </button>
-                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <div className="h-px bg-line my-1" />
                         <button onClick={() => { editor.chain().focus().deleteRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete row
                         </button>
@@ -2056,7 +2056,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                         <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <ToggleLeft className="w-3 h-3" /> Toggle header row
                         </button>
-                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <div className="h-px bg-line my-1" />
                         <button
                           onClick={() => { editor.chain().focus().mergeCells().run(); setActiveMenu(null); }}
                           disabled={!editor.can().mergeCells()}
@@ -2071,7 +2071,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                         >
                           <SplitSquareHorizontal className="w-3 h-3" /> Split cell
                         </button>
-                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <div className="h-px bg-line my-1" />
                         <div className="flex items-center gap-1.5 px-2 py-1">
                           <Paintbrush className="w-3 h-3 text-gray-500 dark:text-gray-400 shrink-0" />
                           <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">Cell color</span>
@@ -2079,20 +2079,20 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                             <button
                               key={c.color}
                               onClick={() => { editor.chain().focus().setCellAttribute("backgroundColor", c.color).run(); setActiveMenu(null); }}
-                              className="w-4 h-4 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-125 transition-transform"
+                              className="w-4 h-4 rounded-full border border-line hover:scale-125 transition-transform"
                               style={{ backgroundColor: c.color }}
                               title={c.label}
                             />
                           ))}
                           <button
                             onClick={() => { editor.chain().focus().setCellAttribute("backgroundColor", null).run(); setActiveMenu(null); }}
-                            className="w-4 h-4 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-125 transition-transform flex items-center justify-center text-[8px] text-gray-400"
+                            className="w-4 h-4 rounded-full border border-line hover:scale-125 transition-transform flex items-center justify-center text-[8px] text-gray-400"
                             title="Remove color"
                           >
                             &times;
                           </button>
                         </div>
-                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <div className="h-px bg-line my-1" />
                         <button onClick={() => { editor.chain().focus().deleteTable().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
                           <Trash2 className="w-3 h-3" /> Delete table
                         </button>
@@ -2152,7 +2152,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
       {/* Find & Replace bar */}
       {showFindReplace && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             <input
@@ -2456,7 +2456,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       </div>
 
       {/* Status bar: zoom controls + word count */}
-      <div className="flex items-center justify-between px-4 py-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-xs text-gray-500 dark:text-gray-400 print:hidden">
+      <div className="flex items-center justify-between px-4 py-1 border-t border-line bg-white dark:bg-[#1a1a1a] text-xs text-gray-500 dark:text-gray-400 print:hidden">
         <div className="flex items-center gap-1">
           <button
             onClick={zoomOut}
@@ -2471,7 +2471,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             className={cn(
               "px-1.5 py-0.5 rounded min-w-[3rem] text-center tabular-nums",
               zoomLevel === "fit"
-                ? "font-medium text-[#a0704b] dark:text-[#cd853f]"
+                ? "font-medium text-accent-ink"
                 : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
             )}
             title="Fit to width (Ctrl+0)"
@@ -2555,7 +2555,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       {showShortcutsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print:hidden" onClick={() => setShowShortcutsModal(false)}>
           <div
-            className="flex flex-col overflow-hidden bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
+            className="flex flex-col overflow-hidden bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-6"
             style={{ width: "28rem", maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 4rem)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2630,7 +2630,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         return (
           <div
             ref={listContextMenuRef}
-            className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[11rem]"
+            className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg py-1 min-w-[11rem]"
             style={{ left: listContextMenu.x, top: listContextMenu.y }}
           >
             <button
@@ -2674,7 +2674,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 type="number"
                 min={1}
                 defaultValue={editor.getAttributes("orderedList").start ?? 1}
-                className="w-full px-2 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full px-2 py-0.5 text-xs border border-line rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -2687,7 +2687,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 autoFocus
               />
             </div>
-            <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
+            <div className="border-t border-line my-1" />
             <button className={ctxItemCls} onClick={() => { editor.chain().focus().toggleBulletList().run(); setListContextMenu(null); }}>
               Convert to bullet list
             </button>
@@ -2787,19 +2787,19 @@ function ColorGrid({ colors, onSelect, onRemove, customValue, onCustom, removeTi
   customTitle: string;
 }) {
   return (
-    <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1 items-center">
+    <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2 flex gap-1 items-center">
       {colors.map((c) => (
         <button
           key={c.color}
           onClick={() => onSelect(c.color)}
-          className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+          className="w-6 h-6 rounded-full border border-line hover:scale-110 transition-transform"
           style={{ backgroundColor: c.color }}
           title={c.label}
         />
       ))}
       <button
         onClick={onRemove}
-        className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
+        className="w-6 h-6 rounded-full border border-line hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
         title={removeTitle}
       >
         &times;
@@ -2818,7 +2818,7 @@ function ColorGrid({ colors, onSelect, onRemove, customValue, onCustom, removeTi
 
 /* Toolbar separator */
 function ToolbarSep() {
-  return <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1 shrink-0" />;
+  return <div className="w-px h-5 bg-line mx-1 shrink-0" />;
 }
 
 /* Floating bubble menu — appears above text selections */
@@ -3095,7 +3095,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
 
       {/* Dropdown — anchored to wrapper, renders below the tag row */}
       {dropdownOpen && (
-        <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg" style={{ width: "16rem" }}>
+        <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg" style={{ width: "16rem" }}>
           <div className="p-2">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
@@ -3149,7 +3149,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
             {showCreate && (
               <button
                 onClick={() => createTag(search.trim())}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Create &ldquo;{search.trim()}&rdquo;

@@ -326,7 +326,7 @@ export function ReasonsPanel({
 }
 
 const HEADING =
-  "sticky top-0 z-10 bg-[#fef9f3] pb-1.5 pt-3 text-xs font-semibold uppercase tracking-wide text-[#8b7355] dark:bg-[#2d2618] dark:text-[#b8a58a]";
+  "sticky top-0 z-10 bg-paper pb-1.5 pt-3 text-xs font-semibold uppercase tracking-wide text-[#8b7355] dark:text-[#b8a58a]";
 
 /** One line of a reason as a button, with the letters typed for it last in the lesson. English is in italic, as it will be on the page. */
 function LineChip({ line, letters, picked, onPick }: { line: ReasonLine; letters?: string[]; picked: boolean; onPick: () => void }) {

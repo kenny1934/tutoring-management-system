@@ -299,7 +299,7 @@ export const ProposalCard = memo(function ProposalCard({
         )}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="px-4 py-3 border-b border-line">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-[#a0704b]" />
@@ -319,7 +319,7 @@ export const ProposalCard = memo(function ProposalCard({
         </div>
 
         {/* Student & Session Info */}
-        <div className="px-4 py-3 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="px-4 py-3 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line">
           {session ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ export const ProposalCard = memo(function ProposalCard({
         </div>
 
         {/* Proposed By */}
-        <div className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-line">
           Proposed by <span className="font-medium">{proposal.proposed_by_tutor_name || `Tutor #${proposal.proposed_by_tutor_id}`}</span>
           {isProposer && " (You)"}
           <span className="text-gray-400 dark:text-gray-500 ml-2">
@@ -362,7 +362,7 @@ export const ProposalCard = memo(function ProposalCard({
 
         {/* Notes */}
         {proposal.notes && (
-          <div className="px-4 py-2 text-sm bg-amber-50 dark:bg-amber-900/10 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 py-2 text-sm bg-amber-50 dark:bg-amber-900/10 border-b border-line">
             <div className="flex items-start gap-2">
               <MessageSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <p className="text-gray-700 dark:text-gray-300 italic">{proposal.notes}</p>
@@ -432,7 +432,7 @@ export const ProposalCard = memo(function ProposalCard({
 
         {/* Footer actions */}
         {canCancel && (
-          <div className="px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex justify-end">
+          <div className="px-4 py-3 border-t border-line flex justify-end">
             <button
               onClick={() => setShowCancelConfirm(true)}
               disabled={loadingAction === "cancel"}

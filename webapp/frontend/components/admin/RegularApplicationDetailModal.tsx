@@ -1711,7 +1711,7 @@ export function RegularApplicationDetailModal({
                   transition), so the panel is F1-only; an already-linked prospect
                   on a non-F1 application still shows so a bad link can be cleared. */}
               {((app.grade || "").trim() === "F1" || app.prospect_journey) && (canEdit || app.prospect_journey) && (
-                <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-3 py-2">
+                <div className="rounded-lg border border-line/60 px-3 py-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-semibold text-foreground">P6 prospect</span>
                     {app.prospect_journey ? (

@@ -69,13 +69,13 @@ import type {
 } from "@/types";
 
 // Shared table styling, matching the conversion board's tables.
-const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
+const wrap = "border border-line/50 rounded-lg overflow-hidden";
 const thead = "bg-[#f0e6d8]/50 dark:bg-[#2a2520]";
-const theadRow = "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30";
+const theadRow = "border-b border-line/30";
 const th = "px-3 py-2 text-left font-medium text-foreground";
 const thNum = "px-3 py-2 text-right font-medium text-foreground";
 const tdNum = "px-3 py-2 text-right tabular-nums";
-const rowDivide = "divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30";
+const rowDivide = "divide-y divide-line/30";
 
 const selectClass =
   "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
@@ -490,8 +490,8 @@ export function NotReturningDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="w-full max-w-md rounded-xl border border-line bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           <UserMinus className="h-4 w-4 text-rose-600 dark:text-rose-400" />
           <h2 className="text-sm font-semibold text-foreground flex-1">Mark as not returning</h2>
           <button
@@ -537,7 +537,7 @@ export function NotReturningDialog({
             />
           </div>
 
-          <label className="flex items-start gap-2 rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-2.5 py-2 cursor-pointer">
+          <label className="flex items-start gap-2 rounded-lg border border-line/60 px-2.5 py-2 cursor-pointer">
             <input
               type="checkbox"
               checked={stillWithUs}
@@ -562,7 +562,7 @@ export function NotReturningDialog({
           {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-line">
           <button type="button" onClick={() => onClose(false)} className={selectClass}>
             Cancel
           </button>
@@ -747,8 +747,8 @@ export function BulkContactDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg max-h-[90vh] flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="w-full max-w-md rounded-xl border border-line bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           <MessageSquarePlus className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold text-foreground flex-1">
             Log a contact for {rows.length} student{rows.length === 1 ? "" : "s"}
@@ -766,7 +766,7 @@ export function BulkContactDialog({
         <div className="p-4 space-y-3 overflow-y-auto">
           {/* Named, not just counted: a wrong tick is easier to spot in a list
               of names than in a number. */}
-          <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-2.5 py-2 max-h-24 overflow-y-auto text-xs text-muted-foreground">
+          <div className="rounded-lg border border-line/60 px-2.5 py-2 max-h-24 overflow-y-auto text-xs text-muted-foreground">
             {rows.map((r) => r.student_name).join(", ")}
           </div>
 
@@ -861,7 +861,7 @@ export function BulkContactDialog({
           {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-line">
           <button type="button" onClick={() => onClose(0)} className={selectClass}>
             Cancel
           </button>

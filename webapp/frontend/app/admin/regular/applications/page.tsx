@@ -370,9 +370,9 @@ export default function RegularApplicationsPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                 <ClipboardList className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -480,7 +480,7 @@ export default function RegularApplicationsPage() {
           </div>
 
           {/* Filter row */}
-          <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+          <div className="px-4 sm:px-6 py-2.5 border-b border-line/50">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

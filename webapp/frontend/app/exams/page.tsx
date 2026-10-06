@@ -118,11 +118,11 @@ function ExamCalendarView({
       {/* Calendar grid */}
       <div className={cn(
         "rounded-xl border overflow-hidden",
-        "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] border-line",
         "paper-texture"
       )}>
         {/* Calendar header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <button
             onClick={goToPrevMonth}
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -135,7 +135,7 @@ function ExamCalendarView({
             </h3>
             <button
               onClick={goToToday}
-              className="px-2 py-1 text-xs font-medium rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+              className="px-2 py-1 text-xs font-medium rounded-md border border-line text-gray-600 dark:text-gray-400 hover:bg-tint transition-colors"
             >
               Today
             </button>
@@ -149,7 +149,7 @@ function ExamCalendarView({
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="grid grid-cols-7 border-b border-line">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div
               key={day}
@@ -175,7 +175,7 @@ function ExamCalendarView({
                 key={index}
                 onClick={() => setSelectedDate(dateStr)}
                 className={cn(
-                  "relative p-2 min-h-[70px] border-b border-r border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 text-left transition-colors",
+                  "relative p-2 min-h-[70px] border-b border-r border-line/50 text-left transition-colors",
                   !isCurrentMonth && "bg-gray-50 dark:bg-gray-900/30",
                   isSelected && "bg-[#f5ede3] dark:bg-[#3d3628] ring-2 ring-inset ring-[#a0704b]",
                   !isSelected && hasExams && "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
@@ -576,12 +576,12 @@ export default function ExamsPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={goBack}
-                className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                className="p-2 hover:bg-tint rounded-lg transition-colors"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </button>
               <div className="flex items-center gap-3">
-                <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
+                <div className="hidden sm:block p-2 rounded-lg bg-tint">
                   <GraduationCap className="h-6 w-6 text-[#a0704b]" />
                 </div>
                 <div>
@@ -611,7 +611,7 @@ export default function ExamsPage() {
           <div
             className={cn(
               "mx-4 sm:mx-6 mb-4",
-              "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a]",
+              "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line",
               "paper-texture"
             )}
           >
@@ -626,7 +626,7 @@ export default function ExamsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search exams"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
               />
             </div>
 
@@ -635,7 +635,7 @@ export default function ExamsPage() {
               value={schoolFilter}
               onChange={(e) => setSchoolFilter(e.target.value)}
               aria-label="Filter by school"
-              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
             >
               <option value="">All Schools</option>
               {schools.map((school) => (
@@ -650,7 +650,7 @@ export default function ExamsPage() {
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
               aria-label="Filter by grade"
-              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
             >
               <option value="">All Grades</option>
               {grades.map((grade) => (
@@ -667,7 +667,7 @@ export default function ExamsPage() {
                 aria-label="Filter by type"
                 aria-haspopup="listbox"
                 aria-expanded={typeDropdownOpen}
-                className="flex items-center gap-2 w-full sm:w-auto px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                className="flex items-center gap-2 w-full sm:w-auto px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
               >
                 {typeFilter ? (
                   <>
@@ -680,12 +680,12 @@ export default function ExamsPage() {
                 <ChevronDown className={cn("h-3.5 w-3.5 ml-auto transition-transform", typeDropdownOpen && "rotate-180")} />
               </button>
               {typeDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-full sm:w-36 z-50 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute top-full left-0 mt-1 w-full sm:w-36 z-50 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg overflow-hidden">
                   <button
                     onClick={() => { setTypeFilter(""); setTypeDropdownOpen(false); }}
                     className={cn(
-                      "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
-                      !typeFilter && "bg-[#f5ede3] dark:bg-[#3d3628] font-medium"
+                      "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-tint transition-colors",
+                      !typeFilter && "bg-tint font-medium"
                     )}
                   >
                     All Types
@@ -697,8 +697,8 @@ export default function ExamsPage() {
                         key={type}
                         onClick={() => { setTypeFilter(type); setTypeDropdownOpen(false); }}
                         className={cn(
-                          "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
-                          typeFilter === type && "bg-[#f5ede3] dark:bg-[#3d3628] font-medium"
+                          "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-tint transition-colors",
+                          typeFilter === type && "bg-tint font-medium"
                         )}
                       >
                         <span className={cn("w-2 h-2 rounded-full", colors.dot)} />
@@ -711,7 +711,7 @@ export default function ExamsPage() {
             </div>
 
             {/* View style toggle */}
-            <div className="inline-flex rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] p-0.5 bg-[#fef9f3] dark:bg-[#2d2618]">
+            <div className="inline-flex rounded-lg border border-line p-0.5 bg-paper">
               <button
                 onClick={() => setViewStyle("list")}
                 className={cn(
@@ -741,7 +741,7 @@ export default function ExamsPage() {
           </div>
 
           {/* Date range row */}
-          <div className="px-4 pb-3 flex flex-col sm:flex-row gap-3 items-center border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 pt-3">
+          <div className="px-4 pb-3 flex flex-col sm:flex-row gap-3 items-center border-t border-line/50 pt-3">
             {/* Date inputs */}
             <div className="flex items-center gap-2">
               <input
@@ -845,7 +845,7 @@ export default function ExamsPage() {
           ) : sortedExams.length === 0 ? (
             <div className={cn(
               "flex flex-col items-center justify-center py-16 rounded-xl",
-              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+              "bg-white dark:bg-[#1a1a1a] border border-line",
               "paper-texture"
             )}>
               <EmptyCloud className="mb-2" />

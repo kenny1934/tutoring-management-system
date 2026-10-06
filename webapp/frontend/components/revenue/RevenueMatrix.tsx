@@ -154,14 +154,14 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
 
   const sortArrow = (key: MatrixSortKey) => {
     if (key !== sortKey) return null;
-    return <span className="ml-0.5 text-[#a0704b] dark:text-[#cd853f]">{sortDir === "asc" ? "↑" : "↓"}</span>;
+    return <span className="ml-0.5 text-accent-ink">{sortDir === "asc" ? "↑" : "↓"}</span>;
   };
 
   if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+          <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
           <p className="text-sm text-gray-600 dark:text-gray-400">Loading tutor matrix…</p>
         </div>
       </div>
@@ -201,7 +201,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
 
   return (
     <div className={cn(
-      "flex-1 min-h-[400px] flex flex-col rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] overflow-hidden",
+      "flex-1 min-h-[400px] flex flex-col rounded-lg border-2 border-line-strong bg-white dark:bg-[#1a1a1a] overflow-hidden",
       !isMobile && "paper-texture",
     )}>
       <div className="flex-1 min-h-0 overflow-auto" onScroll={() => setHover(null)}>
@@ -210,7 +210,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
             <tr>
               <th
                 scope="col"
-                className="sticky top-0 left-0 z-30 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-r border-[#d4a574]/40 px-2 sm:px-3 py-2 text-left font-semibold text-gray-900 dark:text-gray-100 min-w-[120px] sm:min-w-[200px]"
+                className="sticky top-0 left-0 z-30 bg-tint border-b border-r border-[#d4a574]/40 px-2 sm:px-3 py-2 text-left font-semibold text-gray-900 dark:text-gray-100 min-w-[120px] sm:min-w-[200px]"
               >
                 <div
                   onClick={() => handleHeaderClick("tutor")}
@@ -244,7 +244,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                   scope="col"
                   onClick={() => handleHeaderClick(period)}
                   className={cn(
-                    "sticky top-0 z-20 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/40 px-2 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap min-w-[88px]",
+                    "sticky top-0 z-20 bg-tint border-b border-[#d4a574]/40 px-2 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap min-w-[88px]",
                     "cursor-pointer select-none hover:bg-[#efe3d3] dark:hover:bg-[#4a3f2c]",
                   )}
                 >
@@ -323,7 +323,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                       >
                         {isColMax && (
                           <Crown
-                            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#a0704b] dark:text-[#cd853f]"
+                            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-accent-ink"
                             aria-label="Top earner for this month"
                           />
                         )}

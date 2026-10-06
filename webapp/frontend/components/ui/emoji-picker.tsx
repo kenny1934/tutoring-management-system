@@ -57,7 +57,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
       className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2 w-64"
     >
       {/* Group tabs */}
-      <div className="flex gap-1 mb-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-2">
+      <div className="flex gap-1 mb-2 border-b border-line pb-2">
         {frequent.length > 0 && (
           <button
             type="button"
@@ -65,7 +65,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
             className={cn(
               "px-2 py-1 text-xs rounded transition-colors",
               selectedGroup === -1
-                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                ? "bg-tint text-[#a0704b] font-medium"
                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
             )}
           >
@@ -80,7 +80,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
             className={cn(
               "px-2 py-1 text-xs rounded transition-colors",
               selectedGroup === idx
-                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                ? "bg-tint text-[#a0704b] font-medium"
                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
             )}
           >
@@ -99,7 +99,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
               onSelect(emoji);
               if (!persistOnSelect) onClose();
             }}
-            className="p-1.5 text-xl hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
+            className="p-1.5 text-xl hover:bg-tint rounded transition-colors"
           >
             {emoji}
           </button>

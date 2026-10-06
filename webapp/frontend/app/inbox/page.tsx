@@ -167,7 +167,7 @@ const ThreadItem = React.memo(function ThreadItem({
     <button
       onClick={bulkMode ? (onBulkToggle || onClick) : onClick}
       className={cn(
-        "w-full text-left p-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 transition-all duration-150 min-h-[64px] lg:min-h-0",
+        "w-full text-left p-3 border-b border-line/30 transition-all duration-150 min-h-[64px] lg:min-h-0",
         isSelected && !bulkMode
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
           : "hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50",
@@ -1475,8 +1475,8 @@ export default function InboxPage() {
                   className={cn(
                     "w-6 h-6 inline-flex items-center justify-center rounded-full transition-colors border",
                     soundEnabled
-                      ? "text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border-gray-300 dark:border-gray-600"
-                      : "text-gray-300 dark:text-gray-600 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border-gray-200 dark:border-gray-700"
+                      ? "text-gray-400 hover:text-[#a0704b] hover:bg-tint border-gray-300 dark:border-gray-600"
+                      : "text-gray-300 dark:text-gray-600 hover:text-[#a0704b] hover:bg-tint border-gray-200 dark:border-gray-700"
                   )}
                   title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
                 >
@@ -1485,7 +1485,7 @@ export default function InboxPage() {
                 <button
                   ref={shortcutsButtonRef}
                   onClick={() => setShowShortcuts(prev => !prev)}
-                  className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border border-gray-300 dark:border-gray-600 transition-colors"
+                  className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-400 hover:text-[#a0704b] hover:bg-tint border border-gray-300 dark:border-gray-600 transition-colors"
                   title="Keyboard shortcuts (?)"
                 >
                   ?
@@ -1495,7 +1495,7 @@ export default function InboxPage() {
                 {isAdmin && !isReadOnlyInbox && (
                   <button
                     onClick={() => setShowWecom(true)}
-                    className="flex items-center gap-2 px-4 py-2 border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 border border-line-strong text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
                     title="Send to WeCom group"
                   >
                     <MessageSquareShare className="h-4 w-4" />
@@ -1551,7 +1551,7 @@ export default function InboxPage() {
                       <div key={section.id}>
                         {sectionIdx > 0 && (
                           <div className="mt-3 mb-1">
-                            <div className="mx-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30" />
+                            <div className="mx-2 border-t border-line/30" />
                             {section.label && (
                               isCollapsible ? (
                                 <button
@@ -1604,7 +1604,7 @@ export default function InboxPage() {
                                 "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
                                 categoryCollapsed ? "px-2" : "px-3",
                                 selectedCategory === cat.id
-                                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                                  ? "bg-tint text-[#a0704b] font-medium"
                                   : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
                               )}
                               title={cat.label}
@@ -1643,7 +1643,7 @@ export default function InboxPage() {
               "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg overflow-hidden flex flex-col"
             )}>
               {/* Search bar */}
-              <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
+              <div className="flex-shrink-0 p-2 border-b border-line/60">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1720,7 +1720,7 @@ export default function InboxPage() {
                   bulkMode ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                 )}>
                   <div className="overflow-hidden">
-                    <div className="flex items-center gap-1 px-2 py-1.5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                    <div className="flex items-center gap-1 px-2 py-1.5 border-t border-line/40">
                       <button
                         onClick={bulkToggleAll}
                         className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
@@ -1813,7 +1813,7 @@ export default function InboxPage() {
                     ["w-1/3", "w-3/5"],
                     ["w-2/5", "w-1/2"],
                   ] as const).map(([nameW, bodyW], i) => (
-                    <div key={i} className="relative rounded-lg border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white dark:bg-[#1a1a1a] p-4 overflow-hidden"
+                    <div key={i} className="relative rounded-lg border border-line/40 bg-white dark:bg-[#1a1a1a] p-4 overflow-hidden"
                       style={{ animationDelay: `${i * 0.1}s` }}>
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0" />
@@ -1956,7 +1956,7 @@ export default function InboxPage() {
                       <>
                         {pinnedInList.length > 0 && (
                           <div>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex items-center gap-1.5">
+                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-line/30 flex items-center gap-1.5">
                               <Pin className="h-3 w-3" />
                               Pinned
                             </div>
@@ -1965,7 +1965,7 @@ export default function InboxPage() {
                         )}
                         {groupThreadsByDate(unpinnedThreads).map((group) => (
                           <div key={group.label}>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-line/30">
                               {group.label}
                             </div>
                             {group.threads.map((thread) => renderThread(thread))}
@@ -1976,7 +1976,7 @@ export default function InboxPage() {
                   })()}
                   {/* Load More button for paginated threads (not for client-side categories) */}
                   {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && selectedCategory !== "reminders" && selectedCategory !== "scheduled" && selectedCategory !== "mentions" && hasMore && displayThreads.length > 0 && (
-                    <div className="p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <div className="p-4 border-t border-line">
                       <button
                         onClick={loadMore}
                         disabled={isLoadingMore}
@@ -2118,7 +2118,7 @@ export default function InboxPage() {
           <>
             <div className="fixed inset-0 z-[60]" onClick={() => setShowShortcuts(false)} />
             <div
-              className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3 w-56"
+              className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line px-4 py-3 w-56"
               style={{ top: shortcutsPos.top, left: shortcutsPos.left }}
             >
               <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Keyboard Shortcuts</h4>

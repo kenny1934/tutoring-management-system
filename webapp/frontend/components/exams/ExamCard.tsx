@@ -132,7 +132,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   return (
     <div className={cn(
       "rounded-xl border overflow-hidden",
-      "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
+      "bg-white dark:bg-[#1a1a1a] border-line",
       "paper-texture transition-all",
       highlighted && "ring-2 ring-[#a0704b] ring-offset-2"
     )}>
@@ -295,10 +295,10 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="border-t border-line">
           {/* Description if available */}
           {exam.description && (
-            <div className="px-4 py-3 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-4 py-3 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50 border-b border-line">
               <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">{exam.description}</p>
             </div>
           )}

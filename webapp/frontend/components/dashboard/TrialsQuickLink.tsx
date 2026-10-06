@@ -57,7 +57,7 @@ function ScheduledTrialCard({
     <Link
       href={`/sessions/${trial.session_id}`}
       onClick={onClose}
-      className="block px-3 py-2.5 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] transition-colors border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 last:border-b-0"
+      className="block px-3 py-2.5 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] transition-colors border-b border-line/50 last:border-b-0"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -122,7 +122,7 @@ function AwaitingTrialCard({
   const isPast = sessionDate < new Date() && !isToday;
 
   return (
-    <div className="px-3 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 last:border-b-0">
+    <div className="px-3 py-2.5 border-b border-line/50 last:border-b-0">
       {/* Student info */}
       <div className="mb-1">
         <StudentInfoBadges
@@ -312,9 +312,9 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
           {...getReferenceProps()}
           className={cn(
             "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-            "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-            "text-[#a0704b] dark:text-[#cd853f]",
-            "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
+            "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+            "text-accent-ink",
+            "hover:bg-tint hover:shadow-sm",
             isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
           )}
         >
@@ -347,7 +347,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               )}
             >
               {/* Header */}
-              <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
+              <div className="px-3 py-2 border-b border-line bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
                 <div className="flex items-center gap-2">
                   <FlaskConical className="h-4 w-4 text-teal-600 dark:text-teal-400" />
                   <span className="font-medium text-sm">Trial Sessions</span>
@@ -369,7 +369,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
                     {/* Scheduled Section */}
                     {scheduledTrials.length > 0 && (
                       <div>
-                        <div className="px-3 py-1.5 text-xs font-semibold text-foreground/60 bg-blue-50 dark:bg-blue-900/20 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+                        <div className="px-3 py-1.5 text-xs font-semibold text-foreground/60 bg-blue-50 dark:bg-blue-900/20 border-b border-line/50">
                           Scheduled ({scheduledTrials.length})
                         </div>
                         {scheduledTrials.slice(0, 5).map((trial) => (
@@ -390,7 +390,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
                     {/* Attended/Awaiting Conversion Section */}
                     {attendedTrials.length > 0 && (
                       <div>
-                        <div className="px-3 py-1.5 text-xs font-semibold text-foreground/60 bg-amber-50 dark:bg-amber-900/20 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+                        <div className="px-3 py-1.5 text-xs font-semibold text-foreground/60 bg-amber-50 dark:bg-amber-900/20 border-b border-line/50">
                           Awaiting Conversion ({attendedTrials.length})
                         </div>
                         {attendedTrials.slice(0, 5).map((trial) => (
@@ -417,7 +417,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               <Link
                 href="/trials"
                 onClick={handleClose}
-                className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors rounded-b-lg"
+                className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors rounded-b-lg"
               >
                 View all trials <ChevronRight className="h-3 w-3 inline" />
               </Link>
@@ -468,7 +468,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
             )}>
               {/* Tabs for narrow screens */}
               {!isLargeScreen && createModalOpen && (
-                <div className="flex bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-lg border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex bg-paper rounded-t-lg border-b border-line">
                   <button
                     onClick={() => setModalTabView('detail')}
                     className={cn(

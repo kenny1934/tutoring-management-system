@@ -122,7 +122,7 @@ export function MyStudentsView({
     return (
       <div className="flex items-center justify-center h-full p-8">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+          <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
           <p className="text-sm text-gray-600 dark:text-gray-400">Loading students...</p>
         </div>
       </div>
@@ -169,7 +169,7 @@ export function MyStudentsView({
         <div
           role="tablist"
           aria-label="View selection"
-          className="flex border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] mb-2 rounded-t-lg overflow-hidden"
+          className="flex border-b-2 border-line mb-2 rounded-t-lg overflow-hidden"
         >
           <button
             role="tab"
@@ -213,7 +213,7 @@ export function MyStudentsView({
             role={isMobile ? "tabpanel" : undefined}
             aria-labelledby={isMobile ? "students-list-tab" : undefined}
             className={cn(
-              "flex-shrink-0 flex flex-col bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
+              "flex-shrink-0 flex flex-col bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden",
               isMobile ? "w-full" : "w-[280px]"
             )}
           >

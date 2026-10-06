@@ -59,7 +59,7 @@ export function UrlExerciseView({ url, title, isMobile, toolbarStart }: UrlExerc
                 </a>
               )}
               {isGoogleDoc && (
-                <span className="text-[#8b7355] dark:text-[#a09080]">
+                <span className="text-ink-subtle">
                   {"Can't see the file? Ask the owner to share it with you."}
                 </span>
               )}
@@ -68,7 +68,7 @@ export function UrlExerciseView({ url, title, isMobile, toolbarStart }: UrlExerc
         </>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+          <p className="text-sm text-ink-subtle">
             This resource cannot be embedded directly.
           </p>
           <a

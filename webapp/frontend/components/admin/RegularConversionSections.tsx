@@ -34,14 +34,14 @@ import type {
 } from "@/types";
 
 // Shared table styling, matching the funnel table already on the page.
-const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
+const wrap = "border border-line/50 rounded-lg overflow-hidden";
 const scroll = "overflow-x-auto";
 const thead = "bg-[#f0e6d8]/50 dark:bg-[#2a2520]";
-const theadRow = "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30";
+const theadRow = "border-b border-line/30";
 const th = "px-3 py-2 text-left font-medium text-foreground";
 const thNum = "px-3 py-2 text-right font-medium text-foreground";
 const tdNum = "px-3 py-2 text-right tabular-nums";
-const rowDivide = "divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30";
+const rowDivide = "divide-y divide-line/30";
 
 /** Whole-number percent, guarding a zero denominator. */
 function pct(n: number, d: number): string {
@@ -149,7 +149,7 @@ function Section({
   return (
     <section
       className={cn(
-        "rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4",
+        "rounded-xl border border-line/50 bg-white/30 dark:bg-white/[0.01] p-4",
         className
       )}
     >

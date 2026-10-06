@@ -223,7 +223,7 @@ function StudentBlock({
         >
           <WithSchoolIfItFits school={session.school} lineClass="h-5" className="flex-1 gap-x-1.5" badgeClassName="text-[10px] leading-4 py-0.5">
             {studentId && (
-              <span className="text-xs font-mono text-[#8b7355] dark:text-[#a09080] whitespace-nowrap flex-shrink-0">{studentId}</span>
+              <span className="text-xs font-mono text-ink-subtle whitespace-nowrap flex-shrink-0">{studentId}</span>
             )}
             <span className="text-sm font-bold text-[#4a3520] dark:text-[#e8d4b8] truncate">
               {session.student_name}
@@ -355,7 +355,7 @@ function ExerciseTypeSection({
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <Icon className={cn("h-3.5 w-3.5", iconColor)} />
-          <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+          <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
             {label}
           </span>
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">({entries.length})</span>
@@ -594,7 +594,7 @@ export function LessonWideSidebar({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
         <FileX className="h-8 w-8 text-[#c4a882]" />
-        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">No sessions in this slot</p>
+        <p className="text-sm text-ink-subtle">No sessions in this slot</p>
       </div>
     );
   }
@@ -633,7 +633,7 @@ export function LessonWideSidebar({
             onClick={foldAll}
             title={anyOpen ? "Collapse all" : "Expand all"}
             aria-label={anyOpen ? "Collapse all" : "Expand all"}
-            className="ml-auto flex flex-none items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+            className="ml-auto flex flex-none items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors text-ink-subtle hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           >
             {anyOpen ? <ChevronsDownUp className="h-3 w-3" /> : <ChevronsUpDown className="h-3 w-3" />}
             <span className="hidden @[280px]/sidebarhead:inline">{anyOpen ? "Collapse all" : "Expand all"}</span>
@@ -725,7 +725,7 @@ export function LessonWideSidebar({
               <div>
                 <div className="flex items-center gap-1.5 px-2 mb-1">
                   <PenTool className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
-                  <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
                     Classwork
                   </span>
                 </div>
@@ -752,7 +752,7 @@ export function LessonWideSidebar({
               <div>
                 <div className="flex items-center gap-1.5 px-2 mb-1">
                   <BookOpen className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
-                  <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
                     Homework
                   </span>
                 </div>

@@ -55,7 +55,7 @@ function CustomTooltip({
   // For "Others", show hint to click for details
   if (data.name === "Others") {
     return (
-      <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg">
+      <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg">
         <div className="font-medium text-gray-900 dark:text-gray-100">Others</div>
         <div className="text-sm text-gray-600 dark:text-gray-400">{data.value} students ({percentage}%)</div>
         <div className="text-xs text-[#a0704b] dark:text-[#d4a574] mt-1">Click for breakdown</div>
@@ -64,7 +64,7 @@ function CustomTooltip({
   }
 
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg">
       <div className="font-medium text-gray-900 dark:text-gray-100">{data.name}</div>
       <div className="text-sm text-gray-600 dark:text-gray-400">{data.value} students ({percentage}%)</div>
     </div>
@@ -99,9 +99,9 @@ function OthersPopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-xl w-[240px] max-h-[280px] overflow-hidden"
+      className="absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-paper border border-line rounded-lg shadow-xl w-[240px] max-h-[280px] overflow-hidden"
     >
-      <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center justify-between">
+      <div className="px-3 py-2 border-b border-line flex items-center justify-between">
         <div>
           <div className="font-semibold text-gray-900 dark:text-gray-100">Others Breakdown</div>
           <div className="text-xs text-gray-500 dark:text-gray-400">{othersTotal} students ({percentage}%)</div>
@@ -118,7 +118,7 @@ function OthersPopover({
           {breakdown.map((school, i) => {
             const schoolPct = total > 0 ? ((school.value / total) * 100).toFixed(1) : "0";
             return (
-              <div key={i} className="flex items-center justify-between gap-2 text-sm py-1 px-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]">
+              <div key={i} className="flex items-center justify-between gap-2 text-sm py-1 px-1 rounded hover:bg-tint">
                 <span className="text-gray-700 dark:text-gray-300 truncate">{school.name}</span>
                 <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 text-xs">{school.value} ({schoolPct}%)</span>
               </div>
@@ -138,7 +138,7 @@ function CustomLegend({ payload }: { payload?: Array<{ color: string; value: str
       {payload.map((entry, index) => (
         <span
           key={index}
-          className="inline-flex items-center gap-1.5 px-2 py-1 bg-[#f5ede3] dark:bg-[#3d3628] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] shadow-sm"
+          className="inline-flex items-center gap-1.5 px-2 py-1 bg-tint rounded border border-line text-[11px] shadow-sm"
           title={`${entry.count} students`}
         >
           <span
@@ -163,7 +163,7 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
   ];
 
   return (
-    <div className="flex items-center gap-0.5 bg-[#f5ede3] dark:bg-[#3d3628] rounded-md p-0.5 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+    <div className="flex items-center gap-0.5 bg-tint rounded-md p-0.5 border border-line">
       {buttons.map(({ type, icon: Icon, label }) => (
         <button
           key={type}

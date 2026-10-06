@@ -330,7 +330,7 @@ function AtlasFullscreenOverlay({
       tabIndex={-1}
       // z-[9990]: above the page, below the curriculum modals (10000) so a
       // topic's worksheet list opened from the map stacks on top.
-      className="fixed z-[9990] flex flex-col bg-[#fef9f3] dark:bg-[#2d2618] focus:outline-none"
+      className="fixed z-[9990] flex flex-col bg-paper focus:outline-none"
       style={rect}
     >
       {children}
@@ -463,7 +463,7 @@ const AtlasMinimap = memo(function AtlasMinimap({
   return (
     <div
       aria-hidden="true"
-      className="absolute bottom-3 right-3 z-40 hidden sm:block rounded-md border border-[#d4a574]/60 dark:border-[#8b6f47] bg-[#fef9f3]/95 dark:bg-[#2d2618]/95 shadow-md overflow-hidden"
+      className="absolute bottom-3 right-3 z-40 hidden sm:block rounded-md border border-[#d4a574]/60 dark:border-[#8b6f47] bg-paper/95 shadow-md overflow-hidden"
     >
       <svg
         width={mmW}
@@ -961,7 +961,7 @@ export function CurriculumAtlas({
       {/* Card header: series toggle + legend / hint + zoom and fullscreen */}
       <div
         className={cn(
-          "flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]",
+          "flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20",
           fullscreen && "shrink-0"
         )}
       >
@@ -1026,7 +1026,7 @@ export function CurriculumAtlas({
             </span>
           )}
           <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
-            <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-[#d4a574] dark:border-[#8b6f47]" />
+            <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-line-strong" />
             Extension
           </span>
         </div>
@@ -1119,11 +1119,11 @@ export function CurriculumAtlas({
       >
         {/* Grade header (sticky top, with a sticky corner over the gutter) */}
         <div
-          className="sticky top-0 z-40 flex bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
+          className="sticky top-0 z-40 flex bg-paper border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
           style={{ minWidth: innerMinWidth, height: HEADER_H }}
         >
           <div
-            className="sticky left-0 z-40 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+            className="sticky left-0 z-40 shrink-0 bg-paper"
             style={{ width: GUTTER_W }}
           />
           {/* Label positions track the zoom; the labels themselves stay
@@ -1155,7 +1155,7 @@ export function CurriculumAtlas({
           {/* Strand gutter — in flow so sticky-left survives 2-D panning;
               z-30 so panned nodes (z-20) pass under it */}
           <div
-            className="sticky left-0 z-30 shrink-0 overflow-hidden bg-[#fef9f3] dark:bg-[#2d2618]"
+            className="sticky left-0 z-30 shrink-0 overflow-hidden bg-paper"
             style={{ width: GUTTER_W, height: scaledH }}
           >
             {gutterLabels.map((g) => (

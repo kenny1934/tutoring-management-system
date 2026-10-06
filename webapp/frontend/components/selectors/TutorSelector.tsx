@@ -226,9 +226,9 @@ export function TutorSelector({
         )}
       >
         {isAllTutorsSelected ? (
-          <Users className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+          <Users className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
         ) : (
-          <User className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+          <User className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
         )}
         <span className="truncate max-w-[150px]">
           {isAllTutorsSelected ? "All Tutors" : (selectedTutor?.tutor_name || placeholder)}

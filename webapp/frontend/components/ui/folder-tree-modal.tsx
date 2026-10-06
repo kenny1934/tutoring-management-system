@@ -1179,7 +1179,7 @@ export function FolderTreeModal({
               )}
 
               {/* HEADER: Breadcrumb + View Toggle + Sort + Multi-select */}
-              <div className="flex-shrink-0 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700 bg-[#fef9f3] dark:bg-[#2d2618] space-y-2">
+              <div className="flex-shrink-0 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700 bg-paper space-y-2">
                 {/* Row 1: Breadcrumb + Add Folder + View toggle */}
                 <div className="flex items-center gap-2">
                   {/* Breadcrumb */}
@@ -1573,7 +1573,7 @@ export function FolderTreeModal({
               </div>
 
               {/* FOOTER */}
-              <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700 bg-[#fef9f3] dark:bg-[#2d2618] space-y-2">
+              <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700 bg-paper space-y-2">
                 {/* Help text */}
                 <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-2">
                   <Info className="h-3.5 w-3.5 shrink-0" />

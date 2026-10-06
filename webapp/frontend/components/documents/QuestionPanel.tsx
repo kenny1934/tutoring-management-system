@@ -74,13 +74,13 @@ function ResultPreview({ label, text }: { label: string; text: string | null }) 
     <div className="mt-1.5">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[10px] font-medium text-[#a0704b] dark:text-[#cd853f] hover:underline"
+        className="flex items-center gap-1 text-[10px] font-medium text-accent-ink hover:underline"
       >
         {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         {label}
       </button>
       {expanded && (
-        <div className="mt-1 pl-4 text-xs text-gray-600 dark:text-gray-400 leading-relaxed border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="mt-1 pl-4 text-xs text-gray-600 dark:text-gray-400 leading-relaxed border-l-2 border-line">
           <MathText text={text} />
         </div>
       )}
@@ -108,7 +108,7 @@ function QuestionCard({
       <div className="flex items-center gap-2 mb-1">
         <button
           onClick={() => onScrollToNode(q.start_node)}
-          className="text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors shrink-0"
+          className="text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-accent-ink transition-colors shrink-0"
         >
           {number}
         </button>
@@ -421,9 +421,9 @@ export function QuestionPanel({
   if (!isOpen) return null;
 
   return (
-    <div role="complementary" aria-label="Questions panel" className="w-80 border-l border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] flex flex-col shrink-0 print:hidden max-md:fixed max-md:inset-0 max-md:w-full max-md:z-50">
+    <div role="complementary" aria-label="Questions panel" className="w-80 border-l border-line bg-white dark:bg-[#1a1a1a] flex flex-col shrink-0 print:hidden max-md:fixed max-md:inset-0 max-md:w-full max-md:z-50">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <div className="flex items-center gap-2">
           <ListTree className="w-4 h-4 text-[#a0704b]" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Questions</h3>
@@ -524,7 +524,7 @@ export function QuestionPanel({
 
       {/* Bottom toolbar */}
       {questions && questions.length > 0 && !loading && (!processing || retryingIndex !== null) && !isReadOnly && (
-        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-3 py-2.5 space-y-2">
+        <div className="border-t border-line px-3 py-2.5 space-y-2">
           <div className="flex gap-2">
             <button
               onClick={() => setPendingAction("solve")}

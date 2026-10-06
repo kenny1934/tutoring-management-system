@@ -177,7 +177,7 @@ function ExerciseSection({
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <Icon className={cn("h-3.5 w-3.5", iconColor)} />
-          <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+          <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
             {label}
           </span>
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">
@@ -375,7 +375,7 @@ export function LessonExerciseSidebar({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
         <FileX className="h-8 w-8 text-[#c4a882]" />
-        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+        <p className="text-sm text-ink-subtle">
           No sessions found
         </p>
         <p className="text-xs text-[#b0a090] dark:text-[#706050]">

@@ -446,7 +446,7 @@ export default function AdminWaitlistPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="h-full p-4 sm:p-6 flex flex-col">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-3">

@@ -359,7 +359,7 @@ export function SessionSelectorModal({
       onClose={onClose}
       title={
         <div className="flex items-center gap-2">
-          <CalendarDays className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+          <CalendarDays className="h-5 w-5 text-accent-ink" />
           <span>Assign Files to Sessions</span>
         </div>
       }
@@ -420,7 +420,7 @@ export function SessionSelectorModal({
           </div>
 
           {/* Files summary */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
             <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
               {files.length} FILE{files.length !== 1 ? "S" : ""} TO ASSIGN
             </div>
@@ -430,10 +430,10 @@ export function SessionSelectorModal({
                   key={idx}
                   className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                 >
-                  <FileText className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                  <FileText className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
                   <span className="truncate">{formatFileName(file.path)}</span>
                   {file.pages && (
-                    <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628] px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-tint px-1.5 py-0.5 rounded">
                       p.{file.pages}
                     </span>
                   )}
@@ -443,7 +443,7 @@ export function SessionSelectorModal({
           </div>
 
           {/* Sessions summary grouped by type */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
             <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
               TO {selections.size} SESSION{selections.size !== 1 ? "S" : ""}
             </div>
@@ -489,7 +489,7 @@ export function SessionSelectorModal({
         /* Calendar Selection View */
         <div className="space-y-4">
           {/* Files to assign */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
             <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
               FILES TO ASSIGN ({files.length})
             </div>
@@ -499,10 +499,10 @@ export function SessionSelectorModal({
                   key={idx}
                   className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                 >
-                  <FileText className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                  <FileText className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
                   <span className="truncate">{formatFileName(file.path)}</span>
                   {file.pages && (
-                    <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628] px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-tint px-1.5 py-0.5 rounded">
                       p.{file.pages}
                     </span>
                   )}
@@ -520,9 +520,9 @@ export function SessionSelectorModal({
           </div>
 
           {/* Calendar */}
-        <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
           {/* Month navigation */}
-          <div className="flex items-center justify-between px-3 py-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="flex items-center justify-between px-3 py-2 bg-paper border-b border-line">
             <Button
               variant="ghost"
               size="sm"
@@ -557,7 +557,7 @@ export function SessionSelectorModal({
           {/* Loading state */}
           {isLoading && (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+              <Loader2 className="h-6 w-6 animate-spin text-accent-ink" />
               <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
                 Loading sessions...
               </span>
@@ -575,15 +575,15 @@ export function SessionSelectorModal({
           {!isLoading && !loadError && (
             <>
               {/* Weekday headers */}
-              <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="grid grid-cols-7 border-b border-line">
                 {DAY_NAMES.map((day, idx) => (
                   <div
                     key={day}
                     className={cn(
-                      "py-1 px-1 text-center text-xs font-semibold bg-[#fef9f3] dark:bg-[#2d2618]",
-                      idx > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "py-1 px-1 text-center text-xs font-semibold bg-paper",
+                      idx > 0 && "border-l border-line",
                       (idx === 0 || idx === 6) &&
-                        "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                        "text-accent-ink/70"
                     )}
                   >
                     {day}
@@ -604,13 +604,13 @@ export function SessionSelectorModal({
                         handleDayClick(dayData.dateString, dayData.sessionCount)
                       }
                       className={cn(
-                        "p-1.5 min-h-[60px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
+                        "p-1.5 min-h-[60px] border-b border-line transition-colors",
                         !isFirstCol && "border-l",
                         !dayData.isCurrentMonth &&
                           "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
                         dayData.isCurrentMonth &&
                           dayData.sessionCount > 0 &&
-                          "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+                          "cursor-pointer hover:bg-tint",
                         dayData.isToday &&
                           "ring-2 ring-inset ring-[#d4a574] dark:ring-[#cd853f]",
                         dayData.selectedCount > 0 &&
@@ -657,7 +657,7 @@ export function SessionSelectorModal({
 
         {/* Selected sessions summary */}
         {selections.size > 0 && (
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f]">
                 SELECTED SESSIONS ({selections.size})
@@ -680,7 +680,7 @@ export function SessionSelectorModal({
               {selectionsList.map((sel) => (
                 <div
                   key={sel.sessionId}
-                  className="flex items-center justify-between gap-2 text-sm py-1 px-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded"
+                  className="flex items-center justify-between gap-2 text-sm py-1 px-2 bg-paper rounded"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <button
@@ -857,11 +857,11 @@ function SessionDayPicker({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-[450px] max-h-[80vh] flex flex-col"
+        className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-[450px] max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <div className="flex items-center gap-3">
             <div>
               <div className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
@@ -964,7 +964,7 @@ function SessionDayPicker({
                         <div key={session.id}>
                           {/* Tutor divider within time slot */}
                           {isFirstInTutor && filterTutorId === "all" && (
-                            <div className="border-t border-dashed border-[#d4a574]/50 dark:border-[#8b6f47]/50 my-1.5" />
+                            <div className="border-t border-dashed border-line-strong/50 my-1.5" />
                           )}
 
                           <div
@@ -972,7 +972,7 @@ function SessionDayPicker({
                               "group flex items-start gap-2 p-2 rounded-md transition-colors border border-transparent cursor-pointer",
                               isSelected
                                 ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#d4a574] dark:border-[#8b6f47]"
-                                : "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]"
+                                : "hover:bg-paper"
                             )}
                             onClick={(e) => {
                               // Open popover on card click (not checkbox)
@@ -989,8 +989,8 @@ function SessionDayPicker({
                               className={cn(
                                 "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5",
                                 isSelected
-                                  ? "bg-[#a0704b] border-[#a0704b] dark:bg-[#cd853f] dark:border-[#cd853f]"
-                                  : "border-[#d4a574] dark:border-[#8b6f47] hover:border-[#a0704b] dark:hover:border-[#cd853f]"
+                                  ? "bg-accent-ink border-accent-ink"
+                                  : "border-line-strong hover:border-accent-ink"
                               )}
                             >
                               {isSelected && <Check className="h-3 w-3 text-white" />}
@@ -1066,7 +1066,7 @@ function SessionDayPicker({
 
         {/* Footer */}
         {filteredSessions.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15]">
+          <div className="flex items-center justify-between px-4 py-2 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15]">
             <div className="flex items-center gap-2">
               {/* Default type selector */}
               <span className="text-xs text-gray-500 dark:text-gray-400">

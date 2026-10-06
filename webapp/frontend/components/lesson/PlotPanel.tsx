@@ -148,7 +148,7 @@ export function PlotPanel({ latex, onLatexChange, reading, unit, onUnitChange, a
           : <div aria-hidden="true" className={fieldClass} />}
       </div>
       <p aria-live="polite" className="mt-1 min-h-8 text-xs">{message}</p>
-      <div role="group" aria-label="Angles" className="mt-1 flex gap-1 rounded-lg border border-[#e8d4b8] p-0.5 dark:border-[#6b5a4a]">
+      <div role="group" aria-label="Angles" className="mt-1 flex gap-1 rounded-lg border border-line p-0.5">
         {(["degrees", "radians"] as const).map((choice) => (
           <button
             key={choice}

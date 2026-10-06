@@ -97,13 +97,13 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
         <div
           className={cn(
             "absolute right-0 top-full mt-1 z-50",
-            "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "bg-white dark:bg-[#1a1a1a] border border-line",
             "rounded-lg shadow-lg min-w-[300px] max-w-[90vw] sm:max-w-[600px] overflow-hidden"
           )}
           onClick={(e) => e.stopPropagation()}
           role="listbox"
         >
-          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-line/50">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
               Select path to copy (↑↓ to navigate, Enter to copy)
             </p>
@@ -116,7 +116,7 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
                 className={cn(
                   "w-full text-left px-3 py-2 text-xs",
                   "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors",
-                  "flex items-center gap-2 border-b border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 last:border-0",
+                  "flex items-center gap-2 border-b border-line/20 last:border-0",
                   "focus:outline-none focus:bg-[#f5ede3] dark:focus:bg-[#2d2618]",
                   i === focusedIndex && "bg-[#f5ede3] dark:bg-[#2d2618]"
                 )}

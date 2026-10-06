@@ -31,7 +31,7 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
 
       {/* Paper section with date, day, and weather */}
       <div
-        className="flex items-center gap-1.5 px-2.5 bg-[#fef9f3] dark:bg-[#2d2618] border-y border-[#e8d4b8] dark:border-[#6b5a4a]"
+        className="flex items-center gap-1.5 px-2.5 bg-paper border-y border-line"
         style={{
           // Torn edge effect on the right + shadow that follows the clip
           clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 15%, calc(100% - 3px) 25%, 100% 40%, calc(100% - 2px) 50%, 100% 65%, calc(100% - 3px) 75%, 100% 85%, calc(100% - 4px) 100%, 0 100%)",
@@ -50,7 +50,7 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
           <span className="text-xs text-gray-400 animate-pulse ml-1">...</span>
         ) : weather ? (
           <div
-            className="flex items-center gap-1 ml-1 pl-1.5 border-l border-[#e8d4b8] dark:border-[#6b5a4a]"
+            className="flex items-center gap-1 ml-1 pl-1.5 border-l border-line"
             title={getWeatherDescription(weather.weatherCode)}
           >
             <span className="text-sm">

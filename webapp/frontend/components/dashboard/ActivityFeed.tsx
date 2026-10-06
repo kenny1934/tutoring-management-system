@@ -152,13 +152,13 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
   if (isLoading) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+        "bg-paper rounded-xl border border-line overflow-hidden",
         !isMobile && "paper-texture",
         className
       )}>
-        <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="px-4 py-3 border-b border-line bg-tint">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <Clock className="h-4 w-4 text-accent-ink" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
           </div>
         </div>
@@ -174,13 +174,13 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
   if (!events.length) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+        "bg-paper rounded-xl border border-line overflow-hidden",
         !isMobile && "paper-texture",
         className
       )}>
-        <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="px-4 py-3 border-b border-line bg-tint">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <Clock className="h-4 w-4 text-accent-ink" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
           </div>
         </div>
@@ -195,20 +195,20 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+      "bg-paper rounded-xl border border-line overflow-hidden",
       !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-4 py-3 border-b border-line bg-tint">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <Clock className="h-4 w-4 text-accent-ink" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="text-xs text-[#a0704b] dark:text-[#cd853f] hover:underline"
+            className="text-xs text-accent-ink hover:underline"
           >
             View All
           </button>
@@ -226,12 +226,12 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
               {/* Date header */}
               <div className="flex items-center gap-2 mb-2 pl-2">
                 <span
-                  className="text-xs font-bold text-[#a0704b] dark:text-[#cd853f] uppercase tracking-wide"
+                  className="text-xs font-bold text-accent-ink uppercase tracking-wide"
                   style={{ fontFamily: "'Permanent Marker', cursive" }}
                 >
                   {dateLabel}
                 </span>
-                <div className="flex-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+                <div className="flex-1 h-px bg-line" />
               </div>
 
               {/* Events for this date */}
@@ -241,7 +241,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
                   const Icon = config.icon;
 
                   const content = (
-                    <div className="flex rounded-r overflow-hidden hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors">
+                    <div className="flex rounded-r overflow-hidden hover:bg-tint/50 transition-colors">
                       {/* Colored strip with icon */}
                       <div className={cn(
                         "w-9 flex-shrink-0 border-l-3 flex items-center justify-center",

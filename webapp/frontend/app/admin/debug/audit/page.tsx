@@ -71,7 +71,7 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
   const canRevert = log.operation !== "SQL_QUERY" && (log.before_state || log.after_state);
 
   return (
-    <div className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] last:border-b-0">
+    <div className="border-b border-line last:border-b-0">
       <div className="flex items-center">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -241,13 +241,13 @@ export default function AuditLogPage() {
               <div className="flex items-center gap-4">
                 <Link
                   href="/admin/debug"
-                  className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                  className="p-2 hover:bg-tint rounded-lg transition-colors"
                   aria-label="Back to debug panel"
                 >
                   <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
                 </Link>
                 <div className="flex items-center gap-3">
-                  <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
+                  <div className="hidden sm:block p-2 rounded-lg bg-tint">
                     <History className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
                   </div>
                   <div>
@@ -272,7 +272,7 @@ export default function AuditLogPage() {
                   setTableFilter(e.target.value);
                   setPage(0);
                 }}
-                className="px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                className="px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
               />
               <select
                 value={operationFilter}
@@ -280,7 +280,7 @@ export default function AuditLogPage() {
                   setOperationFilter(e.target.value);
                   setPage(0);
                 }}
-                className="px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                className="px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
               >
                 <option value="">All Operations</option>
                 <option value="CREATE">CREATE</option>
@@ -307,7 +307,7 @@ export default function AuditLogPage() {
             ) : (
               <div className={cn(
                 "rounded-xl border overflow-hidden",
-                "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "bg-white dark:bg-[#1a1a1a] border-line",
                 "paper-texture"
               )}>
                 {logs.map((log) => (
@@ -322,7 +322,7 @@ export default function AuditLogPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] disabled:opacity-50"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-line disabled:opacity-50"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   Previous
@@ -333,7 +333,7 @@ export default function AuditLogPage() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] disabled:opacity-50"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-line disabled:opacity-50"
                 >
                   Next
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -347,7 +347,7 @@ export default function AuditLogPage() {
         {revertLog && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-modal-backdrop">
             <div className="relative max-w-lg w-[calc(100%-2rem)] min-w-[20rem] mx-4 bg-white dark:bg-[#1a1a1a] rounded-xl border border-amber-300 dark:border-amber-700 shadow-xl animate-modal-in">
-              <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex items-center justify-between p-4 border-b border-line">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
                     <Undo2 className="h-5 w-5 text-amber-600" aria-hidden="true" />
@@ -404,11 +404,11 @@ export default function AuditLogPage() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex justify-end gap-3 p-4 border-t border-line">
                 <button
                   onClick={() => setRevertLog(null)}
                   disabled={isReverting}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-line hover:bg-tint transition-colors"
                 >
                   Cancel
                 </button>

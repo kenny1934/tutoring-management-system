@@ -224,9 +224,9 @@ export default function SummerCertificatesPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                 <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -267,7 +267,7 @@ export default function SummerCertificatesPage() {
           </div>
 
           {/* Filters */}
-          <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center gap-2 flex-wrap">
+          <div className="px-4 sm:px-6 py-2 border-b border-line flex items-center gap-2 flex-wrap">
             {branchOptions.length > 1 && (
               <PickerDropdown
                 align="left"
@@ -323,7 +323,7 @@ export default function SummerCertificatesPage() {
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full text-xs min-w-[640px]">
                 <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] sticky top-0 z-10">
-                  <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                  <tr className="border-b border-line/30">
                     <th className="px-3 py-2 text-left font-medium text-foreground">Branch</th>
                     <th className="px-3 py-2 text-left font-medium text-foreground">Code</th>
                     <th className="px-3 py-2 text-left font-medium text-foreground">Student</th>
@@ -337,7 +337,7 @@ export default function SummerCertificatesPage() {
                     <th className="px-3 py-2 text-right font-medium text-foreground">Certificate</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+                <tbody className="divide-y divide-line/30">
                   {rows.map((row, i) => {
                     const pct = attendancePct(row);
                     const eligible = threshold !== null && row.attended_count >= threshold;

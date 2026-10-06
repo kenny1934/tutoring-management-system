@@ -330,8 +330,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         {...getFloatingProps()}
         className={cn(
           "z-[9999]",
-          "bg-[#fef9f3] dark:bg-[#2d2618]",
-          "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+          "bg-paper",
+          "border-2 border-line-strong",
           "rounded-lg shadow-lg",
           "p-4 w-[min(280px,90vw)]",
           "paper-texture"
@@ -387,7 +387,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
           {/* Schedule - with inline edit option */}
           {isEditingSchedule ? (
-            <div className="space-y-2 p-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded-md border border-[#d4a574] dark:border-[#6b5a4a]">
+            <div className="space-y-2 p-2 bg-paper rounded-md border border-[#d4a574] dark:border-[#6b5a4a]">
               {/* Day selector */}
               <div className="flex items-center gap-2">
                 <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Day:</label>
@@ -421,7 +421,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                         setIsCustomTime(false);
                         setEditedTime('');
                       }}
-                      className="text-[9px] text-[#a0704b] dark:text-[#cd853f] hover:underline whitespace-nowrap"
+                      className="text-[9px] text-accent-ink hover:underline whitespace-nowrap"
                     >
                       Back
                     </button>
@@ -491,7 +491,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     e.stopPropagation();
                     setIsEditingSchedule(false);
                   }}
-                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] text-[#8b6914] dark:text-[#cd853f] hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]"
+                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] text-[#8b6914] dark:text-[#cd853f] hover:bg-paper"
                 >
                   Cancel
                 </button>
@@ -692,10 +692,10 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         )}
 
         {/* Upcoming Sessions Preview */}
-        <div className="py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="py-3 border-t border-line">
           <div className="flex items-center gap-1 mb-2">
-            <CalendarDays className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
-            <span className="text-[10px] font-bold text-[#a0704b] dark:text-[#cd853f] uppercase tracking-wider">
+            <CalendarDays className="h-3.5 w-3.5 text-accent-ink" />
+            <span className="text-[10px] font-bold text-accent-ink uppercase tracking-wider">
               Upcoming Sessions
             </span>
           </div>
@@ -717,7 +717,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     onNavigate?.();
                     onClose();
                   }}
-                  className="flex items-center justify-between text-xs p-1.5 rounded bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#efe5d7] dark:hover:bg-[#4d4638] transition-colors cursor-pointer"
+                  className="flex items-center justify-between text-xs p-1.5 rounded bg-tint border border-line hover:bg-[#efe5d7] dark:hover:bg-[#4d4638] transition-colors cursor-pointer"
                 >
                   <div className="flex flex-col">
                     <span className="text-gray-700 dark:text-gray-300">
@@ -737,7 +737,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         </div>
 
         {/* Actions */}
-        <div className="pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+        <div className="pt-3 border-t border-line space-y-2">
           {/* Confirm Payment button - only shown for pending payments */}
           {showMarkAsPaid && (
             <button
@@ -787,7 +787,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             disabled={isCopying}
             className={cn(
               "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-              "border border-[#d4a574] dark:border-[#8b6f47]",
+              "border border-line-strong",
               copySuccess
                 ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
                 : "bg-[#fef9f3] dark:bg-[#2d2618] text-[#8b6914] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",

@@ -230,13 +230,13 @@ export function EnrollmentDetailModal({
         compact ? "w-full max-w-[22rem]" : "w-full max-w-[32rem]",
         // In standalone mode, use max-h; in side-by-side, fill parent height
         standalone ? "max-h-[90vh]" : "h-full",
-        "bg-[#fef9f3] dark:bg-[#2d2618]",
-        "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+        "bg-paper",
+        "border-2 border-line-strong",
         "paper-texture"
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h2 className={cn(
           "font-semibold text-gray-900 dark:text-gray-100 truncate",
           compact ? "text-base" : "text-lg"
@@ -543,7 +543,7 @@ export function EnrollmentDetailModal({
       {/* Footer Actions */}
       {detail && (
         <div className={cn(
-          "flex flex-wrap items-center gap-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg",
+          "flex flex-wrap items-center gap-2 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg",
           compact ? "justify-end px-2 py-2 sm:px-3" : "justify-between px-3 py-2 sm:px-4 sm:py-3"
         )}>
           {!compact && (

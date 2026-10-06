@@ -90,7 +90,7 @@ export function Certificate({
     <div
       className={cn(
         "relative w-full",
-        "bg-[#fef9f3] dark:bg-[#2d2618]",
+        "bg-paper",
         "paper-texture rounded-sm p-12",
         "border-8 border-double",
         variantStyles.border,

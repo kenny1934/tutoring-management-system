@@ -104,7 +104,7 @@ export function HelpPreview({ topic }: { topic: HelpTopic }) {
       <div className="space-y-2">
         {topic.content.map((item, idx) => (
           <div key={idx} className="flex gap-3 text-xs">
-            <span className="font-mono text-[#a0704b] dark:text-[#cd853f] shrink-0 w-20">
+            <span className="font-mono text-accent-ink shrink-0 w-20">
               {item.label}
             </span>
             <span className="text-[#5d4a3a] dark:text-[#d4c4b0]">

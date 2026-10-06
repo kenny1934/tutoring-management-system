@@ -205,8 +205,8 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
       </div>
 
       {active && (
-        <div className="mt-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+        <div className="mt-2 bg-paper rounded-lg border-2 border-line-strong overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
               Search results
             </span>

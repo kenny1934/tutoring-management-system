@@ -343,7 +343,7 @@ export function BookmarkTab({
       {/* Mobile FAB Button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="md:hidden fixed bottom-20 right-4 z-40 w-12 h-12 bg-[#d4a574] dark:bg-[#8b6f47] rounded-full shadow-lg flex items-center justify-center border-2 border-[#a67c52] dark:border-[#6b5537]"
+        className="md:hidden fixed bottom-20 right-4 z-40 w-12 h-12 bg-line-strong rounded-full shadow-lg flex items-center justify-center border-2 border-[#a67c52] dark:border-[#6b5537]"
         style={{
           background: 'linear-gradient(135deg, #d4a574, #c9985f)',
         }}
@@ -382,7 +382,7 @@ export function BookmarkTab({
           {/* Bookmark Tab (sticks out) */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="relative h-32 w-12 bg-[#d4a574] dark:bg-[#8b6f47] rounded-l-lg shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center border-l-4 border-t-4 border-b-4 border-[#a67c52] dark:border-[#6b5537]"
+            className="relative h-32 w-12 bg-line-strong rounded-l-lg shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center border-l-4 border-t-4 border-b-4 border-[#a67c52] dark:border-[#6b5537]"
             style={{
               background: 'linear-gradient(to right, #d4a574, #c9985f)',
             }}
@@ -416,7 +416,7 @@ export function BookmarkTab({
         </button>
 
         {/* Expanded Content Card */}
-        <div className="relative w-72 max-h-[calc(100vh-16rem)] bg-[#fef9f3] dark:bg-[#2d2618] shadow-2xl border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-r-lg overflow-hidden">
+        <div className="relative w-72 max-h-[calc(100vh-16rem)] bg-paper shadow-2xl border-4 border-line-strong rounded-r-lg overflow-hidden">
           {/* Paper texture background */}
           <div className="absolute inset-0 opacity-30 pointer-events-none" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,

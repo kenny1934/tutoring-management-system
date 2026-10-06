@@ -73,7 +73,7 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
             key={option.id}
             type="button"
             onClick={() => handleOptionClick(option.id)}
-            className="w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] flex items-center gap-2.5 text-gray-700 dark:text-gray-300 transition-colors"
+            className="w-full px-3 py-2 text-sm text-left hover:bg-tint flex items-center gap-2.5 text-gray-700 dark:text-gray-300 transition-colors"
           >
             <option.icon className="h-4 w-4 text-gray-400" />
             {option.label}

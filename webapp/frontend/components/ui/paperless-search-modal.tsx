@@ -700,7 +700,7 @@ export function PaperlessSearchModal({
             className={cn(
               "w-full pl-10 pr-4 py-2.5 rounded-lg border",
               "bg-white dark:bg-[#1a1a1a]",
-              "border-[#e8d4b8] dark:border-[#6b5a4a]",
+              "border-line",
               "text-gray-900 dark:text-gray-100",
               "placeholder:text-gray-400 dark:placeholder:text-gray-500",
               "focus:outline-none focus:ring-2 focus:ring-amber-400/50"
@@ -777,7 +777,7 @@ export function PaperlessSearchModal({
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg">
+                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg">
                   {availableTags.map((tag) => (
                     <label
                       key={tag.id}
@@ -997,7 +997,7 @@ export function PaperlessSearchModal({
 
                           {/* Expandable usage details section */}
                           {isExpanded && (
-                            <div className="px-3 py-2 border border-t-0 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-b-lg bg-gray-50 dark:bg-[#1a1a1a]/50">
+                            <div className="px-3 py-2 border border-t-0 border-line rounded-b-lg bg-gray-50 dark:bg-[#1a1a1a]/50">
                               {usageDetailsLoading ? (
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -1029,7 +1029,7 @@ export function PaperlessSearchModal({
                                             <Link
                                               href={`/students/${detail.student_id}`}
                                               target="_blank"
-                                              className="group truncate flex-1 text-[#a0704b] dark:text-[#cd853f]"
+                                              className="group truncate flex-1 text-accent-ink"
                                               title={`${displayId} ${detail.student_name}`}
                                               onClick={(e) => e.stopPropagation()}
                                             >
@@ -1350,7 +1350,7 @@ export function PaperlessSearchModal({
 
         {/* Multi-select selection tray */}
         {multiSelect && selectedDocs.length > 0 && (
-          <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] pt-3 mt-2">
+          <div className="border-t border-line pt-3 mt-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {selectedDocs.length} document{selectedDocs.length > 1 ? 's' : ''} selected

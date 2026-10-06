@@ -368,7 +368,7 @@ export default function StudentDetailPage() {
         <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Header Skeleton */}
           <div className={cn(
-            "flex flex-wrap items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+            "flex flex-wrap items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
             !isMobile && "paper-texture"
           )}>
             {/* Back button */}
@@ -405,7 +405,7 @@ export default function StudentDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Personal Info Card */}
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}>
               <div className="h-5 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
@@ -420,7 +420,7 @@ export default function StudentDetailPage() {
             </div>
             {/* Academic Info Card */}
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}>
               <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
@@ -435,7 +435,7 @@ export default function StudentDetailPage() {
             </div>
             {/* Enrollments Card - spans full width */}
             <div className={cn(
-              "lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              "lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}>
               <div className="h-5 w-36 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
@@ -484,7 +484,7 @@ export default function StudentDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
             className={cn(
-              "flex flex-wrap items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+              "flex flex-wrap items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
             )}
           >
@@ -493,7 +493,7 @@ export default function StudentDetailPage() {
               onClick={() => router.back()}
               className="p-1.5 rounded-lg hover:bg-[#d4a574]/20 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+              <ArrowLeft className="h-5 w-5 text-accent-ink" />
             </button>
 
             {/* Student ID */}
@@ -581,7 +581,7 @@ export default function StudentDetailPage() {
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                     isActive
                       ? "bg-[#a0704b] text-white shadow-md"
-                      : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-line"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -976,7 +976,7 @@ function ProfileTab({
       <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 transition-all",
+        "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 transition-all",
         !isMobile && "paper-texture",
         isEditingPersonal && "ring-2 ring-amber-400"
       )}>
@@ -1050,7 +1050,7 @@ function ProfileTab({
 
       {/* Academic Info Card */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 transition-all",
+        "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 transition-all",
         !isMobile && "paper-texture",
         isEditingAcademic && "ring-2 ring-amber-400"
       )}>
@@ -1122,7 +1122,7 @@ function ProfileTab({
       {/* Discounts & Coupons Card - loading skeleton */}
       {couponLoading && (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center gap-2 mb-3">
@@ -1136,7 +1136,7 @@ function ProfileTab({
       {/* Discounts & Coupons Card - show for admins or if has coupons/staff referral */}
       {!couponLoading && (couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2 transition-all",
+          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2 transition-all",
           !isMobile && "paper-texture",
           isEditingStaffReferral && "ring-2 ring-amber-400"
         )}>
@@ -1237,7 +1237,7 @@ function ProfileTab({
                       staff_referral_notes: e.target.value
                     }))}
                     placeholder="Enter staff referral details..."
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-line bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                   />
                 </div>
               )}
@@ -1308,7 +1308,7 @@ function ProfileTab({
       {/* Active Enrollments Card */}
       {enrollmentsLoading ? (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center gap-2 mb-3">
@@ -1322,7 +1322,7 @@ function ProfileTab({
         </div>
       ) : enrollments.length > 0 ? (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center justify-between mb-3">
@@ -1418,7 +1418,7 @@ function ProfileTab({
       ) : (
         /* No Enrollments - Show New Trial CTA */
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="text-center py-4">
@@ -1948,7 +1948,7 @@ function CopyLessonDatesButton({
           disabled={pillCount === 0}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-l-full transition-colors",
-            "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "bg-[#f5ede3] dark:bg-[#2d2820] border border-line",
             "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
             "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]",
             "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#f5ede3] dark:disabled:hover:bg-[#2d2820] disabled:hover:text-gray-600 dark:disabled:hover:text-gray-400"
@@ -1965,7 +1965,7 @@ function CopyLessonDatesButton({
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
             "flex items-center px-2 text-xs rounded-r-full transition-colors border-l-0",
-            "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "bg-[#f5ede3] dark:bg-[#2d2820] border border-line",
             "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
             "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
           )}
@@ -1975,7 +1975,7 @@ function CopyLessonDatesButton({
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
+        <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-line py-1">
           <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Scope</div>
           {SCOPE_ORDER.map((s) => {
             const count = sessionsByScope[s].length;
@@ -2000,7 +2000,7 @@ function CopyLessonDatesButton({
             );
           })}
 
-          <div className="my-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+          <div className="my-1 border-t border-line" />
 
           <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Copy as</div>
           {FORMAT_OPTIONS.map(({ key, label, example }) => (
@@ -2177,7 +2177,7 @@ function SessionsTab({
         animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
         transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
         className={cn(
-          "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] cursor-pointer",
+          "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-line cursor-pointer",
           statusConfig.bgTint,
           !isMobile && "paper-texture",
           selectedSessionId === session.id && "ring-2 ring-[#a0704b]"
@@ -2255,7 +2255,7 @@ function SessionsTab({
             <Link
               href={`/sessions/${session.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+              className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-accent-ink transition-colors"
             >
               <ExternalLink className="h-3 w-3" />
             </Link>
@@ -2277,7 +2277,7 @@ function SessionsTab({
     <div className="space-y-4">
       {/* View Mode Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line">
           <button
             onClick={() => setViewMode('by-date')}
             className={cn(
@@ -2348,7 +2348,7 @@ function SessionsTab({
                         setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
                       }
                     }}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
+                    className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
                   >
                     <Calendar className="h-4 w-4 text-[#a0704b]" />
                     <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
@@ -2389,7 +2389,7 @@ function SessionsTab({
                 </div>
 
                 {/* Session Cards */}
-                <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="space-y-2 pl-3 border-l-2 border-line">
                   {visibleEnrollmentSessions.map((session, index) => renderSessionCard(session, index))}
                 </div>
               </div>
@@ -2638,9 +2638,9 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
       {/* Separator when showing past tests */}
       {showPast && pastTests.length > 0 && upcomingTests.length > 0 && (
         <div className="flex items-center gap-3 py-2">
-          <div className="flex-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+          <div className="flex-1 h-px bg-line" />
           <span className="text-xs font-medium text-gray-900 dark:text-gray-300">Past Tests</span>
-          <div className="flex-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+          <div className="flex-1 h-px bg-line" />
         </div>
       )}
 
@@ -3254,7 +3254,7 @@ function CoursewareTab({
           </span>
         </div>
         {homeworkLoaded && tally.total > 0 && (
-          <div className="pt-2 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
+          <div className="pt-2 border-t border-line/60">
             <HomeworkSummary tally={tally} />
           </div>
         )}
@@ -3270,7 +3270,7 @@ function CoursewareTab({
             placeholder="Search exercises..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
           />
         </div>
 
@@ -3309,7 +3309,7 @@ function CoursewareTab({
         </button>
 
         {/* Group by toggle */}
-        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line">
           <button
             onClick={() => setGroupBy("session")}
             className={cn(
@@ -3379,9 +3379,9 @@ function CoursewareTab({
             const sessionDate = new Date(firstEx.session_date + 'T00:00:00');
 
             return (
-              <div key={sessionId} className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              <div key={sessionId} className="rounded-lg border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
                 {/* Session Header — top stripe */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line">
                   <Calendar className="h-4 w-4 text-[#a0704b]" />
                   <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -3453,7 +3453,7 @@ function CoursewareTab({
                         </div>
                       )}
                       {cwExercises.length > 0 && hwExercises.length > 0 && (
-                        <div className="border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40" />
+                        <div className="border-t border-line/40" />
                       )}
                       {hwExercises.length > 0 && (
                         <div>
@@ -3531,9 +3531,9 @@ function CoursewareTab({
       {groupBy === "pdf" && filteredExercises.length > 0 && (
         <div className="space-y-4">
           {Array.from(exercisesByPdf.entries()).map(([pdfName, exercises]) => (
-            <div key={pdfName} className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+            <div key={pdfName} className="rounded-lg border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
               {/* PDF Header — top stripe */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line">
                 <BookMarked className="h-4 w-4 text-[#a0704b]" />
                 <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                   {getDisplayName(pdfName)}
@@ -3544,7 +3544,7 @@ function CoursewareTab({
               </div>
 
               {/* Instances — flat rows inside card */}
-              <div className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+              <div className="divide-y divide-line/30">
                 {exercises.map((exercise, index) => {
                   const sessionDate = new Date(exercise.session_date + 'T00:00:00');
                   const homework = homeworkFor(exercise);
@@ -3740,7 +3740,7 @@ function RatingsTab({
   return (
     <div className="space-y-4">
       {/* Stats Dashboard */}
-      <div className="p-4 rounded-xl bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="p-4 rounded-xl bg-tint border border-line">
         <div className="flex flex-col md:flex-row md:items-stretch gap-4">
           {/* Left: Big average rating */}
           <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 bg-white/50 dark:bg-black/10 rounded-lg min-w-[120px]">
@@ -3822,7 +3822,7 @@ function RatingsTab({
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as 'all' | 'rated' | 'notes')}
-          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
         >
           <option value="all">All ({stats.total})</option>
           <option value="rated">Has rating ({stats.rated})</option>
@@ -3831,7 +3831,7 @@ function RatingsTab({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'date' | 'rating')}
-          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
         >
           <option value="date">By date</option>
           <option value="rating">By rating</option>
@@ -3968,7 +3968,7 @@ function ParentContactsTab({
       {/* Header with Status and Add Button */}
       <div className={cn(
         "flex items-center justify-between p-3 rounded-lg",
-        "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]"
+        "bg-[#f5ede3] dark:bg-[#2d2820] border border-line"
       )}>
         <div className="flex items-center gap-3">
           <ContactStatusBadge status={contactStatus} size="md" />
@@ -4017,11 +4017,11 @@ function ParentContactsTab({
               onClick={readOnly ? undefined : () => onEditContact(contact)}
               className={cn(
                 "p-3 rounded-lg transition-all",
-                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "bg-white dark:bg-[#1a1a1a] border border-line",
                 !isMobile && "paper-texture",
                 readOnly
                   ? "cursor-default"
-                  : "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  : "cursor-pointer hover:bg-tint"
               )}
             >
               <div className="flex items-start gap-3">

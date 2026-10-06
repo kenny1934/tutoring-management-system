@@ -25,7 +25,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
         <select
           value={filters.from_tutor_id || ""}
           onChange={(e) => onChange({ ...filters, from_tutor_id: e.target.value ? Number(e.target.value) : undefined })}
-          className="text-xs px-2 py-1 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b] appearance-none cursor-pointer"
+          className="text-xs px-2 py-1 border border-line rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b] appearance-none cursor-pointer"
         >
           <option value="" className="bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100">Any sender</option>
           {[...tutors].sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))).map(t => (
@@ -34,7 +34,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
         </select>
 
         {/* Date range */}
-        <label className="flex items-center gap-1 text-xs px-2 py-1 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full text-gray-500 dark:text-gray-400">
+        <label className="flex items-center gap-1 text-xs px-2 py-1 border border-line rounded-full text-gray-500 dark:text-gray-400">
           <span>From</span>
           <input
             type="date"
@@ -43,7 +43,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
             className="bg-transparent focus:outline-none"
           />
         </label>
-        <label className="flex items-center gap-1 text-xs px-2 py-1 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full text-gray-500 dark:text-gray-400">
+        <label className="flex items-center gap-1 text-xs px-2 py-1 border border-line rounded-full text-gray-500 dark:text-gray-400">
           <span>To</span>
           <input
             type="date"

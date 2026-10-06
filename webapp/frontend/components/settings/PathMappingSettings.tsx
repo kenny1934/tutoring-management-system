@@ -183,7 +183,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
           Your Drive Mappings
         </h3>
         {mappings.length === 0 ? (
-          <div className="text-center py-8 text-foreground/60 border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg">
+          <div className="text-center py-8 text-foreground/60 border border-dashed border-line rounded-lg">
             <FolderSync className="h-10 w-10 mx-auto mb-3 opacity-50" />
             <p className="text-sm">No mappings configured yet.</p>
             <p className="text-xs mt-1">Add a mapping below to get started.</p>
@@ -199,8 +199,8 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                   key={mapping.alias}
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-lg border",
-                    "bg-[#fef9f3] dark:bg-[#2d2618]",
-                    "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    "bg-paper",
+                    "border-line"
                   )}
                 >
                   <div className="flex-1">
@@ -272,8 +272,8 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                 onChange={(e) => setSelectedAlias(e.target.value)}
                 className={cn(
                   "w-full px-3 py-2 rounded-lg border",
-                  "bg-[#fef9f3] dark:bg-[#2d2618]",
-                  "border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "bg-paper",
+                  "border-line",
                   "text-foreground",
                   "focus:outline-none focus:ring-2 focus:ring-amber-400"
                 )}
@@ -299,8 +299,8 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                 maxLength={2}
                 className={cn(
                   "w-full px-3 py-2 rounded-lg border font-mono",
-                  "bg-[#fef9f3] dark:bg-[#2d2618]",
-                  "border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "bg-paper",
+                  "border-line",
                   "text-foreground",
                   "focus:outline-none focus:ring-2 focus:ring-amber-400",
                   "uppercase"
@@ -337,7 +337,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
       )}
 
       {onClose && (
-        <div className="pt-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="pt-4 border-t border-line">
           <Button variant="outline" onClick={onClose} className="w-full">
             Done
           </Button>

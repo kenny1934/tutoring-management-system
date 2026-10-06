@@ -704,7 +704,7 @@ export function CommandPalette() {
       >
         {/* Search Input */}
         <div className="flex items-center gap-3 px-4 py-3 max-sm:py-4 border-b border-[#e8d4b8] dark:border-[#3d3628]">
-          <Search className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+          <Search className="h-5 w-5 text-accent-ink flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -768,7 +768,7 @@ export function CommandPalette() {
                       setCommandPath(prev => prev.slice(0, idx + 1));
                       setSelectedIndex(0);
                     }}
-                    className="text-xs font-medium text-[#a0704b] dark:text-[#cd853f]"
+                    className="text-xs font-medium text-accent-ink"
                   >
                     {cmd?.title}
                   </button>

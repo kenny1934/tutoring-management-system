@@ -106,10 +106,10 @@ export function CurriculumModalShell({
         aria-label={ariaLabel}
         tabIndex={-1}
         onKeyDown={trapTab}
-        className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none"
+        className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
           {header}
           <button
             type="button"

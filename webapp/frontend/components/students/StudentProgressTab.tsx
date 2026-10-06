@@ -83,7 +83,7 @@ function AttendanceTooltip({
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg text-sm">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg text-sm">
       <div className="flex items-center gap-2">
         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.fill }} />
         <span className="font-medium text-gray-900 dark:text-gray-100">{data.name}</span>
@@ -104,7 +104,7 @@ function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg text-sm">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg text-sm">
       <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">{label}</div>
       {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -142,7 +142,7 @@ function SummaryCard({
     <div
       onClick={onClick}
       className={cn(
-        "bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+        "bg-tint border border-line rounded-lg p-4",
         onClick && "cursor-pointer hover:ring-2 hover:ring-[#d4a574]/50 transition-all"
       )}
     >
@@ -173,7 +173,7 @@ function ChartSection({
   className?: string;
 }) {
   return (
-    <div className={cn("bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4", className)}>
+    <div className={cn("bg-tint border border-line rounded-lg p-4", className)}>
       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{title}</h3>
       {children}
     </div>
@@ -232,7 +232,7 @@ function AttendanceDonut({ data }: { data: StudentProgress["attendance"] }) {
         {chartData.map((entry) => (
           <span
             key={entry.name}
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px]"
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-line text-[11px]"
           >
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.fill }} />
             <span className="text-gray-700 dark:text-gray-300">{entry.name} ({entry.value})</span>
@@ -365,7 +365,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
               )}
             />
             {i < displayed.length - 1 && (
-              <div className="w-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <div className="w-px flex-1 bg-line" />
             )}
           </div>
           {/* Content */}
@@ -488,7 +488,7 @@ function ContactSummaryCard({ data }: { data: StudentProgress["contacts"] }) {
             {Object.entries(data.by_method).map(([method, count]) => (
               <span
                 key={method}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] text-gray-700 dark:text-gray-300"
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-line text-[11px] text-gray-700 dark:text-gray-300"
               >
                 {getMethodIcon(method, "h-3 w-3")}
                 {method}: {count}
@@ -524,15 +524,15 @@ function ProgressSkeleton() {
     <div className="space-y-4 animate-pulse">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4">
-            <div className="h-3 w-20 bg-[#e8d4b8] dark:bg-[#6b5a4a] rounded mb-3" />
-            <div className="h-7 w-16 bg-[#e8d4b8] dark:bg-[#6b5a4a] rounded" />
+          <div key={i} className="bg-tint border border-line rounded-lg p-4">
+            <div className="h-3 w-20 bg-line rounded mb-3" />
+            <div className="h-7 w-16 bg-line rounded" />
           </div>
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {[...Array(2)].map((_, i) => (
-          <div key={i} className="bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 h-64" />
+          <div key={i} className="bg-tint border border-line rounded-lg p-4 h-64" />
         ))}
       </div>
     </div>
@@ -662,7 +662,7 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-line text-gray-600 dark:text-gray-400 hover:bg-tint transition-colors"
       >
         <History className="w-3.5 h-3.5" />
         History
@@ -688,7 +688,7 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
             {reports.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2d2618]"
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-white dark:bg-[#2d2618]"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -907,7 +907,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
           {/* Mode toggle */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Report Type</label>
-            <div className="flex rounded-lg overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="flex rounded-lg overflow-hidden border border-line">
               {(["internal", "parent"] as const).map((m) => (
                 <button
                   key={m}
@@ -916,7 +916,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     "flex-1 text-xs py-1.5 font-medium transition-colors capitalize",
                     mode === m
                       ? "bg-[#a0704b] text-white"
-                      : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                      : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-tint"
                   )}
                 >
                   {m === "parent" ? "For Parents" : "Internal"}
@@ -931,7 +931,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             <select
               value={preset}
               onChange={(e) => setPreset(e.target.value as DatePreset)}
-              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+              className="w-full text-xs border border-line rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
             >
               <option value="1m">Last month</option>
               <option value="3m">Last 3 months</option>
@@ -946,13 +946,13 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  className="flex-1 text-xs border border-line rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
                 />
                 <input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  className="flex-1 text-xs border border-line rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
                 />
               </div>
             )}
@@ -967,7 +967,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               Generates a learning summary and concept map from student data.
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex rounded-md overflow-hidden border border-line">
                 {([["en", "EN"], ["zh-hant", "中文"]] as const).map(([val, label]) => (
                   <button
                     key={val}
@@ -976,7 +976,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       "text-[10px] px-2 py-1 font-medium transition-colors",
                       language === val
                         ? "bg-[#a0704b] text-white"
-                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
                     )}
                   >
                     {label}
@@ -986,7 +986,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               <button
                 onClick={handleGenerateAI}
                 disabled={isGeneratingAI || isCoolingDown}
-                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-line text-gray-600 dark:text-gray-400 hover:bg-tint transition-colors disabled:opacity-50"
               >
                 {isGeneratingAI ? (
                   <>
@@ -1021,7 +1021,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               onChange={(e) => setNarrative(e.target.value)}
               placeholder="Write a summary or use AI to generate one..."
               rows={3}
-              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+              className="w-full text-xs border border-line rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
             />
           </div>
 
@@ -1054,7 +1054,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
           {sections.showRadarChart && (
             <div>
               <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Skills Radar</label>
-              <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a] mb-2 w-fit">
+              <div className="flex rounded-md overflow-hidden border border-line mb-2 w-fit">
                 {([["numerical", "1-5"], ["labeled", "Labels"]] as const).map(([val, label]) => (
                   <button
                     key={val}
@@ -1063,7 +1063,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       "text-[10px] px-2.5 py-1 font-medium transition-colors",
                       radarConfig.display_mode === val
                         ? "bg-[#a0704b] text-white"
-                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-tint"
                     )}
                   >
                     {label}
@@ -1086,7 +1086,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       }}
                       placeholder={`Attribute ${i + 1}`}
                       maxLength={30}
-                      className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
+                      className="flex-1 text-xs border border-line rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
                     />
                     <select
                       value={axis.score}
@@ -1099,7 +1099,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                         });
                       }}
                       className={cn(
-                        "text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                        "text-xs border border-line rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300",
                         radarConfig.display_mode === "numerical" ? "w-14" : "w-28"
                       )}
                     >
@@ -1152,7 +1152,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               onChange={(e) => setComment(e.target.value)}
               placeholder="Add observations or recommendations..."
               rows={3}
-              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+              className="w-full text-xs border border-line rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
             />
           </div>
         </div>
@@ -1208,7 +1208,7 @@ export function StudentProgressDrawer({
   const latestEnrollmentStart = enrollment_timeline[0]?.first_lesson_date || null;
 
   return (
-    <div className="space-y-4 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4">
+    <div className="space-y-4 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Overview</h3>

@@ -417,7 +417,7 @@ function Podium({
   return (
     <>
       <ConfettiBurst trigger={showConfetti} origin={confettiOrigin} onComplete={handleConfettiComplete} />
-      <div className="mb-4 p-4 bg-gradient-to-b from-[#fef9f3] to-white dark:from-[#2d2618] dark:to-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+      <div className="mb-4 p-4 bg-gradient-to-b from-paper to-white dark:to-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden">
         <div className="flex items-end justify-center gap-2 sm:gap-4">
           {podiumOrder.map((item, i) => {
             const rank = positions[i];
@@ -515,10 +515,10 @@ function RankingRow({
   return (
     <div
       className={cn(
-        "group border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50",
+        "group border-b border-line/50",
         "transition-all duration-200",
         isExpanded
-          ? "bg-[#fef9f3] dark:bg-[#2d2618]"
+          ? "bg-paper"
           : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(160,112,75,0.12)]"
       )}
     >
@@ -552,7 +552,7 @@ function RankingRow({
         <div className="flex-1 min-w-0">
           {/* Filename */}
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+            <FileText className="h-4 w-4 text-accent-ink flex-shrink-0" />
             <span
               className="font-medium text-gray-900 dark:text-gray-100 truncate"
               title={item.filename}
@@ -575,7 +575,7 @@ function RankingRow({
             </span>
             {item.used_by && (
               <span
-                className="inline-block text-[#a0704b] dark:text-[#cd853f] overflow-hidden text-ellipsis whitespace-nowrap max-w-[150px] sm:max-w-[250px] lg:max-w-[400px] align-middle"
+                className="inline-block text-accent-ink overflow-hidden text-ellipsis whitespace-nowrap max-w-[150px] sm:max-w-[250px] lg:max-w-[400px] align-middle"
                 title={item.used_by}
               >
                 {item.used_by}
@@ -673,13 +673,13 @@ function UsageDetailPanel({
 
   return (
     <div className="px-4 pb-4">
-      <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
-        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+      <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-line overflow-hidden">
+        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-line/50">
           <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
             Who used this courseware
           </p>
         </div>
-        <div className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30 max-h-64 overflow-y-auto">
+        <div className="divide-y divide-line/30 max-h-64 overflow-y-auto">
           {details.map((detail, idx) => {
             // Check if user has access to this student's location
             const canAccessLocation = selectedLocation === "All Locations" || selectedLocation === detail.location;
@@ -700,7 +700,7 @@ function UsageDetailPanel({
                 {canAccessLocation ? (
                   <Link
                     href={`/students/${detail.student_id}`}
-                    className="group text-[#a0704b] dark:text-[#cd853f] font-medium truncate block focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded"
+                    className="group text-accent-ink font-medium truncate block focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded"
                     title={detail.student_name}
                   >
                     <span className="text-gray-500 dark:text-gray-400 mr-1">{displayId}</span>
@@ -788,7 +788,7 @@ function UsageDetailPanel({
         {hasMore && (
           <button
             onClick={() => setDisplayCount((c) => c + 10)}
-            className="w-full px-3 py-3 text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/50 min-h-[44px]"
+            className="w-full px-3 py-3 text-sm font-medium text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-line/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/50 min-h-[44px]"
           >
             See more...
           </button>
@@ -1509,13 +1509,13 @@ function CoursewareBrowserTab() {
   }
 
   return (
-    <div className="h-full flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+    <div className="h-full flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden">
       {/* Browser panel */}
       {/* Below md the preview takes over the whole tab (a 40% split leaves
           an unusable sliver on phones); the preview's X brings this back. */}
-      <div className={cn("flex flex-col", previewUrl ? "max-md:hidden w-2/5 border-r border-[#e8d4b8] dark:border-[#6b5a4a]" : "w-full")}>
+      <div className={cn("flex flex-col", previewUrl ? "max-md:hidden w-2/5 border-r border-line" : "w-full")}>
         {/* Header: Breadcrumb + Controls */}
-        <div className="p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+        <div className="p-3 border-b border-line space-y-2">
           {/* Row 1: Breadcrumb + View toggle */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-sm flex-1 min-w-0 overflow-x-auto">
@@ -1701,7 +1701,7 @@ function CoursewareBrowserTab() {
               <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 Summer Course {SUMMER_YEAR}
               </span>
-              <span className="text-xs text-[#8b7355] dark:text-[#a09080] shrink-0">
+              <span className="text-xs text-ink-subtle shrink-0">
                 Courseware drive
               </span>
               <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
@@ -1914,7 +1914,7 @@ function CoursewareBrowserTab() {
         </div>
 
         {/* Footer: Keyboard hints (pointless on touch, so reclaim the space) */}
-        <div className="pointer-coarse:hidden p-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="pointer-coarse:hidden p-2 border-t border-line text-[10px] text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
               {viewMode === "grid" ? "←↑↓→" : "↑↓"}
@@ -2345,9 +2345,9 @@ function CoursewareSearchTab() {
   }, [focusedIndex]);
 
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden flex flex-col h-full">
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden flex flex-col h-full">
       {/* Header with search controls */}
-      <div className="p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-3">
+      <div className="p-4 border-b border-line space-y-3">
         {/* Search Mode Tabs */}
         <div className="overflow-x-auto -mx-1 px-1">
           <div className="flex gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 min-w-max sm:min-w-0">
@@ -2378,7 +2378,7 @@ function CoursewareSearchTab() {
             placeholder="Search courseware in Shelv..."
             className={cn(
               "w-full pl-10 pr-10 py-2.5 text-sm rounded-md",
-              "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a]",
+              "bg-paper border border-[#d4a574] dark:border-[#6b5a4a]",
               "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
             )}
           />
@@ -2443,7 +2443,7 @@ function CoursewareSearchTab() {
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg">
+                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg">
                   {availableTags.map((tag) => (
                     <label
                       key={tag.id}
@@ -2693,7 +2693,7 @@ function CoursewareSearchTab() {
                 key={doc.id}
                 data-result-item
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 transition-colors cursor-pointer",
+                  "flex items-center gap-3 px-4 py-3 border-b border-line/30 transition-colors cursor-pointer",
                   "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
                   focusedIndex === index && "bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400/50 ring-inset",
                   selectedDocs.has(doc.id) && "bg-green-50 dark:bg-green-900/20"
@@ -2785,7 +2785,7 @@ function CoursewareSearchTab() {
       </div>
 
       {/* Keyboard hints footer */}
-      <div className="px-4 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="px-4 py-2 border-t border-line text-xs text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
           navigate
@@ -2949,7 +2949,7 @@ export default function CoursewarePage() {
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
     "flex flex-wrap items-center gap-2 sm:gap-3",
-    "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+    "bg-paper border-2 border-line-strong",
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
@@ -3029,7 +3029,7 @@ export default function CoursewarePage() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full flex-wrap">
               {/* Title */}
               <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                <BookOpen className="h-5 w-5 text-accent-ink" />
                 <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                   Courseware
                 </h1>
@@ -3194,7 +3194,7 @@ export default function CoursewarePage() {
               {isLoading && (
                 <div className="flex items-center justify-center py-12">
                   <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                    <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Loading rankings...
                     </p>
@@ -3232,13 +3232,13 @@ export default function CoursewarePage() {
               {!isLoading && !error && rankings.length > 0 && (
                 <div
                   className={cn(
-                    "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+                    "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden",
                     !isMobile && "paper-texture",
                     "animate-fade-in"
                   )}
                 >
                   {/* Header */}
-                  <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30 flex items-center justify-between">
+                  <div className="px-4 py-3 bg-tint border-b border-[#d4a574]/30 flex items-center justify-between">
                     <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
                       <span className="animate-pulse">🏆</span>
                       {funTitle}
@@ -3285,7 +3285,7 @@ export default function CoursewarePage() {
                 <div className="flex justify-center py-12">
                   <StickyNote variant="yellow" size="lg" showTape rotation={-1}>
                     <div className="text-center">
-                      <BookOpen className="h-12 w-12 mx-auto mb-4 text-[#a0704b] dark:text-[#cd853f]" />
+                      <BookOpen className="h-12 w-12 mx-auto mb-4 text-accent-ink" />
                       <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
                         {timeRange === "recent" ? "The stage is empty!" : "No champions yet!"}
                       </p>

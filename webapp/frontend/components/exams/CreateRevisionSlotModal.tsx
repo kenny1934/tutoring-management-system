@@ -182,11 +182,11 @@ export function CreateRevisionSlotModal({
       {/* Modal */}
       <div className={cn(
         "relative z-10 w-[min(calc(100vw-2rem),28rem)] rounded-xl overflow-hidden",
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] border border-line",
         "shadow-2xl paper-texture"
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Create Revision Slot
@@ -225,7 +225,7 @@ export function CreateRevisionSlotModal({
               onChange={(e) => setSessionDate(e.target.value)}
               min={toDateString(new Date())}
               aria-label="Session date"
-              className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
               aria-required="true"
             />
@@ -325,7 +325,7 @@ export function CreateRevisionSlotModal({
                 value={selectedPresetSlot}
                 onChange={(e) => setSelectedPresetSlot(e.target.value)}
                 aria-label="Time slot"
-                className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
                 required
                 aria-required="true"
               >
@@ -351,7 +351,7 @@ export function CreateRevisionSlotModal({
               value={tutorId}
               onChange={(e) => setTutorId(parseInt(e.target.value))}
               aria-label="Tutor"
-              className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
               aria-required="true"
             >
@@ -375,7 +375,7 @@ export function CreateRevisionSlotModal({
               disabled={isLocationLocked}
               aria-label="Location"
               className={cn(
-                "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
+                "w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]",
                 isLocationLocked && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
               )}
               required
@@ -415,7 +415,7 @@ export function CreateRevisionSlotModal({
               rows={2}
               placeholder="Any additional notes about this revision slot..."
               aria-label="Notes"
-              className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
             />
           </div>
 

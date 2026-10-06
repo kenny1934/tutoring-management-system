@@ -434,7 +434,7 @@ export function PdfPreviewModal({
         </div>
 
         {/* Toolbar Row 2: Handwriting Removal */}
-        <div className="flex items-center gap-2 pb-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center gap-2 pb-3 border-b border-line">
           {/* Black ink removal options */}
           <label className="flex items-center gap-1.5 cursor-pointer" title="Also try to remove black/dark ink using stroke analysis">
             <input
@@ -533,7 +533,7 @@ export function PdfPreviewModal({
 
         {/* Page Selection UI */}
         {enablePageSelection && (
-          <div className="py-3 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+          <div className="py-3 border-b border-line/50">
             <div className="flex items-center gap-4 flex-wrap">
               <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                 Page Range:

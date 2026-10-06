@@ -101,13 +101,13 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
             {...getReferenceProps()}
             className={cn(
               "flex items-center gap-1.5 text-sm transition-all rounded-full px-2.5 py-1",
-              "border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#2d2618]/50",
-              "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+              "border border-line bg-white/50 dark:bg-[#2d2618]/50",
+              "hover:bg-tint",
               isStudentsOpen && "bg-[#f5ede3] dark:bg-[#3d3628]"
             )}
           >
             <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="font-bold text-[#a0704b] dark:text-[#cd853f]">
+            <span className="font-bold text-accent-ink">
               {stats.active_students}
             </span>
             <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
@@ -125,12 +125,12 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 className={cn(
                   "z-50 w-80 sm:w-96",
                   "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
-                  "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "border border-line",
                   "overflow-hidden"
                 )}
               >
                 {/* Header */}
-                <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+                <div className="px-3 py-2 border-b border-line bg-tint">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -159,7 +159,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                       className={cn(
                         "w-full pl-7 pr-3 py-1.5 text-sm rounded-md",
                         "bg-white dark:bg-[#1a1a1a]",
-                        "border border-[#d4a574] dark:border-[#8b6f47]",
+                        "border border-line-strong",
                         "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
                         "placeholder:text-gray-400"
                       )}
@@ -184,7 +184,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                           key={student.id}
                           href={`/students/${student.id}`}
                           onClick={() => setIsStudentsOpen(false)}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-tint transition-colors"
                         >
                           <span className="text-xs text-gray-500 dark:text-gray-400 font-mono flex-shrink-0 whitespace-nowrap">
                             {selectedLocation === "All Locations" && student.home_location && `${student.home_location}-`}{student.school_student_id || `#${student.id}`}
@@ -207,11 +207,11 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-3 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
+                <div className="px-3 py-2 border-t border-line bg-tint/50">
                   <Link
                     href="/students"
                     onClick={() => setIsStudentsOpen(false)}
-                    className="text-xs text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                    className="text-xs text-accent-ink hover:underline"
                   >
                     View all students →
                   </Link>
@@ -226,12 +226,12 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           href="/sessions?view=weekly"
           className={cn(
             "flex items-center gap-1.5 text-sm transition-all rounded-full px-2.5 py-1",
-            "border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#2d2618]/50",
-            "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+            "border border-line bg-white/50 dark:bg-[#2d2618]/50",
+            "hover:bg-tint"
           )}
         >
           <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          <span className="font-bold text-[#a0704b] dark:text-[#cd853f]">
+          <span className="font-bold text-accent-ink">
             {stats.sessions_this_week}
           </span>
           <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
@@ -246,7 +246,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           {isRevenueVisible ? (
             // Revenue visible state
             <>
-              <span className="font-bold text-[#a0704b] dark:text-[#cd853f]">
+              <span className="font-bold text-accent-ink">
                 {revenueLoading ? (
                   <Loader2 className="h-3 w-3 animate-spin inline" />
                 ) : (
@@ -283,7 +283,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           ) : (
             // Hidden state (default)
             <>
-              <span className="font-bold text-[#a0704b]/30 dark:text-[#cd853f]/30">
+              <span className="font-bold text-accent-ink/30">
                 $••••
               </span>
               <button

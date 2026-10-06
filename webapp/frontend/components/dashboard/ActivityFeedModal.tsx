@@ -237,17 +237,17 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
         style={{ width: "100%", maxWidth: "42rem" }}
         className={cn(
           "relative",
-          "bg-[#fef9f3] dark:bg-[#2d2618]",
-          "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+          "bg-paper",
+          "border-2 border-line-strong",
           "rounded-xl shadow-xl",
           "paper-texture",
           "max-h-[85vh] flex flex-col"
         )}
       >
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] rounded-t-xl">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line bg-tint rounded-t-xl">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <Clock className="h-4 w-4 text-accent-ink" />
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">All Activity</h2>
             {events.length > 0 && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -257,7 +257,7 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 transition-colors"
+            className="p-1 rounded-lg hover:bg-line/50 transition-colors"
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -287,12 +287,12 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
                     {/* Date header */}
                     <div className="flex items-center gap-2 mb-2 pl-2">
                       <span
-                        className="text-xs font-bold text-[#a0704b] dark:text-[#cd853f] uppercase tracking-wide"
+                        className="text-xs font-bold text-accent-ink uppercase tracking-wide"
                         style={{ fontFamily: "'Permanent Marker', cursive" }}
                       >
                         {dateLabel}
                       </span>
-                      <div className="flex-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+                      <div className="flex-1 h-px bg-line" />
                     </div>
 
                     {/* Events for this date */}
@@ -302,7 +302,7 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
                         const Icon = config.icon;
 
                         const content = (
-                          <div className="flex rounded-r overflow-hidden hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors">
+                          <div className="flex rounded-r overflow-hidden hover:bg-tint/50 transition-colors">
                             {/* Colored strip with icon */}
                             <div className={cn(
                               "w-9 flex-shrink-0 border-l-3 flex items-center justify-center",
@@ -375,8 +375,8 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
                       disabled={isLoadingMore}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        "bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/50",
-                        "hover:bg-[#e8d4b8] dark:hover:bg-[#6b5a4a]",
+                        "bg-line/50",
+                        "hover:bg-line",
                         "text-[#5c4934] dark:text-[#e8d4b8]",
                         "disabled:opacity-50 disabled:cursor-not-allowed"
                       )}

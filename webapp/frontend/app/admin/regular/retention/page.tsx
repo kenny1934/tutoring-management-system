@@ -137,7 +137,7 @@ function buildRetentionCsv(data: RegularRetentionResponse): string {
 /** A headline metric card in the summary strip above the funnel. */
 function KpiCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (
-    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5">
+    <div className="rounded-lg border border-line/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={cn("text-xl font-semibold tabular-nums leading-tight mt-0.5", tone ?? "text-foreground")}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{sub}</div>}
@@ -162,7 +162,7 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
   ].filter((s) => s.value > 0);
 
   return (
-    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
+    <div className="border border-line/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold text-foreground">Where these students stand</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -234,14 +234,14 @@ function OutsideTable({
   }[];
 }) {
   return (
-    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-line/50">
       <table className="w-full text-[11px] table-fixed">
         <colgroup>
           <col className="w-24" />
           <col />
           <col className="w-1/3" />
         </colgroup>
-        <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+        <tbody className="divide-y divide-line/30">
           {rows.map(({ row, code, detail }) => (
             <tr key={row.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
               {/* Code first: it is the fixed-width column, and it is what
@@ -273,7 +273,7 @@ function BranchCompare({
   const best = Math.max(...rows.map((r) => (r.cohort > 0 ? r.applied / r.cohort : 0)));
 
   return (
-    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
+    <div className="border border-line/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <h2 className="text-sm font-semibold text-foreground">How the branches compare</h2>
       <p className="text-xs text-muted-foreground mt-0.5">
         Each branch is measured against its own students, not against the whole centre.
@@ -435,9 +435,9 @@ export default function RegularRetentionPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
                 <Users className="h-5 w-5 text-sky-600 dark:text-sky-400" />
@@ -535,7 +535,7 @@ export default function RegularRetentionPage() {
           </div>
 
           {/* Tab bar */}
-          <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 sm:px-6 py-2 border-b border-line">
             <div className="inline-flex bg-muted rounded-full p-0.5">
               {([
                 { key: "overview", label: "Overview" },
@@ -698,7 +698,7 @@ export default function RegularRetentionPage() {
                   {(notChurnRows.length > 0 ||
                     noRungRows.length > 0 ||
                     data.reconciliation.applied_outside.length > 0) && (
-                    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 space-y-3">
+                    <div className="rounded-lg border border-line/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 space-y-3">
                       <div className="text-xs font-medium text-foreground">
                         Students we are not counting
                       </div>

@@ -148,7 +148,7 @@ export function SummerUnassignedPanel({
 
   return (
     <div className={cn(
-      "relative flex-shrink-0 flex flex-col border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-[#fef9f3] dark:bg-[#1a1a1a] overflow-hidden transition-[width] duration-300 ease-in-out",
+      "relative flex-shrink-0 flex flex-col border-2 border-line rounded-lg bg-[#fef9f3] dark:bg-[#1a1a1a] overflow-hidden transition-[width] duration-300 ease-in-out",
       collapsed ? "w-8" : "w-64",
       className
     )}>
@@ -175,7 +175,7 @@ export function SummerUnassignedPanel({
         collapsed ? "opacity-0 pointer-events-none" : "opacity-100 delay-100"
       )}>
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+      <div className="px-3 py-2 border-b border-line space-y-2">
         <div className="flex items-center gap-2">
           {StatusHeaderIcon && statusHeaderColors
             ? <StatusHeaderIcon className={cn("h-4 w-4", statusHeaderColors.text)} />
@@ -206,7 +206,7 @@ export function SummerUnassignedPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, ref code, student ID..."
-            className="w-full pl-7 pr-2 py-1 text-xs border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
+            className="w-full pl-7 pr-2 py-1 text-xs border border-line/60 rounded bg-white dark:bg-gray-800"
           />
         </div>
 
@@ -340,7 +340,7 @@ export function SummerUnassignedPanel({
                     onClickStudent?.(app.id);
                   }}
                   className={cn(
-                    "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                    "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
                     readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
                     SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
                   )}

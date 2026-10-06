@@ -113,7 +113,7 @@ function UsageLine({
             href={`/students/${detail.student_id}`}
             target="_blank"
             className={cn(
-              "truncate min-w-0 text-[#a0704b] dark:text-[#cd853f] hover:underline",
+              "truncate min-w-0 text-accent-ink hover:underline",
               isThisStudent && "font-medium"
             )}
           >

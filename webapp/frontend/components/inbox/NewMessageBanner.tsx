@@ -22,7 +22,7 @@ export default function NewMessageBanner({ senderName, preview, threadId, isUrge
 
   const accent = isUrgent
     ? "border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-900/20"
-    : "border-[#d4a574] dark:border-[#8b6f47] bg-[#faf6f1] dark:bg-[#2a2520]";
+    : "border-line-strong bg-[#faf6f1] dark:bg-[#2a2520]";
 
   return (
     <div

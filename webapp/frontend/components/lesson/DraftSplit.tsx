@@ -113,7 +113,7 @@ export function DraftSplit({ children }: { children: ReactNode }) {
       >
         <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#d4c4a8] dark:bg-[#3a3228]" />
         {/* The grip is wider than the border, so a finger finds it easily */}
-        <div className="absolute left-1/2 top-1/2 grid h-16 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#d4c4a8] bg-[#fef9f3] text-[#8b7355] shadow-sm dark:border-[#6b5a4a] dark:bg-[#2d2618] dark:text-[#a09080]">
+        <div className="absolute left-1/2 top-1/2 grid h-16 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#d4c4a8] bg-paper text-ink-subtle shadow-sm dark:border-[#6b5a4a]">
           <GripVertical className="h-4 w-4" />
         </div>
       </div>

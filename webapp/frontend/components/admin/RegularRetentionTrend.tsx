@@ -88,7 +88,7 @@ function TrendTooltip({
   const onTheDay = point[metric.key];
   const running = point[RUNNING[metric.key]];
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg text-xs">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg text-xs">
       <div className="font-medium text-foreground mb-1">{label}</div>
       <div className="text-muted-foreground tabular-nums">
         <span className="text-foreground font-medium">{onTheDay}</span> that day
@@ -146,7 +146,7 @@ export function RegularRetentionTrend({ data }: { data: RegularRetentionResponse
   const cohort = data.totals.cohort;
 
   return (
-    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
+    <div className="border border-line/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
         <div>
           <h2 className="text-sm font-semibold text-foreground">How the intake is going</h2>

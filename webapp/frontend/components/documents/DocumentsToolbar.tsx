@@ -76,7 +76,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
   return (
     <div className="shrink-0">
       {/* Row 1: Tabs + create actions */}
-      <div className="flex items-center px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+      <div className="flex items-center px-4 py-1.5 border-b border-line/40">
         {/* Mobile: Folder drawer trigger */}
         {!isTemplatesTab && !isTrashTab && (
           <button
@@ -139,7 +139,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       </div>
 
       {/* Row 2: Search + filters + view controls */}
-      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
         <div className="relative flex-1 min-w-0 sm:max-w-[14rem]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
@@ -219,14 +219,14 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
       {/* Row 3 (conditional): Active filters or bulk actions */}
       {(activeTags.length > 0 || activeFolderId || selectedCount > 0) && !isTemplatesTab && (
-        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-[#fef9f3]/80 dark:bg-[#2d2618]/30 animate-slide-down">
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/80 dark:bg-[#2d2618]/30 animate-slide-down">
           {selectedCount > 0 ? (
             <>
-              <span className="text-[12px] font-medium text-[#a0704b] dark:text-[#cd853f]">{selectedCount} selected</span>
+              <span className="text-[12px] font-medium text-accent-ink">{selectedCount} selected</span>
               <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
               {isTrashTab ? (
                 <>
-                  <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                  <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
                     <ArchiveRestore className="w-3 h-3" /> Restore
                   </button>
                   <button onClick={onBulkDelete} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
@@ -254,7 +254,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
           ) : (
             <>
               {folderPath && folderPath.length > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-line">
                   <FolderOpen className="w-3 h-3 text-[#a0704b]/60" />
                   {folderPath.map((f, i) => (
                     <span key={f.id} className="inline-flex items-center gap-1">

@@ -64,20 +64,20 @@ export function ContactDetailPanel({
     return (
       <div className={cn(
         "flex flex-col h-full",
-        "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
         "overflow-hidden"
       )}>
         {/* Header */}
-        <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="px-3 py-2 border-b border-line bg-tint">
           <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
             Contact History
           </h3>
         </div>
 
         {/* Student Info */}
-        <div className="px-4 py-3 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+        <div className="px-4 py-3 border-b border-line/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#f5ede3] dark:bg-[#3d3628] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-tint flex items-center justify-center">
               <User className="h-5 w-5 text-[#a0704b]" />
             </div>
             <div className="flex-1 min-w-0">
@@ -128,7 +128,7 @@ export function ContactDetailPanel({
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+            <div className="divide-y divide-line/30">
               {studentContacts.map((c) => (
                 <button
                   key={c.id}
@@ -169,7 +169,7 @@ export function ContactDetailPanel({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
+        <div className="px-4 py-3 border-t border-line bg-tint/50">
           <button
             onClick={() => onRecordNew(selectedStudent.student_id)}
             disabled={readOnly}
@@ -193,11 +193,11 @@ export function ContactDetailPanel({
     return (
       <div className={cn(
         "flex flex-col h-full",
-        "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
         "overflow-hidden"
       )}>
         {/* Header */}
-        <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="px-3 py-2 border-b border-line bg-tint">
           <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
             Contact Details
           </h3>
@@ -243,11 +243,11 @@ export function ContactDetailPanel({
   return (
     <div className={cn(
       "flex flex-col h-full",
-      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]",
+      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
       "overflow-hidden"
     )}>
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-3 py-2 border-b border-line bg-tint">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {onBack && (
@@ -437,7 +437,7 @@ export function ContactDetailPanel({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
+      <div className="px-4 py-3 border-t border-line bg-tint/50">
         <button
           onClick={() => onRecordNew(contact.student_id)}
           disabled={readOnly}

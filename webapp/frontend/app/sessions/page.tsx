@@ -1660,13 +1660,13 @@ function SessionsPageContent() {
         )}>
           {/* Toolbar Skeleton */}
           <div className={cn(
-            "flex items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+            "flex items-center gap-2 sm:gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
             !isMobile && "paper-texture"
           )}>
             {/* Title with count badge */}
             <div className="relative">
-              <div className="h-5 w-5 bg-[#d4a574]/50 dark:bg-[#8b6f47]/50 rounded animate-pulse" />
-              <div className="absolute -top-1.5 -right-2.5 w-4 h-4 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
+              <div className="h-5 w-5 bg-line-strong/50 rounded animate-pulse" />
+              <div className="absolute -top-1.5 -right-2.5 w-4 h-4 bg-accent-ink/30 rounded-full animate-pulse" />
             </div>
             <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
@@ -1684,12 +1684,12 @@ function SessionsPageContent() {
 
           {viewMode === "weekly" ? (
             /* Weekly View Skeleton */
-            <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+            <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
               {/* Day headers row */}
-              <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
-                <div className="p-2 bg-[#fef9f3] dark:bg-[#2d2618]" />
+              <div className="grid border-b-2 border-line" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
+                <div className="p-2 bg-paper" />
                 {[1,2,3,4,5,6,7].map(i => (
-                  <div key={i} className="py-2 px-1.5 text-center bg-[#fef9f3] dark:bg-[#2d2618] border-l border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div key={i} className="py-2 px-1.5 text-center bg-paper border-l border-line">
                     <div className="h-3 w-8 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-1" />
                     <div className="h-5 w-6 mx-auto bg-gray-400 dark:bg-gray-500 rounded animate-pulse" />
                   </div>
@@ -1698,14 +1698,14 @@ function SessionsPageContent() {
               {/* Grid body */}
               <div className="grid flex-1" style={{ gridTemplateColumns: "60px repeat(7, 1fr)", height: "calc(100% - 52px)" }}>
                 {/* Time labels column */}
-                <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] py-4">
+                <div className="bg-paper border-r border-line py-4">
                   {["10AM","11AM","12PM","1PM","2PM","3PM","4PM","5PM"].map(t => (
                     <div key={t} className="h-3 w-10 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-8" />
                   ))}
                 </div>
                 {/* Day columns */}
                 {[1,2,3,4,5,6,7].map(d => (
-                  <div key={d} className="border-l border-[#e8d4b8] dark:border-[#6b5a4a] relative p-1">
+                  <div key={d} className="border-l border-line relative p-1">
                     {d % 2 === 0 && (
                       <div className="absolute top-4 left-1 right-1 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     )}
@@ -1720,7 +1720,7 @@ function SessionsPageContent() {
             /* Daily View Skeleton */
             <div className="flex-1 flex flex-col gap-1 overflow-hidden">
               {/* Day Navigation Skeleton */}
-              <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5">
+              <div className="flex items-center justify-between gap-2 bg-paper border-2 border-line-strong rounded-lg px-3 py-1.5">
                 <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
                 <div className="flex items-center gap-2">
                   <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
@@ -1731,21 +1731,21 @@ function SessionsPageContent() {
               </div>
 
               {/* Grid Skeleton */}
-              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
                 {/* Tutor headers row - 1 expanded + 3 collapsed */}
-                <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]" style={{ gridTemplateColumns: "60px 1fr 36px 36px 36px" }}>
-                  <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="grid border-b-2 border-line" style={{ gridTemplateColumns: "60px 1fr 36px 36px 36px" }}>
+                  <div className="p-1.5 bg-paper border-r border-line">
                     <div className="h-3 w-8 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
                   </div>
                   {/* Expanded tutor header */}
-                  <div className="py-1 px-1.5 text-center bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="py-1 px-1.5 text-center bg-paper border-r border-line">
                     <div className="h-3 w-20 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-1" />
-                    <div className="h-3 w-16 mx-auto bg-[#d4a574]/50 dark:bg-[#8b6f47]/50 rounded animate-pulse" />
+                    <div className="h-3 w-16 mx-auto bg-line-strong/50 rounded animate-pulse" />
                   </div>
                   {/* Collapsed tutor headers */}
                   {[1, 2, 3].map(i => (
                     <div key={i} className={cn(
-                      "py-1 px-0.5 border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "py-1 px-0.5 border-r last:border-r-0 border-line",
                       i % 2 === 1 ? "bg-[#f5ede3] dark:bg-[#181510]" : "bg-[#fef9f3] dark:bg-[#2d2618]"
                     )}>
                       <div className="h-full flex items-center justify-center">
@@ -1757,13 +1757,13 @@ function SessionsPageContent() {
                 {/* Grid body */}
                 <div className="grid flex-1" style={{ gridTemplateColumns: "60px 1fr 36px 36px 36px", height: "calc(100% - 40px)" }}>
                   {/* Time labels column */}
-                  <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] py-4">
+                  <div className="bg-paper border-r border-line py-4">
                     {["10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00"].map(t => (
                       <div key={t} className="h-3 w-10 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-8" />
                     ))}
                   </div>
                   {/* Expanded tutor column with session placeholders */}
-                  <div className="border-r border-[#e8d4b8] dark:border-[#6b5a4a] relative p-1">
+                  <div className="border-r border-line relative p-1">
                     <div className="absolute top-8 left-1 right-1 h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     <div className="absolute top-28 left-1 right-1 h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     <div className="absolute top-48 left-1 right-1 h-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -1771,7 +1771,7 @@ function SessionsPageContent() {
                   {/* Collapsed tutor columns */}
                   {[1, 2, 3].map(i => (
                     <div key={i} className={cn(
-                      "border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "border-r last:border-r-0 border-line",
                       i % 2 === 1 ? "bg-[#f8f4ef] dark:bg-[#131310]" : ""
                     )} />
                   ))}
@@ -1782,7 +1782,7 @@ function SessionsPageContent() {
             /* Monthly View Skeleton */
             <div className="flex-1 flex flex-col gap-1 overflow-hidden">
               {/* Month Navigation Skeleton */}
-              <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5">
+              <div className="flex items-center justify-between gap-2 bg-paper border-2 border-line-strong rounded-lg px-3 py-1.5">
                 <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
                 <div className="flex items-center gap-2">
                   <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
@@ -1792,15 +1792,15 @@ function SessionsPageContent() {
               </div>
 
               {/* Calendar Grid Skeleton */}
-              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
                 {/* Weekday Headers */}
-                <div className="grid grid-cols-7 border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="grid grid-cols-7 border-b-2 border-line">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
                     <div
                       key={day}
                       className={cn(
-                        "py-1.5 px-1 text-center bg-[#fef9f3] dark:bg-[#2d2618]",
-                        i > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        "py-1.5 px-1 text-center bg-paper",
+                        i > 0 && "border-l border-line"
                       )}
                     >
                       <div className="h-3 w-8 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
@@ -1813,7 +1813,7 @@ function SessionsPageContent() {
                     <div
                       key={i}
                       className={cn(
-                        "p-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a]",
+                        "p-1.5 border-b border-line",
                         i % 7 !== 0 && "border-l",
                         (i < 3 || i > 30) && "opacity-40"
                       )}
@@ -1854,12 +1854,12 @@ function SessionsPageContent() {
                 >
                   {/* Time slot header skeleton */}
                   <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-l-4 border-[#a0704b] dark:border-[#cd853f] mb-2",
+                    "flex items-center gap-2 px-3 py-2 bg-paper rounded-lg border-l-4 border-accent-ink mb-2",
                     !isMobile && "paper-texture"
                   )}>
-                    <div className="w-6 h-6 bg-[#a0704b]/20 dark:bg-[#cd853f]/20 rounded animate-pulse" />
+                    <div className="w-6 h-6 bg-accent-ink/20 rounded animate-pulse" />
                     <div className="flex-1 flex items-center sm:justify-center gap-2">
-                      <div className="w-6 h-6 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
+                      <div className="w-6 h-6 bg-accent-ink/30 rounded-full animate-pulse" />
                       <div className="h-5 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
                     </div>
                     <div className="h-5 w-16 bg-amber-200 dark:bg-amber-800 rounded-full animate-pulse" />
@@ -1868,7 +1868,7 @@ function SessionsPageContent() {
                   <div className="ml-0 sm:ml-4 space-y-2">
                     {[1, 2].map((j) => (
                       <div key={j} className={cn(
-                        "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                        "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-line",
                         !isMobile && "paper-texture"
                       )}>
                         <div className="flex-1 p-2 sm:p-3 space-y-1.5">
@@ -1919,9 +1919,9 @@ function SessionsPageContent() {
       {/* Title */}
       <div className="flex items-center gap-2">
         <div className="relative mr-1.5">
-          <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+          <Calendar className="h-5 w-5 text-accent-ink" />
           {countableSessionCount > 0 && (
-            <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-[#a0704b] dark:bg-[#cd853f] text-white">
+            <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-accent-ink text-white">
               {countableSessionCount}
             </span>
           )}
@@ -2035,9 +2035,9 @@ function SessionsPageContent() {
               className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
             >
               {getGlobalSelectionState === 'all' ? (
-                <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+                <CheckSquare className="h-3.5 w-3.5 text-accent-ink" />
               ) : getGlobalSelectionState === 'partial' ? (
-                <MinusSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+                <MinusSquare className="h-3.5 w-3.5 text-accent-ink" />
               ) : (
                 <Square className="h-3.5 w-3.5" />
               )}
@@ -2052,7 +2052,7 @@ function SessionsPageContent() {
             </button>
           </div>
           {showSelectDropdown && (
-            <div className="absolute top-full right-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-50 py-1 min-w-[160px]">
+            <div className="absolute top-full right-0 mt-1 bg-paper shadow-lg rounded-md border border-line z-50 py-1 min-w-[160px]">
               <button
                 onClick={() => { toggleSelectAll(); setShowSelectDropdown(false); }}
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
@@ -2104,7 +2104,7 @@ function SessionsPageContent() {
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-1.5 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-2 sm:px-4 py-1.5 sm:py-2",
+    "flex flex-wrap items-center gap-1.5 sm:gap-3 bg-paper border-2 border-line-strong rounded-lg px-2 sm:px-4 py-1.5 sm:py-2",
     !isMobile && "paper-texture"
   );
 
@@ -2158,7 +2158,7 @@ function SessionsPageContent() {
 
             {/* Bulk Action Bar - appears when selections exist */}
             {hasSelection && (
-              <div ref={setBulkActionBarElement} className="sticky z-25 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2" style={{ top: toolbarHeight }}>
+              <div ref={setBulkActionBarElement} className="sticky z-25 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2" style={{ top: toolbarHeight }}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                     {selectedIds.size} selected
@@ -2362,7 +2362,7 @@ function SessionsPageContent() {
                         <div
                           onClick={() => toggleSlot(tierKey)}
                           className={cn(
-                            "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
+                            "bg-paper border-l-4 rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
                             tierConfig.borderColor,
                             !isMobile && "paper-texture"
                           )}
@@ -2457,7 +2457,7 @@ function SessionsPageContent() {
                                       !isMobile && "paper-texture",
                                       // Only the keyboard focus outline: nothing in this
                                       // view can be selected.
-                                      focusedSessionId === session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                      focusedSessionId === session.id && "outline outline-2 outline-accent-ink"
                                     )}
                                     style={{
                                       transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
@@ -2484,7 +2484,7 @@ function SessionsPageContent() {
 
                                           {/* Date + Time Slot + Urgency badge */}
                                           <div className="flex items-center gap-2 flex-wrap" style={{ opacity: statusConfig.opacity ?? 1 }}>
-                                            <span className="text-sm font-semibold text-[#a0704b] dark:text-[#cd853f]">
+                                            <span className="text-sm font-semibold text-accent-ink">
                                               {session.root_original_session_date && session.root_original_session_date !== session.session_date ? (
                                                 <>
                                                   {new Date(session.root_original_session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -2609,7 +2609,7 @@ function SessionsPageContent() {
                         covers more than one day shows it, because everywhere else
                         the date picker in the toolbar has already said it. */}
                     {showDayHeading && (
-                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-[#a0704b] dark:bg-[#cd853f] text-white desk-shadow-low">
+                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-accent-ink text-white desk-shadow-low">
                         <CalendarDays className="h-4 w-4" />
                         <span className="text-sm font-bold">{formatWeekdayLong(groupDate)}</span>
                         <span className="text-xs text-white/80">
@@ -2629,7 +2629,7 @@ function SessionsPageContent() {
                       <div
                         onClick={() => toggleSlot(slotKey)}
                         className={cn(
-                          "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg px-3 py-2 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
+                          "bg-paper border-l-4 border-accent-ink rounded-lg px-3 py-2 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
                           !isMobile && "paper-texture"
                         )}
                         style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
@@ -2644,8 +2644,8 @@ function SessionsPageContent() {
                             >
                               {(() => {
                                 const state = getSlotSelectionState(sessionsInSlot);
-                                if (state === 'all') return <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
-                                if (state === 'partial') return <MinusSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
+                                if (state === 'all') return <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-accent-ink" />;
+                                if (state === 'partial') return <MinusSquare className="h-4 w-4 sm:h-5 sm:w-5 text-accent-ink" />;
                                 return <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500" />;
                               })()}
                             </button>
@@ -2657,7 +2657,7 @@ function SessionsPageContent() {
                               <ChevronDown className="h-3 w-3" />
                             </button>
                             {slotDropdownOpen === slotKey && (
-                              <div className="absolute top-full left-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-[100] py-1 min-w-[160px]">
+                              <div className="absolute top-full left-0 mt-1 bg-paper shadow-lg rounded-md border border-line z-[100] py-1 min-w-[160px]">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
@@ -2682,7 +2682,7 @@ function SessionsPageContent() {
 
                           {/* Center: time slot label */}
                           <div className="flex-1 flex items-center sm:justify-center gap-2">
-                            <div className="bg-[#a0704b] dark:bg-[#cd853f] p-1 rounded-full">
+                            <div className="bg-accent-ink p-1 rounded-full">
                               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
@@ -2696,7 +2696,7 @@ function SessionsPageContent() {
                                 setCopiedSlot(slotKey);
                                 setTimeout(() => setCopiedSlot(null), 2000);
                               }}
-                              className="p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors"
+                              className="p-1 hover:bg-accent-ink/10 rounded transition-colors"
                               title={copyText}
                             >
                               {copiedSlot === slotKey ? (
@@ -2731,7 +2731,7 @@ function SessionsPageContent() {
                                     });
                                     window.open(`/sessions/lesson?${params.toString()}`, '_blank');
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                                  className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink text-xs font-bold transition-colors"
                                   title="Open lesson mode for this time slot"
                                 >
                                   <Presentation className="h-3.5 w-3.5" />
@@ -2781,7 +2781,7 @@ function SessionsPageContent() {
                         return (
                           <div key={session.id}>
                             {isNewTutor && (
-                              <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-3" />
+                              <div className="border-t-2 border-dashed border-line-strong my-3" />
                             )}
                             {classHeader && <SummerClassHeader classInfo={classHeader} />}
                             <motion.div
@@ -2812,9 +2812,9 @@ function SessionsPageContent() {
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
                                 !isMobile && "paper-texture",
-                                selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-accent-ink",
+                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-accent-ink",
+                                focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-accent-ink"
                               )}
                               style={{
                                 transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
@@ -2827,7 +2827,7 @@ function SessionsPageContent() {
                                 className="flex-shrink-0 p-1.5 sm:p-2 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                               >
                                 {selectedIds.has(session.id) ? (
-                                  <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                                  <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-accent-ink" />
                                 ) : (
                                   <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                                 )}
@@ -2891,7 +2891,7 @@ function SessionsPageContent() {
                                               e.stopPropagation();
                                               saveScrollPosition();
                                             }}
-                                            className="flex items-center gap-1 text-xs px-2 py-1 ml-3 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0"
+                                            className="flex items-center gap-1 text-xs px-2 py-1 ml-3 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink font-medium whitespace-nowrap transition-colors flex-shrink-0"
                                             title="View Session"
                                           >
                                             <ExternalLink className="h-3.5 w-3.5" />
@@ -2902,7 +2902,7 @@ function SessionsPageContent() {
                                               e.stopPropagation();
                                               saveScrollPosition();
                                             }}
-                                            className="flex items-center text-xs px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors flex-shrink-0"
+                                            className="flex items-center text-xs px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink transition-colors flex-shrink-0"
                                             title="Lesson Mode"
                                           >
                                             <Presentation className="h-3.5 w-3.5" />
@@ -3095,7 +3095,7 @@ function SessionsPageContent() {
             onClick={() => setShowShortcutHints(true)}
             className={cn(
               "hidden md:flex fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
-              "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]",
+              "bg-paper border border-line-strong",
               "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
               "shadow-md items-center justify-center",
               isScrolledPastThreshold ? "bottom-20" : "bottom-4"
@@ -3114,7 +3114,7 @@ function SessionsPageContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
-                bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47]
+                bg-paper border-[#d4a574] dark:border-[#8b6f47]
                 text-sm w-64"
             >
               <div className="flex justify-between items-center mb-3">

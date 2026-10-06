@@ -225,9 +225,9 @@ function EnrollmentRow({
         }}
         className={cn(
           "p-2 rounded-lg cursor-pointer transition-all h-full",
-          "border border-[#e8d4b8] dark:border-[#6b5a4a]",
-          "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
-          (isSelected || isHighlighted) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618]",
+          "border border-line",
+          "hover:bg-paper",
+          (isSelected || isHighlighted) && "ring-2 ring-accent-ink bg-paper",
           isOverdue && "border-l-4 border-l-red-500",
           isPending && !isOverdue && "border-l-4 border-l-amber-500"
         )}
@@ -429,9 +429,9 @@ export function MyStudentsList({
         }}
         className={cn(
           "p-2 rounded-lg cursor-pointer transition-all",
-          "border border-[#e8d4b8] dark:border-[#6b5a4a]",
-          "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
-          (isSelected || isHighlighted) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618]",
+          "border border-line",
+          "hover:bg-paper",
+          (isSelected || isHighlighted) && "ring-2 ring-accent-ink bg-paper",
           isOverdue && "border-l-4 border-l-red-500",
           isPending && !isOverdue && "border-l-4 border-l-amber-500"
         )}
@@ -517,7 +517,7 @@ export function MyStudentsList({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Summary & Controls */}
-      <div className="p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
+      <div className="p-2 border-b border-line bg-paper">
         {/* Search input */}
         <div className="relative mb-2">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />

@@ -588,7 +588,7 @@ export default function EnrollmentDetailPage() {
         <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Header Skeleton */}
           <div className={cn(
-            "flex items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-4 py-3",
+            "flex items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-4 py-3",
             !isMobile && "paper-texture"
           )}>
             <div className="h-8 w-8 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
@@ -695,7 +695,7 @@ export default function EnrollmentDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
             className={cn(
-              "flex flex-wrap items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+              "flex flex-wrap items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
             )}
           >
@@ -704,7 +704,7 @@ export default function EnrollmentDetailPage() {
               onClick={() => router.back()}
               className="p-1.5 rounded-lg hover:bg-[#d4a574]/20 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+              <ArrowLeft className="h-5 w-5 text-accent-ink" />
             </button>
 
             {/* Enrollment ID */}
@@ -729,7 +729,7 @@ export default function EnrollmentDetailPage() {
             {/* Student Name Link */}
             <Link
               href={`/students/${enrollment.student_id}`}
-              className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors flex items-center gap-1"
+              className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 hover:text-accent-ink transition-colors flex items-center gap-1"
             >
               {enrollment.student_name}
               <ExternalLink className="h-4 w-4 opacity-50" />
@@ -771,7 +771,7 @@ export default function EnrollmentDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.3 }}
               className={cn(
-                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+                "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
                 !isMobile && "paper-texture",
                 isEditingSchedule && "ring-2 ring-amber-400"
               )}
@@ -1056,7 +1056,7 @@ export default function EnrollmentDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
               className={cn(
-                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+                "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
                 !isMobile && "paper-texture",
                 isEditingPayment && "ring-2 ring-amber-400"
               )}
@@ -1348,7 +1348,7 @@ export default function EnrollmentDetailPage() {
                 <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => setShowFeePanel(!showFeePanel)}
-                    className="w-full flex items-center justify-between px-3 py-2 -mx-3 rounded-lg text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#a0704b]/10 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 -mx-3 rounded-lg text-sm font-medium text-accent-ink hover:bg-[#a0704b]/10 transition-colors"
                   >
                     <span className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4" />
@@ -1536,7 +1536,7 @@ export default function EnrollmentDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
               className={cn(
-                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+                "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
                 !isMobile && "paper-texture"
               )}
             >
@@ -1688,7 +1688,7 @@ export default function EnrollmentDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.3 }}
             className={cn(
-              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}
           >
@@ -1784,7 +1784,7 @@ export default function EnrollmentDetailPage() {
                           <Link
                             href={`/sessions/${session.id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+                            className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-accent-ink transition-colors"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </Link>

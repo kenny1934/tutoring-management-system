@@ -243,7 +243,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   if (isLoading) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+        "bg-paper rounded-xl border border-line overflow-hidden",
         !isMobile && "paper-texture",
         className
       )}>
@@ -262,12 +262,12 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   return (
     <HomeworkCountsProvider>
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
+      "bg-paper rounded-xl border border-line overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] flex-shrink-0">
+      <div className="px-4 py-3 border-b border-line bg-tint flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <SessionsAccent className="w-8 h-6" />
@@ -317,7 +317,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                     className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                   >
                     {isAllMarkableSelected ? (
-                      <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+                      <CheckSquare className="h-3.5 w-3.5 text-accent-ink" />
                     ) : (
                       <Square className="h-3.5 w-3.5" />
                     )}
@@ -332,7 +332,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   </button>
                 </div>
                 {showSelectDropdown && (
-                  <div className="absolute top-full right-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-50 py-1 min-w-[160px]">
+                  <div className="absolute top-full right-0 mt-1 bg-paper shadow-lg rounded-md border border-line z-50 py-1 min-w-[160px]">
                     <button
                       onClick={() => { handleSelectMarkable(); setShowSelectDropdown(false); }}
                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
@@ -370,7 +370,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Time for a coffee break!</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+          <div className="divide-y divide-line">
             {groupedSessions.map((group) => {
               const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === group.timeSlot;
               return (
@@ -381,9 +381,9 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 )}
 
                 {/* Time Slot Header */}
-                <div className="px-3 py-1.5 bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex items-center gap-2">
-                  <Clock className="h-3 w-3 text-[#a0704b] dark:text-[#cd853f]" />
-                  <span className="text-xs font-semibold text-[#a0704b] dark:text-[#cd853f]">
+                <div className="px-3 py-1.5 bg-tint/50 flex items-center gap-2">
+                  <Clock className="h-3 w-3 text-accent-ink" />
+                  <span className="text-xs font-semibold text-accent-ink">
                     {group.timeSlot}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -408,7 +408,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                           });
                           window.open(`/sessions/lesson?${params.toString()}`, '_blank');
                         }}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink text-xs font-bold transition-colors"
                         title="Open lesson mode for this time slot"
                       >
                         <Presentation className="h-3 w-3" />
@@ -419,7 +419,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 </div>
 
                 {/* Sessions in this time slot */}
-                <div className="divide-y divide-[#e8d4b8]/50 dark:divide-[#6b5a4a]/50">
+                <div className="divide-y divide-line/50">
                   {flattenSummerClusters(group.sessions).map(({ session, classHeader }, idx, flatRows) => {
                     const prevSession = idx > 0 ? flatRows[idx - 1].session : null;
                     const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
@@ -427,7 +427,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                     return (
                       <div key={session.id}>
                         {isNewTutor && (
-                          <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1" />
+                          <div className="border-t-2 border-dashed border-line-strong my-1" />
                         )}
                         {classHeader && (
                           <SummerClassHeader classInfo={classHeader} className="px-3 mt-1.5 mb-1" />
@@ -466,7 +466,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
       </div>
 
       {/* Footer with Stats & Link (or Bulk Actions if selected) */}
-      <div className="px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex-shrink-0">
+      <div className="px-4 py-3 border-t border-line bg-tint/50 flex-shrink-0">
         {hasSelection ? (
           /* Bulk Action Bar */
           <div className="flex items-center justify-between gap-2">
@@ -592,7 +592,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             </div>
             <Link
               href={`/sessions?date=${todayString}`}
-              className="flex items-center gap-1 text-sm text-[#a0704b] dark:text-[#cd853f] hover:underline"
+              className="flex items-center gap-1 text-sm text-accent-ink hover:underline"
             >
               View All
               <ChevronRight className="h-3 w-3" />
@@ -663,7 +663,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
   return (
     <div
       className={cn(
-        "px-3 py-2 cursor-pointer hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/60 transition-colors",
+        "px-3 py-2 cursor-pointer hover:bg-tint/60 transition-colors",
         isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30",
         isSelected && "bg-amber-50 dark:bg-amber-900/20",
         isCancelledEnrollment && "opacity-50"
@@ -678,7 +678,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           className="flex-shrink-0 p-0.5"
         >
           {isSelected ? (
-            <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <CheckSquare className="h-4 w-4 text-accent-ink" />
           ) : (
             <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
           )}
@@ -794,7 +794,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
         "px-3 py-2 cursor-pointer transition-colors",
         "border-l-2 border-dashed border-amber-400 dark:border-amber-500",
         "hover:bg-amber-50/50 dark:hover:bg-amber-900/20",
-        isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30"
+        isAlternate && "bg-tint/30"
       )}
       onClick={onClick}
       style={{

@@ -90,7 +90,7 @@ export default function AudioPlayer({ src, filename, className, duration: initia
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className={cn("flex items-center gap-2 p-2 rounded-lg bg-[#f5ede3]/60 dark:bg-[#3d3628]/60 min-w-[200px] max-w-[280px]", className)}>
+    <div className={cn("flex items-center gap-2 p-2 rounded-lg bg-tint/60 min-w-[200px] max-w-[280px]", className)}>
       <audio ref={audioRef} src={src} preload="metadata" />
 
       <button

@@ -117,7 +117,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-5">
+    <div className="rounded-xl border border-line bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wide text-foreground/50">
           {icon}
@@ -375,7 +375,7 @@ function TutorProfileInner() {
           <p>Tutor not found.</p>
           <Link
             href="/admin/tutors"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground/80 hover:text-foreground shadow-sm"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-line text-foreground/80 hover:text-foreground shadow-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             All tutors
@@ -398,14 +398,14 @@ function TutorProfileInner() {
         {/* Back link — chip so it stays legible on the desk texture */}
         <Link
           href="/admin/tutors"
-          className="inline-flex flex-shrink-0 self-start items-center gap-1.5 mb-4 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground/80 hover:text-foreground shadow-sm"
+          className="inline-flex flex-shrink-0 self-start items-center gap-1.5 mb-4 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-line text-foreground/80 hover:text-foreground shadow-sm"
         >
           <ArrowLeft className="h-4 w-4" />
           All tutors
         </Link>
 
         {/* Hero */}
-        <div className="flex-shrink-0 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-4 sm:p-6 mb-4">
+        <div className="flex-shrink-0 rounded-xl border border-line bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-4 sm:p-6 mb-4">
           <div className="flex items-start gap-3 sm:gap-5">
             {picture ? (
               <Image
@@ -622,7 +622,7 @@ function TutorProfileInner() {
                 </div>
 
                 {/* Bonus tiers */}
-                <details className="mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <details className="mt-3 pt-3 border-t border-line">
                   <summary className="text-xs text-foreground/55 cursor-pointer hover:text-foreground">
                     How the bonus is calculated
                   </summary>

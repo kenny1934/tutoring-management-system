@@ -238,12 +238,12 @@ export function RecordContactModal({
           {...getFloatingProps()}
           className={cn(
             "w-full sm:w-[448px] bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl",
-            "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "border border-line",
             "max-h-[90vh] flex flex-col"
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] rounded-t-lg">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-tint rounded-t-lg">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
               {editingContact ? 'Edit Contact Record' : 'Record Parent Contact'}
             </h2>
@@ -547,7 +547,7 @@ export function RecordContactModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 rounded-b-lg">
+          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-line bg-tint/50 rounded-b-lg">
             <button
               type="button"
               onClick={() => onClose(false)}

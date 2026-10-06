@@ -85,8 +85,8 @@ function EventPopoverContent({
   return (
     <div
       className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618]",
-        "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+        "bg-paper",
+        "border-2 border-line-strong",
         "rounded-lg shadow-lg",
         "p-3 w-64",
         "paper-texture"
@@ -98,7 +98,7 @@ function EventPopoverContent({
       <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
         {new Date(event.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
       </div>
-      <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-t border-[#d4a574]/30 dark:border-[#8b6f47]/30 pt-2">
+      <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-t border-line-strong/30 pt-2">
         <span className="font-medium text-gray-600 dark:text-gray-400">Syllabus:</span>
         <div className="mt-1">{event.description}</div>
       </div>
@@ -220,7 +220,7 @@ function TestItemPopover({
                 </span>
               )}
               <span title="Open in Exams page">
-                <ChevronRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                <ChevronRight className="h-4 w-4 text-accent-ink" />
               </span>
             </div>
           </div>
@@ -270,7 +270,7 @@ function TestItemPopover({
             </button>
           )}
           <span title="Open in Exams page">
-            <ChevronRight className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+            <ChevronRight className="h-3.5 w-3.5 text-accent-ink" />
           </span>
         </div>
       </div>
@@ -527,7 +527,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   if (isLoading && events.length === 0) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4",
+        "bg-paper rounded-xl border border-line p-4",
         !isMobile && "paper-texture",
         className
       )}>
@@ -546,7 +546,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   if (error) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4",
+        "bg-paper rounded-xl border border-line p-4",
         !isMobile && "paper-texture",
         className
       )}>
@@ -560,18 +560,18 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
+      "bg-paper rounded-xl border border-line overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line bg-tint">
         <div className="flex items-center gap-2 min-w-0">
           <TestsAccent className="w-8 h-6 flex-shrink-0" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Tests & Exams</h3>
           <Link
             href="/exams"
-            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-accent-ink transition-colors"
           >
             <GraduationCap className="h-3 w-3" />
             <span className="hidden sm:inline">Revision</span>
@@ -631,7 +631,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           </button>
           <button
             onClick={goToToday}
-            className="hidden lg:block px-2 py-1 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#d4a574]/20 rounded transition-colors"
+            className="hidden lg:block px-2 py-1 text-xs font-medium text-accent-ink hover:bg-[#d4a574]/20 rounded transition-colors"
           >
             Today
           </button>
@@ -744,9 +744,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Bottom section - toggles between upcoming and selected date events */}
-      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#252015] shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
+      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-[#f5ede3] dark:bg-[#252015] shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
         {/* Tab header */}
-        <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line">
           <button
             onClick={() => setSelectedDate(null)}
             className={cn(
@@ -761,7 +761,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           {selectedDate && (
             <>
               <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span className="text-sm text-[#a0704b] dark:text-[#cd853f]">
+              <span className="text-sm text-accent-ink">
                 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
             </>
@@ -826,7 +826,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             </div>
           ) : (
             /* Show upcoming list */
-            <div className="divide-y divide-[#e8d4b8]/50 dark:divide-[#6b5a4a]/50">
+            <div className="divide-y divide-line/50">
               {eventsWithDaysUntil.map((event) => (
                 <TestItemPopover
                   key={event.id}

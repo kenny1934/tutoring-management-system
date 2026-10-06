@@ -70,7 +70,7 @@ export function ReportCard({
   return (
     <div
       className={cn(
-        "relative w-full bg-[#fef9f3] dark:bg-[#2d2618] paper-texture rounded-lg p-8 paper-shadow-lg",
+        "relative w-full bg-paper paper-texture rounded-lg p-8 paper-shadow-lg",
         "border-2 border-amber-900/20 dark:border-amber-100/10",
         className
       )}

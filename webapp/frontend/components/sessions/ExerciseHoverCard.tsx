@@ -82,8 +82,8 @@ export function ExerciseHoverCard({ exercises, type, className, children }: Exer
             {...getFloatingProps()}
             className={cn(
               "pointer-events-none w-max min-w-[180px] max-w-[300px] rounded-lg px-3 py-2 shadow-lg",
-              "bg-[#fef9f3] dark:bg-[#2d2618]",
-              "border border-[#d4a574] dark:border-[#8b6f47]"
+              "bg-paper",
+              "border border-line-strong"
             )}
           >
             <div className="flex items-center justify-between gap-3">

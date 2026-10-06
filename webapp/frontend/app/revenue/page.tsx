@@ -241,7 +241,7 @@ export default function RevenuePage() {
   // Toolbar classes (match sessions page pattern - separate sticky container from visual styling)
   const toolbarInnerClasses = cn(
     "flex flex-wrap items-center gap-2 sm:gap-3",
-    "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+    "bg-paper border-2 border-line-strong",
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
@@ -269,7 +269,7 @@ export default function RevenuePage() {
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* Title */}
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <DollarSign className="h-5 w-5 text-accent-ink" />
                   <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                     Revenue
                   </h1>
@@ -425,7 +425,7 @@ export default function RevenuePage() {
           {authLoading && (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
                 <p className="text-sm text-gray-600 dark:text-gray-400">Checking authentication...</p>
               </div>
             </div>
@@ -448,7 +448,7 @@ export default function RevenuePage() {
           {view === 'detail' && isLoading && !summary && (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
                 <p className="text-sm text-gray-600 dark:text-gray-400">Loading revenue data...</p>
               </div>
             </div>
@@ -486,11 +486,11 @@ export default function RevenuePage() {
           {/* Summary Card (detail) */}
           {view === 'detail' && summary && (
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+              "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden",
               !isMobile && "paper-texture"
             )}>
               {/* Header */}
-              <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30">
+              <div className="px-4 py-3 bg-tint border-b border-[#d4a574]/30">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                   <TutorLink tutorId={summary.tutor_id} tutorName={summary.tutor_name} /> - {formatPeriodDisplay(selectedPeriod)}
                 </h2>
@@ -595,10 +595,10 @@ export default function RevenuePage() {
           {/* Session Details Table (detail) */}
           {view === 'detail' && sessions.length > 0 && (
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+              "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line overflow-hidden",
               !isMobile && "paper-texture"
             )}>
-              <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30">
+              <div className="px-4 py-3 bg-tint border-b border-[#d4a574]/30">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-wide">
                   Session Details
                 </h3>
@@ -607,7 +607,7 @@ export default function RevenuePage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-gray-50 dark:bg-gray-800/50">
+                    <tr className="border-b border-line bg-gray-50 dark:bg-gray-800/50">
                       <th className="px-3 sm:px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Date</th>
                       <th className="px-3 sm:px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Time</th>
                       <th className="px-3 sm:px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Student</th>
@@ -623,7 +623,7 @@ export default function RevenuePage() {
                       <tr
                         key={session.session_id}
                         onClick={(e) => handleSessionRowClick(session.session_id, e)}
-                        className="border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors"
+                        className="border-b border-line/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors"
                       >
                         <td className="px-3 sm:px-4 py-2 text-gray-900 dark:text-gray-100">
                           {new Date(session.session_date).toLocaleDateString('en-US', {
@@ -639,7 +639,7 @@ export default function RevenuePage() {
                           <Link
                             href={`/students/${session.student_id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                            className="text-accent-ink hover:underline"
                           >
                             {session.student_name}
                           </Link>
@@ -672,7 +672,7 @@ export default function RevenuePage() {
                 {hasMoreSessions && (
                   <button
                     onClick={() => setDisplayCount(c => c + 30)}
-                    className="w-full py-3 text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
+                    className="w-full py-3 text-sm font-medium text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-line/50"
                   >
                     Show more ({sessions.length - displayCount} remaining)
                   </button>

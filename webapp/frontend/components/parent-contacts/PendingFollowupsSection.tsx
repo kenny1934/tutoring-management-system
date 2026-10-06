@@ -105,7 +105,7 @@ export function PendingFollowupsSection({
                     "flex items-center gap-3 px-3 py-2 rounded-md",
                     "bg-white dark:bg-[#1a1a1a] border",
                     onStudentClick && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
-                    selectedStudentId === followup.student_id && "ring-2 ring-[#a0704b]/50 dark:ring-[#cd853f]/50",
+                    selectedStudentId === followup.student_id && "ring-2 ring-accent-ink/50",
                     isOverdue
                       ? "border-red-200 dark:border-red-800"
                       : isToday

@@ -229,11 +229,11 @@ export function ContactCalendar({
   return (
     <div className={cn(
       "flex flex-col h-full",
-      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]",
+      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
       "overflow-hidden"
     )}>
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-3 py-2 border-b border-line bg-tint">
         <div className="flex flex-wrap items-center justify-center sm:justify-between gap-2">
           {/* Navigation */}
           <div className="flex items-center gap-2">
@@ -484,7 +484,7 @@ export function ContactCalendar({
                     "w-full text-left p-3 rounded-lg border transition-all",
                     "hover:bg-gray-50 dark:hover:bg-gray-800/50",
                     selectedContactId === event.id
-                      ? "border-[#a0704b] bg-[#f5ede3] dark:bg-[#3d3628]"
+                      ? "border-[#a0704b] bg-tint"
                       : "border-gray-200 dark:border-gray-700"
                   )}
                 >
@@ -519,7 +519,7 @@ export function ContactCalendar({
       </div>
 
       {/* Legend / Filters */}
-      <div className="px-3 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
+      <div className="px-3 py-2 border-t border-line bg-tint/50">
         <div className="flex items-center justify-center gap-3 text-xs text-gray-500 dark:text-gray-400">
           {CONTACT_TYPES.map((type) => {
             const { short: label, dot: color } = CONTACT_TYPE_META[type];
@@ -530,7 +530,7 @@ export function ContactCalendar({
                 onClick={() => onToggleContactType(type)}
                 className={cn(
                   "flex items-center gap-1 px-2 py-0.5 rounded-full transition-all cursor-pointer",
-                  "hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50",
+                  "hover:bg-line/50",
                   isActive ? "opacity-100" : "opacity-40 line-through"
                 )}
                 title={isActive ? `Hide ${label} contacts` : `Show ${label} contacts`}

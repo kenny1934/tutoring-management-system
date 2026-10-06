@@ -619,7 +619,7 @@ export default function DocumentsPage() {
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-        <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
+        <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sidebar — desktop */}
         <FolderSidebar
           hidden={isTemplatesTab}
@@ -791,7 +791,7 @@ export default function DocumentsPage() {
                             checked={selectedIds.has(doc.id)}
                             onChange={() => handleToggleSelect(doc.id)}
                             className={cn(
-                              "w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b] transition-opacity",
+                              "w-3.5 h-3.5 rounded border-line accent-[#a0704b] transition-opacity",
                               selectedIds.has(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                             )}
                           />
@@ -853,7 +853,7 @@ export default function DocumentsPage() {
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-line hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
                 >
                   {loadingMore ? (
                     <span className="flex items-center gap-1.5">
@@ -972,7 +972,7 @@ export default function DocumentsPage() {
       {/* Bulk move to folder picker */}
       {bulkFolderPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBulkFolderPickerOpen(false)}>
-          <div ref={bulkFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div ref={bulkFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move {selectedIds.size} document(s) to</h3>
             <div className="space-y-0.5">
               <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
@@ -991,7 +991,7 @@ export default function DocumentsPage() {
       {/* Bulk tag picker (add/remove) */}
       {bulkTagPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); setBulkTagMode("add"); }}>
-          <div ref={bulkTagRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
+          <div ref={bulkTagRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
             {/* Add / Remove tabs */}
             <div className="flex gap-1 mb-3 p-0.5 rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60">
               {(["add", "remove"] as const).map((mode) => (
@@ -1007,7 +1007,7 @@ export default function DocumentsPage() {
                 <input autoFocus type="text" placeholder="Type a tag name..."
                   value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
-                  className="w-full px-3 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                  className="w-full px-3 py-2 rounded-lg border border-line bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
                 />
                 {tagNames.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -1041,7 +1041,7 @@ export default function DocumentsPage() {
       {/* Keyboard shortcut hints */}
       {!showShortcutHints && (
         <button onClick={() => setShowShortcutHints(true)}
-          className="hidden md:flex fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md items-center justify-center"
+          className="hidden md:flex fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-paper border border-line-strong text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md items-center justify-center"
           title="Keyboard shortcuts (?)" aria-label="Show keyboard shortcuts"
         >
           <span className="text-sm font-mono">?</span>
@@ -1050,7 +1050,7 @@ export default function DocumentsPage() {
       <AnimatePresence>
         {showShortcutHints && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-            className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47] text-sm w-64"
+            className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border bg-paper border-line-strong text-sm w-64"
           >
             <div className="flex justify-between items-center mb-3">
               <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Keyboard Shortcuts</span>
@@ -1086,7 +1086,7 @@ export default function DocumentsPage() {
         collectDesc(movingFolderId);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setMovingFolderId(null)}>
-            <div ref={moveFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div ref={moveFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move folder to</h3>
               <div className="space-y-0.5">
                 <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">

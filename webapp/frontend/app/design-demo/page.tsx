@@ -189,7 +189,7 @@ export default function DesignDemoPage() {
         <h2 className="text-2xl font-semibold mb-6">Paper Texture Utilities</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Cream Paper */}
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture paper-shadow-md rounded-lg p-6 text-gray-900 dark:text-gray-100">
+          <div className="bg-paper paper-texture paper-shadow-md rounded-lg p-6 text-gray-900 dark:text-gray-100">
             <h3 className="font-bold mb-2">Cream Paper</h3>
             <p className="text-sm opacity-80">
               Classic notebook paper with warm cream tone and subtle grain texture.
@@ -231,7 +231,7 @@ export default function DesignDemoPage() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Torn Top */}
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture torn-edge-top paper-shadow-md p-6 text-gray-900 dark:text-gray-100">
+          <div className="bg-paper paper-texture torn-edge-top paper-shadow-md p-6 text-gray-900 dark:text-gray-100">
             <h3 className="font-bold mb-2">Torn Top Edge</h3>
             <p className="text-sm opacity-80">
               Sticky notes and papers ripped from pads. The top edge has an irregular, torn pattern.
@@ -268,7 +268,7 @@ export default function DesignDemoPage() {
       {/* Ruled Lines Demo */}
       <section>
         <h2 className="text-2xl font-semibold mb-6">Ruled Lines & Margins</h2>
-        <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture paper-wrinkled paper-shadow-lg torn-edge-right relative overflow-hidden p-8 pl-20 text-gray-900 dark:text-gray-100">
+        <div className="bg-paper paper-texture paper-wrinkled paper-shadow-lg torn-edge-right relative overflow-hidden p-8 pl-20 text-gray-900 dark:text-gray-100">
           {/* Red margin line */}
           <div className="absolute left-16 top-0 bottom-0 w-0.5 bg-red-400/50 dark:bg-red-400/25" />
 

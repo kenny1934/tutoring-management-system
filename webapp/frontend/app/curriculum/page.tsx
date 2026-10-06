@@ -107,9 +107,9 @@ function WeekAxis({
   children?: ReactNode;
 }) {
   return (
-    <div className="sticky top-0 z-30 flex h-6 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+    <div className="sticky top-0 z-30 flex h-6 bg-paper border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
       <div
-        className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center px-4"
+        className="sticky left-0 z-30 shrink-0 bg-paper flex items-center px-4"
         style={{ width: LABEL_W }}
       >
         <span className="text-[9px] uppercase tracking-wide text-gray-400">
@@ -128,7 +128,7 @@ function WeekAxis({
         ))}
         {currentWeek != null && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-[#fef9f3] dark:bg-[#2d2618] px-0.5"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-paper px-0.5"
             style={{ left: `${((currentWeek - 0.5) / maxWeek) * 100}%` }}
           >
             Now
@@ -169,7 +169,7 @@ const GanttLanes = memo(function GanttLanes({
               so the worksheets shortcut is not a nested button. */}
           <div className="w-full flex h-7 items-stretch group">
             <div
-              className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center gap-1 pl-4 pr-2"
+              className="sticky left-0 z-20 shrink-0 bg-paper group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center gap-1 pl-4 pr-2"
               style={{ width: LABEL_W }}
             >
               <button
@@ -235,7 +235,7 @@ const GanttLanes = memo(function GanttLanes({
           {expandedLane === lane.conceptId && (
             <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
               <div
-                className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+                className="sticky left-0 z-20 shrink-0 bg-paper"
                 style={{ width: LABEL_W }}
               />
               <div className="flex-1 flex flex-wrap gap-1 px-1 py-1.5">
@@ -290,7 +290,7 @@ const PacingChartRows = memo(function PacingChartRows({
         <div key={row.conceptId}>
           <div className="flex items-stretch group">
           <div
-            className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center gap-1 pl-4 pr-2"
+            className="sticky left-0 z-10 shrink-0 bg-paper flex items-center gap-1 pl-4 pr-2"
             style={{ width: LABEL_W }}
           >
             <span
@@ -369,7 +369,7 @@ const PacingChartRows = memo(function PacingChartRows({
           {expandedRow === row.conceptId && (
             <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
               <div
-                className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+                className="sticky left-0 z-10 shrink-0 bg-paper"
                 style={{ width: LABEL_W }}
               />
               <div className="flex-1 px-1 py-1 space-y-0.5">
@@ -819,7 +819,7 @@ export default function CurriculumPage() {
           <div
             className={cn(
               "flex flex-wrap items-center gap-2 sm:gap-3",
-              "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+              "bg-paper border-2 border-line-strong",
               "rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
             )}
@@ -961,7 +961,7 @@ export default function CurriculumPage() {
         {view === "timeline" && !school && !coverageLoading && (
           <div
             className={cn(
-              "text-sm text-gray-600 dark:text-gray-300 bg-[#fef9f3] dark:bg-[#2d2618]",
+              "text-sm text-gray-600 dark:text-gray-300 bg-paper",
               "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-8 text-center",
               !isMobile && "paper-texture"
             )}
@@ -1006,7 +1006,7 @@ export default function CurriculumPage() {
         {view === "atlas" && (
           <div
             className={cn(
-              "isolate bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+              "isolate bg-paper rounded-lg border-2 border-line-strong overflow-hidden",
               !isMobile && "paper-texture"
             )}
           >
@@ -1043,11 +1043,11 @@ export default function CurriculumPage() {
         {view === "timeline" && school && timeline && lanes.length > 0 && (
           <div
             className={cn(
-              "isolate bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+              "isolate bg-paper rounded-lg border-2 border-line-strong overflow-hidden",
               !isMobile && "paper-texture"
             )}
           >
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Weekly topics
               </span>
@@ -1250,7 +1250,7 @@ export default function CurriculumPage() {
         {view === "timeline" && school && !timeline && !timelineLoading && timelineError && (
           <div
             className={cn(
-              "text-sm text-gray-600 dark:text-gray-300 bg-[#fef9f3] dark:bg-[#2d2618]",
+              "text-sm text-gray-600 dark:text-gray-300 bg-paper",
               "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-6 text-center",
               !isMobile && "paper-texture"
             )}
@@ -1263,7 +1263,7 @@ export default function CurriculumPage() {
         {view === "timeline" && school && timeline && lanes.length === 0 && !timelineLoading && (
           <div
             className={cn(
-              "text-sm text-gray-600 dark:text-gray-300 bg-[#fef9f3] dark:bg-[#2d2618]",
+              "text-sm text-gray-600 dark:text-gray-300 bg-paper",
               "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-6 text-center",
               !isMobile && "paper-texture"
             )}
@@ -1277,11 +1277,11 @@ export default function CurriculumPage() {
         {view === "timeline" && school && pacingRows.length > 0 && (
           <div
             className={cn(
-              "isolate bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+              "isolate bg-paper rounded-lg border-2 border-line-strong overflow-hidden",
               !isMobile && "paper-texture"
             )}
           >
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Typical pace
               </span>

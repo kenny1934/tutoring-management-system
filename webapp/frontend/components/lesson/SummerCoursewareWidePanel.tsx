@@ -141,7 +141,7 @@ function WideGradeSection({
         className="flex items-center gap-1 min-h-[28px]"
         title={[c.file?.file_name, e.file?.file_name].filter(Boolean).join("\n")}
       >
-        <span className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080]">
+        <span className="w-16 flex-shrink-0 text-[11px] font-medium text-ink-subtle">
           {label}
         </span>
         <span className="flex-1" />
@@ -197,7 +197,7 @@ function WideGradeSection({
       {/* Header */}
       <div className="flex items-center gap-1.5">
         <Sun className="h-3.5 w-3.5 text-amber-500" />
-        <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+        <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
           Summer Materials{showGrade ? ` · ${cwGrade}` : ""}
         </span>
         <span className="flex-1" />

@@ -109,9 +109,9 @@ export function LessonNudge({ active, date, timeSlot, tutorId, children }: Lesso
         <span
           ref={bubbleRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-[#d4a574] bg-[#fef9f3] px-3 py-2 shadow-lg dark:border-[#8b6f47] dark:bg-[#2d2618]"
+          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-line-strong bg-paper px-3 py-2 shadow-lg"
         >
-          <span className="absolute -top-1 right-4 h-2 w-2 rotate-45 border-l border-t border-[#d4a574] bg-[#fef9f3] dark:border-[#8b6f47] dark:bg-[#2d2618]" />
+          <span className="absolute -top-1 right-4 h-2 w-2 rotate-45 border-l border-t border-line-strong bg-paper" />
           <span className="block pr-4 text-left text-xs font-normal normal-case leading-snug text-gray-700 dark:text-gray-300">
             Your {slotStart} lesson has started. Try lesson mode for a full-class view.
           </span>

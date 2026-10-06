@@ -912,7 +912,7 @@ export default function AdminRenewalsPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sticky Header Section */}
         <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-[#faf8f5] dark:bg-[#1a1a1a]">
         <div className="mb-6">
@@ -1387,7 +1387,7 @@ export default function AdminRenewalsPage() {
             )}>
               {/* Tabs for narrow screens when both modals open */}
               {!isLargeScreen && createModalOpen && (
-                <div className="flex bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-lg border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex bg-paper rounded-t-lg border-b border-line">
                   <button
                     onClick={() => setModalTabView('detail')}
                     className={cn(
@@ -1607,7 +1607,7 @@ export default function AdminRenewalsPage() {
           onClick={() => setShowShortcutHints(true)}
           className={cn(
             "fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
-            "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]",
+            "bg-paper border border-line-strong",
             "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
             "shadow-md flex items-center justify-center",
             isScrolledPastThreshold ? "bottom-20" : "bottom-4"
@@ -1626,7 +1626,7 @@ export default function AdminRenewalsPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
-              bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47]
+              bg-paper border-[#d4a574] dark:border-[#8b6f47]
               text-sm w-64"
           >
             <div className="flex justify-between items-center mb-3">

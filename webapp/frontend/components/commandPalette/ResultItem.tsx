@@ -33,11 +33,11 @@ export function ResultItemButton({
 
   // Default icon color based on selection
   const defaultIconColor = isSelected
-    ? "text-[#a0704b] dark:text-[#cd853f]"
+    ? "text-accent-ink"
     : "text-gray-400 dark:text-gray-500";
 
   const iconColor = isSelected
-    ? "text-[#a0704b] dark:text-[#cd853f]"
+    ? "text-accent-ink"
     : iconColorClass || defaultIconColor;
 
   // Recent search has a special layout with delete button

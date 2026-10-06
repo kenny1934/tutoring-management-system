@@ -110,7 +110,7 @@ function SuggestionList({
     );
   }
   return (
-    <div className="divide-y divide-[#e8d4b8]/40 dark:divide-[#6b5a4a]/40">
+    <div className="divide-y divide-line/40">
       {data.suggestions.map((s: RegularSuggestion) => (
         <button
           key={s.slot_id}
@@ -294,7 +294,7 @@ export function RegularUnassignedPanel({
 
   return (
     <div className={cn(
-      "relative flex-shrink-0 flex flex-col border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-[#fef9f3] dark:bg-[#1a1a1a] overflow-hidden transition-[width] duration-300 ease-in-out",
+      "relative flex-shrink-0 flex flex-col border-2 border-line rounded-lg bg-[#fef9f3] dark:bg-[#1a1a1a] overflow-hidden transition-[width] duration-300 ease-in-out",
       collapsed ? "w-8" : "w-64",
       className
     )}>
@@ -321,7 +321,7 @@ export function RegularUnassignedPanel({
         collapsed ? "opacity-0 pointer-events-none" : "opacity-100 delay-100"
       )}>
         {/* Header */}
-        <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+        <div className="px-3 py-2 border-b border-line space-y-2">
           <div className="flex items-center gap-2">
             {StatusHeaderIcon && statusHeaderColors ? (
               <StatusHeaderIcon className={cn("h-4 w-4", statusHeaderColors.text)} />
@@ -366,7 +366,7 @@ export function RegularUnassignedPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, ref code, school..."
-              className="w-full pl-7 pr-2 py-1 text-xs border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
+              className="w-full pl-7 pr-2 py-1 text-xs border border-line/60 rounded bg-white dark:bg-gray-800"
             />
           </div>
 
@@ -385,7 +385,7 @@ export function RegularUnassignedPanel({
                 e.g. every F-grade Chinese applicant at once. */}
             {streams.length > 0 && (
               <span
-                className="mx-0.5 h-3 w-px bg-[#e8d4b8] dark:bg-[#6b5a4a]"
+                className="mx-0.5 h-3 w-px bg-line"
                 aria-hidden
               />
             )}
@@ -506,7 +506,7 @@ export function RegularUnassignedPanel({
                       }
                     }}
                     className={cn(
-                      "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                      "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
                       tapMode === "select"
                         ? "cursor-pointer"
                         : readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
@@ -609,11 +609,11 @@ export function RegularUnassignedPanel({
                         with the list and never clips against the panel edge. */}
                     {suggestOpen && configId && (
                       <div
-                        className="mt-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-md overflow-hidden"
+                        className="mt-1 rounded border border-line bg-white dark:bg-[#1a1a1a] shadow-md overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center justify-between px-2 py-1 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
+                        <div className="flex items-center justify-between px-2 py-1 bg-paper border-b border-line/60">
                           <span className="text-[9px] font-medium text-muted-foreground">Suggested slots</span>
                           <button
                             onClick={() => setSuggestForId(null)}

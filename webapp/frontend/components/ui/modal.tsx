@@ -115,8 +115,8 @@ export function Modal({
       }}
       className={cn(
         "relative",
-        "bg-[#fef9f3] dark:bg-[#2d2618]",
-        "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+        "bg-paper",
+        "border-2 border-line-strong",
         "rounded-lg shadow-2xl",
         "paper-texture",
         // In standalone mode, use max-h; in side-by-side, fill parent height
@@ -127,7 +127,7 @@ export function Modal({
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
         <h2 id={titleId} className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate min-w-0">
           {title}
         </h2>
@@ -145,7 +145,7 @@ export function Modal({
 
       {/* Footer */}
       {footer && (
-        <div className="flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg overflow-hidden">
+        <div className="flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg overflow-hidden">
           <div className="w-full">{footer}</div>
         </div>
       )}

@@ -124,7 +124,7 @@ export function PageThumbnails({ pages, current, darkMode, onPick, onClose, togg
         onClick={() => { toggleRef.current?.focus(); onClose(); }}
         aria-label="Close"
         title="Close"
-        className="flex-none grid place-items-center h-12 w-12 rounded-lg text-[#8b7355] dark:text-[#a09080] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] transition-colors"
+        className="flex-none grid place-items-center h-12 w-12 rounded-lg text-ink-subtle hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] transition-colors"
       >
         <X className="h-5 w-5" />
       </button>

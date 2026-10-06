@@ -344,14 +344,14 @@ export default function UncheckedAttendancePage() {
             {/* Toolbar */}
             <div className={cn(
               "flex flex-wrap items-center gap-2 sm:gap-3",
-              "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+              "bg-paper border-2 border-line-strong",
               "rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
             )}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
                   <div className="flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                    <ClipboardList className="h-5 w-5 text-accent-ink" />
                     <h1 className="text-lg font-semibold">Unchecked Attendance</h1>
                     {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
                       <Link
@@ -394,7 +394,7 @@ export default function UncheckedAttendancePage() {
             {/* Bulk Action Bar */}
             {hasSelection && (
               <div className={cn(
-                "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+                "bg-paper border-2 border-line-strong",
                 "rounded-lg px-3 sm:px-4 py-2"
               )}>
                 <div className="flex items-center justify-between gap-2">
@@ -428,7 +428,7 @@ export default function UncheckedAttendancePage() {
                     </button>
                     <button
                       onClick={toggleSelectAll}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-[#f0e0cc] dark:bg-[#4a3d2e] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#e8d4b8] dark:hover:bg-[#5a4a38]"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-[#f0e0cc] dark:bg-[#4a3d2e] text-accent-ink hover:bg-[#e8d4b8] dark:hover:bg-[#5a4a38]"
                     >
                       <CheckSquare className="h-3 w-3" />
                       <span className="hidden xs:inline">{isAllSelected ? 'Deselect All' : 'Select All'}</span>
@@ -538,9 +538,9 @@ export default function UncheckedAttendancePage() {
                                     title={sectionState === 'all' ? 'Deselect section' : 'Select section'}
                                   >
                                     {sectionState === 'all' ? (
-                                      <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                                      <CheckSquare className="h-4 w-4 text-accent-ink" />
                                     ) : sectionState === 'partial' ? (
-                                      <Minus className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                                      <Minus className="h-4 w-4 text-accent-ink" />
                                     ) : (
                                       <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                     )}
@@ -558,7 +558,7 @@ export default function UncheckedAttendancePage() {
                                 <th className="px-4 py-3 text-right w-48"></th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                            <tbody className="divide-y divide-line">
                               {sessions.slice(0, limit).map((session) => {
                                 const isSelected = selectedIds.has(session.session_id);
                                 const isProcessing = currentProcessingId === session.session_id;
@@ -568,8 +568,8 @@ export default function UncheckedAttendancePage() {
                                     key={session.session_id}
                                     onClick={(e) => handleSessionRowClick(session.session_id, e)}
                                     className={cn(
-                                      "hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors cursor-pointer",
-                                      isSelected && "bg-[#f5ede3]/70 dark:bg-[#3d3628]/70"
+                                      "hover:bg-tint/50 transition-colors cursor-pointer",
+                                      isSelected && "bg-tint/70"
                                     )}
                                   >
                                     <td className="pl-3 pr-1 py-3">
@@ -582,9 +582,9 @@ export default function UncheckedAttendancePage() {
                                         className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                       >
                                         {isProcessing ? (
-                                          <Loader2 className="h-4 w-4 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                                          <Loader2 className="h-4 w-4 animate-spin text-accent-ink" />
                                         ) : isSelected ? (
-                                          <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                                          <CheckSquare className="h-4 w-4 text-accent-ink" />
                                         ) : (
                                           <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                                         )}
@@ -682,7 +682,7 @@ export default function UncheckedAttendancePage() {
                                         ...prev,
                                         [level]: prev[level] + 10
                                       }))}
-                                      className="text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                                      className="text-sm font-medium text-accent-ink hover:underline"
                                     >
                                       Show {Math.min(10, sessions.length - limit)} more...
                                     </button>
