@@ -2553,11 +2553,11 @@ function SessionsPageContent() {
                                     </div>
 
                                     {/* Status color strip with icon */}
-                                    <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)} style={{ opacity: statusConfig.opacity ?? 1 }}>
+                                    <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.stripClass)} style={{ opacity: statusConfig.opacity ?? 1 }}>
                                       {loadingSessionActions.has(session.id) ? (
-                                        <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        <div className={cn("w-5 h-5 sm:w-6 sm:h-6 border-2 border-current border-t-transparent rounded-full animate-spin", statusConfig.stripIconClass)} />
                                       ) : (
-                                        <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                        <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6", statusConfig.stripIconClass)} />
                                       )}
                                     </div>
                                   </motion.div>
@@ -2961,11 +2961,11 @@ function SessionsPageContent() {
                               </div>
 
                               {/* Status color strip with icon - RIGHT side */}
-                              <div className={cn("w-8 sm:w-10 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)} style={{ opacity: statusConfig.opacity ?? 1 }}>
+                              <div className={cn("w-8 sm:w-10 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.stripClass)} style={{ opacity: statusConfig.opacity ?? 1 }}>
                                 {loadingSessionActions.has(session.id) ? (
-                                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  <div className={cn("w-4 h-4 sm:w-5 sm:h-5 border-2 border-current border-t-transparent rounded-full animate-spin", statusConfig.stripIconClass)} />
                                 ) : (
-                                  <StatusIcon className={cn("h-4 w-4 sm:h-5 sm:w-5 text-white", statusConfig.iconClass)} />
+                                  <StatusIcon className={cn("h-4 w-4 sm:h-5 sm:w-5", statusConfig.stripIconClass)} />
                                 )}
                               </div>
                             </motion.div>

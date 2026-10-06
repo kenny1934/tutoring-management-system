@@ -2266,8 +2266,8 @@ function SessionsTab({
             </p>
           )}
         </div>
-        <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.bgClass)}>
-          <StatusIcon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
+        <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.stripClass)}>
+          <StatusIcon className={cn("h-4 w-4", statusConfig.stripIconClass)} />
         </div>
       </motion.div>
     );

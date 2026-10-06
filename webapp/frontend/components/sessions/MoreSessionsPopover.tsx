@@ -160,8 +160,8 @@ export function MoreSessionsPopover({
                       )}
                     </p>
                   </div>
-                  <div className={cn("w-6 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
-                    <StatusIcon className={cn("h-3.5 w-3.5 text-white", statusConfig.iconClass)} />
+                  <div className={cn("w-6 rounded-r flex items-center justify-center", statusConfig.stripClass)}>
+                    <StatusIcon className={cn("h-3.5 w-3.5", statusConfig.stripIconClass)} />
                   </div>
                 </div>
               );
