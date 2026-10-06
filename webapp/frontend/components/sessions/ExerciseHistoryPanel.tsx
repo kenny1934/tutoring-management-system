@@ -139,7 +139,7 @@ export function ExerciseHistoryPanel({
             )}
           >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-gradient-to-r from-purple-50 to-[#fef9f3] dark:from-purple-900/20 dark:to-[#1a1611]">
+            <div className="px-4 py-3 border-b border-line bg-gradient-to-r from-purple-50 to-[#fef9f3] dark:from-purple-900/20 dark:to-[#1a1611]">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   Exercise History
@@ -200,10 +200,10 @@ export function ExerciseHistoryPanel({
                     return (
                       <div
                         key={session.session_id}
-                        className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
+                        className="border border-line rounded-lg overflow-hidden"
                       >
                         {/* Session date header */}
-                        <div className="px-3 py-1.5 bg-gray-50 dark:bg-[#252015] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                        <div className="px-3 py-1.5 bg-gray-50 dark:bg-[#252015] border-b border-line">
                           <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                             {formatDateCompact(session.session_date)}
                             {session.time_slot && (

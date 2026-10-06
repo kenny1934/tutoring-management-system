@@ -77,7 +77,7 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
           <Link
             key={enrollment.id}
             href={`/enrollments/${enrollment.id}`}
-            className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+            className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-tint transition-colors"
           >
             {/* Student info */}
             <div className="flex-1 min-w-0">
@@ -109,7 +109,7 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
         {enrollments.length > 6 && (
           <Link
             href="/enrollments?status=active"
-            className="block text-xs text-center text-[#a0704b] dark:text-[#cd853f] hover:underline pt-2"
+            className="block text-xs text-center text-accent-ink hover:underline pt-2"
           >
             +{enrollments.length - 6} more enrollments
           </Link>

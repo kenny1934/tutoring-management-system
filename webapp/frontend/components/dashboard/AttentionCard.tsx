@@ -92,14 +92,14 @@ export const AttentionCard = memo(function AttentionCard({ pendingPayments, clas
   if (attentionItems.length === 0) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+        "bg-paper rounded-xl border border-line overflow-hidden",
         !isMobile && "paper-texture",
         className
       )}>
         {/* Header */}
-        <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="px-4 py-3 border-b border-line bg-tint">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <AlertTriangle className="h-4 w-4 text-accent-ink" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h3>
           </div>
         </div>
@@ -119,14 +119,14 @@ export const AttentionCard = memo(function AttentionCard({ pendingPayments, clas
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+      "bg-paper rounded-xl border border-line overflow-hidden",
       !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-4 py-3 border-b border-line bg-tint">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+          <AlertTriangle className="h-4 w-4 text-accent-ink" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h3>
           <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-medium">
             {attentionItems.length} {attentionItems.length === 1 ? 'item' : 'items'}

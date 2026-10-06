@@ -230,7 +230,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
           </button>
         </div>
         {mathMode && query && (
-          <div className="text-[10px] text-[#8b7355] dark:text-[#a09080] truncate" title={query}>
+          <div className="text-[10px] text-ink-subtle truncate" title={query}>
             Query: {query}
           </div>
         )}
@@ -302,7 +302,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
 
         {!loading && result?.error && (
           <div className="flex items-center justify-center py-12">
-            <p className="text-sm text-[#8b7355] dark:text-[#a09080]">{result.error}</p>
+            <p className="text-sm text-ink-subtle">{result.error}</p>
           </div>
         )}
 
@@ -340,7 +340,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
                 <button
                   key={ex}
                   onClick={() => { setQuery(ex); setTimeout(() => inputRef.current?.focus(), 0); }}
-                  className="px-2 py-1 text-[10px] rounded bg-[#e8dcc8] dark:bg-[#2a2318] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors"
+                  className="px-2 py-1 text-[10px] rounded bg-[#e8dcc8] dark:bg-[#2a2318] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-ink-subtle transition-colors"
                 >
                   {ex}
                 </button>
@@ -421,7 +421,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
                 className="p-1 rounded-lg hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] transition-colors"
                 title="Close (Esc)"
               >
-                <X className="h-4 w-4 text-[#8b7355] dark:text-[#a09080]" />
+                <X className="h-4 w-4 text-ink-subtle" />
               </button>
             </div>
 

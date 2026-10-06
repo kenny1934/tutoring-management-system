@@ -148,7 +148,7 @@ export default function AdminSummerConfigPage() {
     return (
       <DeskSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
-          <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
+          <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
             <SummerConfigEditor
               configId={editingId}
               isNew={creating}
@@ -166,9 +166,9 @@ export default function AdminSummerConfigPage() {
   return (
     <DeskSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
                 <Sun className="h-5 w-5 text-violet-600 dark:text-violet-400" />

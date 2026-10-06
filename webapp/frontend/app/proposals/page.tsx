@@ -31,7 +31,7 @@ type TabType = "for-me" | "by-me" | "all";
 
 function ProposalCardSkeleton() {
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] border-l-4 border-l-gray-200 dark:border-l-gray-700 overflow-hidden">
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line border-l-4 border-l-gray-200 dark:border-l-gray-700 overflow-hidden">
       <div className="px-5 py-4 bg-[#faf6f1] dark:bg-[#2d2820]">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -221,8 +221,8 @@ export default function ProposalsPage() {
             </div>
           </div>
           {/* Tab bar skeleton */}
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
-            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] px-2 py-3 gap-4">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line overflow-hidden">
+            <div className="flex border-b border-line px-2 py-3 gap-4">
               <div className="h-5 w-20 shimmer-sepia rounded" />
               <div className="h-5 w-20 shimmer-sepia rounded" />
             </div>
@@ -250,12 +250,12 @@ export default function ProposalsPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/"
-              className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+              className="p-2 hover:bg-tint rounded-lg transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </Link>
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
+              <div className="p-2 rounded-lg bg-tint">
                 <CalendarClock className="h-6 w-6 text-[#a0704b]" />
               </div>
               <div>
@@ -272,11 +272,11 @@ export default function ProposalsPage() {
 
         {/* Tabs and Filters */}
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+          "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line overflow-hidden",
           "paper-texture"
         )}>
           {/* Tabs */}
-          <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="flex border-b border-line">
             <button
               onClick={() => handleTabChange("for-me")}
               className={cn(
@@ -343,14 +343,14 @@ export default function ProposalsPage() {
                   placeholder="Search student or tutor..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
               </div>
               <button
                 onClick={() => setSortOrder(s => s === "newest" ? "oldest" : "newest")}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
-                  "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
+                  "border-line bg-white dark:bg-[#1a1a1a]",
                   "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900/20"
                 )}
               >
@@ -372,7 +372,7 @@ export default function ProposalsPage() {
                       "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap transition-colors",
                       isActive
                         ? "bg-[#a0704b] text-white"
-                        : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-gray-50 dark:hover:bg-gray-900/20"
+                        : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 border border-line hover:bg-gray-50 dark:hover:bg-gray-900/20"
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
@@ -391,7 +391,7 @@ export default function ProposalsPage() {
           ) : filteredProposals.length === 0 ? (
             <div className={cn(
               "flex flex-col items-center justify-center py-16 rounded-xl",
-              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+              "bg-white dark:bg-[#1a1a1a] border border-line",
               "paper-texture"
             )}>
               <EmptyCloud className="mb-2" />

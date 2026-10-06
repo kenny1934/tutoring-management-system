@@ -1324,14 +1324,14 @@ export default function GeometryEditorModal({
 
       {/* Modal */}
       <div
-        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden"
+        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden"
         style={{ maxWidth: "52rem", maxHeight: "85vh" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="geometry-editor-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line/40 flex-shrink-0">
           <h3 id="geometry-editor-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {isEditing ? "Edit Diagram" : "Create Diagram"}
           </h3>
@@ -1348,7 +1348,7 @@ export default function GeometryEditorModal({
         <div className="flex-1 min-h-0 overflow-y-auto">
 
         {/* Toolbar */}
-        <div className="flex items-center gap-1 px-3 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex-wrap">
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-line/30 flex-wrap">
           {TOOLS.map((t) => (
             <button
               key={t.id}
@@ -1367,14 +1367,14 @@ export default function GeometryEditorModal({
             </button>
           ))}
 
-          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+          <div className="w-px h-5 bg-line/60 mx-1" />
 
           <button
             onClick={handleUndo}
             disabled={undoStackRef.current.length === 0}
             title="Undo (Ctrl+Z)"
             aria-label="Undo"
-            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors disabled:opacity-30"
+            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-tint rounded-lg transition-colors disabled:opacity-30"
           >
             <Undo2 className="h-4 w-4" />
           </button>
@@ -1383,7 +1383,7 @@ export default function GeometryEditorModal({
             disabled={redoCount === 0}
             title="Redo (Ctrl+Shift+Z)"
             aria-label="Redo"
-            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors disabled:opacity-30"
+            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-tint rounded-lg transition-colors disabled:opacity-30"
           >
             <Redo2 className="h-4 w-4" />
           </button>
@@ -1396,7 +1396,7 @@ export default function GeometryEditorModal({
             <Trash2 className="h-4 w-4" />
           </button>
 
-          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+          <div className="w-px h-5 bg-line/60 mx-1" />
 
           <button
             onClick={() => setSnapToGrid((s) => !s)}
@@ -1404,14 +1404,14 @@ export default function GeometryEditorModal({
             className={cn(
               "p-1.5 rounded-lg transition-colors",
               snapToGrid
-                ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d3628]"
-                : "text-gray-400 dark:text-gray-500 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                ? "text-[#a0704b] bg-tint"
+                : "text-gray-400 dark:text-gray-500 hover:bg-tint"
             )}
           >
             <Grid3x3 className="h-4 w-4" />
           </button>
 
-          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+          <div className="w-px h-5 bg-line/60 mx-1" />
 
           {/* Color palette */}
           <div className="flex items-center gap-0.5">
@@ -1431,7 +1431,7 @@ export default function GeometryEditorModal({
             ))}
           </div>
 
-          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+          <div className="w-px h-5 bg-line/60 mx-1" />
 
           {/* Line style toggle */}
           <button
@@ -1441,7 +1441,7 @@ export default function GeometryEditorModal({
               setActiveDash(cycle[(idx + 1) % cycle.length]);
             }}
             title={`Line style: ${activeDash === 0 ? "Solid" : activeDash === 2 ? "Dashed" : "Dotted"}`}
-            className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+            className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-tint rounded-lg transition-colors"
           >
             <svg width="20" height="12" viewBox="0 0 20 12" className="text-current">
               {activeDash === 0 && <line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" strokeWidth="2" />}
@@ -1450,7 +1450,7 @@ export default function GeometryEditorModal({
             </svg>
           </button>
 
-          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+          <div className="w-px h-5 bg-line/60 mx-1" />
 
           {/* Shape presets dropdown */}
           <div className="relative" ref={shapeMenuRef}>
@@ -1468,7 +1468,7 @@ export default function GeometryEditorModal({
               <span className="hidden sm:inline">Shapes</span>
             </button>
             {shapeMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 z-10 min-w-[170px]">
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg py-1 z-10 min-w-[170px]">
                 {[
                   { id: "rectangle", label: "Rectangle" },
                   { id: "equilateral-triangle", label: "Equilateral Triangle" },
@@ -1481,20 +1481,20 @@ export default function GeometryEditorModal({
                       setShapePreset(s.id);
                       setShapeMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
                   >
                     {s.label}
                   </button>
                 ))}
                 {shapePreset && (
                   <>
-                    <div className="border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 my-1" />
+                    <div className="border-t border-line/30 my-1" />
                     <button
                       onClick={() => {
                         setShapePreset(null);
                         setShapeMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                      className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-tint transition-colors"
                     >
                       Cancel placement
                     </button>
@@ -1507,7 +1507,7 @@ export default function GeometryEditorModal({
 
         {/* Function input bar — shown when function tool is active */}
         {tool === "function" && (
-          <div className="flex flex-col border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+          <div className="flex flex-col border-b border-line/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             {/* Curve mode selector */}
             <div className="flex items-center gap-1 px-4 pt-2 pb-1">
               {editingCurve && (
@@ -1572,7 +1572,7 @@ export default function GeometryEditorModal({
                           } as React.CSSProperties}
                         />
                       ) : (
-                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none text-gray-800 dark:text-gray-200" />
+                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none text-gray-800 dark:text-gray-200" />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -1605,7 +1605,7 @@ export default function GeometryEditorModal({
                           } as React.CSSProperties}
                         />
                       ) : (
-                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none text-gray-800 dark:text-gray-200" />
+                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none text-gray-800 dark:text-gray-200" />
                       )}
                     </div>
                   </div>
@@ -1616,14 +1616,14 @@ export default function GeometryEditorModal({
                         type="text"
                         value={tMinInput}
                         onChange={(e) => setTMinInput(e.target.value)}
-                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded outline-none text-gray-800 dark:text-gray-200"
+                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-line rounded outline-none text-gray-800 dark:text-gray-200"
                       />
                       <span className="text-[10px] text-gray-400">to</span>
                       <input
                         type="text"
                         value={tMaxInput}
                         onChange={(e) => setTMaxInput(e.target.value)}
-                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded outline-none text-gray-800 dark:text-gray-200"
+                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-line rounded outline-none text-gray-800 dark:text-gray-200"
                       />
                     </div>
                     <button
@@ -1686,7 +1686,7 @@ export default function GeometryEditorModal({
                         }
                       }}
                       placeholder="Loading math input..."
-                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
                     />
                   )}
                   <button
@@ -1720,7 +1720,7 @@ export default function GeometryEditorModal({
 
         {/* Text input bar — shown when text tool is active */}
         {tool === "text" && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
               Label:
             </span>
@@ -1729,14 +1729,14 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Type text, then click on the board to place it"
-              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
             />
           </div>
         )}
 
         {/* Angle degree input bar — shown when angle tool is active */}
         {tool === "angle" && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
               Degrees:
             </span>
@@ -1747,14 +1747,14 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Optional — e.g. 45 (click vertex, then ray)"
-              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
             />
           </div>
         )}
 
         {/* Coordinate input bar — shown when point tool is active */}
         {tool === "point" && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
               (x, y)
             </span>
@@ -1770,7 +1770,7 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="3, -2"
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
             />
             <button
               onClick={handleAddPoint}
@@ -1784,7 +1784,7 @@ export default function GeometryEditorModal({
 
         {/* Selected point editor — shown when a point is selected in select mode */}
         {tool === "select" && selectedEl?.elType === "point" && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             <input
               type="text"
               value={editName}
@@ -1798,7 +1798,7 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="Name"
-              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
             />
             <span className="text-xs text-gray-400 dark:text-gray-500">at</span>
             <input
@@ -1813,7 +1813,7 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="x, y"
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
             />
             <button
               onClick={handleApplyCoordEdit}
@@ -1851,7 +1851,7 @@ export default function GeometryEditorModal({
 
         {/* Selected non-point element info bar */}
         {tool === "select" && selectedEl && selectedEl.elType !== "point" && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             <span className="text-xs text-gray-500 dark:text-gray-400">
               Selected: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedEl.elType}</span>
             </span>
@@ -1896,7 +1896,7 @@ export default function GeometryEditorModal({
                     className={cn(
                       "p-1 rounded transition-colors",
                       (selectedEl.visProp?.dash || 0) === d
-                        ? "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        ? "bg-tint"
                         : "hover:bg-gray-100 dark:hover:bg-gray-800"
                     )}
                   >
@@ -1950,7 +1950,7 @@ export default function GeometryEditorModal({
             <div className="relative">
               <div
                 ref={containerRef}
-                className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
+                className="w-full rounded-lg border border-line overflow-hidden"
                 style={{ height: "400px", touchAction: "manipulation", cursor: isPanning ? "grabbing" : tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
               />
               {selectionRect && boardRef.current && (() => {
@@ -1991,7 +1991,7 @@ export default function GeometryEditorModal({
         </div>{/* End scrollable middle section */}
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-line/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-400 dark:text-gray-500">
               {objectCount} object{objectCount !== 1 ? "s" : ""}

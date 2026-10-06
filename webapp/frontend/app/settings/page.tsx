@@ -116,7 +116,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-6 shadow-sm">
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-foreground mb-4">
                     {settingsItems.find(i => i.id === activeSection)?.title}
                   </h2>

@@ -118,7 +118,7 @@ function SummerPauseNote({ scope, quarter }: { scope: SummerPauseScope; quarter:
   const nextQuarter = (quarter % 4) + 1;
 
   return (
-    <p className="mb-4 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] px-3 py-2 text-sm text-muted-foreground">
+    <p className="mb-4 rounded-lg border border-line bg-tint px-3 py-2 text-sm text-muted-foreground">
       {opensAfterPause ? (
         <>
           This quarter opens on {formatDayFirstDate(scope.measured_from)}, when regular lessons
@@ -707,7 +707,7 @@ export default function TerminatedStudentsPage() {
             <div className="sticky top-0 z-30">
               <div className={cn(
                 "flex flex-wrap items-center gap-2 sm:gap-3",
-                "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+                "bg-paper border-2 border-line-strong",
                 "rounded-lg px-3 sm:px-4 py-2",
                 !isMobile && "paper-texture"
               )}>
@@ -715,7 +715,7 @@ export default function TerminatedStudentsPage() {
               {/* Title and filters */}
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
                 <div className="flex items-center gap-2">
-                  <UserMinus className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <UserMinus className="h-5 w-5 text-accent-ink" />
                   <h1 className="text-lg font-semibold">Terminated Students</h1>
                 </div>
 
@@ -725,9 +725,9 @@ export default function TerminatedStudentsPage() {
                     onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)}
                     className={cn(
                       "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-                      "text-[#a0704b] dark:text-[#cd853f]",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm"
+                      "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+                      "text-accent-ink",
+                      "hover:bg-tint hover:shadow-sm"
                     )}
                   >
                     {selectedQuarter && selectedYear
@@ -740,7 +740,7 @@ export default function TerminatedStudentsPage() {
                   </button>
 
                   {isQuarterDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-40 bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-lg z-50">
+                    <div className="absolute top-full left-0 mt-2 w-40 bg-white dark:bg-[#1a1a1a] border border-line-strong rounded-lg shadow-lg z-50">
                       {quarters.map((q) => (
                         <button
                           key={`${q.quarter}-${q.year}`}
@@ -750,9 +750,9 @@ export default function TerminatedStudentsPage() {
                             setIsQuarterDropdownOpen(false);
                           }}
                           className={cn(
-                            "w-full px-4 py-2 text-left text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors first:rounded-t-lg last:rounded-b-lg",
+                            "w-full px-4 py-2 text-left text-sm hover:bg-tint transition-colors first:rounded-t-lg last:rounded-b-lg",
                             selectedQuarter === q.quarter && selectedYear === q.year
-                              ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] dark:text-[#cd853f] font-medium"
+                              ? "bg-tint text-accent-ink font-medium"
                               : ""
                           )}
                         >
@@ -796,9 +796,9 @@ export default function TerminatedStudentsPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className={cn(
                       "w-full pl-8 pr-8 py-1.5 text-sm rounded-full",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "bg-white dark:bg-[#1a1a1a] border border-line-strong",
                       "text-foreground placeholder:text-muted-foreground",
-                      "focus:outline-none focus:ring-1 focus:ring-[#a0704b] dark:focus:ring-[#cd853f]"
+                      "focus:outline-none focus:ring-1 focus:ring-accent-ink"
                     )}
                   />
                   {searchTerm && (
@@ -823,9 +823,9 @@ export default function TerminatedStudentsPage() {
                   disabled={!selectedQuarter || !selectedYear || terminatedStudents.length === 0}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                    "border border-[#d4a574] dark:border-[#8b6f47]",
-                    "text-[#a0704b] dark:text-[#cd853f]",
-                    "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+                    "border border-line-strong",
+                    "text-accent-ink",
+                    "hover:bg-tint",
                     "disabled:opacity-50"
                   )}
                   title="Export as CSV"
@@ -842,9 +842,9 @@ export default function TerminatedStudentsPage() {
                     disabled={isSaving}
                     className={cn(
                       "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      "border border-[#d4a574] dark:border-[#8b6f47]",
-                      "text-[#a0704b] dark:text-[#cd853f]",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+                      "border border-line-strong",
+                      "text-accent-ink",
+                      "hover:bg-tint",
                       "disabled:opacity-50"
                     )}
                   >
@@ -891,18 +891,18 @@ export default function TerminatedStudentsPage() {
             {/* Location Stats Card */}
             {stats ? (
               <div className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
                 !isMobile && "paper-texture"
               )}>
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <TrendingDown className="h-5 w-5 text-accent-ink" />
                   {effectiveLocation || "All Locations"} - Q{selectedQuarter} {selectedYear}
                 </h2>
                 {stats.summer_scope && selectedQuarter && (
                   <SummerPauseNote scope={stats.summer_scope} quarter={selectedQuarter} />
                 )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center p-4 bg-[#f5ede3] dark:bg-[#3d3628] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="text-center p-4 bg-tint rounded-lg border border-line">
                     <button onClick={() => setStatDetailModal({ statType: "opening" })} className="text-2xl font-bold text-[#6b5a4a] dark:text-[#cd853f] hover:underline cursor-pointer">{stats.location_stats.opening}</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Opening
@@ -959,7 +959,7 @@ export default function TerminatedStudentsPage() {
               </div>
             ) : isLoading && (
               <div className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
                 !isMobile && "paper-texture"
               )}>
                 <div className="flex items-center gap-2 mb-4">
@@ -999,7 +999,7 @@ export default function TerminatedStudentsPage() {
                 </CompactErrorBoundary>
               ) : isLoading ? (
                 <div className={cn(
-                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
                   !isMobile && "paper-texture"
                 )}>
                   {/* Header skeleton */}
@@ -1034,11 +1034,11 @@ export default function TerminatedStudentsPage() {
 
             {isLoading ? (
               <div className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden",
+                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
                 !isMobile && "paper-texture"
               )}>
                 {/* Skeleton header */}
-                <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex items-center gap-2">
+                <div className="px-4 py-3 border-b border-line bg-tint/50 flex items-center gap-2">
                   <div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
                   <div className="h-4 w-48 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
                 </div>
@@ -1054,7 +1054,7 @@ export default function TerminatedStudentsPage() {
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                    <tbody className="divide-y divide-line">
                       {[0, 1].map((group) => (
                         <React.Fragment key={group}>
                           {/* Tutor group header skeleton */}
@@ -1099,10 +1099,10 @@ export default function TerminatedStudentsPage() {
               <>
                 {/* Terminated Students List */}
                 <div className={cn(
-                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden",
+                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
                   !isMobile && "paper-texture"
                 )}>
-                  <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex items-center justify-between">
+                  <div className="px-4 py-3 border-b border-line bg-tint/50 flex items-center justify-between">
                     <h2 className="font-medium flex items-center gap-2">
                       <Users className="h-4 w-4" />
                       Terminated Students ({totalCheckedCount}/{searchTerm ? `${filteredStudentCount} of ${terminatedStudents.length}` : terminatedStudents.length})
@@ -1126,7 +1126,7 @@ export default function TerminatedStudentsPage() {
                           <th className="px-4 py-3 text-left font-medium">
                             <button
                               onClick={() => handleSort('id')}
-                              className="flex items-center gap-1 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
+                              className="flex items-center gap-1 hover:text-accent-ink transition-colors"
                             >
                               ID#
                               <SortIcon active={sortConfig.column === 'id'} direction={sortConfig.direction} />
@@ -1139,7 +1139,7 @@ export default function TerminatedStudentsPage() {
                           <th className="px-4 py-3 text-left font-medium">
                             <button
                               onClick={() => handleSort('endDate')}
-                              className="flex items-center gap-1 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
+                              className="flex items-center gap-1 hover:text-accent-ink transition-colors"
                             >
                               End Date
                               <SortIcon active={sortConfig.column === 'endDate'} direction={sortConfig.direction} />
@@ -1149,7 +1149,7 @@ export default function TerminatedStudentsPage() {
                           <th className="px-4 py-3 text-left font-medium min-w-[200px]">Reason</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                      <tbody className="divide-y divide-line">
                         {filteredTutorGroups.map(({ tutorName, students, checkedCount, totalCount }) => (
                           <React.Fragment key={tutorName}>
                             <tr
@@ -1192,10 +1192,10 @@ export default function TerminatedStudentsPage() {
                 {/* Tutor Stats Table */}
                 {stats && stats.tutor_stats.length > 0 && (
                   <div className={cn(
-                    "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden",
+                    "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
                     !isMobile && "paper-texture"
                   )}>
-                    <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
+                    <div className="px-4 py-3 border-b border-line bg-tint/50">
                       <h2 className="font-medium">Tutor Statistics</h2>
                     </div>
                     <div className="overflow-x-auto">
@@ -1248,7 +1248,7 @@ export default function TerminatedStudentsPage() {
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                        <tbody className="divide-y divide-line">
                           {sortedTutorStats.map((tutor) => (
                             <TutorStatsRow key={tutor.tutor_id} stats={tutor} onStatClick={handleTutorStatClick} />
                           ))}
@@ -1331,13 +1331,13 @@ function SortToggle({ sortBy, onChange }: { sortBy: StatDetailSort; onChange: (v
       <span>Sort:</span>
       <button
         onClick={() => onChange('id')}
-        className={cn("px-1.5 py-0.5 rounded", sortBy === 'id' ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f] font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded", sortBy === 'id' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         ID
       </button>
       <button
         onClick={() => onChange('name')}
-        className={cn("px-1.5 py-0.5 rounded", sortBy === 'name' ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f] font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded", sortBy === 'name' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         Name
       </button>
@@ -1351,13 +1351,13 @@ function ViewToggle({ viewMode, onChange }: { viewMode: 'list' | 'grid'; onChang
       <span>View:</span>
       <button
         onClick={() => onChange('list')}
-        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'list' ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f] font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'list' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         <LayoutList className="h-3 w-3" /> List
       </button>
       <button
         onClick={() => onChange('grid')}
-        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'grid' ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f] font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'grid' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         <Grid3X3 className="h-3 w-3" /> Grid
       </button>
@@ -1448,7 +1448,7 @@ function StatDetailContent({
           placeholder="Search by name or ID..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-7 pr-2 py-1 text-xs rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-transparent focus:outline-none focus:border-[#a0704b] dark:focus:border-[#cd853f]"
+          className="w-full pl-7 pr-2 py-1 text-xs rounded border border-line bg-transparent focus:outline-none focus:border-accent-ink"
         />
       </div>
       <SortToggle sortBy={sortBy} onChange={setSortBy} />
@@ -1586,7 +1586,7 @@ function StatDetailList({
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-line">
         {sorted.length} student{sorted.length !== 1 ? "s" : ""}
       </p>
     </div>
@@ -1635,16 +1635,16 @@ const StudentDetailItem = React.memo(function StudentDetailItem({
           <>
             <span className="text-blue-600 dark:text-blue-400">{transferredFromTutor}</span>
             <span className="text-muted-foreground">{"\u2192"}</span>
-            <span className="text-[#a0704b] dark:text-[#cd853f]">{student.tutor_name}</span>
+            <span className="text-accent-ink">{student.tutor_name}</span>
           </>
         ) : transferredToTutor ? (
           <>
-            <span className="text-[#a0704b] dark:text-[#cd853f]">{student.tutor_name}</span>
+            <span className="text-accent-ink">{student.tutor_name}</span>
             <span className="text-muted-foreground">{"\u2192"}</span>
             <span className="text-blue-600 dark:text-blue-400">{transferredToTutor}</span>
           </>
         ) : (
-          student.tutor_name && <span className="text-[#a0704b] dark:text-[#cd853f]">{student.tutor_name}</span>
+          student.tutor_name && <span className="text-accent-ink">{student.tutor_name}</span>
         )}
         {isFetching && <Loader2 className="h-3 w-3 animate-spin" />}
       </span>
@@ -1736,11 +1736,11 @@ function TimetableGridTable({
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr>
-            <th className="px-2 py-1.5 text-left text-xs font-medium text-muted-foreground border-b border-[#e8d4b8] dark:border-[#6b5a4a] w-28">
+            <th className="px-2 py-1.5 text-left text-xs font-medium text-muted-foreground border-b border-line w-28">
               Time
             </th>
             {days.map(day => (
-              <th key={day} className="px-2 py-1.5 text-center text-xs font-medium text-muted-foreground border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <th key={day} className="px-2 py-1.5 text-center text-xs font-medium text-muted-foreground border-b border-line">
                 {day}
               </th>
             ))}
@@ -1749,21 +1749,21 @@ function TimetableGridTable({
         <tbody>
           {timeSlots.map(time => (
             <tr key={time}>
-              <td className="px-2 py-2 text-[10px] font-mono text-muted-foreground border-r border-[#e8d4b8] dark:border-[#6b5a4a] align-top whitespace-nowrap">
+              <td className="px-2 py-2 text-[10px] font-mono text-muted-foreground border-r border-line align-top whitespace-nowrap">
                 {time}
               </td>
               {days.map(day => {
                 const cellStudents = grid[time]?.[day] ?? [];
                 return (
-                  <td key={day} className="px-1 py-1 align-top border-r border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+                  <td key={day} className="px-1 py-1 align-top border-r border-b border-line/50">
                     <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                       {cellStudents.map(s => (
                         <div
                           key={s.student_id}
                           className={cn(
                             "flex items-center gap-1 px-1.5 py-1 rounded-sm",
-                            "bg-[#fef9f3] dark:bg-[#2d2618] border-l-2 border-[#d4a574] dark:border-[#8b6f47]",
-                            s.enrollment_id && "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] cursor-pointer",
+                            "bg-paper border-l-2 border-line-strong",
+                            s.enrollment_id && "hover:bg-tint cursor-pointer",
                             "transition-colors"
                           )}
                           onClick={(e) => onStudentClick(e, s)}
@@ -1836,7 +1836,7 @@ function TimetableGrid({
         showLocationPrefix={showLocationPrefix}
       />
       {unscheduled.length > 0 && (
-        <div className="mt-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="mt-3 pt-2 border-t border-line">
           <p className="text-xs text-muted-foreground mb-1">Unscheduled ({unscheduled.length})</p>
           <ul className="space-y-0.5">
             {unscheduled.map(s => (
@@ -1845,7 +1845,7 @@ function TimetableGrid({
           </ul>
         </div>
       )}
-      <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-line">
         {total} student{total !== 1 ? "s" : ""}
       </p>
     </div>
@@ -1992,7 +1992,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
 
   return (
     <tr className={cn(
-      "hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors",
+      "hover:bg-tint/50 transition-colors",
       hasPendingChanges && "bg-[#fef9f3] dark:bg-[#3d3628]"
     )}>
       {/* Checkbox */}
@@ -2021,12 +2021,12 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
       <td className="px-4 py-3 font-medium">
         <Link
           href={`/students/${student.student_id}`}
-          className="hover:text-[#a0704b] dark:hover:text-[#cd853f] hover:underline"
+          className="hover:text-accent-ink hover:underline"
         >
           {student.student_name}
         </Link>
         {hasPendingChanges && (
-          <span className="ml-2 text-xs text-[#a0704b] dark:text-[#cd853f]">•</span>
+          <span className="ml-2 text-xs text-accent-ink">•</span>
         )}
       </td>
       {/* Grade */}

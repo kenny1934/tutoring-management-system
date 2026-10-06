@@ -128,7 +128,7 @@ function FolderTreeItem({
         <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
         {node.document_count > 0 && (
-          <span className="text-[9px] font-semibold tabular-nums bg-[#a0704b]/10 dark:bg-[#cd853f]/10 text-[#a0704b] dark:text-[#cd853f] px-1.5 py-0.5 rounded-full shrink-0">
+          <span className="text-[9px] font-semibold tabular-nums bg-accent-ink/10 text-accent-ink px-1.5 py-0.5 rounded-full shrink-0">
             {node.document_count}
           </span>
         )}
@@ -153,7 +153,7 @@ function FolderTreeItem({
           </button>
           {menuOpen && menuPos && (
             <div
-              className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[9rem] max-w-[calc(100vw-2rem)]"
+              className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg py-1 min-w-[9rem] max-w-[calc(100vw-2rem)]"
               style={{ top: menuPos.top, left: menuPos.left, transform: "translateX(-100%)" }}
             >
               <button
@@ -376,7 +376,7 @@ export default function FolderSidebar({
           ? "flex w-full"
           : cn(
               "hidden md:flex transition-[width] duration-200 ease-out",
-              !isHidden && "border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40",
+              !isHidden && "border-r border-line/40",
               !isCollapsed && !isHidden && "w-56 lg:w-60"
             ),
         "flex-col shrink-0 bg-[#fef9f3]/95 dark:bg-[#1a1a1a]/60 overflow-hidden",
@@ -421,7 +421,7 @@ export default function FolderSidebar({
             </button>
           )}
           {tree.length > 0 && (
-            <div className="w-5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 my-2" />
+            <div className="w-5 border-t border-line/40 my-2" />
           )}
           {tree.slice(0, 6).map((node) => (
             <button
@@ -441,7 +441,7 @@ export default function FolderSidebar({
           {/* Trash at bottom */}
           {onTrashClick && (
             <div className="mt-auto pt-2">
-              <div className="w-5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 mb-2" />
+              <div className="w-5 border-t border-line/40 mb-2" />
               <button
                 onClick={onTrashClick}
                 className={cn(
@@ -641,7 +641,7 @@ export default function FolderSidebar({
               {tagMenuOpen && (
                 <div className="fixed inset-0 z-50" onClick={() => setTagMenuOpen(null)}>
                   <div
-                    className="absolute bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[8rem] animate-scale-in"
+                    className="absolute bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg py-1 min-w-[8rem] animate-scale-in"
                     style={{ top: Math.min(tagMenuOpen.y, window.innerHeight - 80), left: Math.min(tagMenuOpen.x, window.innerWidth - 140) }}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -671,7 +671,7 @@ export default function FolderSidebar({
 
       {/* Trash entry — at bottom of sidebar */}
       {onTrashClick && !isCollapsed && !isHidden && (
-        <div className="px-3 py-2 mt-auto border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="px-3 py-2 mt-auto border-t border-line/40">
           <button
             onClick={onTrashClick}
             className={cn(
@@ -696,7 +696,7 @@ export default function FolderSidebar({
       {renamingFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRenamingFolder(null)}>
           <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5"
+            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5"
             style={{ width: "20rem", maxWidth: "calc(100vw - 2rem)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -736,7 +736,7 @@ export default function FolderSidebar({
       {renamingTag && onRenameTag && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRenamingTag(null)}>
           <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5"
+            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5"
             style={{ width: "20rem", maxWidth: "calc(100vw - 2rem)" }}
             onClick={(e) => e.stopPropagation()}
           >

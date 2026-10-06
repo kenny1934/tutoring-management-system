@@ -219,11 +219,11 @@ export default function ImportWorksheetModal({
             onClick={() => setShowFileBrowser(true)}
             className={cn(
               "w-full flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors text-left",
-              "border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b] dark:hover:border-[#cd853f]",
+              "border-line hover:border-accent-ink",
               "hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
             )}
           >
-            <FolderOpen className="w-8 h-8 text-[#a0704b] dark:text-[#cd853f] shrink-0" />
+            <FolderOpen className="w-8 h-8 text-accent-ink shrink-0" />
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Browse courseware files</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Select from your worksheet folders</p>
@@ -233,7 +233,7 @@ export default function ImportWorksheetModal({
           {/* Secondary: Drag-and-drop / file picker */}
           <div className="relative my-3">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200 dark:border-gray-700/30" /></div>
-            <div className="relative flex justify-center"><span className="px-2 text-xs text-gray-400 dark:text-gray-500 bg-[#fef9f3] dark:bg-[#2d2618]">or</span></div>
+            <div className="relative flex justify-center"><span className="px-2 text-xs text-gray-400 dark:text-gray-500 bg-paper">or</span></div>
           </div>
 
           <div
@@ -242,7 +242,7 @@ export default function ImportWorksheetModal({
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "flex flex-col items-center justify-center gap-2 p-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
-              "border-gray-200 dark:border-gray-700/30 hover:border-[#a0704b] dark:hover:border-[#cd853f]",
+              "border-gray-200 dark:border-gray-700/30 hover:border-accent-ink",
               "hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
             )}
           >
@@ -298,7 +298,7 @@ export default function ImportWorksheetModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Document title"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/30"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/30"
               />
             </div>
 
@@ -321,7 +321,7 @@ export default function ImportWorksheetModal({
             {/* Template selector */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Page layout template</label>
-              <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5">
+              <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-lg border border-line p-1.5">
                 {/* None option */}
                 <button
                   type="button"
@@ -370,7 +370,7 @@ export default function ImportWorksheetModal({
       {/* Processing step */}
       {step === "processing" && (
         <div className="flex flex-col items-center gap-4 py-8">
-          <Loader2 className="w-10 h-10 text-[#a0704b] dark:text-[#cd853f] animate-spin" />
+          <Loader2 className="w-10 h-10 text-accent-ink animate-spin" />
           <div className="text-center">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Processing worksheet...</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

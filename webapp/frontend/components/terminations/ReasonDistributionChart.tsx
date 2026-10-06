@@ -40,7 +40,7 @@ function CustomTooltip({
   const data = payload[0].payload;
   const pct = total > 0 ? ((data.value / total) * 100).toFixed(1) : "0";
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg text-sm">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg text-sm">
       <div className="font-medium text-gray-900 dark:text-gray-100">{data.name}</div>
       <div className="text-gray-600 dark:text-gray-400">
         {data.value} student{data.value !== 1 ? "s" : ""} ({pct}%)
@@ -82,7 +82,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
 
   return (
     <div className={cn(
-      "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+      "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
       !isMobile && "paper-texture"
     )}>
       <div className="flex items-center justify-between mb-4">
@@ -95,7 +95,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
             onClick={() => setViewType("pie")}
             className={cn(
               "p-1 rounded",
-              viewType === "pie" ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f]" : "hover:bg-muted/50"
+              viewType === "pie" ? "bg-[#a0704b]/15 text-accent-ink" : "hover:bg-muted/50"
             )}
           >
             <PieIcon className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
             onClick={() => setViewType("bar")}
             className={cn(
               "p-1 rounded",
-              viewType === "bar" ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f]" : "hover:bg-muted/50"
+              viewType === "bar" ? "bg-[#a0704b]/15 text-accent-ink" : "hover:bg-muted/50"
             )}
           >
             <BarChart3 className="h-3.5 w-3.5" />

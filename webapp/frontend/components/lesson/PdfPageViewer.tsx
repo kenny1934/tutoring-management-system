@@ -52,7 +52,7 @@ export const toolbarRow = cn(
 );
 // Every toolbar button is 44px, the size a finger can hit at the board.
 export const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
-export const tbBtnIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]";
+export const tbBtnIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-ink-subtle";
 export const tbBtnOn = "bg-[#a0704b] text-white";
 const tbBtnClass = cn(tbBtn, tbBtnIdle, "transition-colors");
 const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
@@ -82,7 +82,7 @@ export function ZoomControls({ zoom, onZoomOut, onZoomIn, onFitWidth, shortcuts 
       >
         <ZoomOut className="h-5 w-5" />
       </button>
-      <span className="text-xs text-[#8b7355] dark:text-[#a09080] min-w-[2.75rem] text-center tabular-nums">
+      <span className="text-xs text-ink-subtle min-w-[2.75rem] text-center tabular-nums">
         {zoom}%
       </span>
       <button
@@ -919,7 +919,7 @@ export function PdfPageViewer({
               }
             `}</style>
           </div>
-          <span className="text-sm text-[#8b7355] dark:text-[#a09080]">
+          <span className="text-sm text-ink-subtle">
             {isLoading ? (loadingMessage || "Loading PDF...") : "Rendering pages..."}
           </span>
         </div>
@@ -933,7 +933,7 @@ export function PdfPageViewer({
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
           <AlertTriangle className="h-10 w-10 text-amber-500" />
-          <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+          <p className="text-sm text-ink-subtle">
             {error || processError}
           </p>
           {onRetry && (
@@ -956,7 +956,7 @@ export function PdfPageViewer({
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-3 text-center">
           <FileX className="h-10 w-10 text-[#c4a882]" />
-          <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+          <p className="text-sm text-ink-subtle">
             {emptyMessage}
           </p>
           {emptyAction}
@@ -982,7 +982,7 @@ export function PdfPageViewer({
       <div className={cn(toolbarRow, "@container/toolbar")}>
         {toolbarStart}
         {exerciseLabel && (
-          <span className="min-w-0 truncate text-xs font-medium text-[#8b7355] dark:text-[#a09080] ml-1">
+          <span className="min-w-0 truncate text-xs font-medium text-ink-subtle ml-1">
             {exerciseLabel}
           </span>
         )}
@@ -1073,7 +1073,7 @@ export function PdfPageViewer({
           <button
             onClick={onPrint}
             disabled={isPrinting}
-            className={isPrinting ? cn(tbBtnDisabled, "text-[#8b7355] dark:text-[#a09080]") : tbBtnClass}
+            className={isPrinting ? cn(tbBtnDisabled, "text-ink-subtle") : tbBtnClass}
             title={printTitle}
             aria-label="Print"
             aria-busy={isPrinting || undefined}
@@ -1208,7 +1208,7 @@ export function PdfPageViewer({
         >
           <ChevronUp className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-1 text-[11px] text-[#8b7355] dark:text-[#a09080]">
+        <div className="flex items-center gap-1 text-[11px] text-ink-subtle">
           <input
             ref={pageInputRef}
             type="text"
@@ -1224,7 +1224,7 @@ export function PdfPageViewer({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-[#8b7355] dark:text-[#a09080] py-0.5 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-ink-subtle py-0.5 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
           />
           <span>/ {pages.length}</span>
         </div>

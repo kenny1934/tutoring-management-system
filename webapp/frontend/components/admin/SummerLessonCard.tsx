@@ -274,7 +274,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
     : dragOver
       ? "border-primary bg-primary/15"
       : cn(
-          "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
+          "border-line bg-white dark:bg-[#1a1a1a]",
           SUMMER_GRADE_BORDER[lesson.grade ?? ""] || "border-l-gray-300",
         );
 

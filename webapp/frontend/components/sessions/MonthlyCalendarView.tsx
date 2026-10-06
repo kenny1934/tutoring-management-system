@@ -242,7 +242,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
     <div className="flex flex-col gap-1 h-full min-h-0">
       {/* Month Navigation Header */}
       <div className={cn(
-        "flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5",
+        "flex items-center justify-between gap-2 bg-paper border-2 border-line-strong rounded-lg px-3 py-1.5",
         !isMobile && "paper-texture"
       )}>
         {/* Previous Month */}
@@ -267,7 +267,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
             Today
           </Button>
           <div className="flex items-center gap-1.5">
-            <CalendarDays className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <CalendarDays className="h-4 w-4 text-accent-ink" />
             <span className="font-bold text-[#5d4e37] dark:text-[#e8d4b8] text-sm sm:text-base">
               {getMonthName(selectedDate)} {selectedDate.getFullYear()}
             </span>
@@ -287,17 +287,17 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden flex flex-col">
         {/* Weekday Headers */}
-        <div className="grid grid-cols-7 border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="grid grid-cols-7 border-b-2 border-line">
           {WEEKDAY_NAMES.map((day, index) => (
             <div
               key={day}
               className={cn(
                 "py-1.5 px-1 text-center text-xs font-semibold",
-                "bg-[#fef9f3] dark:bg-[#2d2618]",
-                index > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
-                (index === 0 || index === 6) && "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                "bg-paper",
+                index > 0 && "border-l border-line",
+                (index === 0 || index === 6) && "text-accent-ink/70"
               )}
             >
               {day}
@@ -368,14 +368,14 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
       whileHover={hasContent ? { scale: 1.02 } : undefined}
       onClick={onClick}
       className={cn(
-        "flex flex-col p-1 sm:p-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors overflow-hidden",
+        "flex flex-col p-1 sm:p-1.5 border-b border-line transition-colors overflow-hidden",
         !isFirstCol && "border-l",
         !isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-50",
         isCurrentMonth && getLoadIntensity(totalSessions),
         isWeekend && isCurrentMonth && !hasContent && "bg-[#fef9f3]/50 dark:bg-[#2d2618]/30",
         isPast && isCurrentMonth && "opacity-70",
         isToday && "ring-2 ring-inset ring-[#d4a574] dark:ring-[#cd853f]",
-        hasContent && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+        hasContent && "cursor-pointer hover:bg-tint"
       )}
     >
       {/* Day Number + Weekday */}
@@ -390,7 +390,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
           {date.getDate()}
         </span>
         {isToday && (
-          <span className="text-[8px] sm:text-[10px] font-medium text-[#a0704b] dark:text-[#cd853f] bg-[#a0704b]/10 dark:bg-[#cd853f]/20 px-1 rounded">
+          <span className="text-[8px] sm:text-[10px] font-medium text-accent-ink bg-[#a0704b]/10 dark:bg-[#cd853f]/20 px-1 rounded">
             TODAY
           </span>
         )}
@@ -449,7 +449,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
           <div className="flex items-center gap-1">
             <div className="flex-1 h-1 bg-[#e8d4b8] dark:bg-[#4a3f2f] rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#a0704b] dark:bg-[#cd853f] rounded-full transition-all"
+                className="h-full bg-accent-ink rounded-full transition-all"
                 style={{ width: `${(totalSessions / maxSessions) * 100}%` }}
               />
             </div>
@@ -617,12 +617,12 @@ function DayPopover({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl overflow-hidden w-full max-w-[600px] max-h-[80vh] sm:max-h-[70vh]"
+        className="bg-paper border-2 border-line-strong rounded-lg shadow-xl overflow-hidden w-full max-w-[600px] max-h-[80vh] sm:max-h-[70vh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-line bg-tint">
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <CalendarDays className="h-4 w-4 text-accent-ink" />
             <span className="font-bold text-[#5d4e37] dark:text-[#e8d4b8]">
               {getDayName(date, false)}, {getMonthName(date)} {date.getDate()}
             </span>
@@ -642,7 +642,7 @@ function DayPopover({
                 className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 ml-1"
               >
                 {isAllSelected ? (
-                  <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <CheckSquare className="h-3.5 w-3.5 text-accent-ink" />
                 ) : (
                   <Square className="h-3.5 w-3.5" />
                 )}
@@ -662,14 +662,14 @@ function DayPopover({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex border-b border-line">
           <button
             onClick={() => onTabChange("list")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors",
               tab === "list"
-                ? "bg-white dark:bg-[#1a1a1a] text-[#5d4e37] dark:text-[#e8d4b8] border-b-2 border-[#a0704b] dark:border-[#cd853f]"
-                : "text-[#8b6f47] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                ? "bg-white dark:bg-[#1a1a1a] text-[#5d4e37] dark:text-[#e8d4b8] border-b-2 border-accent-ink"
+                : "text-[#8b6f47] dark:text-[#cd853f] hover:bg-tint"
             )}
           >
             <List className="h-4 w-4" />
@@ -680,8 +680,8 @@ function DayPopover({
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors",
               tab === "grid"
-                ? "bg-white dark:bg-[#1a1a1a] text-[#5d4e37] dark:text-[#e8d4b8] border-b-2 border-[#a0704b] dark:border-[#cd853f]"
-                : "text-[#8b6f47] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                ? "bg-white dark:bg-[#1a1a1a] text-[#5d4e37] dark:text-[#e8d4b8] border-b-2 border-accent-ink"
+                : "text-[#8b6f47] dark:text-[#cd853f] hover:bg-tint"
             )}
           >
             <Grid3X3 className="h-4 w-4" />
@@ -691,7 +691,7 @@ function DayPopover({
 
         {/* Bulk Action Bar - appears when selections exist */}
         {hasSelection && tab === "list" && (
-          <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
+          <div className="px-3 py-2 border-b border-line bg-paper">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                 {selectedIds.size} selected
@@ -824,7 +824,7 @@ function DayPopover({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+        <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-line bg-tint">
           <Button
             variant="outline"
             size="sm"
@@ -936,9 +936,9 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
           <div key={timeSlot}>
             {/* Time Slot Header */}
             <div className="flex items-center gap-1.5 mb-1">
-              <div className="h-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <div className="h-px flex-1 bg-line" />
               <button
-                className="flex items-center gap-1 text-[10px] font-semibold text-[#a0704b] dark:text-[#cd853f] px-1.5 hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
+                className="flex items-center gap-1 text-[10px] font-semibold text-accent-ink px-1.5 hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
                 onClick={() => {
                   navigator.clipboard.writeText(copyText);
                   setCopiedSlot(timeSlot);
@@ -953,7 +953,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                   <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
                 )}
               </button>
-              <div className="h-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <div className="h-px flex-1 bg-line" />
             </div>
             {/* Sessions */}
             <div className="space-y-1">
@@ -963,7 +963,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                 return (
                   <div key={session.id}>
                     {isNewTutor && (
-                      <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1.5" />
+                      <div className="border-t-2 border-dashed border-line-strong my-1.5" />
                     )}
                     <SessionCard
                       session={session}
@@ -1116,14 +1116,14 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
 
   return (
     <div className="p-3">
-      <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-x-auto">
+      <div className="border border-line rounded-lg overflow-x-auto">
         <div style={{ minWidth: `${40 + tutorIds.length * 80}px` }}>
         {/* Tutor Headers */}
         <div
-          className="grid border-b border-[#e8d4b8] dark:border-[#6b5a4a]"
+          className="grid border-b border-line"
           style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, minmax(80px, 1fr))` }}
         >
-          <div className="p-1 bg-[#fef9f3] dark:bg-[#2d2618] text-[8px] text-[#8b6f47] dark:text-[#cd853f]">
+          <div className="p-1 bg-paper text-[8px] text-[#8b6f47] dark:text-[#cd853f]">
             Time
           </div>
           {tutorIds.map((tutorId, index) => {
@@ -1132,8 +1132,8 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
               <div
                 key={tutorId}
                 className={cn(
-                  "p-1 text-center bg-[#fef9f3] dark:bg-[#2d2618] border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
-                  index % 2 === 1 && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                  "p-1 text-center bg-paper border-l border-line",
+                  index % 2 === 1 && "bg-tint"
                 )}
               >
                 <div className="text-[9px] font-semibold text-[#5d4e37] dark:text-[#e8d4b8] truncate">
@@ -1151,11 +1151,11 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
         {timeSlots.map((time) => (
           <div
             key={time}
-            className="grid border-b last:border-b-0 border-[#e8d4b8] dark:border-[#6b5a4a]"
+            className="grid border-b last:border-b-0 border-line"
             style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, minmax(80px, 1fr))` }}
           >
             {/* Time Label */}
-            <div className="p-0.5 text-[8px] text-[#8b6f47] dark:text-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center">
+            <div className="p-0.5 text-[8px] text-[#8b6f47] dark:text-[#cd853f] bg-paper flex items-center justify-center">
               {time}
             </div>
             {/* Tutor Cells */}
@@ -1183,8 +1183,8 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                 <div
                   key={tutorId}
                   className={cn(
-                    "min-h-[24px] p-0.5 border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
-                    index % 2 === 1 && "bg-[#fef9f3]/50 dark:bg-[#2d2618]/50"
+                    "min-h-[24px] p-0.5 border-l border-line",
+                    index % 2 === 1 && "bg-paper/50"
                   )}
                 >
                   {[...sessionsAtTime].sort((a, b) => {
@@ -1214,7 +1214,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                         }}
                         className={cn(
                           "text-[7px] leading-tight p-0.5 rounded truncate cursor-pointer",
-                          "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                          "border border-line",
                           "hover:scale-105 transition-transform",
                           config.bgTint,
                           config.strikethrough && "line-through opacity-60",
@@ -1311,10 +1311,10 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
       onClick={onClick}
       className={cn(
         "relative flex items-center gap-2 pr-7 py-1 rounded-md cursor-pointer transition-all overflow-hidden",
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] border border-line",
         "hover:shadow-md hover:scale-[1.01]",
         config.bgTint,
-        isSelected && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]",
+        isSelected && "ring-2 ring-accent-ink",
         isCancelledEnrollment && "opacity-50"
       )}
       style={{ borderLeftWidth: 3 }}
@@ -1326,7 +1326,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
           className="flex-shrink-0 p-1.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors rounded-l"
         >
           {isSelected ? (
-            <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <CheckSquare className="h-4 w-4 text-accent-ink" />
           ) : (
             <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
           )}

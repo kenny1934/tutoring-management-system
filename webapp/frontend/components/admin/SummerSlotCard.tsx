@@ -187,7 +187,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
         {readOnly ? (
           <span
             className={cn(
-              "text-[10px] font-bold px-1 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618]",
+              "text-[10px] font-bold px-1 py-0 rounded bg-paper",
               slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
             )}
             title="Grade"
@@ -199,7 +199,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             value={slot.grade || ""}
             onChange={(e) => onUpdate({ grade: e.target.value || null })}
             className={cn(
-              "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
+              "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-paper appearance-none",
               slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
             )}
             title="Grade"
@@ -283,7 +283,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             <input
               ref={labelRef}
               defaultValue={slot.slot_label ?? ""}
-              className="text-[9px] w-10 px-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800 shrink-0"
+              className="text-[9px] w-10 px-0.5 rounded border border-line/60 bg-white dark:bg-gray-800 shrink-0"
               autoFocus
               onBlur={commitLabel}
               onKeyDown={(e) => { if (e.key === "Enter") commitLabel(); if (e.key === "Escape") setEditingLabel(false); }}
@@ -300,7 +300,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
           )
         )}
         {readOnly ? (
-          <span className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 text-center truncate">
+          <span className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-paper text-muted-foreground dark:text-gray-300 text-center truncate">
             {availableTutors?.find((t) => t.id === slot.tutor_id)?.name || "— tutor —"}
           </span>
         ) : onDutyTutors.length === 0 ? (
@@ -317,7 +317,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
               const val = e.target.value;
               onUpdate({ tutor_id: val ? parseInt(val) : null });
             }}
-            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
+            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-paper text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
             title="Assign tutor"
           >
             <option value="">— tutor —</option>
@@ -332,7 +332,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
 
       {/* Row 3: Capacity bar */}
       <div className="flex items-center gap-1 px-1 pb-0.5">
-        <div className="flex-1 h-1.5 rounded-full bg-[#fef9f3] dark:bg-[#2d2618] overflow-hidden">
+        <div className="flex-1 h-1.5 rounded-full bg-paper overflow-hidden">
           <div
             className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
             style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
@@ -349,7 +349,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             defaultValue={slot.max_students}
             min={1}
             max={20}
-            className="text-[9px] w-8 px-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800 text-center"
+            className="text-[9px] w-8 px-0.5 rounded border border-line/60 bg-white dark:bg-gray-800 text-center"
             autoFocus
             onBlur={commitMax}
             onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
@@ -372,7 +372,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             <input
               defaultValue={slot.slot_label ?? ""}
               key={slot.slot_label}
-              className="text-[9px] w-full px-1 py-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800"
+              className="text-[9px] w-full px-1 py-0.5 rounded border border-line/60 bg-white dark:bg-gray-800"
               onBlur={(e) => {
                 const val = e.target.value.trim();
                 if (val !== (slot.slot_label ?? "")) onUpdate({ slot_label: val || null });

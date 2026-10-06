@@ -45,7 +45,7 @@ function OverviewTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg text-sm">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg text-sm">
       <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">{label}</div>
       {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -77,7 +77,7 @@ function ReasonTooltip({
   if (entries.length === 0) return null;
   const total = entries.reduce((s, e) => s + e.value, 0);
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg text-sm max-w-[250px]">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg text-sm max-w-[250px]">
       <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">{label} ({total} terminated)</div>
       {entries.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -134,7 +134,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
   if (isLoading) {
     return (
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+        "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
         !isMobile && "paper-texture"
       )}>
         {/* Header skeleton */}
@@ -178,12 +178,12 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
 
   return (
     <div className={cn(
-      "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+      "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
       !isMobile && "paper-texture"
     )}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
-          <TrendingDown className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+          <TrendingDown className="h-5 w-5 text-accent-ink" />
           Quarterly Trends
         </h2>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -191,7 +191,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
             onClick={() => setViewType("overview")}
             className={cn(
               "px-2 py-1 rounded flex items-center gap-1",
-              viewType === "overview" ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f] font-medium" : "hover:bg-muted/50"
+              viewType === "overview" ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50"
             )}
           >
             <LineChartIcon className="h-3 w-3" /> Overview
@@ -200,7 +200,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
             onClick={() => setViewType("reasons")}
             className={cn(
               "px-2 py-1 rounded flex items-center gap-1",
-              viewType === "reasons" ? "bg-[#a0704b]/15 text-[#a0704b] dark:text-[#cd853f] font-medium" : "hover:bg-muted/50"
+              viewType === "reasons" ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50"
             )}
           >
             <BarChart3 className="h-3 w-3" /> Reasons

@@ -46,7 +46,7 @@ export function ViewSwitcher({ currentView, onViewChange, compact = false }: Vie
           {currentView === mode && (
             <motion.div
               layoutId={compact ? "activeViewCompact" : "activeView"}
-              className="absolute inset-0 bg-[#a0704b] dark:bg-[#cd853f] rounded-md"
+              className="absolute inset-0 bg-accent-ink rounded-md"
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             />
           )}

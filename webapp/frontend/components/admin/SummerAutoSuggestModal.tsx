@@ -297,7 +297,7 @@ function LessonRow({
                 clickable && "cursor-pointer hover:ring-1 hover:ring-blue-300/60 dark:hover:ring-blue-700/60",
                 isMakeup
                   ? "bg-blue-50/60 dark:bg-blue-900/15 border border-dashed border-blue-300 dark:border-blue-700"
-                  : cn("bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-b border-[#e8d4b8]/50 border-l-2", slotColor),
+                  : cn("bg-paper border-t border-r border-b border-[#e8d4b8]/50 border-l-2", slotColor),
                 isSwapped && !isMakeup && "ring-1 ring-amber-400/60 dark:ring-amber-500/60"
               )}
               title={isMakeup
@@ -440,7 +440,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
   }, [appId, mode, flatDates, onResuggest]);
 
   return (
-    <div className="shrink-0 px-3 py-2.5 md:border-l border-t md:border-t-0 border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 space-y-2">
+    <div className="shrink-0 px-3 py-2.5 md:border-l border-t md:border-t-0 border-line/30 space-y-2">
       <div className="flex items-center gap-1.5 flex-wrap">
         <button
           onClick={() => {
@@ -898,7 +898,7 @@ export function SummerAutoSuggestModal({
         adjustingAppId ? "max-w-5xl" : "max-w-3xl"
       )}>
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e8d4b8] bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-xl">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e8d4b8] bg-paper rounded-t-xl">
           <Wand2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           <h2 className="text-base font-semibold flex-1">
             {applicationId ? `Suggest for ${studentName || "Student"}` : "Auto-Suggest Placements"}
@@ -927,7 +927,7 @@ export function SummerAutoSuggestModal({
             <span>How does auto-suggest work?</span>
           </button>
           {showAlgorithm && (
-            <div className="text-xs text-muted-foreground bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8]/50 rounded-lg p-3 space-y-1.5">
+            <div className="text-xs text-muted-foreground bg-paper border border-[#e8d4b8]/50 rounded-lg p-3 space-y-1.5">
               <ul className="list-disc ml-4 space-y-0.5">
                 <li>Finds the best slot for each student based on their preferred day/time</li>
                 <li>Places all 8 lessons across available dates in that slot</li>
@@ -1061,7 +1061,7 @@ export function SummerAutoSuggestModal({
                         "rounded-lg border-2 border-l-4 transition-all",
                         gradeBorder,
                         isSelected
-                          ? "border-[#e8d4b8] bg-[#fef9f3]/50 dark:bg-[#2d2618]/50"
+                          ? "border-[#e8d4b8] bg-paper/50"
                           : "border-gray-200 dark:border-gray-700 hover:border-[#e8d4b8]/60 opacity-60"
                       )}
                     >
@@ -1441,7 +1441,7 @@ export function SummerAutoSuggestModal({
 
         {/* Footer */}
         {data && data.proposals.length > 0 && (
-          <div className="flex items-center gap-3 px-5 py-4 border-t border-[#e8d4b8] bg-[#fef9f3] dark:bg-[#2d2618] rounded-b-xl">
+          <div className="flex items-center gap-3 px-5 py-4 border-t border-[#e8d4b8] bg-paper rounded-b-xl">
             {accepting && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1451,7 +1451,7 @@ export function SummerAutoSuggestModal({
             <button
               onClick={onClose}
               disabled={accepting}
-              className="px-4 py-2 text-sm rounded-lg border border-[#e8d4b8] hover:bg-[#fef9f3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm rounded-lg border border-[#e8d4b8] hover:bg-paper transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

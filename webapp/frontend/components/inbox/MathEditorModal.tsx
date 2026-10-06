@@ -240,7 +240,7 @@ export default function MathEditorModal({
       {/* Modal — fullscreen on mobile, centered card on desktop */}
       <div
         className={cn(
-          "relative w-full bg-white dark:bg-[#2a2a2a] shadow-2xl border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col",
+          "relative w-full bg-white dark:bg-[#2a2a2a] shadow-2xl border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col",
           "h-full sm:h-auto",
           "rounded-none sm:rounded-xl",
           "mx-0 sm:mx-4",
@@ -257,7 +257,7 @@ export default function MathEditorModal({
         aria-labelledby="math-editor-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line/40">
           <h3 id="math-editor-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {isEditing ? "Edit Equation" : "Insert Equation"}
           </h3>
@@ -268,7 +268,7 @@ export default function MathEditorModal({
               className={cn(
                 "p-2 sm:p-1 rounded transition-colors",
                 sourceMode
-                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b]"
+                  ? "bg-tint text-[#a0704b]"
                   : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
               )}
             >
@@ -295,12 +295,12 @@ export default function MathEditorModal({
               onChange={(e) => setLatex(e.target.value)}
               autoFocus
               spellCheck={false}
-              className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-[#a0704b] resize-none"
+              className="w-full rounded-lg border border-line bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-[#a0704b] resize-none"
               style={{ minHeight: "80px" }}
               placeholder="e.g. \frac{a}{b}"
             />
           ) : mathliveLoaded ? (
-            <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="rounded-lg border border-line">
               <math-field
                 ref={mathfieldRef as any}
                 className="math-field-mobile"
@@ -353,7 +353,7 @@ export default function MathEditorModal({
                       mf.focus();
                     }
                   }}
-                  className="text-left px-2 py-1.5 text-[11px] rounded-md hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] text-gray-600 dark:text-gray-400 transition-colors truncate"
+                  className="text-left px-2 py-1.5 text-[11px] rounded-md hover:bg-tint text-gray-600 dark:text-gray-400 transition-colors truncate"
                   title={t.latex}
                 >
                   {t.label}
@@ -366,7 +366,7 @@ export default function MathEditorModal({
         </div>{/* end scrollable content */}
 
         {/* Mode toggle + actions */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-line/40">
           <div>
             <div className="flex items-center gap-1 bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-lg p-0.5">
               <button

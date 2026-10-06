@@ -180,11 +180,11 @@ export const StudentContactList = memo(function StudentContactList({
   return (
     <div className={cn(
       "flex flex-col h-full",
-      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]",
+      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
       "overflow-hidden"
     )}>
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-3 py-2 border-b border-line bg-tint">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
             Students ({filteredStudents.length})
@@ -266,7 +266,7 @@ export const StudentContactList = memo(function StudentContactList({
           </div>
         ) : (
           groupedStudents.map(group => (
-            <div key={group.key} className="border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 last:border-b-0">
+            <div key={group.key} className="border-b border-line/50 last:border-b-0">
               {/* Group Header */}
               <button
                 onClick={() => toggleGroup(group.key)}
@@ -307,7 +307,7 @@ export const StudentContactList = memo(function StudentContactList({
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 mx-2 rounded-md cursor-pointer",
                         "hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
-                        selectedStudentId === student.student_id && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        selectedStudentId === student.student_id && "bg-tint"
                       )}
                       onClick={() => onStudentClick(student)}
                     >
@@ -355,7 +355,7 @@ export const StudentContactList = memo(function StudentContactList({
                   {!fullyExpandedGroups.has(group.key) && group.students.length > INITIAL_GROUP_LIMIT && (
                     <button
                       onClick={() => setFullyExpandedGroups(prev => new Set([...prev, group.key]))}
-                      className="w-full py-2 text-xs text-[#a0704b] hover:text-[#8b5d3b] dark:text-[#cd853f] dark:hover:text-[#deb887] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="w-full py-2 text-xs text-accent-ink hover:text-[#8b5d3b] dark:hover:text-[#deb887] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       Show all {group.students.length} students
                     </button>

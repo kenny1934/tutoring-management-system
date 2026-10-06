@@ -140,10 +140,10 @@ const SeenBadge = React.memo(function SeenBadge({
           <div className="fixed inset-0 z-[60]" onClick={() => setShowPopover(false)} />
           <div
             ref={popoverRef}
-            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[200px] max-w-[260px]"
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line-strong py-2 min-w-[200px] max-w-[260px]"
             style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
           >
-            <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-line">
               Read by {readCount} of {totalRecipients}
             </div>
             {showProgressBar && (
@@ -288,7 +288,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
       </button>
       {showPicker && (
         <div
-          className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}
+          className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-line/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}
           role="menu"
           aria-label="Emoji reactions"
           onKeyDown={handlePickerKeyDown}
@@ -300,7 +300,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
               role="menuitem"
               aria-label={`React with ${EMOJI_LABELS[emoji] || emoji}`}
               onClick={() => handleReact(emoji)}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-base"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-tint transition-colors text-base"
               tabIndex={i === focusIdx ? 0 : -1}
             >
               {emoji}
@@ -309,7 +309,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
           <button
             ref={plusButtonRef}
             onClick={() => setShowFullPicker(true)}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-sm text-gray-400"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-tint transition-colors text-sm text-gray-400"
             title="More emojis"
           >
             +
@@ -424,7 +424,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setPopover(null)} onTouchEnd={() => setPopover(null)} />
           <div
-            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[160px] max-w-[220px]"
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line py-2 min-w-[160px] max-w-[220px]"
             style={{ top: popover.pos.top, left: popover.pos.left }}
           >
             <div className="max-h-[150px] overflow-y-auto">
@@ -619,7 +619,7 @@ const MessageBubble = React.memo(function MessageBubble({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {editImages.map((url, index) => (
                     <div key={url} className="relative group">
-                      <img src={url} alt={`Attachment ${index + 1}`} className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                      <img src={url} alt={`Attachment ${index + 1}`} className="h-16 w-16 object-cover rounded-lg border border-line" />
                       <button
                         type="button"
                         onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
@@ -689,7 +689,7 @@ const MessageBubble = React.memo(function MessageBubble({
                 <img
                   src={url}
                   alt={`Attachment ${i + 1}`}
-                  className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
+                  className="max-h-48 max-w-full rounded-lg border border-line hover:opacity-90 transition-opacity cursor-pointer"
                   loading="lazy"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
@@ -710,14 +710,14 @@ const MessageBubble = React.memo(function MessageBubble({
                   src={file.url}
                   controls
                   preload="metadata"
-                  className="max-h-64 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  className="max-h-64 max-w-full rounded-lg border border-line"
                 />
               ) : file.content_type === "image/gif" ? (
                 <button key={file.url} type="button" className="block" onClick={() => setLightboxIndex(allImageUrls.indexOf(file.url))}>
                   <img
                     src={file.url}
                     alt={file.filename}
-                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
+                    className="max-h-48 max-w-full rounded-lg border border-line hover:opacity-90 transition-opacity cursor-pointer"
                     loading="lazy"
                   />
                 </button>
@@ -727,9 +727,9 @@ const MessageBubble = React.memo(function MessageBubble({
                   href={file.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
-                  <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                  <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
                     <FileText className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -754,7 +754,7 @@ const MessageBubble = React.memo(function MessageBubble({
             "flex items-center gap-0.5",
             isMobile
               ? "mt-2 gap-2"
-              : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
+              : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-line/60 px-1.5 py-0.5"
           )}>
             <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
             {!isHtmlEmpty(m.message) && (

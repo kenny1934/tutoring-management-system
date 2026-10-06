@@ -78,7 +78,7 @@ function CustomTooltip({ active, payload, total }: { active?: boolean; payload?:
   const data = payload[0].payload;
   const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : "0";
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg">
       <div className="font-medium text-gray-900 dark:text-gray-100">{data.name}</div>
       <div className="text-sm text-gray-600 dark:text-gray-400">{data.value} students ({percentage}%)</div>
     </div>
@@ -103,7 +103,7 @@ function StackedTooltip({
   const rowPct = total > 0 ? ((row.total / total) * 100).toFixed(1) : "0";
   const segments = payload.filter((p) => p.value > 0);
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-3 py-2 shadow-lg min-w-[140px]">
+    <div className="bg-paper border border-line rounded-lg px-3 py-2 shadow-lg min-w-[140px]">
       <div className="font-medium text-gray-900 dark:text-gray-100">
         {row.name} <span className="text-xs font-normal text-gray-500">({row.total} · {rowPct}%)</span>
       </div>
@@ -125,7 +125,7 @@ function CustomLegend({ payload }: { payload?: Array<{ color: string; value: str
       {payload.map((entry, index) => (
         <span
           key={index}
-          className="inline-flex items-center gap-1.5 px-2 py-1 bg-[#f5ede3] dark:bg-[#3d3628] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] shadow-sm"
+          className="inline-flex items-center gap-1.5 px-2 py-1 bg-tint rounded border border-line text-[11px] shadow-sm"
         >
           <span
             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -147,7 +147,7 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
   ];
 
   return (
-    <div className="flex items-center gap-0.5 bg-[#f5ede3] dark:bg-[#3d3628] rounded-md p-0.5 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+    <div className="flex items-center gap-0.5 bg-tint rounded-md p-0.5 border border-line">
       {buttons.map(({ type, icon: Icon, label }) => (
         <button
           key={type}

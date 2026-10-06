@@ -39,7 +39,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
         ref={modalRef}
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
+        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-6"
         style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >

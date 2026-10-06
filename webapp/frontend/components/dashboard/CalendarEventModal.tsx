@@ -325,22 +325,22 @@ export function CalendarEventModal({
         }}
         className={cn(
           "relative",
-          "bg-[#fef9f3] dark:bg-[#2d2618]",
-          "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+          "bg-paper",
+          "border-2 border-line-strong",
           "rounded-xl shadow-xl",
           "paper-texture",
           "max-h-[90vh] flex flex-col"
         )}
       >
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-line">
           <h2 className="text-lg font-semibold text-[#5c4934] dark:text-[#e8d4b8]">
             {isEditMode ? "Edit Calendar Event" : "Create Calendar Event"}
           </h2>
           <button
             onClick={handleCloseAttempt}
             disabled={isSubmitting || isDeleting}
-            className="p-1 rounded-lg hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 transition-colors disabled:opacity-50"
+            className="p-1 rounded-lg hover:bg-line/50 transition-colors disabled:opacity-50"
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -349,7 +349,7 @@ export function CalendarEventModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Title Preview */}
-          <div className="p-3 rounded-lg bg-[#e8d4b8]/30 dark:bg-[#6b5a4a]/30 border border-[#d4a574]/50">
+          <div className="p-3 rounded-lg bg-line/30 border border-[#d4a574]/50">
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
               <Tag className="h-3 w-3" />
               Title Preview
@@ -404,7 +404,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-[#e8d4b8]/30 dark:bg-[#2d2618]/70",
-                  "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "border border-line",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "placeholder:text-[#a08060] dark:placeholder:text-[#8b7355]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]",
@@ -429,7 +429,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-[#e8d4b8]/30 dark:bg-[#2d2618]/70",
-                  "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "border border-line",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
                 )}
@@ -496,7 +496,7 @@ export function CalendarEventModal({
               className={cn(
                 "w-full px-3 py-2 rounded-lg",
                 "bg-white/50 dark:bg-[#2d2618]/70",
-                "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "border border-line",
                 "text-[#5c4934] dark:text-[#e8d4b8]",
                 "placeholder:text-[#a08060] dark:placeholder:text-[#8b7355]",
                 "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
@@ -519,7 +519,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-white/50 dark:bg-[#2d2618]/70",
-                  "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "border border-line",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
                 )}
@@ -539,7 +539,7 @@ export function CalendarEventModal({
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-white/50 dark:bg-[#2d2618]/70",
-                  "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "border border-line",
                   "text-[#5c4934] dark:text-[#e8d4b8]",
                   "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
                 )}
@@ -562,7 +562,7 @@ export function CalendarEventModal({
               className={cn(
                 "w-full px-3 py-2 rounded-lg resize-none",
                 "bg-white/50 dark:bg-[#2d2618]/70",
-                "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "border border-line",
                 "text-[#5c4934] dark:text-[#e8d4b8]",
                 "placeholder:text-[#a08060] dark:placeholder:text-[#8b7355]",
                 "focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
@@ -581,7 +581,7 @@ export function CalendarEventModal({
         </form>
 
         {/* Actions - fixed at bottom */}
-        <div className="flex-shrink-0 flex justify-between gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex-shrink-0 flex justify-between gap-3 p-4 border-t border-line">
           {/* Delete button (edit mode only) */}
           {isEditMode && (
             showDeleteConfirm ? (
@@ -663,7 +663,7 @@ export function CalendarEventModal({
       {/* Close Confirmation Dialog */}
       {showCloseConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
+          <div className="bg-paper border-2 border-line-strong rounded-lg shadow-xl p-6 w-full max-w-[400px]">
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               You have unsaved changes. Discard them?
             </p>

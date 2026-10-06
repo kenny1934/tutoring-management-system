@@ -56,7 +56,7 @@ export default function DebugPanelPage() {
               <div className="flex items-center gap-4">
                 <Link
                   href="/"
-                  className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                  className="p-2 hover:bg-tint rounded-lg transition-colors"
                   aria-label="Back to home"
                 >
                   <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
@@ -97,7 +97,7 @@ export default function DebugPanelPage() {
                   placeholder="Search tables..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
               </div>
               <Link
@@ -116,7 +116,7 @@ export default function DebugPanelPage() {
               </Link>
               <Link
                 href="/admin/debug/audit"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
               >
                 <History className="h-4 w-4" aria-hidden="true" />
                 Audit Logs
@@ -158,7 +158,7 @@ export default function DebugPanelPage() {
                             href={`/admin/debug/${table.name}`}
                             className={cn(
                               "p-4 rounded-xl border transition-all",
-                              "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
+                              "bg-white dark:bg-[#1a1a1a] border-line",
                               "hover:shadow-md hover:border-[#a0704b] dark:hover:border-[#a0704b]",
                               "paper-texture",
                               group.accent

@@ -101,7 +101,7 @@ export function TrendingCoursewareSection({
     <>
       {/* Trending Section - Loading Skeleton */}
       {trendingLoading && (
-        <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+        <div className="border border-line rounded-lg overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]">
             <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -112,7 +112,7 @@ export function TrendingCoursewareSection({
 
       {/* Compact Trending Section */}
       {!trendingLoading && trendingData && trendingData.length > 0 && (
-        <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+        <div className="border border-line rounded-lg overflow-hidden">
           {/* Collapsible Header */}
           <button
             type="button"
@@ -141,7 +141,7 @@ export function TrendingCoursewareSection({
 
           {/* Expanded Content */}
           {trendingExpanded && (
-            <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] max-h-64 overflow-y-auto">
+            <div className="border-t border-line max-h-64 overflow-y-auto">
               {trendingData.map((item, index) => {
                 const firstPath = item.normalized_paths?.split(", ")[0]?.trim() || item.filename;
                 const isExpanded = detailItem?.filename === item.filename;
@@ -152,7 +152,7 @@ export function TrendingCoursewareSection({
                       className={cn(
                         "flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors",
                         "hover:bg-amber-50 dark:hover:bg-amber-900/20",
-                        "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
+                        "border-b border-line/30",
                         isExpanded && "border-b-0 bg-amber-50/50 dark:bg-amber-900/10"
                       )}
                       onClick={() => onAdd(firstPath)}
@@ -213,7 +213,7 @@ export function TrendingCoursewareSection({
                     </div>
                     {/* Expandable usage details section */}
                     {isExpanded && (
-                      <div className="px-3 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-gray-50 dark:bg-[#1a1a1a]/50">
+                      <div className="px-3 py-2 border-b border-line/30 bg-gray-50 dark:bg-[#1a1a1a]/50">
                         {usageDetailsLoading ? (
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -245,7 +245,7 @@ export function TrendingCoursewareSection({
                                       <Link
                                         href={`/students/${detail.student_id}`}
                                         target="_blank"
-                                        className="truncate flex-1 text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                                        className="truncate flex-1 text-accent-ink hover:underline"
                                         title={`${displayId} ${detail.student_name}`}
                                         onClick={(e) => e.stopPropagation()}
                                       >

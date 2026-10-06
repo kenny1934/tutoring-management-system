@@ -53,7 +53,7 @@ function Facet<T extends string | number>({
 
   return (
     <div className="flex items-start gap-2 px-3 py-1.5">
-      <span className="w-12 shrink-0 pt-1 text-[10px] font-bold uppercase tracking-wide text-[#a0704b] dark:text-[#cd853f]">
+      <span className="w-12 shrink-0 pt-1 text-[10px] font-bold uppercase tracking-wide text-accent-ink">
         {label}
       </span>
       <div className="flex flex-wrap gap-1">
@@ -164,7 +164,7 @@ export function SummerFilterPopover({
           )}
           <ChevronDown
             className={cn(
-              "h-3.5 w-3.5 shrink-0 text-[#a0704b] transition-transform dark:text-[#cd853f]",
+              "h-3.5 w-3.5 shrink-0 text-accent-ink transition-transform",
               isOpen && "rotate-180",
             )}
           />
@@ -215,7 +215,7 @@ export function SummerFilterPopover({
               onToggle={(lessons) => onChange({ ...value, lessons })}
             />
 
-            <div className="mt-1 border-t border-[#e8d4b8] px-3 pt-1.5 dark:border-[#6b5a4a]">
+            <div className="mt-1 border-t border-line px-3 pt-1.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-gray-600 dark:text-gray-400">
                   {isActive
@@ -226,7 +226,7 @@ export function SummerFilterPopover({
                   <button
                     type="button"
                     onClick={() => onChange(EMPTY_SUMMER_FILTER)}
-                    className="text-[11px] font-semibold text-[#a0704b] hover:underline dark:text-[#cd853f]"
+                    className="text-[11px] font-semibold text-accent-ink hover:underline"
                   >
                     Clear
                   </button>

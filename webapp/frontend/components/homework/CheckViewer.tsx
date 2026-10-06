@@ -174,7 +174,7 @@ export function CheckViewer({
           )}
         </div>
         {source && (
-          <p className="truncate text-[11px] text-[#8b7355] dark:text-[#a09080]">
+          <p className="truncate text-[11px] text-ink-subtle">
             from {source}
             {(hw.sessions_ago || 0) > 1 && (
               <span className="ml-1 text-amber-600 dark:text-amber-400">· {hw.sessions_ago} sessions ago</span>
@@ -195,7 +195,7 @@ export function CheckViewer({
             <ChevronLeft className="h-5 w-5" />
           </button>
           {index >= 0 && (
-            <span className="px-1 text-xs tabular-nums text-[#8b7355] dark:text-[#a09080]">
+            <span className="px-1 text-xs tabular-nums text-ink-subtle">
               {index + 1} of {openable.length}
             </span>
           )}
@@ -281,7 +281,7 @@ export function CheckViewer({
           emptyMessage="We couldn't find an answer key for this worksheet."
           emptyAction={
             <>
-              <p className="max-w-sm px-6 text-xs text-[#8b7355] dark:text-[#a09080]">
+              <p className="max-w-sm px-6 text-xs text-ink-subtle">
                 Nobody chose one when the homework was set, and there isn&apos;t one under the usual name in your
                 connected folders or in Shelv.
               </p>

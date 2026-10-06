@@ -401,7 +401,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
           SECTION_HEADER_BG,
-          "hover:from-teal-100 hover:to-[#fef9f3] dark:hover:from-teal-900/30 dark:hover:to-[#2d2618]"
+          "hover:from-teal-100 hover:to-paper dark:hover:from-teal-900/30"
         )}
       >
         <GraduationCap className="h-3.5 w-3.5 text-teal-600" />
@@ -696,7 +696,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                 visible without scrolling to the end of the list. Full-bleed
                 (-mx) and the modal panel's own desk colours, so it reads as
                 the card's footer rather than a box floating over the list. */}
-            <div className="sticky bottom-0 -mx-3 px-3 pt-2 pb-3 bg-[#fef9f3] dark:bg-[#2d2618] border-t border-teal-100/60 dark:border-teal-900/40">
+            <div className="sticky bottom-0 -mx-3 px-3 pt-2 pb-3 bg-paper border-t border-teal-100/60 dark:border-teal-900/40">
               <TopicCorrectionPicker
                 session={session}
                 suggestedIds={data.suggestions.map((c) => c.concept_id)}

@@ -127,9 +127,9 @@ export function VersionHistoryPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-80 md:relative md:inset-auto md:z-auto md:w-80 shrink-0 bg-white dark:bg-[#1a1410] border-l border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl md:shadow-none flex flex-col">
+    <div className="fixed inset-y-0 right-0 z-50 w-80 md:relative md:inset-auto md:z-auto md:w-80 shrink-0 bg-white dark:bg-[#1a1410] border-l border-line shadow-xl md:shadow-none flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Version History</h3>
         <button
           onClick={onClose}
@@ -140,7 +140,7 @@ export function VersionHistoryPanel({
       </div>
 
       {/* Create checkpoint */}
-      <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="px-4 py-3 border-b border-line">
         <div className="flex gap-2">
           <input
             type="text"
@@ -148,7 +148,7 @@ export function VersionHistoryPanel({
             onChange={(e) => setCheckpointLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleCreateCheckpoint(); }}
             placeholder="Checkpoint label (optional)"
-            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1410] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-primary"
+            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-line bg-white dark:bg-[#1a1410] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-primary"
           />
           <button
             onClick={handleCreateCheckpoint}
@@ -172,7 +172,7 @@ export function VersionHistoryPanel({
             No versions yet. Versions are created automatically as you edit.
           </div>
         ) : (
-          <div className="divide-y divide-[#e8d4b8]/50 dark:divide-[#6b5a4a]/50">
+          <div className="divide-y divide-line/50">
             {versions.map((ver) => (
               <div
                 key={ver.id}
@@ -211,7 +211,7 @@ export function VersionHistoryPanel({
                   <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => onPreview(ver.id)}
-                      className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 text-gray-400 hover:text-blue-500"
+                      className="p-1 rounded hover:bg-line/50 text-gray-400 hover:text-blue-500"
                       title="Preview this version"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -219,7 +219,7 @@ export function VersionHistoryPanel({
                     <button
                       onClick={() => handleRestore(ver.id)}
                       disabled={restoringId === ver.id}
-                      className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 text-gray-400 hover:text-green-600 disabled:opacity-50"
+                      className="p-1 rounded hover:bg-line/50 text-gray-400 hover:text-green-600 disabled:opacity-50"
                       title="Restore this version"
                     >
                       {restoringId === ver.id ? (
@@ -231,7 +231,7 @@ export function VersionHistoryPanel({
                     <button
                       onClick={() => handleDelete(ver.id)}
                       disabled={deletingId === ver.id}
-                      className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 text-gray-400 hover:text-red-500 disabled:opacity-50"
+                      className="p-1 rounded hover:bg-line/50 text-gray-400 hover:text-red-500 disabled:opacity-50"
                       title="Delete this version"
                     >
                       {deletingId === ver.id ? (

@@ -25,7 +25,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
         <ChevronDown className={cn("w-3 h-3 ml-auto transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="py-0.5 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+        <div className="py-0.5 border-t border-line/30">
           <button
             onClick={(e) => { e.stopPropagation(); onMoveToFolder(null); }}
             className={cn(
@@ -140,7 +140,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           <>
             <button
               onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
-              className={cn(menuItemCls, "text-[#a0704b] dark:text-[#cd853f]")}
+              className={cn(menuItemCls, "text-accent-ink")}
             >
               <ArchiveRestore className="w-3.5 h-3.5" />
               Restore

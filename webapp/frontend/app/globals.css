@@ -65,14 +65,24 @@
   --color-input: #e8d4b8;
   --color-ring: #a0704b;
 
-  /* ===== SEMANTIC PAPER / OAK ALIASES =====
-   * Dark-aware tokens for the cream/oak palette. Use these instead of
-   * arbitrary hex strings (bg-[#fef9f3] dark:bg-[#2d2618] -> bg-paper-cream)
-   * so dark-mode parity is centralised. Dark overrides live in `.dark`. */
-  --color-paper-cream: #fef9f3; /* Warm cream surface */
-  --color-paper-border: #e8d4b8; /* Soft tan card border */
-  --color-oak-soft: #d4a574; /* Lighter oak accent border */
-  --color-oak-strong: #5a3d1f; /* Deep oak text */
+  /* ===== ROLE TOKENS =====
+   * Each token is named for the job it does on screen, never for the colour
+   * it happens to be, so another theme can give it a different value without
+   * the name becoming wrong. Components use these in place of hex pairs:
+   * write `border-line`, not `border-[#e8d4b8] dark:border-[#6b5a4a]`.
+   * The dark values live in the `.dark` block below.
+   *
+   * The public summer and regular pages force light mode by resetting
+   * variables in `.summer-light`. These tokens are deliberately left out of
+   * that reset, so inside those pages they follow dark mode exactly as the
+   * old hardcoded `dark:` classes did. */
+  --color-line: #e8d4b8; /* Ordinary borders and dividers */
+  --color-line-strong: #d4a574; /* Borders that need to stand out */
+  --color-paper: #fef9f3; /* The cream surface cards and panels sit on */
+  --color-tint: #f5ede3; /* Tinted panels, table headers and hover fills */
+  --color-accent-ink: #a0704b; /* Accent colour used as text, rings and outlines */
+  --color-ink-subtle: #8b7355; /* Secondary text */
+  --color-ink-strong: #5a3d1f; /* Deep heading text */
 
   /* ===== GLASSMORPHISM ===== */
   --glass-bg: rgba(255, 255, 255, 0.05);
@@ -186,11 +196,14 @@
   --color-border-subtle: #333333;
   --color-input: #2a2a2a;
 
-  /* Paper / oak dark-mode parity */
-  --color-paper-cream: #2d2618;
-  --color-paper-border: #6b5a4a;
-  --color-oak-soft: #8b6f47;
-  --color-oak-strong: #d4a574;
+  /* Role tokens in dark mode */
+  --color-line: #6b5a4a;
+  --color-line-strong: #8b6f47;
+  --color-paper: #2d2618;
+  --color-tint: #3d3628;
+  --color-accent-ink: #cd853f;
+  --color-ink-subtle: #a09080;
+  --color-ink-strong: #d4a574;
 }
 
 /* Force light mode for summer public pages (neutralises .dark overrides) */
@@ -213,10 +226,6 @@
   --color-border: #e8d4b8;
   --color-border-subtle: #f5e6d3;
   --color-input: #e8d4b8;
-  --color-paper-cream: #fef9f3;
-  --color-paper-border: #e8d4b8;
-  --color-oak-soft: #d4a574;
-  --color-oak-strong: #5a3d1f;
   color-scheme: light;
 }
 

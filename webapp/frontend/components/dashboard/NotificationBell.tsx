@@ -284,12 +284,12 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         {...getReferenceProps()}
         className={cn(
           "relative min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 rounded-full transition-all flex items-center justify-center",
-          "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
-          isOpen && "bg-[#f5ede3] dark:bg-[#3d3628]"
+          "hover:bg-tint",
+          isOpen && "bg-tint"
         )}
         aria-label={`${totalCount} notifications`}
       >
-        <Bell className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+        <Bell className="h-5 w-5 text-accent-ink" />
         {/* Badge */}
         <span className={cn("absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white rounded-full", badgeColor)}>
           {totalCount > 99 ? "99+" : totalCount}
@@ -306,10 +306,10 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
             className={cn(
               "z-50 w-72 py-2",
               "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
-              "border border-[#e8d4b8] dark:border-[#6b5a4a]"
+              "border border-line"
             )}
           >
-            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] mb-1">
+            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-line mb-1">
               Notifications
             </div>
 

@@ -70,7 +70,7 @@ export function CategoryDropdown({
         className={cn(
           "flex items-center gap-1.5 text-left",
           "border rounded-md transition-colors",
-          "focus:outline-none focus:ring-1 focus:ring-[#a0704b] dark:focus:ring-[#cd853f]",
+          "focus:outline-none focus:ring-1 focus:ring-accent-ink",
           "cursor-pointer",
           compact
             ? "px-2 py-1 text-sm min-w-0"
@@ -78,10 +78,10 @@ export function CategoryDropdown({
           disabled
             ? "opacity-60 cursor-not-allowed bg-transparent border-transparent"
             : value
-              ? "bg-white dark:bg-[#1a1a1a] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+              ? "bg-white dark:bg-[#1a1a1a] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-tint"
               : compact
                 ? "bg-white dark:bg-[#1a1a1a] border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a]"
-                : "bg-white dark:bg-[#1a1a1a] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                : "bg-white dark:bg-[#1a1a1a] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-tint"
         )}
       >
         {config && (
@@ -128,8 +128,8 @@ export function CategoryDropdown({
               onClick={() => { onChange(""); setIsOpen(false); }}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left",
-                "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
-                !value && "bg-[#f5ede3]/50 dark:bg-[#3d3628]/50"
+                "hover:bg-tint",
+                !value && "bg-tint/50"
               )}
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-gray-300 dark:bg-gray-600" />
@@ -153,8 +153,8 @@ export function CategoryDropdown({
                   onClick={() => { onChange(cat); setIsOpen(false); }}
                   className={cn(
                     "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left",
-                    "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
-                    isSelected && "bg-[#f5ede3]/50 dark:bg-[#3d3628]/50"
+                    "hover:bg-tint",
+                    isSelected && "bg-tint/50"
                   )}
                 >
                   <span

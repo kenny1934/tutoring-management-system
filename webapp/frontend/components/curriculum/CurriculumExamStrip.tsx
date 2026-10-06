@@ -80,11 +80,11 @@ export function CurriculumExamStrip({
   return (
     <div
       className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg overflow-hidden",
+        "bg-paper border-2 border-line-strong rounded-lg overflow-hidden",
         !isMobile && "paper-texture"
       )}
     >
-      <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+      <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
         <CalendarClock className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0 self-center" />
         <h2 className="text-xs font-semibold text-gray-800 dark:text-gray-200 shrink-0">
           Tests and exams

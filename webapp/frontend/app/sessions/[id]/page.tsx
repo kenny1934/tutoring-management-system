@@ -837,7 +837,7 @@ export default function SessionDetailPage() {
         <button
           onClick={() => setShowShortcutHints(true)}
           className="hidden sm:flex fixed bottom-4 right-4 z-40 w-8 h-8 rounded-full
-            bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]
+            bg-paper border border-[#d4a574] dark:border-[#8b6f47]
             text-[#5c4033] dark:text-[#d4a574] font-mono text-sm
             items-center justify-center hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]
             shadow-md"
@@ -854,7 +854,7 @@ export default function SessionDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
-              bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47]
+              bg-paper border-[#d4a574] dark:border-[#8b6f47]
               text-sm w-56"
           >
             <div className="flex justify-between items-center mb-3">

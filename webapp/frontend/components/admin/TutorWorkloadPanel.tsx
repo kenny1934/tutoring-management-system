@@ -105,7 +105,7 @@ export function TutorWorkloadPanel<T extends WorkloadSlot>({
   if (!open) return null;
 
   return (
-    <div className="border-t border-[#e8d4b8]/70 dark:border-[#6b5a4a]/70 pt-2">
+    <div className="border-t border-line/70 pt-2">
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2">
         <span className="font-medium text-foreground">Workload</span>
         {summary ? (

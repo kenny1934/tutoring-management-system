@@ -43,12 +43,12 @@ type ProgressBucket = "not_started" | "in_progress" | "fully_placed";
 type OriginBucket = "new" | "existing";
 
 // Warm palette constants matching WeeklyGridView / applications page
-const HEADER_BG = "bg-[#fef9f3] dark:bg-[#2d2618]";
-const HEADER_BORDER = "border-[#e8d4b8] dark:border-[#6b5a4a]";
+const HEADER_BG = "bg-paper";
+const HEADER_BORDER = "border-line";
 const ROW_HOVER = "hover:bg-[#fef9f3]/50 dark:hover:bg-[#2d2618]/30";
 
 const CHIP_INACTIVE =
-  "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40";
+  "bg-line/20 text-muted-foreground hover:bg-line/40";
 const CHIP_ACTIVE = "bg-primary text-primary-foreground";
 
 /** A partial plan completes at its own lessons_paid; everyone else at the
@@ -428,7 +428,7 @@ export function SummerStudentLessonsTable({
       </div>
 
       {/* Table */}
-      <div ref={tableContainerRef} className="overflow-auto border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg flex-1 min-h-0">
+      <div ref={tableContainerRef} className="overflow-auto border-2 border-line rounded-lg flex-1 min-h-0">
         <table className="w-full border-collapse">
           <thead>
             <tr className={HEADER_BG}>
@@ -492,7 +492,7 @@ export function SummerStudentLessonsTable({
                     key={student.application_id}
                     data-app-id={student.application_id}
                     className={cn(
-                      "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
+                      "border-b border-line/30",
                       ROW_HOVER,
                       isEven && "bg-gray-50/30 dark:bg-gray-800/20",
                       isHighlighted && "ring-2 ring-inset ring-primary/70 bg-primary/10",
@@ -500,7 +500,7 @@ export function SummerStudentLessonsTable({
                   >
                     {/* Student name + status dot — sticky + grade border */}
                     <td className={cn(
-                      "sticky left-0 z-10 px-2 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 border-l-[3px]",
+                      "sticky left-0 z-10 px-2 py-1.5 border-r border-line/30 border-l-[3px]",
                       SUMMER_GRADE_BORDER[student.grade] || "border-l-gray-300",
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900",
                       isHighlighted && "bg-primary/10 dark:bg-primary/10",
@@ -527,7 +527,7 @@ export function SummerStudentLessonsTable({
 
                     {/* Grade badge — sticky on ≥md */}
                     <td className={cn(
-                      "md:sticky md:left-[120px] z-10 text-center px-1 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
+                      "md:sticky md:left-[120px] z-10 text-center px-1 py-1.5 border-r border-line/30",
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900",
                       isHighlighted && "bg-primary/10 dark:bg-primary/10",
                     )}>
@@ -543,7 +543,7 @@ export function SummerStudentLessonsTable({
 
                     {/* Progress bar — sticky on ≥md */}
                     <td className={cn(
-                      "md:sticky md:left-[160px] z-10 px-1 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
+                      "md:sticky md:left-[160px] z-10 px-1 py-1.5 border-r border-line/30",
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900",
                       isHighlighted && "bg-primary/10 dark:bg-primary/10",
                     )}>

@@ -179,9 +179,9 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
                       "h-8 w-full text-xs rounded-full flex items-center justify-center transition-colors",
                       !isCurrentMonth && "text-gray-300 dark:text-gray-600",
                       isCurrentMonth && !isSelected && "text-gray-700 dark:text-gray-300",
-                      isCurrentMonth && !isSelected && "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
-                      isToday && !isSelected && "ring-1 ring-[#a0704b] dark:ring-[#cd853f] font-semibold",
-                      isSelected && "bg-[#a0704b] dark:bg-[#cd853f] text-white font-bold"
+                      isCurrentMonth && !isSelected && "hover:bg-tint",
+                      isToday && !isSelected && "ring-1 ring-accent-ink font-semibold",
+                      isSelected && "bg-accent-ink text-white font-bold"
                     )}
                   >
                     {date.getDate()}
@@ -191,7 +191,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
             </div>
 
             {/* Keyboard input */}
-            <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] mt-2 pt-2">
+            <div className="border-t border-line mt-2 pt-2">
               <input
                 type="text"
                 value={inputValue}

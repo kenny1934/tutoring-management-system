@@ -185,11 +185,11 @@ export function EnrollStudentModal({
       {/* Modal */}
       <div className={cn(
         "relative z-10 w-[min(calc(100vw-2rem),36rem)] max-h-[80vh] rounded-xl overflow-hidden flex flex-col",
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-white dark:bg-[#1a1a1a] border border-line",
         "shadow-2xl paper-texture"
       )}>
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Enroll Student
@@ -219,7 +219,7 @@ export function EnrollStudentModal({
 
         {/* Success/Error messages */}
         {(error || successMessage) && (
-          <div className="flex-shrink-0 px-6 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="flex-shrink-0 px-6 py-3 border-b border-line">
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -236,7 +236,7 @@ export function EnrollStudentModal({
         )}
 
         {/* Search */}
-        <div className="flex-shrink-0 px-6 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+        <div className="flex-shrink-0 px-6 py-3 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -245,7 +245,7 @@ export function EnrollStudentModal({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search students"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
             />
           </div>
         </div>
@@ -277,7 +277,7 @@ export function EnrollStudentModal({
                   key={student.student_id}
                   className={cn(
                     "rounded-lg border overflow-hidden transition-all",
-                    "border-[#e8d4b8] dark:border-[#6b5a4a]",
+                    "border-line",
                     expandedStudentId === student.student_id && "ring-2 ring-[#a0704b] ring-offset-1"
                   )}
                 >
@@ -306,7 +306,7 @@ export function EnrollStudentModal({
 
                   {/* Expanded - session selection */}
                   {expandedStudentId === student.student_id && (
-                    <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] p-4 bg-[#faf6f1]/30 dark:bg-[#2d2820]/30">
+                    <div className="border-t border-line p-4 bg-[#faf6f1]/30 dark:bg-[#2d2820]/30">
                       {/* Deadline warning */}
                       {student.is_past_deadline && (
                         <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">

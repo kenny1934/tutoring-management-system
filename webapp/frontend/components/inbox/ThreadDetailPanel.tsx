@@ -747,7 +747,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               <div className="mt-2 flex flex-wrap gap-2">
                 {optimisticMessage.images.map((url, idx) => (
                   <img key={url} src={url} alt={`Attachment ${idx + 1}`}
-                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                    className="max-h-48 max-w-full rounded-lg border border-line" />
                 ))}
               </div>
             )}
@@ -756,14 +756,14 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 {optimisticMessage.files.map((file) =>
                   file.content_type?.startsWith("video/") ? (
                     <video key={file.url} src={file.url} controls preload="metadata"
-                      className="max-h-64 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                      className="max-h-64 max-w-full rounded-lg border border-line" />
                   ) : file.content_type === "image/gif" ? (
                     <img key={file.url} src={file.url} alt={file.filename}
-                      className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                      className="max-h-48 max-w-full rounded-lg border border-line" />
                   ) : (
                     <div key={file.url}
-                      className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
-                      <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                      className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+                      <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
                         {file.content_type?.startsWith("audio/")
                           ? <Mic className="h-5 w-5" />
                           : <FileText className="h-5 w-5" />}
@@ -817,7 +817,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           <button
             onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
             className={cn(
-              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-[#a0704b] transition-all duration-200 -translate-y-full",
+              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-line text-gray-500 hover:text-[#a0704b] transition-all duration-200 -translate-y-full",
               showScrollBottom ? "scale-100" : "scale-75"
             )}
             title="Scroll to bottom"

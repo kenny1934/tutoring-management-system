@@ -122,8 +122,8 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
             ref={popoverRef}
             className={cn(
               "fixed z-50",
-              "bg-[#fef9f3] dark:bg-[#2d2618]",
-              "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+              "bg-paper",
+              "border-2 border-line-strong",
               "rounded-lg shadow-lg",
               "p-4 min-w-[200px] max-w-[400px]",
               "paper-texture",

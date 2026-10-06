@@ -1043,7 +1043,7 @@ export default function SummerArrangementPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-2 sm:p-6")}>
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
         {/* Header. Full screen swaps the rows and the view-tab strip for the
             shared slim strip so the timetable keeps the height. */}
         {fullScreen ? (
@@ -1077,7 +1077,7 @@ export default function SummerArrangementPage() {
             </div>
           </ArrangementFullScreenStrip>
         ) : (
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line space-y-2">
             {/* Row 1: Title + search + location + refresh. On mobile the search
                 wraps to its own full-width row via order-last + w-full; on sm+
                 it sits inline between the title and the location select. */}
@@ -1224,7 +1224,7 @@ export default function SummerArrangementPage() {
 
         {/* View tabs — full screen folds these into the strip above. */}
         {!fullScreen && (
-          <div className="flex items-center gap-1 px-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+          <div className="flex items-center gap-1 px-4 border-b border-line/50">
             {VIEW_TABS.map(({ tab, icon: Icon, label }) => (
               <button
                 key={tab}

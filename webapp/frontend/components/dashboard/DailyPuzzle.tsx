@@ -90,7 +90,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
                   "bg-white dark:bg-[#1a1a1a]",
                   "border-[#d4a574] dark:border-[#8b6f47]",
                   "text-[#a0704b] dark:text-[#cd853f]",
-                  "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+                  "hover:bg-tint",
                   "hover:scale-[1.02] active:scale-[0.98]",
                   "cursor-pointer",
                 ],

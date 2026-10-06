@@ -326,7 +326,7 @@ export default function ParentContactsPage() {
   // Toolbar classes
   const toolbarClasses = cn(
     "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
-    "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+    "bg-paper border-2 border-line-strong",
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
@@ -352,7 +352,7 @@ export default function ParentContactsPage() {
               {/* Title + Tutor Selector */}
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <Phone className="h-5 w-5 text-accent-ink" />
                   <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                     Parent Contacts
                   </h1>
@@ -455,7 +455,7 @@ export default function ParentContactsPage() {
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
                 <p className="text-sm text-gray-600 dark:text-gray-400">Loading student contacts...</p>
               </div>
             </div>

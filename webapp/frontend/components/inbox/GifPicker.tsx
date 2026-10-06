@@ -102,7 +102,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] w-[340px] flex flex-col"
       >
         {/* Search bar */}
-        <div className="p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="p-2 border-b border-line">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
@@ -111,7 +111,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search GIFs..."
-              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-line rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
             />
             {query && (
               <button
@@ -158,7 +158,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         </div>
 
         {/* GIPHY attribution */}
-        <div className="px-2 py-1.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center justify-center">
+        <div className="px-2 py-1.5 border-t border-line flex items-center justify-center">
           <span className="text-[10px] text-gray-400">Powered by GIPHY</span>
         </div>
       </FloatingDropdown>

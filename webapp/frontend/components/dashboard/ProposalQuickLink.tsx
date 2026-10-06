@@ -130,7 +130,7 @@ function CompactSlotItem({
             <button
               onClick={handleApproveClick}
               disabled={isLoading}
-              className="p-1 text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
+              className="p-1 text-accent-ink hover:bg-tint rounded transition-colors"
               title="Approve"
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -249,11 +249,11 @@ function CompactProposalCard({
     : "Input requested";
 
   return (
-    <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a]">
+    <div className="border border-line rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a]">
       {/* Clickable Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full text-left px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+        className="w-full text-left px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] hover:bg-tint transition-colors"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -319,7 +319,7 @@ function CompactProposalCard({
       {isExpanded && (
         <>
           {/* Proposer info and original session */}
-          <div className="px-3 py-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+          <div className="px-3 py-2 border-t border-line/50 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {isProposer ? (
                 <span className="flex items-center gap-1">
@@ -335,7 +335,7 @@ function CompactProposalCard({
             </div>
             {/* Original session details */}
             {session && (
-              <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 pt-1.5 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex items-center gap-2 flex-wrap">
+              <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 pt-1.5 border-t border-line/30 flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
                   {formatDateCompact(session.session_date)} {session.time_slot}
@@ -390,7 +390,7 @@ function CompactProposalCard({
           <Link
             href={`/proposals?id=${proposal.id}`}
             onClick={onClose}
-            className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+            className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
           >
             View details <ChevronRight className="h-3 w-3 inline" />
           </Link>
@@ -502,9 +502,9 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
         {...getReferenceProps()}
         className={cn(
           "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-          "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-          "text-[#a0704b] dark:text-[#cd853f]",
-          "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
+          "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+          "text-accent-ink",
+          "hover:bg-tint hover:shadow-sm",
           isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
         )}
       >
@@ -537,7 +537,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             )}
           >
             {/* Tabs */}
-            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-t-lg">
+            <div className="flex border-b border-line bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-t-lg">
               <button
                 onClick={() => setActiveTab("for-me")}
                 className={cn(
@@ -575,7 +575,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             </div>
 
             {/* Search and Sort */}
-            <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+            <div className="px-3 py-2 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
@@ -584,7 +584,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                     placeholder="Search student..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2 py-1.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                    className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                   />
                 </div>
                 <button
@@ -635,7 +635,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <Link
               href="/proposals"
               onClick={() => setIsOpen(false)}
-              className="block px-4 py-3 text-sm text-center font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-[#e8d4b8] dark:border-[#6b5a4a] rounded-b-lg transition-colors"
+              className="block px-4 py-3 text-sm text-center font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line rounded-b-lg transition-colors"
             >
               View All Proposals <ChevronRight className="h-4 w-4 inline" />
             </Link>

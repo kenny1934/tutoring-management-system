@@ -120,7 +120,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
           <div className={cn("relative mb-4", !collapsed && "animate-empty-float")}>
             <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/20" />
             <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-[#f5ede3]/70 dark:bg-[#2d2618]/50" />
-            <div className="relative w-12 h-16 rounded-lg bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-[var(--shadow-paper-sm)] flex items-center justify-center">
+            <div className="relative w-12 h-16 rounded-lg bg-paper border border-line shadow-[var(--shadow-paper-sm)] flex items-center justify-center">
               <FileText className="w-6 h-6 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
             </div>
           </div>
@@ -135,7 +135,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
             <div className="flex items-center justify-between mb-1.5">
               <button
                 onClick={() => onOpenEditor(docId)}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-[#a0704b] dark:text-[#cd853f] hover:text-[#8b5e3c] dark:hover:text-[#e8a84a] transition-colors group/open"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-accent-ink hover:text-[#8b5e3c] dark:hover:text-[#e8a84a] transition-colors group/open"
               >
                 <ExternalLink className="w-3 h-3 transition-transform duration-150 group-hover/open:translate-x-0.5 group-hover/open:-translate-y-0.5" />
                 Open in Editor
@@ -185,7 +185,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                     <h2
                       className={cn(
                         "text-sm font-semibold text-gray-900 dark:text-gray-100 truncate",
-                        onRename && "cursor-pointer hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
+                        onRename && "cursor-pointer hover:text-accent-ink transition-colors"
                       )}
                       onDoubleClick={startRename}
                       title={onRename ? "Double-click to rename" : undefined}
@@ -232,7 +232,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                       {doc.parent_id && (
                         <button
                           onClick={() => onOpenEditor(doc.parent_id!)}
-                          className="flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-[#a0704b] dark:text-[#cd853f] transition-colors"
+                          className="flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-accent-ink transition-colors"
                         >
                           <FileText className="w-3 h-3 shrink-0" />
                           <span className="truncate">{doc.parent_title || `Doc #${doc.parent_id}`}</span>
@@ -249,7 +249,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                           key={child.id}
                           onClick={() => onOpenEditor(child.id)}
                           className={cn(
-                            "flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-[#a0704b] dark:text-[#cd853f] transition-colors",
+                            "flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-accent-ink transition-colors",
                             !doc.parent_id && "pl-5"
                           )}
                         >

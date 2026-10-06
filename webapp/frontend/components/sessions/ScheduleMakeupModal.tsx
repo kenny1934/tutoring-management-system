@@ -173,7 +173,7 @@ function CopySlotButton({ date, timeSlot, className }: { date: string; timeSlot:
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className={cn("p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors", className)}
+      className={cn("p-1 hover:bg-accent-ink/10 rounded transition-colors", className)}
       title={copyText}
     >
       {copied ? (
@@ -278,11 +278,11 @@ const SuggestionCard = React.memo(function SuggestionCard({
   );
 
   return (
-    <div className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg overflow-hidden transition-all">
+    <div className="bg-paper rounded-lg overflow-hidden transition-all">
       {/* Suggestion Header - Clickable */}
       <div
         onClick={onToggle}
-        className="flex items-center justify-between gap-3 p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] cursor-pointer transition-colors"
+        className="flex items-center justify-between gap-3 p-2 hover:bg-tint cursor-pointer transition-colors"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -328,7 +328,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
 
       {/* Expanded Content - Students List */}
       {isExpanded && (
-        <div className="px-3 pb-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="px-3 pb-3 border-t border-line">
           {/* Score Breakdown */}
           <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
@@ -1335,7 +1335,7 @@ export function ScheduleMakeupModal({
       onClose={onClose}
       title={
         <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+          <Calendar className="h-5 w-5 text-accent-ink" />
           <span>{mode === "propose" ? "Propose Make-up Slots" : "Schedule Make-up Class"}</span>
         </div>
       }
@@ -1389,7 +1389,7 @@ export function ScheduleMakeupModal({
     >
       <div className="space-y-4">
         {/* Original Session Info - Compact sticky bar */}
-        <div className={cn("sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b-2 flex items-center gap-2 text-xs flex-wrap transition-colors", mode === "propose" ? "border-b-blue-400 dark:border-b-blue-600" : "border-b-green-400 dark:border-b-green-600")}>
+        <div className={cn("sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-paper border-b-2 flex items-center gap-2 text-xs flex-wrap transition-colors", mode === "propose" ? "border-b-blue-400 dark:border-b-blue-600" : "border-b-green-400 dark:border-b-green-600")}>
           <User className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
           {session.school_student_id && (
             <span className="text-[9px] text-gray-400 font-mono">{session.school_student_id}</span>
@@ -1556,14 +1556,14 @@ export function ScheduleMakeupModal({
         )}
 
         {/* Smart Suggestions */}
-        <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
           {/* Header - Entire row is clickable */}
           <div
             onClick={() => setShowSuggestions(!showSuggestions)}
             className={cn(
               "flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors",
-              "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
-              showSuggestions && "border-b border-[#e8d4b8] dark:border-[#6b5a4a]"
+              "hover:bg-paper",
+              showSuggestions && "border-b border-line"
             )}
           >
             <div className="flex items-center gap-2 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f]">
@@ -1663,7 +1663,7 @@ export function ScheduleMakeupModal({
               )}
               {/* Weight Tuner Panel */}
               {showWeightTuner && (
-            <div className="mb-3 p-3 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="mb-3 p-3 bg-paper rounded-lg border border-line">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-semibold text-[#8b6f47] dark:text-[#cd853f]">
                   SCORING WEIGHTS
@@ -1694,7 +1694,7 @@ export function ScheduleMakeupModal({
                 <WeightSlider label="More Capacity (per spot)" value={weights.moreCapacity} min={0} max={30} step={2}
                   onChange={(v) => updateWeights(w => ({ ...w, moreCapacity: v }))} />
               </div>
-              <div className="mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[9px] text-gray-500 dark:text-gray-400">
+              <div className="mt-2 pt-2 border-t border-line text-[9px] text-gray-500 dark:text-gray-400">
                 Adjust weights to prioritize different factors. Suggestions re-sort instantly.
               </div>
               </div>
@@ -1703,7 +1703,7 @@ export function ScheduleMakeupModal({
                 <div className="space-y-2">
                   {/* Skeleton suggestion cards */}
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg p-2">
+                    <div key={i} className="bg-paper rounded-lg p-2">
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -1789,9 +1789,9 @@ export function ScheduleMakeupModal({
         {/* Calendar and Form */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Calendar */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
             {/* Month navigation */}
-            <div className="flex items-center justify-between px-3 py-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="flex items-center justify-between px-3 py-2 bg-paper border-b border-line">
               <Button variant="ghost" size="sm" onClick={goToPreviousMonth} className="h-7 px-2">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -1809,7 +1809,7 @@ export function ScheduleMakeupModal({
             </div>
 
             {/* Toggle - affects both calendar and day picker */}
-            <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-3 py-2 border-b border-line">
               <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <input
                   type="checkbox"
@@ -1823,7 +1823,7 @@ export function ScheduleMakeupModal({
             </div>
 
             {/* Time Slot Filter */}
-            <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-3 py-2 border-b border-line">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-xs text-gray-700 dark:text-gray-300">Filter by time</span>
                 {filterTimeSlots.length > 0 && (
@@ -1862,14 +1862,14 @@ export function ScheduleMakeupModal({
             {/* Calendar grid - dates shown immediately, availability skeletons while loading */}
             <>
               {/* Weekday headers */}
-              <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="grid grid-cols-7 border-b border-line">
                 {DAY_NAMES.map((day, idx) => (
                   <div
                     key={day}
                     className={cn(
-                      "py-1 px-0.5 text-center text-[10px] font-semibold bg-[#fef9f3] dark:bg-[#2d2618]",
-                      idx > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
-                      (idx === 0 || idx === 6) && "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                      "py-1 px-0.5 text-center text-[10px] font-semibold bg-paper",
+                      idx > 0 && "border-l border-line",
+                      (idx === 0 || idx === 6) && "text-accent-ink/70"
                     )}
                   >
                     {day}
@@ -1888,7 +1888,7 @@ export function ScheduleMakeupModal({
                       key={dayData.dateString}
                       onClick={() => handleDateClick(dayData.dateString, dayData.isHoliday, dayData.allSessions.length)}
                       className={cn(
-                        "p-1 min-h-[50px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors cursor-pointer relative",
+                        "p-1 min-h-[50px] border-b border-line transition-colors cursor-pointer relative",
                         !isFirstCol && "border-l",
                         !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
                         dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10",
@@ -2218,7 +2218,7 @@ export function ScheduleMakeupModal({
 
             {/* Students in Slot Preview */}
             {studentsInSlot.length > 0 && (
-              <div className="bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+              <div className="bg-paper border border-line rounded-lg p-3">
                 <div className="flex items-center gap-2 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
                   <Users className="h-3.5 w-3.5" />
                   STUDENTS IN THIS SLOT ({studentsInSlot.length}/8)
@@ -2278,7 +2278,7 @@ export function ScheduleMakeupModal({
 
           {/* Time Slots Panel - Shows available slots for selected date */}
           {showDayPicker && dayPickerDate && (
-            <div className="lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+            <div className="lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
               {/* Header - Fixed outside scroll */}
               <div className="flex items-center justify-between px-3 py-2.5 bg-[#a0704b] dark:bg-[#8b6f47]">
                 <span className="text-xs font-semibold text-white">
@@ -2298,7 +2298,7 @@ export function ScheduleMakeupModal({
 
               {/* Filter Options */}
               {dayPickerSlots.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-white dark:bg-[#1a1a1a]">
                   <span className="text-[10px] text-gray-500 mr-1">Filter:</span>
                   <button
                     onClick={() => setFilterSameGrade(!filterSameGrade)}
@@ -2342,7 +2342,7 @@ export function ScheduleMakeupModal({
                     filteredDayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
                       <div key={timeSlot} className="space-y-1.5">
                         {/* Time Slot Header */}
-                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
+                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-line pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
                           {timeSlot}
                           {dayPickerDate && (
                             <CopySlotButton date={dayPickerDate} timeSlot={timeSlot} className="-my-1" />
@@ -2362,7 +2362,7 @@ export function ScheduleMakeupModal({
                               className={cn(
                                 "rounded-lg overflow-hidden transition-all",
                                 isSelected
-                                  ? "ring-2 ring-[#a0704b] dark:ring-[#cd853f] bg-white dark:bg-[#1a1a1a]"
+                                  ? "ring-2 ring-accent-ink bg-white dark:bg-[#1a1a1a]"
                                   : "bg-white dark:bg-[#1a1a1a]"
                               )}
                             >
@@ -2378,8 +2378,8 @@ export function ScheduleMakeupModal({
                                 className={cn(
                                   "flex items-center gap-2 p-2.5 cursor-pointer transition-colors",
                                   isSelected
-                                    ? "bg-[#fef9f3] dark:bg-[#2d2618]"
-                                    : "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]"
+                                    ? "bg-paper"
+                                    : "hover:bg-paper"
                                 )}
                               >
                                 <div className="flex-1 min-w-0">
@@ -2424,7 +2424,7 @@ export function ScheduleMakeupModal({
                                   )}
                                 </div>
                                 {isSelected ? (
-                                  <ChevronDown className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                                  <ChevronDown className="h-4 w-4 text-accent-ink" />
                                 ) : (
                                   <ChevronRight className="h-4 w-4 text-gray-400" />
                                 )}
@@ -2432,7 +2432,7 @@ export function ScheduleMakeupModal({
 
                               {/* Book / Add to Proposal Button - Shown when selected */}
                               {isSelected && dayPickerDate && (
-                                <div className="px-2.5 pb-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
+                                <div className="px-2.5 pb-2.5 border-t border-line bg-paper">
                                   {/* Warning banners */}
                                   {slotBlockStatus.exceedsLimit && (
                                     <div className={`mt-2 mb-2 p-2 ${canOverrideLimit ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>

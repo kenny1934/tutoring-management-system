@@ -24,8 +24,8 @@ export function RefreshButton({
       disabled={isRefreshing}
       className={cn(
         "inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md",
-        "bg-[#f5ede3] hover:bg-[#ebe0d0] dark:bg-[#3d3628] dark:hover:bg-[#4d4638]",
-        "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "bg-tint hover:bg-[#ebe0d0] dark:hover:bg-[#4d4638]",
+        "border border-line",
         "text-gray-600 dark:text-gray-300",
         "transition-colors disabled:opacity-50",
         className

@@ -58,8 +58,8 @@ export function ExitConfirmDialog({
             ref={refs.setFloating}
             {...getFloatingProps()}
             className={cn(
-              "w-full min-w-[280px] max-w-[95vw] sm:max-w-sm bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
-              "border-2 border-[#d4a574] dark:border-[#8b6f47]"
+              "w-full min-w-[280px] max-w-[95vw] sm:max-w-sm bg-paper rounded-lg shadow-xl paper-texture",
+              "border-2 border-line-strong"
             )}
           >
             <div className="p-4">
@@ -78,7 +78,7 @@ export function ExitConfirmDialog({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg">
+            <div className="flex flex-col gap-2 px-4 py-3 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg">
               <button
                 type="button"
                 onClick={onSaveAndExit}

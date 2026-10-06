@@ -108,7 +108,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
           transition-colors
           ${isImpersonating
             ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-            : "bg-[#f5ede3] dark:bg-[#3d3628] text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-[#ebe0d0] dark:hover:bg-[#4d4638] border border-[#e8d4b8] dark:border-[#6b5a4a]"
+            : "bg-tint text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-[#ebe0d0] dark:hover:bg-[#4d4638] border border-line"
           }
         `}
         title="Switch role for testing"
@@ -141,7 +141,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
             z-50
           "
         >
-          <div className="px-3 py-2 text-xs text-[#8b7355] dark:text-[#a89880] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-3 py-2 text-xs text-[#8b7355] dark:text-[#a89880] border-b border-line">
             Test as different role
           </div>
 
@@ -151,8 +151,8 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
             className={`
               w-full flex items-center gap-2 px-3 py-2 text-sm
               ${!isImpersonating
-                ? "bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f]"
-                : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                ? "bg-[#a0704b]/10 text-accent-ink"
+                : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
               }
             `}
           >
@@ -177,7 +177,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
                   w-full flex items-center gap-2 px-3 py-2 text-sm
                   ${isSelected
                     ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                    : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                    : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
                   }
                 `}
               >
@@ -192,7 +192,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
           {/* Tutor selection (when impersonating as Tutor) */}
           {effectiveRole === "Tutor" && (
             <>
-              <div className="px-3 py-2 text-xs text-[#8b7355] dark:text-[#a89880] border-t border-[#e8d4b8] dark:border-[#6b5a4a] mt-1">
+              <div className="px-3 py-2 text-xs text-[#8b7355] dark:text-[#a89880] border-t border-line mt-1">
                 <User className="inline-block w-3 h-3 mr-1" />
                 Select tutor to impersonate
               </div>
@@ -213,7 +213,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
                           w-full flex items-center gap-2 px-3 py-2 text-sm
                           ${isSelected
                             ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                            : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                            : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
                           }
                         `}
                       >

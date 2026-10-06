@@ -245,7 +245,7 @@ function SlotItem({
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-semibold text-[#a0704b] dark:text-[#cd853f]">
+              <span className="text-sm font-semibold text-accent-ink">
                 Option {slotIndex + 1}
               </span>
               <SlotStatusBadge status={slot.slot_status} rejectionReason={slot.rejection_reason || undefined} />
@@ -355,7 +355,7 @@ function SlotItem({
 
                 {/* Slot availability - students in this slot */}
                 {slot.slot_status === "pending" && (
-                  <div className="mt-3 p-2.5 bg-[#fef9f3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] border-l-2 border-l-[#a0704b]">
+                  <div className="mt-3 p-2.5 bg-paper rounded border border-line border-l-2 border-l-[#a0704b]">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
                       <Users className="h-3.5 w-3.5" />
                       STUDENTS IN SLOT ({studentsInSlot.length}/{slotCapacity})
@@ -656,7 +656,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
     <>
       <div
         className={cn(
-          "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden",
+          "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
           "border-l-4",
           statusStyles[proposal.status as keyof typeof statusStyles] || statusStyles.pending,
           className
@@ -665,11 +665,11 @@ export const ProposalCardFull = memo(function ProposalCardFull({
         {/* Clickable Header - Always visible */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-left px-5 py-4 bg-[#faf6f1] dark:bg-[#2d2820] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+          className="w-full text-left px-5 py-4 bg-[#faf6f1] dark:bg-[#2d2820] hover:bg-tint transition-colors"
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0 flex-1">
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] flex-shrink-0">
+              <div className="p-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-line flex-shrink-0">
                 <CalendarClock className="h-5 w-5 text-[#a0704b]" />
               </div>
               <div className="min-w-0 flex-1">
@@ -749,7 +749,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
         {isExpanded && (
           <>
             {/* Student & Original Session Info */}
-            <div className="px-5 py-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-5 py-4 border-t border-line">
               {session ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-2">
@@ -811,7 +811,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
             </div>
 
             {/* Proposed By / Timeline */}
-            <div className="px-5 py-3 text-sm text-gray-600 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center justify-between">
+            <div className="px-5 py-3 text-sm text-gray-600 dark:text-gray-400 border-b border-line flex items-center justify-between">
               <div>
                 Proposed by{" "}
                 <span className="font-medium text-gray-900 dark:text-white">
@@ -831,7 +831,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
 
             {/* Notes */}
             {proposal.notes && (
-              <div className="px-5 py-3 text-sm bg-amber-50/50 dark:bg-amber-900/10 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="px-5 py-3 text-sm bg-amber-50/50 dark:bg-amber-900/10 border-b border-line">
                 <div className="flex items-start gap-2">
                   <MessageSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                   <p className="text-gray-700 dark:text-gray-300">{proposal.notes}</p>
@@ -914,7 +914,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
 
             {/* Footer actions */}
             {canCancel && (
-              <div className="px-5 py-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex justify-end bg-gray-50/50 dark:bg-[#0d0d0d]">
+              <div className="px-5 py-4 border-t border-line flex justify-end bg-gray-50/50 dark:bg-[#0d0d0d]">
                 <button
                   onClick={() => setShowCancelConfirm(true)}
                   disabled={loadingAction === "cancel"}

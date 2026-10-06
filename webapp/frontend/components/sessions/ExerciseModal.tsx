@@ -1065,14 +1065,14 @@ export function ExerciseModal({
 
         {/* Recap Section (Previous Session + Homework to Check) */}
         {isLoadingDetails ? (
-          <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+          <div className="border border-line rounded-lg overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             </div>
           </div>
         ) : (detailedSession?.previous_session || (detailedSession?.homework_completion && detailedSession.homework_completion.length > 0)) && (
-          <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+          <div className="border border-line rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => setRecapExpanded(!recapExpanded)}
@@ -1108,7 +1108,7 @@ export function ExerciseModal({
             </button>
 
             {recapExpanded && (
-              <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-3 py-2 space-y-2">
+              <div className="border-t border-line px-3 py-2 space-y-2">
                 {/* Previous Session Info */}
                 {detailedSession?.previous_session && (
                   <div className="text-xs">
@@ -1747,7 +1747,7 @@ export function ExerciseModal({
       {/* Close Confirmation Dialog - uses createPortal to render above modal */}
       {showCloseConfirm && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
+          <div className="bg-paper border-2 border-line-strong rounded-lg shadow-xl p-6 w-full max-w-[400px]">
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               You have unsaved changes. Discard them?
             </p>

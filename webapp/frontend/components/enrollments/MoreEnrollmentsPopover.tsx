@@ -133,8 +133,8 @@ export function MoreEnrollmentsPopover({
           {...getFloatingProps()}
           className={cn(
             "z-[9999]",
-            "bg-[#fef9f3] dark:bg-[#2d2618]",
-            "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+            "bg-paper",
+            "border-2 border-line-strong",
             "rounded-lg shadow-lg",
             "p-4 w-[min(280px,90vw)] max-h-[400px]",
             "paper-texture overflow-y-auto"
@@ -189,7 +189,7 @@ export function MoreEnrollmentsPopover({
                           "shadow-sm hover:shadow-md transition-all",
                           "hover:scale-[1.01] hover:-translate-y-0.5",
                           statusConfig.bgTint,
-                          isHighlighted && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]",
+                          isHighlighted && "ring-2 ring-accent-ink",
                           !isInSelectedGroup && "opacity-30 pointer-events-none"
                         )}
                       >

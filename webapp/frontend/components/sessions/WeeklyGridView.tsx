@@ -198,7 +198,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
   return (
     <div ref={containerRef} className={cn("space-y-1 flex flex-col", fillHeight && "flex-1 min-h-0 overflow-hidden")}>
       {/* Week Navigation */}
-      <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5 paper-texture">
+      <div className="flex items-center justify-between gap-2 bg-paper border-2 border-line-strong rounded-lg px-3 py-1.5 paper-texture">
         {/* Left: Prev button */}
         <Button
           variant="outline"
@@ -273,14 +273,14 @@ export const WeeklyGridView = memo(function WeeklyGridView({
 
       {/* Calendar Grid */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
+        "bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden",
         fillHeight && "flex-1 flex flex-col min-h-0"
       )}>
         <div className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-[#1a1a1a]" : "overflow-x-auto")}>
           <div className={cn(fillHeight ? "flex-1 flex flex-col bg-white dark:bg-[#1a1a1a]" : "min-w-[800px]")} style={fillHeight ? { minWidth: `${minGridWidth}px` } : undefined}>
             {/* Day Headers */}
-            <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
-              <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center">
+            <div className="grid border-b-2 border-line sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
+              <div className="p-1.5 bg-paper border-r border-line flex items-center">
                 <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {weekDates.map((date, index) => {
@@ -292,12 +292,12 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                     key={index}
                     onClick={hasNoSessions ? () => toggleDayExpand(index) : undefined}
                     className={cn(
-                      "border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a] transition-all",
+                      "border-r last:border-r-0 border-line transition-all",
                       isCollapsed ? "py-1 px-0.5" : "py-1 px-1.5",
                       isToday
-                        ? "bg-[#a0704b] dark:bg-[#cd853f]"
-                        : "bg-[#fef9f3] dark:bg-[#2d2618]",
-                      hasNoSessions && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        ? "bg-accent-ink"
+                        : "bg-paper",
+                      hasNoSessions && "cursor-pointer hover:bg-tint"
                     )}
                   >
                     {isCollapsed ? (
@@ -343,11 +343,11 @@ export const WeeklyGridView = memo(function WeeklyGridView({
               style={{ height: `${totalHeight}px`, gridTemplateColumns: gridColumns }}
             >
               {/* Time Labels Column */}
-              <div className="relative h-full bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="relative h-full bg-paper border-r border-line">
                 {hours.map((hour) => (
                   <div
                     key={hour}
-                    className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    className="absolute w-full border-t border-line"
                     style={{ top: `${(hour - 10) * 60 * pixelsPerMinute}px` }}
                   >
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 px-2">
@@ -365,7 +365,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                 ))}
                 {/* Final grid line at 20:00 (bottom boundary) */}
                 <div
-                  className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  className="absolute w-full border-t border-line"
                   style={{ top: `${10 * 60 * pixelsPerMinute}px` }}
                 />
               </div>
@@ -383,7 +383,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                     key={dayIndex}
                     onClick={isCollapsed && hasNoSessions ? () => toggleDayExpand(dayIndex) : undefined}
                     className={cn(
-                      "relative h-full border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "relative h-full border-r last:border-r-0 border-line",
                       isToday && "bg-amber-50/30 dark:bg-amber-900/10",
                       isCollapsed && "bg-gray-50 dark:bg-gray-900/30",
                       isCollapsed && hasNoSessions && "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50"
@@ -400,7 +400,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                     {hours.map((hour) => (
                       <div
                         key={hour}
-                        className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        className="absolute w-full border-t border-line"
                         style={{ top: `${(hour - 10) * 60 * pixelsPerMinute}px` }}
                       />
                     ))}
@@ -414,7 +414,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                     ))}
                     {/* Final grid line at 20:00 (bottom boundary) */}
                     <div
-                      className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      className="absolute w-full border-t border-line"
                       style={{ top: `${10 * 60 * pixelsPerMinute}px` }}
                     />
 

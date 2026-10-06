@@ -184,7 +184,7 @@ export default function DashboardPage() {
         {/* Distribution Charts */}
         {showAdminTutorFilter && (
           <div className="flex items-center justify-end gap-2 -mb-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-paper-cream border border-paper-border text-xs font-medium text-oak-strong shadow-sm">
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-paper border border-line text-xs font-medium text-ink-strong shadow-sm">
               Filter charts:
             </span>
             <TutorSelector
@@ -201,7 +201,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "relative min-w-0 bg-paper-cream rounded-xl border border-paper-border p-4 sm:p-6",
+              "relative min-w-0 bg-paper rounded-xl border border-line p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
@@ -222,7 +222,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "relative min-w-0 bg-paper-cream rounded-xl border border-paper-border p-4 sm:p-6",
+              "relative min-w-0 bg-paper rounded-xl border border-line p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >

@@ -562,7 +562,7 @@ export default function AdminProspectsPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
           <HeaderBar
             year={year}
             availableYears={availableYears}
@@ -1480,7 +1480,7 @@ function HeaderBar({
   readOnly?: boolean;
 }) {
   return (
-    <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+    <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
           <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />

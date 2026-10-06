@@ -297,7 +297,7 @@ export default function StudentsPage() {
   // layout, so the two responsibilities are split (matches the Sessions page).
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-2 sm:gap-3 bg-paper-cream border-2 border-oak-soft rounded-lg px-3 sm:px-4 py-2",
+    "flex flex-wrap items-center gap-2 sm:gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
 
@@ -321,7 +321,7 @@ export default function StudentsPage() {
           <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className={cn(
-                "flex rounded-lg overflow-hidden bg-card border border-paper-border",
+                "flex rounded-lg overflow-hidden bg-card border border-line",
                 !isMobile && "paper-texture"
               )}>
                 <div className="flex-1 p-3 space-y-2">
@@ -374,7 +374,7 @@ export default function StudentsPage() {
           <div className={toolbarInnerClasses}>
             {/* Title */}
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+              <Users className="h-5 w-5 text-accent-ink" />
               <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Students</h1>
             </div>
 
@@ -529,8 +529,8 @@ export default function StudentsPage() {
 
             {/* Tutor filter chip — appears when navigated here from a dashboard chart with a tutor selected */}
             {tutorIdFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] text-xs text-gray-700 dark:text-gray-200">
-                <User className="h-3 w-3 text-[#a0704b] dark:text-[#cd853f]" />
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-tint text-xs text-gray-700 dark:text-gray-200">
+                <User className="h-3 w-3 text-accent-ink" />
                 <span>Tutor: {tutorFilterName ?? `#${tutorIdFilter}`}</span>
                 <button
                   onClick={() => { setTutorIdFilter(null); setCurrentPage(1); }}
@@ -544,7 +544,7 @@ export default function StudentsPage() {
 
             {/* Language-stream filter chip — set when a stream segment of the grade chart is clicked */}
             {langStreamFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] text-xs text-gray-700 dark:text-gray-200">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-tint text-xs text-gray-700 dark:text-gray-200">
                 <span>Stream: {langStreamFilter}</span>
                 <button
                   onClick={() => { setLangStreamFilter(''); setCurrentPage(1); }}
@@ -1119,7 +1119,7 @@ const StudentCard = memo(function StudentCard({
       }}
       whileHover={!isMobile ? { scale: 1.01, y: -2, transition: { duration: 0.15 } } : {}}
       className={cn(
-        "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-card border border-paper-border",
+        "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-card border border-line",
         !isMobile && "paper-texture",
         isSelected && "ring-2 ring-[#a0704b]"
       )}
@@ -1155,7 +1155,7 @@ const StudentCard = memo(function StudentCard({
               e.stopPropagation();
               saveScrollPosition();
             }}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0 ml-auto"
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink font-medium whitespace-nowrap transition-colors flex-shrink-0 ml-auto"
           >
             <span className="hidden sm:inline">View</span>
             <ExternalLink className="h-3.5 w-3.5" />
@@ -1252,7 +1252,7 @@ function StudentDetailPopover({
         style={floatingStyles}
         {...getFloatingProps()}
         className={cn(
-          "z-[9999] w-80 bg-paper-cream border-2 border-oak-soft rounded-lg shadow-xl",
+          "z-[9999] w-80 bg-paper border-2 border-line-strong rounded-lg shadow-xl",
           !isMobile && "paper-texture"
         )}
       >

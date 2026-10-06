@@ -67,7 +67,7 @@ export function IndexCard({
 
   const colorStyles = {
     white: "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-    cream: "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-900 dark:text-gray-100",
+    cream: "bg-paper text-gray-900 dark:text-gray-100",
     yellow: "bg-[#fff9db] dark:bg-[#2b2a1f] text-gray-900 dark:text-gray-100",
   }[color];
 

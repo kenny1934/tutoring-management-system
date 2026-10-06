@@ -144,6 +144,6 @@ function getThemeClass(theme: string): string {
       return "bg-[#f5f0e8] dark:bg-[#2a2720]";
     case "cream":
     default:
-      return "bg-[#fef9f3] dark:bg-[#2d2618]";
+      return "bg-paper";
   }
 }

@@ -339,9 +339,9 @@ export function WaitlistTimetable({
   }
 
   return (
-    <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+    <div className="border border-line rounded-lg overflow-hidden">
       {/* Day filter chips */}
-      <div className="flex items-center gap-1 px-3 py-2 bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center gap-1 px-3 py-2 bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-line">
         <span className="text-[9px] text-foreground/40 mr-1">Days:</span>
         {DAYS.map((day) => {
           const ds = dayStats.get(day);
@@ -375,7 +375,7 @@ export function WaitlistTimetable({
       <div className="overflow-auto max-h-[65vh] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d4a574]/40">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20">
-            <tr className="bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <tr className="bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-line">
               <th className="text-left py-2 px-2 text-xs font-medium text-foreground/50 w-28 sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-30">
                 Time
               </th>
@@ -406,7 +406,7 @@ export function WaitlistTimetable({
               key={timeSlot}
               className="border-t border-gray-200 dark:border-gray-700"
             >
-              <td className="py-2 px-2 text-xs font-mono text-foreground/50 align-top sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-10 border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <td className="py-2 px-2 text-xs font-mono text-foreground/50 align-top sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-10 border-r border-line">
                 <div>{timeSlot}</div>
                 {(() => {
                   const tw = timeStats.get(normalizeTimeSlot(timeSlot)) || 0;
@@ -610,7 +610,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
         "rounded-lg border text-xs transition-all duration-200 cursor-pointer",
         expanded
           ? "bg-white dark:bg-[#252525] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
-          : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-[#d4a574] dark:hover:border-[#8b6f47]",
+          : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-line-strong",
         highlight === "current" && "ring-2 ring-blue-400 dark:ring-blue-500 bg-blue-50 dark:bg-blue-900/20",
         highlight === "preferred" && "border-2 border-dashed border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/10",
         highlight === "dimmed" && "opacity-40",

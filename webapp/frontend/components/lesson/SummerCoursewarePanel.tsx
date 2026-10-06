@@ -95,7 +95,7 @@ export function ParallelChipsRow({
   return (
     <div className="flex items-center gap-1.5 min-h-[28px]">
       <span
-        className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
+        className="w-16 flex-shrink-0 text-[11px] font-medium text-ink-subtle inline-flex items-center gap-1"
         title="Both languages side by side, for mixed classes"
       >
         <Columns2 className="h-3 w-3 flex-shrink-0" />
@@ -127,7 +127,7 @@ function MaterialRow({
 }) {
   return (
     <div className="flex items-center gap-1 min-h-[28px]" title={fileName}>
-      <span className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080]">
+      <span className="w-16 flex-shrink-0 text-[11px] font-medium text-ink-subtle">
         {label}
       </span>
       <span className="flex-1" />
@@ -241,7 +241,7 @@ export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: Summer
       {/* Header */}
       <div className="flex items-center gap-1.5">
         <Sun className="h-3.5 w-3.5 text-amber-500" />
-        <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+        <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
           Summer Materials
         </span>
         <span className="flex-1" />

@@ -61,7 +61,7 @@ export function StudentPickerPopover({
   return (
     <div
       data-student-picker
-      className="absolute left-1 right-1 top-full mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] z-50 py-1"
+      className="absolute left-1 right-1 top-full mt-1 bg-paper shadow-lg rounded-lg border border-line z-50 py-1"
     >
       {/* Select All toggle */}
       <button
@@ -69,11 +69,11 @@ export function StudentPickerPopover({
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-[#6b5a42] dark:text-[#c4a882] font-medium"
       >
         {allSelected ? (
-          <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+          <CheckSquare className="h-3.5 w-3.5 text-accent-ink" />
         ) : noneSelected ? (
           <Square className="h-3.5 w-3.5" />
         ) : (
-          <MinusSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+          <MinusSquare className="h-3.5 w-3.5 text-accent-ink" />
         )}
         {allSelected ? "Deselect All" : "Select All"}
       </button>
@@ -90,7 +90,7 @@ export function StudentPickerPopover({
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
             >
               {checked ? (
-                <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                <CheckSquare className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
               ) : (
                 <Square className="h-3.5 w-3.5 flex-shrink-0" />
               )}

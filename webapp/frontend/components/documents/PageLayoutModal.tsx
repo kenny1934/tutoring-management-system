@@ -109,12 +109,12 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl"
+        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl"
         style={{ width: "32rem", maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 4rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line">
           <h2 className="text-base font-semibold text-foreground">Page Layout</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -122,7 +122,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] px-5">
+        <div className="flex border-b border-line px-5">
           {([
             { key: "margins" as const, label: "Margins" },
             { key: "headerFooter" as const, label: "Header & Footer" },
@@ -185,7 +185,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                       step={0.1}
                       value={margins[side]}
                       onChange={(e) => setMargins(m => ({ ...m, [side]: parseFloat(e.target.value) || 0 }))}
-                      className="flex-1 px-2 py-1.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
                     />
                   </label>
                 ))}
@@ -193,7 +193,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
 
               {/* Visual preview */}
               <div className="mt-4 flex justify-center">
-                <div className="relative bg-white dark:bg-[#2a2420] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded" style={{ width: 120, height: 170 }}>
+                <div className="relative bg-white dark:bg-[#2a2420] border border-line rounded" style={{ width: 120, height: 170 }}>
                   <div
                     className="absolute bg-[#f5ede3]/60 dark:bg-[#3d2e1e]/60 border border-dashed border-[#a0704b]/30"
                     style={{
@@ -225,7 +225,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                 uploading={uploading}
               />
 
-              <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <div className="h-px bg-line" />
 
               {/* Footer section */}
               <HeaderFooterSection
@@ -243,7 +243,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5">
                   {PLACEHOLDER_HINTS.map(({ tag, desc }) => (
                     <span key={tag} className="text-[10px] text-muted-foreground">
-                      <code className="bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/50 px-1 rounded text-[#a0704b] dark:text-[#cd853f]">{tag}</code> {desc}
+                      <code className="bg-line/50 px-1 rounded text-accent-ink">{tag}</code> {desc}
                     </span>
                   ))}
                 </div>
@@ -261,7 +261,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   type="checkbox"
                   checked={watermark.enabled}
                   onChange={(e) => setWatermark(w => ({ ...w, enabled: e.target.checked }))}
-                  className="rounded border-[#e8d4b8] dark:border-[#6b5a4a] text-[#a0704b] focus:ring-[#a0704b]"
+                  className="rounded border-line text-[#a0704b] focus:ring-[#a0704b]"
                 />
                 <span className="text-sm text-foreground">Show watermark</span>
               </label>
@@ -294,7 +294,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         value={watermark.text || ""}
                         onChange={(e) => setWatermark(w => ({ ...w, text: e.target.value }))}
                         placeholder="e.g. DRAFT, CONFIDENTIAL"
-                        className="w-full px-3 py-1.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                        className="w-full px-3 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
                       />
                     </div>
                   ) : (
@@ -302,7 +302,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                       <label className="text-xs text-muted-foreground mb-1 block">Watermark image</label>
                       {watermark.imageUrl ? (
                         <div className="flex items-center gap-2">
-                          <img src={watermark.imageUrl} alt="Watermark" className="h-10 rounded border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                          <img src={watermark.imageUrl} alt="Watermark" className="h-10 rounded border border-line" />
                           <button
                             onClick={() => setWatermark(w => ({ ...w, imageUrl: null }))}
                             className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
@@ -368,7 +368,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
 
                   {/* Preview */}
                   <div className="mt-3 flex justify-center">
-                    <div className="relative bg-white dark:bg-[#2a2420] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded overflow-hidden" style={{ width: 120, height: 170 }}>
+                    <div className="relative bg-white dark:bg-[#2a2420] border border-line rounded overflow-hidden" style={{ width: 120, height: 170 }}>
                       {watermark.type === "text" ? (
                         <span
                           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 font-bold text-black dark:text-white whitespace-nowrap pointer-events-none select-none"
@@ -405,7 +405,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontFamily || ""}
                     onChange={(e) => setBodyFontFamily(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
                   >
                     {HF_FONTS_LATIN.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -417,7 +417,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontFamilyCjk || ""}
                     onChange={(e) => setBodyFontFamilyCjk(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
                   >
                     {HF_FONTS_CJK.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -429,7 +429,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontSize}
                     onChange={(e) => setBodyFontSize(parseInt(e.target.value))}
-                    className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
                   >
                     {[8, 10, 12, 14, 16, 18, 20, 24].map((s) => (
                       <option key={s} value={s}>{s}px</option>
@@ -442,7 +442,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-line">
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -484,7 +484,7 @@ function HeaderFooterSection({
           type="checkbox"
           checked={config.enabled}
           onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
-          className="rounded border-[#e8d4b8] dark:border-[#6b5a4a] text-[#a0704b] focus:ring-[#a0704b]"
+          className="rounded border-line text-[#a0704b] focus:ring-[#a0704b]"
         />
         <span className="text-sm font-medium text-foreground">Show {label.toLowerCase()}</span>
       </label>
@@ -501,7 +501,7 @@ function HeaderFooterSection({
                   value={config[pos]}
                   onChange={(e) => onChange({ ...config, [pos]: e.target.value })}
                   placeholder={pos === "center" ? "e.g. Page {page}" : ""}
-                  className="w-full px-2 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                  className="w-full px-2 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
                 />
               </div>
             ))}
@@ -514,7 +514,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontFamily || ""}
                 onChange={(e) => onChange({ ...config, fontFamily: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
               >
                 {HF_FONTS_LATIN.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -526,7 +526,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontFamilyCjk || ""}
                 onChange={(e) => onChange({ ...config, fontFamilyCjk: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
               >
                 {HF_FONTS_CJK.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -538,7 +538,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontSize ?? 9}
                 onChange={(e) => onChange({ ...config, fontSize: parseInt(e.target.value) })}
-                className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
               >
                 {HF_FONT_SIZES.map((s) => (
                   <option key={s} value={s}>{s}px</option>
@@ -551,11 +551,11 @@ function HeaderFooterSection({
           <div className="flex items-center gap-2">
             {config.imageUrl ? (
               <>
-                <img src={config.imageUrl} alt={`${label} image`} className="h-6 rounded border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                <img src={config.imageUrl} alt={`${label} image`} className="h-6 rounded border border-line" />
                 <select
                   value={config.imagePosition || "left"}
                   onChange={(e) => onChange({ ...config, imagePosition: e.target.value as "left" | "center" | "right" })}
-                  className="text-[10px] px-1 py-0.5 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-foreground"
+                  className="text-[10px] px-1 py-0.5 rounded border border-line bg-white dark:bg-[#2a2420] text-foreground"
                 >
                   <option value="left">Left</option>
                   <option value="center">Center</option>

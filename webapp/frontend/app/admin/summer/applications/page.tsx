@@ -936,9 +936,9 @@ export default function SummerApplicationsPage() {
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         {/* Paper card */}
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
             {/* Header */}
-            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
                   <ClipboardList className="h-5 w-5 text-sky-600 dark:text-sky-400" />
@@ -1046,7 +1046,7 @@ export default function SummerApplicationsPage() {
               </div>
             </div>
 
-            <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+            <div className="px-4 sm:px-6 py-2.5 border-b border-line/50">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1633,7 +1633,7 @@ export default function SummerApplicationsPage() {
           {!showShortcutHints && (
             <button
               onClick={() => setShowShortcutHints(true)}
-              className="fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md flex items-center justify-center"
+              className="fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-paper border border-line-strong text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md flex items-center justify-center"
               title="Keyboard shortcuts (?)"
             >
               <span className="text-sm font-mono">?</span>
@@ -1647,7 +1647,7 @@ export default function SummerApplicationsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47] text-sm w-56"
+                className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border bg-paper border-line-strong text-sm w-56"
               >
                 <div className="flex justify-between items-center mb-3">
                   <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Shortcuts</span>

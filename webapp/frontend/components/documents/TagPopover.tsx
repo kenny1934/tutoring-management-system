@@ -25,7 +25,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl"
+        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl"
         style={{ width: "18rem", maxWidth: "calc(100vw - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -86,7 +86,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
                 onCreateTag(doc.id, search.trim());
                 setSearch("");
               }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
             >
               <Plus className="w-4 h-4" />
               Create &ldquo;{search.trim()}&rdquo;

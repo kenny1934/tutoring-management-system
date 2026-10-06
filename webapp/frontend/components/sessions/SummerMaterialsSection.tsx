@@ -51,7 +51,7 @@ function SummerSectionShell({
 }) {
   const [expanded, setExpanded] = useState(true);
   return (
-    <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+    <div className="border border-line rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -84,7 +84,7 @@ function SummerSectionShell({
         )}
       </button>
       {expanded && (
-        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-3 py-2 space-y-1.5">
+        <div className="border-t border-line px-3 py-2 space-y-1.5">
           {children}
         </div>
       )}

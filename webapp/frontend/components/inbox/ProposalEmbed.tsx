@@ -208,7 +208,7 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
   // Loading state
   if (isLoading) {
     return (
-      <div className="mt-3 p-3 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+      <div className="mt-3 p-3 border border-line rounded-lg bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading proposal...
@@ -240,9 +240,9 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
     : [];
 
   return (
-    <div className="mt-3 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a]">
+    <div className="mt-3 border border-line rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a]">
       {/* Header */}
-      <div className="px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <Users className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
@@ -334,7 +334,7 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
       {/* View details link */}
       <Link
         href={`/proposals?id=${proposal.id}`}
-        className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+        className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
       >
         View Details <ChevronRight className="h-3 w-3 inline" />
       </Link>

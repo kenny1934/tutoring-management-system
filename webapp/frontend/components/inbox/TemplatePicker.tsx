@@ -57,7 +57,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         align="right"
         className="w-64 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg max-h-64 overflow-y-auto"
       >
-        <div className="flex items-center justify-between px-3 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-line/30">
           <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Templates</span>
           <div className="flex items-center gap-1">
             {onCreate && (
@@ -81,20 +81,20 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         </div>
 
         {showCreate && (
-          <div className="p-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 space-y-1.5">
+          <div className="p-2 border-b border-line/30 space-y-1.5">
             <input
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Template name"
-              className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
             />
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="Template content"
               rows={2}
-              className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
             />
             <button
               type="button"

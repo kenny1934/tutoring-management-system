@@ -153,7 +153,7 @@ const MentionList = React.forwardRef<MentionListRef, MentionListProps>(
     if (items.length === 0) return null;
 
     return (
-      <div className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[160px] max-h-[200px] overflow-y-auto z-50">
+      <div className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line p-1 min-w-[160px] max-h-[200px] overflow-y-auto z-50">
         {items.map((item, index) => (
           <button
             key={item.id}
@@ -161,8 +161,8 @@ const MentionList = React.forwardRef<MentionListRef, MentionListProps>(
             className={cn(
               "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors text-left",
               index === selectedIndex
-                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b]"
-                : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                ? "bg-tint text-[#a0704b]"
+                : "text-gray-700 dark:text-gray-300 hover:bg-tint"
             )}
             onClick={() => command(item)}
           >
@@ -615,9 +615,9 @@ export default function InboxRichEditor({
   const activeColor = editor.getAttributes("textStyle").color;
 
   return (
-    <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a]">
+    <div className="border border-line rounded-lg bg-white dark:bg-[#2a2a2a]">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
         <ToolbarButton
           icon={Bold}
           label="Bold"
@@ -728,7 +728,7 @@ export default function InboxRichEditor({
                   { icon: Trash2, label: "Delete table", action: () => editor.chain().focus().deleteTable().run(), danger: true },
                 ].map((item, i) =>
                   item === null ? (
-                    <div key={`sep-${i}`} className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
+                    <div key={`sep-${i}`} className="border-t border-line my-1" />
                   ) : (
                     <button
                       key={item.label}
@@ -862,8 +862,8 @@ export default function InboxRichEditor({
               className={cn(
                 "flex items-center gap-2 w-full px-2.5 py-2 text-xs rounded transition-colors",
                 item.active
-                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  ? "bg-tint text-[#a0704b] font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-tint"
               )}
             >
               <item.icon className="w-4 h-4" />
@@ -910,7 +910,7 @@ export default function InboxRichEditor({
                 key={c.color}
                 type="button"
                 onMouseDown={() => handleSetColor(c.color)}
-                className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-tint transition-colors"
               >
                 <span
                   className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
@@ -921,11 +921,11 @@ export default function InboxRichEditor({
             ))}
             {activeColor && (
               <>
-                <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
+                <div className="border-t border-line my-1" />
                 <button
                   type="button"
                   onMouseDown={handleRemoveColor}
-                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-gray-500"
+                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-tint transition-colors text-gray-500"
                 >
                   Remove color
                 </button>
@@ -968,7 +968,7 @@ export default function InboxRichEditor({
 
       {/* Inline link input bar */}
       {showLinkInput && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#faf6f1] dark:bg-[#2a2518] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#faf6f1] dark:bg-[#2a2518] border-b border-line">
           <LinkIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
           <input
             ref={linkInputRef}

@@ -66,8 +66,8 @@ const TrialCard = React.memo(function TrialCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 p-3",
-        "border-[#d4a574] dark:border-[#8b6f47]",
+        "bg-paper rounded-lg border-2 p-3",
+        "border-line-strong",
         "paper-texture shadow-sm",
         "hover:shadow-md transition-shadow cursor-pointer",
         "group"
@@ -137,7 +137,7 @@ const TrialCard = React.memo(function TrialCard({
 
       {/* Actions - Show for attended/lost trials */}
       {showContactButton && (
-        <div className="mt-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+        <div className="mt-3 pt-2 border-t border-line space-y-2">
           {/* Record Contact - all users */}
           <button
             onClick={(e) => {
@@ -167,7 +167,7 @@ const TrialCard = React.memo(function TrialCard({
 
       {/* Converted info */}
       {trial.trial_status === 'converted' && trial.subsequent_enrollment_id && (
-        <div className="mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="mt-2 pt-2 border-t border-line">
           <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
             <RefreshCcw className="h-3 w-3" />
             Enrolled in regular course
@@ -515,7 +515,7 @@ export default function TrialsPage() {
   return (
     <DeskSurface>
       <PageTransition className="h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 overflow-hidden">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 h-full flex flex-col">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 h-full flex flex-col">
           {/* Header */}
           <div className="mb-6">
             <div className="flex flex-row items-center justify-between gap-3">
@@ -710,7 +710,7 @@ export default function TrialsPage() {
               )}>
                 {/* Tabs for narrow screens when both modals open (converting) */}
                 {!isLargeScreen && createModalOpen && convertFromTrial && (
-                  <div className="flex bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-lg border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="flex bg-paper rounded-t-lg border-b border-line">
                     <button
                       onClick={() => setModalTabView('detail')}
                       className={cn(

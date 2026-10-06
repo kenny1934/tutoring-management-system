@@ -325,7 +325,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               key={file.url}
               value={file}
               whileDrag={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
-              className="flex items-center gap-2 px-2 py-1 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+              className="flex items-center gap-2 px-2 py-1 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
               style={{ cursor: replyFiles.length > 1 ? "grab" : undefined }}
               as="div"
             >
@@ -354,7 +354,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               style={{ cursor: replyImages.length > 1 ? "grab" : undefined }}
               as="div"
             >
-              <img src={url} alt="Attachment" className="h-12 w-12 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+              <img src={url} alt="Attachment" className="h-12 w-12 object-cover rounded-lg border border-line" />
               <button
                 type="button"
                 onClick={() => setReplyImages(prev => prev.filter((u) => u !== url))}
@@ -365,7 +365,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             </Reorder.Item>
           ))}
           {isReplyUploading && (
-            <div className="h-12 w-12 flex items-center justify-center rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="h-12 w-12 flex items-center justify-center rounded-lg border border-dashed border-line">
               <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
             </div>
           )}
@@ -410,14 +410,14 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             {showScheduleMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }} />
-                <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-1 min-w-[220px]">
+                <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line py-1 min-w-[220px]">
                   <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Schedule send</div>
                   {getSchedulePresets().map((preset) => (
                     <button
                       key={preset.label}
                       type="button"
                       onClick={() => handleScheduleReply(preset.time)}
-                      className="w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] flex items-center gap-2 text-gray-700 dark:text-gray-300"
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-tint flex items-center gap-2 text-gray-700 dark:text-gray-300"
                     >
                       <Clock className="h-3.5 w-3.5 text-gray-400" />
                       {preset.label}
@@ -433,7 +433,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                           setCustomScheduleTime(time);
                           setShowCustomSchedule(true);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-tint transition-colors text-left"
                       >
                         <Calendar className="h-3.5 w-3.5 text-gray-400" />
                         <span className="text-gray-700 dark:text-gray-300">Pick date & time</span>
@@ -445,14 +445,14 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                           value={customScheduleDate}
                           onChange={(e) => setCustomScheduleDate(e.target.value)}
                           min={new Date().toISOString().split("T")[0]}
-                          className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                          className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
                         />
                         <input
                           type="time"
                           value={customScheduleTime}
                           onChange={(e) => setCustomScheduleTime(e.target.value)}
                           min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                          className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                          className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
                         />
                         <div className="flex gap-1">
                           <button

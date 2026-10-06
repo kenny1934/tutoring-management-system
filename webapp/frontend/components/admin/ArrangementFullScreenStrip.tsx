@@ -33,7 +33,7 @@ export function ArrangementFullScreenStrip({
   children?: ReactNode;
 }) {
   return (
-    <div className="px-2 py-1.5 sm:px-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center gap-2">
+    <div className="px-2 py-1.5 sm:px-3 border-b border-line flex items-center gap-2">
       {children}
       <StudentJumpSearch
         entries={entries}

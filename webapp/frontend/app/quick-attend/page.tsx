@@ -422,8 +422,8 @@ export default function QuickAttendPage() {
       <PageTransition>
         <div className="min-h-screen flex flex-col gap-4" style={{ width: '100%', maxWidth: '32rem', margin: '0 auto', padding: '1rem 0.75rem' }}>
           {/* Header card — paper surface for readability on desk */}
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden paper-texture">
-            <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="bg-paper rounded-xl border border-line overflow-hidden paper-texture">
+            <div className="px-4 py-3 bg-tint border-b border-line">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-bold text-[#5c3d2e] dark:text-[#e8d4b8]">Quick Attend</h1>
@@ -431,7 +431,7 @@ export default function QuickAttendPage() {
                     {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
                   </p>
                 </div>
-                <span className="text-2xl font-bold text-[#a0704b] dark:text-[#cd853f] tabular-nums">
+                <span className="text-2xl font-bold text-accent-ink tabular-nums">
                   {isLoading ? "—" : pendingCount}
                   <span className="text-xs font-medium ml-1 text-[#8b6f47] dark:text-[#a89070]">left</span>
                 </span>
@@ -444,7 +444,7 @@ export default function QuickAttendPage() {
                 <span>{completedCount}/{progressTotal} done</span>
                 <span>{Math.round(progressFraction * 100)}%</span>
               </div>
-              <div className="h-1.5 bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/50 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-line/50 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full rounded-full"
                   initial={{ width: 0 }}
@@ -459,7 +459,7 @@ export default function QuickAttendPage() {
 
             {/* Tutor selector — inside header card */}
             {isCenterView && (
-              <div className="px-4 py-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+              <div className="px-4 py-2 border-t border-line/50">
                 <TutorSelector value={selectedTutorId} onChange={setSelectedTutorId} location={effectiveLocation} when={today} showAllTutors />
               </div>
             )}
@@ -478,7 +478,7 @@ export default function QuickAttendPage() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] paper-texture text-center py-10 px-4 space-y-4 relative overflow-hidden"
+              className="bg-paper rounded-xl border border-line paper-texture text-center py-10 px-4 space-y-4 relative overflow-hidden"
             >
               {completedCount > 0 && <Confetti />}
               <PartyPopper className="h-14 w-14 mx-auto text-amber-400" />
@@ -510,7 +510,7 @@ export default function QuickAttendPage() {
                   </div>
                   <Link
                     href="/sessions"
-                    className="inline-flex items-center gap-1 mt-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:underline font-medium"
+                    className="inline-flex items-center gap-1 mt-2 text-sm text-accent-ink hover:underline font-medium"
                   >
                     <Calendar className="h-3.5 w-3.5" />
                     View Sessions
@@ -525,14 +525,14 @@ export default function QuickAttendPage() {
           {/* Today's Sessions — grouped by time slot */}
           {!isLoading && visibleTodayCount > 0 && (
             <section className="space-y-3">
-              <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#fef9f3]/90 dark:bg-[#2d2618]/90">
+              <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-paper/90">
                 <h2 className="text-xs font-semibold text-[#5c3d2e] dark:text-[#e8d4b8] uppercase tracking-wider">
                   Today ({visibleTodayCount})
                 </h2>
               </div>
               {todayGrouped.map(({ timeSlot, sessions }, groupIdx) => (
                 <div key={timeSlot} className="space-y-2">
-                  <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-[#f5ede3]/80 dark:bg-[#3d3628]/80 text-[#5c3d2e] dark:text-[#e8d4b8] ml-0.5">
+                  <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-tint/80 text-[#5c3d2e] dark:text-[#e8d4b8] ml-0.5">
                     {timeSlot}
                   </span>
                   <AnimatePresence mode="popLayout">
@@ -554,7 +554,7 @@ export default function QuickAttendPage() {
                       return (
                         <motion.div key={card.sessionId}>
                           {isNewTutor && (
-                            <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1" />
+                            <div className="border-t-2 border-dashed border-line-strong my-1" />
                           )}
                           <SessionCard
                             data={card}
@@ -581,7 +581,7 @@ export default function QuickAttendPage() {
           {/* Overdue Sessions */}
           {!isLoading && visibleOverdueCount > 0 && (
             <section className="space-y-3">
-              <button onClick={() => setOverdueExpanded((v) => !v)} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#fef9f3]/90 dark:bg-[#2d2618]/90">
+              <button onClick={() => setOverdueExpanded((v) => !v)} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-paper/90">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                 <h2 className="text-xs font-semibold text-[#5c3d2e] dark:text-[#e8d4b8] uppercase tracking-wider">
                   Overdue ({visibleOverdueCount})
@@ -710,7 +710,7 @@ function RatingStrip({ sessionId, studentName, onRate, onSkipRating }: {
           <StarRating rating={0} onChange={(r) => onRate(sessionId, r)} size="sm" />
           <button
             onClick={() => onSkipRating(sessionId)}
-            className="text-[10px] text-[#a0704b]/60 hover:text-[#a0704b] dark:text-[#cd853f]/60 dark:hover:text-[#cd853f] transition-colors"
+            className="text-[10px] text-accent-ink/60 hover:text-accent-ink transition-colors"
           >
             Skip
           </button>
@@ -827,7 +827,7 @@ const SessionCard = React.memo(function SessionCard({
           whileTap={canDrag ? { scale: 0.98, cursor: "grabbing" } : undefined}
           className={cn(
             "relative rounded-xl border shadow-sm overflow-hidden",
-            "bg-[#fef9f3] dark:bg-[#2d2618] border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "bg-paper border-line",
             canDrag && "cursor-grab touch-pan-y",
             !canDrag && state === "pending" && "cursor-pointer"
           )}
@@ -864,7 +864,7 @@ const SessionCard = React.memo(function SessionCard({
               {sessionStatus !== "Scheduled" && (
                 <SessionStatusTag status={sessionStatus} iconOnly size="sm" />
               )}
-              <Link href={`/sessions/${sessionId}`} onClick={(e) => e.stopPropagation()} className="ml-auto text-[10px] text-[#a0704b]/60 hover:text-[#a0704b] dark:text-[#cd853f]/60 dark:hover:text-[#cd853f] transition-colors flex items-center gap-0.5">
+              <Link href={`/sessions/${sessionId}`} onClick={(e) => e.stopPropagation()} className="ml-auto text-[10px] text-accent-ink/60 hover:text-accent-ink transition-colors flex items-center gap-0.5">
                 #{sessionId}
                 <ExternalLink className="h-2.5 w-2.5" />
               </Link>
@@ -879,7 +879,7 @@ const SessionCard = React.memo(function SessionCard({
                   </span>
                 )}
                 {showTutor && tutorName && (
-                  <span className="px-1.5 py-0.5 rounded bg-[#f5ede3] dark:bg-[#3d3628]">
+                  <span className="px-1.5 py-0.5 rounded bg-tint">
                     {tutorName}
                   </span>
                 )}

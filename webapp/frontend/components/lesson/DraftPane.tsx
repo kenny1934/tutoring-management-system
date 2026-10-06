@@ -298,7 +298,7 @@ export function DraftPane({
     <section aria-label={title} className="relative flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
       <div className={cn(toolbarRow, "@container/draftbar")}>
         {barStart}
-        <span className="ml-1 whitespace-nowrap text-xs font-medium text-[#8b7355] dark:text-[#a09080]">{title}</span>
+        <span className="ml-1 whitespace-nowrap text-xs font-medium text-ink-subtle">{title}</span>
         <div className="flex-1" />
         <div className="flex flex-none items-center gap-0.5">
           <ZoomControls zoom={sheetZoom.zoom} onZoomOut={sheetZoom.zoomOut} onZoomIn={sheetZoom.zoomIn} onFitWidth={sheetZoom.fitWidth} />
@@ -340,7 +340,7 @@ export function DraftPane({
                   {paneToolLabel(name, paneTools.placed[kind] !== undefined)}
                 </button>
               ))}
-              <div role="separator" className="my-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <div role="separator" className="my-1 h-px bg-line" />
               <button
                 type="button"
                 role="menuitem"

@@ -238,7 +238,7 @@ export default function SendToWecomModal({
             <select
               value={selectedWebhook}
               onChange={(e) => setSelectedWebhook(e.target.value)}
-              className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
             >
               {webhooks.map((wh) => (
                 <option key={wh.webhook_name} value={wh.webhook_name}>
@@ -266,7 +266,7 @@ export default function SendToWecomModal({
               <button
                 key={tmpl.label}
                 onClick={() => handleTemplateSelect(tmpl)}
-                className="px-3 py-1 text-xs rounded-full border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#c49a6c] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] transition-colors"
+                className="px-3 py-1 text-xs rounded-full border border-line-strong text-[#a0704b] dark:text-[#c49a6c] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] transition-colors"
               >
                 {tmpl.label}
               </button>
@@ -303,7 +303,7 @@ export default function SendToWecomModal({
             <img
               src={imagePreview}
               alt="Attachment preview"
-              className="max-h-32 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+              className="max-h-32 rounded-lg border border-line"
             />
             <button
               onClick={handleRemoveImage}
@@ -345,7 +345,7 @@ export default function SendToWecomModal({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-line">
         <Button variant="outline" onClick={onClose} disabled={sending}>
           Cancel
         </Button>

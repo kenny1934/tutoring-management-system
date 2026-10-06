@@ -170,7 +170,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 checked={allSelected}
                 ref={(el) => { if (el) el.indeterminate = someSelected; }}
                 onChange={() => onToggleSelectAll(allVisibleIds)}
-                className="w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b]"
+                className="w-3.5 h-3.5 rounded border-line accent-[#a0704b]"
                 aria-label="Select all documents"
               />
             </th>
@@ -211,7 +211,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     type="checkbox"
                     checked={selected}
                     onChange={() => onToggleSelect(doc.id)}
-                    className="w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b]"
+                    className="w-3.5 h-3.5 rounded border-line accent-[#a0704b]"
                   />
                 </td>
 

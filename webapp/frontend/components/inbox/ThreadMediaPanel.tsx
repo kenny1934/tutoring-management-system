@@ -290,7 +290,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
       tabIndex={0}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleJump(messageId); }}
       onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleJump(messageId); } }}
-      className="p-1 rounded text-gray-300 dark:text-gray-600 hover:text-[#a0704b] dark:hover:text-[#a0704b] hover:bg-[#f5ede3]/80 dark:hover:bg-[#3d3628]/80 transition-colors flex-shrink-0 cursor-pointer"
+      className="p-1 rounded text-gray-300 dark:text-gray-600 hover:text-[#a0704b] dark:hover:text-[#a0704b] hover:bg-tint/80 transition-colors flex-shrink-0 cursor-pointer"
       title="Jump to message"
     >
       <CornerDownLeft className="h-3 w-3" />
@@ -300,7 +300,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Shared content</h3>
         <button
           onClick={onClose}
@@ -313,7 +313,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex border-b border-line">
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
@@ -343,11 +343,11 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
 
       {/* Sender filter */}
       {senders.length > 1 && (
-        <div className="px-3 py-2 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+        <div className="px-3 py-2 border-b border-line/50">
           <select
             value={selectedSender || ""}
             onChange={(e) => setSelectedSender(e.target.value || null)}
-            className="w-full text-xs px-2 py-1 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className="w-full text-xs px-2 py-1 border border-line rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
           >
             <option value="">All senders</option>
             {senders.map(s => <option key={s} value={s}>{s}</option>)}
@@ -422,9 +422,9 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   href={file.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
-                  <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                  <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -452,9 +452,9 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
-                  <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                  <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
                     <ExternalLink className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -478,7 +478,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
               {filteredAudio.map((item, i) => (
                 <div
                   key={`audio-${i}`}
-                  className="p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+                  className="p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
                 >
                   <AudioPlayer src={item.url} filename={item.filename} duration={item.duration} />
                   <div className="flex items-center justify-between mt-1.5">
@@ -503,7 +503,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   key={`math-${i}`}
                   type="button"
                   onClick={() => handleCopyLatex(item.latex)}
-                  className="w-full text-left p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="w-full text-left p-3 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
                   <div
                     className="overflow-x-auto text-sm [&_.katex]:text-base"
@@ -534,7 +534,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   key={`graph-${i}`}
                   type="button"
                   onClick={() => setViewerGraphJson(item.graphJson)}
-                  className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors overflow-hidden group relative"
+                  className="rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors overflow-hidden group relative"
                 >
                   <div className="aspect-[4/3] bg-white dark:bg-[#1a1a1a] flex items-center justify-center p-1">
                     {item.svgThumbnail ? (

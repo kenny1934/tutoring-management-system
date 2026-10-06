@@ -461,7 +461,7 @@ export default function OverduePaymentsPage() {
             {/* Toolbar */}
             <div className={cn(
               "sticky top-0 z-30",
-              "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+              "bg-paper border-2 border-line-strong",
               "rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
             )}>
@@ -469,7 +469,7 @@ export default function OverduePaymentsPage() {
                 {/* Title and filters */}
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                    <AlertTriangle className="h-5 w-5 text-accent-ink" />
                     <h1 className="text-lg font-semibold">Overdue Payments</h1>
                     {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
                       <Link
@@ -510,7 +510,7 @@ export default function OverduePaymentsPage() {
                   {isAdmin && overdueCount > 0 && (
                     <button
                       onClick={() => setShowWecom(true)}
-                      className="flex items-center gap-1.5 px-3 py-1 text-sm border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm border border-line-strong text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
                       title="Send overdue payment reminder to WeCom"
                     >
                       <MessageSquareShare className="h-3.5 w-3.5" />
@@ -531,11 +531,11 @@ export default function OverduePaymentsPage() {
                   placeholder="Search by student, ID, tutor, or grade..."
                   className={cn(
                     "w-full pl-9 pr-8 py-1.5 text-sm rounded-lg",
-                    "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                    "border border-line",
                     "bg-white dark:bg-[#1a1a1a]",
                     "placeholder-gray-400",
-                    "focus:outline-none focus:ring-1 focus:ring-[#a0704b] dark:focus:ring-[#cd853f]",
-                    "focus:border-[#a0704b] dark:focus:border-[#cd853f]"
+                    "focus:outline-none focus:ring-1 focus:ring-accent-ink",
+                    "focus:border-accent-ink"
                   )}
                 />
                 {searchQuery && (
@@ -596,7 +596,7 @@ export default function OverduePaymentsPage() {
                   </p>
                   <button
                     onClick={() => setSearchQuery("")}
-                    className="mt-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                    className="mt-2 text-sm text-accent-ink hover:underline"
                   >
                     Clear search
                   </button>
@@ -665,7 +665,7 @@ export default function OverduePaymentsPage() {
                                 <th className="px-4 py-3 text-right w-36"></th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                            <tbody className="divide-y divide-line">
                               {enrollments.slice(0, sectionLimits[level]).map((enrollment) => (
                                 <OverdueRow
                                   key={enrollment.id}
@@ -691,7 +691,7 @@ export default function OverduePaymentsPage() {
                                         ...prev,
                                         [level]: prev[level] + 10
                                       }))}
-                                      className="text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                                      className="text-sm font-medium text-accent-ink hover:underline"
                                     >
                                       Show {Math.min(10, enrollments.length - sectionLimits[level])} more...
                                     </button>
@@ -715,8 +715,8 @@ export default function OverduePaymentsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50" onClick={() => setShowPaymentModal(false)} />
             <div className={cn(
-              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl shadow-xl max-w-md w-full min-w-[400px] mx-4 p-6",
-              "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+              "relative bg-paper rounded-xl shadow-xl max-w-md w-full min-w-[400px] mx-4 p-6",
+              "border-2 border-line-strong",
               "paper-texture"
             )}>
               <h3 className="text-lg font-semibold mb-2">Record Payment</h3>
@@ -742,7 +742,7 @@ export default function OverduePaymentsPage() {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-line-strong text-accent-ink hover:bg-tint"
                 >
                   Cancel
                 </button>
@@ -920,7 +920,7 @@ function OverdueRow({
   }, [enrollment.assigned_day, enrollment.assigned_time]);
 
   return (
-    <tr className="group hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors">
+    <tr className="group hover:bg-tint/50 transition-colors">
       {/* Checkbox */}
       <td className="px-2 py-3">
         <div className={cn(
@@ -943,7 +943,7 @@ function OverdueRow({
       <td className="px-4 py-3 font-medium">
         <Link
           href={`/students/${enrollment.student_id}`}
-          className="hover:text-[#a0704b] dark:hover:text-[#cd853f] hover:underline"
+          className="hover:text-accent-ink hover:underline"
         >
           {enrollment.student_name}
         </Link>
@@ -959,7 +959,7 @@ function OverdueRow({
       <td className="px-4 py-3 text-xs">
         {enrollment.payment_deadline && enrollment.deadline_source === "payment_deadline" ? (
           <span className="flex flex-col">
-            <span className="font-medium text-[#a0704b] dark:text-[#cd853f]">{enrollment.payment_deadline}</span>
+            <span className="font-medium text-accent-ink">{enrollment.payment_deadline}</span>
             <span className="text-[10px] text-muted-foreground">lesson {enrollment.first_lesson_date}</span>
           </span>
         ) : (
@@ -1014,7 +1014,7 @@ function OverdueRow({
             onClick={(e) => onView(enrollment, e)}
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-              "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] dark:text-[#cd853f]",
+              "bg-tint text-accent-ink",
               "hover:bg-[#e8d4b8] dark:hover:bg-[#4d4638]"
             )}
           >

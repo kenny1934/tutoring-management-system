@@ -373,9 +373,9 @@ export default function ComposeModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-[#e8d4b8] dark:border-[#6b5a4a] max-h-[85vh] flex flex-col"
+          className="relative bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-line max-h-[85vh] flex flex-col"
         >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <h2 className="font-semibold text-gray-900 dark:text-white">
             {replyTo ? "Reply" : forwardFrom ? "Forward" : "New Message"}
           </h2>
@@ -410,7 +410,7 @@ export default function ComposeModal({
             {replyTo ? (
               /* Reply mode: read-only display */
               <div className={cn(
-                "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white opacity-60 cursor-not-allowed"
+                "w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white opacity-60 cursor-not-allowed"
               )}>
                 {recipientMode === "all"
                   ? "All Tutors (Broadcast)"
@@ -424,7 +424,7 @@ export default function ComposeModal({
                   type="button"
                   onClick={() => setRecipientDropdownOpen(!recipientDropdownOpen)}
                   className={cn(
-                    "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white text-left flex items-center gap-2"
+                    "w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white text-left flex items-center gap-2"
                   )}
                 >
                   {recipientMode === "all" ? (
@@ -454,7 +454,7 @@ export default function ComposeModal({
                       return (
                         <span
                           key={id}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-[#f5ede3] dark:bg-[#3d3628] text-gray-700 dark:text-gray-300 border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-tint text-gray-700 dark:text-gray-300 border border-line"
                         >
                           {tutor?.tutor_name || "Unknown"}
                           <button
@@ -475,7 +475,7 @@ export default function ComposeModal({
 
                 {/* Dropdown */}
                 {recipientDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg max-h-64 overflow-y-auto">
                     {/* Broadcast option */}
                     <button
                       type="button"
@@ -485,7 +485,7 @@ export default function ComposeModal({
                         setRecipientDropdownOpen(false);
                       }}
                       className={cn(
-                        "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50",
+                        "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-line/50",
                         recipientMode === "all" && "bg-blue-50 dark:bg-blue-900/20"
                       )}
                     >
@@ -520,7 +520,7 @@ export default function ComposeModal({
                             }}
                             className={cn(
                               "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800",
-                              isSelected && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                              isSelected && "bg-tint"
                             )}
                           >
                             <div className={cn(
@@ -551,7 +551,7 @@ export default function ComposeModal({
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Optional subject..."
-              className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
             />
           </div>
 
@@ -565,7 +565,7 @@ export default function ComposeModal({
                 <button
                   type="button"
                   onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white flex items-center justify-between"
+                  className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white flex items-center justify-between"
                 >
                   <span className="flex items-center gap-2">
                     {CATEGORY_OPTIONS.find(c => c.value === category)?.icon}
@@ -574,15 +574,15 @@ export default function ComposeModal({
                   <ChevronDown className={cn("h-4 w-4 transition-transform", categoryDropdownOpen && "rotate-180")} />
                 </button>
                 {categoryDropdownOpen && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg overflow-hidden">
                     {CATEGORY_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
                         onClick={() => { setCategory(opt.value); setCategoryDropdownOpen(false); }}
                         className={cn(
-                          "w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
-                          category === opt.value && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                          "w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-tint transition-colors",
+                          category === opt.value && "bg-tint"
                         )}
                       >
                         {opt.icon}
@@ -601,7 +601,7 @@ export default function ComposeModal({
                 <button
                   type="button"
                   onClick={() => setPriorityDropdownOpen(!priorityDropdownOpen)}
-                  className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] flex items-center justify-between"
+                  className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] flex items-center justify-between"
                 >
                   <span className={PRIORITY_OPTIONS.find(p => p.value === priority)?.colorClass}>
                     {priority}
@@ -609,16 +609,16 @@ export default function ComposeModal({
                   <ChevronDown className={cn("h-4 w-4 transition-transform", priorityDropdownOpen && "rotate-180")} />
                 </button>
                 {priorityDropdownOpen && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg overflow-hidden">
                     {PRIORITY_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
                         onClick={() => { setPriority(opt.value); setPriorityDropdownOpen(false); }}
                         className={cn(
-                          "w-full px-3 py-2 text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                          "w-full px-3 py-2 text-left hover:bg-tint transition-colors",
                           opt.colorClass,
-                          priority === opt.value && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                          priority === opt.value && "bg-tint"
                         )}
                       >
                         {opt.label}
@@ -732,7 +732,7 @@ export default function ComposeModal({
                     <img
                       src={url}
                       alt="Attachment"
-                      className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      className="h-16 w-16 object-cover rounded-lg border border-line"
                     />
                     <button
                       type="button"
@@ -753,7 +753,7 @@ export default function ComposeModal({
                     key={file.url}
                     value={file}
                     whileDrag={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
-                    className="flex items-center gap-2 p-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+                    className="flex items-center gap-2 p-2 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
                     style={{ cursor: uploadedFiles.length > 1 ? "grab" : undefined }}
                     as="div"
                   >
@@ -803,14 +803,14 @@ export default function ComposeModal({
               {showScheduleMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }} />
-                  <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-1 min-w-[220px]">
+                  <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line py-1 min-w-[220px]">
                     <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Schedule send</div>
                     {getSchedulePresets().map((preset) => (
                       <button
                         key={preset.label}
                         type="button"
                         onClick={() => handleScheduleSend(preset.time)}
-                        className="w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] flex items-center gap-2 text-gray-700 dark:text-gray-300"
+                        className="w-full px-3 py-2 text-sm text-left hover:bg-tint flex items-center gap-2 text-gray-700 dark:text-gray-300"
                       >
                         <Clock className="h-3.5 w-3.5 text-gray-400" />
                         {preset.label}
@@ -826,7 +826,7 @@ export default function ComposeModal({
                             setCustomScheduleTime(time);
                             setShowCustomSchedule(true);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-left"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-tint transition-colors text-left"
                         >
                           <Calendar className="h-3.5 w-3.5 text-gray-400" />
                           <span className="text-gray-700 dark:text-gray-300">Pick date & time</span>
@@ -838,14 +838,14 @@ export default function ComposeModal({
                             value={customScheduleDate}
                             onChange={(e) => setCustomScheduleDate(e.target.value)}
                             min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
                           />
                           <input
                             type="time"
                             value={customScheduleTime}
                             onChange={(e) => setCustomScheduleTime(e.target.value)}
                             min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                            className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
                           />
                           <div className="flex gap-1">
                             <button

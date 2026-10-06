@@ -172,7 +172,7 @@ function SqlEditor({ value, onChange, onExecute, isDark }: SqlEditorProps) {
   return (
     <div
       ref={containerRef}
-      className="w-full min-h-[168px] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl overflow-hidden [&_.cm-editor]:min-h-[168px] [&_.cm-scroller]:min-h-[168px]"
+      className="w-full min-h-[168px] border border-line rounded-xl overflow-hidden [&_.cm-editor]:min-h-[168px] [&_.cm-scroller]:min-h-[168px]"
     />
   );
 }
@@ -356,7 +356,7 @@ export default function SqlExecutorPage() {
                 <div className="flex items-center gap-4">
                   <Link
                     href="/admin/debug"
-                    className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                    className="p-2 hover:bg-tint rounded-lg transition-colors"
                     aria-label="Back to debug panel"
                   >
                     <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
@@ -403,7 +403,7 @@ export default function SqlExecutorPage() {
                   isDark={isDark}
                 />
               ) : (
-                <div className="w-full min-h-[168px] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl bg-white dark:bg-[#1a1a1a]" />
+                <div className="w-full min-h-[168px] border border-line rounded-xl bg-white dark:bg-[#1a1a1a]" />
               )}
               <div className="mt-2 text-xs text-gray-400 text-right">
                 Press <span className="kbd-key">Ctrl</span> + <span className="kbd-key">Enter</span> to execute
@@ -444,8 +444,8 @@ export default function SqlExecutorPage() {
                   {showTemplates ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
                 </button>
                 {showTemplates && (
-                  <div className="absolute top-full left-0 mt-1 w-72 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg z-50 overflow-hidden">
-                    <div className="px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-gray-500 dark:text-gray-400">
+                  <div className="absolute top-full left-0 mt-1 w-72 rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg z-50 overflow-hidden">
+                    <div className="px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line text-xs text-gray-500 dark:text-gray-400">
                       Click to insert • Replace {"{placeholders}"} with values
                     </div>
                     <div className="max-h-64 overflow-y-auto">
@@ -492,14 +492,14 @@ export default function SqlExecutorPage() {
                 <>
                   <button
                     onClick={handleExport}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors btn-press"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line hover:bg-tint transition-colors btn-press"
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
                     Export CSV
                   </button>
                   <button
                     onClick={handleCopy}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors btn-press"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line hover:bg-tint transition-colors btn-press"
                   >
                     {copied ? <Check className="h-4 w-4 text-green-500" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                     {copied ? "Copied!" : "Copy JSON"}
@@ -510,8 +510,8 @@ export default function SqlExecutorPage() {
 
             {/* Query History */}
             {showHistory && (
-              <div className="rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="rounded-xl border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line">
                   <span className="text-sm font-medium">Query History</span>
                   {history.length > 0 && (
                     <button
@@ -526,7 +526,7 @@ export default function SqlExecutorPage() {
                 {history.length === 0 ? (
                   <div className="p-4 text-center text-gray-500 text-sm">No query history yet</div>
                 ) : (
-                  <div className="max-h-60 overflow-y-auto divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                  <div className="max-h-60 overflow-y-auto divide-y divide-line">
                     {history.map((item) => (
                       <div
                         key={item.timestamp}
@@ -577,9 +577,9 @@ export default function SqlExecutorPage() {
 
             {/* Results */}
             {result && (
-              <div className="rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              <div className="rounded-xl border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
                 {/* Results Header */}
-                <div className="flex items-center justify-between px-4 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex items-center justify-between px-4 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium">
                       {result.row_count} {result.row_count === 1 ? "row" : "rows"}
@@ -599,7 +599,7 @@ export default function SqlExecutorPage() {
                   <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
                     <table className="w-full border-collapse min-w-max">
                       <thead className="sticky top-0 z-10">
-                        <tr className="bg-[#f5ede3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                        <tr className="bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line">
                           {result.columns.map((col) => (
                             <th
                               key={col}
@@ -616,7 +616,7 @@ export default function SqlExecutorPage() {
                           <tr
                             key={index}
                             className={cn(
-                              "border-b border-[#e8d4b8] dark:border-[#6b5a4a] debug-row-hover",
+                              "border-b border-line debug-row-hover",
                               index % 2 === 0 && "bg-gray-50/50 dark:bg-[#252118]/50"
                             )}
                           >

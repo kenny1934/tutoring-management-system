@@ -49,7 +49,7 @@ const STEP_BUTTON = cn(
 /** A panel's card, at the top right of the Draft. */
 export const PANEL_CARD = cn(
   "absolute right-2 top-2 z-30 max-h-[calc(100%-1rem)] max-w-[calc(100%-1rem)] overflow-auto rounded-lg border p-3 text-sm shadow-lg",
-  "border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618] text-[#6b4c30] dark:text-[#d4a574]",
+  "border-line bg-paper text-[#6b4c30] dark:text-[#d4a574]",
 );
 export const FIELD = "rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1e1a14] outline-none focus:border-[#a0704b]";
 export const TEXT_BUTTON = "min-h-11 rounded-md px-3 hover:bg-[#f5ebe0] dark:hover:bg-[#3a3228]";

@@ -112,7 +112,7 @@ function buildConversionCsv(data: RegularConversionResponse): string {
 /** A headline metric card in the summary strip above the funnel. */
 function KpiCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (
-    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5">
+    <div className="rounded-lg border border-line/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={cn("text-xl font-semibold tabular-nums leading-tight mt-0.5", tone ?? "text-foreground")}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{sub}</div>}
@@ -136,7 +136,7 @@ function FunnelChart({ totals }: { totals: RegularConversionBranchRow }) {
     { label: "Enrolled", value: totals.enrolled_regular, fill: "bg-purple-500" },
   ];
   return (
-    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
+    <div className="border border-line/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold text-foreground">Regular funnel</h2>
         <p className="text-xs text-muted-foreground mt-0.5">Share of this year&apos;s prospects who applied and enrolled.</p>
@@ -284,9 +284,9 @@ export default function RegularConversionPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -384,7 +384,7 @@ export default function RegularConversionPage() {
           </div>
 
           {/* Tab bar: the intake at a glance, the analysis axes, and the chase list */}
-          <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 sm:px-6 py-2 border-b border-line">
             <div className="inline-flex bg-muted rounded-full p-0.5">
               {CONVERSION_TABS.map((key) => (
                 <button
@@ -465,17 +465,17 @@ export default function RegularConversionPage() {
               {/* Per-branch funnel — hidden when scoped to one branch, since the
                   cards and chart above already show that branch's numbers */}
               {branch === null && (
-              <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl overflow-x-auto">
+              <div className="border border-line/50 rounded-xl overflow-x-auto">
                 <table className="w-full text-xs min-w-[860px]">
                   <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
-                    <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                    <tr className="border-b border-line/30">
                       <th className="px-3 py-2 text-left font-medium text-foreground">Branch</th>
                       {COLUMNS.map((c) => (
                         <th key={c.key} className="px-3 py-2 text-right font-medium text-foreground cursor-help" title={c.title}>
                           {c.label}
                         </th>
                       ))}
-                      <th className="px-3 py-2 text-right font-medium text-foreground cursor-help border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40" title="Applied as a share of prospects">
+                      <th className="px-3 py-2 text-right font-medium text-foreground cursor-help border-l border-line/40" title="Applied as a share of prospects">
                         Apply %
                       </th>
                       <th className="px-3 py-2 text-right font-medium text-foreground cursor-help" title="Enrolled as a share of prospects">
@@ -483,14 +483,14 @@ export default function RegularConversionPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+                  <tbody className="divide-y divide-line/30">
                     {data.branches.map((row, i) => (
                       <tr key={row.branch} className={i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}>
                         <td className="px-3 py-2 font-semibold text-foreground">{row.branch}</td>
                         {COLUMNS.map((c) => (
                           <td key={c.key} className={cn("px-3 py-2 text-right", c.tone)}>{row[c.key]}</td>
                         ))}
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground border-l border-line/40">
                           {pct(row.applied_regular, row.prospects)}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
@@ -507,13 +507,13 @@ export default function RegularConversionPage() {
                     )}
                   </tbody>
                   {data.branches.length > 0 && (
-                    <tfoot className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] font-semibold border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+                    <tfoot className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] font-semibold border-t border-line/50">
                       <tr>
                         <td className="px-3 py-2 text-foreground">Total</td>
                         {COLUMNS.map((c) => (
                           <td key={c.key} className={cn("px-3 py-2 text-right", c.tone)}>{data.totals[c.key]}</td>
                         ))}
-                        <td className="px-3 py-2 text-right tabular-nums border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                        <td className="px-3 py-2 text-right tabular-nums border-l border-line/40">
                           {pct(data.totals.applied_regular, data.totals.prospects)}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
@@ -527,7 +527,7 @@ export default function RegularConversionPage() {
               )}
 
               {/* Grade-stream breakdown of regular applicants */}
-              <div className="rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4">
+              <div className="rounded-xl border border-line/50 bg-white/30 dark:bg-white/[0.01] p-4">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <h2 className="text-sm font-semibold text-foreground">Regular applicants by grade and stream</h2>
                   {gradeStreams.length > 0 && (
@@ -547,7 +547,7 @@ export default function RegularConversionPage() {
                       return (
                         <div
                           key={gs}
-                          className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-3 py-2 min-w-[104px]"
+                          className="rounded-lg border border-line/60 px-3 py-2 min-w-[104px]"
                         >
                           {/* The key is a class this intake will run, so the
                               grade in it is already the one being entered. */}

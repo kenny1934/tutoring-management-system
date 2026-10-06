@@ -214,12 +214,12 @@ export function SummerFindSlotDialog({
             ref={refs.setFloating}
             {...getFloatingProps()}
             className={cn(
-              "bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl border-2 border-[#e8d4b8] dark:border-[#6b5a4a] flex flex-col",
+              "bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl border-2 border-line flex flex-col",
               showCalendar ? "w-full max-w-2xl max-h-[85vh]" : "w-full max-w-md max-h-[80vh]"
             )}
           >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-start gap-3">
+            <div className="px-4 py-3 border-b border-line flex items-start gap-3">
               <div className="p-1.5 rounded-lg bg-primary/10">
                 <Search className="h-5 w-5 text-primary" />
               </div>
@@ -317,9 +317,9 @@ export function SummerFindSlotDialog({
                 <div className="px-4 pb-4">
                   {/* Divider */}
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 h-px bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/50" />
+                    <div className="flex-1 h-px bg-line/50" />
                     <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Or pick manually</span>
-                    <div className="flex-1 h-px bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/50" />
+                    <div className="flex-1 h-px bg-line/50" />
                   </div>
 
                   {/* Week nav */}
@@ -357,7 +357,7 @@ export function SummerFindSlotDialog({
 
                   {/* Grid */}
                   <div
-                    className="border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded-lg overflow-hidden"
+                    className="border border-line/60 rounded-lg overflow-hidden"
                     style={{
                       display: "grid",
                       gridTemplateColumns: `50px repeat(${weekDates.length}, 1fr)`,
@@ -366,7 +366,7 @@ export function SummerFindSlotDialog({
                     }}
                   >
                     {/* Header corner */}
-                    <div className="bg-[#fef9f3] dark:bg-[#2d2618]" />
+                    <div className="bg-paper" />
 
                     {/* Day headers */}
                     {weekDates.map((dateStr) => {
@@ -375,7 +375,7 @@ export function SummerFindSlotDialog({
                       return (
                         <div
                           key={dateStr}
-                          className="bg-[#fef9f3] dark:bg-[#2d2618] text-center py-1"
+                          className="bg-paper text-center py-1"
                         >
                           <div className="text-[10px] font-medium text-muted-foreground">{DAY_ABBREV[dayName]}</div>
                           <div className="text-[9px] text-muted-foreground">{formatCompactDate(dateStr)}</div>
@@ -388,7 +388,7 @@ export function SummerFindSlotDialog({
                       <React.Fragment key={ts}>
                         {/* Time label */}
                         <div
-                          className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center text-[9px] text-muted-foreground font-medium px-0.5"
+                          className="bg-paper flex items-center justify-center text-[9px] text-muted-foreground font-medium px-0.5"
                         >
                           {ts.split(" - ")[0]}
                         </div>
@@ -457,7 +457,7 @@ export function SummerFindSlotDialog({
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex justify-end">
+            <div className="px-4 py-2.5 border-t border-line flex justify-end">
               <button
                 onClick={onClose}
                 disabled={placingId !== null}

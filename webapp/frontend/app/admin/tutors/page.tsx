@@ -258,7 +258,7 @@ function TutorsPageInner() {
   return (
     <DeskSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6">
           {/* Header */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -329,7 +329,7 @@ function TutorsPageInner() {
               {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-20 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#221c12] animate-pulse"
+                  className="h-20 rounded-xl border border-line bg-white dark:bg-[#221c12] animate-pulse"
                 />
               ))}
             </div>

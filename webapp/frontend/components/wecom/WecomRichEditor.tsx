@@ -212,9 +212,9 @@ export default function WecomRichEditor({
   const activeColor = editor.getAttributes("textStyle").color;
 
   return (
-    <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a]">
+    <div className="border border-line rounded-lg bg-white dark:bg-[#2a2a2a]">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2a2215] border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2a2215] border-b border-line flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
         <ToolbarButton
           icon={Bold}
           label="Bold"
@@ -253,7 +253,7 @@ export default function WecomRichEditor({
         />
 
         {/* Separator */}
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-0.5" />
+        <div className="w-px h-5 bg-line mx-0.5" />
 
         {/* Color picker */}
         <div className="relative" ref={colorPickerRef}>
@@ -277,13 +277,13 @@ export default function WecomRichEditor({
             <Palette className="w-4 h-4" style={activeColor ? { color: activeColor } : undefined} />
           </button>
           {showColorPicker && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5 min-w-[140px]">
+            <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line p-1.5 min-w-[140px]">
               {WECOM_COLORS.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onMouseDown={() => handleSetColor(c.color)}
-                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-tint transition-colors"
                 >
                   <span
                     className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
@@ -294,11 +294,11 @@ export default function WecomRichEditor({
               ))}
               {activeColor && (
                 <>
-                  <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
+                  <div className="border-t border-line my-1" />
                   <button
                     type="button"
                     onMouseDown={handleRemoveColor}
-                    className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-gray-500"
+                    className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-tint transition-colors text-gray-500"
                   >
                     Remove color
                   </button>

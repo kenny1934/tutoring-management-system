@@ -862,7 +862,7 @@ function RequestCard({
             <button
               onClick={() => { setReviewerNote(""); setShowApproveConfirm(true); }}
               disabled={isActing === request.id}
-              className="px-3 py-1.5 text-xs text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
+              className="px-3 py-1.5 text-xs text-accent-ink hover:bg-tint rounded transition-colors"
             >
               {isActing === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 inline mr-0.5" />}
               Approve
@@ -1014,7 +1014,7 @@ function AllStaffBalancesPanel({
   return (
     <div className="flex flex-col">
       {/* Search + branch badge */}
-      <div className="sticky top-0 z-10 px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 flex items-center gap-2">
+      <div className="sticky top-0 z-10 px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line/60 flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
           <input
@@ -1027,7 +1027,7 @@ function AllStaffBalancesPanel({
           />
         </div>
         {selectedLocation !== "All Locations" && (
-          <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f] border border-[#a0704b]/30">
+          <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#a0704b]/10 text-accent-ink border border-[#a0704b]/30">
             {selectedLocation}
           </span>
         )}
@@ -1046,24 +1046,24 @@ function AllStaffBalancesPanel({
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
                   <th rowSpan={2} className="sticky top-0 px-2 py-1.5 text-left font-medium uppercase tracking-wider text-[10px] text-gray-500 dark:text-gray-400">
                     Staff
                   </th>
-                  <th colSpan={5} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <th colSpan={5} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">
                     Annual Leave
                   </th>
-                  <th colSpan={3} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <th colSpan={3} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">
                     Sick Leave
                   </th>
                 </tr>
-                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
+                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500" title="Overtime compensation">OC</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500" title="Birthday leave">Bday</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60" title="Used (AL + OC + Bday)">Used</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-dashed border-line/60" title="Used (AL + OC + Bday)">Used</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Pool remaining">Rem.</th>
-                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]">Ent.</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line">Ent.</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Used</th>
                   <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Rem.</th>
                 </tr>
@@ -1073,17 +1073,17 @@ function AllStaffBalancesPanel({
                   <tr
                     key={r.staff_id}
                     onClick={onRowClick}
-                    className="cursor-pointer transition-colors hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628] border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40"
+                    className="cursor-pointer transition-colors hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628] border-b border-line/40"
                   >
                     <td className="px-2 py-1.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
                       {r.staff_name}
                     </td>
-                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">{fmt(Number(r.al_entitlement))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-line/40">{fmt(Number(r.al_entitlement))}</td>
                     <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-400 dark:text-gray-500">{fmtOrDash(Number(r.al_oc))}</td>
                     <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-400 dark:text-gray-500">{fmtOrDash(Number(r.al_bday))}</td>
-                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-dashed border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">{fmt(Number(r.al_used))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-dashed border-line/40">{fmt(Number(r.al_used))}</td>
                     <td className={cn("px-1.5 py-1.5 text-right font-mono tabular-nums font-semibold", remainingColorCls(Number(r.al_remaining)))}>{fmt(Number(r.al_remaining))}</td>
-                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">{fmt(Number(r.sl_entitlement))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-line/40">{fmt(Number(r.sl_entitlement))}</td>
                     <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(Number(r.sl_used))}</td>
                     <td className={cn("px-1.5 py-1.5 text-right font-mono tabular-nums font-semibold", remainingColorCls(Number(r.sl_remaining)))}>{fmt(Number(r.sl_remaining))}</td>
                   </tr>
@@ -1093,7 +1093,7 @@ function AllStaffBalancesPanel({
           </div>
 
           {/* Mobile: stacked cards per staff */}
-          <div className="sm:hidden divide-y divide-[#e8d4b8]/40 dark:divide-[#6b5a4a]/40">
+          <div className="sm:hidden divide-y divide-line/40">
             {filtered.map((r) => (
               <button
                 key={r.staff_id}
@@ -1352,9 +1352,9 @@ export function LeaveQuickLink({ className }: { className?: string }) {
         {...getReferenceProps()}
         className={cn(
           "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-          "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-          "text-[#a0704b] dark:text-[#cd853f]",
-          "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
+          "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+          "text-accent-ink",
+          "hover:bg-tint hover:shadow-sm",
           isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
         )}
       >
@@ -1386,7 +1386,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
               <>
                 {/* Form header with toggle */}
                 {/* Form header with toggle */}
-                <div className="px-4 py-2.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] rounded-t-lg flex items-center gap-3">
+                <div className="px-4 py-2.5 border-b border-line rounded-t-lg flex items-center gap-3">
                   <button
                     onClick={() => setShowForm("leave")}
                     className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
@@ -1439,7 +1439,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             )}
             {/* Tabs */}
             <div className={cn(
-              "flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40",
+              "flex border-b border-line bg-[#f5ede3]/60 dark:bg-[#3d3628]/40",
               !isViewingOther && "rounded-t-lg"
             )}>
               {tabs.map((tab, i) => (
@@ -1490,7 +1490,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                     No leave balances
                   </div>
                 ) : (
-                  <div className="py-1 divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+                  <div className="py-1 divide-y divide-line/30">
                     {visibleBalances.map((b) => (
                       <BalanceRow key={b.id} balance={b} />
                     ))}
@@ -1580,7 +1580,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="flex items-center gap-2 px-3 py-2.5 border-t border-line">
               {!isViewingOther && !isSupervisor && (
                 <button
                   onClick={() => setShowForm("leave")}
@@ -1594,7 +1594,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 href="#"
                 onClick={handleOpenArk}
                 className={cn(
-                  "flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-md transition-colors",
+                  "flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-accent-ink hover:bg-tint rounded-md transition-colors",
                   (isViewingOther || isSupervisor) && "flex-1"
                 )}
               >

@@ -393,7 +393,7 @@ export function BulkRateModal({
       {/* Close Confirmation Dialog - uses createPortal to render above modal */}
       {showCloseConfirm && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
+          <div className="bg-paper border-2 border-line-strong rounded-lg shadow-xl p-6 w-full max-w-[400px]">
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               You have unsaved changes. Discard them?
             </p>
