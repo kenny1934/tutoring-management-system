@@ -11,7 +11,8 @@ from datetime import date, datetime, timedelta, time
 from constants import BASE_FEE_PER_LESSON, EXAM_EVENT_TYPES, hk_now
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
-from schemas import DashboardStats, StudentBasic, ActivityEvent
+from schemas import DashboardStats, StudentBasic, ActivityEvent, GreetingLine
+from services.greeting_line import greeting_line
 from auth.dependencies import get_current_user, reject_guest, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.query_helpers import enrollment_with_student_tutor
 
@@ -412,6 +413,21 @@ def global_search(
             for ex in exams
         ],
     }
+
+
+@router.get("/greeting-line", response_model=GreetingLine)
+def get_greeting_line(
+    tutor_id: Optional[int] = Query(None, description="Whose day to talk about; defaults to the signed-in tutor"),
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(reject_guest),
+):
+    """
+    One line worth noticing about the tutor's day, for under the dashboard
+    greeting: a class milestone, a first lesson, an anniversary, a test most
+    of their students sit, a holiday coming up or a busier day than usual.
+    Returns no line on a day with nothing to say.
+    """
+    return GreetingLine(line=greeting_line(db, tutor_id or current_user.id, hk_now().date()))
 
 
 @router.get("/activity-feed", response_model=List[ActivityEvent])

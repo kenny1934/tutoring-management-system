@@ -647,6 +647,46 @@ export function useActivityFeed(location?: string, tutorId?: number, limit?: num
 }
 
 /**
+ * The line under the dashboard greeting, fixed for the day.
+ *
+ * A line like "your 18:25 class is your 100th" is worked out from the day's
+ * classes, and a lesson moved during the day could change it. So the first
+ * line of the day is kept in this browser and reused until midnight in Hong
+ * Kong, which stops the greeting changing under the tutor mid-afternoon.
+ */
+export function useGreetingLine(tutorId?: number, enabled = true) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+  const storageKey = `csm_greeting_line:${tutorId ?? "me"}:${today}`;
+  // Storage is read after mounting, never during the server render, so the
+  // first paint matches on both sides. "unread" means not looked yet.
+  const [stored, setStored] = useState<string | null | undefined | "unread">("unread");
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      setStored(raw === null ? undefined : (JSON.parse(raw) as string | null));
+    } catch {
+      setStored(undefined);
+    }
+  }, [storageKey]);
+
+  const { data } = useSWR(
+    enabled && stored === undefined ? ["greeting-line", tutorId ?? "me", today] : null,
+    async () => {
+      const { line } = await api.stats.getGreetingLine(tutorId);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(line));
+      } catch {
+        // Without storage the line is simply fetched again on the next visit.
+      }
+      return line;
+    },
+    { revalidateOnFocus: false, revalidateIfStale: false, revalidateOnReconnect: false }
+  );
+  if (stored === "unread") return null;
+  return stored !== undefined ? stored : data ?? null;
+}
+
+/**
  * Hook for setting dynamic browser tab titles
  * Updates document.title with page context
  */

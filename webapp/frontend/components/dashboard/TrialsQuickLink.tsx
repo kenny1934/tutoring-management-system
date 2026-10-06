@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
+import { TONES } from "@/lib/tones";
 import { formatDateCompact } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -321,7 +322,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
           <FlaskConical className="h-4 w-4" />
           <span>Trials</span>
           {totalCount > 0 && (
-            <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-teal-500 rounded-full">
+            <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.neutral.solid)}>
               {totalCount > 99 ? "99+" : totalCount}
             </span>
           )}

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { cn } from "@/lib/utils";
+import { TONES } from "@/lib/tones";
 import { formatDateCompact } from "@/lib/formatters";
 import { useProposals, usePendingProposalCount, useTutors } from "@/lib/hooks";
 import { proposalsAPI } from "@/lib/api";
@@ -511,7 +512,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
         <CalendarClock className="h-4 w-4" />
         <span>Make-up</span>
         {totalPending > 0 && (
-          <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+          <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid)}>
             {totalPending > 99 ? "99+" : totalPending}
           </span>
         )}

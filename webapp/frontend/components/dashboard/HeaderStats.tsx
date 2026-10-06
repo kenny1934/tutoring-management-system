@@ -106,7 +106,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
               isStudentsOpen && "bg-[#f5ede3] dark:bg-[#3d3628]"
             )}
           >
-            <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <Users className="h-4 w-4 text-ink-subtle" />
             <span className="font-bold text-accent-ink">
               {stats.active_students}
             </span>
@@ -230,7 +230,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
             "hover:bg-tint"
           )}
         >
-          <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          <Calendar className="h-4 w-4 text-ink-subtle" />
           <span className="font-bold text-accent-ink">
             {stats.sessions_this_week}
           </span>
@@ -241,7 +241,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
 
         {/* Revenue stat - hidden by default with eye toggle */}
         <div className="flex items-center gap-1.5 text-sm">
-          <DollarSign className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <DollarSign className="h-4 w-4 text-ink-subtle" />
 
           {isRevenueVisible ? (
             // Revenue visible state

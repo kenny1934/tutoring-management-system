@@ -10,6 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
+import { TONES } from "@/lib/tones";
 import { Calendar, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -278,23 +279,23 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             {markableIds.length > 0 && (
               <Link
                 href="/quick-attend"
-                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md shadow-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 transition-colors"
+                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md border border-line bg-card text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
                 title="Quick attendance marking"
               >
-                <ClipboardCheck className="h-3 w-3" />
+                <ClipboardCheck className="h-3 w-3 text-ink-subtle" />
                 <span className="hidden sm:inline">Quick</span>
               </Link>
             )}
             {/* Record Memo button */}
             <button
               onClick={() => setMemoDrawerOpen(true)}
-              className="relative flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md shadow-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+              className="relative flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md border border-line bg-card text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
               title="Record a session memo"
             >
-              <StickyNote className="h-3 w-3" />
+              <StickyNote className="h-3 w-3 text-ink-subtle" />
               <span className="hidden sm:inline">Memo</span>
               {(pendingMemoData?.count ?? 0) > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
+                <span className={cn("absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full", TONES.warning.solid)}>
                   {pendingMemoData!.count}
                 </span>
               )}
@@ -480,12 +481,12 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('attended')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
-                    bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
+                    bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-tint"
                   )}
                   title="Mark all as attended"
                 >
-                  <CheckCheck className={cn("h-3 w-3", bulkActionLoading === 'attended' && "animate-pulse")} />
+                  <CheckCheck className={cn("h-3 w-3 text-green-700 dark:text-green-400", bulkActionLoading === 'attended' && "animate-pulse")} />
                   <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
                 </button>
               )}
@@ -494,12 +495,12 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('no-show')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-                    bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
+                    bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-tint"
                   )}
                   title="Mark all as no show"
                 >
-                  <UserX className={cn("h-3 w-3", bulkActionLoading === 'no-show' && "animate-pulse")} />
+                  <UserX className={cn("h-3 w-3 text-red-600 dark:text-red-400", bulkActionLoading === 'no-show' && "animate-pulse")} />
                   <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
                 </button>
               )}
@@ -508,12 +509,12 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('reschedule')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-                    bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
+                    bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-tint"
                   )}
                   title="Mark all as rescheduled"
                 >
-                  <CalendarClock className={cn("h-3 w-3", bulkActionLoading === 'reschedule' && "animate-pulse")} />
+                  <CalendarClock className={cn("h-3 w-3 text-orange-700 dark:text-orange-400", bulkActionLoading === 'reschedule' && "animate-pulse")} />
                   <span className="hidden xs:inline">{bulkActionLoading === 'reschedule' ? '...' : 'Reschedule'}</span>
                 </button>
               )}
@@ -522,12 +523,12 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('sick-leave')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-                    bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
+                    bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-tint"
                   )}
                   title="Mark all as sick leave"
                 >
-                  <Ambulance className={cn("h-3 w-3", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
+                  <Ambulance className={cn("h-3 w-3 text-orange-700 dark:text-orange-400", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
                   <span className="hidden xs:inline">{bulkActionLoading === 'sick-leave' ? '...' : 'Sick'}</span>
                 </button>
               )}
@@ -536,12 +537,12 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('weather-cancelled')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-                    bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
+                    bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-tint"
                   )}
                   title="Mark all as weather cancelled"
                 >
-                  <CloudRain className={cn("h-3 w-3", bulkActionLoading === 'weather-cancelled' && "animate-pulse")} />
+                  <CloudRain className={cn("h-3 w-3 text-orange-700 dark:text-orange-400", bulkActionLoading === 'weather-cancelled' && "animate-pulse")} />
                   <span className="hidden xs:inline">{bulkActionLoading === 'weather-cancelled' ? '...' : 'Weather'}</span>
                 </button>
               )}
