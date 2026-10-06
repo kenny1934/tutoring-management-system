@@ -470,7 +470,7 @@ export function SessionActionButtons({
           const isViewableAction = ["cw", "hw", "rate", "schedule-makeup"].includes(action.id);
           const isDisabledByReadOnly = isReadOnly && !isViewableAction;
           const colorClass = action.id === 'copy-makeup-msg' && copiedMakeupMsg
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
             : action.colorClass;
           const opensExerciseModal = action.id === "cw" || action.id === "hw";
 

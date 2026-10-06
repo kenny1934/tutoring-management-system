@@ -58,7 +58,7 @@ export function ExerciseActionButtons({
   const actions: ActionItem[] = [
     {
       label: "Search Shelv",
-      icon: <Search className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
+      icon: <Search className="h-4 w-4 text-amber-700 dark:text-amber-400" />,
       onClick: onPaperlessSearch,
       btnClass: "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50",
     },
@@ -77,9 +77,9 @@ export function ExerciseActionButtons({
         label: fileActionState?.open === 'loading' && fileActionState?.message
           ? fileActionState.message : "Open PDF",
         icon: fileActionState?.open === 'loading'
-          ? <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+          ? <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
           : fileActionState?.open === 'error'
-          ? <XCircle className="h-4 w-4 text-red-500" />
+          ? <XCircle className="h-4 w-4 text-red-600" />
           : <ExternalLink className="h-4 w-4 text-gray-500 dark:text-gray-400" />,
         onClick: onOpenFile,
         disabled: fileActionState?.open === 'loading',
@@ -89,9 +89,9 @@ export function ExerciseActionButtons({
         label: fileActionState?.print === 'loading' && fileActionState?.message
           ? fileActionState.message : "Print PDF",
         icon: fileActionState?.print === 'loading'
-          ? <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+          ? <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
           : fileActionState?.print === 'error'
-          ? <XCircle className="h-4 w-4 text-red-500" />
+          ? <XCircle className="h-4 w-4 text-red-600" />
           : <Printer className="h-4 w-4 text-gray-500 dark:text-gray-400" />,
         onClick: onPrintFile,
         disabled: fileActionState?.print === 'loading',
@@ -116,7 +116,7 @@ export function ExerciseActionButtons({
           >
             {action.icon}
             {action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF" && (
-              <span className="text-[10px] text-amber-600 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
+              <span className="text-[10px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
                 {action.label}
               </span>
             )}

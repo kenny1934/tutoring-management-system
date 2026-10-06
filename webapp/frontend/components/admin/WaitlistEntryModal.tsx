@@ -331,7 +331,7 @@ export function WaitlistEntryModal({
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                     entryType === type
-                      ? "bg-[#a0704b] text-white"
+                      ? "bg-primary text-white"
                       : "bg-gray-100 dark:bg-gray-800 text-foreground/70 hover:bg-gray-200 dark:hover:bg-gray-700"
                   )}
                 >
@@ -350,7 +350,7 @@ export function WaitlistEntryModal({
               <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   {linkedStudent?.school_student_id && (
-                    <span className="text-xs font-mono text-green-600 dark:text-green-400 flex-shrink-0">
+                    <span className="text-xs font-mono text-green-700 dark:text-green-400 flex-shrink-0">
                       {linkedStudent.school_student_id}
                     </span>
                   )}
@@ -361,14 +361,14 @@ export function WaitlistEntryModal({
                     <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={linkedStudent.grade} langStream={linkedStudent.lang_stream} />
                   )}
                   {linkedStudent?.school && (
-                    <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0">
+                    <span className="text-xs text-green-700 dark:text-green-400 flex-shrink-0">
                       {linkedStudent.school}
                     </span>
                   )}
                 </div>
                 <button
                   onClick={handleUnlinkStudent}
-                  className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                  className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -386,7 +386,7 @@ export function WaitlistEntryModal({
                     }}
                     onFocus={() => setShowStudentSearch(true)}
                     placeholder="Search by name, ID, or phone..."
-                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 {showStudentSearch && studentResults.length > 0 && (
@@ -425,25 +425,25 @@ export function WaitlistEntryModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Student Name <span className="text-red-500">*</span>
+                Student Name <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. Chan Tai Man"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Phone <span className="text-red-500">*</span>
+                Phone <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. 91234567"
               />
             </div>
@@ -453,7 +453,7 @@ export function WaitlistEntryModal({
           <div className="grid grid-cols-3 gap-3">
             <div className="relative">
               <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                School <span className="text-red-500">*</span>
+                School <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
@@ -466,7 +466,7 @@ export function WaitlistEntryModal({
                 onBlur={() =>
                   setTimeout(() => setShowSchoolOptions(false), 200)
                 }
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. PCMS"
               />
               {showSchoolOptions && filteredSchools.length > 0 && (
@@ -489,12 +489,12 @@ export function WaitlistEntryModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Grade <span className="text-red-500">*</span>
+                Grade <span className="text-red-600">*</span>
               </label>
               <select
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select</option>
                 {GRADES.map((g) => (
@@ -511,7 +511,7 @@ export function WaitlistEntryModal({
               <select
                 value={langStream}
                 onChange={(e) => setLangStream(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">—</option>
                 {LANG_STREAMS.map((ls) => (
@@ -526,14 +526,14 @@ export function WaitlistEntryModal({
           {/* Parent WeChat ID */}
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 mb-1.5">
-              <WeChatIcon className="h-4 w-4 text-green-600" />
+              <WeChatIcon className="h-4 w-4 text-green-700" />
               Parent WeChat ID
             </label>
             <input
               type="text"
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Optional"
             />
           </div>
@@ -546,7 +546,7 @@ export function WaitlistEntryModal({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b] resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
               rows={2}
               placeholder="Source, context, etc."
             />
@@ -560,7 +560,7 @@ export function WaitlistEntryModal({
               </label>
               <button
                 onClick={addSlotPreference}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#a0704b] hover:bg-[#a0704b]/10 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-accent-ink hover:bg-primary/10 rounded-lg transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Slot
@@ -582,7 +582,7 @@ export function WaitlistEntryModal({
                       onChange={(e) =>
                         updateSlotPreference(i, "location", e.target.value)
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       {locations
                         .filter((l) => l !== "All Locations")
@@ -601,7 +601,7 @@ export function WaitlistEntryModal({
                           e.target.value || null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Any day</option>
                       {DAYS.map((d) => (
@@ -619,7 +619,7 @@ export function WaitlistEntryModal({
                           e.target.value || null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#a0704b] flex-1"
+                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary flex-1"
                     >
                       <option value="">Any time</option>
                       {(sp.day_of_week
@@ -640,7 +640,7 @@ export function WaitlistEntryModal({
                           e.target.value ? Number(e.target.value) : null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Any tutor</option>
                       {[...tutors]
@@ -654,7 +654,7 @@ export function WaitlistEntryModal({
                     </select>
                     <button
                       onClick={() => removeSlotPreference(i)}
-                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                      className="p-1 text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -676,7 +676,7 @@ export function WaitlistEntryModal({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#a0704b] hover:bg-[#8b6040] rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#8b6040] rounded-lg transition-colors disabled:opacity-50"
           >
             {saving ? "Saving..." : entry ? "Save Changes" : "Add to Waitlist"}
           </button>

@@ -21,7 +21,7 @@ export default function AdminExtensionsPage() {
         <div className="mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-              <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <Clock className="h-6 w-6 text-amber-700 dark:text-amber-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
@@ -29,7 +29,7 @@ export default function AdminExtensionsPage() {
               </h1>
               <p className="text-sm text-foreground/60">
                 Review and approve enrollment extension requests
-                {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
+                {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
               </p>
             </div>
           </div>

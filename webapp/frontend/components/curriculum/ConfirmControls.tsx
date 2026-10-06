@@ -92,7 +92,7 @@ export function RecordedNote({
         type="button"
         onClick={onUndo}
         disabled={busy}
-        className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 ml-1"
+        className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 ml-1"
       >
         {busy ? (
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -185,7 +185,7 @@ export function KindQuestion({
           disabled={saving != null}
           className={cn(
             hitArea,
-            "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
+            "rounded text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
           )}
         >
           <X className="h-3 w-3" />

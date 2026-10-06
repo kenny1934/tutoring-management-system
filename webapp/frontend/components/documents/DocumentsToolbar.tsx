@@ -81,7 +81,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         {!isTemplatesTab && !isTrashTab && (
           <button
             onClick={onOpenMobileDrawer}
-            className="lg:hidden p-1.5 mr-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="lg:hidden p-1.5 mr-1 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <FolderOpen className="w-4 h-4" />
           </button>
@@ -95,7 +95,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               className={cn(
                 "px-2.5 py-1 text-[13px] font-medium rounded-md transition-colors",
                 activeTab === tab.id && !isTrashTab
-                  ? "text-[#a0704b] dark:text-[#cd853f] bg-[#a0704b]/10 dark:bg-[#cd853f]/10 border-b-2 border-[#a0704b] dark:border-[#cd853f] rounded-b-none"
+                  ? "text-accent-ink dark:text-[#cd853f] bg-primary/10 dark:bg-[#cd853f]/10 border-b-2 border-primary dark:border-[#cd853f] rounded-b-none"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b-2 border-transparent"
               )}
             >
@@ -127,7 +127,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                 </button>
                 <button
                   onClick={onCreateDocument}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-md bg-[#a0704b] text-white hover:bg-[#8b5e3c] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-md bg-primary text-white hover:bg-[#8b5e3c] transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">New</span>
@@ -141,17 +141,17 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       {/* Row 2: Search + filters + view controls */}
       <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
         <div className="relative flex-1 min-w-0 sm:max-w-[14rem]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
           <input
             type="text"
             placeholder="Search by title or tag..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a]/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40 focus:border-[#a0704b]/40 transition-colors"
+            className="w-full pl-8 pr-7 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a]/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-colors"
           />
           {search && (
             <button onClick={() => onSearchChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-              <X className="w-3 h-3 text-gray-400" />
+              <X className="w-3 h-3 text-gray-500" />
             </button>
           )}
         </div>
@@ -174,7 +174,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                   onClick={() => { onSortChange(i); setShowSortMenu(false); }}
                   className={cn(
                     "w-full px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors",
-                    sortIdx === i ? "text-[#a0704b] dark:text-[#cd853f] font-medium" : "text-gray-600 dark:text-gray-400"
+                    sortIdx === i ? "text-accent-ink dark:text-[#cd853f] font-medium" : "text-gray-600 dark:text-gray-400"
                   )}
                 >
                   {opt.label}
@@ -188,14 +188,14 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         <div className="hidden sm:flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
           <button
             onClick={() => onViewModeChange("table")}
-            className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}
+            className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-accent-ink dark:text-[#cd853f]" : "text-gray-500 hover:text-gray-600")}
             title="Table view" aria-label="Table view"
           >
             <Table2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onViewModeChange("grid")}
-            className={cn("p-1 rounded transition-all", viewMode === "grid" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}
+            className={cn("p-1 rounded transition-all", viewMode === "grid" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-accent-ink dark:text-[#cd853f]" : "text-gray-500 hover:text-gray-600")}
             title="Grid view" aria-label="Grid view"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -208,8 +208,8 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
           className={cn(
             "hidden lg:flex p-1.5 rounded-md transition-colors focus-warm",
             previewEnabled
-              ? "bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f]"
-              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              ? "bg-primary/10 text-accent-ink dark:text-[#cd853f]"
+              : "text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"
           )}
           title="Preview pane" aria-label="Toggle preview pane"
         >
@@ -247,7 +247,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                 </>
               )}
               <div className="flex-1" />
-              <button onClick={onClearSelection} className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <button onClick={onClearSelection} className="text-[11px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                 Clear
               </button>
             </>
@@ -255,22 +255,22 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             <>
               {folderPath && folderPath.length > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-line">
-                  <FolderOpen className="w-3 h-3 text-[#a0704b]/60" />
+                  <FolderOpen className="w-3 h-3 text-accent-ink/60" />
                   {folderPath.map((f, i) => (
                     <span key={f.id} className="inline-flex items-center gap-1">
-                      {i > 0 && <span className="text-gray-300 dark:text-gray-600">/</span>}
-                      <button onClick={() => onClearFolder(f.id)} className="hover:text-[#a0704b] transition-colors" title={`Go to ${f.name}`}>
+                      {i > 0 && <span className="text-gray-300 dark:text-gray-400">/</span>}
+                      <button onClick={() => onClearFolder(f.id)} className="hover:text-accent-ink transition-colors" title={`Go to ${f.name}`}>
                         {f.name}
                       </button>
                     </span>
                   ))}
-                  <button onClick={() => onClearFolder()} className="ml-0.5 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>
+                  <button onClick={() => onClearFolder()} className="ml-0.5 text-gray-500 hover:text-gray-600"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {activeTags.map((tag) => (
                 <span key={tag} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium", getTagColor(tag))}>
                   {tag}
-                  <button onClick={() => onClearTag(tag)} className="ml-0.5 hover:text-red-500"><X className="w-3 h-3" /></button>
+                  <button onClick={() => onClearTag(tag)} className="ml-0.5 hover:text-red-600"><X className="w-3 h-3" /></button>
                 </span>
               ))}
             </>

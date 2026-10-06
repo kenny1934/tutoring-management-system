@@ -247,7 +247,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             title={`Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${slot.grade} slot`}
             className="shrink-0 flex items-center"
           >
-            <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grades" />
+            <AlertTriangle className="h-3 w-3 text-amber-700" aria-label="Mixed grades" />
           </span>
         )}
 
@@ -265,7 +265,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
           {!readOnly && (
             <button
               onClick={onDelete}
-              className="p-0.5 text-muted-foreground hover:text-red-500"
+              className="p-0.5 text-muted-foreground hover:text-red-600"
               title="Delete slot"
             >
               <Trash2 className="h-3 w-3" />
@@ -423,14 +423,14 @@ export const SummerSlotCard = memo(function SummerSlotCard({
                   title={`${p.grade} student in a ${slot.grade} slot`}
                   className="shrink-0 flex items-center"
                 >
-                  <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade mismatch" />
+                  <AlertTriangle className="h-2.5 w-2.5 text-amber-700" aria-label="Grade mismatch" />
                 </span>
               )}
               <WorkflowStatusIcon status={p.application_status} />
               {!readOnly && (
                 <button
                   onClick={() => onRemoveSession(p.id, p.student_name)}
-                  className="p-0 text-muted-foreground hover:text-red-500"
+                  className="p-0 text-muted-foreground hover:text-red-600"
                   title="Remove"
                 >
                   <X className="h-2.5 w-2.5" />

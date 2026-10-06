@@ -87,7 +87,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
     )}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
-          <PieIcon className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+          <PieIcon className="h-5 w-5 text-accent-ink dark:text-[#cd853f]" />
           Termination Reasons
         </h2>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -95,7 +95,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
             onClick={() => setViewType("pie")}
             className={cn(
               "p-1 rounded",
-              viewType === "pie" ? "bg-[#a0704b]/15 text-accent-ink" : "hover:bg-muted/50"
+              viewType === "pie" ? "bg-primary/15 text-accent-ink" : "hover:bg-muted/50"
             )}
           >
             <PieIcon className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
             onClick={() => setViewType("bar")}
             className={cn(
               "p-1 rounded",
-              viewType === "bar" ? "bg-[#a0704b]/15 text-accent-ink" : "hover:bg-muted/50"
+              viewType === "bar" ? "bg-primary/15 text-accent-ink" : "hover:bg-muted/50"
             )}
           >
             <BarChart3 className="h-3.5 w-3.5" />

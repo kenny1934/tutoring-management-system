@@ -374,7 +374,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
             {lesson.course_type && (
               <span className={cn(
                 "text-[9px] font-bold px-0.5 rounded",
-                COURSE_TYPE_COLORS[lesson.course_type] || "text-primary/70"
+                COURSE_TYPE_COLORS[lesson.course_type] || "text-accent-ink/70"
               )}>
                 {lesson.course_type}
               </span>
@@ -385,7 +385,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 title={`Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${lesson.grade} lesson`}
                 className="shrink-0 flex items-center"
               >
-                <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grades" />
+                <AlertTriangle className="h-3 w-3 text-amber-700" aria-label="Mixed grades" />
               </span>
             )}
           </>
@@ -397,7 +397,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="p-0.5 text-muted-foreground hover:text-red-500 shrink-0 disabled:opacity-50"
+            className="p-0.5 text-muted-foreground hover:text-red-600 shrink-0 disabled:opacity-50"
             title="Delete Make-up Slot"
           >
             <Trash2 className="h-3 w-3" />
@@ -491,18 +491,18 @@ export const SummerLessonCard = memo(function SummerLessonCard({
             >
               {isPending && (
                 <span title={s.session_status}>
-                  <AlertTriangle className="h-3 w-3 text-orange-500 shrink-0" />
+                  <AlertTriangle className="h-3 w-3 text-orange-700 shrink-0" />
                 </span>
               )}
               {isBooked && (
                 <span title={s.session_status}>
-                  <Loader2 className="h-3 w-3 text-gray-400 shrink-0" />
+                  <Loader2 className="h-3 w-3 text-gray-500 shrink-0" />
                 </span>
               )}
               <div
                 className={cn(
                   "flex-1 min-w-0",
-                  isPending && "line-through text-orange-600 dark:text-orange-400",
+                  isPending && "line-through text-orange-700 dark:text-orange-400",
                   isBooked && "line-through text-gray-500 dark:text-gray-400",
                 )}
               >
@@ -524,7 +524,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                   title={`${s.grade} student in a ${lesson.grade} lesson`}
                   className="shrink-0 flex items-center"
                 >
-                  <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade mismatch" />
+                  <AlertTriangle className="h-2.5 w-2.5 text-amber-700" aria-label="Grade mismatch" />
                 </span>
               )}
               <WorkflowStatusIcon status={s.application_status} />
@@ -619,7 +619,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
               {!readOnly && onRemoveSession && (
                 <button
                   onClick={() => onRemoveSession(s.id, s.student_name)}
-                  className="p-0 text-muted-foreground hover:text-red-500 shrink-0"
+                  className="p-0 text-muted-foreground hover:text-red-600 shrink-0"
                   title="Remove from this lesson"
                 >
                   <X className="h-3 w-3" />

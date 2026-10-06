@@ -136,7 +136,7 @@ function FieldValue({
           className="p-0.5 text-muted-foreground hover:text-foreground"
           title="Copy to clipboard"
         >
-          {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-700" /> : <Copy className="h-3 w-3" />}
         </button>
       )}
     </div>
@@ -192,7 +192,7 @@ function StudentSuggestionRow({
         )}
       </div>
       <span
-        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary opacity-0 group-hover/row:opacity-100 transition-opacity"
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-accent-ink opacity-0 group-hover/row:opacity-100 transition-opacity"
         aria-hidden
       >
         Link <ArrowRight className="h-3 w-3" />
@@ -984,7 +984,7 @@ export function RegularApplicationDetailModal({
                       <button
                         type="button"
                         onClick={() => setEditingDetails((v) => !v)}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:text-accent-ink/80"
                       >
                         <Pencil className="h-3 w-3" />
                         {editingDetails ? "Cancel" : "Edit details"}
@@ -1244,13 +1244,13 @@ export function RegularApplicationDetailModal({
                   {(app.wechat_id || app.contact_phone) && (
                     <InfoBlock
                       icon={Phone}
-                      tone="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                      tone="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                       title="Contact"
                     >
                       <FieldValue
                         label={
                           <span className="inline-flex items-center gap-1">
-                            <WeChatIcon className="h-3 w-3 text-green-600" />
+                            <WeChatIcon className="h-3 w-3 text-green-700" />
                             WeChat
                           </span>
                         }
@@ -1275,7 +1275,7 @@ export function RegularApplicationDetailModal({
 
                   <InfoBlock
                     icon={Clock}
-                    tone="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                    tone="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
                     title="Schedule Preferences"
                   >
                     {prefText(app.preference_1_day, app.preference_1_time) ||
@@ -1311,7 +1311,7 @@ export function RegularApplicationDetailModal({
                   preferences above it. */}
               <InfoBlock
                 icon={Grid3X3}
-                tone="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400"
+                tone="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400"
                 title="Placement"
               >
                 {assignedSlot ? (
@@ -1324,7 +1324,7 @@ export function RegularApplicationDetailModal({
                       {displayLocation(assignedSlot.location)}
                       {" · "}
                       {assignedSlot.tutor_name || (
-                        <span className="text-amber-600 dark:text-amber-400">No tutor set</span>
+                        <span className="text-amber-700 dark:text-amber-400">No tutor set</span>
                       )}
                       {assignedSlot.grade ? ` · ${assignedSlot.grade} class` : ""}
                     </div>
@@ -1344,7 +1344,7 @@ export function RegularApplicationDetailModal({
               {activePromo && (
                 <InfoBlock
                   icon={Ticket}
-                  tone="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                  tone="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
                   title="Offer"
                 >
                   {!promoLive ? (
@@ -1371,7 +1371,7 @@ export function RegularApplicationDetailModal({
                           title="Copy to clipboard"
                         >
                           {promoCodeCopied ? (
-                            <Check className="h-3.5 w-3.5 text-green-500" />
+                            <Check className="h-3.5 w-3.5 text-green-700" />
                           ) : (
                             <Copy className="h-3.5 w-3.5" />
                           )}
@@ -1475,7 +1475,7 @@ export function RegularApplicationDetailModal({
                 disabled={!canEdit}
                 summary={pickedStudentId && linkedStudent ? (
                   <span className="inline-flex items-center gap-1 text-foreground">
-                    <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
+                    <UserCheck className="h-3 w-3 text-green-700 shrink-0" />
                     <StudentInfoBadges
                       compact
                       showLink
@@ -1499,7 +1499,7 @@ export function RegularApplicationDetailModal({
                   <div className="space-y-1">
                     <div className="flex items-start gap-2 flex-wrap">
                       <span className="inline-flex items-center gap-1.5">
-                        <UserCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        <UserCheck className="h-3.5 w-3.5 text-green-700 shrink-0" />
                         <StudentInfoBadges
                           showLink
                           showLocationPrefix
@@ -1550,7 +1550,7 @@ export function RegularApplicationDetailModal({
                     {linkedStudent.home_location &&
                       systemLocation &&
                       linkedStudent.home_location !== systemLocation && (
-                        <div className="ml-5 text-[10px] text-amber-600 dark:text-amber-400">
+                        <div className="ml-5 text-[10px] text-amber-700 dark:text-amber-400">
                           Home branch ({linkedStudent.home_location}) differs from the branch applied for ({systemLocation}).
                         </div>
                       )}
@@ -1736,7 +1736,7 @@ export function RegularApplicationDetailModal({
                           <button
                             type="button"
                             onClick={() => setProspectModalOpen(true)}
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            className="inline-flex items-center gap-1 text-xs text-accent-ink hover:underline"
                             title="Find and link a P6 prospect"
                           >
                             <Link2 className="h-3 w-3" />
@@ -1838,7 +1838,7 @@ export function RegularApplicationDetailModal({
                     Blocked
                   </span>
                 ) : (
-                  <span className="text-[10px] text-primary font-medium">Ready</span>
+                  <span className="text-[10px] text-accent-ink font-medium">Ready</span>
                 )}
               >
               {enrollmentId ? (

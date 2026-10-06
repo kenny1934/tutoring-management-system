@@ -53,7 +53,7 @@ export const toolbarRow = cn(
 // Every toolbar button is 44px, the size a finger can hit at the board.
 export const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
 export const tbBtnIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-ink-subtle";
-export const tbBtnOn = "bg-[#a0704b] text-white";
+export const tbBtnOn = "bg-primary text-white";
 const tbBtnClass = cn(tbBtn, tbBtnIdle, "transition-colors");
 const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
 
@@ -932,14 +932,14 @@ export function PdfPageViewer({
     return withStartBar(
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-          <AlertTriangle className="h-10 w-10 text-amber-500" />
+          <AlertTriangle className="h-10 w-10 text-amber-700" />
           <p className="text-sm text-ink-subtle">
             {error || processError}
           </p>
           {onRetry && (
             <button
               onClick={onRetry}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-primary text-white hover:bg-[#8b6040] transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Try again
@@ -987,7 +987,7 @@ export function PdfPageViewer({
           </span>
         )}
         {pageNumbers.length > 0 && (
-          <span className="flex-none text-[10px] text-[#b0a090] dark:text-[#706050]">
+          <span className="flex-none text-[10px] text-ink-subtle dark:text-[#706050]">
             p{formatCompactPageRange(pageNumbers)}
           </span>
         )}
@@ -1224,7 +1224,7 @@ export function PdfPageViewer({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-ink-subtle py-0.5 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-ink-subtle py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <span>/ {pages.length}</span>
         </div>

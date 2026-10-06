@@ -24,7 +24,7 @@ export function SummerClassHeader({ classInfo, className }: SummerClassHeaderPro
         className,
       )}
     >
-      <Sun className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+      <Sun className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
       <span className="text-xs font-semibold text-amber-800 dark:text-amber-200 whitespace-nowrap">
         {formatSummerClassLabel(classInfo)}
       </span>

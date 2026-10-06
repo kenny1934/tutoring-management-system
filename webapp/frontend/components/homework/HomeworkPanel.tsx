@@ -71,7 +71,7 @@ export function HomeworkPanel({
       />
 
       {!readOnly && (
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Homework marks save as you tap them.
         </p>
       )}

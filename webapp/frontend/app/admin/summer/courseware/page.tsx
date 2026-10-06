@@ -191,13 +191,13 @@ export default function AdminSummerCoursewarePage() {
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                <BookOpen className="h-5 w-5 text-sky-700 dark:text-sky-400" />
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">Summer Courseware</h1>
                 <p className="text-xs text-muted-foreground">
                   Scanned snapshot of the courseware drive, used for lesson defaults
-                  {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
+                  {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
                 </p>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function AdminSummerCoursewarePage() {
                   Lesson defaults switch on automatically once the index exists.
                 </p>
                 {!isFileSystemAccessSupported() && (
-                  <p className="mt-3 text-sm text-amber-600">
+                  <p className="mt-3 text-sm text-amber-700">
                     Folder scanning needs Chrome or Edge.
                   </p>
                 )}
@@ -316,7 +316,7 @@ export default function AdminSummerCoursewarePage() {
                       {index.unclassified.map((f) => (
                         <li key={f.id}>
                           {f.rel_path}
-                          <span className="ml-2 font-sans text-amber-600 dark:text-amber-400">
+                          <span className="ml-2 font-sans text-amber-700 dark:text-amber-400">
                             ({f.unclassified_reason})
                           </span>
                         </li>

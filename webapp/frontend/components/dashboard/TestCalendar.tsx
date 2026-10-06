@@ -32,7 +32,7 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string 
   Test: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300", dot: "bg-red-500" },
   Exam: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300", dot: "bg-purple-500" },
   Quiz: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300", dot: "bg-green-500" },
-  Holiday: { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-500 dark:text-rose-400", dot: "bg-rose-400" },
+  Holiday: { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-400" },
 };
 
 // Days until urgency colors
@@ -177,7 +177,7 @@ function TestItemPopover({
                   {event.title}
                 </span>
                 {hasDescription && (
-                  <BookOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                  <BookOpen className="h-3 w-3 text-gray-500 flex-shrink-0" />
                 )}
               </div>
               {/* Revision stats */}
@@ -187,7 +187,7 @@ function TestItemPopover({
                     <GraduationCap className="h-3 w-3" />
                     {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
                   </span>
-                  <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" title="Students enrolled">
+                  <span className="inline-flex items-center gap-0.5 text-green-700 dark:text-green-400" title="Students enrolled">
                     <UserCheck className="h-3 w-3" />
                     {stats.enrolled}
                   </span>
@@ -208,7 +208,7 @@ function TestItemPopover({
                   className="p-0.5 rounded hover:bg-[#d4a574]/30 transition-colors"
                   title="Edit event"
                 >
-                  <Pencil className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                  <Pencil className="h-3.5 w-3.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                 </button>
               )}
               {event.daysUntil !== undefined && (
@@ -253,7 +253,7 @@ function TestItemPopover({
         <div className="flex items-center gap-1 min-w-0">
           <div className={cn("font-medium truncate", colors.text)}>{event.title}</div>
           {hasDescription && (
-            <BookOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
+            <BookOpen className="h-3 w-3 text-gray-500 flex-shrink-0" />
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -281,7 +281,7 @@ function TestItemPopover({
             <GraduationCap className="h-2.5 w-2.5" />
             {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
           </span>
-          <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" title="Students enrolled">
+          <span className="inline-flex items-center gap-0.5 text-green-700 dark:text-green-400" title="Students enrolled">
             <UserCheck className="h-2.5 w-2.5" />
             {stats.enrolled}
           </span>
@@ -550,7 +550,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         !isMobile && "paper-texture",
         className
       )}>
-        <div className="text-center text-red-500 dark:text-red-400">
+        <div className="text-center text-red-600 dark:text-red-400">
           <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
           <p className="text-sm">Failed to load calendar events</p>
         </div>
@@ -571,7 +571,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Tests & Exams</h3>
           <Link
             href="/exams"
-            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-accent-ink transition-colors"
+            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-primary/10 hover:bg-primary/20 text-accent-ink transition-colors"
           >
             <GraduationCap className="h-3 w-3" />
             <span className="hidden sm:inline">Revision</span>
@@ -598,7 +598,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                 exit={{ opacity: 0 }}
                 className={cn(
                   "text-xs mr-1 items-center gap-1 hidden sm:flex",
-                  lastSyncMessage.includes('failed') ? "text-red-500" : "text-green-600 dark:text-green-400"
+                  lastSyncMessage.includes('failed') ? "text-red-600" : "text-green-700 dark:text-green-400"
                 )}
               >
                 {lastSyncMessage.includes('failed') ? (
@@ -651,7 +651,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
       {/* Out of sync range warning with load button */}
       {!isMonthInSyncRange && (
-        <div className="flex-shrink-0 mx-3 mb-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+        <div className="flex-shrink-0 mx-3 mb-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
           <span>Events may not be loaded.</span>
           <button
             onClick={() => handleLoadOlderMonth(currentMonth)}
@@ -700,9 +700,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                   "relative h-7 rounded text-sm transition-colors",
                   isCurrentMonth
                     ? "text-gray-900 dark:text-gray-100"
-                    : "text-gray-400 dark:text-gray-600",
+                    : "text-gray-500 dark:text-gray-400",
                   isToday && "font-bold",
-                  isSelected && "bg-[#a0704b] text-white",
+                  isSelected && "bg-primary text-white",
                   !isSelected && holiday && "bg-rose-500/10",
                   !isSelected && hasEvents && "hover:bg-[#d4a574]/30",
                   !isSelected && !hasEvents && !holiday && "hover:bg-gray-100 dark:hover:bg-gray-800",
@@ -711,7 +711,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
               >
                 <span className={cn(
                   "flex items-center justify-center h-full",
-                  isToday && !isSelected && "ring-2 ring-[#a0704b] ring-inset rounded"
+                  isToday && !isSelected && "ring-2 ring-primary ring-inset rounded"
                 )}>
                   {date.getDate()}
                 </span>
@@ -719,7 +719,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                 {/* Holiday indicator */}
                 {holiday && !isSelected && (
                   <div className="absolute top-0.5 right-0.5">
-                    <CalendarDays className="h-2 w-2 text-rose-400" />
+                    <CalendarDays className="h-2 w-2 text-rose-600" />
                   </div>
                 )}
 
@@ -752,15 +752,15 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             className={cn(
               "text-sm transition-colors",
               selectedDate
-                ? "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
-                : "text-[#a0704b] dark:text-[#cd853f]"
+                ? "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-400"
+                : "text-accent-ink dark:text-[#cd853f]"
             )}
           >
             Upcoming
           </button>
           {selectedDate && (
             <>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <span className="text-gray-300 dark:text-gray-400">|</span>
               <span className="text-sm text-accent-ink">
                 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
@@ -796,7 +796,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
               {canManageEvents && (
                 <button
                   onClick={() => handleOpenCreate(selectedDate!)}
-                  className="w-full mt-1 py-1.5 text-xs font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-green-400 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors flex items-center justify-center gap-1"
+                  className="w-full mt-1 py-1.5 text-xs font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-green-400 hover:text-green-700 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors flex items-center justify-center gap-1"
                 >
                   <Plus className="h-3 w-3" />
                   Add event
@@ -822,7 +822,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             <div className="flex flex-col items-center justify-center px-3 py-4 text-gray-500 dark:text-gray-400">
               <NoUpcomingTests className="mb-1 opacity-80" />
               <p className="text-sm font-medium">All caught up!</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">No tests or exams coming up</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">No tests or exams coming up</p>
             </div>
           ) : (
             /* Show upcoming list */

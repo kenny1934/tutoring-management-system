@@ -469,7 +469,7 @@ export function ExtensionRequestReviewModal({
                   </button>
                   {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
                     <>
-                      <span className="text-gray-400">→</span>
+                      <span className="text-gray-500">→</span>
                       <button
                         onClick={(e) => handleEnrollmentClick(e, 'target')}
                         disabled={isFetchingEnrollment}
@@ -632,7 +632,7 @@ export function ExtensionRequestReviewModal({
                   )}
                 </div>
                 <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-between">
-                  <span className="text-green-600 dark:text-green-400">
+                  <span className="text-green-700 dark:text-green-400">
                     If Approved
                   </span>
                   {request._isLoading ? (
@@ -729,7 +729,7 @@ export function ExtensionRequestReviewModal({
 
             <div>
               <label className={labelClass}>
-                Rejection Reason <span className="text-red-500">*</span>
+                Rejection Reason <span className="text-red-600">*</span>
               </label>
               <textarea
                 value={rejectionReason}
@@ -746,7 +746,7 @@ export function ExtensionRequestReviewModal({
           <>
             <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
               <div className="flex items-start gap-3">
-                <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="h-6 w-6 text-green-700 flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-green-800 dark:text-green-200 font-medium">
                     Extension Approved
@@ -755,7 +755,7 @@ export function ExtensionRequestReviewModal({
                     Deadline extended by {request.extension_granted_weeks || weeksToGrant} week{(request.extension_granted_weeks || weeksToGrant) !== 1 ? "s" : ""}
                   </div>
                   {request.reviewed_at && (
-                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    <div className="text-xs text-green-700 dark:text-green-400 mt-1">
                       Approved on {new Date(request.reviewed_at).toLocaleDateString()}
                       {request.reviewed_by && ` by ${request.reviewed_by}`}
                     </div>
@@ -852,7 +852,7 @@ export function ExtensionRequestReviewModal({
               </button>
               {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
                 <>
-                  <span className="text-gray-400">→</span>
+                  <span className="text-gray-500">→</span>
                   <button
                     onClick={(e) => handleEnrollmentClick(e, 'target')}
                     disabled={isFetchingEnrollment}
@@ -873,7 +873,7 @@ export function ExtensionRequestReviewModal({
             {sessionForMakeup?.rescheduled_to_id && sessionForMakeup.rescheduled_to && (
               <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                 <div className="flex items-start gap-3">
-                  <CalendarCheck className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <CalendarCheck className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm text-blue-800 dark:text-blue-200 font-medium">
                       Session has been rescheduled
@@ -924,7 +924,7 @@ export function ExtensionRequestReviewModal({
           <>
             <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <div className="flex items-start gap-3">
-                <XCircle className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+                <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-red-800 dark:text-red-200 font-medium">
                     Request Rejected
@@ -1030,7 +1030,7 @@ export function ExtensionRequestReviewModal({
               </button>
               {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
                 <>
-                  <span className="text-gray-400">→</span>
+                  <span className="text-gray-500">→</span>
                   <button
                     onClick={(e) => handleEnrollmentClick(e, 'target')}
                     disabled={isFetchingEnrollment}

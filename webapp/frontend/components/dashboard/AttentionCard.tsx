@@ -68,21 +68,21 @@ export const AttentionCard = memo(function AttentionCard({ pendingPayments, clas
     danger: {
       bg: 'bg-red-50 dark:bg-red-900/20',
       border: 'border-red-200 dark:border-red-800',
-      icon: 'text-red-500',
+      icon: 'text-red-600',
       text: 'text-red-700 dark:text-red-300',
       badge: 'bg-red-500 text-white',
     },
     warning: {
       bg: 'bg-orange-50 dark:bg-orange-900/20',
       border: 'border-orange-200 dark:border-orange-800',
-      icon: 'text-orange-500',
+      icon: 'text-orange-700',
       text: 'text-orange-700 dark:text-orange-300',
       badge: 'bg-orange-500 text-white',
     },
     info: {
       bg: 'bg-blue-50 dark:bg-blue-900/20',
       border: 'border-blue-200 dark:border-blue-800',
-      icon: 'text-blue-500',
+      icon: 'text-blue-600',
       text: 'text-blue-700 dark:text-blue-300',
       badge: 'bg-blue-500 text-white',
     },
@@ -106,7 +106,7 @@ export const AttentionCard = memo(function AttentionCard({ pendingPayments, clas
 
         <div className="p-6 text-center">
           <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-            <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-6 w-6 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>

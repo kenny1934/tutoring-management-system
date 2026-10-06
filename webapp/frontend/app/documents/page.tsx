@@ -710,11 +710,11 @@ export default function DocumentsPage() {
           {isTrashTab && (
             <div className="flex items-center gap-3 px-4 py-3 bg-red-50/60 dark:bg-red-950/10 border-b border-red-200/50 dark:border-red-900/30 shrink-0">
               <div className="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
+                <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Trash</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">Items here can be restored or permanently deleted</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Items here can be restored or permanently deleted</p>
               </div>
               <div className="flex-1" />
               {(documents?.length ?? 0) > 0 && (
@@ -775,7 +775,7 @@ export default function DocumentsPage() {
                         onDoubleClick={() => router.push(`/documents/${doc.id}`)}
                         className={cn(
                           "group relative rounded-xl border border-l-[3px] p-3 sm:p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
-                          selectedIds.has(doc.id) && "ring-2 ring-[#a0704b]/50 ring-offset-1",
+                          selectedIds.has(doc.id) && "ring-2 ring-primary/50 ring-offset-1",
                           "border-l-[#a0704b]/40",
                           doc.is_archived && !isTrashTab
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
@@ -791,13 +791,13 @@ export default function DocumentsPage() {
                             checked={selectedIds.has(doc.id)}
                             onChange={() => handleToggleSelect(doc.id)}
                             className={cn(
-                              "w-3.5 h-3.5 rounded border-line accent-[#a0704b] transition-opacity",
+                              "w-3.5 h-3.5 rounded border-line accent-primary transition-opacity",
                               selectedIds.has(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                             )}
                           />
                         </div>
                         <div className="flex items-center gap-2 mb-2">
-                          {doc.locked_by && <Lock className="w-3 h-3 text-amber-500" />}
+                          {doc.locked_by && <Lock className="w-3 h-3 text-amber-700" />}
                           <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
                             {!isReadOnly && (
                               <DocContextMenu
@@ -818,7 +818,7 @@ export default function DocumentsPage() {
                         </div>
                         <h3 title={doc.title} className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
                         {doc.content_preview && (
-                          <p className="text-[11px] text-gray-400 dark:text-gray-500 line-clamp-2 mt-0.5">{doc.content_preview}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">{doc.content_preview}</p>
                         )}
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                           {doc.created_by_name}
@@ -829,7 +829,7 @@ export default function DocumentsPage() {
                             {doc.tags.slice(0, 3).map((tag) => (
                               <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[9px] font-medium", getTagColor(tag))}>{tag}</span>
                             ))}
-                            {doc.tags.length > 3 && <span className="text-[9px] text-gray-400">+{doc.tags.length - 3}</span>}
+                            {doc.tags.length > 3 && <span className="text-[9px] text-gray-500">+{doc.tags.length - 3}</span>}
                           </div>
                         )}
                       </DraggableCard>
@@ -838,10 +838,10 @@ export default function DocumentsPage() {
                 ) : (
                   <div className="col-span-full flex flex-col items-center py-20 text-center">
                     <div className={cn("animate-empty-float w-16 h-16 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-[#f5ede3] dark:bg-[#2d2618]")}>
-                      {isTrashTab ? <Trash2 className="w-8 h-8 text-red-300 dark:text-red-800" /> : <FileText className="w-8 h-8 text-[#a0704b]/40 dark:text-[#cd853f]/30" />}
+                      {isTrashTab ? <Trash2 className="w-8 h-8 text-red-300 dark:text-red-800" /> : <FileText className="w-8 h-8 text-accent-ink/40 dark:text-[#cd853f]/30" />}
                     </div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[20rem]">{emptyMessage}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[20rem]">{emptyMessage}</p>
                   </div>
                 )}
               </div>
@@ -857,16 +857,16 @@ export default function DocumentsPage() {
                 >
                   {loadingMore ? (
                     <span className="flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-[#a0704b] animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-1 h-1 rounded-full bg-[#a0704b] animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-1 h-1 rounded-full bg-[#a0704b] animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
                     </span>
                   ) : "Load more"}
                 </button>
               </div>
             )}
             {documents && (
-              <p className="text-center text-[10px] text-gray-400 dark:text-gray-500 pb-4">
+              <p className="text-center text-[10px] text-gray-500 dark:text-gray-400 pb-4">
                 Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
               </p>
             )}
@@ -886,11 +886,11 @@ export default function DocumentsPage() {
         </div>{/* end white card */}
         <DragOverlay dropAnimation={null}>
           {activeDragData && (
-            <div className="px-3 py-2 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg border border-[#a0704b]/40 text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2 pointer-events-none">
-              <FileText className="w-4 h-4 text-[#a0704b]" />
+            <div className="px-3 py-2 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg border border-primary/40 text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2 pointer-events-none">
+              <FileText className="w-4 h-4 text-accent-ink" />
               <span className="truncate max-w-[200px]">{activeDragData.docTitle}</span>
               {activeDragData.selectedIds.length > 1 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#a0704b] text-white text-[10px] font-bold">
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold">
                   {activeDragData.selectedIds.length}
                 </span>
               )}
@@ -1007,7 +1007,7 @@ export default function DocumentsPage() {
                 <input autoFocus type="text" placeholder="Type a tag name..."
                   value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
-                  className="w-full px-3 py-2 rounded-lg border border-line bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                  className="w-full px-3 py-2 rounded-lg border border-line bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
                 {tagNames.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -1019,7 +1019,7 @@ export default function DocumentsPage() {
               </>
             ) : (
               <>
-                <p className="text-xs text-gray-400 mb-2">Click a tag to remove it from {selectedIds.size} document(s)</p>
+                <p className="text-xs text-gray-500 mb-2">Click a tag to remove it from {selectedIds.size} document(s)</p>
                 {(() => {
                   // Collect tags from selected docs
                   const selectedDocs = (documents ?? []).filter(d => selectedIds.has(d.id));
@@ -1031,7 +1031,7 @@ export default function DocumentsPage() {
                         <button key={tag} onClick={() => executeBulkRemoveTag(tag)} className={cn("px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80 hover:line-through", getTagColor(tag))}>{tag}</button>
                       ))}
                     </div>
-                  ) : <p className="text-xs text-gray-400 italic">Selected documents have no tags</p>;
+                  ) : <p className="text-xs text-gray-500 italic">Selected documents have no tags</p>;
                 })()}
               </>
             )}
@@ -1054,7 +1054,7 @@ export default function DocumentsPage() {
           >
             <div className="flex justify-between items-center mb-3">
               <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Keyboard Shortcuts</span>
-              <button onClick={() => setShowShortcutHints(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <button onClick={() => setShowShortcutHints(false)} className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                 <XIcon className="h-4 w-4" />
               </button>
             </div>

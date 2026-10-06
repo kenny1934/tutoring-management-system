@@ -270,7 +270,7 @@ export function EditRevisionSlotModal({
                     checked={useCustomTime}
                     onChange={(e) => setUseCustomTime(e.target.checked)}
                     aria-label="Use custom time"
-                    className="w-3.5 h-3.5 rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-accent-ink focus:ring-primary"
                   />
                   Custom time
                 </label>
@@ -292,7 +292,7 @@ export function EditRevisionSlotModal({
                     required
                     aria-required="true"
                   />
-                  <span className="text-gray-400">–</span>
+                  <span className="text-gray-500">–</span>
                   <input
                     type="time"
                     value={customEndTime}
@@ -307,7 +307,7 @@ export function EditRevisionSlotModal({
                   />
                 </div>
                 {!isTimeValid && (
-                  <p className="mt-1 text-xs text-red-500">End time must be after start time</p>
+                  <p className="mt-1 text-xs text-red-600">End time must be after start time</p>
                 )}
               </div>
             ) : (
@@ -428,7 +428,7 @@ export function EditRevisionSlotModal({
               title={readOnly ? "Read-only access" : undefined}
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",
+                "bg-primary hover:bg-[#8a5f3e] text-white",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >

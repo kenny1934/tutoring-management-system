@@ -308,7 +308,7 @@ function LoginContent() {
                   animation: "fade-up 0.4s ease-out forwards",
                 }}
               >
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-red-700 dark:text-red-300">{errorMessage}</p>
               </div>
             )}

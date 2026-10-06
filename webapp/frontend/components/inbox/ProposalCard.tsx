@@ -119,7 +119,7 @@ function SlotItem({
 
           <div className="space-y-1 text-sm">
             <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
-              <Calendar className="h-4 w-4 text-[#a0704b]" />
+              <Calendar className="h-4 w-4 text-accent-ink" />
               {formatProposalDate(slot.proposed_date)} at {slot.proposed_time_slot}
             </div>
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -302,7 +302,7 @@ export const ProposalCard = memo(function ProposalCard({
         <div className="px-4 py-3 border-b border-line">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-[#a0704b]" />
+              <CalendarClock className="h-5 w-5 text-accent-ink" />
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-white">
                   Make-up Proposal
@@ -350,7 +350,7 @@ export const ProposalCard = memo(function ProposalCard({
         <div className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-line">
           Proposed by <span className="font-medium">{proposal.proposed_by_tutor_name || `Tutor #${proposal.proposed_by_tutor_id}`}</span>
           {isProposer && " (You)"}
-          <span className="text-gray-400 dark:text-gray-500 ml-2">
+          <span className="text-gray-500 dark:text-gray-400 ml-2">
             {new Date(proposal.created_at).toLocaleString("en-US", {
               month: "short",
               day: "numeric",
@@ -364,7 +364,7 @@ export const ProposalCard = memo(function ProposalCard({
         {proposal.notes && (
           <div className="px-4 py-2 text-sm bg-amber-50 dark:bg-amber-900/10 border-b border-line">
             <div className="flex items-start gap-2">
-              <MessageSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <MessageSquare className="h-4 w-4 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <p className="text-gray-700 dark:text-gray-300 italic">{proposal.notes}</p>
             </div>
           </div>
@@ -412,7 +412,7 @@ export const ProposalCard = memo(function ProposalCard({
                 <div className="flex gap-2">
                   <button
                     onClick={onSelectSlot}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors"
                   >
                     <Calendar className="h-4 w-4" />
                     Select Slot

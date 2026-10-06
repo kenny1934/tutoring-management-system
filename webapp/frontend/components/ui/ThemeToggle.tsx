@@ -45,9 +45,9 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
       >
         {mounted ? (
           isDark ? (
-            <Moon className="h-3.5 w-3.5 text-primary" />
+            <Moon className="h-3.5 w-3.5 text-accent-ink" />
           ) : (
-            <Sun className="h-3.5 w-3.5 text-amber-500" />
+            <Sun className="h-3.5 w-3.5 text-amber-700" />
           )
         ) : null}
       </div>

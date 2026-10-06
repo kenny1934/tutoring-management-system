@@ -174,7 +174,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
       title={
         <div className="flex items-center gap-2">
           <span className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/30">
-            <StickyNote className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <StickyNote className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           </span>
           <span>{isEditing ? "Edit Session Memo" : "Record Session Memo"}</span>
         </div>
@@ -211,7 +211,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
         {/* Student Search */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Student <span className="text-red-500">*</span>
+            Student <span className="text-red-600">*</span>
           </label>
           {student ? (
             <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
@@ -294,7 +294,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date <span className="text-red-500">*</span>
+              Date <span className="text-red-600">*</span>
             </label>
             <input type="date" value={memoDate} onChange={(e) => setMemoDate(e.target.value)} className={inputClass} />
           </div>
@@ -336,7 +336,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
           <div className="flex items-center gap-2">
             <StarRating rating={rating} onChange={setRating} size="lg" />
             {rating > 0 && (
-              <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">({rating}/5)</span>
+              <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">({rating}/5)</span>
             )}
           </div>
         </div>
@@ -364,7 +364,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
           </div>
 
           {exercises.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 italic">No exercises added yet</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 italic">No exercises added yet</p>
           ) : (
             <div className="space-y-2">
               {exercises.map((ex, i) => (
@@ -389,7 +389,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                   </span>
                   <div className="flex-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center">
                     <div className="flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <FileText className="h-3.5 w-3.5 text-gray-500 shrink-0" />
                       <input
                         type="text"
                         value={ex.pdf_name}
@@ -407,7 +407,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                         className="w-14 px-1.5 py-1 text-sm text-center rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
                         min={1}
                       />
-                      <span className="text-gray-400 text-xs">-</span>
+                      <span className="text-gray-500 text-xs">-</span>
                       <input
                         type="number"
                         value={ex.page_end ?? ""}
@@ -420,7 +420,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
                     <button
                       type="button"
                       onClick={() => removeExercise(i)}
-                      className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded"
+                      className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

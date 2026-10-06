@@ -75,9 +75,9 @@ export function HandwrittenNote({
 
   const colorClass = {
     pencil: "text-gray-600 dark:text-gray-400",
-    bluePen: "text-blue-700 dark:text-blue-500",
+    bluePen: "text-blue-700 dark:text-blue-400",
     blackPen: "text-gray-900 dark:text-gray-200",
-    redPen: "text-red-600 dark:text-red-500",
+    redPen: "text-red-600 dark:text-red-400",
   }[color];
 
   const rotationValue = rotation !== undefined ? rotation : randomRotation;
@@ -218,10 +218,10 @@ export function UnderlineAnnotation({
   className,
 }: UnderlineAnnotationProps) {
   const colorClass = {
-    red: "text-red-500",
-    blue: "text-blue-500",
-    green: "text-green-500",
-    orange: "text-orange-500",
+    red: "text-red-600",
+    blue: "text-blue-600",
+    green: "text-green-700",
+    orange: "text-orange-700",
   }[color];
 
   const underlineStyle = {

@@ -166,7 +166,7 @@ export function PlotPanel({ latex, onLatexChange, reading, unit, onUnitChange, a
           type="checkbox"
           checked={markKeyPoints}
           onChange={(e) => setMarkKeyPoints(e.target.checked)}
-          className="h-5 w-5 accent-[#a0704b]"
+          className="h-5 w-5 accent-primary"
         />
         Mark the key points
       </label>

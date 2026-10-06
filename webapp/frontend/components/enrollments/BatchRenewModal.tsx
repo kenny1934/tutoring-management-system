@@ -64,7 +64,7 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 const REASON_COLORS: Record<string, string> = {
-  pending_makeups: "text-orange-600 dark:text-orange-400",
+  pending_makeups: "text-orange-700 dark:text-orange-400",
   conflicts: "text-red-600 dark:text-red-400",
   extension_pending: "text-blue-600 dark:text-blue-400",
   invalid_data: "text-gray-600 dark:text-gray-400",
@@ -285,7 +285,7 @@ export function BatchRenewModal({
       onClose={handleClose}
       title={
         <div className="flex items-center gap-2">
-          <RefreshCcw className="h-5 w-5 text-primary" />
+          <RefreshCcw className="h-5 w-5 text-accent-ink" />
           <span>Batch Renewal</span>
         </div>
       }
@@ -296,7 +296,7 @@ export function BatchRenewModal({
         {/* Checking step */}
         {step === "checking" && (
           <div className="flex flex-col items-center justify-center py-8 gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
             <p className="text-sm text-foreground/60">
               Checking eligibility for {enrollmentIds.length} enrollment
               {enrollmentIds.length > 1 ? "s" : ""}...
@@ -314,7 +314,7 @@ export function BatchRenewModal({
                 className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
               >
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400" />
                   <motion.span
                     key={finalEligible.length}
                     initial={{ scale: 1.2 }}
@@ -330,7 +330,7 @@ export function BatchRenewModal({
                 className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
               >
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <AlertTriangle className="h-5 w-5 text-amber-700 dark:text-amber-400" />
                   <motion.span
                     key={finalIneligible.length}
                     initial={{ scale: 1.2 }}
@@ -377,7 +377,7 @@ export function BatchRenewModal({
                               checked={overriddenIds.has(item.enrollment_id)}
                               onChange={() => handleToggleOverride(item.enrollment_id)}
                               whileTap={{ scale: 0.9 }}
-                              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer transition-transform"
+                              className="mt-1 h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer transition-transform"
                               title="Override and include in renewal"
                             />
                           )}
@@ -464,11 +464,11 @@ export function BatchRenewModal({
                                 checked={true}
                                 onChange={() => handleToggleOverride(item.enrollment_id)}
                                 whileTap={{ scale: 0.9 }}
-                                className="mt-1 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer transition-transform"
+                                className="mt-1 h-4 w-4 rounded border-amber-400 text-amber-700 focus:ring-amber-500 cursor-pointer transition-transform"
                                 title="Uncheck to remove from renewal"
                               />
                             ) : (
-                              <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-600 dark:text-green-400" />
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-700 dark:text-green-400" />
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
@@ -553,7 +553,7 @@ export function BatchRenewModal({
         {/* Creating step */}
         {step === "creating" && (
           <div className="flex flex-col items-center justify-center py-8 gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
             <p className="text-sm text-foreground/60">
               Creating {finalEligible.length} renewal
               {finalEligible.length > 1 ? "s" : ""}...
@@ -566,7 +566,7 @@ export function BatchRenewModal({
           <div className="flex flex-col items-center py-8 gap-4">
             {createdCount > 0 ? (
               <>
-                <CheckCircle2 className="h-12 w-12 text-green-500" />
+                <CheckCircle2 className="h-12 w-12 text-green-700" />
                 <div className="text-center">
                   <p className="text-lg font-medium">
                     {createdCount} Renewal{createdCount > 1 ? "s" : ""} Created
@@ -588,7 +588,7 @@ export function BatchRenewModal({
               </>
             ) : (
               <>
-                <AlertCircle className="h-12 w-12 text-amber-500" />
+                <AlertCircle className="h-12 w-12 text-amber-700" />
                 <p className="text-lg font-medium">No renewals created</p>
               </>
             )}
@@ -597,7 +597,7 @@ export function BatchRenewModal({
             {failedCount > 0 && (
               <div className="w-full mt-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                   <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
                     {failedCount} Failed
                   </span>

@@ -1982,7 +1982,7 @@ function SessionsPageContent() {
       <select
         value={tutorFilter}
         onChange={(e) => setTutorFilter(e.target.value)}
-        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
+        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
           backgroundRepeat: 'no-repeat',
@@ -2045,7 +2045,7 @@ function SessionsPageContent() {
             </button>
             <button
               onClick={() => setShowSelectDropdown(!showSelectDropdown)}
-              className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="p-0.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               title="Selection options (Ctrl+A all, Ctrl+Shift+A cycle markable/attended)"
             >
               <ChevronDown className="h-3 w-3" />
@@ -2131,7 +2131,7 @@ function SessionsPageContent() {
                 <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
                   <RefreshCw className="h-4 w-4" />
                   <span className="font-medium">Pending Make-ups</span>
-                  <span className="text-amber-600 dark:text-amber-400">({sessions.length} total)</span>
+                  <span className="text-amber-700 dark:text-amber-400">({sessions.length} total)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Sort toggle */}
@@ -2142,7 +2142,7 @@ function SessionsPageContent() {
                     }}
                     className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#1a1a1a] text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
                   >
-                    <ArrowUpDown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                    <ArrowUpDown className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                     {makeupSort === 'most' ? 'Most urgent' : 'Least urgent'}
                   </button>
                   <button
@@ -2170,7 +2170,7 @@ function SessionsPageContent() {
                         onClick={handleBulkAttended}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
                           bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
                         )}
                         title="Mark all as attended"
@@ -2198,7 +2198,7 @@ function SessionsPageContent() {
                         onClick={handleBulkReschedule}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                           bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                         )}
                         title="Mark all as rescheduled"
@@ -2212,7 +2212,7 @@ function SessionsPageContent() {
                         onClick={handleBulkSickLeave}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                           bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                         )}
                         title="Mark all as sick leave"
@@ -2226,7 +2226,7 @@ function SessionsPageContent() {
                         onClick={handleBulkWeatherCancelled}
                         disabled={bulkActionLoading !== null}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                           bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                         )}
                         title="Mark all as weather cancelled"
@@ -2255,7 +2255,7 @@ function SessionsPageContent() {
                     {/* Rate button - always visible */}
                     <button
                       onClick={() => setBulkRateModalOpen(true)}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
                       title="Rate selected sessions (R)"
                     >
                       <MessageSquarePlus className="h-3 w-3" />
@@ -2488,7 +2488,7 @@ function SessionsPageContent() {
                                               {session.root_original_session_date && session.root_original_session_date !== session.session_date ? (
                                                 <>
                                                   {new Date(session.root_original_session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                  <span className="text-gray-400 dark:text-gray-500 mx-1">&rarr;</span>
+                                                  <span className="text-gray-500 dark:text-gray-400 mx-1">&rarr;</span>
                                                   {dateStr}
                                                 </>
                                               ) : dateStr}
@@ -2508,7 +2508,7 @@ function SessionsPageContent() {
                                               {urgency.daysRemaining <= 0 ? 'Overdue' : `${urgency.daysRemaining}d left`}
                                             </span>
                                             {session.extension_request_id && (
-                                              <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" /></span>
+                                              <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" /></span>
                                             )}
                                           </div>
 
@@ -2520,8 +2520,8 @@ function SessionsPageContent() {
                                               className={cn(
                                                 "inline-flex items-center gap-1 text-xs px-2 py-1 rounded font-medium whitespace-nowrap transition-colors",
                                                 canScheduleMakeup
-                                                  ? "bg-teal-100 hover:bg-teal-200 dark:bg-teal-900/30 dark:hover:bg-teal-900/50 text-teal-600 dark:text-teal-400"
-                                                  : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                                                  ? "bg-teal-100 hover:bg-teal-200 dark:bg-teal-900/30 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-400"
+                                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                                               )}
                                               title={!canScheduleMakeup ? "Exceeds 60-day makeup limit" : "Schedule Make-up"}
                                             >
@@ -2639,19 +2639,19 @@ function SessionsPageContent() {
                           <div className="relative flex items-center">
                             <button
                               onClick={(e) => toggleSlotSelection(sessionsInSlot, e)}
-                              className="p-1 hover:bg-[#a0704b]/10 rounded transition-colors"
+                              className="p-1 hover:bg-primary/10 rounded transition-colors"
                               title={`Select all sessions in ${timeSlot}`}
                             >
                               {(() => {
                                 const state = getSlotSelectionState(sessionsInSlot);
                                 if (state === 'all') return <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-accent-ink" />;
                                 if (state === 'partial') return <MinusSquare className="h-4 w-4 sm:h-5 sm:w-5 text-accent-ink" />;
-                                return <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500" />;
+                                return <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />;
                               })()}
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === slotKey ? null : slotKey); }}
-                              className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              className="p-0.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                               title="Selection options (Ctrl+Shift+A cycle markable/attended when focused)"
                             >
                               <ChevronDown className="h-3 w-3" />
@@ -2700,9 +2700,9 @@ function SessionsPageContent() {
                               title={copyText}
                             >
                               {copiedSlot === slotKey ? (
-                                <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                <Check className="h-3.5 w-3.5 text-green-700 dark:text-green-400" />
                               ) : (
-                                <Copy className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                                <Copy className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
                               )}
                             </button>
                             <div>
@@ -2829,7 +2829,7 @@ function SessionsPageContent() {
                                 {selectedIds.has(session.id) ? (
                                   <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-accent-ink" />
                                 ) : (
-                                  <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+                                  <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
                                 )}
                               </button>
 
@@ -2863,7 +2863,7 @@ function SessionsPageContent() {
                                         </span>
                                         <SessionLessonBadge session={session} size="xs" />
                                         {session.enrollment_payment_status !== 'Cancelled' && isSessionUnpaid(session) && (
-                                          <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                                          <HandCoins className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
                                         )}
                                       </p>
                                       {session.grade && (
@@ -2873,10 +2873,10 @@ function SessionsPageContent() {
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                                       )}
                                       {session.exam_revision_slot_id && (
-                                        <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 hidden sm:inline" /></span>
+                                        <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-600 flex-shrink-0 hidden sm:inline" /></span>
                                       )}
                                       {session.extension_request_id && (
-                                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 hidden sm:inline" /></span>
+                                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0 hidden sm:inline" /></span>
                                       )}
                                       {session.enrollment_payment_status === 'Cancelled' && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">
@@ -3123,7 +3123,7 @@ function SessionsPageContent() {
                 </span>
                 <button
                   onClick={() => setShowShortcutHints(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <X className="h-4 w-4" />
                 </button>

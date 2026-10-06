@@ -320,7 +320,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               />
               {!isCollapsed && (
                 <div className="text-left">
-                  <span className="font-bold text-xl group-hover:text-primary transition-colors block">CSM Pro</span>
+                  <span className="font-bold text-xl group-hover:text-accent-ink transition-colors block">CSM Pro</span>
                   <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resource Orchestration</span>
                 </div>
               )}
@@ -446,7 +446,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
-                <Shield className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                <Shield className="h-5 w-5 text-amber-700 dark:text-amber-500" />
                 {showExpanded && (
                   <>
                     <span className="flex-1 text-left">Admin</span>

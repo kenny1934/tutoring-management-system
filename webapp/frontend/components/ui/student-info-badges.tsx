@@ -70,7 +70,7 @@ export function StudentInfoBadges({
   const nameClass = cn(
     "font-semibold text-gray-900 dark:text-white",
     compact ? "text-[10px]" : "text-sm",
-    onNameClick && "cursor-pointer hover:text-primary hover:underline text-left truncate",
+    onNameClick && "cursor-pointer hover:text-accent-ink hover:underline text-left truncate",
   );
 
   return (
@@ -98,7 +98,7 @@ export function StudentInfoBadges({
         <Link
           href={`/students/${student.student_id}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-[#a0704b] hover:text-[#8a5f3e] transition-colors"
+          className="text-accent-ink hover:text-[#8a5f3e] transition-colors"
         >
           <ExternalLink className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
         </Link>

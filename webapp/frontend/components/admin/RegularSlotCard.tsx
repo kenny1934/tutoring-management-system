@@ -273,7 +273,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
             title={mismatchTitle}
             className="shrink-0 flex items-center"
           >
-            <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grade or stream" />
+            <AlertTriangle className="h-3 w-3 text-amber-700" aria-label="Mixed grade or stream" />
           </span>
         )}
 
@@ -291,7 +291,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           {!readOnly && (
             <button
               onClick={onDelete}
-              className="p-0.5 text-muted-foreground hover:text-red-500"
+              className="p-0.5 text-muted-foreground hover:text-red-600"
               title="Delete slot"
             >
               <Trash2 className="h-3 w-3" />
@@ -426,12 +426,12 @@ export const RegularSlotCard = memo(function RegularSlotCard({
                     title={rowMismatchTitle}
                     className="shrink-0 flex items-center"
                   >
-                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade or stream mismatch" />
+                    <AlertTriangle className="h-2.5 w-2.5 text-amber-700" aria-label="Grade or stream mismatch" />
                   </span>
                 )}
                 {s.published ? (
                   <span className="shrink-0 flex items-center" title="Published as an enrollment">
-                    <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                    <CheckCircle2 className="h-3 w-3 text-green-700 dark:text-green-400" />
                   </span>
                 ) : (
                   <RegularWorkflowStatusIcon status={s.application_status} />
@@ -439,7 +439,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
                 {!readOnly && !s.published && (
                   <button
                     onClick={() => onUnassign(s.application_id, s.student_name)}
-                    className="p-0 text-muted-foreground hover:text-red-500"
+                    className="p-0 text-muted-foreground hover:text-red-600"
                     title="Unassign"
                   >
                     <X className="h-2.5 w-2.5" />

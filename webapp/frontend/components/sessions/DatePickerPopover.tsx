@@ -107,15 +107,15 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
           "flex items-center gap-1.5 px-2 py-1 text-sm",
           "bg-white dark:bg-[#1a1a1a]",
           "border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-          "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+          "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
         )}
       >
-        <CalendarDays className="h-3.5 w-3.5 text-[#a0704b]" />
+        <CalendarDays className="h-3.5 w-3.5 text-accent-ink" />
         <span className="hidden sm:inline">{triggerLabel}</span>
         <span className="sm:hidden">{triggerLabelShort}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-[#a0704b] transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("h-3.5 w-3.5 text-accent-ink transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {/* Calendar popover */}
@@ -157,7 +157,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
               {WEEKDAYS.map((day, i) => (
                 <div
                   key={i}
-                  className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500"
+                  className="text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400"
                 >
                   {day}
                 </div>
@@ -177,7 +177,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
                     onClick={() => handleDateClick(date)}
                     className={cn(
                       "h-8 w-full text-xs rounded-full flex items-center justify-center transition-colors",
-                      !isCurrentMonth && "text-gray-300 dark:text-gray-600",
+                      !isCurrentMonth && "text-gray-300 dark:text-gray-400",
                       isCurrentMonth && !isSelected && "text-gray-700 dark:text-gray-300",
                       isCurrentMonth && !isSelected && "hover:bg-tint",
                       isToday && !isSelected && "ring-1 ring-accent-ink font-semibold",
@@ -202,7 +202,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
                   "w-full px-2 py-1 text-xs",
                   "bg-white dark:bg-[#1a1a1a]",
                   "border border-gray-200 dark:border-gray-700 rounded",
-                  "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+                  "focus:outline-none focus:ring-1 focus:ring-primary",
                   "text-gray-700 dark:text-gray-300",
                   "placeholder:text-gray-400 dark:placeholder:text-gray-600"
                 )}

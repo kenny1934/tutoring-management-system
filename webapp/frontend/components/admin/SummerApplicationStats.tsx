@@ -221,7 +221,7 @@ export function SummerApplicationStats({ applications, filters, config, discount
             </div>
             <div className="flex items-center gap-4 text-xs">
               <span
-                className={cn("text-green-600 dark:text-green-400 font-medium", filters?.onPlacementFilter && "cursor-pointer hover:underline")}
+                className={cn("text-green-700 dark:text-green-400 font-medium", filters?.onPlacementFilter && "cursor-pointer hover:underline")}
                 onClick={filters?.onPlacementFilter ? () => filters.onPlacementFilter!("placed") : undefined}
               >
                 {placementData.placed} placed
@@ -324,10 +324,10 @@ export function SummerApplicationStats({ applications, filters, config, discount
           <StatCard icon={Users} value={buddyData.grouped} label={`In ${buddyData.groupCount} buddy groups`}
             onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("grouped") : undefined} />
           <StatCard icon={Users} value={buddyData.discountEligible} label="Discount eligible"
-            colorClass="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+            colorClass="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
             onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("threshold") : undefined} />
           <StatCard icon={Users} value={buddyData.needMore} label="Need more buddies"
-            colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+            colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
             onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("below") : undefined} />
         </div>
         {discountBreakdown && discountBreakdown.entries.length > 0 && (
@@ -424,7 +424,7 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
                     href={sheetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 text-primary hover:underline inline-flex items-center gap-0.5"
+                    className="ml-1 text-accent-ink hover:underline inline-flex items-center gap-0.5"
                   >
                     open <ExternalLink className="h-3 w-3" />
                   </a>

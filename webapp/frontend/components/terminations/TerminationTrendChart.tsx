@@ -191,7 +191,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
             onClick={() => setViewType("overview")}
             className={cn(
               "px-2 py-1 rounded flex items-center gap-1",
-              viewType === "overview" ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50"
+              viewType === "overview" ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50"
             )}
           >
             <LineChartIcon className="h-3 w-3" /> Overview
@@ -200,7 +200,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
             onClick={() => setViewType("reasons")}
             className={cn(
               "px-2 py-1 rounded flex items-center gap-1",
-              viewType === "reasons" ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50"
+              viewType === "reasons" ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50"
             )}
           >
             <BarChart3 className="h-3 w-3" /> Reasons

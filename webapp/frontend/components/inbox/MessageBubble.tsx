@@ -86,7 +86,7 @@ const SeenBadge = React.memo(function SeenBadge({
   const readByAll = message.read_by_all || false;
   const hasBeenRead = readCount > 0;
   const isBlue = readByAll;
-  const checkColor = isBlue ? "text-blue-500" : "text-gray-400 dark:text-gray-400";
+  const checkColor = isBlue ? "text-blue-600" : "text-gray-500 dark:text-gray-400";
 
   const showProgressBar = totalRecipients >= 3;
   const readPercent = totalRecipients > 0 ? Math.round((readCount / totalRecipients) * 100) : 0;
@@ -121,7 +121,7 @@ const SeenBadge = React.memo(function SeenBadge({
             </svg>
           )}
           {showProgressBar && (
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">
               {readCount}/{totalRecipients}
             </span>
           )}
@@ -130,7 +130,7 @@ const SeenBadge = React.memo(function SeenBadge({
       {showProgressBar && (
         <div className="w-20 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-500 bg-[#a0704b]"
+            className="h-full rounded-full transition-all duration-500 bg-primary"
             style={{ width: `${readPercent}%` }}
           />
         </div>
@@ -150,7 +150,7 @@ const SeenBadge = React.memo(function SeenBadge({
               <div className="px-3 py-1.5">
                 <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-500 bg-[#a0704b]"
+                    className="h-full rounded-full transition-all duration-500 bg-primary"
                     style={{ width: `${readPercent}%` }}
                   />
                 </div>
@@ -158,15 +158,15 @@ const SeenBadge = React.memo(function SeenBadge({
             )}
             <div className="max-h-[200px] overflow-y-auto">
               {readReceipts.length > 0 && (
-                <div className="px-3 pt-1 pb-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Read</div>
+                <div className="px-3 pt-1 pb-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Read</div>
               )}
               {readReceipts.map((receipt) => (
                 <div key={receipt.tutor_id} className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Check className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                    <Check className="h-3 w-3 text-blue-600 flex-shrink-0" />
                     <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{receipt.tutor_name}</span>
                   </div>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {new Date(receipt.read_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                   </span>
                 </div>
@@ -279,7 +279,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
     <div className="relative" ref={pickerRef}>
       <button
         onClick={() => { setShowPicker(!showPicker); setShowFullPicker(false); }}
-        className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+        className="p-1 rounded-full text-gray-500 hover:text-red-600 transition-colors"
         title="React"
         aria-haspopup="true"
         aria-expanded={showPicker}
@@ -309,7 +309,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
           <button
             ref={plusButtonRef}
             onClick={() => setShowFullPicker(true)}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-tint transition-colors text-sm text-gray-400"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-tint transition-colors text-sm text-gray-500"
             title="More emojis"
           >
             +
@@ -410,7 +410,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
               "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full shadow-sm text-xs transition-all duration-150",
               "hover:scale-110 hover:shadow-md active:scale-95",
               isMine
-                ? "bg-[#a0704b]/10 border border-[#a0704b]/60 dark:border-[#a0704b]/60"
+                ? "bg-primary/10 border border-primary/60 dark:border-[#a0704b]/60"
                 : "bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60"
             )}
             title={g.tutors.join(", ")}
@@ -434,7 +434,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
                     <span className="text-sm flex-shrink-0">{detail.emoji || "❤️"}</span>
                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{detail.tutor_name}</span>
                   </div>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {new Date(detail.liked_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                   </span>
                 </div>
@@ -636,7 +636,7 @@ const MessageBubble = React.memo(function MessageBubble({
               <button
                 onClick={handleSaveEdit}
                 disabled={isSaving || (isHtmlEmpty(editText) && editImages.length === 0)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 Save
@@ -729,14 +729,14 @@ const MessageBubble = React.memo(function MessageBubble({
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
-                  <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
+                  <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                     <FileText className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">{file.content_type.split('/').pop()?.toUpperCase()}</div>
                   </div>
-                  <Download className="h-4 w-4 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
+                  <Download className="h-4 w-4 text-gray-500 group-hover:text-accent-ink transition-colors flex-shrink-0" />
                 </a>
               )
             )}
@@ -758,19 +758,19 @@ const MessageBubble = React.memo(function MessageBubble({
           )}>
             <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
             {!isHtmlEmpty(m.message) && (
-              <button onClick={handleCopy} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Copy text">
+              <button onClick={handleCopy} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Copy text">
                 <Copy className="h-3.5 w-3.5" />
               </button>
             )}
-            <button onClick={onQuote} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Quote">
+            <button onClick={onQuote} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Quote">
               <Reply className="h-3.5 w-3.5" />
             </button>
-            <button onClick={onForward} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Forward">
+            <button onClick={onForward} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Forward">
               <Forward className="h-3.5 w-3.5" />
             </button>
             {isOwn && (
               <>
-                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Edit">
+                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Edit">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 {showDeleteConfirm ? (
@@ -783,13 +783,13 @@ const MessageBubble = React.memo(function MessageBubble({
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors"
+                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-400 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors" title="Delete">
+                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-500 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors" title="Delete">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -811,7 +811,7 @@ const MessageBubble = React.memo(function MessageBubble({
             "flex items-center justify-end gap-1 mt-1 transition-opacity",
             !isMobile && "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
           )}>
-            <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
               {formatMessageTime(m.created_at)}
               {m.updated_at && <span className="italic ml-1">(edited)</span>}
             </span>
@@ -825,7 +825,7 @@ const MessageBubble = React.memo(function MessageBubble({
             "flex items-center justify-end gap-1 mt-1 transition-opacity",
             !isMobile && "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
           )}>
-            <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
               {formatMessageTime(m.created_at)}
               {m.updated_at && <span className="italic ml-1">(edited)</span>}
             </span>

@@ -178,9 +178,9 @@ export function MyStudentsView({
             id="students-list-tab"
             onClick={() => setMobileTab('list')}
             className={cn(
-              "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]",
+              "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary",
               mobileTab === 'list'
-                ? "bg-[#a0704b] text-white"
+                ? "bg-primary text-white"
                 : "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
             )}
           >
@@ -193,9 +193,9 @@ export function MyStudentsView({
             id="calendar-tab"
             onClick={() => setMobileTab('calendar')}
             className={cn(
-              "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]",
+              "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary",
               mobileTab === 'calendar'
-                ? "bg-[#a0704b] text-white"
+                ? "bg-primary text-white"
                 : "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
             )}
           >

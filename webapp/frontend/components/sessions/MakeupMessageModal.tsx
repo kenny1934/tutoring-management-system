@@ -132,13 +132,13 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
               type="checkbox"
               checked={isEditable}
               onChange={(e) => setIsEditable(e.target.checked)}
-              className="rounded border-gray-300 text-sky-500 focus:ring-sky-400 shrink-0"
+              className="rounded border-gray-300 text-sky-700 focus:ring-sky-400 shrink-0"
             />
             <span className="whitespace-nowrap">Edit before copying</span>
             {isEditable && message !== originalMessage && (
               <button
                 onClick={handleReset}
-                className="text-xs text-sky-600 dark:text-sky-400 hover:underline whitespace-nowrap"
+                className="text-xs text-sky-700 dark:text-sky-400 hover:underline whitespace-nowrap"
               >
                 Reset
               </button>

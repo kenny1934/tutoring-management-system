@@ -30,10 +30,10 @@ function SourceFileCopy({ filename }: { filename: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="inline-flex items-center gap-0.5 text-[9px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+      className="inline-flex items-center gap-0.5 text-[9px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
       title="Click to copy source path"
     >
-      {copied ? <Check className="w-2.5 h-2.5 text-green-500" /> : <ScanLine className="w-2.5 h-2.5" />}
+      {copied ? <Check className="w-2.5 h-2.5 text-green-700" /> : <ScanLine className="w-2.5 h-2.5" />}
       <span className="truncate max-w-[8rem]">{filename}</span>
     </button>
   );
@@ -121,11 +121,11 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
             <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/20" />
             <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-[#f5ede3]/70 dark:bg-[#2d2618]/50" />
             <div className="relative w-12 h-16 rounded-lg bg-paper border border-line shadow-[var(--shadow-paper-sm)] flex items-center justify-center">
-              <FileText className="w-6 h-6 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
+              <FileText className="w-6 h-6 text-accent-ink/40 dark:text-[#cd853f]/30" />
             </div>
           </div>
-          <p className="text-[13px] font-medium text-gray-400 dark:text-gray-500">No document selected</p>
-          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Select a document to preview</p>
+          <p className="text-[13px] font-medium text-gray-500 dark:text-gray-400">No document selected</p>
+          <p className="text-xs text-gray-300 dark:text-gray-400 mt-1">Select a document to preview</p>
         </div>
       ) : (
         <div ref={fadeRef} className={cn("flex flex-col h-full", !collapsed && "min-w-[20rem]")}>
@@ -142,7 +142,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
               </button>
               <button
                 onClick={onClose}
-                className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors"
+                className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -154,19 +154,19 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                 <div className="h-3 w-1/2 rounded bg-gray-200 dark:bg-gray-700 shimmer-sepia" />
               </div>
             ) : error ? (
-              <div className="text-xs text-red-500">Failed to load document.</div>
+              <div className="text-xs text-red-600">Failed to load document.</div>
             ) : doc ? (
               <>
                 {/* Breadcrumb */}
                 {doc.folder_name && (
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate mb-0.5">{doc.folder_name}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mb-0.5">{doc.folder_name}</p>
                 )}
 
                 {/* Title + star */}
                 <div className="flex items-center gap-1.5 mb-1">
                   {onToggleStar && (
                     <button onClick={() => onToggleStar(docId)} className="shrink-0 p-0.5 rounded transition-colors hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]" aria-label={doc.is_starred ? "Unstar" : "Star"}>
-                      <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-400" : "text-gray-300 dark:text-gray-600")} />
+                      <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-700" : "text-gray-300 dark:text-gray-400")} />
                     </button>
                   )}
                   {editingTitle ? (
@@ -179,7 +179,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                         if (e.key === "Enter") commitRename();
                         if (e.key === "Escape") { committedRef.current = true; setEditingTitle(false); }
                       }}
-                      className="flex-1 min-w-0 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-[#a0704b]/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                      className="flex-1 min-w-0 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-primary/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   ) : (
                     <h2
@@ -193,12 +193,12 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                       {doc.title || "Untitled"}
                     </h2>
                   )}
-                  {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-500" />}
-                  {doc.is_archived && <span className="text-[9px] text-red-400 dark:text-red-500 italic shrink-0">In Trash</span>}
+                  {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-700" />}
+                  {doc.is_archived && <span className="text-[9px] text-red-600 dark:text-red-400 italic shrink-0">In Trash</span>}
                 </div>
 
                 {/* Metadata line */}
-                <div className="text-[11px] text-gray-400 dark:text-gray-500 mb-1.5">
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-1.5">
                   {doc.created_by_name}{doc.updated_at ? ` · ${formatTimeAgo(doc.updated_at)}` : ""}
                 </div>
 
@@ -210,7 +210,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                   {onEditTags && (
                     <button
                       onClick={() => onEditTags(docId)}
-                      className="inline-flex items-center justify-center w-5 h-5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-[#a0704b] hover:text-[#a0704b] dark:hover:border-[#cd853f] dark:hover:text-[#cd853f] transition-colors"
+                      className="inline-flex items-center justify-center w-5 h-5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-primary hover:text-accent-ink dark:hover:border-[#cd853f] dark:hover:text-[#cd853f] transition-colors"
                       title="Edit tags"
                     >
                       <Plus className="w-3 h-3" />
@@ -236,13 +236,13 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                         >
                           <FileText className="w-3 h-3 shrink-0" />
                           <span className="truncate">{doc.parent_title || `Doc #${doc.parent_id}`}</span>
-                          <span className="text-[9px] text-gray-400 ml-auto shrink-0">parent</span>
+                          <span className="text-[9px] text-gray-500 ml-auto shrink-0">parent</span>
                         </button>
                       )}
-                      <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded text-gray-700 dark:text-gray-300 font-medium ring-1 ring-[#a0704b]/20 bg-[#a0704b]/5", doc.parent_id && "pl-5")}>
+                      <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded text-gray-700 dark:text-gray-300 font-medium ring-1 ring-primary/20 bg-primary/5", doc.parent_id && "pl-5")}>
                         <FileText className="w-3 h-3 shrink-0" />
                         <span className="truncate">{doc.title}</span>
-                        <span className="text-[9px] text-gray-400 ml-auto shrink-0">current</span>
+                        <span className="text-[9px] text-gray-500 ml-auto shrink-0">current</span>
                       </div>
                       {doc.children?.map((child) => (
                         <button
@@ -253,7 +253,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                             !doc.parent_id && "pl-5"
                           )}
                         >
-                          <svg className="shrink-0 w-[14px] h-[14px] text-[#a0704b]/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
+                          <svg className="shrink-0 w-[14px] h-[14px] text-accent-ink/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
                         <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                           <span className="truncate">{child.title}</span>
@@ -271,13 +271,13 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                         {questionCount} question{questionCount !== 1 ? "s" : ""}
                       </span>
                       {solvedCount > 0 && (
-                        <span className="text-green-600 dark:text-green-400 font-medium">{solvedCount}/{questionCount}</span>
+                        <span className="text-green-700 dark:text-green-400 font-medium">{solvedCount}/{questionCount}</span>
                       )}
                     </div>
                     {solvedCount > 0 && (
                       <div className="h-1 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         <div
-                          className={cn("h-full rounded-full transition-[width] duration-700 ease-out", solvedCount === questionCount ? "bg-[#6aa87a]" : "bg-[#a0704b]")}
+                          className={cn("h-full rounded-full transition-[width] duration-700 ease-out", solvedCount === questionCount ? "bg-[#6aa87a]" : "bg-primary")}
                           style={{ width: `${(solvedCount / questionCount) * 100}%` }}
                         />
                       </div>
@@ -301,7 +301,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                 Could not load document content.
               </div>
             ) : doc && !doc.content ? (
-              <div className="p-4 text-center text-sm text-gray-400 dark:text-gray-500 italic">
+              <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400 italic">
                 This document is empty.
               </div>
             ) : doc ? (

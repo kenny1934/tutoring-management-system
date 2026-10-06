@@ -237,7 +237,7 @@ export function SchoolProgressAsk({
         <button
           type="button"
           onClick={() => setAnswer({ status: "idle" })}
-          className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1"
+          className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1"
         >
           <Undo2 className="h-3 w-3" />
           Undo
@@ -340,7 +340,7 @@ export function SchoolProgressAsk({
           onClick={() => setAnswer({ status: "idle" })}
           className={cn(
             hitArea,
-            "ml-auto rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            "ml-auto rounded text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           )}
         >
           <X className="h-3 w-3" />

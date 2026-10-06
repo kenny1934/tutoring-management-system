@@ -75,7 +75,7 @@ function SlotItem({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3 w-3 text-[#a0704b] flex-shrink-0" />
+            <Calendar className="h-3 w-3 text-accent-ink flex-shrink-0" />
             <span className="truncate font-medium">
               {formatDateCompact(slot.proposed_date)} {slot.proposed_time_slot}
             </span>
@@ -96,7 +96,7 @@ function SlotItem({
             <button
               onClick={() => setShowApproveConfirm(true)}
               disabled={isLoading}
-              className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors"
+              className="p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors"
               title="Approve"
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -245,9 +245,9 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
       <div className="px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <Users className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
+            <Users className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
             {session?.school_student_id && (
-              <span className="text-[10px] text-gray-400 font-mono flex-shrink-0">
+              <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">
                 {session.school_student_id}
               </span>
             )}
@@ -334,7 +334,7 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
       {/* View details link */}
       <Link
         href={`/proposals?id=${proposal.id}`}
-        className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
+        className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
       >
         View Details <ChevronRight className="h-3 w-3 inline" />
       </Link>

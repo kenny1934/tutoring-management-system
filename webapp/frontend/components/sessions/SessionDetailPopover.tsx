@@ -125,7 +125,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0 overflow-hidden flex-1">
       {(openState === 'loading' || printState === 'loading') && progressMessage ? (
-        <span className="truncate min-w-0 text-amber-600 dark:text-amber-400 italic" title={exercise.pdf_name || exercise.url}>
+        <span className="truncate min-w-0 text-amber-700 dark:text-amber-400 italic" title={exercise.pdf_name || exercise.url}>
           {progressMessage}
         </span>
       ) : (
@@ -146,11 +146,11 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
         title="Copy full path"
       >
         {copyState === 'copied' ? (
-          <Check className="h-3 w-3 text-green-500" />
+          <Check className="h-3 w-3 text-green-700" />
         ) : copyState === 'failed' ? (
-          <XCircle className="h-3 w-3 text-red-500" />
+          <XCircle className="h-3 w-3 text-red-600" />
         ) : (
-          <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+          <Copy className="h-3 w-3 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
         )}
       </button>
       {isUrlExercise ? (
@@ -159,7 +159,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
           className="p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded flex-shrink-0"
           title="Open URL"
         >
-          <ExternalLink className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+          <ExternalLink className="h-3 w-3 text-blue-600 dark:text-blue-400" />
         </button>
       ) : canBrowseFiles && (
         <>
@@ -170,11 +170,11 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
             title={openState === 'loading' && progressMessage ? progressMessage : "Open PDF in new tab"}
           >
             {openState === 'loading' ? (
-              <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+              <Loader2 className="h-3 w-3 text-gray-500 animate-spin" />
             ) : openState === 'error' ? (
-              <XCircle className="h-3 w-3 text-red-500" />
+              <XCircle className="h-3 w-3 text-red-600" />
             ) : (
-              <ExternalLink className="h-3 w-3 text-gray-400 hover:text-blue-500" />
+              <ExternalLink className="h-3 w-3 text-gray-500 hover:text-blue-600" />
             )}
           </button>
           <button
@@ -184,11 +184,11 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
             title={printState === 'loading' && progressMessage ? progressMessage : "Print PDF"}
           >
             {printState === 'loading' ? (
-              <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+              <Loader2 className="h-3 w-3 text-gray-500 animate-spin" />
             ) : printState === 'error' ? (
-              <XCircle className="h-3 w-3 text-red-500" />
+              <XCircle className="h-3 w-3 text-red-600" />
             ) : (
-              <Printer className="h-3 w-3 text-gray-400 hover:text-green-500" />
+              <Printer className="h-3 w-3 text-gray-500 hover:text-green-700" />
             )}
           </button>
         </>
@@ -316,7 +316,7 @@ function ExercisesList({ exercises, session }: {
       {cwExercises.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
-            <PenTool className="h-3 w-3 text-red-500" />
+            <PenTool className="h-3 w-3 text-red-600" />
             <span className="text-xs font-medium">Classwork</span>
             {canBrowseFiles && cwExercises.length > 0 && (
               <div className="flex items-center gap-0.5 ml-auto">
@@ -327,11 +327,11 @@ function ExercisesList({ exercises, session }: {
                   title="Print All CW"
                 >
                   {cwPrintState === 'loading' ? (
-                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                    <Loader2 className="h-3 w-3 text-gray-500 animate-spin" />
                   ) : cwPrintState === 'error' ? (
-                    <XCircle className="h-3 w-3 text-red-500" />
+                    <XCircle className="h-3 w-3 text-red-600" />
                   ) : (
-                    <Printer className="h-3 w-3 text-gray-400 hover:text-green-500" />
+                    <Printer className="h-3 w-3 text-gray-500 hover:text-green-700" />
                   )}
                 </button>
                 <button
@@ -341,11 +341,11 @@ function ExercisesList({ exercises, session }: {
                   title="Download All CW"
                 >
                   {cwDownloadState === 'loading' ? (
-                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                    <Loader2 className="h-3 w-3 text-gray-500 animate-spin" />
                   ) : cwDownloadState === 'error' ? (
-                    <XCircle className="h-3 w-3 text-red-500" />
+                    <XCircle className="h-3 w-3 text-red-600" />
                   ) : (
-                    <Download className="h-3 w-3 text-gray-400 hover:text-blue-500" />
+                    <Download className="h-3 w-3 text-gray-500 hover:text-blue-600" />
                   )}
                 </button>
               </div>
@@ -361,7 +361,7 @@ function ExercisesList({ exercises, session }: {
       {hwExercises.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
-            <Home className="h-3 w-3 text-blue-500" />
+            <Home className="h-3 w-3 text-blue-600" />
             <span className="text-xs font-medium">Homework</span>
             {canBrowseFiles && hwExercises.length > 0 && (
               <div className="flex items-center gap-0.5 ml-auto">
@@ -372,11 +372,11 @@ function ExercisesList({ exercises, session }: {
                   title="Print All HW"
                 >
                   {hwPrintState === 'loading' ? (
-                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                    <Loader2 className="h-3 w-3 text-gray-500 animate-spin" />
                   ) : hwPrintState === 'error' ? (
-                    <XCircle className="h-3 w-3 text-red-500" />
+                    <XCircle className="h-3 w-3 text-red-600" />
                   ) : (
-                    <Printer className="h-3 w-3 text-gray-400 hover:text-green-500" />
+                    <Printer className="h-3 w-3 text-gray-500 hover:text-green-700" />
                   )}
                 </button>
                 <button
@@ -386,11 +386,11 @@ function ExercisesList({ exercises, session }: {
                   title="Download All HW"
                 >
                   {hwDownloadState === 'loading' ? (
-                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                    <Loader2 className="h-3 w-3 text-gray-500 animate-spin" />
                   ) : hwDownloadState === 'error' ? (
-                    <XCircle className="h-3 w-3 text-red-500" />
+                    <XCircle className="h-3 w-3 text-red-600" />
                   ) : (
-                    <Download className="h-3 w-3 text-gray-400 hover:text-blue-500" />
+                    <Download className="h-3 w-3 text-gray-500 hover:text-blue-600" />
                   )}
                 </button>
               </div>
@@ -750,7 +750,7 @@ export function SessionDetailPopover({
             <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
               {session.school_student_id || "N/A"}
             </p>
-            <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <span className="text-[10px] text-gray-500 font-mono">#{session.id}</span>
             <EditableLessonNumberBadge
               lessonNumber={session.lesson_number}
               movedLessonNumber={session.moved_lesson_number}
@@ -768,7 +768,7 @@ export function SessionDetailPopover({
               className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
               title="Lesson Mode"
             >
-              <Presentation className="h-2.5 w-2.5 text-gray-400 hover:text-green-600 dark:hover:text-green-400" />
+              <Presentation className="h-2.5 w-2.5 text-gray-500 hover:text-green-700 dark:hover:text-green-400" />
             </Link>
           </div>
           <Link
@@ -873,7 +873,7 @@ export function SessionDetailPopover({
                       onNavigate?.();
                       onClose();
                     }}
-                    className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                    className="text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                     title="View in schedule"
                   >
                     <ExternalLink className="h-3 w-3" />
@@ -923,17 +923,17 @@ export function SessionDetailPopover({
               <div className="flex items-center gap-1">
                 {session.financial_status === "Paid" ? (
                   <>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                    <span className="text-sm font-medium text-green-600">Paid</span>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-700" />
+                    <span className="text-sm font-medium text-green-700">Paid</span>
                   </>
                 ) : session.financial_status === "Waived" ? (
                   <>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-gray-400" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-gray-500" />
                     <span className="text-sm font-medium text-gray-500">Waived</span>
                   </>
                 ) : (
                   <>
-                    <HandCoins className="h-3.5 w-3.5 text-red-500" />
+                    <HandCoins className="h-3.5 w-3.5 text-red-600" />
                     <span className="text-sm font-medium text-red-600">Unpaid</span>
                   </>
                 )}
@@ -1113,7 +1113,7 @@ export function SessionDetailPopover({
                 className="flex items-center gap-1.5 w-full text-left"
               >
                 {testsExpanded ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
-                <AlertTriangle className="h-3 w-3 text-amber-500" />
+                <AlertTriangle className="h-3 w-3 text-amber-700" />
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Tests</span>
                 <span className="text-[10px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full ml-auto">
                   {upcomingTests.length}
@@ -1142,7 +1142,7 @@ export function SessionDetailPopover({
                             className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
                             title="Show syllabus"
                           >
-                            <Info className={cn("h-3 w-3", expandedTest === test.event_id ? "text-amber-500" : "text-gray-400")} />
+                            <Info className={cn("h-3 w-3", expandedTest === test.event_id ? "text-amber-700" : "text-gray-500")} />
                           </button>
                         )}
                       </div>
@@ -1209,13 +1209,13 @@ export function SessionDetailPopover({
                             className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                             title="Open in new tab"
                           >
-                            <ExternalLink className="h-3 w-3 text-gray-400" />
+                            <ExternalLink className="h-3 w-3 text-gray-500" />
                           </Link>
                         </div>
                         {detailedSession.previous_session.performance_rating && (
                           <div className="flex">
                             {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} className={cn("h-2.5 w-2.5", i < starCount ? "fill-yellow-400 text-yellow-400" : "text-gray-300")} />
+                              <Star key={i} className={cn("h-2.5 w-2.5", i < starCount ? "fill-yellow-400 text-yellow-700" : "text-gray-300")} />
                             ))}
                           </div>
                         )}
@@ -1278,7 +1278,7 @@ export function SessionDetailPopover({
         </Link>
 
         {/* Keyboard shortcut hint */}
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500 text-center">
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 text-center">
           <span className="font-mono">A</span>=Attended <span className="font-mono">N</span>=No Show <span className="font-mono">C</span>=CW <span className="font-mono">H</span>=HW <span className="font-mono">R</span>=Rate <span className="font-mono">E</span>=Edit
         </div>
       </div>

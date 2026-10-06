@@ -52,7 +52,7 @@ export function ExerciseClipboardWidget() {
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(!isExpanded); } }}
             className="flex items-center gap-2 px-3 py-2 w-full text-left cursor-pointer hover:bg-teal-100/50 dark:hover:bg-teal-900/30 transition-colors"
           >
-            <Clipboard className="h-4 w-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+            <Clipboard className="h-4 w-4 text-teal-700 dark:text-teal-400 flex-shrink-0" />
             <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
               {count} exercise{count !== 1 ? "s" : ""} copied
             </span>
@@ -65,12 +65,12 @@ export function ExerciseClipboardWidget() {
                 className="p-0.5 rounded hover:bg-teal-200 dark:hover:bg-teal-800 transition-colors"
                 title="Clear clipboard"
               >
-                <X className="h-3.5 w-3.5 text-teal-500 dark:text-teal-400" />
+                <X className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
               </button>
               {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-teal-500 dark:text-teal-400" />
+                <ChevronDown className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
               ) : (
-                <ChevronUp className="h-3.5 w-3.5 text-teal-500 dark:text-teal-400" />
+                <ChevronUp className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
               )}
             </div>
           </div>
@@ -87,7 +87,7 @@ export function ExerciseClipboardWidget() {
               >
                 <div className="px-3 pb-2 border-t border-teal-200 dark:border-teal-800">
                   {data.sourceStudentName && (
-                    <p className="text-[11px] text-teal-600 dark:text-teal-400 mt-1.5 mb-1">
+                    <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-1.5 mb-1">
                       From: {data.sourceStudentName}
                     </p>
                   )}
@@ -111,7 +111,7 @@ export function ExerciseClipboardWidget() {
                             {name || "(empty)"}
                           </span>
                           {pageInfo && (
-                            <span className="text-teal-500 dark:text-teal-400 flex-shrink-0">
+                            <span className="text-teal-700 dark:text-teal-400 flex-shrink-0">
                               {pageInfo}
                             </span>
                           )}

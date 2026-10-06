@@ -253,7 +253,7 @@ export function RegularArrangementGrid({
               className={cn(
                 "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                 isVisible
-                  ? "bg-[#a0704b] text-white"
+                  ? "bg-primary text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
               )}
               title={isVisible ? `Hide ${day}` : `Show ${day}`}
@@ -265,7 +265,7 @@ export function RegularArrangementGrid({
         {visibleDays.size !== days.length && (
           <button
             onClick={() => setVisibleDays(new Set(days))}
-            className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+            className="text-[10px] text-accent-ink hover:underline ml-0.5"
           >
             All
           </button>
@@ -346,7 +346,7 @@ export function RegularArrangementGrid({
             </span>
             <button
               onClick={clearSlotFilters}
-              className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+              className="text-[10px] text-accent-ink hover:underline ml-0.5"
             >
               Clear
             </button>

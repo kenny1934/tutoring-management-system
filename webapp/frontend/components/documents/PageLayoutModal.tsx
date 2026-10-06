@@ -135,7 +135,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
               className={cn(
                 "px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px",
                 activeTab === key
-                  ? "border-[#a0704b] text-[#a0704b] dark:text-[#cd853f] dark:border-[#cd853f]"
+                  ? "border-primary text-accent-ink dark:text-[#cd853f] dark:border-[#cd853f]"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
@@ -162,8 +162,8 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
                         isActive
-                          ? "bg-[#a0704b] text-white border-[#a0704b]"
-                          : "border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground hover:border-[#a0704b]/50"
+                          ? "bg-primary text-white border-primary"
+                          : "border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground hover:border-primary/50"
                       )}
                     >
                       {label}
@@ -185,7 +185,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                       step={0.1}
                       value={margins[side]}
                       onChange={(e) => setMargins(m => ({ ...m, [side]: parseFloat(e.target.value) || 0 }))}
-                      className="flex-1 px-2 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </label>
                 ))}
@@ -195,7 +195,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
               <div className="mt-4 flex justify-center">
                 <div className="relative bg-white dark:bg-[#2a2420] border border-line rounded" style={{ width: 120, height: 170 }}>
                   <div
-                    className="absolute bg-[#f5ede3]/60 dark:bg-[#3d2e1e]/60 border border-dashed border-[#a0704b]/30"
+                    className="absolute bg-[#f5ede3]/60 dark:bg-[#3d2e1e]/60 border border-dashed border-primary/30"
                     style={{
                       top: `${(margins.top / 297) * 170}px`,
                       right: `${(margins.right / 210) * 120}px`,
@@ -261,7 +261,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   type="checkbox"
                   checked={watermark.enabled}
                   onChange={(e) => setWatermark(w => ({ ...w, enabled: e.target.checked }))}
-                  className="rounded border-line text-[#a0704b] focus:ring-[#a0704b]"
+                  className="rounded border-line text-accent-ink focus:ring-primary"
                 />
                 <span className="text-sm text-foreground">Show watermark</span>
               </label>
@@ -277,8 +277,8 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors capitalize",
                           watermark.type === t
-                            ? "bg-[#a0704b] text-white border-[#a0704b]"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground hover:border-[#a0704b]/50"
+                            ? "bg-primary text-white border-primary"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground hover:border-primary/50"
                         )}
                       >
                         {t}
@@ -294,7 +294,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         value={watermark.text || ""}
                         onChange={(e) => setWatermark(w => ({ ...w, text: e.target.value }))}
                         placeholder="e.g. DRAFT, CONFIDENTIAL"
-                        className="w-full px-3 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                        className="w-full px-3 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                     </div>
                   ) : (
@@ -305,7 +305,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                           <img src={watermark.imageUrl} alt="Watermark" className="h-10 rounded border border-line" />
                           <button
                             onClick={() => setWatermark(w => ({ ...w, imageUrl: null }))}
-                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
+                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -314,7 +314,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         <button
                           onClick={() => watermarkImageRef.current?.click()}
                           disabled={uploading}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-muted-foreground hover:border-[#a0704b]/50 hover:text-foreground transition-colors"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
                         >
                           <Upload className="w-3.5 h-3.5" />
                           Upload image
@@ -345,7 +345,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                     step={0.01}
                     value={watermark.opacity}
                     onChange={(e) => setWatermark(w => ({ ...w, opacity: parseFloat(e.target.value) }))}
-                    className="w-full accent-[#a0704b]"
+                    className="w-full accent-primary"
                   />
 
                   {/* Size slider (image only) */}
@@ -361,7 +361,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         step={5}
                         value={watermark.imageSize ?? 60}
                         onChange={(e) => setWatermark(w => ({ ...w, imageSize: parseInt(e.target.value) }))}
-                        className="w-full accent-[#a0704b]"
+                        className="w-full accent-primary"
                       />
                     </>
                   )}
@@ -405,7 +405,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontFamily || ""}
                     onChange={(e) => setBodyFontFamily(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {HF_FONTS_LATIN.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -417,7 +417,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontFamilyCjk || ""}
                     onChange={(e) => setBodyFontFamilyCjk(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {HF_FONTS_CJK.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -429,7 +429,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontSize}
                     onChange={(e) => setBodyFontSize(parseInt(e.target.value))}
-                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {[8, 10, 12, 14, 16, 18, 20, 24].map((s) => (
                       <option key={s} value={s}>{s}px</option>
@@ -484,7 +484,7 @@ function HeaderFooterSection({
           type="checkbox"
           checked={config.enabled}
           onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
-          className="rounded border-line text-[#a0704b] focus:ring-[#a0704b]"
+          className="rounded border-line text-accent-ink focus:ring-primary"
         />
         <span className="text-sm font-medium text-foreground">Show {label.toLowerCase()}</span>
       </label>
@@ -501,7 +501,7 @@ function HeaderFooterSection({
                   value={config[pos]}
                   onChange={(e) => onChange({ ...config, [pos]: e.target.value })}
                   placeholder={pos === "center" ? "e.g. Page {page}" : ""}
-                  className="w-full px-2 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                  className="w-full px-2 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </div>
             ))}
@@ -514,7 +514,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontFamily || ""}
                 onChange={(e) => onChange({ ...config, fontFamily: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONTS_LATIN.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -526,7 +526,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontFamilyCjk || ""}
                 onChange={(e) => onChange({ ...config, fontFamilyCjk: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONTS_CJK.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -538,7 +538,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontSize ?? 9}
                 onChange={(e) => onChange({ ...config, fontSize: parseInt(e.target.value) })}
-                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONT_SIZES.map((s) => (
                   <option key={s} value={s}>{s}px</option>
@@ -563,7 +563,7 @@ function HeaderFooterSection({
                 </select>
                 <button
                   onClick={() => onChange({ ...config, imageUrl: null, imagePosition: null })}
-                  className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
+                  className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -572,7 +572,7 @@ function HeaderFooterSection({
               <button
                 onClick={() => imageRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center gap-1 px-2 py-1 rounded border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-muted-foreground hover:border-[#a0704b]/50 hover:text-foreground transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
               >
                 <Upload className="w-3 h-3" />
                 Add logo

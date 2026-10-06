@@ -62,10 +62,10 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
           onClick={() => onSnooze(opt.value)}
           className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
         >
-          <opt.icon className="h-4 w-4 text-gray-400" />
+          <opt.icon className="h-4 w-4 text-gray-500" />
           <div>
             <div className="text-gray-700 dark:text-gray-200">{opt.label}</div>
-            <div className="text-[11px] text-gray-400">{opt.sublabel}</div>
+            <div className="text-[11px] text-gray-500">{opt.sublabel}</div>
           </div>
         </button>
       ))}
@@ -81,7 +81,7 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
             }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
           >
-            <Calendar className="h-4 w-4 text-gray-400" />
+            <Calendar className="h-4 w-4 text-gray-500" />
             <span className="text-gray-700 dark:text-gray-200">Pick date & time</span>
           </button>
         ) : (
@@ -91,14 +91,14 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <input
               type="time"
               value={customTime}
               onChange={(e) => setCustomTime(e.target.value)}
               min={customDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <div className="flex gap-1">
               <button
@@ -112,7 +112,7 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
                 type="button"
                 onClick={handleCustomSnooze}
                 disabled={!customDate}
-                className="flex-1 px-2 py-1 text-xs font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                className="flex-1 px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
               >
                 Set
               </button>

@@ -212,7 +212,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
     >
       {buddyHighlight && (
         <div className="absolute top-0.5 right-0.5 z-10" title="Buddy placed here">
-          <Users className="h-3 w-3 text-violet-400" />
+          <Users className="h-3 w-3 text-violet-600" />
         </div>
       )}
 

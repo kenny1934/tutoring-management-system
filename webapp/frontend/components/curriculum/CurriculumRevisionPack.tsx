@@ -70,12 +70,12 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
         onClose={onClose}
         header={
           <>
-            <ClipboardList className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+            <ClipboardList className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400 shrink-0" />
             <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
               {event ? `${event.title}${dateLabel ? ` · ${dateLabel}` : ""}` : "Revision pack"}
             </span>
             {isLoading && (
-              <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
+              <Loader2 className="h-3 w-3 animate-spin text-gray-500 shrink-0" />
             )}
           </>
         }
@@ -84,7 +84,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
         {papers.length > 0 && (
           <div className="mx-4 mt-3 mb-1 px-3 py-2.5 rounded-lg bg-teal-50/50 dark:bg-teal-900/15 border border-teal-200/60 dark:border-teal-800/40">
             <div className="flex items-center gap-1.5">
-              <History className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+              <History className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400 shrink-0" />
               <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
                 Tailored revision papers
               </span>
@@ -183,7 +183,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
                 ))}
               </div>
               {concept.files.length === 0 && (
-                <p className="text-[10px] text-gray-400 mt-0.5">
+                <p className="text-[10px] text-gray-500 mt-0.5">
                   No worksheets mapped to this topic yet.
                 </p>
               )}
@@ -217,7 +217,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
               Not yet matched to a topic
             </p>
             {data.unmatched_lines.map((line) => (
-              <p key={line} className="text-[10px] text-gray-400 dark:text-gray-500">
+              <p key={line} className="text-[10px] text-gray-400 dark:text-gray-400">
                 {line}
               </p>
             ))}

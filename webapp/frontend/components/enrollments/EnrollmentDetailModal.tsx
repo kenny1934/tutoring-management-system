@@ -269,7 +269,7 @@ export function EnrollmentDetailModal({
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-8 text-red-500">
+          <div className="text-center py-8 text-red-600">
             <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>Failed to load enrollment details</p>
             <p className="text-sm mt-1 opacity-70">{String(error)}</p>
@@ -301,7 +301,7 @@ export function EnrollmentDetailModal({
             {/* Enrollment Link */}
             <div className="flex items-start gap-3">
               <div className={cn("p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg", compact && "p-1")}>
-                <FileText className={cn("text-amber-600 dark:text-amber-400", compact ? "h-4 w-4" : "h-5 w-5")} />
+                <FileText className={cn("text-amber-700 dark:text-amber-400", compact ? "h-4 w-4" : "h-5 w-5")} />
               </div>
               <div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">Enrollment</div>
@@ -309,7 +309,7 @@ export function EnrollmentDetailModal({
                   onClick={handleEnrollmentClick}
                   disabled={loadingPopover}
                   className={cn(
-                    "font-medium text-[#a0704b] hover:underline cursor-pointer",
+                    "font-medium text-accent-ink hover:underline cursor-pointer",
                     compact && "text-sm",
                     loadingPopover && "opacity-50"
                   )}
@@ -338,7 +338,7 @@ export function EnrollmentDetailModal({
             {/* Location */}
             <div className="flex items-start gap-3">
               <div className={cn("p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg", compact && "p-1")}>
-                <MapPin className={cn("text-green-600 dark:text-green-400", compact ? "h-4 w-4" : "h-5 w-5")} />
+                <MapPin className={cn("text-green-700 dark:text-green-400", compact ? "h-4 w-4" : "h-5 w-5")} />
               </div>
               <div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">Location</div>
@@ -364,7 +364,7 @@ export function EnrollmentDetailModal({
                   "font-medium",
                   compact && "text-sm",
                   isExpired ? "text-red-600 dark:text-red-400" :
-                  isUrgent ? "text-orange-600 dark:text-orange-400" :
+                  isUrgent ? "text-orange-700 dark:text-orange-400" :
                   "text-gray-900 dark:text-gray-100"
                 )}>
                   {new Date(detail.effective_end_date).toLocaleDateString("en-US", {
@@ -414,7 +414,7 @@ export function EnrollmentDetailModal({
             {/* Session Stats - hide progress bar in compact mode */}
             <div className="flex items-start gap-3">
               <div className={cn("p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg", compact && "p-1")}>
-                <CheckCircle className={cn("text-emerald-600 dark:text-emerald-400", compact ? "h-4 w-4" : "h-5 w-5")} />
+                <CheckCircle className={cn("text-emerald-700 dark:text-emerald-400", compact ? "h-4 w-4" : "h-5 w-5")} />
               </div>
               <div className="flex-1">
                 <div className="text-xs text-gray-600 dark:text-gray-400">Session Progress</div>
@@ -440,7 +440,7 @@ export function EnrollmentDetailModal({
             {detail.pending_makeups.length > 0 && (
               <div className="border border-orange-200 dark:border-orange-800 rounded-lg overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-800">
-                  <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-orange-700 dark:text-orange-400" />
                   <span className="font-medium text-sm text-orange-800 dark:text-orange-300">
                     Pending Makeups ({detail.pending_makeups.length})
                   </span>
@@ -498,7 +498,7 @@ export function EnrollmentDetailModal({
                 "flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800",
                 compact ? "p-2" : "p-3"
               )}>
-                <AlertTriangle className={cn("text-amber-600 flex-shrink-0", compact ? "h-4 w-4" : "h-5 w-5 mt-0.5")} />
+                <AlertTriangle className={cn("text-amber-700 flex-shrink-0", compact ? "h-4 w-4" : "h-5 w-5 mt-0.5")} />
                 <div className={cn("text-sm", compact && "text-xs")}>
                   <p className="font-medium text-amber-800 dark:text-amber-300">
                     {makeupsNeedingExtension.length} makeup{makeupsNeedingExtension.length !== 1 ? 's' : ''} may need extension
@@ -524,7 +524,7 @@ export function EnrollmentDetailModal({
                     <div key={i} className="flex items-center gap-2">
                       <a
                         href={`tel:${c.phone}`}
-                        className="font-medium text-[#a0704b] hover:underline"
+                        className="font-medium text-accent-ink hover:underline"
                       >
                         {c.phone}
                       </a>
@@ -569,7 +569,7 @@ export function EnrollmentDetailModal({
                     className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
                     title="Copy fee message"
                   >
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
+                    {copied ? <Check className="h-4 w-4 text-green-700" /> : <Copy className="h-4 w-4 text-foreground/60" />}
                   </button>
                 )}
 
@@ -605,7 +605,7 @@ export function EnrollmentDetailModal({
                   <button
                     onClick={() => setConfirmPayment(true)}
                     disabled={markingPaid}
-                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all disabled:opacity-50"
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all disabled:opacity-50"
                     title="Confirm Payment"
                   >
                     {markingPaid ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <CreditCard className="h-4 w-4 flex-shrink-0" />}
@@ -644,7 +644,7 @@ export function EnrollmentDetailModal({
                     ? "bg-red-500 hover:bg-red-600 text-white"
                     : isUrgent
                     ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "bg-[#a0704b] hover:bg-[#8b5d3b] text-white"
+                    : "bg-primary hover:bg-[#8b5d3b] text-white"
                 )}
                 title={compact ? "Renew" : "Create Renewal"}
               >

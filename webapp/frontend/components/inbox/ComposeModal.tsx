@@ -37,7 +37,7 @@ const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon
 // Priority options for compose dropdown
 const PRIORITY_OPTIONS = [
   { value: "Normal" as const, label: "Normal", colorClass: "text-gray-600 dark:text-gray-400" },
-  { value: "High" as const, label: "High", colorClass: "text-orange-600 dark:text-orange-400" },
+  { value: "High" as const, label: "High", colorClass: "text-orange-700 dark:text-orange-400" },
   { value: "Urgent" as const, label: "Urgent", colorClass: "text-red-600 dark:text-red-400" },
 ];
 
@@ -429,14 +429,14 @@ export default function ComposeModal({
                 >
                   {recipientMode === "all" ? (
                     <span className="flex items-center gap-2 flex-1">
-                      <Megaphone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <Megaphone className="h-4 w-4 text-blue-600 flex-shrink-0" />
                       All Tutors (Broadcast)
                     </span>
                   ) : selectedTutorIds.length === 0 ? (
-                    <span className="text-gray-400 flex-1">Select recipients...</span>
+                    <span className="text-gray-500 flex-1">Select recipients...</span>
                   ) : (
                     <span className="flex items-center gap-1 flex-1 flex-wrap">
-                      <Users className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      <Users className="h-4 w-4 text-green-700 dark:text-green-400 flex-shrink-0" />
                       {selectedTutorIds.length === 1
                         ? tutors.find(t => t.id === selectedTutorIds[0])?.tutor_name || "Unknown"
                         : `${selectedTutorIds.length} recipients`
@@ -463,7 +463,7 @@ export default function ComposeModal({
                               e.stopPropagation();
                               setSelectedTutorIds(prev => prev.filter(tid => tid !== id));
                             }}
-                            className="hover:text-red-500"
+                            className="hover:text-red-600"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -489,9 +489,9 @@ export default function ComposeModal({
                         recipientMode === "all" && "bg-blue-50 dark:bg-blue-900/20"
                       )}
                     >
-                      <Megaphone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <Megaphone className="h-4 w-4 text-blue-600 flex-shrink-0" />
                       <span>All Tutors (Broadcast)</span>
-                      {recipientMode === "all" && <Check className="h-4 w-4 text-blue-500 ml-auto" />}
+                      {recipientMode === "all" && <Check className="h-4 w-4 text-blue-600 ml-auto" />}
                     </button>
 
                     {/* Individual tutors */}
@@ -632,7 +632,7 @@ export default function ComposeModal({
 
           {/* Reply context */}
           {replyTo && (
-            <div className="p-3 bg-gray-50 dark:bg-[#2a2a2a] rounded-lg border-l-4 border-[#a0704b] text-sm">
+            <div className="p-3 bg-gray-50 dark:bg-[#2a2a2a] rounded-lg border-l-4 border-primary text-sm">
               <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {replyTo.from_tutor_name} wrote:
               </div>
@@ -689,7 +689,7 @@ export default function ComposeModal({
             />
             {isComposeDragging && (
               <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
-                <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop files here</span>
+                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Drop files here</span>
               </div>
             )}
           </div>
@@ -757,13 +757,13 @@ export default function ComposeModal({
                     style={{ cursor: uploadedFiles.length > 1 ? "grab" : undefined }}
                     as="div"
                   >
-                    {uploadedFiles.length > 1 && <GripVertical className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />}
-                    <FileText className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
+                    {uploadedFiles.length > 1 && <GripVertical className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />}
+                    <FileText className="h-4 w-4 text-accent-ink flex-shrink-0" />
                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{file.filename}</span>
                     <button
                       type="button"
                       onClick={() => setUploadedFiles(prev => prev.filter((f) => f.url !== file.url))}
-                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                      className="p-0.5 text-gray-500 hover:text-red-600 transition-colors flex-shrink-0"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -786,7 +786,7 @@ export default function ComposeModal({
               <button
                 type="submit"
                 disabled={isSending || isUploading || !canSend}
-                className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-l-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-primary hover:bg-[#8b5f3c] text-white rounded-l-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send
@@ -795,7 +795,7 @@ export default function ComposeModal({
                 type="button"
                 disabled={isSending || isUploading || !canSend}
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
-                className="px-2 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-r-lg border-l border-white/20 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                className="px-2 py-2 bg-primary hover:bg-[#8b5f3c] text-white rounded-r-lg border-l border-white/20 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                 title="Schedule send"
               >
                 <ChevronDown className="h-4 w-4" />
@@ -812,7 +812,7 @@ export default function ComposeModal({
                         onClick={() => handleScheduleSend(preset.time)}
                         className="w-full px-3 py-2 text-sm text-left hover:bg-tint flex items-center gap-2 text-gray-700 dark:text-gray-300"
                       >
-                        <Clock className="h-3.5 w-3.5 text-gray-400" />
+                        <Clock className="h-3.5 w-3.5 text-gray-500" />
                         {preset.label}
                       </button>
                     ))}
@@ -828,7 +828,7 @@ export default function ComposeModal({
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-tint transition-colors text-left"
                         >
-                          <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                          <Calendar className="h-3.5 w-3.5 text-gray-500" />
                           <span className="text-gray-700 dark:text-gray-300">Pick date & time</span>
                         </button>
                       ) : (
@@ -838,14 +838,14 @@ export default function ComposeModal({
                             value={customScheduleDate}
                             onChange={(e) => setCustomScheduleDate(e.target.value)}
                             min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
                           />
                           <input
                             type="time"
                             value={customScheduleTime}
                             onChange={(e) => setCustomScheduleTime(e.target.value)}
                             min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                            className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
                           />
                           <div className="flex gap-1">
                             <button
@@ -859,7 +859,7 @@ export default function ComposeModal({
                               type="button"
                               onClick={handleCustomScheduleSend}
                               disabled={!customScheduleDate}
-                              className="flex-1 px-2 py-1 text-xs font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                              className="flex-1 px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
                             >
                               Set
                             </button>

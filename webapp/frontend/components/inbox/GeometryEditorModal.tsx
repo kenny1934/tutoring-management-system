@@ -1358,7 +1358,7 @@ export default function GeometryEditorModal({
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors",
                 tool === t.id
-                  ? "bg-[#a0704b] text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
               )}
             >
@@ -1391,7 +1391,7 @@ export default function GeometryEditorModal({
             onClick={handleClear}
             title="Clear all"
             aria-label="Clear all"
-            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 rounded-lg transition-colors"
+            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 rounded-lg transition-colors"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -1404,8 +1404,8 @@ export default function GeometryEditorModal({
             className={cn(
               "p-1.5 rounded-lg transition-colors",
               snapToGrid
-                ? "text-[#a0704b] bg-tint"
-                : "text-gray-400 dark:text-gray-500 hover:bg-tint"
+                ? "text-accent-ink bg-tint"
+                : "text-gray-500 dark:text-gray-400 hover:bg-tint"
             )}
           >
             <Grid3x3 className="h-4 w-4" />
@@ -1460,7 +1460,7 @@ export default function GeometryEditorModal({
               className={cn(
                 "flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg transition-colors",
                 shapePreset
-                  ? "bg-[#a0704b] text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
               )}
             >
@@ -1494,7 +1494,7 @@ export default function GeometryEditorModal({
                         setShapePreset(null);
                         setShapeMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-tint transition-colors"
+                      className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-tint transition-colors"
                     >
                       Cancel placement
                     </button>
@@ -1511,7 +1511,7 @@ export default function GeometryEditorModal({
             {/* Curve mode selector */}
             <div className="flex items-center gap-1 px-4 pt-2 pb-1">
               {editingCurve && (
-                <span className="text-[10px] text-[#a0704b] dark:text-[#c9a96e] font-medium mr-1">Editing:</span>
+                <span className="text-[10px] text-accent-ink dark:text-[#c9a96e] font-medium mr-1">Editing:</span>
               )}
               {([
                 { mode: "fx" as CurveMode, label: "f(x)" },
@@ -1525,7 +1525,7 @@ export default function GeometryEditorModal({
                   className={cn(
                     "px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors disabled:cursor-default",
                     curveMode === mode
-                      ? "bg-[#a0704b] text-white"
+                      ? "bg-primary text-white"
                       : "text-gray-500 dark:text-gray-400 hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30"
                   )}
                 >
@@ -1611,14 +1611,14 @@ export default function GeometryEditorModal({
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">t:</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">t:</span>
                       <input
                         type="text"
                         value={tMinInput}
                         onChange={(e) => setTMinInput(e.target.value)}
                         className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-line rounded outline-none text-gray-800 dark:text-gray-200"
                       />
-                      <span className="text-[10px] text-gray-400">to</span>
+                      <span className="text-[10px] text-gray-500">to</span>
                       <input
                         type="text"
                         value={tMaxInput}
@@ -1628,7 +1628,7 @@ export default function GeometryEditorModal({
                     </div>
                     <button
                       onClick={handlePlot}
-                      className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                      className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
                     >
                       {editingCurve ? "Update" : "Plot"}
                     </button>
@@ -1686,12 +1686,12 @@ export default function GeometryEditorModal({
                         }
                       }}
                       placeholder="Loading math input..."
-                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
                     />
                   )}
                   <button
                     onClick={handlePlot}
-                    className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                    className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
                   >
                     {editingCurve ? "Update" : "Plot"}
                   </button>
@@ -1710,7 +1710,7 @@ export default function GeometryEditorModal({
             {/* Hint text */}
             {curveMode === "implicit" && !editingCurve && (
               <div className="px-4 pb-1.5 -mt-1">
-                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">
                   Enter the expression = 0. E.g. x²+y²-1 for a unit circle
                 </span>
               </div>
@@ -1729,7 +1729,7 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Type text, then click on the board to place it"
-              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
           </div>
         )}
@@ -1747,7 +1747,7 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Optional — e.g. 45 (click vertex, then ray)"
-              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
           </div>
         )}
@@ -1770,12 +1770,12 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="3, -2"
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
             <button
               onClick={handleAddPoint}
               disabled={!coordInput.trim()}
-              className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
             >
               Place
             </button>
@@ -1798,9 +1798,9 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="Name"
-              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
-            <span className="text-xs text-gray-400 dark:text-gray-500">at</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">at</span>
             <input
               type="text"
               value={editCoords}
@@ -1813,12 +1813,12 @@ export default function GeometryEditorModal({
                 }
               }}
               placeholder="x, y"
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-line rounded-md outline-none focus:ring-1 focus:ring-primary text-gray-800 dark:text-gray-200"
             />
             <button
               onClick={handleApplyCoordEdit}
               disabled={!editCoords.trim()}
-              className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
             >
               Move
             </button>
@@ -1841,7 +1841,7 @@ export default function GeometryEditorModal({
             </div>
             <button
               onClick={handleDeleteSelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
             >
               <Trash2 className="h-3 w-3" />
               Delete
@@ -1856,7 +1856,7 @@ export default function GeometryEditorModal({
               Selected: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedEl.elType}</span>
             </span>
             {getElementPoints(boardRef.current, selectedEl).length >= 2 && (
-              <span className="text-[10px] text-[#a0704b] dark:text-[#c9a96e] ml-1">Drag any point to move</span>
+              <span className="text-[10px] text-accent-ink dark:text-[#c9a96e] ml-1">Drag any point to move</span>
             )}
             <div className="flex items-center gap-0.5 ml-2">
               {COLOR_PALETTE.map((c) => (
@@ -1912,7 +1912,7 @@ export default function GeometryEditorModal({
             <div className="flex-1" />
             <button
               onClick={handleDeleteSelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
             >
               <Trash2 className="h-3 w-3" />
               Delete
@@ -1921,7 +1921,7 @@ export default function GeometryEditorModal({
         )}
 
         {/* Tool hint */}
-        <div className="flex items-center px-4 py-1 text-[10px] text-gray-400 dark:text-gray-500">
+        <div className="flex items-center px-4 py-1 text-[10px] text-gray-500 dark:text-gray-400">
           <span>
             {shapePreset
               ? "Click on the board to place the shape"
@@ -1930,14 +1930,14 @@ export default function GeometryEditorModal({
                 : TOOLS.find((t) => t.id === tool)?.hint}
           </span>
           {pendingCount > 0 && (
-            <span className="ml-2 text-[#a0704b]">
+            <span className="ml-2 text-accent-ink">
               {pendingCount} point{pendingCount !== 1 ? "s" : ""} pending
             </span>
           )}
           {tool === "polygon" && pendingCount >= 3 && (
             <button
               onClick={handleClosePolygon}
-              className="ml-auto px-2.5 py-0.5 text-[10px] font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] transition-colors"
+              className="ml-auto px-2.5 py-0.5 text-[10px] font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] transition-colors"
             >
               Close Polygon
             </button>
@@ -1982,7 +1982,7 @@ export default function GeometryEditorModal({
               })()}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-[400px] text-sm text-gray-400">
+            <div className="flex items-center justify-center h-[400px] text-sm text-gray-500">
               Loading geometry editor...
             </div>
           )}
@@ -1993,28 +1993,28 @@ export default function GeometryEditorModal({
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-line/40 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">
               {objectCount} object{objectCount !== 1 ? "s" : ""}
             </span>
             <div className="flex items-center gap-0.5">
               <button
                 onClick={() => boardRef.current?.zoomIn()}
                 title="Zoom in"
-                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
               </button>
               <button
                 onClick={() => boardRef.current?.zoomOut()}
                 title="Zoom out"
-                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </button>
               <button
                 onClick={handleZoomReset}
                 title="Reset view"
-                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
@@ -2023,7 +2023,7 @@ export default function GeometryEditorModal({
               onClick={handleExportPng}
               disabled={objectCount === 0}
               title="Export as PNG"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-30"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-30"
             >
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">PNG</span>
@@ -2034,7 +2034,7 @@ export default function GeometryEditorModal({
             {isEditing && (
               <button
                 onClick={handleDelete}
-                className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               >
                 Delete
               </button>
@@ -2048,7 +2048,7 @@ export default function GeometryEditorModal({
             <button
               onClick={handleInsert}
               disabled={objectCount === 0}
-              className="px-4 py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isEditing ? "Update" : "Insert"}
             </button>

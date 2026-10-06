@@ -1083,12 +1083,12 @@ export default function SummerArrangementPage() {
                 it sits inline between the title and the location select. */}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <Grid3X3 className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
                   <span>Timetable Arrangement</span>
-                  {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+                  {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
                 </h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
               </div>
@@ -1126,15 +1126,15 @@ export default function SummerArrangementPage() {
                 {totalTentative > 0 && !readOnly ? (
                   <button
                     onClick={() => setBulkConfirmPending({ label: `${LOCATION_TO_CODE[location] || location}` })}
-                    className="text-yellow-600 dark:text-yellow-400 hover:underline cursor-pointer"
+                    className="text-yellow-700 dark:text-yellow-400 hover:underline cursor-pointer"
                     title="Click to confirm all tentative sessions"
                   >
                     {totalTentative} tentative
                   </button>
                 ) : (
-                  <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
+                  <span className="text-yellow-700 dark:text-yellow-400">{totalTentative} tentative</span>
                 )}
-                <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
+                <span className="text-green-700 dark:text-green-400">{totalConfirmed} confirmed</span>
               </div>
 
               <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
@@ -1232,7 +1232,7 @@ export default function SummerArrangementPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
                   activeTab === tab
-                    ? "border-primary text-primary"
+                    ? "border-primary text-accent-ink"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >

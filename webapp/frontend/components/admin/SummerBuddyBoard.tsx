@@ -204,13 +204,13 @@ export function SummerBuddyBoard({
           icon={BadgePercent}
           value={unlockedCount}
           label="Discount unlocked"
-          colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
+          colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
         />
         <StatCard
           icon={Flame}
           value={oneAwayCount}
           label="One away"
-          colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+          colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
         />
         <StatCard icon={User} value={visibleSolo.length} label="Solo applicants" />
       </div>
@@ -397,7 +397,7 @@ function GroupCard({
           </span>
         )}
         {!nextTier && currentTier && (
-          <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5">
+          <span className="ml-auto text-[10px] text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-0.5">
             <Check className="h-3 w-3" /> Max tier
           </span>
         )}

@@ -30,7 +30,7 @@ export function BrowseSelectionPanel({
         </span>
         <button
           onClick={onClear}
-          className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+          className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
         >
           Clear all
         </button>
@@ -55,17 +55,17 @@ export function BrowseSelectionPanel({
                 )}
               />
               {sel.pageCount && (
-                <span className="text-gray-400 shrink-0">/{sel.pageCount}</span>
+                <span className="text-gray-500 shrink-0">/{sel.pageCount}</span>
               )}
               <button
                 onClick={() => onRemove(sel.path)}
-                className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-400 hover:text-gray-600"
+                className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-500 hover:text-gray-600"
               >
                 <X className="h-3 w-3" />
               </button>
             </div>
             {sel.error && (
-              <p className="text-[10px] text-red-500 pl-1">{sel.error}</p>
+              <p className="text-[10px] text-red-600 pl-1">{sel.error}</p>
             )}
           </div>
         ))}

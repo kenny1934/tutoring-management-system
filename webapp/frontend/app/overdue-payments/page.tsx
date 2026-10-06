@@ -60,7 +60,7 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     max: 29,
     bgColor: 'bg-orange-50 dark:bg-orange-900/20',
     borderColor: 'border-orange-200 dark:border-orange-800',
-    textColor: 'text-orange-600 dark:text-orange-400',
+    textColor: 'text-orange-700 dark:text-orange-400',
     badgeBg: 'bg-orange-100 dark:bg-orange-900/40',
   },
   medium: {
@@ -70,7 +70,7 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     max: 14,
     bgColor: 'bg-amber-50 dark:bg-amber-900/20',
     borderColor: 'border-amber-200 dark:border-amber-800',
-    textColor: 'text-amber-600 dark:text-amber-400',
+    textColor: 'text-amber-700 dark:text-amber-400',
     badgeBg: 'bg-amber-100 dark:bg-amber-900/40',
   },
   new: {
@@ -80,7 +80,7 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     max: 7,
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
-    textColor: 'text-yellow-600 dark:text-yellow-400',
+    textColor: 'text-yellow-700 dark:text-yellow-400',
     badgeBg: 'bg-yellow-100 dark:bg-yellow-900/40',
   },
   dueSoon: {
@@ -510,7 +510,7 @@ export default function OverduePaymentsPage() {
                   {isAdmin && overdueCount > 0 && (
                     <button
                       onClick={() => setShowWecom(true)}
-                      className="flex items-center gap-1.5 px-3 py-1 text-sm border border-line-strong text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm border border-line-strong text-accent-ink dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
                       title="Send overdue payment reminder to WeCom"
                     >
                       <MessageSquareShare className="h-3.5 w-3.5" />
@@ -522,7 +522,7 @@ export default function OverduePaymentsPage() {
 
               {/* Search input */}
               <div className="mt-2 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -546,7 +546,7 @@ export default function OverduePaymentsPage() {
                     }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#3d3628]"
                   >
-                    <X className="h-4 w-4 text-gray-400" />
+                    <X className="h-4 w-4 text-gray-500" />
                   </button>
                 )}
               </div>
@@ -734,7 +734,7 @@ export default function OverduePaymentsPage() {
                     "w-full px-3 py-2 rounded-lg border",
                     "border-[#d4a574] dark:border-[#6b5a4a]",
                     "bg-white dark:bg-[#1a1a1a]",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/20"
+                    "focus:outline-none focus:ring-2 focus:ring-primary/20"
                   )}
                 />
               </div>
@@ -873,7 +873,7 @@ function TierBadge({ enrollment }: { enrollment: OverdueEnrollment }) {
           "inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-medium",
           isOverride
             ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-            : "bg-[#f5e6d3] text-[#a0704b] dark:bg-[#3d2e1e] dark:text-[#cd853f]"
+            : "bg-[#f5e6d3] text-accent-ink dark:bg-[#3d2e1e] dark:text-[#cd853f]"
         )}
         title={
           isOverride

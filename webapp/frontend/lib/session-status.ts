@@ -48,7 +48,7 @@ export const getSessionStatusConfig = (status: string | undefined): SessionStatu
 
   // Check suffix patterns first (for wildcard statuses like "Rescheduled - Pending Make-up")
   if (s.endsWith("- Pending Make-up")) {
-    return { bgClass: "bg-orange-500", stripClass: STRIP.orange.fill, stripIconClass: STRIP.orange.icon, bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-600 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
+    return { bgClass: "bg-orange-500", stripClass: STRIP.orange.fill, stripIconClass: STRIP.orange.icon, bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-700 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
   }
   if (s.endsWith("- Make-up Booked")) {
     return { bgClass: "bg-gray-400", stripClass: STRIP.gray.fill, stripIconClass: STRIP.gray.icon, bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true, opacity: 0.6 };
@@ -56,14 +56,14 @@ export const getSessionStatusConfig = (status: string | undefined): SessionStatu
 
   // Exact matches
   const config: Record<string, SessionStatusConfig> = {
-    "Scheduled": { bgClass: "bg-sky-400", stripClass: STRIP.sky.fill, stripIconClass: STRIP.sky.icon, bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-600 dark:text-sky-400", Icon: Clock },
-    "Attended": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle },
-    "Attended (Make-up)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
-    "Attended (Trial)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
-    "Make-up Class": { bgClass: "bg-yellow-500", stripClass: STRIP.yellow.fill, stripIconClass: STRIP.yellow.icon, bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-600 dark:text-yellow-400", Icon: PencilLine },
+    "Scheduled": { bgClass: "bg-sky-400", stripClass: STRIP.sky.fill, stripIconClass: STRIP.sky.icon, bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-700 dark:text-sky-400", Icon: Clock },
+    "Attended": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle },
+    "Attended (Make-up)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
+    "Attended (Trial)": { bgClass: "bg-green-600", stripClass: STRIP.green.fill, stripIconClass: STRIP.green.icon, bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-700 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
+    "Make-up Class": { bgClass: "bg-yellow-500", stripClass: STRIP.yellow.fill, stripIconClass: STRIP.yellow.icon, bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-700 dark:text-yellow-400", Icon: PencilLine },
     "Trial Class": { bgClass: "bg-blue-500", stripClass: STRIP.blue.fill, stripIconClass: STRIP.blue.icon, bgTint: "bg-blue-50/80 dark:bg-blue-900/20", textClass: "text-blue-600 dark:text-blue-400", Icon: FlaskConical },
-    "Cancelled": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: XCircle, strikethrough: true },
-    "No Show": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: UserX, strikethrough: true },
+    "Cancelled": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-600 dark:text-red-400", Icon: XCircle, strikethrough: true },
+    "No Show": { bgClass: "bg-red-500", stripClass: STRIP.red.fill, stripIconClass: STRIP.red.icon, bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-600 dark:text-red-400", Icon: UserX, strikethrough: true },
   };
 
   return config[s] || { bgClass: "bg-[#d4a574]", stripClass: STRIP.amber.fill, stripIconClass: STRIP.amber.icon, bgTint: "bg-amber-50/80 dark:bg-amber-900/20", textClass: "text-amber-700 dark:text-amber-400", Icon: Circle };
@@ -188,7 +188,7 @@ export const getProposalIndicatorConfig = (slotCount: number): ProposalIndicator
     Icon: CalendarClock,
     badgeText: `${slotCount} slot${slotCount !== 1 ? 's' : ''} proposed`,
     className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    iconClassName: 'text-amber-600 dark:text-amber-400',
+    iconClassName: 'text-amber-700 dark:text-amber-400',
   };
 };
 

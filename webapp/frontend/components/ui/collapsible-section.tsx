@@ -23,26 +23,26 @@ export interface CollapsibleSectionProps {
 const colorClasses = {
   red: {
     hover: 'hover:bg-red-50 dark:hover:bg-red-900/30',
-    checkbox: 'text-red-500 focus:ring-red-500',
-    chevron: 'text-red-500',
+    checkbox: 'text-red-600 focus:ring-red-500',
+    chevron: 'text-red-600',
     text: 'text-red-600 dark:text-red-400',
   },
   orange: {
     hover: 'hover:bg-orange-50 dark:hover:bg-orange-900/10',
-    checkbox: 'text-orange-500 focus:ring-orange-500',
-    chevron: 'text-orange-500',
-    text: 'text-orange-600 dark:text-orange-400',
+    checkbox: 'text-orange-700 focus:ring-orange-500',
+    chevron: 'text-orange-700',
+    text: 'text-orange-700 dark:text-orange-400',
   },
   purple: {
     hover: 'hover:bg-purple-50 dark:hover:bg-purple-900/10',
-    checkbox: 'text-purple-500 focus:ring-purple-500',
-    chevron: 'text-purple-400',
-    text: 'text-purple-500 dark:text-purple-400',
+    checkbox: 'text-purple-600 focus:ring-purple-500',
+    chevron: 'text-purple-600',
+    text: 'text-purple-600 dark:text-purple-400',
   },
   gray: {
     hover: 'hover:bg-gray-50 dark:hover:bg-gray-800/50',
     checkbox: 'text-gray-500 focus:ring-gray-500',
-    chevron: 'text-gray-400',
+    chevron: 'text-gray-500',
     text: 'text-gray-500 dark:text-gray-400',
   },
 };

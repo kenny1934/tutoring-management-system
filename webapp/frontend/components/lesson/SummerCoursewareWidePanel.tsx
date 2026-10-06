@@ -196,7 +196,7 @@ function WideGradeSection({
     <div className="mx-1 mb-2 rounded-lg border border-[#e8d4b8] dark:border-[#5a4d3a] bg-[#fdf6ec]/60 dark:bg-[#2a2318]/60 px-2.5 py-2">
       {/* Header */}
       <div className="flex items-center gap-1.5">
-        <Sun className="h-3.5 w-3.5 text-amber-500" />
+        <Sun className="h-3.5 w-3.5 text-amber-700" />
         <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
           Summer Materials{showGrade ? ` · ${cwGrade}` : ""}
         </span>
@@ -228,7 +228,7 @@ function WideGradeSection({
                 "text-[10px]",
                 lessonNote.warn
                   ? "text-amber-700 dark:text-amber-400"
-                  : "text-[#8b7355] dark:text-[#a09080]"
+                  : "text-ink-subtle dark:text-[#a09080]"
               )}
             >
               {lessonNote.text}

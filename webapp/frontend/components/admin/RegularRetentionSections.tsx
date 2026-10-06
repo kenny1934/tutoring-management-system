@@ -119,7 +119,7 @@ export function StudentLink({
       target="_blank"
       rel="noopener noreferrer"
       title={`Open ${row.student_name}'s record in a new tab`}
-      className={cn("hover:text-primary hover:underline", className)}
+      className={cn("hover:text-accent-ink hover:underline", className)}
     >
       {row.student_name}
     </a>
@@ -1460,10 +1460,10 @@ export function ChaseListBody({
         <button
           type="button"
           onClick={() => onSort(k)}
-          className={cn("inline-flex items-center gap-1 hover:text-primary", active && "text-primary")}
+          className={cn("inline-flex items-center gap-1 hover:text-accent-ink", active && "text-accent-ink")}
         >
           {children}
-          <Arrow className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/50")} />
+          <Arrow className={cn("h-3 w-3", active ? "text-accent-ink" : "text-muted-foreground/50")} />
         </button>
       </th>
     );

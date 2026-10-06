@@ -32,7 +32,7 @@ const EVENT_CONFIG: Record<string, {
     borderColor: "border-l-green-500",
     stripBg: "bg-green-100/40",
     stripBgDark: "dark:bg-green-900/30",
-    iconColor: "text-green-600",
+    iconColor: "text-green-700",
     iconColorDark: "dark:text-green-400",
   },
   makeup_completed: {
@@ -40,7 +40,7 @@ const EVENT_CONFIG: Record<string, {
     borderColor: "border-l-yellow-500",
     stripBg: "bg-yellow-100/40",
     stripBgDark: "dark:bg-yellow-900/30",
-    iconColor: "text-yellow-500",
+    iconColor: "text-yellow-700",
     iconColorDark: "dark:text-yellow-400",
   },
   session_cancelled: {
@@ -48,7 +48,7 @@ const EVENT_CONFIG: Record<string, {
     borderColor: "border-l-red-500",
     stripBg: "bg-red-100/40",
     stripBgDark: "dark:bg-red-900/30",
-    iconColor: "text-red-500",
+    iconColor: "text-red-600",
     iconColorDark: "dark:text-red-400",
   },
   session_rescheduled: {
@@ -56,7 +56,7 @@ const EVENT_CONFIG: Record<string, {
     borderColor: "border-l-orange-500",
     stripBg: "bg-orange-100/40",
     stripBgDark: "dark:bg-orange-900/30",
-    iconColor: "text-orange-600",
+    iconColor: "text-orange-700",
     iconColorDark: "dark:text-orange-400",
   },
   sick_leave: {
@@ -64,7 +64,7 @@ const EVENT_CONFIG: Record<string, {
     borderColor: "border-l-orange-500",
     stripBg: "bg-orange-100/40",
     stripBgDark: "dark:bg-orange-900/30",
-    iconColor: "text-orange-600",
+    iconColor: "text-orange-700",
     iconColorDark: "dark:text-orange-400",
   },
   weather_cancelled: {
@@ -72,7 +72,7 @@ const EVENT_CONFIG: Record<string, {
     borderColor: "border-l-orange-500",
     stripBg: "bg-orange-100/40",
     stripBgDark: "dark:bg-orange-900/30",
-    iconColor: "text-orange-600",
+    iconColor: "text-orange-700",
     iconColorDark: "dark:text-orange-400",
   },
   makeup_booked: {
@@ -185,9 +185,9 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
           </div>
         </div>
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Clock className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+          <Clock className="h-10 w-10 text-gray-300 dark:text-gray-400 mb-3" />
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No recent activity</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Session updates will appear here</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Session updates will appear here</p>
         </div>
       </div>
     );
@@ -261,15 +261,15 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
                           </span>
                           {event.student && (
                             <>
-                              <span className="hidden md:inline text-gray-400 dark:text-gray-500">&middot;</span>
+                              <span className="hidden md:inline text-gray-500 dark:text-gray-400">&middot;</span>
                               <span className="w-full md:w-auto text-xs text-gray-600 dark:text-gray-400 truncate">
-                                <span className="text-gray-400 dark:text-gray-500">
+                                <span className="text-gray-500 dark:text-gray-400">
                                   {selectedLocation === "All Locations" && event.location ? `${event.location}-` : ""}
                                   {event.school_student_id || "N/A"}
                                 </span>
                                 {" "}{event.student}
                                 {event.description && (
-                                  <span className="text-gray-400 dark:text-gray-500">
+                                  <span className="text-gray-500 dark:text-gray-400">
                                     {" "}&middot; {event.description}
                                   </span>
                                 )}
@@ -280,7 +280,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
 
                         {/* Right: Modified by + Time */}
                         <span
-                          className="flex-shrink-0 text-[10px] font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap"
+                          className="flex-shrink-0 text-[10px] font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap"
                           title={formatFullTimestamp(event.time)}
                         >
                           {!isMobile && event.modified_by && (

@@ -141,7 +141,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
             z-50
           "
         >
-          <div className="px-3 py-2 text-xs text-[#8b7355] dark:text-[#a89880] border-b border-line">
+          <div className="px-3 py-2 text-xs text-ink-subtle dark:text-[#a89880] border-b border-line">
             Test as different role
           </div>
 
@@ -151,7 +151,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
             className={`
               w-full flex items-center gap-2 px-3 py-2 text-sm
               ${!isImpersonating
-                ? "bg-[#a0704b]/10 text-accent-ink"
+                ? "bg-primary/10 text-accent-ink"
                 : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
               }
             `}
@@ -192,12 +192,12 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
           {/* Tutor selection (when impersonating as Tutor) */}
           {effectiveRole === "Tutor" && (
             <>
-              <div className="px-3 py-2 text-xs text-[#8b7355] dark:text-[#a89880] border-t border-line mt-1">
+              <div className="px-3 py-2 text-xs text-ink-subtle dark:text-[#a89880] border-t border-line mt-1">
                 <User className="inline-block w-3 h-3 mr-1" />
                 Select tutor to impersonate
               </div>
               {loadingTutors ? (
-                <div className="px-3 py-2 text-sm text-[#8b7355] dark:text-[#a89880]">
+                <div className="px-3 py-2 text-sm text-ink-subtle dark:text-[#a89880]">
                   Loading tutors...
                 </div>
               ) : (

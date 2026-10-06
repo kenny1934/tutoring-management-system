@@ -584,19 +584,19 @@ export function EditSessionModal({
         {is60DayExceeded && (
           <div id="session-60day-warning" role="alert" className={`p-3 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
             <div className="flex items-start gap-2">
-              <AlertTriangle className={`h-4 w-4 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
+              <AlertTriangle className={`h-4 w-4 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className={`text-sm ${isSuperAdmin ? 'text-orange-800 dark:text-orange-200' : 'text-red-800 dark:text-red-200'}`}>
                   {isSuperAdmin
                     ? 'This date exceeds the 60-day makeup limit (Super Admin override available)'
                     : 'This date exceeds the 60-day makeup limit'}
                 </p>
-                <p className={`text-xs ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
+                <p className={`text-xs ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
                   Makeups must be scheduled within 60 days of the original session ({rootOriginalDate}).
                   Last allowed date: {lastAllowedDate60Day}
                 </p>
                 {isSuperAdmin && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                  <p className="text-xs text-orange-700 dark:text-orange-400 mt-1 font-medium">
                     As Super Admin, you may proceed with this override.
                   </p>
                 )}
@@ -607,7 +607,7 @@ export function EditSessionModal({
                 size="sm"
                 variant="ghost"
                 onClick={() => updateField("session_date", session.session_date)}
-                className={`text-xs ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
+                className={`text-xs ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
               >
                 Revert Date
               </Button>
@@ -619,18 +619,18 @@ export function EditSessionModal({
         {isSummerDeadlineExceeded && (
           <div id="session-summer-deadline-warning" role="alert" className={`p-3 ${isAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
             <div className="flex items-start gap-2">
-              <AlertTriangle className={`h-4 w-4 ${isAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
+              <AlertTriangle className={`h-4 w-4 ${isAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className={`text-sm ${isAdmin ? 'text-orange-800 dark:text-orange-200' : 'text-red-800 dark:text-red-200'}`}>
                   {isAdmin
                     ? 'This date is past the summer deadline (override available)'
                     : 'This date is past the summer deadline'}
                 </p>
-                <p className={`text-xs ${isAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
+                <p className={`text-xs ${isAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
                   Summer sessions must be scheduled on or before 31 August {sessionSummerYear(session)}.
                 </p>
                 {isAdmin && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                  <p className="text-xs text-orange-700 dark:text-orange-400 mt-1 font-medium">
                     You may proceed with this override.
                   </p>
                 )}
@@ -641,7 +641,7 @@ export function EditSessionModal({
                 size="sm"
                 variant="ghost"
                 onClick={() => updateField("session_date", session.session_date)}
-                className={`text-xs ${isAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
+                className={`text-xs ${isAdmin ? 'text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
               >
                 Revert Date
               </Button>
@@ -653,12 +653,12 @@ export function EditSessionModal({
         {showStatusOverrideWarning && (
           <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-orange-700 dark:text-orange-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-orange-800 dark:text-orange-200">
                   You are changing this session to &quot;{form.session_status}&quot; (Super Admin override)
                 </p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+                <p className="text-xs text-orange-700 dark:text-orange-400 mt-0.5">
                   {isPendingMakeup
                     ? "This will bypass the makeup scheduling workflow. The session will no longer be tracked as pending makeup."
                     : "This bypasses the normal makeup scheduling workflow. The 60-day restriction cannot be enforced without a linked original session."}
@@ -672,12 +672,12 @@ export function EditSessionModal({
         {showEarlyDeadlineWarning && !deadlineError && (
           <div id="session-deadline-warning" role="alert" className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
                   This is the student&apos;s regular slot ({currentEnrollment?.assigned_day} {currentEnrollment?.assigned_time}) past the enrollment deadline
                 </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                   Enrollment ends: {effectiveEndDate}
                 </p>
               </div>
@@ -696,7 +696,7 @@ export function EditSessionModal({
                 size="sm"
                 variant="ghost"
                 onClick={() => updateField("session_date", session.session_date)}
-                className="text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
+                className="text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
               >
                 Revert Date
               </Button>
@@ -713,7 +713,7 @@ export function EditSessionModal({
             </div>
             <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
               <div className="flex items-center justify-between">
-                <div className="text-xs text-red-500 dark:text-red-400">
+                <div className="text-xs text-red-600 dark:text-red-400">
                   <Clock className="h-3 w-3 inline mr-1" />
                   Enrollment ends: {deadlineError.effective_end_date}
                 </div>
@@ -721,7 +721,7 @@ export function EditSessionModal({
                   size="sm"
                   variant="outline"
                   onClick={() => setShowExtensionModal(true)}
-                  className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                  className="text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
                 >
                   <Clock className="h-3 w-3 mr-1" />
                   Request Extension
@@ -792,7 +792,7 @@ export function EditSessionModal({
                   })()}
                 </div>
                 <ChevronDown className={cn(
-                  "h-4 w-4 text-gray-400 flex-shrink-0 transition-transform",
+                  "h-4 w-4 text-gray-500 flex-shrink-0 transition-transform",
                   statusDropdownOpen && "rotate-180"
                 )} />
               </button>
@@ -953,7 +953,7 @@ export function EditSessionModal({
                               updateExercise(index, "page_mode", "simple");
                               updateExercise(index, "complex_pages", "");
                             }}
-                            className="text-amber-500 focus:ring-amber-400"
+                            className="text-amber-700 focus:ring-amber-400"
                           />
                           <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
                           <input
@@ -975,7 +975,7 @@ export function EditSessionModal({
                               exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
                             )}
                           />
-                          <span className="text-xs text-gray-400">–</span>
+                          <span className="text-xs text-gray-500">–</span>
                           <input
                             type="number"
                             value={exercise.page_end}
@@ -1013,7 +1013,7 @@ export function EditSessionModal({
                               updateExercise(index, "page_start", "");
                               updateExercise(index, "page_end", "");
                             }}
-                            className="text-amber-500 focus:ring-amber-400"
+                            className="text-amber-700 focus:ring-amber-400"
                           />
                           <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Custom:</span>
                           <input
@@ -1056,7 +1056,7 @@ export function EditSessionModal({
                     <button
                       type="button"
                       onClick={() => removeExercise(index)}
-                      className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
+                      className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
                       title="Remove exercise"
                     >
                       <Trash2 className="h-4 w-4" />

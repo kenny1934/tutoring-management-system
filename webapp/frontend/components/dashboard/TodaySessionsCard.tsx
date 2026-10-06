@@ -325,7 +325,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   </button>
                   <button
                     onClick={() => setShowSelectDropdown(!showSelectDropdown)}
-                    className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="p-0.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     title="Selection options"
                   >
                     <ChevronDown className="h-3 w-3" />
@@ -367,7 +367,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
           <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
             <NoSessionsToday className="mb-2 opacity-80" />
             <p className="text-sm font-medium">No sessions today</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Time for a coffee break!</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Time for a coffee break!</p>
           </div>
         ) : (
           <div className="divide-y divide-line">
@@ -480,7 +480,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('attended')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
                     bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
                   )}
                   title="Mark all as attended"
@@ -508,7 +508,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('reschedule')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                     bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                   )}
                   title="Mark all as rescheduled"
@@ -522,7 +522,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('sick-leave')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                     bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                   )}
                   title="Mark all as sick leave"
@@ -536,7 +536,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   onClick={() => handleBulkAction('weather-cancelled')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
                     bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
                   )}
                   title="Mark all as weather cancelled"
@@ -578,14 +578,14 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
           /* Regular Stats Footer */
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-green-600 dark:text-green-400">
+              <span className="text-green-700 dark:text-green-400">
                 <span className="font-semibold">{stats.completed}</span> done
               </span>
-              <span className="text-sky-600 dark:text-sky-400">
+              <span className="text-sky-700 dark:text-sky-400">
                 <span className="font-semibold">{stats.upcoming}</span> upcoming
               </span>
               {stats.cancelled > 0 && (
-                <span className="text-red-500 dark:text-red-400">
+                <span className="text-red-600 dark:text-red-400">
                   <span className="font-semibold">{stats.cancelled}</span> cancelled
                 </span>
               )}
@@ -680,7 +680,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           {isSelected ? (
             <CheckSquare className="h-4 w-4 text-accent-ink" />
           ) : (
-            <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+            <Square className="h-4 w-4 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
           )}
         </button>
 
@@ -690,7 +690,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           <span className={cn(
             "text-sm font-medium truncate",
             isCancelledEnrollment
-              ? "text-gray-400 dark:text-gray-500"
+              ? "text-gray-500 dark:text-gray-400"
               : isUnpaid
                 ? "text-red-600 dark:text-red-400"
                 : "text-gray-900 dark:text-gray-100",
@@ -705,7 +705,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           </span>
           <SessionLessonBadge session={session} size="sm" />
           {!isCancelledEnrollment && isUnpaid && (
-            <HandCoins className="h-3 w-3 text-red-500 flex-shrink-0" />
+            <HandCoins className="h-3 w-3 text-red-600 flex-shrink-0" />
           )}
 
           {/* Grade badge */}
@@ -731,12 +731,12 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
 
           {/* Exam Revision indicator */}
           {session.exam_revision_slot_id && (
-            <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
+            <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-600 flex-shrink-0" /></span>
           )}
 
           {/* Extension Request indicator */}
           {session.extension_request_id && (
-            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
+            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-700 flex-shrink-0" /></span>
           )}
         </div>
 
@@ -805,7 +805,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
       <div className="flex items-center gap-2">
         {/* CalendarClock icon instead of checkbox */}
         <div className="flex-shrink-0 p-0.5">
-          <CalendarClock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+          <CalendarClock className="h-4 w-4 text-amber-700 dark:text-amber-400" />
         </div>
 
         {/* Left: Student info */}

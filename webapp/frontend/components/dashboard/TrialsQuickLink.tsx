@@ -144,7 +144,7 @@ function AwaitingTrialCard({
         <span
           className={cn(
             isToday && "text-blue-600 dark:text-blue-400 font-medium",
-            isPast && "text-red-500 dark:text-red-400"
+            isPast && "text-red-600 dark:text-red-400"
           )}
         >
           {formatDateCompact(trial.session_date)}
@@ -349,7 +349,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               {/* Header */}
               <div className="px-3 py-2 border-b border-line bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
                 <div className="flex items-center gap-2">
-                  <FlaskConical className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                  <FlaskConical className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                   <span className="font-medium text-sm">Trial Sessions</span>
                 </div>
               </div>
@@ -417,7 +417,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               <Link
                 href="/trials"
                 onClick={handleClose}
-                className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors rounded-b-lg"
+                className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors rounded-b-lg"
               >
                 View all trials <ChevronRight className="h-3 w-3 inline" />
               </Link>

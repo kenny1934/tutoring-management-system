@@ -103,7 +103,7 @@ function SinglePreview({ url }: { url: string }) {
       )}
       <div className="flex-1 min-w-0">
         {data.title && (
-          <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-[#a0704b] transition-colors">
+          <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-accent-ink transition-colors">
             {data.title}
           </div>
         )}
@@ -112,7 +112,7 @@ function SinglePreview({ url }: { url: string }) {
             {data.description}
           </div>
         )}
-        <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
           <ExternalLink className="w-2.5 h-2.5" />
           <span>{data.domain}</span>
         </div>
@@ -133,7 +133,7 @@ export function LinkPreview({ messageHtml }: { messageHtml: string }) {
         <SinglePreview key={url} url={url} />
       ))}
       {extra > 0 && (
-        <div className="text-[11px] text-gray-400 dark:text-gray-500 pl-1">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 pl-1">
           +{extra} more {extra === 1 ? "link" : "links"}
         </div>
       )}

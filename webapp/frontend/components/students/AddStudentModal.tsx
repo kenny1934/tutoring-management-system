@@ -203,7 +203,7 @@ export function AddStudentModal({
       onClose={onClose}
       title={
         <div className="flex items-center gap-2">
-          <User className="h-5 w-5 text-primary" />
+          <User className="h-5 w-5 text-accent-ink" />
           <span>Add New Student</span>
           {nextId && (
             <span className="ml-auto flex items-center gap-1 text-sm font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded">
@@ -218,7 +218,7 @@ export function AddStudentModal({
         {/* Duplicate Warning */}
         {duplicates.length > 0 && (
           <div id="student-duplicate-warning" role="alert" className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium text-amber-800 dark:text-amber-200">Potential duplicate found</p>
               <ul className="mt-1 space-y-1 text-amber-700 dark:text-amber-300">
@@ -226,7 +226,7 @@ export function AddStudentModal({
                   <li key={d.id}>
                     {d.student_name} {d.school_student_id && `(${d.school_student_id})`}
                     {d.grade && ` - ${d.grade}`}
-                    <span className="text-amber-600 dark:text-amber-400 text-xs ml-1">({d.match_reason})</span>
+                    <span className="text-amber-700 dark:text-amber-400 text-xs ml-1">({d.match_reason})</span>
                   </li>
                 ))}
               </ul>
@@ -237,7 +237,7 @@ export function AddStudentModal({
         {/* Student Name (required) */}
         <div>
           <label className="block text-sm font-medium text-foreground/70 mb-1">
-            Student Name <span className="text-red-500">*</span>
+            Student Name <span className="text-red-600">*</span>
           </label>
           <input
             type="text"
@@ -412,7 +412,7 @@ export function AddStudentModal({
                   <button
                     type="button"
                     onClick={() => setContacts(contacts.filter((_, j) => j !== i))}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-red-600 transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -428,7 +428,7 @@ export function AddStudentModal({
               <button
                 type="button"
                 onClick={() => setContacts([...contacts, { phone: '', label: '' }])}
-                className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                className="text-xs text-accent-ink hover:text-accent-ink/80 flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" />
                 Add another number

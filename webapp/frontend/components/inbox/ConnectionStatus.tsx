@@ -27,7 +27,7 @@ export default function ConnectionStatus({ status }: { status: Status }) {
       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg mx-2 mt-2 animate-in slide-in-from-top-2 fade-in duration-300 ${
         isDisconnected
           ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40"
-          : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40"
+          : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40"
       }`}
     >
       {isDisconnected ? (

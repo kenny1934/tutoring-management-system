@@ -113,7 +113,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
         type="button"
         onClick={startRecording}
         className={cn(
-          "p-1.5 rounded-lg text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors",
+          "p-1.5 rounded-lg text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors",
           className
         )}
         title="Record voice message"
@@ -126,7 +126,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
   if (state === "uploading") {
     return (
       <div className={cn("flex items-center gap-2 px-3 py-1.5", className)}>
-        <Loader2 className="h-4 w-4 animate-spin text-[#a0704b]" />
+        <Loader2 className="h-4 w-4 animate-spin text-accent-ink" />
         <span className="text-xs text-gray-500">Sending...</span>
       </div>
     );
@@ -145,7 +145,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
       <button
         type="button"
         onClick={stopAndDiscard}
-        className="p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+        className="p-1.5 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
         title="Discard"
       >
         <X className="h-4 w-4" />
@@ -153,7 +153,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
       <button
         type="button"
         onClick={stopAndSend}
-        className="p-1.5 rounded-full text-white bg-[#a0704b] hover:bg-[#8b5f3c] transition-colors"
+        className="p-1.5 rounded-full text-white bg-primary hover:bg-[#8b5f3c] transition-colors"
         title={mode === "attach" ? "Add voice recording" : "Send voice message"}
       >
         {mode === "attach" ? <Check className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}

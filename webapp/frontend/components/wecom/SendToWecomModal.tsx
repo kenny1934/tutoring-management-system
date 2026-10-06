@@ -230,7 +230,7 @@ export default function SendToWecomModal({
               Loading webhooks...
             </div>
           ) : webhooks.length === 0 ? (
-            <p className="text-sm text-amber-600 dark:text-amber-400">
+            <p className="text-sm text-amber-700 dark:text-amber-400">
               No configured webhooks available. Ask an admin to set up WeCom
               webhook URLs.
             </p>
@@ -266,7 +266,7 @@ export default function SendToWecomModal({
               <button
                 key={tmpl.label}
                 onClick={() => handleTemplateSelect(tmpl)}
-                className="px-3 py-1 text-xs rounded-full border border-line-strong text-[#a0704b] dark:text-[#c49a6c] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] transition-colors"
+                className="px-3 py-1 text-xs rounded-full border border-line-strong text-accent-ink dark:text-[#c49a6c] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] transition-colors"
               >
                 {tmpl.label}
               </button>

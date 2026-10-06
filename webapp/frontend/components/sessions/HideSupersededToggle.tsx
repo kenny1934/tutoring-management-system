@@ -25,7 +25,7 @@ export function HideSupersededToggle({
       className={cn(
         "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors",
         active
-          ? "bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f] font-medium"
+          ? "bg-primary/10 text-accent-ink dark:text-[#cd853f] font-medium"
           : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820]"
       )}
     >

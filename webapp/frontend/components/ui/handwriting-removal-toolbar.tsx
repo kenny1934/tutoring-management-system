@@ -177,7 +177,7 @@ export function HandwritingRemovalToolbar({
 
       {/* Error message */}
       {error && (
-        <span className="text-xs text-red-500">{error}</span>
+        <span className="text-xs text-red-600">{error}</span>
       )}
 
       {/* Black ink removal options */}

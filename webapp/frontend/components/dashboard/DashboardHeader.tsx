@@ -123,7 +123,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             {/* Location Badge - hidden when container is narrow */}
             {location && location !== "All Locations" && (
               <div className="hidden @[500px]/header:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-full">
-                <MapPin className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <MapPin className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
                   {location}
                 </span>
@@ -249,7 +249,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                                   }}
                                 />
                               ) : null}
-                              <ExternalLink className={cn("h-4 w-4 text-[#a0704b]", tool.iconUrl && "hidden")} />
+                              <ExternalLink className={cn("h-4 w-4 text-accent-ink", tool.iconUrl && "hidden")} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -261,7 +261,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                                 </div>
                               )}
                             </div>
-                            <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <ExternalLink className="h-3.5 w-3.5 text-gray-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </a>
                         ))}
                         {usefulTools.length === 0 && (

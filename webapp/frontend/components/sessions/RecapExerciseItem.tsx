@@ -90,7 +90,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0">
       {(openState === 'loading' || printState === 'loading') && progressMessage ? (
-        <span className="truncate text-amber-600 dark:text-amber-400 italic min-w-0" title={pdfName}>
+        <span className="truncate text-amber-700 dark:text-amber-400 italic min-w-0" title={pdfName}>
           {progressMessage}
         </span>
       ) : (
@@ -111,29 +111,29 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
           className="p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded flex-shrink-0"
           title="Open URL"
         >
-          <ExternalLink className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+          <ExternalLink className="h-3 w-3 text-blue-600 dark:text-blue-400" />
         </button>
       ) : (
         <>
           {/* Copy button */}
           <button type="button" onClick={handleCopy} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Copy path">
-            {copyState === 'copied' ? <Check className="h-3 w-3 text-green-500" /> :
-             copyState === 'failed' ? <XCircle className="h-3 w-3 text-red-500" /> :
-             <Copy className="h-3 w-3 text-gray-400" />}
+            {copyState === 'copied' ? <Check className="h-3 w-3 text-green-700" /> :
+             copyState === 'failed' ? <XCircle className="h-3 w-3 text-red-600" /> :
+             <Copy className="h-3 w-3 text-gray-500" />}
           </button>
 
           {/* Open/Print buttons - only if file system supported */}
           {canBrowseFiles && (
             <>
               <button type="button" onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={openState === 'loading' && progressMessage ? progressMessage : "Open file"}>
-                {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
-                 openState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
-                 <ExternalLink className="h-3 w-3 text-gray-400" />}
+                {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-500" /> :
+                 openState === 'error' ? <XCircle className="h-3 w-3 text-red-600" /> :
+                 <ExternalLink className="h-3 w-3 text-gray-500" />}
               </button>
               <button type="button" onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={printState === 'loading' && progressMessage ? progressMessage : "Print file"}>
-                {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
-                 printState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
-                 <Printer className="h-3 w-3 text-gray-400" />}
+                {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-500" /> :
+                 printState === 'error' ? <XCircle className="h-3 w-3 text-red-600" /> :
+                 <Printer className="h-3 w-3 text-gray-500" />}
               </button>
             </>
           )}

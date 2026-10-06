@@ -310,7 +310,7 @@ export function WaitlistTimetable({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12 text-foreground/40">
-        <div className="animate-spin h-6 w-6 border-2 border-[#a0704b] border-t-transparent rounded-full mr-3" />
+        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mr-3" />
         Loading timetable...
       </div>
     );
@@ -318,7 +318,7 @@ export function WaitlistTimetable({
 
   if (error) {
     return (
-      <div className="text-center py-12 text-red-500 dark:text-red-400">
+      <div className="text-center py-12 text-red-600 dark:text-red-400">
         <AlertCircle className="h-8 w-8 mx-auto mb-2" />
         <p className="text-sm font-medium">Failed to load enrollment data</p>
         <p className="text-xs text-foreground/40 mt-1">Try refreshing the page</p>
@@ -354,7 +354,7 @@ export function WaitlistTimetable({
                 "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                 visibleDays.has(day)
                   ? hasData
-                    ? "bg-[#a0704b] text-white"
+                    ? "bg-primary text-white"
                     : "bg-gray-300 dark:bg-gray-600 text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
               )}
@@ -366,7 +366,7 @@ export function WaitlistTimetable({
         {!allDaysVisible && (
           <button
             onClick={() => setVisibleDays(new Set(DAYS))}
-            className="text-[9px] text-[#a0704b] hover:underline ml-1"
+            className="text-[9px] text-accent-ink hover:underline ml-1"
           >
             All
           </button>
@@ -391,7 +391,7 @@ export function WaitlistTimetable({
                       <div className="text-[8px] font-normal mt-0.5">
                         <span className="text-foreground/40">{ds.enrolled}</span>
                         {ds.waiting > 0 && (
-                          <span className="text-orange-500 ml-1">+{ds.waiting}w</span>
+                          <span className="text-orange-700 ml-1">+{ds.waiting}w</span>
                         )}
                       </div>
                     )}
@@ -411,7 +411,7 @@ export function WaitlistTimetable({
                 {(() => {
                   const tw = timeStats.get(normalizeTimeSlot(timeSlot)) || 0;
                   return tw > 0 ? (
-                    <div className="text-[8px] text-orange-500 font-sans mt-0.5">{tw} waiting</div>
+                    <div className="text-[8px] text-orange-700 font-sans mt-0.5">{tw} waiting</div>
                   ) : null;
                 })()}
               </td>
@@ -549,7 +549,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                 {slot.location}
               </span>
             )}
-            <span className="text-[8px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-medium">
+            <span className="text-[8px] uppercase tracking-wider text-orange-700 dark:text-orange-400 font-medium">
               {slot.waitlistEntries.length}w
             </span>
             {/* Grade summary (collapsed) */}
@@ -567,7 +567,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
               </div>
             )}
             <span className="ml-auto">
-              {expanded ? <ChevronUp className="h-2.5 w-2.5 text-orange-400" /> : <ChevronDown className="h-2.5 w-2.5 text-orange-400" />}
+              {expanded ? <ChevronUp className="h-2.5 w-2.5 text-orange-700" /> : <ChevronDown className="h-2.5 w-2.5 text-orange-700" />}
             </span>
           </div>
           {/* Expanded: student list */}
@@ -601,8 +601,8 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
     capacityPct >= 1
       ? "text-red-600 dark:text-red-400"
       : capacityPct >= 0.75
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-green-600 dark:text-green-400";
+        ? "text-amber-700 dark:text-amber-400"
+        : "text-green-700 dark:text-green-400";
 
   return (
     <div
@@ -623,7 +623,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
         </div>
       )}
       {highlight === "preferred" && (
-        <div className="text-[8px] font-medium uppercase tracking-wider text-center text-amber-600 dark:text-amber-400 pt-0.5">
+        <div className="text-[8px] font-medium uppercase tracking-wider text-center text-amber-700 dark:text-amber-400 pt-0.5">
           Preferred
         </div>
       )}
@@ -643,7 +643,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
               {count}/{MAX_CAPACITY}
             </span>
             {slot.waitlistCount > 0 && (
-              <span className="text-[9px] text-orange-500 dark:text-orange-400 font-medium">+{slot.waitlistCount}w</span>
+              <span className="text-[9px] text-orange-700 dark:text-orange-400 font-medium">+{slot.waitlistCount}w</span>
             )}
           </div>
           {/* Capacity bar */}
@@ -739,7 +739,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
           )}
           {slot.waitlistEntries.length > 0 && (
             <>
-              <div className="text-[8px] text-orange-500 dark:text-orange-400 font-medium mt-1 mb-0.5">
+              <div className="text-[8px] text-orange-700 dark:text-orange-400 font-medium mt-1 mb-0.5">
                 Waiting ({slot.waitlistEntries.length})
               </div>
               {slot.waitlistEntries.map((w) => (

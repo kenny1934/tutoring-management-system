@@ -68,7 +68,7 @@ export default function DebugPanelPage() {
                   <div>
                     <h1 className="text-lg sm:text-2xl font-bold text-on-surface flex items-center gap-2">
                       Debug Panel
-                      <Shield className="h-5 w-5 text-red-400" aria-hidden="true" />
+                      <Shield className="h-5 w-5 text-red-600" aria-hidden="true" />
                     </h1>
                     <p className="hidden sm:block text-sm text-on-surface/70">
                       Super Admin database access
@@ -91,7 +91,7 @@ export default function DebugPanelPage() {
             {/* Search and Actions */}
             <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
                 <input
                   type="text"
                   placeholder="Search tables..."
@@ -128,11 +128,11 @@ export default function DebugPanelPage() {
           <div className="px-4 sm:px-6 pb-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" aria-hidden="true" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent-ink" aria-hidden="true" />
               </div>
             ) : error ? (
               <div className="text-center py-16">
-                <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" aria-hidden="true" />
+                <AlertTriangle className="h-12 w-12 text-red-600 mx-auto mb-4" aria-hidden="true" />
                 <p className="text-gray-600 dark:text-gray-400">
                   Failed to load tables. Are you a Super Admin?
                 </p>
@@ -159,14 +159,14 @@ export default function DebugPanelPage() {
                             className={cn(
                               "p-4 rounded-xl border transition-all",
                               "bg-white dark:bg-[#1a1a1a] border-line",
-                              "hover:shadow-md hover:border-[#a0704b] dark:hover:border-[#a0704b]",
+                              "hover:shadow-md hover:border-primary dark:hover:border-[#a0704b]",
                               "paper-texture",
                               group.accent
                             )}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <Table2 className="h-5 w-5 text-[#a0704b]" aria-hidden="true" />
+                                <Table2 className="h-5 w-5 text-accent-ink" aria-hidden="true" />
                                 <span className="font-semibold text-gray-900 dark:text-gray-100">
                                   {table.display_name}
                                 </span>
@@ -183,7 +183,7 @@ export default function DebugPanelPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
                               {table.row_count !== null
                                 ? `${table.row_count.toLocaleString()} rows`
-                                : <span className="text-gray-400">? rows</span>}
+                                : <span className="text-gray-500">? rows</span>}
                             </p>
                           </Link>
                         ))}

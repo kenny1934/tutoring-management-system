@@ -74,7 +74,7 @@ export function HomeworkCheckSection({
           "w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-dashed transition-colors",
           outstanding
             ? "border-amber-400/60 bg-amber-50/60 text-amber-700 hover:bg-amber-50 dark:border-amber-600/40 dark:bg-amber-900/10 dark:text-amber-400/90 dark:hover:bg-amber-900/20"
-            : "border-[#dcc9a8] text-[#a0906e] hover:bg-[#f0e6d4]/50 dark:border-[#3a3228] dark:text-[#8a7a60] dark:hover:bg-[#252018]/60"
+            : "border-[#dcc9a8] text-ink-subtle hover:bg-[#f0e6d4]/50 dark:border-[#3a3228] dark:text-[#8a7a60] dark:hover:bg-[#252018]/60"
         )}
       >
         <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>

@@ -395,7 +395,7 @@ export default function StudentDetailPage() {
                 key={i}
                 className={cn(
                   "h-9 rounded-full animate-pulse",
-                  i === 1 ? "w-24 bg-[#a0704b]" : "w-24 bg-gray-200 dark:bg-gray-700"
+                  i === 1 ? "w-24 bg-primary" : "w-24 bg-gray-200 dark:bg-gray-700"
                 )}
               />
             ))}
@@ -463,7 +463,7 @@ export default function StudentDetailPage() {
               </p>
               <button
                 onClick={() => router.back()}
-                className="px-4 py-2 bg-[#a0704b] text-white rounded-lg hover:bg-[#8b6140] transition-colors"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-[#8b6140] transition-colors"
               >
                 Back to Students
               </button>
@@ -532,8 +532,8 @@ export default function StudentDetailPage() {
               className={cn(
                 "flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-md transition-colors",
                 progressOpen
-                  ? "bg-[#a0704b] text-white"
-                  : "text-[#a0704b] hover:bg-[#d4a574]/20"
+                  ? "bg-primary text-white"
+                  : "text-accent-ink hover:bg-[#d4a574]/20"
               )}
             >
               <TrendingUp className="w-3.5 h-3.5" />
@@ -580,7 +580,7 @@ export default function StudentDetailPage() {
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                     isActive
-                      ? "bg-[#a0704b] text-white shadow-md"
+                      ? "bg-primary text-white shadow-md"
                       : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-line"
                   )}
                 >
@@ -988,7 +988,7 @@ function ProfileTab({
           {isEditingPersonal ? (
             <div className="flex items-center gap-2">
               {personalSaveError && (
-                <span className="text-xs text-red-500 max-w-[120px] truncate" title={personalSaveError}>
+                <span className="text-xs text-red-600 max-w-[120px] truncate" title={personalSaveError}>
                   {personalSaveError}
                 </span>
               )}
@@ -1002,7 +1002,7 @@ function ProfileTab({
               <button
                 onClick={onSavePersonal}
                 disabled={isSavingPersonal}
-                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+                className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
               >
                 {isSavingPersonal ? 'Saving...' : 'Save'}
               </button>
@@ -1021,7 +1021,7 @@ function ProfileTab({
             >
               <Pencil className={cn(
                 "h-3.5 w-3.5",
-                readOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+                readOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
               )} />
             </button>
           )}
@@ -1062,7 +1062,7 @@ function ProfileTab({
           {isEditingAcademic ? (
             <div className="flex items-center gap-2">
               {academicSaveError && (
-                <span className="text-xs text-red-500 max-w-[120px] truncate" title={academicSaveError}>
+                <span className="text-xs text-red-600 max-w-[120px] truncate" title={academicSaveError}>
                   {academicSaveError}
                 </span>
               )}
@@ -1076,7 +1076,7 @@ function ProfileTab({
               <button
                 onClick={onSaveAcademic}
                 disabled={isSavingAcademic}
-                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+                className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
               >
                 {isSavingAcademic ? 'Saving...' : 'Save'}
               </button>
@@ -1095,7 +1095,7 @@ function ProfileTab({
             >
               <Pencil className={cn(
                 "h-3.5 w-3.5",
-                readOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+                readOnly ? "text-gray-300 dark:text-gray-400" : "text-gray-500 group-hover:text-amber-700"
               )} />
             </button>
           )}
@@ -1151,13 +1151,13 @@ function ProfileTab({
                 className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
                 title="Edit staff referral"
               >
-                <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+                <Pencil className="h-3.5 w-3.5 text-gray-500 group-hover:text-amber-700" />
               </button>
             )}
             {isEditingStaffReferral && (
               <div className="flex items-center gap-2">
                 {staffReferralSaveError && (
-                  <span className="text-xs text-red-500 max-w-[120px] truncate" title={staffReferralSaveError}>
+                  <span className="text-xs text-red-600 max-w-[120px] truncate" title={staffReferralSaveError}>
                     {staffReferralSaveError}
                   </span>
                 )}
@@ -1171,7 +1171,7 @@ function ProfileTab({
                 <button
                   onClick={handleSaveStaffReferral}
                   disabled={isSavingStaffReferral}
-                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+                  className="text-xs font-medium text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
                 >
                   {isSavingStaffReferral ? 'Saving...' : 'Save'}
                 </button>
@@ -1186,13 +1186,13 @@ function ProfileTab({
               {couponInfo?.has_coupon && (
                 <Tooltip content={couponSyncTooltip(couponInfo)}>
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                    <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <Ticket className="h-5 w-5 text-amber-700 dark:text-amber-400" />
                     <div>
                       <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
                         {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
                       </span>
                       {couponInfo.value && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                        <span className="text-xs text-amber-700 dark:text-amber-400 ml-1">
                           (${couponInfo.value} each)
                         </span>
                       )}
@@ -1250,13 +1250,13 @@ function ProfileTab({
                 {couponInfo?.has_coupon && (
                   <Tooltip content={couponSyncTooltip(couponInfo)}>
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                      <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <Ticket className="h-5 w-5 text-amber-700 dark:text-amber-400" />
                       <div>
                         <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
                           {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
                         </span>
                         {couponInfo.value && (
-                          <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                          <span className="text-xs text-amber-700 dark:text-amber-400 ml-1">
                             (${couponInfo.value} each)
                           </span>
                         )}
@@ -1282,7 +1282,7 @@ function ProfileTab({
                     count of 0 from the last list can be told apart from a
                     student who has never been on one. */}
                 {!couponInfo?.has_coupon && isAdmin && (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
                     {couponInfo?.synced ? (
                       <Tooltip content={couponSyncTooltip(couponInfo)}>
                         <span>No coupons available.</span>
@@ -1353,7 +1353,7 @@ function ProfileTab({
                 className={cn(
                   "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all",
                   "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50",
-                  selectedEnrollmentId === enrollment.id && "ring-2 ring-[#a0704b]"
+                  selectedEnrollmentId === enrollment.id && "ring-2 ring-primary"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -1371,7 +1371,7 @@ function ProfileTab({
                   {/* Summer unavailability flag — parent noted dates the student can't attend */}
                   {enrollment.summer_unavailability_notes && (
                     <span
-                      className="shrink-0 text-amber-600 dark:text-amber-400"
+                      className="shrink-0 text-amber-700 dark:text-amber-400"
                       title={`Unavailable: ${enrollment.summer_unavailability_notes}`}
                     >
                       <CalendarX className="h-3.5 w-3.5" />
@@ -1422,7 +1422,7 @@ function ProfileTab({
           !isMobile && "paper-texture"
         )}>
           <div className="text-center py-4">
-            <BookOpen className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+            <BookOpen className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-400 mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               No enrollments yet
             </p>
@@ -1447,7 +1447,7 @@ function ProfileTab({
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
                   !isAdmin
-                    ? "border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                    ? "border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                     : "border-teal-600 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20"
                 )}
                 title={!isAdmin ? "Admin access required" : "Create a Regular or One-Time enrollment"}
@@ -1558,7 +1558,7 @@ function ContactsDisplay({ contacts, fallbackPhone }: { contacts?: StudentContac
           <Phone className="h-3 w-3" />
           Phone
         </span>
-        <span className="text-sm text-gray-400 italic">Available at office</span>
+        <span className="text-sm text-gray-500 italic">Available at office</span>
       </div>
     );
   }
@@ -1628,7 +1628,7 @@ function ContactsEditor({ contacts, onChange }: { contacts: StudentContact[]; on
             <button
               type="button"
               onClick={() => removeContact(i)}
-              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-1 text-gray-500 hover:text-red-600 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -1644,7 +1644,7 @@ function ContactsEditor({ contacts, onChange }: { contacts: StudentContact[]; on
         <button
           type="button"
           onClick={addContact}
-          className="ml-4 text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1"
+          className="ml-4 text-xs text-amber-700 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1"
         >
           <Plus className="h-3 w-3" />
           Add contact
@@ -1698,10 +1698,10 @@ function IconSelect({ value, onChange, options, className }: {
               {selected.label}
             </>
           ) : (
-            <span className="text-gray-400">None</span>
+            <span className="text-gray-500">None</span>
           )}
         </span>
-        <ChevronDown className="h-3 w-3 text-gray-400" />
+        <ChevronDown className="h-3 w-3 text-gray-500" />
       </button>
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-md shadow-lg z-10">
@@ -1711,7 +1711,7 @@ function IconSelect({ value, onChange, options, className }: {
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => { onChange(""); setIsOpen(false); }}
             className={cn(
-              "w-full px-2 py-1.5 text-left text-sm text-gray-400",
+              "w-full px-2 py-1.5 text-left text-sm text-gray-500",
               "hover:bg-amber-50 dark:hover:bg-amber-900/20",
               !value && "bg-amber-100 dark:bg-amber-900/40"
             )}
@@ -1774,7 +1774,7 @@ function EditableInfoRow({
     <div className="flex items-center gap-3">
       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 flex-shrink-0">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-red-600 ml-0.5">*</span>}
       </span>
       {type === "autocomplete" && suggestions ? (
         <Autocomplete
@@ -1955,7 +1955,7 @@ function CopyLessonDatesButton({
           )}
           title={pillTitle}
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
           <span className="hidden sm:inline">Copy {scope}</span>
           <span className="text-[10px] px-1 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
             {pillCount}
@@ -1976,7 +1976,7 @@ function CopyLessonDatesButton({
 
       {isOpen && (
         <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-line py-1">
-          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Scope</div>
+          <div className="px-2 py-1 text-[10px] text-gray-500 uppercase tracking-wider">Scope</div>
           {SCOPE_ORDER.map((s) => {
             const count = sessionsByScope[s].length;
             const disabled = count === 0;
@@ -1988,7 +1988,7 @@ function CopyLessonDatesButton({
                 className={cn(
                   "w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between gap-2",
                   !disabled && "hover:bg-[#f5ede3] dark:hover:bg-[#2d2820]",
-                  scope === s && !disabled && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]",
+                  scope === s && !disabled && "bg-[#f5ede3] dark:bg-[#2d2820] text-accent-ink",
                   disabled && "opacity-40 cursor-not-allowed"
                 )}
               >
@@ -2002,21 +2002,21 @@ function CopyLessonDatesButton({
 
           <div className="my-1 border-t border-line" />
 
-          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Copy as</div>
+          <div className="px-2 py-1 text-[10px] text-gray-500 uppercase tracking-wider">Copy as</div>
           {FORMAT_OPTIONS.map(({ key, label, example }) => (
             <button
               key={key}
               onClick={() => handleCopy(scope, key)}
               className={cn(
                 "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
-                dateFormat === key && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
+                dateFormat === key && "bg-[#f5ede3] dark:bg-[#2d2820] text-accent-ink"
               )}
             >
               <div className="font-medium flex items-center gap-1.5">
                 <Copy className="h-3 w-3" />
                 {label}
               </div>
-              <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">{example}{previewSuffix}</div>
+              <div className="text-[10px] text-gray-500 mt-0.5 pl-4.5">{example}{previewSuffix}</div>
             </button>
           ))}
         </div>
@@ -2180,25 +2180,25 @@ function SessionsTab({
           "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-line cursor-pointer",
           statusConfig.bgTint,
           !isMobile && "paper-texture",
-          selectedSessionId === session.id && "ring-2 ring-[#a0704b]"
+          selectedSessionId === session.id && "ring-2 ring-primary"
         )}
       >
         <div className="flex-1 p-3 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <span className="text-[10px] text-gray-500 font-mono">#{session.id}</span>
             <SessionLessonBadge session={session} size="xs" />
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
-            <span className="text-xs text-gray-400">•</span>
+            <span className="text-xs text-gray-500">•</span>
             <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {session.time_slot}
             </span>
             {session.financial_status && !isCancelledEnrollment && (
               <>
-                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs text-gray-500">•</span>
                 {session.financial_status === "Paid" ? (
-                  <span className="flex items-center gap-0.5 text-xs text-green-600">
+                  <span className="flex items-center gap-0.5 text-xs text-green-700">
                     <CheckCircle2 className="h-3 w-3" />
                     <span className="hidden sm:inline">Paid</span>
                   </span>
@@ -2217,7 +2217,7 @@ function SessionsTab({
             )}
             {isCancelledEnrollment && (
               <>
-                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs text-gray-500">•</span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                   Cancelled
                 </span>
@@ -2226,13 +2226,13 @@ function SessionsTab({
             {/* Extension request indicator */}
             {session.extension_request_id && (
               <>
-                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs text-gray-500">•</span>
                 <span
                   title={`Extension ${session.extension_request_status}`}
                   className={cn(
                     "flex items-center gap-0.5 text-xs",
-                    session.extension_request_status === "Pending" && "text-amber-600",
-                    session.extension_request_status === "Approved" && "text-green-600",
+                    session.extension_request_status === "Pending" && "text-amber-700",
+                    session.extension_request_status === "Approved" && "text-green-700",
                     session.extension_request_status === "Rejected" && "text-red-600"
                   )}
                 >
@@ -2255,7 +2255,7 @@ function SessionsTab({
             <Link
               href={`/sessions/${session.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-accent-ink transition-colors"
+              className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-accent-ink transition-colors"
             >
               <ExternalLink className="h-3 w-3" />
             </Link>
@@ -2350,13 +2350,13 @@ function SessionsTab({
                     }}
                     className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
                   >
-                    <Calendar className="h-4 w-4 text-[#a0704b]" />
+                    <Calendar className="h-4 w-4 text-accent-ink" />
                     <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                       {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
                     </span>
                     {enrollment?.tutor_name && (
                       <>
-                        <span className="text-gray-400">•</span>
+                        <span className="text-gray-500">•</span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
                           {enrollment.tutor_name}
                         </span>
@@ -2364,7 +2364,7 @@ function SessionsTab({
                     )}
                     {enrollment?.location && (
                       <>
-                        <span className="text-gray-400">•</span>
+                        <span className="text-gray-500">•</span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                           {enrollment.location}
                         </span>
@@ -2545,7 +2545,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
                       <GraduationCap className="h-3 w-3" />
                       {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
                     </span>
-                    <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" title="Students enrolled">
+                    <span className="inline-flex items-center gap-0.5 text-green-700 dark:text-green-400" title="Students enrolled">
                       <UserCheck className="h-3 w-3" />
                       {stats.enrolled}
                     </span>
@@ -2677,7 +2677,7 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <button type="button" onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }}
           className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded" title="Open URL">
-          <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+          <ExternalLink className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
         </button>
       </div>
     );
@@ -2720,15 +2720,15 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
     <div className="flex items-center gap-0.5 flex-shrink-0">
       <button type="button" onClick={handleOpen} disabled={openState === 'loading'}
         className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Open file">
-        {openState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> :
-         openState === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-500" /> :
-         <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+        {openState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" /> :
+         openState === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-600" /> :
+         <ExternalLink className="h-3.5 w-3.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />}
       </button>
       <button type="button" onClick={handlePrint} disabled={printState === 'loading'}
         className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Print file">
-        {printState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> :
-         printState === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-500" /> :
-         <Printer className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+        {printState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" /> :
+         printState === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-600" /> :
+         <Printer className="h-3.5 w-3.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />}
       </button>
     </div>
   );
@@ -2804,7 +2804,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
   return (
     <div className="flex items-center gap-1">
       <button type="button" onClick={handlePrintAll} disabled={printState === 'loading'}
-        className={cn(btnClass, "text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30")}
+        className={cn(btnClass, "text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30")}
         title="Print All">
         {printState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
          printState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
@@ -2819,7 +2819,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
         <span className="text-[8px] leading-none">All</span>
       </button>
       <button type="button" onClick={handleDownloadAnswers} disabled={answersState === 'loading'}
-        className={cn(btnClass, "text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
+        className={cn(btnClass, "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
         title="Download Answers">
         {answersState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
          answersState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
@@ -2937,8 +2937,8 @@ function HomeworkStatusChips({
             className={cn(
               "flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-colors",
               active
-                ? "bg-[#f5ede3] dark:bg-[#3a342a] border-[#a0704b] text-gray-900 dark:text-gray-100"
-                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:border-[#a0704b]",
+                ? "bg-[#f5ede3] dark:bg-[#3a342a] border-primary text-gray-900 dark:text-gray-100"
+                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:border-primary",
               count === 0 && !active && "opacity-40 cursor-not-allowed"
             )}
           >
@@ -3236,19 +3236,19 @@ function CoursewareTab({
       {/* Progress Summary */}
       <div className="px-4 py-2.5 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg space-y-2">
         <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
-          <BarChart3 className="h-5 w-5 text-[#a0704b]" />
+          <BarChart3 className="h-5 w-5 text-accent-ink" />
           <span className="text-sm">
             <span className="font-semibold">{stats.total}</span> exercises
           </span>
-          <span className="text-gray-400">•</span>
+          <span className="text-gray-500">•</span>
           <span className="text-sm text-red-600 dark:text-red-400">
             CW: {stats.cwCount}
           </span>
-          <span className="text-gray-400">•</span>
+          <span className="text-gray-500">•</span>
           <span className="text-sm text-blue-600 dark:text-blue-400">
             HW: {stats.hwCount}
           </span>
-          <span className="text-gray-400">•</span>
+          <span className="text-gray-500">•</span>
           <span className="text-sm text-gray-600 dark:text-gray-400">
             {stats.uniquePdfs} unique PDF{stats.uniquePdfs !== 1 ? 's' : ''}
           </span>
@@ -3264,7 +3264,7 @@ function CoursewareTab({
       <div className="flex items-center gap-3 flex-wrap">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <input
             type="text"
             placeholder="Search exercises..."
@@ -3382,13 +3382,13 @@ function CoursewareTab({
               <div key={sessionId} className="rounded-lg border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
                 {/* Session Header — top stripe */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line">
-                  <Calendar className="h-4 w-4 text-[#a0704b]" />
+                  <Calendar className="h-4 w-4 text-accent-ink" />
                   <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                   {firstEx.tutor_name && (
                     <>
-                      <span className="text-gray-400">•</span>
+                      <span className="text-gray-500">•</span>
                       <span className="text-sm text-gray-600 dark:text-gray-400">
                         {firstEx.tutor_name}
                       </span>
@@ -3396,7 +3396,7 @@ function CoursewareTab({
                   )}
                   <Link
                     href={`/sessions/${sessionId}`}
-                    className="ml-auto flex items-center gap-1 text-xs text-[#a0704b] hover:underline font-mono"
+                    className="ml-auto flex items-center gap-1 text-xs text-accent-ink hover:underline font-mono"
                   >
                     #{sessionId}
                     <ExternalLink className="h-3 w-3" />
@@ -3534,7 +3534,7 @@ function CoursewareTab({
             <div key={pdfName} className="rounded-lg border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
               {/* PDF Header — top stripe */}
               <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line">
-                <BookMarked className="h-4 w-4 text-[#a0704b]" />
+                <BookMarked className="h-4 w-4 text-accent-ink" />
                 <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                   {getDisplayName(pdfName)}
                 </span>
@@ -3577,7 +3577,7 @@ function CoursewareTab({
                         <div className="ml-auto flex items-center gap-1 flex-shrink-0">
                           <Link
                             href={`/sessions/${exercise.session_id}`}
-                            className="text-xs text-[#a0704b] hover:underline font-mono"
+                            className="text-xs text-accent-ink hover:underline font-mono"
                           >
                             #{exercise.session_id}
                           </Link>
@@ -3726,7 +3726,7 @@ function RatingsTab({
       <div className="flex justify-center py-12">
         <StickyNote variant="yellow" size="md" showTape={true}>
           <div className="text-center">
-            <Star className="h-10 w-10 mx-auto mb-3 text-amber-400" />
+            <Star className="h-10 w-10 mx-auto mb-3 text-amber-700" />
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No ratings yet</p>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
               Session ratings and comments will appear here
@@ -3745,7 +3745,7 @@ function RatingsTab({
           {/* Left: Big average rating */}
           <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 bg-white/50 dark:bg-black/10 rounded-lg min-w-[120px]">
             <div className="flex items-center gap-1">
-              <Star className="h-6 w-6 fill-amber-400 text-amber-400" />
+              <Star className="h-6 w-6 fill-amber-400 text-amber-700" />
               <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 {stats.avgRating.toFixed(1)}
               </span>
@@ -3868,8 +3868,8 @@ function RatingsTab({
                     </span>
                     {session.tutor_name && (
                       <>
-                        <span className="text-xs text-amber-500">•</span>
-                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                        <span className="text-xs text-amber-700">•</span>
+                        <span className="text-xs text-amber-700 dark:text-amber-400">
                           {session.tutor_name}
                         </span>
                       </>
@@ -3881,7 +3881,7 @@ function RatingsTab({
                       {session.notes}
                     </p>
                   ) : (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
                       No comment
                     </p>
                   )}
@@ -3894,7 +3894,7 @@ function RatingsTab({
                       <span
                         className={cn(
                           "text-[10px] font-medium",
-                          delta > 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"
+                          delta > 0 ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"
                         )}
                         title={`${delta > 0 ? '+' : ''}${delta} from previous`}
                       >
@@ -3983,7 +3983,7 @@ function ParentContactsTab({
             "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white transition-colors",
             readOnly
               ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-              : "bg-[#a0704b] dark:bg-[#8b6f47] hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
+              : "bg-primary dark:bg-[#8b6f47] hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
           )}
           title={readOnly ? "Read-only access" : undefined}
         >
@@ -4058,13 +4058,13 @@ function ParentContactsTab({
 
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <span>by {contact.tutor_name}</span>
-                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                    <span className="text-gray-300 dark:text-gray-400">•</span>
                     <span>{formatRelativeTime(contact.contact_date)}</span>
                   </div>
                 </div>
 
                 {/* Edit indicator */}
-                <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0" />
               </div>
             </motion.div>
           ))}

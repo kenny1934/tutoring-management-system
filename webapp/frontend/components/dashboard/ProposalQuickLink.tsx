@@ -109,7 +109,7 @@ function CompactSlotItem({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3 w-3 text-[#a0704b] flex-shrink-0" />
+            <Calendar className="h-3 w-3 text-accent-ink flex-shrink-0" />
             <span className="truncate font-medium">
               {formatDateCompact(slot.proposed_date)} {slot.proposed_time_slot}
             </span>
@@ -257,9 +257,9 @@ function CompactProposalCard({
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <Users className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
+            <Users className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
             {session?.school_student_id && (
-              <span className="text-[10px] text-gray-400 font-mono flex-shrink-0">
+              <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">
                 {session.school_student_id}
               </span>
             )}
@@ -289,7 +289,7 @@ function CompactProposalCard({
             </span>
             <ChevronDown
               className={cn(
-                "h-3.5 w-3.5 text-gray-400 transition-transform duration-200",
+                "h-3.5 w-3.5 text-gray-500 transition-transform duration-200",
                 !isExpanded && "-rotate-90"
               )}
             />
@@ -309,7 +309,7 @@ function CompactProposalCard({
                 {proposal.proposed_by_tutor_name?.split(" ").slice(-1)[0]}
               </span>
             )}
-            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span className="text-gray-300 dark:text-gray-400">|</span>
             <span>{slotSummary}</span>
           </div>
         )}
@@ -390,7 +390,7 @@ function CompactProposalCard({
           <Link
             href={`/proposals?id=${proposal.id}`}
             onClick={onClose}
-            className="block px-3 py-2 text-xs text-center text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
+            className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
           >
             View details <ChevronRight className="h-3 w-3 inline" />
           </Link>
@@ -543,7 +543,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 className={cn(
                   "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
                   activeTab === "for-me"
-                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820] rounded-tl-lg"
+                    ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820] rounded-tl-lg"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
@@ -560,7 +560,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 className={cn(
                   "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
                   activeTab === "by-me"
-                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820] rounded-tr-lg"
+                    ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820] rounded-tr-lg"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
@@ -578,7 +578,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <div className="px-3 py-2 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
                   <input
                     type="text"
                     placeholder="Search student..."
@@ -601,7 +601,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {(activeTab === "for-me" ? loadingForMe : loadingByMe) ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
                 </div>
               ) : filteredProposals.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -635,7 +635,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <Link
               href="/proposals"
               onClick={() => setIsOpen(false)}
-              className="block px-4 py-3 text-sm text-center font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line rounded-b-lg transition-colors"
+              className="block px-4 py-3 text-sm text-center font-medium text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line rounded-b-lg transition-colors"
             >
               View All Proposals <ChevronRight className="h-4 w-4 inline" />
             </Link>

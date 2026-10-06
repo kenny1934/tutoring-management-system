@@ -368,7 +368,7 @@ export default function SqlExecutorPage() {
                     <div>
                       <h1 className="text-lg sm:text-2xl font-bold text-on-surface flex items-center gap-2">
                         SQL Executor
-                        <Database className="h-5 w-5 text-violet-400" aria-hidden="true" />
+                        <Database className="h-5 w-5 text-violet-600" aria-hidden="true" />
                       </h1>
                       <p className="hidden sm:block text-sm text-on-surface/70">
                         Execute read-only SQL queries
@@ -405,7 +405,7 @@ export default function SqlExecutorPage() {
               ) : (
                 <div className="w-full min-h-[168px] border border-line rounded-xl bg-white dark:bg-[#1a1a1a]" />
               )}
-              <div className="mt-2 text-xs text-gray-400 text-right">
+              <div className="mt-2 text-xs text-gray-500 text-right">
                 Press <span className="kbd-key">Ctrl</span> + <span className="kbd-key">Enter</span> to execute
               </div>
             </div>
@@ -435,7 +435,7 @@ export default function SqlExecutorPage() {
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors btn-press",
                     showTemplates
-                      ? "bg-[#a0704b] text-white border-[#a0704b]"
+                      ? "bg-primary text-white border-primary"
                       : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                   )}
                 >
@@ -474,7 +474,7 @@ export default function SqlExecutorPage() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors btn-press",
                   showHistory
-                    ? "bg-[#a0704b] text-white border-[#a0704b]"
+                    ? "bg-primary text-white border-primary"
                     : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                 )}
               >
@@ -501,7 +501,7 @@ export default function SqlExecutorPage() {
                     onClick={handleCopy}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line hover:bg-tint transition-colors btn-press"
                   >
-                    {copied ? <Check className="h-4 w-4 text-green-500" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+                    {copied ? <Check className="h-4 w-4 text-green-700" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                     {copied ? "Copied!" : "Copy JSON"}
                   </button>
                 </>
@@ -516,7 +516,7 @@ export default function SqlExecutorPage() {
                   {history.length > 0 && (
                     <button
                       onClick={handleClearHistory}
-                      className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+                      className="text-xs text-red-600 hover:text-red-600 flex items-center gap-1"
                     >
                       <Trash2 className="h-3 w-3" aria-hidden="true" />
                       Clear All
@@ -537,7 +537,7 @@ export default function SqlExecutorPage() {
                           <pre className="text-xs font-mono truncate text-gray-700 dark:text-gray-300">
                             {item.query}
                           </pre>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                             <span>{new Date(item.timestamp).toLocaleString()}</span>
                             {item.rowCount !== undefined && <span>{item.rowCount} rows</span>}
                             {item.executionTime !== undefined && <span>{item.executionTime}ms</span>}
@@ -548,7 +548,7 @@ export default function SqlExecutorPage() {
                             e.stopPropagation();
                             handleDeleteHistoryItem(item.timestamp);
                           }}
-                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-400 hover:text-red-500"
+                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-500 hover:text-red-600"
                           aria-label="Delete history item"
                         >
                           <X className="h-3 w-3" aria-hidden="true" />
@@ -564,7 +564,7 @@ export default function SqlExecutorPage() {
             {error && (
               <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                   <div>
                     <p className="font-medium text-red-700 dark:text-red-400">Query Error</p>
                     <pre className="mt-1 text-sm text-red-600 dark:text-red-300 font-mono whitespace-pre-wrap">
@@ -584,7 +584,7 @@ export default function SqlExecutorPage() {
                     <span className="text-sm font-medium">
                       {result.row_count} {result.row_count === 1 ? "row" : "rows"}
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-500">
                       {result.columns.length} {result.columns.length === 1 ? "column" : "columns"}
                     </span>
                   </div>
@@ -628,7 +628,7 @@ export default function SqlExecutorPage() {
                                 title={row[col] !== null ? String(row[col]) : "NULL"}
                               >
                                 {row[col] === null ? (
-                                  <em className="text-gray-400">NULL</em>
+                                  <em className="text-gray-500">NULL</em>
                                 ) : (
                                   <span className="truncate block max-w-[300px]">
                                     {String(row[col])}

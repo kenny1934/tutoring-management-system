@@ -59,7 +59,7 @@ function SwipeableMessage({ children, onQuote }: { children: React.ReactNode; on
 
   return (
     <div className="relative overflow-hidden">
-      <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-14 flex items-center justify-center text-[#a0704b]" style={{ opacity: 0 }}>
+      <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-14 flex items-center justify-center text-accent-ink" style={{ opacity: 0 }}>
         <Reply className="h-4 w-4" />
       </div>
       <div ref={containerRef} {...touchHandlers}>
@@ -415,7 +415,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {msg.category && (
-              <span className="text-[#a0704b] flex-shrink-0">
+              <span className="text-accent-ink flex-shrink-0">
                 {CATEGORIES.find(c => c.filter === msg.category)?.icon}
               </span>
             )}
@@ -431,7 +431,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
             <span>{allMessages.length} message{allMessages.length !== 1 && "s"}</span>
             <span className="opacity-40">·</span>
             {msg.to_tutor_id === null ? (
@@ -460,7 +460,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             {msg.is_snoozed && msg.snoozed_until && (
               <>
                 <span className="opacity-40">·</span>
-                <span className="flex items-center gap-1 text-[#a0704b]">
+                <span className="flex items-center gap-1 text-accent-ink">
                   <AlarmClock className="h-3 w-3" />
                   {formatSnoozeUntil(msg.snoozed_until)}
                 </span>
@@ -489,7 +489,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
             showThreadSearch
-              ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+              ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
               : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
           )}
           title="Search in thread"
@@ -505,7 +505,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
             showMediaPanel
-              ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+              ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
               : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
           )}
           title="Media & files"
@@ -519,7 +519,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             className={cn(
               "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
               showMoreMenu
-                ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+                ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
                 : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
             )}
             title="More actions"
@@ -536,7 +536,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
               >
-                <Pin className={cn("h-4 w-4", msg.is_thread_pinned && "text-blue-500")} />
+                <Pin className={cn("h-4 w-4", msg.is_thread_pinned && "text-blue-600")} />
                 <span>{msg.is_thread_pinned ? "Unpin from top" : "Pin to top"}</span>
               </button>
               <button
@@ -547,7 +547,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
               >
-                <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-400")} />
+                <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-700")} />
                 <span>{msg.is_pinned ? "Unstar" : "Star"}</span>
               </button>
               {onThreadMute && onThreadUnmute && (
@@ -693,7 +693,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             <React.Fragment key={m.id}>
               {/* Date separator */}
               {isNewDay && (
-                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-2">
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 my-2">
                   <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
                   <span className="font-medium px-2">{formatRelativeDateLabel(msgDate)}</span>
                   <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
@@ -701,7 +701,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               )}
               {/* "New messages" divider */}
               {m.id === firstUnreadIdRef.current && (
-                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400" role="separator" aria-label="New unread messages below">
+                <div className="flex items-center gap-3 text-xs text-blue-600 dark:text-blue-400" role="separator" aria-label="New unread messages below">
                   <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
                   <span className="font-medium">New messages</span>
                   <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
@@ -763,7 +763,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   ) : (
                     <div key={file.url}
                       className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
-                      <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
+                      <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                         {file.content_type?.startsWith("audio/")
                           ? <Mic className="h-5 w-5" />
                           : <FileText className="h-5 w-5" />}
@@ -779,7 +779,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             )}
             {optimisticMessage.status === 'failed' ? (
               <div className="flex items-center gap-2 mt-2 pt-2 border-t border-red-200 dark:border-red-800/40">
-                <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                <AlertCircle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
                 <span className="text-xs text-red-600 dark:text-red-400">Failed to send</span>
                 <div className="flex-1" />
                 <button
@@ -802,8 +802,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               </div>
             ) : (
               <div className="flex items-center justify-end gap-1 mt-1">
-                <span className="text-[11px] text-gray-400">Just now</span>
-                <Clock className="h-3 w-3 text-gray-400" />
+                <span className="text-[11px] text-gray-500">Just now</span>
+                <Clock className="h-3 w-3 text-gray-500" />
               </div>
             )}
           </div>
@@ -817,7 +817,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           <button
             onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
             className={cn(
-              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-line text-gray-500 hover:text-[#a0704b] transition-all duration-200 -translate-y-full",
+              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-line text-gray-500 hover:text-accent-ink transition-all duration-200 -translate-y-full",
               showScrollBottom ? "scale-100" : "scale-75"
             )}
             title="Scroll to bottom"

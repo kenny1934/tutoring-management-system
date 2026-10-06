@@ -46,7 +46,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
               )}
               style={{ paddingLeft: `${32 + depth * 16}px` }}
             >
-              <FolderOpen className="w-3.5 h-3.5 text-[#a0704b]" />
+              <FolderOpen className="w-3.5 h-3.5 text-accent-ink" />
               {f.name}
             </button>
           ))}

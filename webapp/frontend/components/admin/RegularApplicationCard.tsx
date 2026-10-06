@@ -302,7 +302,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
                 checked={isChecked}
                 onChange={(e) => { e.stopPropagation(); onToggleCheck(app.id); }}
                 aria-label={`Select ${app.student_name}`}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer"
               />
             </div>
           )}
@@ -361,7 +361,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
         <div className="flex items-center gap-1.5 text-xs flex-wrap">
           {hasPref1 || hasPref2 ? (
             <>
-              <Clock className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <Clock className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
               {hasPref1 && <PrefChip day={app.preference_1_day!} time={app.preference_1_time!} />}
               {hasPref2 && (
                 <>
@@ -381,7 +381,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
             this student. Regular's counterpart to summer's placement strip. */}
         {slot && (
           <div className="flex items-center gap-1.5 text-xs flex-wrap">
-            <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+            <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-400" />
             <span className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
               {DAY_ABBREV[slot.slot_day] || slot.slot_day} {slot.time_slot}
             </span>
@@ -410,7 +410,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
           )}
           {app.wechat_id && (
             <span className="shrink-0 hidden md:inline-flex items-center gap-1">
-              <WeChatIcon className="h-3 w-3 text-green-600" />
+              <WeChatIcon className="h-3 w-3 text-green-700" />
               <CopyableCell text={app.wechat_id} title={`WeChat: ${app.wechat_id}`} />
             </span>
           )}
@@ -439,7 +439,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
                 className="p-0.5 hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Copy reference code"
               >
-                {refCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                {refCopied ? <Check className="h-3 w-3 text-green-700" /> : <Copy className="h-3 w-3" />}
               </button>
             </span>
             {app.application_status !== "Submitted" && app.reviewed_at ? (

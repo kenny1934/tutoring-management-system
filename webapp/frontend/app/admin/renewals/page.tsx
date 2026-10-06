@@ -26,11 +26,11 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
   switch (status) {
     case 'not_renewed':
-      return <RefreshCcw className="h-3.5 w-3.5 text-gray-400" />;
+      return <RefreshCcw className="h-3.5 w-3.5 text-gray-500" />;
     case 'pending_message':
-      return <Send className="h-3.5 w-3.5 text-blue-500" />;
+      return <Send className="h-3.5 w-3.5 text-blue-600" />;
     case 'message_sent':
-      return <CreditCard className="h-3.5 w-3.5 text-orange-500" />;
+      return <CreditCard className="h-3.5 w-3.5 text-orange-700" />;
     default:
       return null;
   }
@@ -128,7 +128,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               type="checkbox"
               checked={isChecked}
               onChange={() => {}}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer"
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -166,7 +166,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                 <div className={cn(
                   "flex items-center gap-1",
                   isThisWeek
-                    ? "text-orange-600 dark:text-orange-400"
+                    ? "text-orange-700 dark:text-orange-400"
                     : "text-foreground/60"
                 )}>
                   <Clock className="h-3.5 w-3.5" />
@@ -202,8 +202,8 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                 <span className={cn(
                   "font-medium",
                   renewal.renewal_payment_status === 'Paid'
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-orange-600 dark:text-orange-400"
+                    ? "text-green-700 dark:text-green-400"
+                    : "text-orange-700 dark:text-orange-400"
                 )}>
                   {renewal.renewal_payment_status}
                 </span>
@@ -283,9 +283,9 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                 : isExpired
                 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                 : isThisWeek
-                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
+                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                 : isNextWeek
-                ? "bg-purple-100 dark:bg-purple-900/30 text-purple-500 dark:text-purple-400"
+                ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
                 : "bg-gray-100 dark:bg-gray-800 text-foreground/40"
             )}>
               {showRenewalInfo ? (
@@ -919,7 +919,7 @@ export default function AdminRenewalsPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                <RefreshCcw className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400" />
+                <RefreshCcw className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
@@ -927,7 +927,7 @@ export default function AdminRenewalsPage() {
                 </h1>
                 <p className="text-xs sm:text-sm text-foreground/60">
                   Enrollments expiring soon or already expired
-                  {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
+                  {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
                 </p>
               </div>
             </div>
@@ -989,7 +989,7 @@ export default function AdminRenewalsPage() {
                 type="checkbox"
                 checked={showExpired}
                 onChange={(e) => setShowExpired(e.target.checked)}
-                className="rounded border-gray-300 text-primary focus:ring-primary"
+                className="rounded border-gray-300 text-accent-ink focus:ring-primary"
               />
               <span className="whitespace-nowrap">Show expired</span>
             </label>
@@ -1048,7 +1048,7 @@ export default function AdminRenewalsPage() {
               className={cn(
                 "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'awaiting_payment'
-                  ? "border-orange-500 text-orange-600 dark:text-orange-400"
+                  ? "border-orange-500 text-orange-700 dark:text-orange-400"
                   : "border-transparent text-foreground/50 hover:text-foreground/70"
               )}
             >
@@ -1056,7 +1056,7 @@ export default function AdminRenewalsPage() {
               <span className="hidden sm:inline">Awaiting Payment</span>
               <span className="sm:hidden">Payment</span>
               {awaitingPaymentList.length > 0 && (
-                <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
                   {awaitingPaymentList.length}
                 </span>
               )}
@@ -1286,7 +1286,7 @@ export default function AdminRenewalsPage() {
                 {checkedIds.size} selected
               </span>
               {checkedIds.size > 50 && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 hidden sm:inline">
+                <span className="text-xs text-amber-700 dark:text-amber-400 hidden sm:inline">
                   (large batch may be slow)
                 </span>
               )}
@@ -1635,7 +1635,7 @@ export default function AdminRenewalsPage() {
               </span>
               <button
                 onClick={() => setShowShortcutHints(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="h-4 w-4" />
               </button>

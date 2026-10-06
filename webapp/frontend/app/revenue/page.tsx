@@ -286,7 +286,7 @@ export default function RevenuePage() {
                       className={cn(
                         "flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors",
                         view === 'table'
-                          ? "bg-[#a0704b] text-white"
+                          ? "bg-primary text-white"
                           : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
                       )}
                       title="Tutor x Month table"
@@ -300,7 +300,7 @@ export default function RevenuePage() {
                       className={cn(
                         "flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors border-l border-[#d4a574] dark:border-[#6b5a4a]",
                         view === 'detail'
-                          ? "bg-[#a0704b] text-white"
+                          ? "bg-primary text-white"
                           : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
                       )}
                       title="Single tutor / single month detail"
@@ -334,7 +334,7 @@ export default function RevenuePage() {
                 </button>
 
                 <div className="relative flex items-center">
-                  <Calendar className="absolute left-2.5 h-4 w-4 text-[#a0704b] pointer-events-none" />
+                  <Calendar className="absolute left-2.5 h-4 w-4 text-accent-ink pointer-events-none" />
                   <input
                     type="month"
                     value={selectedPeriod}
@@ -344,7 +344,7 @@ export default function RevenuePage() {
                       "pl-8 pr-3 py-1.5 text-sm font-medium",
                       "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
                       "text-gray-900 dark:text-gray-100",
-                      "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                      "focus:outline-none focus:ring-2 focus:ring-primary/50",
                       "cursor-pointer"
                     )}
                   />
@@ -364,7 +364,7 @@ export default function RevenuePage() {
                   <ChevronRight className={cn(
                     "h-4 w-4",
                     selectedPeriod >= getCurrentPeriod()
-                      ? "text-gray-300 dark:text-gray-600"
+                      ? "text-gray-300 dark:text-gray-400"
                       : "text-gray-600 dark:text-gray-400"
                   )} />
                 </button>
@@ -379,7 +379,7 @@ export default function RevenuePage() {
                     <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                   </button>
                   <div className="relative flex items-center">
-                    <Calendar className="absolute left-2.5 h-4 w-4 text-[#a0704b] pointer-events-none" />
+                    <Calendar className="absolute left-2.5 h-4 w-4 text-accent-ink pointer-events-none" />
                     <select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
@@ -387,7 +387,7 @@ export default function RevenuePage() {
                         "pl-8 pr-3 py-1.5 text-sm font-medium",
                         "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
                         "text-gray-900 dark:text-gray-100",
-                        "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/50",
                         "cursor-pointer"
                       )}
                     >
@@ -411,7 +411,7 @@ export default function RevenuePage() {
                     <ChevronRight className={cn(
                       "h-4 w-4",
                       selectedYear >= new Date().getFullYear()
-                        ? "text-gray-300 dark:text-gray-600"
+                        ? "text-gray-300 dark:text-gray-400"
                         : "text-gray-600 dark:text-gray-400"
                     )} />
                   </button>
@@ -504,7 +504,7 @@ export default function RevenuePage() {
                     <div className="col-span-2 sm:col-span-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                          <p className="text-sm text-green-700 dark:text-green-400 font-medium">
                             Total Salary (for {getNextMonthDisplay(selectedPeriod)})
                           </p>
                           <p className="text-3xl font-bold text-green-700 dark:text-green-300">
@@ -534,7 +534,7 @@ export default function RevenuePage() {
                   {/* Monthly Bonus - Highlighted (only shown for Tutor role) */}
                   {showSalary && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <div className="text-xs text-amber-600 dark:text-amber-400 tracking-wide flex items-center gap-1">
+                      <div className="text-xs text-amber-700 dark:text-amber-400 tracking-wide flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
                         Monthly Bonus
                         <Tooltip

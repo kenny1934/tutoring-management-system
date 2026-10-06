@@ -209,7 +209,7 @@ export function TutorDutyModal({
         <div className="flex-1 overflow-auto p-5">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
               <p className="text-sm text-muted-foreground">Loading...</p>
             </div>
           ) : tutors.length === 0 ? (
@@ -263,7 +263,7 @@ export function TutorDutyModal({
                     >
                       <td
                         className={cn(
-                          "sticky left-0 z-10 px-3 py-2 font-medium text-foreground border-b border-border/50 border-r border-border/30 whitespace-nowrap cursor-pointer hover:text-primary transition-colors",
+                          "sticky left-0 z-10 px-3 py-2 font-medium text-foreground border-b border-border/50 border-r border-border/30 whitespace-nowrap cursor-pointer hover:text-accent-ink transition-colors",
                           rowIdx % 2 === 1 ? "bg-secondary/20" : "bg-card dark:bg-gray-900"
                         )}
                         onClick={() => toggleTutorRow(tutor.id)}
@@ -287,7 +287,7 @@ export function TutorDutyModal({
                             onClick={() => toggle(tutor.id, day, ts)}
                           >
                             {isChecked && (
-                              <Check className="h-3.5 w-3.5 text-primary mx-auto" strokeWidth={3} />
+                              <Check className="h-3.5 w-3.5 text-accent-ink mx-auto" strokeWidth={3} />
                             )}
                           </td>
                         );

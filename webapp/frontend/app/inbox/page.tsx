@@ -182,8 +182,8 @@ const ThreadItem = React.memo(function ThreadItem({
         {bulkMode && (
           <div className="mt-1 flex-shrink-0">
             {bulkSelected
-              ? <CheckSquare className="h-4 w-4 text-[#a0704b]" />
-              : <Square className="h-4 w-4 text-gray-400" />}
+              ? <CheckSquare className="h-4 w-4 text-accent-ink" />
+              : <Square className="h-4 w-4 text-gray-500" />}
           </div>
         )}
         {/* Avatar */}
@@ -227,16 +227,16 @@ const ThreadItem = React.memo(function ThreadItem({
               }
             </span>
             {msg.is_thread_pinned && (
-              <Pin className="h-3 w-3 text-blue-500 flex-shrink-0" />
+              <Pin className="h-3 w-3 text-blue-600 flex-shrink-0" />
             )}
             {msg.is_pinned && (
-              <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+              <Star className="h-3 w-3 fill-amber-400 text-amber-700 flex-shrink-0" />
             )}
             {msg.is_thread_muted && (
-              <BellOff className="h-3 w-3 text-gray-400 flex-shrink-0" />
+              <BellOff className="h-3 w-3 text-gray-500 flex-shrink-0" />
             )}
             {msg.is_snoozed && (
-              <span className="flex items-center gap-0.5 text-[#a0704b] flex-shrink-0">
+              <span className="flex items-center gap-0.5 text-accent-ink flex-shrink-0">
                 <AlarmClock className="h-3 w-3" />
                 {msg.snoozed_until && (
                   <span className="text-[10px] whitespace-nowrap">{formatSnoozeUntil(msg.snoozed_until)}</span>
@@ -275,7 +275,7 @@ const ThreadItem = React.memo(function ThreadItem({
           <div className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
             {draftPreview ? (
               <>
-                <span className="text-[#a0704b] dark:text-[#c49a6c] font-medium">Draft: </span>
+                <span className="text-accent-ink dark:text-[#c49a6c] font-medium">Draft: </span>
                 <span>{stripHtml(draftPreview).slice(0, 60)}</span>
               </>
             ) : latestMessage.file_attachments?.some(f => f.content_type?.startsWith("audio/")) && latestMessage.message.includes("Voice message") ? (
@@ -293,7 +293,7 @@ const ThreadItem = React.memo(function ThreadItem({
           {/* Meta row */}
           <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
             {msg.scheduled_at ? (
-              <span className="flex items-center gap-1 text-[#a0704b]">
+              <span className="flex items-center gap-1 text-accent-ink">
                 <Clock className="h-3.5 w-3.5" />
                 Sends {formatScheduledAt(msg.scheduled_at)}
               </span>
@@ -321,7 +321,7 @@ const ThreadItem = React.memo(function ThreadItem({
         {/* Unread badge */}
         {hasUnread && (
           <span className={cn(
-            "flex-shrink-0 min-w-[22px] h-[22px] flex items-center justify-center text-[11px] font-bold text-white bg-[#a0704b] rounded-full px-1.5",
+            "flex-shrink-0 min-w-[22px] h-[22px] flex items-center justify-center text-[11px] font-bold text-white bg-primary rounded-full px-1.5",
             total_unread > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
           )}>
             {total_unread}
@@ -1456,7 +1456,7 @@ export default function InboxPage() {
           <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-b-lg mx-1 px-4 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <Inbox className="h-6 w-6 text-[#a0704b]" />
+                <Inbox className="h-6 w-6 text-accent-ink" />
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
                   {isImpersonating && impersonatedTutor && (
@@ -1466,7 +1466,7 @@ export default function InboxPage() {
                   )}
                 </div>
                 {unreadCount && unreadCount.count > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-bold text-white bg-[#a0704b] rounded-full">
+                  <span className="px-2 py-0.5 text-xs font-bold text-white bg-primary rounded-full">
                     {unreadCount.count}
                   </span>
                 )}
@@ -1475,8 +1475,8 @@ export default function InboxPage() {
                   className={cn(
                     "w-6 h-6 inline-flex items-center justify-center rounded-full transition-colors border",
                     soundEnabled
-                      ? "text-gray-400 hover:text-[#a0704b] hover:bg-tint border-gray-300 dark:border-gray-600"
-                      : "text-gray-300 dark:text-gray-600 hover:text-[#a0704b] hover:bg-tint border-gray-200 dark:border-gray-700"
+                      ? "text-gray-500 hover:text-accent-ink hover:bg-tint border-gray-300 dark:border-gray-600"
+                      : "text-gray-300 dark:text-gray-400 hover:text-accent-ink hover:bg-tint border-gray-200 dark:border-gray-700"
                   )}
                   title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
                 >
@@ -1485,7 +1485,7 @@ export default function InboxPage() {
                 <button
                   ref={shortcutsButtonRef}
                   onClick={() => setShowShortcuts(prev => !prev)}
-                  className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-400 hover:text-[#a0704b] hover:bg-tint border border-gray-300 dark:border-gray-600 transition-colors"
+                  className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-500 hover:text-accent-ink hover:bg-tint border border-gray-300 dark:border-gray-600 transition-colors"
                   title="Keyboard shortcuts (?)"
                 >
                   ?
@@ -1495,7 +1495,7 @@ export default function InboxPage() {
                 {isAdmin && !isReadOnlyInbox && (
                   <button
                     onClick={() => setShowWecom(true)}
-                    className="flex items-center gap-2 px-4 py-2 border border-line-strong text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 border border-line-strong text-accent-ink dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
                     title="Send to WeCom group"
                   >
                     <MessageSquareShare className="h-4 w-4" />
@@ -1506,7 +1506,7 @@ export default function InboxPage() {
                   <button
                     onClick={handleCompose}
                     disabled={!hasTutor}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                   >
                     <PenSquare className="h-4 w-4" />
                     Compose
@@ -1558,7 +1558,7 @@ export default function InboxPage() {
                                   type="button"
                                   onClick={() => setTagsExpanded(!tagsExpanded)}
                                   className={cn(
-                                    "w-full flex items-center gap-1 px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200",
+                                    "w-full flex items-center gap-1 px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200",
                                     categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
                                   )}
                                 >
@@ -1573,7 +1573,7 @@ export default function InboxPage() {
                                     </span>
                                   )}
                                   {hasUnread && !isExpanded && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#a0704b] flex-shrink-0" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                                   )}
                                   <ChevronDown className={cn(
                                     "h-3 w-3 ml-auto transition-transform duration-200",
@@ -1582,7 +1582,7 @@ export default function InboxPage() {
                                 </button>
                               ) : (
                                 <div className={cn(
-                                  "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 whitespace-nowrap transition-opacity duration-200",
+                                  "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap transition-opacity duration-200",
                                   categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
                                 )}>
                                   {section.label}
@@ -1604,7 +1604,7 @@ export default function InboxPage() {
                                 "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
                                 categoryCollapsed ? "px-2" : "px-3",
                                 selectedCategory === cat.id
-                                  ? "bg-tint text-[#a0704b] font-medium"
+                                  ? "bg-tint text-accent-ink font-medium"
                                   : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
                               )}
                               title={cat.label}
@@ -1615,7 +1615,7 @@ export default function InboxPage() {
                               <span className="flex-1 truncate">{cat.label}</span>
                               {categoryUnreadCounts[cat.id] > 0 && (
                                 <span className={cn(
-                                  "flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
+                                  "flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-primary rounded-full px-1",
                                   categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
                                 )}>
                                   {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
@@ -1646,14 +1646,14 @@ export default function InboxPage() {
               <div className="flex-shrink-0 p-2 border-b border-line/60">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                     <input
                       ref={searchInputRef}
                       type="text"
                       placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-[#a0704b]/20 focus:border-[#a0704b] transition-shadow outline-none"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow outline-none"
                     />
                   </div>
                   {displayThreads.some(t => t.total_unread > 0) && selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && (
@@ -1679,7 +1679,7 @@ export default function InboxPage() {
                     className={cn(
                       "flex-shrink-0 p-2 rounded-lg transition-colors",
                       showFilters || Object.values(searchFilters).some(Boolean)
-                        ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+                        ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
                         : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
                     )}
                     title={showFilters ? "Hide filters" : "Show filters"}
@@ -1692,7 +1692,7 @@ export default function InboxPage() {
                       className={cn(
                         "flex-shrink-0 p-2 rounded-lg transition-colors",
                         bulkMode
-                          ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+                          ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
                           : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
                       )}
                       title={bulkMode ? "Exit select mode" : "Select threads"}
@@ -1828,7 +1828,7 @@ export default function InboxPage() {
                   ))}
                 </div>
               ) : (threadsError || proposalsError) ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-red-500 gap-3">
+                <div className="flex-1 flex flex-col items-center justify-center text-red-600 gap-3">
                   <div className="flex items-center">
                     <AlertCircle className="h-6 w-6 mr-2" />
                     Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
@@ -1841,7 +1841,7 @@ export default function InboxPage() {
                   </button>
                 </div>
               ) : (selectedCategory === "makeup-confirmation" ? (proposals.length === 0 && makeupThreads.length === 0) : displayThreads.length === 0) ? (
-                <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
+                <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
                   <div className="text-center">
                     {selectedCategory === "makeup-confirmation" ? (
                       <CalendarClock className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -1857,7 +1857,7 @@ export default function InboxPage() {
                       <button
                         onClick={handleCompose}
                         disabled={!hasTutor}
-                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                       >
                         <PenSquare className="h-4 w-4" />
                         Compose
@@ -1980,7 +1980,7 @@ export default function InboxPage() {
                       <button
                         onClick={loadMore}
                         disabled={isLoadingMore}
-                        className="w-full py-2 px-4 text-sm text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5ebe0] dark:hover:bg-[#3a3a3a] rounded-lg transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 px-4 text-sm text-accent-ink dark:text-[#c4a77d] hover:bg-[#f5ebe0] dark:hover:bg-[#3a3a3a] rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         {isLoadingMore ? (
                           <>
@@ -2064,7 +2064,7 @@ export default function InboxPage() {
               </div>
             ) : !isMobile && (
               <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg">
-                <div className="text-center text-gray-400 dark:text-gray-500">
+                <div className="text-center text-gray-500 dark:text-gray-400">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Select a conversation</p>
                   {!isReadOnlyInbox && (

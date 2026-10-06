@@ -147,13 +147,13 @@ export function SummerFilterPopover({
           {...getReferenceProps()}
           title={isActive ? summerFilterSummary(value) : SUMMER_FILTER_TOOLTIP}
           className={cn(
-            "flex cursor-pointer items-center gap-1.5 px-2 py-1 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+            "flex cursor-pointer items-center gap-1.5 px-2 py-1 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary",
             isActive
               ? "text-amber-900 dark:text-amber-100"
               : "text-gray-900 dark:text-gray-100",
           )}
         >
-          <Sun className="h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
+          <Sun className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
           <span className="max-w-[110px] truncate sm:max-w-[150px]">
             {summerFilterSummary(value)}
           </span>
@@ -233,7 +233,7 @@ export function SummerFilterPopover({
                 )}
               </div>
               {isActive && (
-                <p className="mt-1 pb-0.5 text-[10px] leading-snug text-gray-500 dark:text-gray-500">
+                <p className="mt-1 pb-0.5 text-[10px] leading-snug text-gray-500 dark:text-gray-400">
                   Regular sessions are hidden while a summer filter is on.
                 </p>
               )}

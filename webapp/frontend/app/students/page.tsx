@@ -422,7 +422,7 @@ export default function StudentsPage() {
               <>
                 {/* Search Input */}
             <div className="relative flex-1 min-w-[140px] max-w-xs">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search..."
@@ -430,7 +430,7 @@ export default function StudentsPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 onBlur={handleSearchSubmit}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                className="w-full pl-8 pr-3 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100"
+                className="w-full pl-8 pr-3 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -438,7 +438,7 @@ export default function StudentsPage() {
             <select
               value={gradeFilter}
               onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7"
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat',
@@ -456,7 +456,7 @@ export default function StudentsPage() {
 
             {/* School Filter - Autocomplete */}
             <div className="relative hidden sm:block">
-              <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <input
                 ref={schoolInputRef}
                 type="text"
@@ -472,7 +472,7 @@ export default function StudentsPage() {
                   setTimeout(() => setShowSchoolSuggestions(false), 150);
                 }}
                 onKeyDown={handleSchoolKeyDown}
-                className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100"
+                className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100"
               />
               {schoolFilter && (
                 <button
@@ -483,7 +483,7 @@ export default function StudentsPage() {
                   }}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                 >
-                  <X className="h-3 w-3 text-gray-400" />
+                  <X className="h-3 w-3 text-gray-500" />
                 </button>
               )}
               {/* Suggestions dropdown */}
@@ -497,9 +497,9 @@ export default function StudentsPage() {
                       onMouseEnter={() => setSchoolHighlightIndex(i)}
                       onClick={() => selectSchool(school)}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-sm hover:bg-[#a0704b]/10",
-                        i === schoolHighlightIndex && "bg-[#a0704b]/10",
-                        schoolFilter === school && "bg-[#a0704b]/20 font-medium"
+                        "w-full px-3 py-1.5 text-left text-sm hover:bg-primary/10",
+                        i === schoolHighlightIndex && "bg-primary/10",
+                        schoolFilter === school && "bg-primary/20 font-medium"
                       )}
                     >
                       {school}
@@ -513,7 +513,7 @@ export default function StudentsPage() {
             <select
               value={sortOption}
               onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat',
@@ -537,7 +537,7 @@ export default function StudentsPage() {
                   aria-label="Clear tutor filter"
                   className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                 >
-                  <X className="h-3 w-3 text-gray-400" />
+                  <X className="h-3 w-3 text-gray-500" />
                 </button>
               </span>
             )}
@@ -551,7 +551,7 @@ export default function StudentsPage() {
                   aria-label="Clear stream filter"
                   className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                 >
-                  <X className="h-3 w-3 text-gray-400" />
+                  <X className="h-3 w-3 text-gray-500" />
                 </button>
               </span>
             )}
@@ -629,7 +629,7 @@ export default function StudentsPage() {
                   {categorizedStudents.byPhone.length > 0 && (
                     <div>
                       <div className="flex items-center gap-2 mb-2 px-1">
-                        <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <Phone className="h-4 w-4 text-green-700 dark:text-green-400" />
                         <span className="text-sm font-semibold text-green-700 dark:text-green-300">
                           Matched by Phone ({categorizedStudents.byPhone.length})
                         </span>
@@ -727,8 +727,8 @@ export default function StudentsPage() {
                     className={cn(
                       "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                       currentPage === 1
-                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                        : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
+                        ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                        : "bg-primary text-white hover:bg-[#8b6140]"
                     )}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -745,8 +745,8 @@ export default function StudentsPage() {
                     className={cn(
                       "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                       !hasMorePages
-                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                        : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
+                        ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                        : "bg-primary text-white hover:bg-[#8b6140]"
                     )}
                   >
                     Next
@@ -846,8 +846,8 @@ function RichPopoverContent({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/30">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-[#a0704b]/20 flex items-center justify-center">
-            <Users className="h-4 w-4 text-[#a0704b]" />
+          <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+            <Users className="h-4 w-4 text-accent-ink" />
           </div>
           <div>
             <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
@@ -893,11 +893,11 @@ function RichPopoverContent({
           {(studentDetail?.contacts?.length ? studentDetail.contacts : student.contacts?.length ? student.contacts : student.phone ? [{ phone: student.phone, label: '' }] : []).map((c, i) => (
             <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
               <Phone className="h-3 w-3" />
-              <a href={`tel:${c.phone}`} className="font-mono hover:text-[#a0704b] hover:underline">
+              <a href={`tel:${c.phone}`} className="font-mono hover:text-accent-ink hover:underline">
                 {c.phone}
               </a>
               {c.label && (
-                <span className="text-gray-400 dark:text-gray-500">({c.label})</span>
+                <span className="text-gray-500 dark:text-gray-400">({c.label})</span>
               )}
             </div>
           ))}
@@ -912,7 +912,7 @@ function RichPopoverContent({
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+            <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
             <span className="ml-2 text-xs text-gray-500">Loading...</span>
           </div>
         )}
@@ -926,13 +926,13 @@ function RichPopoverContent({
             {activeEnrollment ? (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs">
-                  <User className="h-3 w-3 text-blue-500" />
+                  <User className="h-3 w-3 text-blue-600" />
                   <span className="text-gray-700 dark:text-gray-300">
                     <span className="font-medium">{activeEnrollment.tutor_name || 'Unassigned'}</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
-                  <Clock className="h-3 w-3 text-amber-500" />
+                  <Clock className="h-3 w-3 text-amber-700" />
                   <span className="text-gray-700 dark:text-gray-300">
                     {activeEnrollment.assigned_day || 'TBD'} {activeEnrollment.assigned_time || ''}
                     {activeEnrollment.location && <span className="text-gray-500"> @ {activeEnrollment.location}</span>}
@@ -943,16 +943,16 @@ function RichPopoverContent({
                   <div className="flex items-center gap-1.5 text-xs">
                     <Tag className={cn(
                       "h-3 w-3",
-                      activeEnrollment.enrollment_type === 'Trial' ? 'text-blue-500' :
-                      activeEnrollment.enrollment_type === 'One-Time' ? 'text-purple-500' :
-                      'text-green-500'
+                      activeEnrollment.enrollment_type === 'Trial' ? 'text-blue-600' :
+                      activeEnrollment.enrollment_type === 'One-Time' ? 'text-purple-600' :
+                      'text-green-700'
                     )} />
                     <span className={cn(
                       activeEnrollment.enrollment_type === 'Trial'
                         ? "text-blue-600 dark:text-blue-400"
                         : activeEnrollment.enrollment_type === 'One-Time'
                         ? "text-purple-600 dark:text-purple-400"
-                        : "text-green-600 dark:text-green-400"
+                        : "text-green-700 dark:text-green-400"
                     )}>
                       {activeEnrollment.enrollment_type}
                     </span>
@@ -964,15 +964,15 @@ function RichPopoverContent({
                     <div className="flex items-center gap-1.5 text-xs">
                       <CreditCard className={cn(
                         "h-3 w-3",
-                        displayStatus === 'Paid' ? 'text-green-500' :
-                        displayStatus === 'Overdue' ? 'text-red-500' :
-                        'text-amber-500'
+                        displayStatus === 'Paid' ? 'text-green-700' :
+                        displayStatus === 'Overdue' ? 'text-red-600' :
+                        'text-amber-700'
                       )} />
                       <span className={cn(
                         "font-medium",
-                        displayStatus === 'Paid' ? 'text-green-600' :
+                        displayStatus === 'Paid' ? 'text-green-700' :
                         displayStatus === 'Overdue' ? 'text-red-600' :
-                        displayStatus === 'Pending Payment' ? 'text-amber-600' :
+                        displayStatus === 'Pending Payment' ? 'text-amber-700' :
                         'text-gray-500'
                       )}>
                         {displayStatus}
@@ -985,7 +985,7 @@ function RichPopoverContent({
                 })()}
                 {activeEnrollment.first_lesson_date && (
                   <div className="flex items-center gap-1.5 text-xs">
-                    <Calendar className="h-3 w-3 text-purple-500" />
+                    <Calendar className="h-3 w-3 text-purple-600" />
                     <span className="text-gray-700 dark:text-gray-300">
                       Started: {formatShortDate(activeEnrollment.first_lesson_date)}
                     </span>
@@ -993,7 +993,7 @@ function RichPopoverContent({
                 )}
               </div>
             ) : (
-              <p className="text-xs text-gray-400 italic">No current enrollment</p>
+              <p className="text-xs text-gray-500 italic">No current enrollment</p>
             )}
           </div>
         )}
@@ -1033,7 +1033,7 @@ function RichPopoverContent({
                 )}
               </div>
             ) : (
-              <p className="text-xs text-gray-400 italic">No sessions yet</p>
+              <p className="text-xs text-gray-500 italic">No sessions yet</p>
             )}
           </div>
         )}
@@ -1050,7 +1050,7 @@ function RichPopoverContent({
                   const daysUntil = getDaysUntil(test.start_date);
                   return (
                     <div key={test.id} className="flex items-center gap-2 text-xs">
-                      <Calendar className="h-3 w-3 text-red-500 flex-shrink-0" />
+                      <Calendar className="h-3 w-3 text-red-600 flex-shrink-0" />
                       <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
                         {test.title}
                       </span>
@@ -1067,7 +1067,7 @@ function RichPopoverContent({
                 })}
               </div>
             ) : (
-              <p className="text-xs text-gray-400 italic">No upcoming tests</p>
+              <p className="text-xs text-gray-500 italic">No upcoming tests</p>
             )}
           </div>
         )}
@@ -1081,7 +1081,7 @@ function RichPopoverContent({
             e.stopPropagation();
             saveScrollPosition();
           }}
-          className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#a0704b] hover:bg-[#8b6140] text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary hover:bg-[#8b6140] text-white rounded-lg text-sm font-medium transition-colors"
         >
           View Full Profile
           <ExternalLink className="h-4 w-4" />
@@ -1121,7 +1121,7 @@ const StudentCard = memo(function StudentCard({
       className={cn(
         "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-card border border-line",
         !isMobile && "paper-texture",
-        isSelected && "ring-2 ring-[#a0704b]"
+        isSelected && "ring-2 ring-primary"
       )}
       style={{
         boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',

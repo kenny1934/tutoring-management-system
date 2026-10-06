@@ -65,7 +65,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
             className={cn(
               "px-2 py-1 text-xs rounded transition-colors",
               selectedGroup === -1
-                ? "bg-tint text-[#a0704b] font-medium"
+                ? "bg-tint text-accent-ink font-medium"
                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
             )}
           >
@@ -80,7 +80,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
             className={cn(
               "px-2 py-1 text-xs rounded transition-colors",
               selectedGroup === idx
-                ? "bg-tint text-[#a0704b] font-medium"
+                ? "bg-tint text-accent-ink font-medium"
                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
             )}
           >

@@ -83,7 +83,7 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
               <Link
                 href={`/admin/debug/${log.table_name}`}
                 onClick={(e) => e.stopPropagation()}
-                className="font-medium text-[#a0704b] hover:underline"
+                className="font-medium text-accent-ink hover:underline"
               >
                 {log.table_name}
               </Link>
@@ -107,9 +107,9 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
           </div>
           {(log.before_state || log.after_state) && (
             expanded ? (
-              <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
+              <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
+              <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
             )
           )}
         </button>
@@ -119,7 +119,7 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
               e.stopPropagation();
               onRevert(log);
             }}
-            className="mr-4 p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-500 hover:text-amber-600 transition-colors btn-press"
+            className="mr-4 p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-500 hover:text-amber-700 transition-colors btn-press"
             title="Revert this change"
             aria-label="Revert change"
           >
@@ -248,7 +248,7 @@ export default function AuditLogPage() {
                 </Link>
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:block p-2 rounded-lg bg-tint">
-                    <History className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
+                    <History className="h-6 w-6 text-accent-ink" aria-hidden="true" />
                   </div>
                   <div>
                     <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
@@ -298,7 +298,7 @@ export default function AuditLogPage() {
           <div className="px-4 sm:px-6 pb-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" aria-hidden="true" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent-ink" aria-hidden="true" />
               </div>
             ) : logs.length === 0 ? (
               <div className="text-center py-16 text-gray-500 dark:text-gray-400">
@@ -365,7 +365,7 @@ export default function AuditLogPage() {
 
               <div className="p-4 space-y-4">
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <AlertTriangle className="h-5 w-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
                   <div>
                     <p className="font-medium text-amber-800 dark:text-amber-300">
                       {getRevertDescription(revertLog)}
@@ -383,7 +383,7 @@ export default function AuditLogPage() {
                   </div>
                   <div className="text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Table:</span>{" "}
-                    <span className="font-mono text-[#a0704b]">{revertLog.table_name}</span>
+                    <span className="font-mono text-accent-ink">{revertLog.table_name}</span>
                     {revertLog.row_id && <span className="text-gray-600"> #{revertLog.row_id}</span>}
                   </div>
                   <div className="text-sm">

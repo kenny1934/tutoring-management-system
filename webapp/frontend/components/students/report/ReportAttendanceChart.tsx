@@ -15,7 +15,7 @@ export function ReportAttendanceChart({ data }: ReportAttendanceChartProps) {
 
   if (data.total_past_sessions === 0) {
     return (
-      <div className="flex items-center justify-center h-[200px] text-sm text-gray-400">
+      <div className="flex items-center justify-center h-[200px] text-sm text-gray-500">
         No sessions recorded
       </div>
     );

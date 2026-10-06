@@ -74,12 +74,12 @@ function AnswerActionButton({ state, message, onClick, Icon, title, size, busy }
       )}
       title={showMessage ? message : title}
     >
-      {isLoading ? <Loader2 className={cn(iconClass, "text-gray-400 animate-spin")} />
-        : state === 'error' ? <XCircle className={cn(iconClass, "text-red-500")} />
+      {isLoading ? <Loader2 className={cn(iconClass, "text-gray-500 animate-spin")} />
+        : state === 'error' ? <XCircle className={cn(iconClass, "text-red-600")} />
         : <Icon className={cn(iconClass, "text-gray-500 dark:text-gray-400")} />}
       {showMessage && (
         <span className={cn(
-          "text-[10px] text-amber-600 dark:text-amber-400 italic whitespace-nowrap truncate",
+          "text-[10px] text-amber-700 dark:text-amber-400 italic whitespace-nowrap truncate",
           msgMaxW,
           size === 'sm' && "hidden md:inline"
         )}>{message}</span>
@@ -227,7 +227,7 @@ export function ExerciseAnswerSection({
         {answerPdfName ? (
           <>
             {/* Answer is set - show filename + Open + Download */}
-            <span className="text-xs text-green-600 dark:text-green-400 truncate flex-1 min-w-0" title={answerPdfName}>
+            <span className="text-xs text-green-700 dark:text-green-400 truncate flex-1 min-w-0" title={answerPdfName}>
               {getDisplayName(answerPdfName)}
             </span>
             {!expanded && (
@@ -240,7 +240,7 @@ export function ExerciseAnswerSection({
         ) : (
           <>
             {/* Answer not set - show "Not set" + Search */}
-            <span className="text-xs text-gray-400 italic">Not set</span>
+            <span className="text-xs text-gray-500 italic">Not set</span>
             <button
               type="button"
               onClick={handleSearch}
@@ -257,9 +257,9 @@ export function ExerciseAnswerSection({
               title={!pdfName ? "Set PDF first" : searchState === 'not_found' ? "Answer not found" : "Search for answer file"}
             >
               {searchState === 'searching' ? (
-                <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                <Loader2 className="h-3 w-3 text-amber-700 animate-spin" />
               ) : searchState === 'not_found' ? (
-                <XCircle className="h-3 w-3 text-red-500" />
+                <XCircle className="h-3 w-3 text-red-600" />
               ) : (
                 <Search className="h-3 w-3 text-gray-500 dark:text-gray-400" />
               )}
@@ -307,7 +307,7 @@ export function ExerciseAnswerSection({
                 className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 ml-auto px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0 flex items-center justify-center"
                 title="Clear answer"
               >
-                <X className="h-3.5 w-3.5 text-red-500" />
+                <X className="h-3.5 w-3.5 text-red-600" />
               </button>
             )}
           </div>

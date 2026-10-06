@@ -20,7 +20,7 @@ export function SuperAdminPageGuard({ children }: SuperAdminPageGuardProps) {
   if (isLoading) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent-ink" />
       </div>
     );
   }
@@ -28,7 +28,7 @@ export function SuperAdminPageGuard({ children }: SuperAdminPageGuardProps) {
   if (!user) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
-        <ShieldAlert className="h-12 w-12 text-gray-400" />
+        <ShieldAlert className="h-12 w-12 text-gray-500" />
         <p className="text-gray-600 dark:text-gray-400">Please log in to access this page</p>
       </div>
     );
@@ -37,7 +37,7 @@ export function SuperAdminPageGuard({ children }: SuperAdminPageGuardProps) {
   if (!isSuperAdmin) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
-        <ShieldAlert className="h-12 w-12 text-red-400" />
+        <ShieldAlert className="h-12 w-12 text-red-600" />
         <div className="text-center">
           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Super Admin Access Required
@@ -53,7 +53,7 @@ export function SuperAdminPageGuard({ children }: SuperAdminPageGuardProps) {
   if (isImpersonating) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
-        <ShieldAlert className="h-12 w-12 text-amber-400" />
+        <ShieldAlert className="h-12 w-12 text-amber-700" />
         <div className="text-center">
           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Debug Access Disabled

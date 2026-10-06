@@ -93,7 +93,7 @@ function SuggestionList({
   );
 
   if (error) {
-    return <div className="p-2 text-[10px] text-red-500">Failed to load suggestions.</div>;
+    return <div className="p-2 text-[10px] text-red-600">Failed to load suggestions.</div>;
   }
   if (!data) {
     return (
@@ -430,12 +430,12 @@ export function RegularUnassignedPanel({
           {/* Demand-bar filter, set by clicking a sparkline in the grid */}
           {demandFilterLabel && (
             <div className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-1">
-              <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-primary">
+              <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-accent-ink">
                 {demandFilterLabel}
               </span>
               <button
                 onClick={() => onClearDemandFilter?.()}
-                className="shrink-0 p-0.5 text-primary/70 hover:text-primary"
+                className="shrink-0 p-0.5 text-accent-ink/70 hover:text-accent-ink"
                 title="Clear demand filter"
                 aria-label="Clear demand filter"
               >
@@ -550,7 +550,7 @@ export function RegularUnassignedPanel({
                           filter, where the list is not the unassigned cohort. */}
                       {app.assigned_slot_id != null && (
                         <span className="shrink-0 flex items-center" title="Already assigned to a slot">
-                          <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                          <CheckCircle2 className="h-3 w-3 text-green-700 dark:text-green-400" />
                         </span>
                       )}
                       {/* Status dot — compact version of the full status badge */}
@@ -574,7 +574,7 @@ export function RegularUnassignedPanel({
                           {DAY_ABBREV[app.preference_1_day] || app.preference_1_day} {app.preference_1_time}
                         </span>
                       ) : (
-                        <span className="text-[9px] text-red-500">No preference</span>
+                        <span className="text-[9px] text-red-600">No preference</span>
                       )}
                       {app.preference_2_day && app.preference_2_time && (
                         <>
@@ -591,7 +591,7 @@ export function RegularUnassignedPanel({
                             setSuggestForId(suggestOpen ? null : app.id);
                           }}
                           onPointerDown={(e) => e.stopPropagation()}
-                          className="ml-auto text-[9px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
+                          className="ml-auto text-[9px] font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
                           title="Suggest matching slots"
                         >
                           Suggest

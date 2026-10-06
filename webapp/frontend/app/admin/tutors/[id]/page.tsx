@@ -440,7 +440,7 @@ function TutorProfileInner() {
                     "inline-flex items-center gap-1",
                     tutor.is_active_tutor === false
                       ? "text-foreground/40"
-                      : "text-emerald-600 dark:text-emerald-400"
+                      : "text-emerald-700 dark:text-emerald-400"
                   )}
                 >
                   <span
@@ -609,7 +609,7 @@ function TutorProfileInner() {
                   <div>
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-sm text-foreground/55">Bonus</span>
-                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
                         {fmtMoney(comp?.monthly_bonus)}
                       </span>
                     </div>

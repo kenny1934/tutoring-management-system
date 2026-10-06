@@ -251,7 +251,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
                         type="checkbox"
                         checked={Boolean(draft)}
                         onChange={() => toggleCoverage(loc)}
-                        className="h-4 w-4 rounded border-foreground/30 text-primary focus:ring-primary/30"
+                        className="h-4 w-4 rounded border-foreground/30 text-accent-ink focus:ring-primary/30"
                       />
                       <span className="text-sm text-foreground/80">{loc}</span>
                     </label>
@@ -367,7 +367,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             type="checkbox"
             checked={isActiveTutor}
             onChange={(e) => setIsActiveTutor(e.target.checked)}
-            className="h-4 w-4 rounded border-foreground/30 text-primary focus:ring-primary/30"
+            className="h-4 w-4 rounded border-foreground/30 text-accent-ink focus:ring-primary/30"
           />
           <span className="text-sm font-medium text-foreground/80">
             Active tutor (teaches students)
@@ -385,7 +385,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             type="date"
             value={departureOn}
             onChange={(e) => setDepartureOn(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <p className="mt-1 text-xs text-foreground/60">
             {arkManaged

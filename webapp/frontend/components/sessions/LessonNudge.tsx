@@ -117,7 +117,7 @@ export function LessonNudge({ active, date, timeSlot, tutorId, children }: Lesso
           </span>
           <button
             onClick={() => setShowBubble(false)}
-            className="absolute right-1 top-1 rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="absolute right-1 top-1 rounded p-0.5 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             aria-label="Dismiss hint"
           >
             <X className="h-3 w-3" />

@@ -151,10 +151,10 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className={cn("animate-empty-float w-14 h-14 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-[#f5ede3] dark:bg-[#2d2618]")}>
-          {isTrashTab ? <Trash2 className="w-7 h-7 text-red-300 dark:text-red-800" /> : <FileText className="w-7 h-7 text-[#a0704b]/40 dark:text-[#cd853f]/30" />}
+          {isTrashTab ? <Trash2 className="w-7 h-7 text-red-300 dark:text-red-800" /> : <FileText className="w-7 h-7 text-accent-ink/40 dark:text-[#cd853f]/30" />}
         </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[20rem]">{emptyMessage}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[20rem]">{emptyMessage}</p>
       </div>
     );
   }
@@ -170,13 +170,13 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 checked={allSelected}
                 ref={(el) => { if (el) el.indeterminate = someSelected; }}
                 onChange={() => onToggleSelectAll(allVisibleIds)}
-                className="w-3.5 h-3.5 rounded border-line accent-[#a0704b]"
+                className="w-3.5 h-3.5 rounded border-line accent-primary"
                 aria-label="Select all documents"
               />
             </th>
             <th className="py-2.5 pl-1 pr-4 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-            <th className="w-24 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden md:table-cell">{isTrashTab ? "Location" : "Tags"}</th>
-            <th className="w-28 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden sm:table-cell">{isTrashTab ? "Trashed" : "Modified"}</th>
+            <th className="w-24 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">{isTrashTab ? "Location" : "Tags"}</th>
+            <th className="w-28 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">{isTrashTab ? "Trashed" : "Modified"}</th>
             <th className="w-8 py-2.5" />
           </tr>
         </thead>
@@ -199,7 +199,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 className={cn(
                   "group border-l-2 border-b border-b-[#e8d4b8]/30 dark:border-b-[#6b5a4a]/30 cursor-pointer transition-colors",
                   isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
-                  selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
+                  selected && "bg-primary/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
                   isPreviewing && !selected && "bg-[#f5ede3]/50 dark:bg-[#2d2618]/30 border-l-[#a0704b]",
                   !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]/40",
                   doc.is_archived && !isTrashTab && "opacity-40",
@@ -211,7 +211,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     type="checkbox"
                     checked={selected}
                     onChange={() => onToggleSelect(doc.id)}
-                    className="w-3.5 h-3.5 rounded border-line accent-[#a0704b]"
+                    className="w-3.5 h-3.5 rounded border-line accent-primary"
                   />
                 </td>
 
@@ -224,10 +224,10 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         className="shrink-0 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         aria-label={isExpanded ? "Collapse variants" : "Expand variants"}
                       >
-                        <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-600 transition-transform", isExpanded && "rotate-90")} />
+                        <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-400 transition-transform", isExpanded && "rotate-90")} />
                       </button>
                     ) : isVariant ? (
-                      <svg className="shrink-0 w-[18px] h-[18px] text-[#a0704b]/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
+                      <svg className="shrink-0 w-[18px] h-[18px] text-accent-ink/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
                         <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="animate-path-draw" />
                       </svg>
                     ) : (
@@ -236,10 +236,10 @@ export default function DocumentsTable(props: DocumentsTableProps) {
 
                     {onToggleStar && (
                       <button onClick={(e) => { e.stopPropagation(); onToggleStar(doc.id); }} className="shrink-0 p-0.5 -ml-0.5 rounded transition-colors hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]" aria-label={doc.is_starred ? "Unstar" : "Star"}>
-                        <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-400" : "text-gray-300 dark:text-gray-600")} />
+                        <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-700" : "text-gray-300 dark:text-gray-400")} />
                       </button>
                     )}
-                    <FileText className="w-4 h-4 shrink-0 text-[#a0704b]/60 dark:text-[#cd853f]/50" />
+                    <FileText className="w-4 h-4 shrink-0 text-accent-ink/60 dark:text-[#cd853f]/50" />
 
                     {editingId === doc.id ? (
                       <input
@@ -249,7 +249,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         onBlur={commitRename}
                         onKeyDown={(e) => { if (e.key === "Enter") { commitRename(); (e.target as HTMLInputElement).blur(); } if (e.key === "Escape") { setEditingId(null); (e.target as HTMLInputElement).blur(); } }}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[13px] font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a1a1a] border border-[#a0704b]/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-[#a0704b]/40 min-w-0 w-full"
+                        className="text-[13px] font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a1a1a] border border-primary/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary/40 min-w-0 w-full"
                       />
                     ) : (
                       <span
@@ -257,30 +257,30 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         onDoubleClick={(e) => { e.stopPropagation(); startRename(doc); }}
                         className={cn(
                           "truncate text-[13px]",
-                          isTrashTab ? "text-gray-400 dark:text-gray-500" : isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
+                          isTrashTab ? "text-gray-500 dark:text-gray-400" : isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
                         )}
                       >
                         {doc.title}
                       </span>
                     )}
 
-                    {doc.is_template && <Stamp className="w-3 h-3 shrink-0 text-purple-400" />}
-                    {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-400" />}
+                    {doc.is_template && <Stamp className="w-3 h-3 shrink-0 text-purple-600" />}
+                    {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-700" />}
                     {hasChildren && (
-                      <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-gray-400">
+                      <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-gray-500">
                         <GitBranch className="w-3 h-3" />
                       </span>
                     )}
                     {questionCount > 0 && (
-                      <span className="shrink-0 text-[9px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hidden lg:inline tabular-nums">{questionCount}Q</span>
+                      <span className="shrink-0 text-[9px] font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hidden lg:inline tabular-nums">{questionCount}Q</span>
                     )}
                     {(doc.version_count ?? 0) > 1 && (
-                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-400 hidden lg:inline-flex" title={`${doc.version_count} versions`}>
+                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-500 hidden lg:inline-flex" title={`${doc.version_count} versions`}>
                         <Clock className="w-3 h-3" />v{doc.version_count}</span>
                     )}
                   </div>
                   {/* Mobile subtitle */}
-                  <div className="sm:hidden flex items-center gap-1.5 mt-0.5 text-[11px] text-gray-400 dark:text-gray-500" style={indent ? { paddingLeft: `${indent * 1.25 + 2.25}rem` } : { paddingLeft: "2.25rem" }}>
+                  <div className="sm:hidden flex items-center gap-1.5 mt-0.5 text-[11px] text-gray-500 dark:text-gray-400" style={indent ? { paddingLeft: `${indent * 1.25 + 2.25}rem` } : { paddingLeft: "2.25rem" }}>
                     <span>{doc.created_by_name}</span>
                     {doc.updated_at && <span>· {formatTimeAgo(doc.updated_at)}</span>}
                   </div>
@@ -289,7 +289,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 {/* Tags / Location (trash) */}
                 <td className="py-2.5 px-2 hidden md:table-cell">
                   {isTrashTab ? (
-                    <span className="text-[12px] text-gray-400 dark:text-gray-500 truncate">
+                    <span className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                       {doc.folder_name || "—"}
                     </span>
                   ) : (
@@ -300,7 +300,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         </span>
                       ))}
                       {(doc.tags || []).length > 2 && (
-                        <span className="text-[10px] text-gray-400 cursor-default" title={doc.tags!.slice(2).join(", ")}>+{doc.tags!.length - 2}</span>
+                        <span className="text-[10px] text-gray-500 cursor-default" title={doc.tags!.slice(2).join(", ")}>+{doc.tags!.length - 2}</span>
                       )}
                     </div>
                   )}
@@ -308,7 +308,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
 
                 {/* Modified / Trashed date */}
                 <td className="py-2.5 px-2 hidden sm:table-cell">
-                  <span className="text-[12px] text-gray-400 dark:text-gray-500">
+                  <span className="text-[12px] text-gray-500 dark:text-gray-400">
                     {isTrashTab && doc.archived_at
                       ? formatTimeAgo(doc.archived_at)
                       : doc.updated_at && formatTimeAgo(doc.updated_at)}

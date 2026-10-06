@@ -1106,7 +1106,7 @@ export function FolderTreeModal({
       onClose={onClose}
       title={
         <div className="flex items-center gap-2">
-          <FolderOpen className="h-5 w-5 text-amber-500" />
+          <FolderOpen className="h-5 w-5 text-amber-700" />
           <span>Browse Files</span>
         </div>
       }
@@ -1122,11 +1122,11 @@ export function FolderTreeModal({
             </div>
           ) : rootFolders.length === 0 && !error ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-              <Folder className="h-10 w-10 mb-3 text-gray-400 opacity-50" />
+              <Folder className="h-10 w-10 mb-3 text-gray-500 opacity-50" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No folders configured.
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">
                 Add a local folder to browse, or set up shared drives in Settings
               </p>
               <Button
@@ -1144,7 +1144,7 @@ export function FolderTreeModal({
               {/* Dismissible error banner */}
               {error && (
                 <div className="flex items-center gap-2 p-3 mb-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                  <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
                   <span className="flex-1 text-sm text-red-700 dark:text-red-300">{error}</span>
                   <button
                     onClick={() => {
@@ -1154,7 +1154,7 @@ export function FolderTreeModal({
                         navigateTo(-1);
                       }
                     }}
-                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500 hover:text-red-700 transition-colors shrink-0"
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-600 hover:text-red-700 transition-colors shrink-0"
                     title="Dismiss and go to root"
                   >
                     <X className="h-4 w-4" />
@@ -1170,7 +1170,7 @@ export function FolderTreeModal({
                         loadRootFolders();
                       }
                     }}
-                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500 hover:text-red-700 transition-colors shrink-0"
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-600 hover:text-red-700 transition-colors shrink-0"
                     title="Retry"
                   >
                     <RefreshCw className="h-4 w-4" />
@@ -1188,7 +1188,7 @@ export function FolderTreeModal({
                       onClick={() => navigateTo(-1)}
                       className={cn(
                         "shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
-                        isAtRoot && "text-amber-500"
+                        isAtRoot && "text-amber-700"
                       )}
                       title="Root"
                     >
@@ -1199,7 +1199,7 @@ export function FolderTreeModal({
                     {isAtRoot && (
                       <button
                         onClick={handleAddFolder}
-                        className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-500"
+                        className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-700"
                         title="Add local folder"
                       >
                         <FolderPlus className="h-4 w-4" />
@@ -1207,12 +1207,12 @@ export function FolderTreeModal({
                     )}
                     {currentPath.map((segment, i) => (
                       <Fragment key={i}>
-                        <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                        <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
                         <button
                           onClick={() => navigateTo(i)}
                           className={cn(
-                            "hover:text-amber-500 truncate max-w-[120px] transition-colors",
-                            i === currentPath.length - 1 && "font-medium text-amber-600 dark:text-amber-400"
+                            "hover:text-amber-700 truncate max-w-[120px] transition-colors",
+                            i === currentPath.length - 1 && "font-medium text-amber-700 dark:text-amber-400"
                           )}
                           title={segment}
                         >
@@ -1229,8 +1229,8 @@ export function FolderTreeModal({
                     className={cn(
                       "shrink-0 p-1 rounded transition-colors",
                       contentsLoading
-                        ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                        : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-500"
+                        ? "text-gray-300 dark:text-gray-400 cursor-not-allowed"
+                        : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-700"
                     )}
                     title="Refresh folder"
                   >
@@ -1244,7 +1244,7 @@ export function FolderTreeModal({
                       className={cn(
                         "p-1 rounded transition-colors",
                         viewMode === "list"
-                          ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                          ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400"
                           : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                       )}
                       title="List view"
@@ -1256,7 +1256,7 @@ export function FolderTreeModal({
                       className={cn(
                         "p-1 rounded transition-colors",
                         viewMode === "grid"
-                          ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                          ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400"
                           : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                       )}
                       title="Grid view"
@@ -1281,7 +1281,7 @@ export function FolderTreeModal({
 
                   {/* Search input */}
                   <div className="relative flex-1 max-w-[200px]">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                     <input
                       ref={searchInputRef}
                       type="text"
@@ -1296,15 +1296,15 @@ export function FolderTreeModal({
                         className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                         title="Clear search"
                       >
-                        <X className="h-3 w-3 text-gray-400" />
+                        <X className="h-3 w-3 text-gray-500" />
                       </button>
                     )}
                   </div>
 
                   {loadingDates && (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700" />
                   )}
-                  <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
                     {searchQuery.trim()
                       ? `${sortedContents.length} of ${sortedContentsRaw.length} items`
                       : hasMore
@@ -1325,7 +1325,7 @@ export function FolderTreeModal({
                       </span>
                       <button
                         onClick={() => setSelections(new Map())}
-                        className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                        className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
                       >
                         Clear all
                       </button>
@@ -1350,17 +1350,17 @@ export function FolderTreeModal({
                               )}
                             />
                             {sel.pageCount && (
-                              <span className="text-gray-400 shrink-0">/{sel.pageCount}</span>
+                              <span className="text-gray-500 shrink-0">/{sel.pageCount}</span>
                             )}
                             <button
                               onClick={() => removeSelection(sel.path)}
-                              className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-400 hover:text-gray-600"
+                              className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-500 hover:text-gray-600"
                             >
                               <X className="h-3 w-3" />
                             </button>
                           </div>
                           {sel.error && (
-                            <p className="text-[10px] text-red-500 pl-1">{sel.error}</p>
+                            <p className="text-[10px] text-red-600 pl-1">{sel.error}</p>
                           )}
                         </div>
                       ))}
@@ -1420,7 +1420,7 @@ export function FolderTreeModal({
                                 checked={isSelected}
                                 onChange={() => {}}
                                 onClick={(e) => handleCheckboxClick(e, node, index)}
-                                className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 shrink-0 cursor-pointer"
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-amber-700 focus:ring-amber-500 shrink-0 cursor-pointer"
                               />
                             </div>
                           )}
@@ -1430,12 +1430,12 @@ export function FolderTreeModal({
                           {/* Icon */}
                           {node.kind === "folder" ? (
                             node.isShared ? (
-                              <FolderSync className="h-5 w-5 text-green-500 shrink-0" />
+                              <FolderSync className="h-5 w-5 text-green-700 shrink-0" />
                             ) : (
-                              <Folder className="h-5 w-5 text-amber-500 shrink-0" />
+                              <Folder className="h-5 w-5 text-amber-700 shrink-0" />
                             )
                           ) : (
-                            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                            <FileText className="h-5 w-5 text-red-600 shrink-0" />
                           )}
 
                           {/* Name */}
@@ -1449,20 +1449,20 @@ export function FolderTreeModal({
                           {/* Warning icon for unavailable folders */}
                           {node.kind === "folder" && unavailableFolders.has(node.id) && (
                             <span title="Folder unavailable - network may be disconnected">
-                              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                              <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
                             </span>
                           )}
 
                           {/* Folder arrow */}
                           {node.kind === "folder" && (
-                            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                            <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
                           )}
 
                           {/* Delete button for root folders */}
                           {isAtRoot && node.kind === "folder" && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all shrink-0"
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 transition-all shrink-0"
                               title="Remove folder"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1508,7 +1508,7 @@ export function FolderTreeModal({
                                 checked={isSelected}
                                 onChange={() => {}}
                                 onClick={(e) => handleCheckboxClick(e, node, index)}
-                                className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-amber-700 focus:ring-amber-500 cursor-pointer"
                               />
                             </div>
                           )}
@@ -1517,7 +1517,7 @@ export function FolderTreeModal({
                           {isAtRoot && node.kind === "folder" && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
-                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
+                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 transition-all"
                               title="Remove folder"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1530,19 +1530,19 @@ export function FolderTreeModal({
                               className="absolute top-1 left-1 p-0.5 rounded bg-amber-100 dark:bg-amber-900/50"
                               title="Folder unavailable - network may be disconnected"
                             >
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
                             </div>
                           )}
 
                           {/* Icon */}
                           {node.kind === "folder" ? (
                             node.isShared ? (
-                              <FolderSync className="h-10 w-10 text-green-500" />
+                              <FolderSync className="h-10 w-10 text-green-700" />
                             ) : (
-                              <Folder className="h-10 w-10 text-amber-500" />
+                              <Folder className="h-10 w-10 text-amber-700" />
                             )
                           ) : (
-                            <FileText className="h-10 w-10 text-red-500" />
+                            <FileText className="h-10 w-10 text-red-600" />
                           )}
 
                           {/* Name */}
@@ -1562,10 +1562,10 @@ export function FolderTreeModal({
                 {hasMore && (
                   <button
                     onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
-                    className="w-full py-3 mt-2 text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 mt-2 text-sm text-amber-700 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     Show {Math.min(remainingCount, ITEMS_PER_PAGE)} more
-                    <span className="text-gray-400 dark:text-gray-500">
+                    <span className="text-gray-500 dark:text-gray-400">
                       ({remainingCount} remaining)
                     </span>
                   </button>
@@ -1575,7 +1575,7 @@ export function FolderTreeModal({
               {/* FOOTER */}
               <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700 bg-paper space-y-2">
                 {/* Help text */}
-                <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
                   <Info className="h-3.5 w-3.5 shrink-0" />
                   {selections.size > 0
                     ? `${selections.size} selected. Double-click or use button below to add.`
@@ -1583,7 +1583,7 @@ export function FolderTreeModal({
                 </div>
 
                 {/* Keyboard shortcuts hint */}
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="flex items-center gap-1">
                     <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
                       {viewMode === "grid" ? "←↑↓→" : "↑↓"}
@@ -1687,7 +1687,7 @@ export function FolderTreeModal({
               <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 rounded-lg overflow-auto">
                 {previewLoading ? (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-700" />
                   </div>
                 ) : (
                   <iframe
@@ -1709,7 +1709,7 @@ export function FolderTreeModal({
                         type="radio"
                         checked={previewPageMode === "simple"}
                         onChange={() => setPreviewPageMode("simple")}
-                        className="text-amber-500 focus:ring-amber-500"
+                        className="text-amber-700 focus:ring-amber-500"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Range</span>
                     </label>
@@ -1718,12 +1718,12 @@ export function FolderTreeModal({
                         type="radio"
                         checked={previewPageMode === "custom"}
                         onChange={() => setPreviewPageMode("custom")}
-                        className="text-amber-500 focus:ring-amber-500"
+                        className="text-amber-700 focus:ring-amber-500"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Custom</span>
                     </label>
                     {previewPageCount && (
-                      <span className="text-xs text-gray-400 ml-auto">({previewPageCount} pages)</span>
+                      <span className="text-xs text-gray-500 ml-auto">({previewPageCount} pages)</span>
                     )}
                   </div>
 
@@ -1751,7 +1751,7 @@ export function FolderTreeModal({
                           previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
                         )}
                       />
-                      <span className="text-gray-400 text-sm">to</span>
+                      <span className="text-gray-500 text-sm">to</span>
                       <input
                         type="number"
                         min={1}
@@ -1794,7 +1794,7 @@ export function FolderTreeModal({
                   )}
 
                   {previewPagesError && (
-                    <p className="text-xs text-red-500">{previewPagesError}</p>
+                    <p className="text-xs text-red-600">{previewPagesError}</p>
                   )}
                 </div>
 
@@ -1821,11 +1821,11 @@ export function FolderTreeModal({
           ) : (
             /* Empty state */
             <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-              <Eye className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+              <Eye className="h-10 w-10 text-gray-300 dark:text-gray-400 mb-3" />
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 No preview selected
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Click the <Eye className="h-3 w-3 inline mx-0.5" /> icon next to a PDF to preview it
               </p>
             </div>

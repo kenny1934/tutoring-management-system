@@ -148,18 +148,18 @@ export function CurriculumTopicFiles({
                 onClick={goBack}
                 className={cn(
                   hitArea,
-                  "rounded text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 shrink-0"
+                  "rounded text-gray-500 hover:text-teal-700 dark:hover:text-teal-400 shrink-0"
                 )}
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
               </button>
             )}
-            <FileText className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+            <FileText className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400 shrink-0" />
             <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
               {current.name}
             </span>
             {isLoading && (
-              <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
+              <Loader2 className="h-3 w-3 animate-spin text-gray-500 shrink-0" />
             )}
           </>
         }
@@ -191,7 +191,7 @@ export function CurriculumTopicFiles({
                     >
                       {t.name}
                     </button>
-                    <span className="text-[10px] text-gray-400">›</span>
+                    <span className="text-[10px] text-gray-500">›</span>
                   </span>
                 ))}
                 <span
@@ -206,7 +206,7 @@ export function CurriculumTopicFiles({
               <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
                 {buildsOn.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-gray-400 shrink-0">
+                    <span className="text-[10px] text-gray-500 shrink-0">
                       Builds on
                     </span>
                     {buildsOn.map(chip)}
@@ -214,7 +214,7 @@ export function CurriculumTopicFiles({
                 )}
                 {leadsTo.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-gray-400 shrink-0">
+                    <span className="text-[10px] text-gray-500 shrink-0">
                       Leads to
                     </span>
                     {leadsTo.map(chip)}

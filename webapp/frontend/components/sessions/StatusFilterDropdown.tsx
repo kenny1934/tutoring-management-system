@@ -82,7 +82,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
           "flex items-center gap-1.5 px-2 py-1 text-sm",
           "bg-white dark:bg-[#1a1a1a]",
           "border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-          "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",
+          "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
         )}
@@ -97,7 +97,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
           </span>
         ) : null}
         <span className="truncate max-w-[100px] sm:max-w-[180px]">{selectedOption?.label || "Status"}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-[#a0704b] transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("h-3.5 w-3.5 text-accent-ink transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {/* Dropdown menu */}

@@ -40,13 +40,13 @@ export function BranchContacts({
           <div className="mt-1.5 flex items-center gap-4">
             <a
               href={`tel:${contact.phone.replace(/\s+/g, "")}`}
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-hover transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm text-accent-ink hover:text-accent-ink-hover transition-colors"
             >
               <Phone className="h-3.5 w-3.5" />
               <span className="tabular-nums tracking-wider">{contact.phone}</span>
             </a>
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <WeChatIcon className="h-3.5 w-3.5 text-green-600" />
+              <WeChatIcon className="h-3.5 w-3.5 text-green-700" />
               <span className="tracking-wider">{contact.wechat}</span>
             </span>
           </div>

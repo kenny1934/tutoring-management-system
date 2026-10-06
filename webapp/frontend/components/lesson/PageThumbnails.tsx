@@ -97,7 +97,7 @@ export function PageThumbnails({ pages, current, darkMode, onPick, onClose, togg
               <span
                 className={cn(
                   "block overflow-hidden rounded bg-white shadow-sm ring-2",
-                  on ? "ring-[#a0704b]" : "ring-black/5 dark:ring-white/5",
+                  on ? "ring-primary" : "ring-black/5 dark:ring-white/5",
                 )}
                 style={{ height: THUMB_HEIGHT, width: (THUMB_HEIGHT * page.width) / page.height }}
               >
@@ -111,7 +111,7 @@ export function PageThumbnails({ pages, current, darkMode, onPick, onClose, togg
               </span>
               <span className={cn(
                 "text-xs tabular-nums",
-                on ? "font-semibold text-[#a0704b]" : "text-[#8b7355] dark:text-[#a09080]",
+                on ? "font-semibold text-accent-ink" : "text-ink-subtle dark:text-[#a09080]",
               )}>
                 {number}
               </span>

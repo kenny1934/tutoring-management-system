@@ -133,7 +133,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
       <div className="space-y-3">
         {/* ID - monospace, small, gray (consistent with StudentInfoBadges) */}
         {s.school_student_id && (
-          <div className="text-[10px] font-mono text-[#8b7355] dark:text-[#a89880]">
+          <div className="text-[10px] font-mono text-ink-subtle dark:text-[#a89880]">
             {s.school_student_id}
           </div>
         )}
@@ -156,19 +156,19 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
           {(s.contacts?.length ? s.contacts : s.phone ? [{ phone: s.phone }] : []).map((c, i) => (
             <div key={i} className="flex items-center gap-2">
-              <Phone className="h-3 w-3 text-[#8b7355]" />
+              <Phone className="h-3 w-3 text-ink-subtle" />
               <span>{c.phone}{c.label ? ` (${c.label})` : ''}</span>
             </div>
           ))}
           {s.home_location && (
             <div className="flex items-center gap-2">
-              <MapPin className="h-3 w-3 text-[#8b7355]" />
+              <MapPin className="h-3 w-3 text-ink-subtle" />
               <span>{s.home_location}</span>
             </div>
           )}
           {s.enrollment_count !== undefined && (
             <div className="flex items-center gap-2">
-              <BookOpen className="h-3 w-3 text-[#8b7355]" />
+              <BookOpen className="h-3 w-3 text-ink-subtle" />
               <span>{s.enrollment_count} enrollment{s.enrollment_count !== 1 ? 's' : ''}</span>
             </div>
           )}
@@ -184,7 +184,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
     return (
       <div className="space-y-3">
         {/* Date/time header */}
-        <div className="flex items-center gap-2 text-xs text-[#8b7355] dark:text-[#a89880]">
+        <div className="flex items-center gap-2 text-xs text-ink-subtle dark:text-[#a89880]">
           <Calendar className="h-3 w-3" />
           <span>{s.session_date}</span>
           {s.time_slot && (
@@ -197,7 +197,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Student info */}
         <div>
           {s.school_student_id && (
-            <div className="text-[10px] font-mono text-[#8b7355] dark:text-[#a89880]">
+            <div className="text-[10px] font-mono text-ink-subtle dark:text-[#a89880]">
               {s.school_student_id}
             </div>
           )}
@@ -229,7 +229,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Tutor info */}
         {s.tutor_name && (
           <div className="flex items-center gap-2 text-xs text-[#5d4a3a] dark:text-[#d4c4b0]">
-            <User className="h-3 w-3 text-[#8b7355]" />
+            <User className="h-3 w-3 text-ink-subtle" />
             <span>{s.tutor_name}</span>
           </div>
         )}
@@ -245,7 +245,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
       <div className="space-y-3">
         {/* Student ID and name */}
         {e.school_student_id && (
-          <div className="text-[10px] font-mono text-[#8b7355] dark:text-[#a89880]">
+          <div className="text-[10px] font-mono text-ink-subtle dark:text-[#a89880]">
             {e.school_student_id}
           </div>
         )}
@@ -276,19 +276,19 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
           {(e.assigned_day || e.assigned_time) && (
             <div className="flex items-center gap-2">
-              <Calendar className="h-3 w-3 text-[#8b7355]" />
+              <Calendar className="h-3 w-3 text-ink-subtle" />
               <span>{e.assigned_day} {e.assigned_time}</span>
             </div>
           )}
           {e.tutor_name && (
             <div className="flex items-center gap-2">
-              <User className="h-3 w-3 text-[#8b7355]" />
+              <User className="h-3 w-3 text-ink-subtle" />
               <span>{e.tutor_name}</span>
             </div>
           )}
           {e.lessons_paid !== undefined && (
             <div className="flex items-center gap-2">
-              <HandCoins className="h-3 w-3 text-[#8b7355]" />
+              <HandCoins className="h-3 w-3 text-ink-subtle" />
               <span>{e.lessons_paid} lessons paid</span>
             </div>
           )}
@@ -308,7 +308,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         </div>
         {/* Date */}
         {ex.start_date && (
-          <div className="flex items-center gap-2 text-xs text-[#8b7355] dark:text-[#a89880]">
+          <div className="flex items-center gap-2 text-xs text-ink-subtle dark:text-[#a89880]">
             <Calendar className="h-3 w-3" />
             <span>{new Date(ex.start_date).toLocaleDateString()}</span>
             {ex.end_date && ex.end_date !== ex.start_date && (
@@ -342,7 +342,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         </div>
         {/* Icon indicator */}
         <div className="flex items-center gap-2 text-xs text-[#5d4a3a] dark:text-[#d4c4b0]">
-          <GraduationCap className="h-3 w-3 text-[#8b7355]" />
+          <GraduationCap className="h-3 w-3 text-ink-subtle" />
           <span>Exam Schedule</span>
         </div>
       </div>

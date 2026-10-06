@@ -280,7 +280,7 @@ export default function DiagramPage() {
                   </Link>
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                      <GitBranch className="h-6 w-6 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                      <GitBranch className="h-6 w-6 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
                     </div>
                     <div>
                       <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
@@ -357,14 +357,14 @@ export default function DiagramPage() {
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] mx-auto mb-2" />
+                  <Loader2 className="h-8 w-8 animate-spin text-accent-ink mx-auto mb-2" />
                   <p className="text-sm text-gray-500">Loading table schemas...</p>
                 </div>
               </div>
             ) : nodes.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <AlertTriangle className="h-12 w-12 text-amber-400 mx-auto mb-4" />
+                  <AlertTriangle className="h-12 w-12 text-amber-700 mx-auto mb-4" />
                   <p className="text-gray-600 dark:text-gray-400">No tables found</p>
                 </div>
               </div>

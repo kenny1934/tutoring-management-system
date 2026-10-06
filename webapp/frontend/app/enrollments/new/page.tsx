@@ -49,7 +49,7 @@ export default function NewEnrollmentPage() {
       <PageTransition className="min-h-full p-4 sm:p-6">
         {authLoading ? (
           <div className="text-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent-ink" />
             <p className="mt-2 text-foreground/60">Loading...</p>
           </div>
         ) : !user ? (

@@ -788,7 +788,7 @@ export default function TerminatedStudentsPage() {
 
                 {/* Search */}
                 <div className="relative min-w-[200px] max-w-sm">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                   <input
                     type="text"
                     placeholder="Search students..."
@@ -804,7 +804,7 @@ export default function TerminatedStudentsPage() {
                   {searchTerm && (
                     <button
                       onClick={() => setSearchTerm("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -856,7 +856,7 @@ export default function TerminatedStudentsPage() {
                     disabled={isSaving}
                     className={cn(
                       "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      "bg-[#a0704b] text-white",
+                      "bg-primary text-white",
                       "hover:bg-[#8b6140]",
                       "disabled:opacity-50"
                     )}
@@ -916,7 +916,7 @@ export default function TerminatedStudentsPage() {
                       onClick={() => setStatDetailModal({ statType: "enrollTransfer" })}
                       className={cn(
                         "text-2xl font-bold hover:underline cursor-pointer",
-                        stats.location_stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400"
+                        stats.location_stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-700 dark:text-orange-400"
                       )}
                     >
                       {stats.location_stats.enrollment_transfer >= 0 ? "+" : ""}{stats.location_stats.enrollment_transfer}
@@ -938,7 +938,7 @@ export default function TerminatedStudentsPage() {
                     </div>
                   </div>
                   <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <button onClick={() => setStatDetailModal({ statType: "closing" })} className="text-2xl font-bold text-green-600 dark:text-green-400 hover:underline cursor-pointer">{stats.location_stats.closing}</button>
+                    <button onClick={() => setStatDetailModal({ statType: "closing" })} className="text-2xl font-bold text-green-700 dark:text-green-400 hover:underline cursor-pointer">{stats.location_stats.closing}</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Closing
                       <Tooltip content="Students still active at the end of the quarter, including those who renewed within 21 days after the quarter boundary (must have had an enrollment during the quarter). For the quarter running into the summer course, this is measured at the pause.">
@@ -947,7 +947,7 @@ export default function TerminatedStudentsPage() {
                     </div>
                   </div>
                   <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <button onClick={() => setStatDetailModal({ statType: "termRate" })} className="text-2xl font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">{stats.location_stats.term_rate.toFixed(2)}%</button>
+                    <button onClick={() => setStatDetailModal({ statType: "termRate" })} className="text-2xl font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer">{stats.location_stats.term_rate.toFixed(2)}%</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Term Rate
                       <Tooltip content="Terminated ÷ Opening × 100%.">
@@ -1331,13 +1331,13 @@ function SortToggle({ sortBy, onChange }: { sortBy: StatDetailSort; onChange: (v
       <span>Sort:</span>
       <button
         onClick={() => onChange('id')}
-        className={cn("px-1.5 py-0.5 rounded", sortBy === 'id' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded", sortBy === 'id' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         ID
       </button>
       <button
         onClick={() => onChange('name')}
-        className={cn("px-1.5 py-0.5 rounded", sortBy === 'name' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded", sortBy === 'name' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         Name
       </button>
@@ -1351,13 +1351,13 @@ function ViewToggle({ viewMode, onChange }: { viewMode: 'list' | 'grid'; onChang
       <span>View:</span>
       <button
         onClick={() => onChange('list')}
-        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'list' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'list' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         <LayoutList className="h-3 w-3" /> List
       </button>
       <button
         onClick={() => onChange('grid')}
-        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'grid' ? "bg-[#a0704b]/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
+        className={cn("px-1.5 py-0.5 rounded flex items-center gap-0.5", viewMode === 'grid' ? "bg-primary/15 text-accent-ink font-medium" : "hover:bg-muted/50")}
       >
         <Grid3X3 className="h-3 w-3" /> Grid
       </button>
@@ -1769,7 +1769,7 @@ function TimetableGridTable({
                           onClick={(e) => onStudentClick(e, s)}
                         >
                           {s.school_student_id && (
-                            <span className="text-gray-400 dark:text-gray-500 font-mono text-[9px] shrink-0">
+                            <span className="text-gray-500 dark:text-gray-400 font-mono text-[9px] shrink-0">
                               {showLocationPrefix && s.home_location ? `${s.home_location}-` : ''}{s.school_student_id}
                             </span>
                           )}
@@ -2006,7 +2006,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
             effectiveCountAsTerminated
               ? "bg-[#dc2626] dark:bg-red-600 border-[#dc2626] dark:border-red-600 text-white"
               : "border-[#d4a574] dark:border-[#6b5a4a]",
-            !readOnly && !effectiveCountAsTerminated && "hover:border-[#a0704b] dark:hover:border-[#8b6f47]"
+            !readOnly && !effectiveCountAsTerminated && "hover:border-primary dark:hover:border-[#8b6f47]"
           )}
           title={readOnly ? "Read-only access" : undefined}
         >
@@ -2063,7 +2063,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
             "w-full px-2 py-1 text-sm rounded border transition-colors resize-none max-h-[120px] overflow-y-auto",
             readOnly && "opacity-60 cursor-not-allowed bg-transparent",
             !readOnly && isEditing
-              ? "border-[#a0704b] dark:border-[#cd853f] ring-1 ring-[#a0704b]/20 dark:ring-[#cd853f]/20"
+              ? "border-primary dark:border-[#cd853f] ring-1 ring-primary/20 dark:ring-[#cd853f]/20"
               : !readOnly && hasPendingChanges
                 ? "border-[#d4a574] dark:border-[#6b5a4a] bg-[#fef9f3]/50 dark:bg-[#3d3628]/50"
                 : "border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a] bg-transparent"
@@ -2076,10 +2076,10 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
 
 const TutorStatsRow = React.memo(function TutorStatsRow({ stats, onStatClick }: { stats: TutorTerminationStats; onStatClick: (statType: string, tutorId: number, tutorName: string) => void }) {
   const termRateColor = stats.term_rate > 30 ? "text-red-600 dark:text-red-400"
-    : stats.term_rate > 15 ? "text-amber-600 dark:text-amber-400"
-    : "text-green-600 dark:text-green-400";
+    : stats.term_rate > 15 ? "text-amber-700 dark:text-amber-400"
+    : "text-green-700 dark:text-green-400";
 
-  const enrollTransferColor = stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400";
+  const enrollTransferColor = stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-700 dark:text-orange-400";
 
   return (
     <tr className="hover:bg-muted/30 transition-colors">

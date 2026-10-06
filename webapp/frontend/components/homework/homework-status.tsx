@@ -34,7 +34,7 @@ export const HOMEWORK_STATES: Array<{
     label: "Not checked",
     longLabel: "Not checked",
     activeClass: "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
-    glyphClass: "text-gray-300 dark:text-gray-600",
+    glyphClass: "text-gray-300 dark:text-gray-400",
     barClass: "bg-gray-300 dark:bg-gray-600",
   },
   {
@@ -43,7 +43,7 @@ export const HOMEWORK_STATES: Array<{
     label: "Handed in, not marked",
     longLabel: "Handed in",
     activeClass: "bg-blue-500 text-white",
-    glyphClass: "text-blue-500",
+    glyphClass: "text-blue-600",
     barClass: "bg-blue-500",
   },
   {
@@ -52,7 +52,7 @@ export const HOMEWORK_STATES: Array<{
     label: "Done",
     longLabel: "Done",
     activeClass: "bg-green-500 text-white",
-    glyphClass: "text-green-500",
+    glyphClass: "text-green-700",
     barClass: "bg-green-500",
   },
   {
@@ -61,7 +61,7 @@ export const HOMEWORK_STATES: Array<{
     label: "Partly done",
     longLabel: "Partly done",
     activeClass: "bg-amber-500 text-white",
-    glyphClass: "text-amber-500",
+    glyphClass: "text-amber-700",
     barClass: "bg-amber-500",
   },
   {
@@ -70,7 +70,7 @@ export const HOMEWORK_STATES: Array<{
     label: "Not done",
     longLabel: "Not done",
     activeClass: "bg-red-500 text-white",
-    glyphClass: "text-red-400",
+    glyphClass: "text-red-600",
     barClass: "bg-red-400",
   },
 ];

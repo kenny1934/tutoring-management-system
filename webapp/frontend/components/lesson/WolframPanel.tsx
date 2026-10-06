@@ -199,8 +199,8 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
                 "bg-white dark:bg-[#2a2318]",
                 "border-[#d4c4a8] dark:border-[#3a3228]",
                 "text-[#4a3728] dark:text-[#d4c4a8]",
-                "placeholder:text-[#b0a090] dark:placeholder:text-[#6b5d4d]",
-                "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                "placeholder:text-ink-subtle dark:placeholder:text-[#6b5d4d]",
+                "focus:outline-none focus:ring-2 focus:ring-primary/50"
               )}
             />
           )}
@@ -210,7 +210,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
             className={cn(
               "px-2 py-2 rounded-lg text-xs font-mono transition-colors flex-shrink-0",
               mathMode
-                ? "bg-[#a0704b] text-white"
+                ? "bg-primary text-white"
                 : "bg-[#e8dcc8] dark:bg-[#2a2318] text-[#6b4c30] dark:text-[#b0a090] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228]"
             )}
             title={mathMode ? "Switch to text input" : "Switch to math keyboard"}
@@ -222,7 +222,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
             disabled={!query.trim() || loading}
             className={cn(
               "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-              "bg-[#a0704b] text-white hover:bg-[#8b6040]",
+              "bg-primary text-white hover:bg-[#8b6040]",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
@@ -245,7 +245,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
             "border-[#d4c4a8] dark:border-[#3a3228]",
             showHistory
               ? "bg-[#e8dcc8] dark:bg-[#2a2318] text-[#6b4c30] dark:text-[#b0a090]"
-              : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4] dark:hover:bg-[#252018]"
+              : "text-ink-subtle dark:text-[#a09080] hover:bg-[#f0e6d4] dark:hover:bg-[#252018]"
           )}
         >
           <Clock className="h-3 w-3" />
@@ -282,7 +282,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
             <div className="flex justify-end px-3 py-1">
               <button
                 onClick={clearHistory}
-                className="flex items-center gap-1 text-[10px] text-[#b0a090] hover:text-[#6b4c30] dark:hover:text-[#d4c4a8] transition-colors"
+                className="flex items-center gap-1 text-[10px] text-ink-subtle hover:text-[#6b4c30] dark:hover:text-[#d4c4a8] transition-colors"
               >
                 <Trash2 className="h-2.5 w-2.5" /> Clear all
               </button>
@@ -294,7 +294,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
       {/* Result area */}
       <div className="flex-1 min-h-0 overflow-auto p-3">
         {loading && (
-          <div className="flex flex-col items-center justify-center gap-2 py-12 text-[#b0a090]">
+          <div className="flex flex-col items-center justify-center gap-2 py-12 text-ink-subtle">
             <Loader2 className="h-6 w-6 animate-spin" />
             <span className="text-xs">Computing...</span>
           </div>
@@ -309,7 +309,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
         {!loading && result?.image && (
           <>
             {result.cached && (
-              <div className="flex items-center gap-1 mb-2 text-[10px] text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-1 mb-2 text-[10px] text-emerald-700 dark:text-emerald-400">
                 <Zap className="h-3 w-3" />
                 <span>Cached result (no quota used)</span>
               </div>
@@ -356,7 +356,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
           <span className="flex-shrink-0">&#9888;</span>
           <span>Shared quota: 100 queries/day, 2,000/month across all tutors. Use wisely.</span>
         </div>
-        <div className="text-[10px] text-[#b0a090] dark:text-[#6b5d4d]">
+        <div className="text-[10px] text-ink-subtle dark:text-[#6b5d4d]">
           Powered by Wolfram|Alpha
         </div>
       </div>

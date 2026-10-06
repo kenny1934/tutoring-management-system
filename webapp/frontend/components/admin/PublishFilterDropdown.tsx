@@ -152,7 +152,7 @@ export function PublishFilterDropdown({
               >
                 <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", opt.dot)} />
                 <span className="flex-1 text-foreground">{opt.label}</span>
-                {active && <Check className="h-3 w-3 text-primary" />}
+                {active && <Check className="h-3 w-3 text-accent-ink" />}
               </button>
             );
           })}
@@ -176,7 +176,7 @@ export function PublishFilterDropdown({
                     Paid &amp; not yet published
                   </span>
                 </span>
-                {isReadyToPublish && <Check className="h-3 w-3 text-primary mt-1" />}
+                {isReadyToPublish && <Check className="h-3 w-3 text-accent-ink mt-1" />}
               </button>
             </>
           )}

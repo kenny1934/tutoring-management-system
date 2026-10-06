@@ -382,15 +382,15 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
       <div className="flex items-start justify-between mb-0.5 flex-shrink-0">
         <span className={cn(
           "text-xs sm:text-sm font-bold",
-          isToday && "text-[#a0704b] dark:text-[#cd853f]",
+          isToday && "text-accent-ink dark:text-[#cd853f]",
           !isToday && isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]",
-          !isCurrentMonth && "text-gray-400 dark:text-gray-600",
-          isWeekend && isCurrentMonth && !isToday && "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+          !isCurrentMonth && "text-gray-500 dark:text-gray-400",
+          isWeekend && isCurrentMonth && !isToday && "text-accent-ink/70 dark:text-[#cd853f]/70"
         )}>
           {date.getDate()}
         </span>
         {isToday && (
-          <span className="text-[8px] sm:text-[10px] font-medium text-accent-ink bg-[#a0704b]/10 dark:bg-[#cd853f]/20 px-1 rounded">
+          <span className="text-[8px] sm:text-[10px] font-medium text-accent-ink bg-primary/10 dark:bg-[#cd853f]/20 px-1 rounded">
             TODAY
           </span>
         )}
@@ -423,7 +423,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
             <div className="text-[8px] text-[#8b6f47]/80 dark:text-[#cd853f]/80 mt-0.5 space-y-px">
               {/* Unpaid indicator */}
               {dayData.unpaidCount > 0 && (
-                <div className="flex items-center gap-0.5 text-red-500">
+                <div className="flex items-center gap-0.5 text-red-600">
                   <HandCoins className="h-2.5 w-2.5" />
                   <span>{dayData.unpaidCount} unpaid</span>
                 </div>
@@ -463,7 +463,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
       {/* Proposed Sessions Indicator */}
       {proposedCount > 0 && (
         <div className="flex-shrink-0 pt-0.5">
-          <div className="flex items-center gap-0.5 text-[8px] text-amber-600 dark:text-amber-400">
+          <div className="flex items-center gap-0.5 text-[8px] text-amber-700 dark:text-amber-400">
             <CalendarClock className="h-2.5 w-2.5" />
             <span>{proposedCount} proposed</span>
           </div>
@@ -630,7 +630,7 @@ function DayPopover({
               {sessions.filter(isCountableSession).length} sessions
             </span>
             {proposedSessions.length > 0 && (
-              <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+              <span className="text-xs text-amber-700 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                 <CalendarClock className="h-3 w-3" />
                 {proposedSessions.length} proposed
               </span>
@@ -701,7 +701,7 @@ function DayPopover({
                 {bulkActionsAvailable.attended && (
                   <button
                     disabled
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 cursor-not-allowed opacity-50"
                     title="Coming soon"
                   >
                     <CheckCheck className="h-3 w-3" />
@@ -948,7 +948,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
               >
                 {timeSlot}
                 {copiedSlot === timeSlot ? (
-                  <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+                  <Check className="w-3 h-3 text-green-700 dark:text-green-400" />
                 ) : (
                   <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
                 )}
@@ -991,7 +991,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
           {/* Proposed Sessions Header */}
           <div className="flex items-center gap-1.5 mb-1">
             <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
-            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 px-1.5 flex items-center gap-1">
+            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 px-1.5 flex items-center gap-1">
               <CalendarClock className="h-3 w-3" />
               Proposed Sessions
             </span>
@@ -1231,18 +1231,18 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                               Cancelled
                             </span>
                           ) : isSessionUnpaid(session) && (
-                            <HandCoins className="h-2 w-2 text-red-500 flex-shrink-0" />
+                            <HandCoins className="h-2 w-2 text-red-600 flex-shrink-0" />
                           )}
                         </div>
                         {/* Row 2: Full name */}
                         <div className={cn(
                           "truncate",
                           isCancelledEnrollment
-                            ? "text-gray-400 dark:text-gray-500"
+                            ? "text-gray-500 dark:text-gray-400"
                             : isSessionUnpaid(session)
                               ? "text-red-600 dark:text-red-400"
                               : config.strikethrough
-                                ? "text-gray-400 dark:text-gray-500"
+                                ? "text-gray-500 dark:text-gray-400"
                                 : "",
                         )}>{session.student_name || "Student"}</div>
                         {/* Row 3: Grade + School tags */}
@@ -1256,10 +1256,10 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                             </span>
                           )}
                           {session.exam_revision_slot_id && (
-                            <span title="Exam Revision"><GraduationCap className="h-2.5 w-2.5 text-purple-500 flex-shrink-0" /></span>
+                            <span title="Exam Revision"><GraduationCap className="h-2.5 w-2.5 text-purple-600 flex-shrink-0" /></span>
                           )}
                           {session.extension_request_id && (
-                            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" /></span>
+                            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-2.5 w-2.5 text-amber-700 flex-shrink-0" /></span>
                           )}
                         </div>
                       </div>
@@ -1328,7 +1328,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
           {isSelected ? (
             <CheckSquare className="h-4 w-4 text-accent-ink" />
           ) : (
-            <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+            <Square className="h-4 w-4 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
           )}
         </button>
       )}
@@ -1345,7 +1345,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
                 Cancelled
               </span>
             ) : isSessionUnpaid(session) && (
-              <HandCoins className="h-2.5 w-2.5 text-red-500" />
+              <HandCoins className="h-2.5 w-2.5 text-red-600" />
             )}
           </span>
           <span>{session.time_slot?.split('-')[0]}</span>
@@ -1355,11 +1355,11 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         <div className={cn(
           "flex items-center gap-1 text-xs font-semibold",
           isCancelledEnrollment
-            ? "text-gray-400 dark:text-gray-500"
+            ? "text-gray-500 dark:text-gray-400"
             : isSessionUnpaid(session)
               ? "text-red-600 dark:text-red-400"
               : config.strikethrough
-                ? "text-gray-400 dark:text-gray-500"
+                ? "text-gray-500 dark:text-gray-400"
                 : "text-[#5d4e37] dark:text-[#e8d4b8]",
           config.strikethrough && "line-through"
         )}>
@@ -1373,10 +1373,10 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
             </span>
           )}
           {session.exam_revision_slot_id && (
-            <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
+            <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-600 flex-shrink-0" /></span>
           )}
           {session.extension_request_id && (
-            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
+            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-700 flex-shrink-0" /></span>
           )}
         </div>
 

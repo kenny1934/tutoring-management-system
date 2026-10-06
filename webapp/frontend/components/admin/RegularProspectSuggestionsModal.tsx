@@ -117,7 +117,7 @@ export function RegularProspectSuggestionsModal({
                           {s.similarity != null ? ` ${s.similarity}%` : ""}
                         </span>
                         {s.already_linked && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400">
                             already linked to another application
                           </span>
                         )}

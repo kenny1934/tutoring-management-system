@@ -99,12 +99,12 @@ interface CurriculumAtlasProps {
 
 function statusIcon(status: NodeStatus | undefined) {
   if (status === "covered")
-    return <Check className="h-3 w-3 shrink-0 text-teal-600 dark:text-teal-400" />;
+    return <Check className="h-3 w-3 shrink-0 text-teal-700 dark:text-teal-400" />;
   if (status === "covered-past")
     return <Check className="h-3 w-3 shrink-0 text-teal-600/45 dark:text-teal-400/45" />;
   if (status === "current") return <MapPin className="h-3 w-3 shrink-0 text-white" />;
   if (status === "coming-up")
-    return <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />;
+    return <Clock className="h-3 w-3 shrink-0 text-amber-700 dark:text-amber-400" />;
   return null;
 }
 
@@ -855,7 +855,7 @@ export function CurriculumAtlas({
   const innerMinWidth = GUTTER_W + scaledW;
 
   const iconBtn =
-    "rounded text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:bg-transparent";
+    "rounded text-gray-500 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:bg-transparent";
 
   // Gutter labels always show the whole word: anchored to their row's top,
   // nudged down past the word above when zoomed-out rows get shorter than
@@ -979,7 +979,7 @@ export function CurriculumAtlas({
                 "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors",
                 series === s
                   ? "bg-teal-600 dark:bg-teal-500 border-teal-600 dark:border-teal-500 text-white"
-                  : "border-[#d4a574]/50 dark:border-[#8b6f47]/70 text-gray-500 dark:text-gray-400 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400"
+                  : "border-[#d4a574]/50 dark:border-[#8b6f47]/70 text-gray-500 dark:text-gray-400 hover:border-teal-500 hover:text-teal-700 dark:hover:text-teal-400"
               )}
             >
               {s} series
@@ -1013,7 +1013,7 @@ export function CurriculumAtlas({
               </span>
             </>
           ) : (
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-gray-500">
               {timelineLoading
                 ? "Loading this school's progress…"
                 : offSeries
@@ -1045,7 +1045,7 @@ export function CurriculumAtlas({
             type="button"
             title="Reset the zoom to 100%. You can also hold Ctrl and scroll on the map to zoom."
             onClick={() => applyZoom(1)}
-            className="w-9 text-center text-[10px] tabular-nums text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            className="w-9 text-center text-[10px] tabular-nums text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -1135,14 +1135,14 @@ export function CurriculumAtlas({
                 className={cn(
                   "absolute top-0 h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-widest",
                   c.grade === selectedGrade && overlayActive
-                    ? "text-teal-600 dark:text-teal-400"
-                    : "text-gray-400"
+                    ? "text-teal-700 dark:text-teal-400"
+                    : "text-gray-500"
                 )}
                 style={{ left: c.x * zoom, width: c.width * zoom }}
               >
                 {c.grade}
                 {i < layout.grid.columns.length - 1 && (
-                  <span className="absolute right-0 translate-x-1/2 text-gray-300 dark:text-gray-600">
+                  <span className="absolute right-0 translate-x-1/2 text-gray-300 dark:text-gray-400">
                     ›
                   </span>
                 )}
@@ -1161,7 +1161,7 @@ export function CurriculumAtlas({
             {gutterLabels.map((g) => (
               <span
                 key={g.strand}
-                className="absolute left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-widest text-gray-400"
+                className="absolute left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-widest text-gray-500"
                 style={{ writingMode: "vertical-rl", top: g.top }}
                 title={g.label}
               >
@@ -1208,7 +1208,7 @@ export function CurriculumAtlas({
         <div className="flex items-center gap-2 px-3 py-2 border-t border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-xs">
           <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
             {conceptNameForStream(selectedNode.concept, stream)}
-            <span className="text-gray-400">
+            <span className="text-gray-500">
               {" · needs "}
               {layout.preds.get(selectedNode.concept.id)?.length || 0}
               {" · unlocks "}
@@ -1231,7 +1231,7 @@ export function CurriculumAtlas({
             type="button"
             aria-label="Clear selection"
             onClick={() => setSelectedId(null)}
-            className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="shrink-0 p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <X className="h-3.5 w-3.5" />
           </button>

@@ -279,9 +279,9 @@ const TableDataRow = memo(function TableDataRow({
           aria-label={isSelected ? "Deselect row" : "Select row"}
         >
           {isSelected ? (
-            <CheckSquare className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
+            <CheckSquare className="h-4 w-4 text-accent-ink" aria-hidden="true" />
           ) : (
-            <Square className="h-4 w-4 text-gray-400" aria-hidden="true" />
+            <Square className="h-4 w-4 text-gray-500" aria-hidden="true" />
           )}
         </button>
       </td>
@@ -312,7 +312,7 @@ const TableDataRow = memo(function TableDataRow({
                     )}
                   />
                   {showEditDiff && changedFields.has(col.name) && editingRow && (
-                    <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                    <span className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-0.5">
                       <GitCompare className="h-3 w-3" aria-hidden="true" />
                       was {editingRow[col.name] ? "true" : "false"}
                     </span>
@@ -333,10 +333,10 @@ const TableDataRow = memo(function TableDataRow({
                     )}
                   />
                   {showEditDiff && changedFields.has(col.name) && editingRow && (
-                    <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 truncate">
+                    <div className="mt-1 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1 truncate">
                       <GitCompare className="h-3 w-3 flex-shrink-0" />
                       <span className="truncate" title={renderCellValue(editingRow[col.name], col.type)}>
-                        was: {renderCellValue(editingRow[col.name], col.type) || <em className="text-gray-400">empty</em>}
+                        was: {renderCellValue(editingRow[col.name], col.type) || <em className="text-gray-500">empty</em>}
                       </span>
                     </div>
                   )}
@@ -353,7 +353,7 @@ const TableDataRow = memo(function TableDataRow({
                     const rect = e.currentTarget.getBoundingClientRect();
                     onFKPreview(fkInfo.table, row[col.name] as number, fkInfo.column, rect);
                   }}
-                  className="flex items-center gap-1 text-[#a0704b] hover:underline truncate max-w-[200px]"
+                  className="flex items-center gap-1 text-accent-ink hover:underline truncate max-w-[200px]"
                   title={`Preview ${foreignKeys[col.name].table} record`}
                 >
                   {highlightSearchText(renderCellValue(row[col.name], col.type), searchQuery)}
@@ -363,7 +363,7 @@ const TableDataRow = memo(function TableDataRow({
                 <span
                   className={cn(
                     "truncate block max-w-[200px]",
-                    row[col.name] === null && "text-gray-400 italic"
+                    row[col.name] === null && "text-gray-500 italic"
                   )}
                   title={renderCellValue(row[col.name], col.type)}
                 >
@@ -373,7 +373,7 @@ const TableDataRow = memo(function TableDataRow({
               {isLongValue(row[col.name]) && !foreignKeys[col.name] && (
                 <button
                   onClick={() => onExpandCell(row[col.name], col.name)}
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
                   aria-label="View full value"
                 >
                   <Expand className="h-3 w-3" aria-hidden="true" />
@@ -391,8 +391,8 @@ const TableDataRow = memo(function TableDataRow({
               className={cn(
                 "p-1 rounded btn-press",
                 showEditDiff
-                  ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600"
-                  : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
+                  ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700"
+                  : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
               )}
               title={showEditDiff ? "Hide diff" : "Show diff"}
               aria-label="Toggle diff view"
@@ -455,7 +455,7 @@ const TableDataRow = memo(function TableDataRow({
             </button>
             <button
               onClick={() => onClone(row)}
-              className="p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-gray-500 hover:text-green-600 btn-press"
+              className="p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-gray-500 hover:text-green-700 btn-press"
               title="Clone"
               aria-label="Clone row"
             >
@@ -466,8 +466,8 @@ const TableDataRow = memo(function TableDataRow({
               className={cn(
                 "p-1 rounded btn-press",
                 isPinned
-                  ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                  : "hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-500 hover:text-amber-600"
+                  ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                  : "hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-500 hover:text-amber-700"
               )}
               title={isPinned ? "Unpin row" : "Pin row"}
               aria-label={isPinned ? "Unpin row" : "Pin row"}
@@ -1807,7 +1807,7 @@ export default function TableBrowserPage() {
                   </Link>
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block p-2 rounded-lg bg-tint">
-                      <Table2 className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
+                      <Table2 className="h-6 w-6 text-accent-ink" aria-hidden="true" />
                     </div>
                     <div>
                       <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
@@ -1833,7 +1833,7 @@ export default function TableBrowserPage() {
             {/* Toolbar */}
             <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center relative z-20">
               <div className="relative flex-1 min-w-[200px] z-10">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -1846,7 +1846,7 @@ export default function TableBrowserPage() {
                   className="w-full pl-9 pr-8 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
-                  <HelpCircle className="h-4 w-4 text-gray-400 hover:text-[#a0704b] cursor-help" aria-hidden="true" />
+                  <HelpCircle className="h-4 w-4 text-gray-500 hover:text-accent-ink cursor-help" aria-hidden="true" />
                   <div className="absolute right-0 top-6 hidden group-hover:block z-50 w-64 p-3 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl border border-line text-xs">
                     <p className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Syntax</p>
                     <div className="space-y-1 text-gray-600 dark:text-gray-400">
@@ -1872,7 +1872,7 @@ export default function TableBrowserPage() {
                     setSearchAll(e.target.checked);
                     setPage(0);
                   }}
-                  className="h-4 w-4 rounded border-[#e8d4b8] text-[#a0704b] focus:ring-[#a0704b]"
+                  className="h-4 w-4 rounded border-[#e8d4b8] text-accent-ink focus:ring-primary"
                 />
                 <span className="text-gray-600 dark:text-gray-400 hidden sm:inline">All columns</span>
               </label>
@@ -1887,7 +1887,7 @@ export default function TableBrowserPage() {
                       setShowDeleted(e.target.checked);
                       setPage(0);
                     }}
-                    className="h-4 w-4 rounded border-[#e8d4b8] text-amber-500 focus:ring-amber-500"
+                    className="h-4 w-4 rounded border-[#e8d4b8] text-amber-700 focus:ring-amber-500"
                   />
                   <span className="text-gray-600 dark:text-gray-400 hidden sm:inline">Show deleted</span>
                 </label>
@@ -1911,18 +1911,18 @@ export default function TableBrowserPage() {
                         placeholder="Search columns..."
                         value={columnSearchQuery}
                         onChange={(e) => setColumnSearchQuery(e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm rounded border border-line bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                        className="w-full px-2 py-1.5 text-sm rounded border border-line bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-primary"
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
                     <div className="p-2 border-b border-line flex items-center justify-between flex-shrink-0">
                       <button
                         onClick={() => setHiddenColumns(new Set())}
-                        className="text-xs text-[#a0704b] hover:underline"
+                        className="text-xs text-accent-ink hover:underline"
                       >
                         Show all
                       </button>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500">
                         {schema?.columns.filter(c => !columnSearchQuery || c.name.toLowerCase().includes(columnSearchQuery.toLowerCase())).length} columns
                       </span>
                     </div>
@@ -1936,23 +1936,23 @@ export default function TableBrowserPage() {
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-tint"
                         >
                           {hiddenColumns.has(col.name) ? (
-                            <EyeOff className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                            <EyeOff className="h-4 w-4 text-gray-500" aria-hidden="true" />
                           ) : (
-                            <Eye className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
+                            <Eye className="h-4 w-4 text-accent-ink" aria-hidden="true" />
                           )}
                           <span className={cn(
                             "truncate",
-                            hiddenColumns.has(col.name) && "text-gray-400"
+                            hiddenColumns.has(col.name) && "text-gray-500"
                           )}>
                             {col.name}
                           </span>
                           {col.primary_key && (
-                            <span className="ml-auto text-[10px] text-gray-400">PK</span>
+                            <span className="ml-auto text-[10px] text-gray-500">PK</span>
                           )}
                         </button>
                       ))}
                       {schema?.columns.filter(col => !columnSearchQuery || col.name.toLowerCase().includes(columnSearchQuery.toLowerCase())).length === 0 && (
-                        <div className="px-3 py-4 text-sm text-gray-400 text-center">
+                        <div className="px-3 py-4 text-sm text-gray-500 text-center">
                           No columns match &quot;{columnSearchQuery}&quot;
                         </div>
                       )}
@@ -2023,14 +2023,14 @@ export default function TableBrowserPage() {
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors btn-press",
                     showQuickFilters || activeQuickFilters.size > 0
-                      ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+                      ? "border-primary bg-primary/10 text-accent-ink"
                       : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                   )}
                 >
                   <Filter className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Filters</span>
                   {activeQuickFilters.size > 0 && (
-                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-[#a0704b] text-white">
+                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-white">
                       {activeQuickFilters.size}
                     </span>
                   )}
@@ -2045,7 +2045,7 @@ export default function TableBrowserPage() {
               <button
                 onClick={handleStartCreate}
                 disabled={isCreating}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50 btn-press"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50 btn-press"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Create
@@ -2056,7 +2056,7 @@ export default function TableBrowserPage() {
                     <>
                       {rowsData.active_count.toLocaleString()} active
                       {rowsData.deleted_count !== undefined && rowsData.deleted_count > 0 && (
-                        <span className="text-gray-400 ml-1">
+                        <span className="text-gray-500 ml-1">
                           ({rowsData.deleted_count.toLocaleString()} deleted)
                         </span>
                       )}
@@ -2066,7 +2066,7 @@ export default function TableBrowserPage() {
                   )}
                 </span>
                 {lastRefreshed && (
-                  <span className="text-xs text-gray-400 animate-refresh-in">
+                  <span className="text-xs text-gray-500 animate-refresh-in">
                     {lastRefreshed.toLocaleTimeString()}
                   </span>
                 )}
@@ -2094,7 +2094,7 @@ export default function TableBrowserPage() {
                       className={cn(
                         "px-3 py-1.5 text-xs font-medium rounded-full transition-colors btn-press",
                         activeQuickFilters.has(preset.id)
-                          ? "bg-[#a0704b] text-white"
+                          ? "bg-primary text-white"
                           : "bg-white dark:bg-[#1a1a1a] border border-line hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628]"
                       )}
                     >
@@ -2112,7 +2112,7 @@ export default function TableBrowserPage() {
                       </button>
                       <button
                         onClick={() => setShowSaveFilterModal(true)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-[#a0704b] hover:underline"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-accent-ink hover:underline"
                       >
                         <Save className="h-3 w-3" aria-hidden="true" />
                         Save
@@ -2133,12 +2133,12 @@ export default function TableBrowserPage() {
                           onClick={() => handleApplySavedFilter(filter.filters)}
                           className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full bg-white dark:bg-[#1a1a1a] border border-line hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors"
                         >
-                          <Bookmark className="h-3 w-3 text-[#a0704b]" aria-hidden="true" />
+                          <Bookmark className="h-3 w-3 text-accent-ink" aria-hidden="true" />
                           {filter.name}
                         </button>
                         <button
                           onClick={() => handleDeleteSavedFilter(index)}
-                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-1 text-gray-500 hover:text-red-600 transition-colors"
                           title="Delete saved filter"
                           aria-label="Delete saved filter"
                         >
@@ -2160,14 +2160,14 @@ export default function TableBrowserPage() {
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors btn-press",
                     showFilterBuilder || filterConditions.length > 0
-                      ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+                      ? "border-primary bg-primary/10 text-accent-ink"
                       : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                   )}
                 >
                   <Filter className="h-4 w-4" aria-hidden="true" />
                   <span>Filter Builder</span>
                   {filterConditions.length > 0 && (
-                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-[#a0704b] text-white">
+                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-white">
                       {filterConditions.length}
                     </span>
                   )}
@@ -2186,7 +2186,7 @@ export default function TableBrowserPage() {
                           key={condition.id}
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-[#f5ede3] dark:bg-[#2d2618] border border-line"
                         >
-                          <span className="font-medium text-[#a0704b]">{condition.column}</span>
+                          <span className="font-medium text-accent-ink">{condition.column}</span>
                           <span className="text-gray-500">{getOperatorLabel(condition.operator)}</span>
                           <span className="text-gray-700 dark:text-gray-300 max-w-[100px] truncate">
                             {condition.operator === "null" ? (condition.value === "true" ? "null" : "not null") : condition.value}
@@ -2208,7 +2208,7 @@ export default function TableBrowserPage() {
                     )}
                     <button
                       onClick={handleClearFilters}
-                      className="text-xs text-gray-500 hover:text-red-500"
+                      className="text-xs text-gray-500 hover:text-red-600"
                     >
                       Clear all
                     </button>
@@ -2298,7 +2298,7 @@ export default function TableBrowserPage() {
                           {/* Remove button */}
                           <button
                             onClick={() => handleRemoveFilter(condition.id)}
-                            className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors"
+                            className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 transition-colors"
                             aria-label="Remove filter"
                           >
                             <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -2311,7 +2311,7 @@ export default function TableBrowserPage() {
                     <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-line">
                       <button
                         onClick={handleAddFilter}
-                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b] hover:text-[#a0704b] transition-colors"
+                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-primary hover:text-accent-ink transition-colors"
                       >
                         <Plus className="h-4 w-4" aria-hidden="true" />
                         Add Filter
@@ -2320,7 +2320,7 @@ export default function TableBrowserPage() {
                       {filterConditions.length > 0 && (
                         <button
                           onClick={handleClearFilters}
-                          className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                          className="px-3 py-2 text-sm text-gray-500 hover:text-red-600 transition-colors"
                         >
                           Clear All
                         </button>
@@ -2339,7 +2339,7 @@ export default function TableBrowserPage() {
                 </span>
                 <button
                   onClick={() => setShowBulkEdit(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors"
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                   Edit Selected
@@ -2359,7 +2359,7 @@ export default function TableBrowserPage() {
                   </button>
                 )}
                 {!schema?.allow_hard_delete && !schema?.has_soft_delete && (
-                  <span className="text-sm text-amber-600 dark:text-amber-400">
+                  <span className="text-sm text-amber-700 dark:text-amber-400">
                     Delete not allowed for this table
                   </span>
                 )}
@@ -2390,14 +2390,14 @@ export default function TableBrowserPage() {
                 </div>
                 <button
                   onClick={() => mutateSchema()}
-                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3f] transition-colors"
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3f] transition-colors"
                 >
                   Retry
                 </button>
               </div>
             ) : isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" aria-hidden="true" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent-ink" aria-hidden="true" />
               </div>
             ) : (
               <>
@@ -2432,9 +2432,9 @@ export default function TableBrowserPage() {
                           aria-label={selectedRows.size === rows.length ? "Deselect all" : "Select all"}
                         >
                           {selectedRows.size === rows.length && rows.length > 0 ? (
-                            <CheckSquare className="h-4 w-4 text-[#a0704b]" />
+                            <CheckSquare className="h-4 w-4 text-accent-ink" />
                           ) : (
-                            <Square className="h-4 w-4 text-gray-400" />
+                            <Square className="h-4 w-4 text-gray-500" />
                           )}
                         </button>
                       </th>
@@ -2458,7 +2458,7 @@ export default function TableBrowserPage() {
                             >
                               <span className="truncate">{col.name}</span>
                               {schema?.foreign_keys[col.name] && (
-                                <ExternalLink className="h-3 w-3 text-blue-500" aria-hidden="true" />
+                                <ExternalLink className="h-3 w-3 text-blue-600" aria-hidden="true" />
                               )}
                               {sortBy === col.name ? (
                                 sortOrder === "asc" ? (
@@ -2476,20 +2476,20 @@ export default function TableBrowserPage() {
                                 setStatsColumn(col.name);
                                 setShowStatsModal(true);
                               }}
-                              className="p-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-400 hover:text-amber-600"
+                              className="p-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-500 hover:text-amber-700"
                               title="View column statistics"
                               aria-label={`View statistics for ${col.name}`}
                             >
                               <BarChart3 className="h-3 w-3" aria-hidden="true" />
                             </button>
                           </div>
-                          <div className="flex items-center gap-1 text-[10px] font-normal text-gray-400">
+                          <div className="flex items-center gap-1 text-[10px] font-normal text-gray-500">
                             {getColumnTypeIcon(col.type)}
                             <span>{col.type}</span>
                             {schema?.foreign_keys[col.name] && (
-                              <span className="text-blue-400">→ {schema.foreign_keys[col.name].table}</span>
+                              <span className="text-blue-600">→ {schema.foreign_keys[col.name].table}</span>
                             )}
-                            {col.readonly && <span className="text-amber-500">(ro)</span>}
+                            {col.readonly && <span className="text-amber-700">(ro)</span>}
                           </div>
                         </th>
                       ))}
@@ -2512,7 +2512,7 @@ export default function TableBrowserPage() {
                         {visibleColumns.map((col) => (
                           <td key={col.name} className="px-3 py-2">
                             {col.readonly || col.primary_key ? (
-                              <span className="text-gray-400 italic">auto</span>
+                              <span className="text-gray-500 italic">auto</span>
                             ) : col.type === "boolean" ? (
                               <input
                                 type="checkbox"
@@ -2523,7 +2523,7 @@ export default function TableBrowserPage() {
                                     [col.name]: e.target.checked,
                                   }))
                                 }
-                                className="h-4 w-4 rounded border-green-300 text-green-600 focus:ring-green-500"
+                                className="h-4 w-4 rounded border-green-300 text-green-700 focus:ring-green-500"
                               />
                             ) : (
                               <input
@@ -2546,7 +2546,7 @@ export default function TableBrowserPage() {
                             <button
                               onClick={handleSaveCreate}
                               disabled={isSubmitting}
-                              className="p-1 rounded hover:bg-green-200 dark:hover:bg-green-800 text-green-600"
+                              className="p-1 rounded hover:bg-green-200 dark:hover:bg-green-800 text-green-700"
                               aria-label="Save new row"
                             >
                               {isSubmitting ? (
@@ -2669,7 +2669,7 @@ export default function TableBrowserPage() {
                       e.currentTarget.blur();
                     }
                   }}
-                  className="w-16 px-2 py-1 text-center text-sm rounded border border-line bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                  className="w-16 px-2 py-1 text-center text-sm rounded border border-line bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <span>of {totalPages}</span>
                 </div>
@@ -2751,7 +2751,7 @@ export default function TableBrowserPage() {
                           URL.revokeObjectURL(url);
                         }
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors"
                     >
                       <Download className="h-4 w-4" aria-hidden="true" />
                       Download
@@ -2876,7 +2876,7 @@ export default function TableBrowserPage() {
                 <button
                   onClick={handleBulkUpdate}
                   disabled={!bulkEditColumn || isBulkUpdating}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
                 >
                   {isBulkUpdating ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -2916,7 +2916,7 @@ export default function TableBrowserPage() {
                   <strong className="text-gray-900 dark:text-gray-100">{selectedRows.size}</strong> row(s)
                   from <strong className="text-gray-900 dark:text-gray-100">{schema?.display_name || tableName}</strong>?
                 </p>
-                <p className="text-sm text-red-500 mt-2">
+                <p className="text-sm text-red-600 mt-2">
                   {schema?.has_soft_delete
                     ? "Rows will be soft-deleted (marked as deleted but preserved in database)."
                     : "This action cannot be undone."}
@@ -2978,7 +2978,7 @@ export default function TableBrowserPage() {
               <div className="p-3 overflow-y-auto flex-1">
                 {fkPreviewLoading ? (
                   <div className="flex justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" aria-hidden="true" />
+                    <Loader2 className="h-5 w-5 animate-spin text-accent-ink" aria-hidden="true" />
                   </div>
                 ) : fkPreviewData ? (
                   <div className="space-y-2 text-sm">
@@ -2989,7 +2989,7 @@ export default function TableBrowserPage() {
                         </span>
                         <span className="truncate text-gray-900 dark:text-gray-100">
                           {value === null ? (
-                            <em className="text-gray-400">NULL</em>
+                            <em className="text-gray-500">NULL</em>
                           ) : typeof value === "boolean" ? (
                             value ? "true" : "false"
                           ) : typeof value === "object" ? (
@@ -3001,7 +3001,7 @@ export default function TableBrowserPage() {
                       </div>
                     ))}
                     {Object.keys(fkPreviewData).length > MAX_PREVIEW_FIELDS && (
-                      <p className="text-xs text-gray-400 pt-1">
+                      <p className="text-xs text-gray-500 pt-1">
                         ...and {Object.keys(fkPreviewData).length - MAX_PREVIEW_FIELDS} more fields
                       </p>
                     )}
@@ -3015,8 +3015,8 @@ export default function TableBrowserPage() {
                   href={`/admin/debug/${fkPreview.tableName}?filter=${fkPreview.columnName}__eq:${fkPreview.rowId}`}
                   className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                     DETAIL_PAGE_ROUTES[fkPreview.tableName]
-                      ? "flex-1 border border-[#a0704b] text-[#a0704b] hover:bg-[#a0704b]/10"
-                      : "w-full bg-[#a0704b] text-white hover:bg-[#8a5f3e]"
+                      ? "flex-1 border border-primary text-accent-ink hover:bg-primary/10"
+                      : "w-full bg-primary text-white hover:bg-[#8a5f3e]"
                   }`}
                 >
                   Debug table
@@ -3025,7 +3025,7 @@ export default function TableBrowserPage() {
                 {DETAIL_PAGE_ROUTES[fkPreview.tableName] && (
                   <Link
                     href={DETAIL_PAGE_ROUTES[fkPreview.tableName](fkPreview.rowId)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors"
                   >
                     Detail page
                     <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -3157,7 +3157,7 @@ export default function TableBrowserPage() {
                 <button
                   onClick={handleSaveFilter}
                   disabled={!newFilterName.trim()}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" aria-hidden="true" />
                   Save
@@ -3206,7 +3206,7 @@ export default function TableBrowserPage() {
                         className={cn(
                           "px-4 py-2 text-sm rounded-lg border transition-colors",
                           importFormat === "json"
-                            ? "bg-[#a0704b] text-white border-[#a0704b]"
+                            ? "bg-primary text-white border-primary"
                             : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                         )}
                       >
@@ -3217,7 +3217,7 @@ export default function TableBrowserPage() {
                         className={cn(
                           "px-4 py-2 text-sm rounded-lg border transition-colors",
                           importFormat === "csv"
-                            ? "bg-[#a0704b] text-white border-[#a0704b]"
+                            ? "bg-primary text-white border-primary"
                             : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                         )}
                       >
@@ -3270,7 +3270,7 @@ export default function TableBrowserPage() {
                               <tr key={i}>
                                 {Object.values(row).map((val, j) => (
                                   <td key={j} className="px-2 py-1 truncate max-w-[150px]">
-                                    {val === null ? <em className="text-gray-400">NULL</em> : String(val)}
+                                    {val === null ? <em className="text-gray-500">NULL</em> : String(val)}
                                   </td>
                                 ))}
                               </tr>
@@ -3301,7 +3301,7 @@ export default function TableBrowserPage() {
                 <button
                   onClick={handleImportSubmit}
                   disabled={importPreview.length === 0 || isImporting}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
                 >
                   {isImporting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -3387,11 +3387,11 @@ export default function TableBrowserPage() {
                               <p className="text-lg font-semibold font-mono">{Number(stats.max)}</p>
                             </div>
                             <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-                              <p className="text-xs text-green-600 dark:text-green-400 uppercase">Sum</p>
+                              <p className="text-xs text-green-700 dark:text-green-400 uppercase">Sum</p>
                               <p className="text-lg font-semibold font-mono">{Number(stats.sum)}</p>
                             </div>
                             <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-                              <p className="text-xs text-green-600 dark:text-green-400 uppercase">Average</p>
+                              <p className="text-xs text-green-700 dark:text-green-400 uppercase">Average</p>
                               <p className="text-lg font-semibold font-mono">{String(stats.avg)}</p>
                             </div>
                           </div>
@@ -3419,7 +3419,7 @@ export default function TableBrowserPage() {
                           <h4 className="text-sm font-medium mb-3">Boolean Distribution</h4>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-                              <p className="text-xs text-green-600 dark:text-green-400 uppercase">True</p>
+                              <p className="text-xs text-green-700 dark:text-green-400 uppercase">True</p>
                               <p className="text-xl font-semibold font-mono">{Number(stats.trueCount)}</p>
                               <p className="text-xs text-gray-500">{String(stats.truePercent)}%</p>
                             </div>
@@ -3436,7 +3436,7 @@ export default function TableBrowserPage() {
                         <div className="border-t border-line pt-4">
                           <h4 className="text-sm font-medium mb-3">String Statistics</h4>
                           <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 mb-3">
-                            <p className="text-xs text-amber-600 dark:text-amber-400 uppercase">Distinct Values</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-400 uppercase">Distinct Values</p>
                             <p className="text-xl font-semibold font-mono">{Number(stats.distinctCount)}</p>
                           </div>
                           {(stats.topValues as [string, number][])?.length > 0 && (
@@ -3455,7 +3455,7 @@ export default function TableBrowserPage() {
                         </div>
                       )}
 
-                      <p className="text-xs text-gray-400 text-center pt-2">
+                      <p className="text-xs text-gray-500 text-center pt-2">
                         Statistics based on current page ({rows.length} rows)
                       </p>
                     </div>

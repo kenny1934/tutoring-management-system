@@ -289,7 +289,7 @@ export default function RegularConversionPage() {
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <TrendingUp className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Conversion</h1>
@@ -320,7 +320,7 @@ export default function RegularConversionPage() {
                           onClick={() => { setBranch(null); close(); }}
                           className={cn(
                             "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
-                            branch === null && "font-semibold text-primary"
+                            branch === null && "font-semibold text-accent-ink"
                           )}
                         >
                           All branches
@@ -332,7 +332,7 @@ export default function RegularConversionPage() {
                             onClick={() => { setBranch(b); close(); }}
                             className={cn(
                               "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
-                              b === branch && "font-semibold text-primary"
+                              b === branch && "font-semibold text-accent-ink"
                             )}
                           >
                             {b}
@@ -360,7 +360,7 @@ export default function RegularConversionPage() {
                           onClick={() => { setYear(y); setBranch(null); close(); }}
                           className={cn(
                             "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
-                            y === year && "font-semibold text-primary"
+                            y === year && "font-semibold text-accent-ink"
                           )}
                         >
                           {y}

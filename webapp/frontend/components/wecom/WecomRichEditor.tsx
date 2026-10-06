@@ -41,8 +41,8 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
       className={cn(
         "p-1.5 rounded transition-colors",
         isActive
-          ? "bg-[#a0704b] text-white"
-          : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+          ? "bg-primary text-white"
+          : "text-gray-600 dark:text-gray-400 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
       )}
       title={label}
     >
@@ -269,8 +269,8 @@ export default function WecomRichEditor({
             className={cn(
               "p-1.5 rounded transition-colors",
               activeColor
-                ? "ring-2 ring-offset-1 ring-[#a0704b]"
-                : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                ? "ring-2 ring-offset-1 ring-primary"
+                : "text-gray-600 dark:text-gray-400 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
             )}
             title="Text Color"
           >
@@ -317,7 +317,7 @@ export default function WecomRichEditor({
             ref={emojiButtonRef}
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
+            className="p-1.5 rounded text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
             title="Insert emoji"
           >
             <Smile className="w-4 h-4" />
@@ -326,7 +326,7 @@ export default function WecomRichEditor({
             <button
               type="button"
               onClick={onAttachImage}
-              className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
+              className="p-1.5 rounded text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
               title="Attach image"
             >
               <ImageIcon className="w-4 h-4" />

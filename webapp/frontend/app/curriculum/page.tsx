@@ -112,7 +112,7 @@ function WeekAxis({
         className="sticky left-0 z-30 shrink-0 bg-paper flex items-center px-4"
         style={{ width: LABEL_W }}
       >
-        <span className="text-[9px] uppercase tracking-wide text-gray-400">
+        <span className="text-[9px] uppercase tracking-wide text-gray-500">
           Topic
         </span>
       </div>
@@ -120,7 +120,7 @@ function WeekAxis({
         {axisTicks(maxWeek).map((w) => (
           <span
             key={w}
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-400 tabular-nums"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-500 tabular-nums"
             style={{ left: `${((w - 0.5) / maxWeek) * 100}%` }}
           >
             {w}
@@ -128,7 +128,7 @@ function WeekAxis({
         ))}
         {currentWeek != null && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-paper px-0.5"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-600 bg-paper px-0.5"
             style={{ left: `${((currentWeek - 0.5) / maxWeek) * 100}%` }}
           >
             Now
@@ -197,7 +197,7 @@ const GanttLanes = memo(function GanttLanes({
                 }
                 className={cn(
                   hitArea,
-                  "rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+                  "rounded shrink-0 text-gray-500 opacity-60 group-hover:opacity-100 hover:text-teal-700 dark:hover:text-teal-400 transition-opacity"
                 )}
               >
                 <FileText className="h-3 w-3" />
@@ -311,7 +311,7 @@ const PacingChartRows = memo(function PacingChartRows({
               }
               className={cn(
                 hitArea,
-                "rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+                "rounded shrink-0 text-gray-500 opacity-60 group-hover:opacity-100 hover:text-teal-700 dark:hover:text-teal-400 transition-opacity"
               )}
             >
               <FileText className="h-3 w-3" />
@@ -411,7 +411,7 @@ function GradeCheckNote({ students }: { students: CurriculumGradeCheckStudent[] 
   return (
     <div className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-[11px] text-amber-900 dark:text-amber-200">
       <div className="flex items-start gap-2">
-        <TriangleAlert className="h-3.5 w-3.5 mt-0.5 text-amber-600 shrink-0" />
+        <TriangleAlert className="h-3.5 w-3.5 mt-0.5 text-amber-700 shrink-0" />
         <p>Most of their worksheets are from a lower grade. Please check their grade.</p>
       </div>
       <ul className="mt-1.5 ml-[1.375rem] space-y-0.5">
@@ -825,7 +825,7 @@ export default function CurriculumPage() {
             )}
           >
             <div className="flex items-center gap-2">
-              <MapIcon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+              <MapIcon className="h-5 w-5 text-teal-700 dark:text-teal-400" />
               <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                 Curriculum
               </h1>
@@ -851,7 +851,7 @@ export default function CurriculumPage() {
                     "text-xs px-3 py-1.5 font-medium transition-colors",
                     view === v
                       ? "bg-teal-600 dark:bg-teal-500 text-white"
-                      : "text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                      : "text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400"
                   )}
                 >
                   {v === "timeline" ? "Timeline" : "Atlas"}
@@ -914,7 +914,7 @@ export default function CurriculumPage() {
               </select>
             )}
             {(coverageLoading || timelineLoading) && (
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
             )}
           </div>
         </div>
@@ -949,7 +949,7 @@ export default function CurriculumPage() {
         {/* Thin-records warning for the picked school */}
         {view === "timeline" && thinWeeks != null && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-[11px] text-amber-900 dark:text-amber-200">
-            <TriangleAlert className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <TriangleAlert className="h-3.5 w-3.5 text-amber-700 shrink-0" />
             <span>
               Only {thinWeeks} week{thinWeeks === 1 ? "" : "s"} of records for
               this school year so far. Confirming topics in School Progress
@@ -1051,7 +1051,7 @@ export default function CurriculumPage() {
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Weekly topics
               </span>
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-gray-500">
                 {timeline.school} {timeline.grade}
                 {timeline.lang_stream ? ` (${timeline.lang_stream})` : ""} · {displayYear}
               </span>
@@ -1063,7 +1063,7 @@ export default function CurriculumPage() {
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-200 dark:bg-teal-900/60" />
                 Also seen
               </span>
-              <span className="text-[10px] text-gray-400">Click a row for detail</span>
+              <span className="text-[10px] text-gray-500">Click a row for detail</span>
               <div className="ml-auto flex items-center gap-1.5">
                 <input
                   type="text"
@@ -1175,7 +1175,7 @@ export default function CurriculumPage() {
                       Week {focusWeek}
                       {weekDateLabel(focusWeek) ? ` · ${weekDateLabel(focusWeek)}` : ""}
                       {focusWeek === timeline.current_week && (
-                        <span className="ml-1.5 text-[9px] font-medium text-rose-500">
+                        <span className="ml-1.5 text-[9px] font-medium text-rose-600">
                           this week
                         </span>
                       )}
@@ -1198,7 +1198,7 @@ export default function CurriculumPage() {
                             >
                               {conceptNameForStream(c, effectiveStream)}
                             </span>
-                            <span className="text-[9px] text-gray-400 shrink-0">
+                            <span className="text-[9px] text-gray-500 shrink-0">
                               {c.thin
                                 ? "One student only"
                                 : c.rank === 1
@@ -1217,7 +1217,7 @@ export default function CurriculumPage() {
                               }
                               className={cn(
                                 hitArea,
-                                "rounded shrink-0 text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                                "rounded shrink-0 text-gray-500 hover:text-teal-700 dark:hover:text-teal-400"
                               )}
                             >
                               <FileText className="h-3 w-3" />
@@ -1233,7 +1233,7 @@ export default function CurriculumPage() {
                     onClick={() => setFocusWeek(null)}
                     className={cn(
                       hitArea,
-                      "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0"
+                      "rounded text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 shrink-0"
                     )}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -1285,7 +1285,7 @@ export default function CurriculumPage() {
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Typical pace
               </span>
-              <span className="text-[10px] text-gray-400">across all observed years</span>
+              <span className="text-[10px] text-gray-500">across all observed years</span>
               <div className="flex flex-wrap items-center gap-1.5 ml-auto">
                 {pacingCombos.map(({ combo, pacing, slot }, idx) => (
                   <span
@@ -1295,7 +1295,7 @@ export default function CurriculumPage() {
                     <span className={cn("h-2 w-2 rounded-full", SLOT_STYLES[slot].dot)} />
                     {comboLabel(combo)}
                     {pacing === null && idx > 0 && (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin text-gray-400" />
+                      <Loader2 className="h-2.5 w-2.5 animate-spin text-gray-500" />
                     )}
                     {idx > 0 && (
                       <button
@@ -1306,7 +1306,7 @@ export default function CurriculumPage() {
                             prev.filter((c) => comboKey(c.combo) !== comboKey(combo))
                           )
                         }
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         <X className="h-2.5 w-2.5" />
                       </button>

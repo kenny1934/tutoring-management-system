@@ -96,7 +96,7 @@ export default function AudioPlayer({ src, filename, className, duration: initia
       <button
         type="button"
         onClick={togglePlay}
-        className="flex-shrink-0 w-8 h-8 rounded-full bg-[#a0704b] hover:bg-[#8b5f3c] text-white flex items-center justify-center transition-colors"
+        className="flex-shrink-0 w-8 h-8 rounded-full bg-primary hover:bg-[#8b5f3c] text-white flex items-center justify-center transition-colors"
       >
         {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
       </button>
@@ -117,7 +117,7 @@ export default function AudioPlayer({ src, filename, className, duration: initia
                 key={i}
                 className={cn(
                   "w-[3px] rounded-full transition-colors",
-                  isPast ? "bg-[#a0704b]" : "bg-gray-300 dark:bg-gray-600"
+                  isPast ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"
                 )}
                 style={{ height: `${height}px` }}
               />

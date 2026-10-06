@@ -74,10 +74,10 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick, className }: Tool
       type="button"
       onClick={onClick}
       className={cn(
-        "p-1.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1",
+        "p-1.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1",
         isActive
-          ? "bg-[#a0704b] text-white"
-          : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]",
+          ? "bg-primary text-white"
+          : "text-gray-600 dark:text-gray-400 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]",
         className
       )}
       title={label}
@@ -161,7 +161,7 @@ const MentionList = React.forwardRef<MentionListRef, MentionListProps>(
             className={cn(
               "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors text-left",
               index === selectedIndex
-                ? "bg-tint text-[#a0704b]"
+                ? "bg-tint text-accent-ink"
                 : "text-gray-700 dark:text-gray-300 hover:bg-tint"
             )}
             onClick={() => command(item)}
@@ -700,8 +700,8 @@ export default function InboxRichEditor({
                 className={cn(
                   "p-1.5 rounded transition-colors flex items-center gap-0.5",
                   showTableOps
-                    ? "bg-[#a0704b] text-white"
-                    : "bg-[#a0704b]/10 text-[#a0704b] hover:bg-[#a0704b]/20"
+                    ? "bg-primary text-white"
+                    : "bg-primary/10 text-accent-ink hover:bg-primary/20"
                 )}
                 title="Table options"
               >
@@ -738,7 +738,7 @@ export default function InboxRichEditor({
                       className={cn(
                         "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors",
                         item.danger
-                          ? "text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                           : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                       )}
                     >
@@ -758,8 +758,8 @@ export default function InboxRichEditor({
                 className={cn(
                   "p-1.5 rounded transition-colors",
                   showTablePicker
-                    ? "bg-[#a0704b] text-white"
-                    : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                    ? "bg-primary text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                 )}
                 title="Insert table"
               >
@@ -791,14 +791,14 @@ export default function InboxRichEditor({
                         className={cn(
                           "w-5 h-5 rounded-sm border transition-colors",
                           active
-                            ? "bg-[#a0704b]/20 border-[#a0704b]"
+                            ? "bg-primary/20 border-primary"
                             : "bg-white dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a]"
                         )}
                       />
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-center text-gray-400 mt-1.5">
+                <p className="text-[10px] text-center text-gray-500 mt-1.5">
                   {tableHover[0] > 0 ? `${tableHover[0]} × ${tableHover[1]}` : "Select size"}
                 </p>
               </FloatingDropdown>
@@ -828,8 +828,8 @@ export default function InboxRichEditor({
           className={cn(
             "p-1.5 rounded transition-colors sm:hidden",
             showMoreTools
-              ? "bg-[#a0704b] text-white"
-              : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              ? "bg-primary text-white"
+              : "text-gray-600 dark:text-gray-400 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
           )}
           title="More formatting"
         >
@@ -862,13 +862,13 @@ export default function InboxRichEditor({
               className={cn(
                 "flex items-center gap-2 w-full px-2.5 py-2 text-xs rounded transition-colors",
                 item.active
-                  ? "bg-tint text-[#a0704b] font-medium"
+                  ? "bg-tint text-accent-ink font-medium"
                   : "text-gray-700 dark:text-gray-300 hover:bg-tint"
               )}
             >
               <item.icon className="w-4 h-4" />
               <span className="flex-1">{item.label}</span>
-              {item.active && <Check className="w-3 h-3 text-[#a0704b]" />}
+              {item.active && <Check className="w-3 h-3 text-accent-ink" />}
             </button>
           ))}
         </FloatingDropdown>
@@ -891,8 +891,8 @@ export default function InboxRichEditor({
             className={cn(
               "p-1.5 rounded transition-colors",
               activeColor
-                ? "ring-2 ring-offset-1 ring-[#a0704b]"
-                : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                ? "ring-2 ring-offset-1 ring-primary"
+                : "text-gray-600 dark:text-gray-400 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
             )}
             title="Text Color"
           >
@@ -951,7 +951,7 @@ export default function InboxRichEditor({
             ref={emojiButtonRef}
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
+            className="p-1.5 rounded text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
             title="Insert emoji"
           >
             <Smile className="w-4 h-4" />
@@ -969,7 +969,7 @@ export default function InboxRichEditor({
       {/* Inline link input bar */}
       {showLinkInput && (
         <div className="flex items-center gap-2 px-3 py-2 bg-[#faf6f1] dark:bg-[#2a2518] border-b border-line">
-          <LinkIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+          <LinkIcon className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
           <input
             ref={linkInputRef}
             type="url"
@@ -979,7 +979,7 @@ export default function InboxRichEditor({
             placeholder="https://example.com"
             className="flex-1 text-sm bg-transparent outline-none text-gray-900 dark:text-white placeholder-gray-400"
           />
-          {linkError && <span className="text-xs text-red-500 flex-shrink-0">{linkError}</span>}
+          {linkError && <span className="text-xs text-red-600 flex-shrink-0">{linkError}</span>}
           <button type="button" onClick={handleLinkSubmit} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">Apply</button>
           <button type="button" onClick={() => setShowLinkInput(false)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
         </div>
@@ -994,7 +994,7 @@ export default function InboxRichEditor({
           <button
             type="button"
             onClick={onOpenFullEditor}
-            className="absolute bottom-1 right-1 p-1 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:text-gray-500 dark:hover:text-[#c9a96e] dark:hover:bg-[#3d2e1e] transition-colors"
+            className="absolute bottom-1 right-1 p-1 rounded text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:text-gray-400 dark:hover:text-[#c9a96e] dark:hover:bg-[#3d2e1e] transition-colors"
             title="Open full editor"
           >
             <Expand className="w-3.5 h-3.5" />

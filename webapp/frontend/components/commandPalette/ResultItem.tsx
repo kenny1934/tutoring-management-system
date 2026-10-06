@@ -34,7 +34,7 @@ export function ResultItemButton({
   // Default icon color based on selection
   const defaultIconColor = isSelected
     ? "text-accent-ink"
-    : "text-gray-400 dark:text-gray-500";
+    : "text-gray-500 dark:text-gray-400";
 
   const iconColor = isSelected
     ? "text-accent-ink"
@@ -71,10 +71,10 @@ export function ResultItemButton({
           }}
           className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] rounded transition-all"
         >
-          <X className="h-3 w-3 text-gray-400" />
+          <X className="h-3 w-3 text-gray-500" />
         </button>
         {isSelected && (
-          <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+          <CornerDownLeft className="h-4 w-4 text-gray-500 dark:text-gray-400" />
         )}
       </div>
     );
@@ -107,7 +107,7 @@ export function ResultItemButton({
       </div>
       {badge}
       {isSelected && showEnterIcon && (
-        <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+        <CornerDownLeft className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
       )}
     </button>
   );

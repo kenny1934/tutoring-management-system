@@ -148,7 +148,7 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         className={cn(
           "absolute z-10 touch-none select-none rounded border border-[#2e251c]/50 bg-[#fdf9ee]/60 text-[#2e251c]",
           "shadow-[0_8px_20px_rgba(46,30,14,0.22),inset_0_1px_0_rgba(255,255,255,0.6)]",
-          held ? "cursor-grabbing ring-2 ring-[#a0704b]/60" : "cursor-grab",
+          held ? "cursor-grabbing ring-2 ring-primary/60" : "cursor-grab",
         )}
         style={{
           left: place.cx - length / 2,

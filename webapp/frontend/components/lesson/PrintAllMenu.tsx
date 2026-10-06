@@ -66,10 +66,10 @@ export function PrintAllMenu({ label, printing, open, onOpenChange, onPrint, but
               className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] dark:bg-[#1a2821] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]"
             >
               <button onClick={() => choose("CW")} className={itemClass}>
-                <PenTool className="h-3 w-3 text-rose-400" /> Print all CW
+                <PenTool className="h-3 w-3 text-rose-600" /> Print all CW
               </button>
               <button onClick={() => choose("HW")} className={itemClass}>
-                <BookOpen className="h-3 w-3 text-blue-400" /> Print all HW
+                <BookOpen className="h-3 w-3 text-blue-600" /> Print all HW
               </button>
             </motion.div>
           </>

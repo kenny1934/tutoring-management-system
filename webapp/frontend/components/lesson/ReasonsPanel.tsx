@@ -24,25 +24,25 @@ const SIZE_SAMPLE: Record<InkSize, number> = { S: 12, M: 16, L: 21 };
 const CHIP = cn(
   "min-h-10 max-w-full select-none rounded-lg px-3 py-1.5 text-left text-[15px] leading-snug outline-none transition-colors",
   "bg-white ring-1 ring-[#e3cfb1] shadow-[0_1px_1px_rgba(46,30,14,0.06)]",
-  "hover:bg-[#f7ecdd] hover:ring-[#cfae84] active:bg-[#efdcc3] active:ring-2 active:ring-[#a0704b]",
-  "focus-visible:ring-2 focus-visible:ring-[#a0704b]",
+  "hover:bg-[#f7ecdd] hover:ring-[#cfae84] active:bg-[#efdcc3] active:ring-2 active:ring-primary",
+  "focus-visible:ring-2 focus-visible:ring-primary",
   "dark:bg-[#231d14] dark:ring-[#4a3c2e] dark:hover:bg-[#3a3228] dark:hover:ring-[#7a6650] dark:active:bg-[#4a3c2e]",
 );
 // The line whose letters are being asked for keeps looking pressed.
-const CHIP_PICKED = "bg-[#f7ecdd] ring-2 ring-[#a0704b] dark:bg-[#3a3228]";
+const CHIP_PICKED = "bg-[#f7ecdd] ring-2 ring-primary dark:bg-[#3a3228]";
 
 // The size and colour buttons in the header, and the topic tabs under the search.
 const OPTION = cn(
   "grid h-10 min-w-10 place-items-center rounded-lg px-1.5 outline-none transition-colors",
-  "hover:bg-[#f5ebe0] focus-visible:ring-2 focus-visible:ring-[#a0704b] dark:hover:bg-[#3a3228]",
+  "hover:bg-[#f5ebe0] focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-[#3a3228]",
 );
-const OPTION_ON = "bg-white ring-2 ring-[#a0704b] hover:bg-white dark:bg-[#231d14] dark:hover:bg-[#231d14]";
+const OPTION_ON = "bg-white ring-2 ring-primary hover:bg-white dark:bg-[#231d14] dark:hover:bg-[#231d14]";
 const TAB = cn(
   "h-10 flex-none rounded-full px-3.5 text-sm font-medium outline-none transition-colors",
-  "bg-white ring-1 ring-[#e3cfb1] hover:bg-[#f7ecdd] active:bg-[#efdcc3] focus-visible:ring-2 focus-visible:ring-[#a0704b]",
+  "bg-white ring-1 ring-[#e3cfb1] hover:bg-[#f7ecdd] active:bg-[#efdcc3] focus-visible:ring-2 focus-visible:ring-primary",
   "dark:bg-[#231d14] dark:ring-[#4a3c2e] dark:hover:bg-[#3a3228]",
 );
-const TAB_ON = "bg-[#a0704b] text-white ring-[#a0704b] hover:bg-[#a0704b] dark:bg-[#a0704b] dark:hover:bg-[#a0704b]";
+const TAB_ON = "bg-primary text-white ring-primary hover:bg-primary dark:bg-[#a0704b] dark:hover:bg-[#a0704b]";
 
 /** Where a tapped line was tapped: in a reason's row, or among the recent lines. */
 type From = ProofReason | "recent";
@@ -200,7 +200,7 @@ export function ReasonsPanel({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h2 className="mr-auto text-sm font-semibold">Proof reasons</h2>
           <div role="group" aria-label="Text size" className="flex items-center gap-1">
-            <span aria-hidden className="mr-1 text-xs text-[#8b7355] dark:text-[#b8a58a]">Size</span>
+            <span aria-hidden className="mr-1 text-xs text-ink-subtle dark:text-[#b8a58a]">Size</span>
             {SIZES.map((size) => (
               <button
                 key={size}
@@ -216,7 +216,7 @@ export function ReasonsPanel({
             ))}
           </div>
           <div role="group" aria-label="Text colour" className="flex items-center gap-1">
-            <span aria-hidden className="mr-1 text-xs text-[#8b7355] dark:text-[#b8a58a]">Colour</span>
+            <span aria-hidden className="mr-1 text-xs text-ink-subtle dark:text-[#b8a58a]">Colour</span>
             {TEXT_SWATCHES.map((swatch) => (
               <button
                 key={swatch.id}
@@ -233,7 +233,7 @@ export function ReasonsPanel({
           </div>
         </div>
         <label className="relative flex items-center">
-          <Search aria-hidden className="pointer-events-none absolute left-3 h-4 w-4 text-[#8b7355]" />
+          <Search aria-hidden className="pointer-events-none absolute left-3 h-4 w-4 text-ink-subtle" />
           <input
             type="search"
             value={query}
@@ -241,7 +241,7 @@ export function ReasonsPanel({
             aria-label="Find a reason"
             placeholder="Find a reason or topic, such as alt or 全等"
             className={cn(
-              "h-10 w-full rounded-lg bg-white pl-9 pr-3 text-sm outline-none ring-1 ring-[#d4c4a8] focus:ring-2 focus:ring-[#a0704b]",
+              "h-10 w-full rounded-lg bg-white pl-9 pr-3 text-sm outline-none ring-1 ring-[#d4c4a8] focus:ring-2 focus:ring-primary",
               "dark:bg-[#1e1a14] dark:ring-[#6b5a4a]",
             )}
           />
@@ -311,7 +311,7 @@ export function ReasonsPanel({
                 <div className="flex min-w-0 flex-col items-start gap-1.5">
                   {reason.zh.map((line, i) => chip(reason, { side: "zh", line }, i))}
                   {reason.note && (
-                    <p lang="zh-Hant" className="px-1 text-xs text-[#8b7355] dark:text-[#b8a58a]">解釋：{reason.note}</p>
+                    <p lang="zh-Hant" className="px-1 text-xs text-ink-subtle dark:text-[#b8a58a]">解釋：{reason.note}</p>
                   )}
                 </div>
                 {letterBoxes(reason)}
@@ -319,14 +319,14 @@ export function ReasonsPanel({
             ))}
           </section>
         ))}
-        {topics.length === 0 && <p className="py-6 text-sm text-[#8b7355]">No reasons match “{query}”.</p>}
+        {topics.length === 0 && <p className="py-6 text-sm text-ink-subtle">No reasons match “{query}”.</p>}
       </div>
     </div>
   );
 }
 
 const HEADING =
-  "sticky top-0 z-10 bg-paper pb-1.5 pt-3 text-xs font-semibold uppercase tracking-wide text-[#8b7355] dark:text-[#b8a58a]";
+  "sticky top-0 z-10 bg-paper pb-1.5 pt-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle dark:text-[#b8a58a]";
 
 /** One line of a reason as a button, with the letters typed for it last in the lesson. English is in italic, as it will be on the page. */
 function LineChip({ line, letters, picked, onPick }: { line: ReasonLine; letters?: string[]; picked: boolean; onPick: () => void }) {
@@ -375,12 +375,12 @@ function LetterBoxes({ asking, onLetters, onPlace }: { asking: Asking; onLetters
               autoCapitalize="characters"
               autoComplete="off"
               spellCheck={false}
-              className="h-10 w-16 rounded-md bg-white text-center not-italic outline-none ring-1 ring-[#d4c4a8] focus:ring-2 focus:ring-[#a0704b] dark:bg-[#1e1a14]"
+              className="h-10 w-16 rounded-md bg-white text-center not-italic outline-none ring-1 ring-[#d4c4a8] focus:ring-2 focus:ring-primary dark:bg-[#1e1a14]"
             />
           );
         })}
       </span>
-      <button type="submit" className="ml-auto h-10 rounded-lg bg-[#a0704b] px-4 text-sm font-medium text-white hover:bg-[#8b5e3c]">
+      <button type="submit" className="ml-auto h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-[#8b5e3c]">
         Place
       </button>
     </form>

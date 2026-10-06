@@ -121,19 +121,19 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
           {/* Date/time info */}
           <div className="flex items-center gap-4 text-sm">
             <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-              <Calendar className="h-4 w-4 text-gray-400" />
+              <Calendar className="h-4 w-4 text-gray-500" />
               {slotDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
             </span>
             <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-              <Clock className="h-4 w-4 text-gray-400" />
+              <Clock className="h-4 w-4 text-gray-500" />
               {slot.time_slot}
             </span>
             <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-              <User className="h-4 w-4 text-gray-400" />
+              <User className="h-4 w-4 text-gray-500" />
               <TutorLink tutorId={slot.tutor_id} tutorName={slot.tutor_name} fallback="Unknown" />
             </span>
             <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-              <MapPin className="h-4 w-4 text-gray-400" />
+              <MapPin className="h-4 w-4 text-gray-500" />
               {slot.location}
             </span>
           </div>
@@ -151,9 +151,9 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
 
           {/* Expand indicator */}
           {isExpanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
+            <ChevronUp className="h-4 w-4 text-gray-500" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-gray-500" />
           )}
         </button>
 
@@ -166,7 +166,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             className={cn(
               "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors",
               "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400",
-              "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
@@ -177,7 +177,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             onClick={onEdit}
             disabled={readOnly}
             className={cn(
-              "p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "p-1.5 rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
             title={readOnly ? "Read-only access" : "Edit slot"}
@@ -188,7 +188,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             onClick={onDuplicate}
             disabled={readOnly}
             className={cn(
-              "p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "p-1.5 rounded-md text-gray-500 hover:text-purple-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
             title={readOnly ? "Read-only access" : "Duplicate slot"}
@@ -199,8 +199,8 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             onClick={handleDeleteClick}
             disabled={readOnly || isDeleting}
             className={cn(
-              "p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors",
+              "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
             title={readOnly ? "Read-only access" : slot.enrolled_count > 0 ? "Delete (will unenroll students)" : "Delete slot"}
@@ -219,15 +219,15 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
         <div className="border-t border-line px-4 py-3">
           {loadingDetail ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+              <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
             </div>
           ) : slotDetail?.enrolled_students.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
-              <Users className="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
+              <Users className="h-8 w-8 text-gray-300 dark:text-gray-400 mb-2" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No students enrolled yet
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Click &quot;Enroll&quot; to add students to this revision slot
               </p>
             </div>
@@ -252,7 +252,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {selectedSessionId === student.session_id && isLoadingSession ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
                     ) : (
                       <SessionStatusTag status={student.session_status} size="sm" iconOnly />
                     )}
@@ -262,7 +262,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                         handleRemoveClick(student);
                       }}
                       disabled={readOnly || isRemovingId === student.session_id}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-1 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title={readOnly ? "Read-only access" : "Remove enrollment"}
                     >
                       {isRemovingId === student.session_id ? (

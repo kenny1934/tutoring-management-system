@@ -88,7 +88,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors"
+        className="p-1.5 text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors"
         title="Send GIF"
       >
         <span className="h-[18px] w-[18px] flex items-center justify-center text-[10px] font-bold leading-none">GIF</span>
@@ -104,20 +104,20 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         {/* Search bar */}
         <div className="p-2 border-b border-line">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search GIFs..."
-              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-line rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-line rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -129,12 +129,12 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         <div className="overflow-y-auto max-h-[300px] p-1.5">
           {loading && gifs.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+              <Loader2 className="h-5 w-5 animate-spin text-accent-ink" />
             </div>
           ) : error ? (
-            <p className="text-center text-sm text-gray-400 py-8">{error}</p>
+            <p className="text-center text-sm text-gray-500 py-8">{error}</p>
           ) : gifs.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">No GIFs found</p>
+            <p className="text-center text-sm text-gray-500 py-8">No GIFs found</p>
           ) : (
             <div className="grid grid-cols-2 gap-1.5">
               {gifs.map((gif) => (
@@ -142,7 +142,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
                   key={gif.id}
                   type="button"
                   onClick={() => handleSelect(gif)}
-                  className="relative overflow-hidden rounded-md hover:ring-2 hover:ring-[#a0704b] transition-all bg-gray-100 dark:bg-[#1a1a1a]"
+                  className="relative overflow-hidden rounded-md hover:ring-2 hover:ring-primary transition-all bg-gray-100 dark:bg-[#1a1a1a]"
                   style={{ aspectRatio: `${gif.width} / ${gif.height}`, maxHeight: "150px" }}
                 >
                   <img
@@ -159,7 +159,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
 
         {/* GIPHY attribution */}
         <div className="px-2 py-1.5 border-t border-line flex items-center justify-center">
-          <span className="text-[10px] text-gray-400">Powered by GIPHY</span>
+          <span className="text-[10px] text-gray-500">Powered by GIPHY</span>
         </div>
       </FloatingDropdown>
     </div>

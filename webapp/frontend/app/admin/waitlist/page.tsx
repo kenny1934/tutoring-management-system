@@ -435,8 +435,8 @@ export default function AdminWaitlistPage() {
       {children}
       {sortBy === field && (
         sortOrder === "asc"
-          ? <ArrowUp className="h-3 w-3 text-[#a0704b]" />
-          : <ArrowDown className="h-3 w-3 text-[#a0704b]" />
+          ? <ArrowUp className="h-3 w-3 text-accent-ink" />
+          : <ArrowDown className="h-3 w-3 text-accent-ink" />
       )}
     </button>
   );
@@ -451,7 +451,7 @@ export default function AdminWaitlistPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                <ClipboardList className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                <ClipboardList className="h-6 w-6 text-amber-700 dark:text-amber-400" />
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">Waitlist</h1>
@@ -459,7 +459,7 @@ export default function AdminWaitlistPage() {
                   {activeCount} {showActive ? "active" : "closed"} entr
                   {activeCount === 1 ? "y" : "ies"}
                   {isReadOnly && (
-                    <span className="ml-2 text-amber-600">(Read-only)</span>
+                    <span className="ml-2 text-amber-700">(Read-only)</span>
                   )}
                 </p>
               </div>
@@ -472,7 +472,7 @@ export default function AdminWaitlistPage() {
                   className={cn(
                     "flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium transition-colors",
                     viewMode === "list"
-                      ? "bg-[#a0704b] text-white"
+                      ? "bg-primary text-white"
                       : "bg-transparent text-foreground/60 hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
                 >
@@ -484,7 +484,7 @@ export default function AdminWaitlistPage() {
                   className={cn(
                     "flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium transition-colors",
                     viewMode === "timetable"
-                      ? "bg-[#a0704b] text-white"
+                      ? "bg-primary text-white"
                       : "bg-transparent text-foreground/60 hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
                 >
@@ -499,7 +499,7 @@ export default function AdminWaitlistPage() {
                     setEditingEntry(null);
                     setEntryModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-[#a0704b] hover:bg-[#8b6040] text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-primary hover:bg-[#8b6040] text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                 >
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Add Entry</span>
@@ -659,7 +659,7 @@ export default function AdminWaitlistPage() {
             <select
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="px-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">All Grades</option>
               {GRADES.map((g) => (
@@ -673,7 +673,7 @@ export default function AdminWaitlistPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="px-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">All Types</option>
               <option value="New">New</option>
@@ -688,7 +688,7 @@ export default function AdminWaitlistPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, school, phone..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
               {search && (
                 <button
@@ -729,7 +729,7 @@ export default function AdminWaitlistPage() {
                   <span className="text-foreground/30">|</span>
                   <span className={cn(
                     "font-medium",
-                    summaryStats.oldestDays > 30 ? "text-red-500" : summaryStats.oldestDays > 7 ? "text-amber-500" : "text-foreground/50"
+                    summaryStats.oldestDays > 30 ? "text-red-600" : summaryStats.oldestDays > 7 ? "text-amber-700" : "text-foreground/50"
                   )}>
                     Longest wait: {summaryStats.oldestDays}d
                   </span>
@@ -758,7 +758,7 @@ export default function AdminWaitlistPage() {
                 <div className="mt-2">
                   {pastedRows.length === 0 ? (
                     <div
-                      className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-[#a0704b] transition-colors cursor-text"
+                      className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-text"
                       onPaste={handlePaste}
                       tabIndex={0}
                     >
@@ -786,7 +786,7 @@ export default function AdminWaitlistPage() {
                                 setPastedRows([]);
                                 setPasteInfo("");
                               }}
-                              className="text-red-500 hover:text-red-700 text-xs font-medium"
+                              className="text-red-600 hover:text-red-700 text-xs font-medium"
                             >
                               Clear
                             </button>
@@ -842,7 +842,7 @@ export default function AdminWaitlistPage() {
                                 <td className="py-1.5 px-1">
                                   <button
                                     onClick={() => removePastedRow(i)}
-                                    className="p-0.5 text-red-400 hover:text-red-600 rounded"
+                                    className="p-0.5 text-red-600 hover:text-red-600 rounded"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
@@ -856,7 +856,7 @@ export default function AdminWaitlistPage() {
                         <button
                           onClick={handleBulkSubmit}
                           disabled={bulkSaving || pastedRows.length === 0}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b6040] text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-[#8b6040] text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                         >
                           <Upload className="h-3.5 w-3.5" />
                           {bulkSaving
@@ -966,7 +966,7 @@ export default function AdminWaitlistPage() {
                     No entries match your filters.{" "}
                     <button
                       onClick={() => { setSearch(""); setGradeFilter(""); setTypeFilter(""); }}
-                      className="text-[#a0704b] hover:underline font-medium"
+                      className="text-accent-ink hover:underline font-medium"
                     >
                       Clear filters
                     </button>
@@ -1066,7 +1066,7 @@ export default function AdminWaitlistPage() {
               value={closeReason}
               onChange={(e) => setCloseReason(e.target.value)}
               placeholder="Reason (optional)"
-              className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConfirmClose(); } }}
             />
           </div>
@@ -1170,7 +1170,7 @@ function WaitlistRow({
         )}
         {entry.parent_name && (
           <div className="text-xs text-foreground/40 mt-0.5 flex items-center gap-1">
-            <WeChatIcon className="h-3 w-3 text-green-600 flex-shrink-0" />
+            <WeChatIcon className="h-3 w-3 text-green-700 flex-shrink-0" />
             {entry.parent_name}
           </div>
         )}
@@ -1208,7 +1208,7 @@ function WaitlistRow({
                 key={sp.id}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-medium text-foreground/60"
               >
-                <span className={cn("px-1 rounded", BRANCH_COLORS[sp.location]?.badge || "text-[#a0704b]")}>{sp.location}</span>
+                <span className={cn("px-1 rounded", BRANCH_COLORS[sp.location]?.badge || "text-accent-ink")}>{sp.location}</span>
                 {sp.day_of_week && <span>{sp.day_of_week}</span>}
                 {sp.time_slot && <span>{sp.time_slot}</span>}
                 {!sp.day_of_week && !sp.time_slot && !sp.preferred_tutor_name && <span>Any</span>}
@@ -1250,7 +1250,7 @@ function WaitlistRow({
           const utcTs = entry.created_at!.endsWith("Z") ? entry.created_at! : entry.created_at! + "Z";
           const date = new Date(utcTs);
           const diffDays = Math.floor((Date.now() - date.getTime()) / 86400000);
-          const color = diffDays > 30 ? "text-red-600 dark:text-red-400" : diffDays > 7 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400";
+          const color = diffDays > 30 ? "text-red-600 dark:text-red-400" : diffDays > 7 ? "text-amber-700 dark:text-amber-400" : "text-green-700 dark:text-green-400";
           const absDate = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
           return (
             <span className={cn("font-medium", color)} title={`${absDate}${entry.created_by_name ? ` by ${entry.created_by_name}` : ""}`}>

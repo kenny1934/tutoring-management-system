@@ -566,7 +566,7 @@ export function SessionSelectorModal({
 
           {/* Error state */}
           {loadError && (
-            <div className="flex items-center justify-center py-8 text-red-500 text-sm">
+            <div className="flex items-center justify-center py-8 text-red-600 text-sm">
               {loadError instanceof Error ? loadError.message : "Failed to load sessions"}
             </div>
           )}
@@ -622,14 +622,14 @@ export function SessionSelectorModal({
                         className={cn(
                           "text-xs font-semibold mb-0.5",
                           dayData.isToday &&
-                            "text-[#a0704b] dark:text-[#cd853f]",
+                            "text-accent-ink dark:text-[#cd853f]",
                           !dayData.isToday &&
                             dayData.isCurrentMonth &&
                             "text-[#5d4e37] dark:text-[#e8d4b8]",
                           dayData.isWeekend &&
                             dayData.isCurrentMonth &&
                             !dayData.isToday &&
-                            "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                            "text-accent-ink/70 dark:text-[#cd853f]/70"
                         )}
                       >
                         {dayData.date.getDate()}
@@ -641,7 +641,7 @@ export function SessionSelectorModal({
                           {dayData.sessionCount} session
                           {dayData.sessionCount !== 1 ? "s" : ""}
                           {dayData.selectedCount > 0 && (
-                            <span className="ml-1 text-green-600 dark:text-green-400">
+                            <span className="ml-1 text-green-700 dark:text-green-400">
                               ({dayData.selectedCount} selected)
                             </span>
                           )}
@@ -670,7 +670,7 @@ export function SessionSelectorModal({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="h-6 px-2 text-xs text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                 onClick={() => setSelections(new Map())}
               >
                 Clear All
@@ -703,7 +703,7 @@ export function SessionSelectorModal({
                   </div>
                   <button
                     onClick={() => removeSelection(sel.sessionId)}
-                    className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                    className="p-0.5 text-gray-500 hover:text-red-600 transition-colors"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -880,9 +880,9 @@ function SessionDayPicker({
                 className="flex items-center gap-1 px-2 py-1 text-xs bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 {filterTutorId === "all" ? (
-                  <Users className="h-3 w-3 text-[#a0704b]" />
+                  <Users className="h-3 w-3 text-accent-ink" />
                 ) : (
-                  <User className="h-3 w-3 text-[#a0704b]" />
+                  <User className="h-3 w-3 text-accent-ink" />
                 )}
                 <span className="max-w-[80px] truncate">{selectedTutorName}</span>
                 <ChevronDown className={cn("h-3 w-3 transition-transform", showTutorDropdown && "rotate-180")} />
@@ -934,7 +934,7 @@ function SessionDayPicker({
               {filterTutorId !== "all" && sessions.filter(isCountableSession).length > 0 && (
                 <button
                   onClick={() => setFilterTutorId("all")}
-                  className="mt-2 px-3 py-1 text-xs text-[#a0704b] hover:text-[#8b5d3b] dark:text-[#d4a574] dark:hover:text-[#e0b88a] underline underline-offset-2"
+                  className="mt-2 px-3 py-1 text-xs text-accent-ink hover:text-[#8b5d3b] dark:text-[#d4a574] dark:hover:text-[#e0b88a] underline underline-offset-2"
                 >
                   Show all tutors ({sessions.filter(isCountableSession).length} session{sessions.filter(isCountableSession).length !== 1 ? "s" : ""})
                 </button>

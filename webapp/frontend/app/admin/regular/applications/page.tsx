@@ -375,7 +375,7 @@ export default function RegularApplicationsPage() {
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <ClipboardList className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <ClipboardList className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
@@ -385,11 +385,11 @@ export default function RegularApplicationsPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Open application form"
-                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                    className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
-                  {isReadOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+                  {isReadOnly && <span className="shrink-0 text-[10px] font-normal text-amber-700">(Read-only)</span>}
                 </h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">
                   Review September intake applications and publish confirmed schedules
@@ -465,11 +465,11 @@ export default function RegularApplicationsPage() {
                         >
                           <span className="flex-1 text-foreground">{c.year}</span>
                           {c.is_active && (
-                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
                               Active
                             </span>
                           )}
-                          {active && <Check className="h-3 w-3 text-primary" />}
+                          {active && <Check className="h-3 w-3 text-accent-ink" />}
                         </button>
                       );
                     })}
@@ -553,7 +553,7 @@ export default function RegularApplicationsPage() {
                         )}
                         <span className="flex-1 text-foreground">{s ?? "All statuses"}</span>
                         <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-                        {active && <Check className="h-3 w-3 text-primary" />}
+                        {active && <Check className="h-3 w-3 text-accent-ink" />}
                       </button>
                     );
                   };
@@ -688,7 +688,7 @@ export default function RegularApplicationsPage() {
                         type="checkbox"
                         checked={unverifiedOriginOnly}
                         onChange={(e) => setUnverifiedOriginOnly(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
                       />
                       <span className="text-xs text-foreground">Unverified branch origin</span>
                     </label>
@@ -746,7 +746,7 @@ export default function RegularApplicationsPage() {
                   type="checkbox"
                   checked={allVisibleChecked}
                   onChange={toggleSelectAll}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                  className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer shrink-0"
                   title={allVisibleChecked ? "Deselect all visible" : "Select all visible"}
                 />
               )}

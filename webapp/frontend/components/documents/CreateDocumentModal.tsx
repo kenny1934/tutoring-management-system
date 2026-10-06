@@ -51,7 +51,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
           <button
             disabled={creating}
             onClick={() => onCreate()}
-            className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
+            className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-primary/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
           >
             <div className="p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
               <FileText className="w-5 h-5" />
@@ -62,7 +62,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
             </div>
           </button>
           {loadingTemplates ? (
-            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+            <div className="flex items-center gap-3 p-3 text-sm text-gray-500">
               <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
               <div className="h-4 w-24 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
             </div>
@@ -72,7 +72,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
                 key={tpl.id}
                 disabled={creating}
                 onClick={() => handlePickTemplate(tpl.id)}
-                className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
+                className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-primary/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
               >
                 <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                   <Stamp className="w-5 h-5" />

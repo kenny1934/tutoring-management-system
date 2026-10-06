@@ -59,7 +59,7 @@ export function LessonDraftRow({ open, hasInk, onOpen }: LessonDraftEntry) {
           : "border-transparent hover:bg-[#faf3e8] dark:hover:bg-[#2a2318] hover:border-[#e8d4b8]/50 dark:hover:border-[#5a4d3a]/50",
       )}
     >
-      <NotebookPen className="h-4 w-4 flex-shrink-0 text-[#a0704b] dark:text-[#c4a882]" />
+      <NotebookPen className="h-4 w-4 flex-shrink-0 text-accent-ink dark:text-[#c4a882]" />
       <span
         className={cn(
           "flex-1 min-w-0 truncate font-medium",
@@ -68,7 +68,7 @@ export function LessonDraftRow({ open, hasInk, onOpen }: LessonDraftEntry) {
       >
         Lesson draft
       </span>
-      {hasInk && <span className="w-2 h-2 flex-shrink-0 rounded-full bg-[#a0704b]" title="Has annotations" />}
+      {hasInk && <span className="w-2 h-2 flex-shrink-0 rounded-full bg-primary" title="Has annotations" />}
     </button>
   );
 }

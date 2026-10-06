@@ -78,7 +78,7 @@ export function ContactDetailPanel({
         <div className="px-4 py-3 border-b border-line/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-tint flex items-center justify-center">
-              <User className="h-5 w-5 text-[#a0704b]" />
+              <User className="h-5 w-5 text-accent-ink" />
             </div>
             <div className="flex-1 min-w-0">
               <StudentInfoBadges
@@ -119,11 +119,11 @@ export function ContactDetailPanel({
             </div>
           ) : studentContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-6 text-center">
-              <History className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+              <History className="h-10 w-10 text-gray-300 dark:text-gray-400 mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                 No contact history
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Record your first contact with this student's parent
               </p>
             </div>
@@ -157,11 +157,11 @@ export function ContactDetailPanel({
                         {c.brief_notes}
                       </p>
                     )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       by <TutorLink tutorId={c.tutor_id} tutorName={c.tutor_name} />
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
+                  <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0 mt-1" />
                 </button>
               ))}
             </div>
@@ -177,7 +177,7 @@ export function ContactDetailPanel({
               "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
               readOnly
                 ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                : "bg-[#a0704b] dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
+                : "bg-primary dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
             )}
             title={readOnly ? "Read-only access" : undefined}
           >
@@ -205,7 +205,7 @@ export function ContactDetailPanel({
 
         {/* Empty state */}
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <MessageCircle className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
+          <MessageCircle className="h-12 w-12 text-gray-300 dark:text-gray-400 mb-4" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Select a contact from the calendar to view details
           </p>
@@ -216,7 +216,7 @@ export function ContactDetailPanel({
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
               readOnly
                 ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                : "bg-[#a0704b] dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
+                : "bg-primary dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
             )}
             title={readOnly ? "Read-only access" : undefined}
           >
@@ -253,7 +253,7 @@ export function ContactDetailPanel({
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-1 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400 hover:text-[#a0704b]"
+                className="p-1 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400 hover:text-accent-ink"
                 title="Back to history"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -270,8 +270,8 @@ export function ContactDetailPanel({
               className={cn(
                 "p-1.5 rounded transition-colors",
                 readOnly
-                  ? "text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-[#a0704b]"
+                  ? "text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-accent-ink"
               )}
               title={readOnly ? "Read-only access" : "Edit"}
             >
@@ -283,8 +283,8 @@ export function ContactDetailPanel({
               className={cn(
                 "p-1.5 rounded transition-colors",
                 readOnly
-                  ? "text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500"
+                  ? "text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-600"
               )}
               title={readOnly ? "Read-only access" : "Delete"}
             >
@@ -299,7 +299,7 @@ export function ContactDetailPanel({
         {/* Student Info */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-[#a0704b]" />
+            <User className="h-4 w-4 text-accent-ink" />
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Student
             </span>
@@ -324,7 +324,7 @@ export function ContactDetailPanel({
         {/* Contact Info */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-[#a0704b]" />
+            <Calendar className="h-4 w-4 text-accent-ink" />
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Contact Date
             </span>
@@ -350,7 +350,7 @@ export function ContactDetailPanel({
           </div>
           <div className="space-y-2 flex-1">
             <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-[#a0704b]" />
+              <MessageCircle className="h-4 w-4 text-accent-ink" />
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Type
               </span>
@@ -367,7 +367,7 @@ export function ContactDetailPanel({
         {/* Contacted By */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-[#a0704b]" />
+            <User className="h-4 w-4 text-accent-ink" />
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Contacted By
             </span>
@@ -381,7 +381,7 @@ export function ContactDetailPanel({
         {contact.brief_notes && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[#a0704b]" />
+              <FileText className="h-4 w-4 text-accent-ink" />
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Notes
               </span>
@@ -398,7 +398,7 @@ export function ContactDetailPanel({
         {contact.follow_up_needed && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-blue-500" />
+              <Bell className="h-4 w-4 text-blue-600" />
               <span className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 Follow-up Scheduled
               </span>
@@ -422,7 +422,7 @@ export function ContactDetailPanel({
 
         {/* Metadata */}
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <Clock className="h-3 w-3" />
             Created {new Date(contact.created_at).toLocaleDateString('en-US', {
               month: 'short',
@@ -445,7 +445,7 @@ export function ContactDetailPanel({
             "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
             readOnly
               ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed border border-gray-300 dark:border-gray-600"
-              : "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+              : "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47] text-accent-ink dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
           )}
           title={readOnly ? "Read-only access" : undefined}
         >

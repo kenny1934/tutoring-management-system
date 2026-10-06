@@ -93,7 +93,7 @@ export default function BranchRevenueCard({ className }: { className?: string })
                     href={sheetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 text-primary hover:underline inline-flex items-center gap-0.5"
+                    className="ml-1 text-accent-ink hover:underline inline-flex items-center gap-0.5"
                   >
                     open sheet <ExternalLink className="h-3 w-3" />
                   </a>

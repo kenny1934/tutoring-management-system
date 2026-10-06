@@ -35,7 +35,7 @@ export function SidebarPane({ width, onResizeStart, children }: SidebarPaneProps
           "w-1.5 cursor-col-resize flex-shrink-0",
           "bg-[#d4c4a8] dark:bg-[#3a3228]",
           "hover:bg-[#c4a882] dark:hover:bg-[#5a4d3a]",
-          "active:bg-[#a0704b] dark:active:bg-[#8b6f47]",
+          "active:bg-primary dark:active:bg-[#8b6f47]",
           "transition-colors"
         )}
       />

@@ -55,8 +55,8 @@ export default function LessonWidePage() {
       <PageSurface fullHeight>
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
-            <AlertTriangle className="h-10 w-10 text-amber-500" />
-            <p className="text-sm text-[#8b7355]">
+            <AlertTriangle className="h-10 w-10 text-amber-700" />
+            <p className="text-sm text-ink-subtle">
               Missing required parameters. Open lesson mode from the sessions page.
             </p>
           </div>
@@ -109,8 +109,8 @@ export default function LessonWidePage() {
       <PageSurface fullHeight>
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
-            <AlertTriangle className="h-10 w-10 text-amber-500" />
-            <p className="text-sm text-[#8b7355]">
+            <AlertTriangle className="h-10 w-10 text-amber-700" />
+            <p className="text-sm text-ink-subtle">
               No sessions found for this time slot.
             </p>
           </div>

@@ -112,11 +112,11 @@ function StudentExerciseItem({
               <UrlBadge url={entry.exercise.url} />
             </div>
             {pageLabel && (
-              <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">{pageLabel}</span>
+              <span className="text-[10px] text-ink-subtle dark:text-[#8a7a60]">{pageLabel}</span>
             )}
           </div>
           {hasAnnotations && (
-            <span className="w-2 h-2 rounded-full bg-[#a0704b] mt-1.5 flex-shrink-0" title="Has annotations" />
+            <span className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" title="Has annotations" />
           )}
         </div>
       </button>
@@ -201,7 +201,7 @@ function StudentBlock({
           aria-label={expanded ? "Collapse" : "Expand"}
           className="flex-none w-8 h-10 grid place-items-center rounded-l-md hover:bg-[#e8d4b8]/70 dark:hover:bg-[#3a3228] transition-colors"
         >
-          <ChevronDown className={cn("h-4 w-4 text-[#a0906e] dark:text-[#8a7a60] transition-transform", !expanded && "-rotate-90")} />
+          <ChevronDown className={cn("h-4 w-4 text-ink-subtle dark:text-[#8a7a60] transition-transform", !expanded && "-rotate-90")} />
         </button>
         {/* div, not button: the lesson badge nests its own button/input. */}
         <div
@@ -269,13 +269,13 @@ function StudentBlock({
                 <ExerciseTypeSection
                   label="Classwork"
                   icon={PenTool}
-                  iconColor="text-rose-500 dark:text-rose-400"
+                  iconColor="text-rose-600 dark:text-rose-400"
                   printAll={onBulkPrintStudent && {
                     onPrint: () => onBulkPrintStudent(session, 'CW'),
                     isPrinting: isBulkPrinting,
                     title: getPrintButtonTitle(isBulkPrinting, printing?.progress, `Print all CW (${cwEntries.length})`),
                     label: `Print all CW for ${session.student_name}`,
-                    iconClassName: "text-rose-400 dark:text-rose-300",
+                    iconClassName: "text-rose-600 dark:text-rose-300",
                   }}
                   entries={cwEntries}
                   selectedEntry={selectedEntry}
@@ -291,13 +291,13 @@ function StudentBlock({
                 <ExerciseTypeSection
                   label="Homework"
                   icon={BookOpen}
-                  iconColor="text-blue-500 dark:text-blue-400"
+                  iconColor="text-blue-600 dark:text-blue-400"
                   printAll={onBulkPrintStudent && {
                     onPrint: () => onBulkPrintStudent(session, 'HW'),
                     isPrinting: isBulkPrinting,
                     title: getPrintButtonTitle(isBulkPrinting, printing?.progress, `Print all HW (${hwEntries.length})`),
                     label: `Print all HW for ${session.student_name}`,
-                    iconClassName: "text-blue-400 dark:text-blue-300",
+                    iconClassName: "text-blue-600 dark:text-blue-300",
                   }}
                   entries={hwEntries}
                   selectedEntry={selectedEntry}
@@ -310,7 +310,7 @@ function StudentBlock({
                 />
               )}
               {cwEntries.length === 0 && hwEntries.length === 0 && homework.length === 0 && (
-                <p className="text-xs text-[#b0a090] dark:text-[#706050] italic text-center py-2">
+                <p className="text-xs text-ink-subtle dark:text-[#706050] italic text-center py-2">
                   No exercises assigned
                 </p>
               )}
@@ -358,7 +358,7 @@ function ExerciseTypeSection({
           <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
             {label}
           </span>
-          <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">({entries.length})</span>
+          <span className="text-[10px] text-ink-subtle dark:text-[#706050]">({entries.length})</span>
         </div>
         <div className="flex items-center gap-0.5">
           {printAll && <PrintIconButton {...printAll} />}
@@ -369,7 +369,7 @@ function ExerciseTypeSection({
               title={`Edit ${label}`}
               aria-label={`Edit ${label}`}
             >
-              <Pencil className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
+              <Pencil className="h-3.5 w-3.5 text-ink-subtle dark:text-[#8a7a60]" />
             </button>
           )}
         </div>
@@ -435,12 +435,12 @@ function FileGroupItem({
           )}
         >
           <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>
-            <ChevronDown className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+            <ChevronDown className="h-3 w-3 text-ink-subtle dark:text-[#8a7a60]" />
           </div>
           <span className="text-xs font-medium text-[#6b5a42] dark:text-[#c4a882] truncate flex-1">
             {group.displayName}
           </span>
-          <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
+          <span className="text-[10px] text-ink-subtle dark:text-[#706050] tabular-nums flex-shrink-0">
             {group.entries.length}
           </span>
         </button>
@@ -450,7 +450,7 @@ function FileGroupItem({
             isPrinting={isGroupPrinting}
             title={getPrintButtonTitle(isGroupPrinting, printing?.progress, `Print for all ${group.entries.length} students`)}
             label={`Print ${group.displayName} for all ${group.entries.length} students`}
-            iconClassName={group.exerciseType === "CW" ? "text-rose-400 dark:text-rose-300" : "text-blue-400 dark:text-blue-300"}
+            iconClassName={group.exerciseType === "CW" ? "text-rose-600 dark:text-rose-300" : "text-blue-600 dark:text-blue-300"}
           />
         )}
       </div>
@@ -493,9 +493,9 @@ function FileGroupItem({
                       <div className="flex items-center gap-1.5 min-w-0">
                         {/* The school takes whatever room is left, which puts the lesson and pages at the right end. */}
                         <WithSchoolIfItFits school={entry.session.school} lineClass="h-5" className="flex-1 gap-x-1.5" badgeClassName="text-[10px] leading-4 py-0.5">
-                          <User className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
+                          <User className="h-3 w-3 text-ink-subtle dark:text-[#8a7a60] flex-shrink-0" />
                           {studentId && (
-                            <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
+                            <span className="text-[10px] font-mono text-ink-subtle dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
                           )}
                           <span className={cn(
                             "truncate font-medium",
@@ -511,12 +511,12 @@ function FileGroupItem({
                         </WithSchoolIfItFits>
                         <SessionLessonBadge session={entry.session} size="xs" className="flex-shrink-0" />
                         {pageLabel && (
-                          <span className="text-[10px] text-[#b0a090] dark:text-[#706050] flex-shrink-0">
+                          <span className="text-[10px] text-ink-subtle dark:text-[#706050] flex-shrink-0">
                             {pageLabel}
                           </span>
                         )}
                         {hasAnno && (
-                          <span className="w-2 h-2 rounded-full bg-[#a0704b] flex-shrink-0" title="Has annotations" />
+                          <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" title="Has annotations" />
                         )}
                       </div>
                     </button>
@@ -609,7 +609,7 @@ export function LessonWideSidebar({
             "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
             sidebarMode === "by-student"
               ? "bg-[#e8d4b8] dark:bg-[#3a3228] text-[#6b4c30] dark:text-[#d4a574]"
-              : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+              : "text-ink-subtle dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           )}
         >
           <Users className="h-3 w-3" />
@@ -621,7 +621,7 @@ export function LessonWideSidebar({
             "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
             sidebarMode === "by-file"
               ? "bg-[#e8d4b8] dark:bg-[#3a3228] text-[#6b4c30] dark:text-[#d4a574]"
-              : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+              : "text-ink-subtle dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           )}
         >
           <FileStack className="h-3 w-3" />
@@ -663,14 +663,14 @@ export function LessonWideSidebar({
           <div className="relative flex gap-1.5 px-1 pb-3">
             <button
               onClick={() => setPickerType(pickerType === "CW" ? null : "CW")}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-rose-300 dark:border-rose-700/50 text-rose-500 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-900/10 hover:text-rose-600 dark:hover:text-rose-300 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-rose-300 dark:border-rose-700/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-900/10 hover:text-rose-600 dark:hover:text-rose-300 transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Assign CW
             </button>
             <button
               onClick={() => setPickerType(pickerType === "HW" ? null : "HW")}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-blue-300 dark:border-blue-700/50 text-blue-500 dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-blue-300 dark:border-blue-700/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Assign HW
@@ -724,7 +724,7 @@ export function LessonWideSidebar({
             {cwFileGroups.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 px-2 mb-1">
-                  <PenTool className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
+                  <PenTool className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
                   <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
                     Classwork
                   </span>
@@ -751,7 +751,7 @@ export function LessonWideSidebar({
             {hwFileGroups.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 px-2 mb-1">
-                  <BookOpen className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                  <BookOpen className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                   <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">
                     Homework
                   </span>
@@ -776,7 +776,7 @@ export function LessonWideSidebar({
               </div>
             )}
             {cwFileGroups.length === 0 && hwFileGroups.length === 0 && (
-              <p className="text-xs text-[#b0a090] dark:text-[#706050] italic text-center py-4">
+              <p className="text-xs text-ink-subtle dark:text-[#706050] italic text-center py-4">
                 No exercises assigned
               </p>
             )}

@@ -216,7 +216,7 @@ export function TopicCorrectionPicker({
             onClick={close}
             className={cn(
               hitArea,
-              "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              "rounded text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             )}
           >
             <X className="h-3 w-3" />
@@ -249,7 +249,7 @@ export function TopicCorrectionPicker({
           </div>
         )}
         {query.trim() && matches.length === 0 && (
-          <p className="mt-1 text-[10px] text-gray-400">
+          <p className="mt-1 text-[10px] text-gray-500">
             No matching topic. Try another name or a chapter code.
           </p>
         )}
@@ -288,7 +288,7 @@ export function TopicCorrectionPicker({
         {conceptNameForStream(state.concept, stream)}
       </span>
       {state.status === "saving" ? (
-        <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
+        <Loader2 className="h-3 w-3 animate-spin text-gray-500 shrink-0" />
       ) : (
         <RecordedNote isRevision={state.isRevision} onUndo={undo} />
       )}

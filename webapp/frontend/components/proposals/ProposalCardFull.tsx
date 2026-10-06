@@ -81,7 +81,7 @@ function StudentInSlot({ session }: { session: Session }) {
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <span className="text-gray-400 font-mono">{session.school_student_id}</span>
+      <span className="text-gray-500 font-mono">{session.school_student_id}</span>
       <span className="text-gray-700 dark:text-gray-300">{session.student_name}</span>
       <GradeBadge
         className="px-1 py-0.5 text-[10px] font-medium rounded text-gray-800"
@@ -253,7 +253,7 @@ function SlotItem({
               {canEdit && !isEditing && (
                 <button
                   onClick={() => onStartEdit(slot.id)}
-                  className="ml-auto p-1 text-gray-400 hover:text-[#a0704b] dark:hover:text-[#cd853f] rounded transition-colors"
+                  className="ml-auto p-1 text-gray-500 hover:text-accent-ink dark:hover:text-[#cd853f] rounded transition-colors"
                   title="Edit slot"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -317,7 +317,7 @@ function SlotItem({
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors disabled:opacity-50"
                   >
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save
@@ -335,7 +335,7 @@ function SlotItem({
               <>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
-                    <Calendar className="h-4 w-4 text-[#a0704b]" />
+                    <Calendar className="h-4 w-4 text-accent-ink" />
                     {formatProposalDate(slot.proposed_date)} at {slot.proposed_time_slot}
                   </div>
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -372,7 +372,7 @@ function SlotItem({
                       </p>
                     )}
                     {isFull && (
-                      <div className="mt-2 flex items-center gap-1 text-xs text-red-500 font-medium">
+                      <div className="mt-2 flex items-center gap-1 text-xs text-red-600 font-medium">
                         <AlertTriangle className="h-3.5 w-3.5" />
                         This slot is full
                       </div>
@@ -670,7 +670,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0 flex-1">
               <div className="p-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-line flex-shrink-0">
-                <CalendarClock className="h-5 w-5 text-[#a0704b]" />
+                <CalendarClock className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="min-w-0 flex-1">
                 {/* First row: status, student info */}
@@ -678,7 +678,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                   <SlotStatusBadge status={proposal.status} />
                   {session && (
                     <>
-                      <span className="text-sm text-gray-400 font-mono">
+                      <span className="text-sm text-gray-500 font-mono">
                         {session.school_student_id}
                       </span>
                       <span className="font-medium text-gray-900 dark:text-white truncate">
@@ -701,7 +701,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                       <User className="h-3 w-3" />
                       {session.tutor_name}
                     </span>
-                    <span className="text-gray-400">
+                    <span className="text-gray-500">
                       {proposal.proposal_type === "needs_input"
                         ? "• Input requested"
                         : `• ${proposal.slots.length} slot${proposal.slots.length !== 1 ? "s" : ""}`}
@@ -737,7 +737,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
               )}
               <ChevronDown
                 className={cn(
-                  "h-5 w-5 text-gray-400 transition-transform duration-200",
+                  "h-5 w-5 text-gray-500 transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )}
               />
@@ -754,17 +754,17 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Users className="h-5 w-5 text-gray-400" />
+                      <Users className="h-5 w-5 text-gray-500" />
                       <Link
                         href={`/students/${session.student_id}`}
-                        className="group flex items-center gap-2 hover:text-[#a0704b] transition-colors"
+                        className="group flex items-center gap-2 hover:text-accent-ink transition-colors"
                       >
                         {session.school_student_id && (
-                          <span className="text-sm text-gray-400 font-mono">
+                          <span className="text-sm text-gray-500 font-mono">
                             {session.school_student_id}
                           </span>
                         )}
-                        <span className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-[#a0704b]">
+                        <span className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-accent-ink">
                           {session.student_name}
                         </span>
                       </Link>
@@ -796,7 +796,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                   {/* View Session with popover */}
                   <button
                     onClick={handleViewSessionClick}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-lg transition-colors"
                   >
                     <Eye className="h-4 w-4" />
                     View Session
@@ -819,7 +819,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                 </span>
                 {isProposer && " (You)"}
               </div>
-              <div className="text-gray-400 dark:text-gray-500">
+              <div className="text-gray-500 dark:text-gray-400">
                 {new Date(proposal.created_at).toLocaleString("en-US", {
                   month: "short",
                   day: "numeric",
@@ -833,7 +833,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
             {proposal.notes && (
               <div className="px-5 py-3 text-sm bg-amber-50/50 dark:bg-amber-900/10 border-b border-line">
                 <div className="flex items-start gap-2">
-                  <MessageSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <MessageSquare className="h-4 w-4 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                   <p className="text-gray-700 dark:text-gray-300">{proposal.notes}</p>
                 </div>
               </div>
@@ -894,7 +894,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                     <div className="flex gap-3">
                       <button
                         onClick={onSelectSlot}
-                        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-lg transition-colors shadow-sm"
+                        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors shadow-sm"
                       >
                         <Calendar className="h-5 w-5" />
                         Select Make-up Slot

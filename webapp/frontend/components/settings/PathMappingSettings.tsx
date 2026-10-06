@@ -156,7 +156,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
     <div className="space-y-6">
       {/* Info box */}
       <div className="flex gap-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-        <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <Info className="h-5 w-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
         <div className="text-sm text-amber-800 dark:text-amber-200">
           <p className="font-medium mb-1">Setting up shared drives:</p>
           <ol className="text-amber-700 dark:text-amber-300 list-decimal list-inside space-y-1">
@@ -172,7 +172,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
 
       {error && (
         <div className="flex gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 shrink-0" />
+          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
           <span className="text-sm text-red-800 dark:text-red-200">{error}</span>
         </div>
       )}
@@ -209,7 +209,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                         {mapping.alias}
                       </span>
                       <span className="text-foreground/40">→</span>
-                      <span className="font-mono text-amber-600 dark:text-amber-400">
+                      <span className="font-mono text-amber-700 dark:text-amber-400">
                         {mapping.drivePath}
                       </span>
                     </div>
@@ -244,7 +244,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                   </div>
                   <button
                     onClick={() => handleRemoveMapping(mapping.alias)}
-                    className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-foreground/40 hover:text-red-500 transition-colors"
+                    className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-foreground/40 hover:text-red-600 transition-colors"
                     title="Remove mapping"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -331,7 +331,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
       )}
 
       {aliases.length === 0 && (
-        <div className="text-center py-4 text-amber-600 dark:text-amber-400 text-sm">
+        <div className="text-center py-4 text-amber-700 dark:text-amber-400 text-sm">
           No aliases have been defined yet. Ask an administrator to create some.
         </div>
       )}

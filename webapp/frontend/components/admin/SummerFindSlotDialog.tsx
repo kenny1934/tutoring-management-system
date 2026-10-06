@@ -245,7 +245,7 @@ export function SummerFindSlotDialog({
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : error ? (
-                  <div className="text-center py-4 text-xs text-red-500">
+                  <div className="text-center py-4 text-xs text-red-600">
                     Failed to load.
                   </div>
                 ) : !results || results.length === 0 ? (
@@ -270,9 +270,9 @@ export function SummerFindSlotDialog({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 text-xs font-medium">
                               {result.lesson_match ? (
-                                <Check className="h-3 w-3 text-green-500 shrink-0" />
+                                <Check className="h-3 w-3 text-green-700 shrink-0" />
                               ) : (
-                                <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                                <AlertTriangle className="h-3 w-3 text-amber-700 shrink-0" />
                               )}
                               <span>{formatShortDate(result.date)}</span>
                               <span className="text-muted-foreground">{result.time_slot}</span>
@@ -426,7 +426,7 @@ export function SummerFindSlotDialog({
                             >
                               <span className={cn(
                                 "font-bold",
-                                isMatch ? "text-green-700 dark:text-green-400" : "text-amber-600 dark:text-amber-400"
+                                isMatch ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"
                               )}>
                                 L{lesson.lesson_number}
                               </span>

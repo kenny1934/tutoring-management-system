@@ -53,8 +53,8 @@ export function FoldingAnswerKey({ children }: { children: ReactNode }) {
           "border-l border-[#d4c4a8] dark:border-[#3a3228]",
           "text-sm font-medium transition-colors",
           out
-            ? "bg-[#a0704b] text-white"
-            : "bg-[#f0e6d4] dark:bg-[#252018] text-[#8b7355] dark:text-[#a09080] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228]",
+            ? "bg-primary text-white"
+            : "bg-[#f0e6d4] dark:bg-[#252018] text-ink-subtle dark:text-[#a09080] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228]",
           "@[1100px]/viewers:hidden",
         )}
       >

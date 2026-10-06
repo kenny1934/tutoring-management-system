@@ -175,7 +175,7 @@ export default function GeometryViewerModal({
               style={{ height: "450px", touchAction: "manipulation" }}
             />
           ) : (
-            <div className="flex items-center justify-center h-[450px] text-sm text-gray-400">
+            <div className="flex items-center justify-center h-[450px] text-sm text-gray-500">
               Loading viewer...
             </div>
           )}
@@ -189,7 +189,7 @@ export default function GeometryViewerModal({
                 onClick={() => boardRef.current?.zoomIn()}
                 title="Zoom in"
                 aria-label="Zoom in"
-                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
               </button>
@@ -197,7 +197,7 @@ export default function GeometryViewerModal({
                 onClick={() => boardRef.current?.zoomOut()}
                 title="Zoom out"
                 aria-label="Zoom out"
-                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </button>
@@ -205,7 +205,7 @@ export default function GeometryViewerModal({
                 onClick={handleZoomReset}
                 title="Reset view"
                 aria-label="Reset view"
-                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
@@ -213,7 +213,7 @@ export default function GeometryViewerModal({
             <button
               onClick={handleExportPng}
               title="Export as PNG"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
               <span>PNG</span>
@@ -223,7 +223,7 @@ export default function GeometryViewerModal({
             <button
               onClick={handleCopyImage}
               title="Copy diagram as image"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <Copy className="h-3.5 w-3.5" />
               <span>{copied ? "Copied!" : "Copy Image"}</span>
@@ -232,7 +232,7 @@ export default function GeometryViewerModal({
               <button
                 onClick={handleEditAsNew}
                 title="Edit as new diagram"
-                className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <Pencil className="h-3.5 w-3.5" />
                 <span>Edit as New</span>

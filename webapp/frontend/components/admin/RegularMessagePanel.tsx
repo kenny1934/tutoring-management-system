@@ -193,14 +193,14 @@ export function RegularMessagePanel({
             type="checkbox"
             checked={isEditable}
             onChange={(e) => setIsEditable(e.target.checked)}
-            className="rounded border-gray-300 text-primary focus:ring-primary"
+            className="rounded border-gray-300 text-accent-ink focus:ring-primary"
           />
           Edit before copying
           {isEditable && draft !== null && (
             <button
               type="button"
               onClick={handleReset}
-              className="text-xs text-primary hover:underline ml-2"
+              className="text-xs text-accent-ink hover:underline ml-2"
             >
               Reset
             </button>
@@ -295,7 +295,7 @@ function MarkButton({
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50",
         tone === "offer"
-          ? "border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+          ? "border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"
           : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
       )}
     >

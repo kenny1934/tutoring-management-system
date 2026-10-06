@@ -290,7 +290,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
       tabIndex={0}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleJump(messageId); }}
       onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleJump(messageId); } }}
-      className="p-1 rounded text-gray-300 dark:text-gray-600 hover:text-[#a0704b] dark:hover:text-[#a0704b] hover:bg-tint/80 transition-colors flex-shrink-0 cursor-pointer"
+      className="p-1 rounded text-gray-300 dark:text-gray-400 hover:text-accent-ink dark:hover:text-[#a0704b] hover:bg-tint/80 transition-colors flex-shrink-0 cursor-pointer"
       title="Jump to message"
     >
       <CornerDownLeft className="h-3 w-3" />
@@ -304,7 +304,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Shared content</h3>
         <button
           onClick={onClose}
-          className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-1 rounded-full text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title="Close"
           aria-label="Close media panel"
         >
@@ -321,7 +321,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
             className={cn(
               "flex-1 py-2 text-xs font-medium transition-colors relative",
               activeTab === key
-                ? "text-[#a0704b]"
+                ? "text-accent-ink"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             )}
           >
@@ -329,13 +329,13 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
             {count > 0 && (
               <span className={cn(
                 "ml-1 text-[10px] tabular-nums",
-                activeTab === key ? "text-[#a0704b]" : "text-gray-400"
+                activeTab === key ? "text-accent-ink" : "text-gray-500"
               )}>
                 {count}
               </span>
             )}
             {activeTab === key && (
-              <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#a0704b] rounded-full" />
+              <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
             )}
           </button>
         ))}
@@ -347,7 +347,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
           <select
             value={selectedSender || ""}
             onChange={(e) => setSelectedSender(e.target.value || null)}
-            className="w-full text-xs px-2 py-1 border border-line rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className="w-full text-xs px-2 py-1 border border-line rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="">All senders</option>
             {senders.map(s => <option key={s} value={s}>{s}</option>)}
@@ -364,7 +364,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
             <div className="p-2">
               {Array.from(mediaByMonth.entries()).map(([month, items]) => (
                 <div key={month}>
-                  <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-1 py-1.5">{month}</div>
+                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 px-1 py-1.5">{month}</div>
                   <div className="grid grid-cols-3 gap-1">
                     {items.map((item, i) => {
                       const lightboxIdx = item.type !== "video" ? (lightboxIndexMap.get(item.url) ?? -1) : -1;
@@ -424,17 +424,17 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
-                  <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
+                  <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
                       {file.content_type.split("/").pop()?.toUpperCase()} · {file.sender} · {formatDate(file.date)}
                     </div>
                   </div>
                   {jumpButton(file.messageId)}
-                  <Download className="h-3.5 w-3.5 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
+                  <Download className="h-3.5 w-3.5 text-gray-500 group-hover:text-accent-ink transition-colors flex-shrink-0" />
                 </a>
               ))}
             </div>
@@ -454,12 +454,12 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
                 >
-                  <div className="p-2 rounded-lg bg-tint text-[#a0704b] flex-shrink-0">
+                  <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                     <ExternalLink className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{link.url}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
                       {link.domain} · {link.sender} · {formatDate(link.date)}
                     </div>
                   </div>
@@ -482,7 +482,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                 >
                   <AudioPlayer src={item.url} filename={item.filename} duration={item.duration} />
                   <div className="flex items-center justify-between mt-1.5">
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
                       {item.sender} · {formatDate(item.date)}
                     </div>
                     {jumpButton(item.messageId)}
@@ -510,12 +510,12 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                     dangerouslySetInnerHTML={{ __html: item.rendered }}
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
                       {item.sender} · {formatDate(item.date)}
                     </div>
                     <div className="flex items-center gap-1">
                       {jumpButton(item.messageId)}
-                      <Copy className="h-3 w-3 text-gray-300 dark:text-gray-600 group-hover:text-[#a0704b] transition-colors" />
+                      <Copy className="h-3 w-3 text-gray-300 dark:text-gray-400 group-hover:text-accent-ink transition-colors" />
                     </div>
                   </div>
                 </button>
@@ -540,16 +540,16 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                     {item.svgThumbnail ? (
                       <img src={item.svgThumbnail} alt="Geometry diagram" className="w-full h-full object-contain" />
                     ) : (
-                      <Triangle className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                      <Triangle className="h-8 w-8 text-gray-300 dark:text-gray-400" />
                     )}
                   </div>
                   <div className="px-2 py-1.5 flex items-center justify-between">
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                       {item.sender} · {formatDate(item.date)}
                     </div>
                     {onJumpToMessage && (
                       <div onClick={(e) => { e.stopPropagation(); handleJump(item.messageId); }}>
-                        <div className="p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-[#a0704b] cursor-pointer">
+                        <div className="p-0.5 rounded text-gray-300 dark:text-gray-400 hover:text-accent-ink cursor-pointer">
                           <CornerDownLeft className="h-3 w-3" />
                         </div>
                       </div>
@@ -586,7 +586,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
 
 function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+    <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
       {icon}
       <span className="text-sm mt-2">{text}</span>
     </div>
