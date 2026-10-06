@@ -165,7 +165,7 @@ export function SummerMessagePanel({
             "w-full h-64 p-3 text-sm font-mono rounded-lg border resize-none transition-colors",
             isEditable
               ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-              : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 cursor-default",
+              : "border-field bg-gray-100 dark:bg-gray-900 cursor-default",
           )}
         />
       </div>

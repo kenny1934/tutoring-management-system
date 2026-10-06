@@ -1100,7 +1100,7 @@ export default function SummerArrangementPage() {
               <select
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+                className="px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
               >
                 {locations.map((loc) => (
                   <option key={loc.name} value={loc.name}>

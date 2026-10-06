@@ -1224,7 +1224,7 @@ export function PdfPageViewer({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-ink-subtle py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-8 text-center rounded border border-field bg-white/50 dark:bg-black/20 text-[11px] text-ink-subtle py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <span>/ {pages.length}</span>
         </div>

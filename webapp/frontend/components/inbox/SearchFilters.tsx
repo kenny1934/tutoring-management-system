@@ -25,7 +25,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
         <select
           value={filters.from_tutor_id || ""}
           onChange={(e) => onChange({ ...filters, from_tutor_id: e.target.value ? Number(e.target.value) : undefined })}
-          className="text-xs px-2 py-1 border border-line rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+          className="text-xs px-2 py-1 border border-field rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
         >
           <option value="" className="bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100">Any sender</option>
           {[...tutors].sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))).map(t => (

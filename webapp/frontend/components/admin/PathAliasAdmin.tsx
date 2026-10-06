@@ -166,7 +166,7 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
               className={cn(
                 "w-full px-3 py-2 rounded-lg border",
                 "bg-white dark:bg-gray-800",
-                "border-gray-300 dark:border-gray-600",
+                "border-field",
                 "text-gray-900 dark:text-gray-100",
                 "focus:outline-none focus:ring-2 focus:ring-amber-400"
               )}
@@ -184,7 +184,7 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
               className={cn(
                 "w-full px-3 py-2 rounded-lg border",
                 "bg-white dark:bg-gray-800",
-                "border-gray-300 dark:border-gray-600",
+                "border-field",
                 "text-gray-900 dark:text-gray-100",
                 "focus:outline-none focus:ring-2 focus:ring-amber-400"
               )}

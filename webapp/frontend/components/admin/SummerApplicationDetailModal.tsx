@@ -55,7 +55,7 @@ import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDeta
 import { MoveSessionPopover } from "@/components/admin/MoveSessionPopover";
 import { UserPlus, ArrowRightLeft } from "lucide-react";
 
-const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
+const inputClass = "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
 const NEXT_STATUS_MAP: Record<string, string[]> = {
   "Submitted":           ["Under Review", "Rejected"],
@@ -1800,7 +1800,7 @@ export function SummerApplicationDetailModal({
                     title={app.is_existing_student && app.is_existing_student !== "None"
                       ? `Applicant claims: ${app.is_existing_student}`
                       : "Verified branch origin"}
-                    className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
+                    className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-field bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
                   >
                     <option value="">Unverified</option>
                     <option value="New">New</option>
@@ -2082,7 +2082,7 @@ export function SummerApplicationDetailModal({
                         value={planDraft ?? planCurrent}
                         onChange={(e) => setPlanDraft(parseInt(e.target.value, 10))}
                         disabled={planSaving}
-                        className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-foreground disabled:opacity-50"
+                        className="px-2 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800 text-foreground disabled:opacity-50"
                       >
                         {planOptions.map((n) => (
                           <option key={n} value={n}>{n}{n === planTotal ? " (full plan)" : ""}</option>
@@ -2450,7 +2450,7 @@ export function SummerApplicationDetailModal({
                               setBuddyEditCode(e.target.value.toUpperCase());
                               setBuddyEditValid(null);
                             }}
-                            className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-border bg-background"
+                            className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-field bg-background"
                             placeholder="BG-XXXX"
                           />
                           <button
@@ -2507,7 +2507,7 @@ export function SummerApplicationDetailModal({
                           type="text"
                           value={buddySearchQuery}
                           onChange={(e) => setBuddySearchQuery(e.target.value)}
-                          className="w-full text-xs px-2 py-1.5 rounded-lg border border-border bg-background"
+                          className="w-full text-xs px-2 py-1.5 rounded-lg border border-field bg-background"
                           placeholder="Search by name, ref code, or phone..."
                         />
                         {buddySearchLoading && (

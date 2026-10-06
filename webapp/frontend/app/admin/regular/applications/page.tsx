@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import type { RegularApplication, RegularPublishResult } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** The ladder, split the way the status menu groups it: the rungs an
  *  application climbs, then the ways it leaves. Both come from the shared
@@ -421,7 +421,7 @@ export default function RegularApplicationsPage() {
                   <select
                     value={locationFilter || ""}
                     onChange={(e) => setLocationFilter(e.target.value || null)}
-                    className="px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground"
+                    className="px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-field rounded-lg bg-card text-foreground"
                     title="Filter by branch"
                   >
                     <option value="">All</option>
@@ -490,7 +490,7 @@ export default function RegularApplicationsPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder='Search name, phone, ref code, student ID... (press "/")'
-                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
                 />
                 {searchQuery && (
                   <button

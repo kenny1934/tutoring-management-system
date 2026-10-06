@@ -386,7 +386,7 @@ export function WaitlistEntryModal({
                     }}
                     onFocus={() => setShowStudentSearch(true)}
                     placeholder="Search by name, ID, or phone..."
-                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 {showStudentSearch && studentResults.length > 0 && (
@@ -431,7 +431,7 @@ export function WaitlistEntryModal({
                 type="text"
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. Chan Tai Man"
               />
             </div>
@@ -443,7 +443,7 @@ export function WaitlistEntryModal({
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. 91234567"
               />
             </div>
@@ -466,7 +466,7 @@ export function WaitlistEntryModal({
                 onBlur={() =>
                   setTimeout(() => setShowSchoolOptions(false), 200)
                 }
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. PCMS"
               />
               {showSchoolOptions && filteredSchools.length > 0 && (
@@ -494,7 +494,7 @@ export function WaitlistEntryModal({
               <select
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select</option>
                 {GRADES.map((g) => (
@@ -511,7 +511,7 @@ export function WaitlistEntryModal({
               <select
                 value={langStream}
                 onChange={(e) => setLangStream(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">—</option>
                 {LANG_STREAMS.map((ls) => (
@@ -533,7 +533,7 @@ export function WaitlistEntryModal({
               type="text"
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Optional"
             />
           </div>
@@ -546,7 +546,7 @@ export function WaitlistEntryModal({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
               rows={2}
               placeholder="Source, context, etc."
             />
@@ -582,7 +582,7 @@ export function WaitlistEntryModal({
                       onChange={(e) =>
                         updateSlotPreference(i, "location", e.target.value)
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       {locations
                         .filter((l) => l !== "All Locations")
@@ -601,7 +601,7 @@ export function WaitlistEntryModal({
                           e.target.value || null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Any day</option>
                       {DAYS.map((d) => (
@@ -619,7 +619,7 @@ export function WaitlistEntryModal({
                           e.target.value || null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary flex-1"
+                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary flex-1"
                     >
                       <option value="">Any time</option>
                       {(sp.day_of_week
@@ -640,7 +640,7 @@ export function WaitlistEntryModal({
                           e.target.value ? Number(e.target.value) : null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Any tutor</option>
                       {[...tutors]

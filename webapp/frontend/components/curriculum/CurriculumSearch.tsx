@@ -135,7 +135,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={dropdownOpen && input.trim() !== ""}
-          className="w-full pl-8 pr-8 py-2 text-sm rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          className="w-full pl-8 pr-8 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
         {(input || active) && (
           <button

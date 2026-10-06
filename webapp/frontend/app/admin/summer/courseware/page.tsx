@@ -205,7 +205,7 @@ export default function AdminSummerCoursewarePage() {
               <select
                 value={year ?? ""}
                 onChange={(e) => setYear(parseInt(e.target.value))}
-                className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
+                className="px-3 py-1.5 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
               >
                 {configs.map((c) => (
                   <option key={c.id} value={c.year}>

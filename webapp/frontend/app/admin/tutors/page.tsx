@@ -297,7 +297,7 @@ function TutorsPageInner() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search tutors…"
-                className="w-full sm:w-64 pl-9 pr-3 py-2 text-sm rounded-lg border border-foreground/15 bg-white dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full sm:w-64 pl-9 pr-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </div>

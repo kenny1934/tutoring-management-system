@@ -185,7 +185,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                       step={0.1}
                       value={margins[side]}
                       onChange={(e) => setMargins(m => ({ ...m, [side]: parseFloat(e.target.value) || 0 }))}
-                      className="flex-1 px-2 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-field bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </label>
                 ))}
@@ -294,7 +294,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         value={watermark.text || ""}
                         onChange={(e) => setWatermark(w => ({ ...w, text: e.target.value }))}
                         placeholder="e.g. DRAFT, CONFIDENTIAL"
-                        className="w-full px-3 py-1.5 rounded-lg border border-line bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                     </div>
                   ) : (
@@ -405,7 +405,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontFamily || ""}
                     onChange={(e) => setBodyFontFamily(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {HF_FONTS_LATIN.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -417,7 +417,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontFamilyCjk || ""}
                     onChange={(e) => setBodyFontFamilyCjk(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {HF_FONTS_CJK.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -429,7 +429,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <select
                     value={bodyFontSize}
                     onChange={(e) => setBodyFontSize(parseInt(e.target.value))}
-                    className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {[8, 10, 12, 14, 16, 18, 20, 24].map((s) => (
                       <option key={s} value={s}>{s}px</option>
@@ -501,7 +501,7 @@ function HeaderFooterSection({
                   value={config[pos]}
                   onChange={(e) => onChange({ ...config, [pos]: e.target.value })}
                   placeholder={pos === "center" ? "e.g. Page {page}" : ""}
-                  className="w-full px-2 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-full px-2 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </div>
             ))}
@@ -514,7 +514,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontFamily || ""}
                 onChange={(e) => onChange({ ...config, fontFamily: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONTS_LATIN.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -526,7 +526,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontFamilyCjk || ""}
                 onChange={(e) => onChange({ ...config, fontFamilyCjk: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONTS_CJK.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
@@ -538,7 +538,7 @@ function HeaderFooterSection({
               <select
                 value={config.fontSize ?? 9}
                 onChange={(e) => onChange({ ...config, fontSize: parseInt(e.target.value) })}
-                className="w-full px-1.5 py-1 rounded border border-line bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONT_SIZES.map((s) => (
                   <option key={s} value={s}>{s}px</option>
@@ -555,7 +555,7 @@ function HeaderFooterSection({
                 <select
                   value={config.imagePosition || "left"}
                   onChange={(e) => onChange({ ...config, imagePosition: e.target.value as "left" | "center" | "right" })}
-                  className="text-[10px] px-1 py-0.5 rounded border border-line bg-white dark:bg-[#2a2420] text-foreground"
+                  className="text-[10px] px-1 py-0.5 rounded border border-field bg-white dark:bg-[#2a2420] text-foreground"
                 >
                   <option value="left">Left</option>
                   <option value="center">Center</option>

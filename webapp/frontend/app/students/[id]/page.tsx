@@ -1237,7 +1237,7 @@ function ProfileTab({
                       staff_referral_notes: e.target.value
                     }))}
                     placeholder="Enter staff referral details..."
-                    className="w-full px-3 py-2 text-sm rounded-md border border-line bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
                   />
                 </div>
               )}
@@ -3270,7 +3270,7 @@ function CoursewareTab({
             placeholder="Search exercises..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
           />
         </div>
 
@@ -3822,7 +3822,7 @@ function RatingsTab({
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as 'all' | 'rated' | 'notes')}
-          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="text-xs px-2 py-1.5 rounded-lg border border-field bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
         >
           <option value="all">All ({stats.total})</option>
           <option value="rated">Has rating ({stats.rated})</option>
@@ -3831,7 +3831,7 @@ function RatingsTab({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'date' | 'rating')}
-          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="text-xs px-2 py-1.5 rounded-lg border border-field bg-paper text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
         >
           <option value="date">By date</option>
           <option value="rating">By rating</option>

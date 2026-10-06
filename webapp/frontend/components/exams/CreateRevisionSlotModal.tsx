@@ -225,7 +225,7 @@ export function CreateRevisionSlotModal({
               onChange={(e) => setSessionDate(e.target.value)}
               min={toDateString(new Date())}
               aria-label="Session date"
-              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
               aria-required="true"
             />
@@ -295,7 +295,7 @@ export function CreateRevisionSlotModal({
                     aria-invalid={!isTimeValid ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
-                      !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      !isTimeValid ? "border-red-500" : "border-field"
                     )}
                     required
                     aria-required="true"
@@ -310,7 +310,7 @@ export function CreateRevisionSlotModal({
                     aria-invalid={!isTimeValid ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
-                      !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      !isTimeValid ? "border-red-500" : "border-field"
                     )}
                     required
                     aria-required="true"
@@ -325,7 +325,7 @@ export function CreateRevisionSlotModal({
                 value={selectedPresetSlot}
                 onChange={(e) => setSelectedPresetSlot(e.target.value)}
                 aria-label="Time slot"
-                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+                className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
                 required
                 aria-required="true"
               >
@@ -351,7 +351,7 @@ export function CreateRevisionSlotModal({
               value={tutorId}
               onChange={(e) => setTutorId(parseInt(e.target.value))}
               aria-label="Tutor"
-              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
               aria-required="true"
             >
@@ -375,7 +375,7 @@ export function CreateRevisionSlotModal({
               disabled={isLocationLocked}
               aria-label="Location"
               className={cn(
-                "w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]",
+                "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
                 isLocationLocked && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
               )}
               required
@@ -415,7 +415,7 @@ export function CreateRevisionSlotModal({
               rows={2}
               placeholder="Any additional notes about this revision slot..."
               aria-label="Notes"
-              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
+              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
             />
           </div>
 

@@ -1458,7 +1458,7 @@ export default function EnrollmentDetailPage() {
                                   "w-full h-48 p-3 text-xs font-mono rounded-lg border resize-none transition-colors",
                                   isEditingMessage
                                     ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-                                    : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 cursor-default"
+                                    : "border-field bg-gray-50 dark:bg-gray-900 cursor-default"
                                 )}
                               />
                               <label className="flex items-center gap-2 mt-2 text-xs text-gray-500 cursor-pointer">
@@ -1573,7 +1573,7 @@ export default function EnrollmentDetailPage() {
                     <select
                       value={extensionForm.weeks}
                       onChange={(e) => setExtensionForm({ ...extensionForm, weeks: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-field rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       {[...Array(53)].map((_, i) => (
                         <option key={i} value={i}>{i} week{i !== 1 ? 's' : ''}</option>
@@ -1605,7 +1605,7 @@ export default function EnrollmentDetailPage() {
                       onChange={(e) => setExtensionForm({ ...extensionForm, reason: e.target.value })}
                       placeholder="Enter reason for extension (required for audit trail)"
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                      className="w-full px-3 py-2 border border-field rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     />
                   </div>
 

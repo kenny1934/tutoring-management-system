@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Send, X } from "lucide-react";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 interface BatchActionBarProps {
   /** How many rows are checked. The bar hides itself at zero. */

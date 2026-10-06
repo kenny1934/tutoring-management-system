@@ -807,7 +807,7 @@ export default function RegularArrangementPage() {
                 <select
                   value={location}
                   onChange={(e) => { setLocation(e.target.value); setPendingPlacementAppId(null); }}
-                  className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+                  className="px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
                   aria-label="Branch"
                 >
                   {locations.map((l) => (

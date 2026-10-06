@@ -1007,7 +1007,7 @@ export default function DocumentsPage() {
                 <input autoFocus type="text" placeholder="Type a tag name..."
                   value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
-                  className="w-full px-3 py-2 rounded-lg border border-line bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full px-3 py-2 rounded-lg border border-field bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
                 {tagNames.length > 0 && (
                   <div className="flex flex-wrap gap-1">

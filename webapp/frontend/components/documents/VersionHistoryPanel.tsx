@@ -148,7 +148,7 @@ export function VersionHistoryPanel({
             onChange={(e) => setCheckpointLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleCreateCheckpoint(); }}
             placeholder="Checkpoint label (optional)"
-            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-line bg-white dark:bg-[#1a1410] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-primary"
+            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-field bg-white dark:bg-[#1a1410] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-primary"
           />
           <button
             onClick={handleCreateCheckpoint}

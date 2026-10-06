@@ -248,7 +248,7 @@ export function EditRevisionSlotModal({
               disabled={hasEnrolledStudents}
               aria-label="Session date"
               className={cn(
-                "w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]",
+                "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
                 hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
               )}
               required
@@ -287,7 +287,7 @@ export function EditRevisionSlotModal({
                     aria-label="Start time"
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
-                      !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      !isTimeValid ? "border-red-500" : "border-field"
                     )}
                     required
                     aria-required="true"
@@ -300,7 +300,7 @@ export function EditRevisionSlotModal({
                     aria-label="End time"
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
-                      !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      !isTimeValid ? "border-red-500" : "border-field"
                     )}
                     required
                     aria-required="true"
@@ -317,7 +317,7 @@ export function EditRevisionSlotModal({
                 disabled={hasEnrolledStudents}
                 aria-label="Time slot"
                 className={cn(
-                  "w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]",
+                  "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
                   hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
                 )}
                 required
@@ -347,7 +347,7 @@ export function EditRevisionSlotModal({
               value={tutorId}
               onChange={(e) => setTutorId(parseInt(e.target.value))}
               aria-label="Tutor"
-              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
               aria-required="true"
             >
@@ -376,7 +376,7 @@ export function EditRevisionSlotModal({
               disabled={hasEnrolledStudents || isLocationLocked}
               aria-label="Location"
               className={cn(
-                "w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]",
+                "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
                 (hasEnrolledStudents || isLocationLocked) && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
               )}
               required
@@ -409,7 +409,7 @@ export function EditRevisionSlotModal({
               rows={2}
               placeholder="Any additional notes about this revision slot..."
               aria-label="Notes"
-              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
+              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
             />
           </div>
 

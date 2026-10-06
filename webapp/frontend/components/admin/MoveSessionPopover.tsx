@@ -203,7 +203,7 @@ export function MoveSessionPopover({
             min={courseStartDate}
             max={courseEndDate}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+            className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
           />
         </div>
 
@@ -223,7 +223,7 @@ export function MoveSessionPopover({
             onChange={(e) =>
               setTutorId(e.target.value ? Number(e.target.value) : null)
             }
-            className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+            className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
           >
             <option value="">— select tutor —</option>
             <TutorOptions tutors={tutors} location={locationCode} />

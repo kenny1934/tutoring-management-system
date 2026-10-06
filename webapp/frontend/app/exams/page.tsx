@@ -626,7 +626,7 @@ export default function ExamsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search exams"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
               />
             </div>
 
@@ -635,7 +635,7 @@ export default function ExamsPage() {
               value={schoolFilter}
               onChange={(e) => setSchoolFilter(e.target.value)}
               aria-label="Filter by school"
-              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
             >
               <option value="">All Schools</option>
               {schools.map((school) => (
@@ -650,7 +650,7 @@ export default function ExamsPage() {
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
               aria-label="Filter by grade"
-              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
             >
               <option value="">All Grades</option>
               {grades.map((grade) => (
@@ -752,7 +752,7 @@ export default function ExamsPage() {
                 className={cn(
                   "px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300",
                   isDefaultDateRange
-                    ? "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    ? "border-field"
                     : "border-primary ring-1 ring-primary/30"
                 )}
               />
@@ -765,7 +765,7 @@ export default function ExamsPage() {
                 className={cn(
                   "px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300",
                   isDefaultDateRange
-                    ? "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    ? "border-field"
                     : "border-primary ring-1 ring-primary/30"
                 )}
               />

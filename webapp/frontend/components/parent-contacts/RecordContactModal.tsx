@@ -307,7 +307,7 @@ export function RecordContactModal({
                       onFocus={() => setShowStudentDropdown(true)}
                       className={cn(
                         "w-full pl-9 pr-3 py-2 text-sm",
-                        "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                        "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                         "focus:outline-none focus:ring-2 focus:ring-primary/50"
                       )}
                     />
@@ -387,7 +387,7 @@ export function RecordContactModal({
                 disabled={!canEditTutor}
                 className={cn(
                   "w-full px-3 py-2 text-sm",
-                  "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                  "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   !canEditTutor && "opacity-60 cursor-not-allowed"
                 )}
@@ -420,7 +420,7 @@ export function RecordContactModal({
                   onChange={(e) => setContactDate(e.target.value)}
                   className={cn(
                     "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                     "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 />
@@ -436,7 +436,7 @@ export function RecordContactModal({
                   onChange={(e) => setContactTime(e.target.value)}
                   className={cn(
                     "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                     "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 />
@@ -456,7 +456,7 @@ export function RecordContactModal({
                   onChange={(e) => setContactMethod(e.target.value)}
                   className={cn(
                     "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                     "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 >
@@ -476,7 +476,7 @@ export function RecordContactModal({
                   onChange={(e) => setContactType(e.target.value)}
                   className={cn(
                     "w-full px-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                    "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                     "focus:outline-none focus:ring-2 focus:ring-primary/50"
                   )}
                 >
@@ -501,7 +501,7 @@ export function RecordContactModal({
                 rows={3}
                 className={cn(
                   "w-full px-3 py-2 text-sm",
-                  "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                  "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   "resize-none"
                 )}
@@ -537,7 +537,7 @@ export function RecordContactModal({
                     min={new Date().toISOString().split('T')[0]}
                     className={cn(
                       "w-full px-3 py-2 text-sm",
-                      "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                      "bg-white dark:bg-[#2d2618] border border-field rounded-md",
                       "focus:outline-none focus:ring-2 focus:ring-primary/50"
                     )}
                   />

@@ -328,7 +328,7 @@ export default function AdminSummerConfigPage() {
               type="number"
               value={cloneYear}
               onChange={(e) => { setCloneYear(e.target.value); setCloneDuplicateWarning(false); }}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
+              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
               placeholder="e.g. 2026"
               min={2025}
               max={2099}

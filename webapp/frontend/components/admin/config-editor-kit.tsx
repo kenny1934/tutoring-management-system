@@ -319,9 +319,9 @@ export function TimeSlotAdder({ lastSlot, onAdd }: { lastSlot?: string; onAdd: (
 
   return (
     <div className="inline-flex items-center gap-1.5">
-      <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="px-1.5 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-foreground" />
+      <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="px-1.5 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800 text-foreground" />
       <span className="text-xs text-muted-foreground">to</span>
-      <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="px-1.5 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-foreground" />
+      <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="px-1.5 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800 text-foreground" />
       <button type="button" onClick={() => {
         if (start && end && start < end) {
           onAdd(`${start} - ${end}`);

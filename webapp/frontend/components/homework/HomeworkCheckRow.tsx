@@ -250,7 +250,7 @@ export function HomeworkCheckRow({
               rows={2}
               maxLength={1000}
               placeholder="How was it? Anything to follow up"
-              className="w-full text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full text-xs rounded border border-field bg-white dark:bg-gray-800 px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           ) : (
             <button

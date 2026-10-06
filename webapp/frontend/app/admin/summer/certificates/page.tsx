@@ -19,7 +19,7 @@ import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import type { SummerStudentLessonsRow } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** Official rule: at least 80% of the full course, rounded up (7 of 8). */
 function officialThreshold(totalLessons: number): number {

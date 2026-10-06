@@ -342,7 +342,7 @@ export default function RevenuePage() {
                     max={getCurrentPeriod()}
                     className={cn(
                       "pl-8 pr-3 py-1.5 text-sm font-medium",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                      "bg-white dark:bg-[#1a1a1a] border border-field rounded-md",
                       "text-gray-900 dark:text-gray-100",
                       "focus:outline-none focus:ring-2 focus:ring-primary/50",
                       "cursor-pointer"
@@ -385,7 +385,7 @@ export default function RevenuePage() {
                       onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                       className={cn(
                         "pl-8 pr-3 py-1.5 text-sm font-medium",
-                        "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                        "bg-white dark:bg-[#1a1a1a] border border-field rounded-md",
                         "text-gray-900 dark:text-gray-100",
                         "focus:outline-none focus:ring-2 focus:ring-primary/50",
                         "cursor-pointer"

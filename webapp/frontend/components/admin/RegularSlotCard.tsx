@@ -352,7 +352,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
             defaultValue={slot.max_students}
             min={1}
             max={20}
-            className="text-[9px] w-8 px-0.5 rounded border border-line/60 bg-white dark:bg-gray-800 text-center"
+            className="text-[9px] w-8 px-0.5 rounded border border-field bg-white dark:bg-gray-800 text-center"
             autoFocus
             onBlur={commitMax}
             onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}

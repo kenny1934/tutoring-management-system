@@ -272,7 +272,7 @@ export default function AuditLogPage() {
                   setTableFilter(e.target.value);
                   setPage(0);
                 }}
-                className="px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                className="px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
               />
               <select
                 value={operationFilter}
@@ -280,7 +280,7 @@ export default function AuditLogPage() {
                   setOperationFilter(e.target.value);
                   setPage(0);
                 }}
-                className="px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                className="px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
               >
                 <option value="">All Operations</option>
                 <option value="CREATE">CREATE</option>

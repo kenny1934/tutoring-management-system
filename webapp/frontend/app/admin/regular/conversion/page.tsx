@@ -20,7 +20,7 @@ import {
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularConversionBranchRow, RegularConversionResponse } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** The three tabs the report splits into: the intake at a glance, the deeper
  *  analysis axes, and the actionable still-to-chase list. */

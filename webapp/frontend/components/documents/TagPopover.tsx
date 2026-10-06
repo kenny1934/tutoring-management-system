@@ -48,7 +48,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
                 }
                 if (e.key === "Escape") onClose();
               }}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>

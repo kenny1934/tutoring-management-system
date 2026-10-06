@@ -1843,7 +1843,7 @@ export default function TableBrowserPage() {
                     setSearchQuery(e.target.value);
                     setPage(0);
                   }}
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
                   <HelpCircle className="h-4 w-4 text-gray-500 hover:text-accent-ink cursor-help" aria-hidden="true" />
@@ -1911,7 +1911,7 @@ export default function TableBrowserPage() {
                         placeholder="Search columns..."
                         value={columnSearchQuery}
                         onChange={(e) => setColumnSearchQuery(e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm rounded border border-line bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full px-2 py-1.5 text-sm rounded border border-field bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-primary"
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
@@ -2239,7 +2239,7 @@ export default function TableBrowserPage() {
                               operator: "eq",
                               value: ""
                             })}
-                            className="px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] min-w-[150px]"
+                            className="px-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] min-w-[150px]"
                           >
                             <option value="">Select column...</option>
                             {schema?.columns.map((col) => (
@@ -2256,7 +2256,7 @@ export default function TableBrowserPage() {
                               operator: e.target.value as FilterOperator,
                               value: e.target.value === "null" ? "true" : condition.value
                             })}
-                            className="px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] min-w-[130px]"
+                            className="px-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] min-w-[130px]"
                           >
                             {operators.map((op) => (
                               <option key={op.value} value={op.value}>
@@ -2270,7 +2270,7 @@ export default function TableBrowserPage() {
                             <select
                               value={condition.value}
                               onChange={(e) => handleUpdateFilter(condition.id, { value: e.target.value })}
-                              className="px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] min-w-[120px]"
+                              className="px-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] min-w-[120px]"
                             >
                               <option value="true">is null</option>
                               <option value="false">is not null</option>
@@ -2279,7 +2279,7 @@ export default function TableBrowserPage() {
                             <select
                               value={condition.value}
                               onChange={(e) => handleUpdateFilter(condition.id, { value: e.target.value })}
-                              className="px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] min-w-[120px]"
+                              className="px-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] min-w-[120px]"
                             >
                               <option value="">Select...</option>
                               <option value="true">true</option>
@@ -2291,7 +2291,7 @@ export default function TableBrowserPage() {
                               value={condition.value}
                               onChange={(e) => handleUpdateFilter(condition.id, { value: e.target.value })}
                               placeholder="Enter value..."
-                              className="px-3 py-2 text-sm rounded-lg border border-line bg-white dark:bg-[#1a1a1a] min-w-[150px] flex-1"
+                              className="px-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] min-w-[150px] flex-1"
                             />
                           )}
 
@@ -2669,7 +2669,7 @@ export default function TableBrowserPage() {
                       e.currentTarget.blur();
                     }
                   }}
-                  className="w-16 px-2 py-1 text-center text-sm rounded border border-line bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-16 px-2 py-1 text-center text-sm rounded border border-field bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <span>of {totalPages}</span>
                 </div>
@@ -2806,7 +2806,7 @@ export default function TableBrowserPage() {
                       setBulkEditColumn(e.target.value);
                       setBulkEditValue(null);
                     }}
-                    className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+                    className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
                   >
                     <option value="">Select column...</option>
                     {schema?.columns
@@ -2832,7 +2832,7 @@ export default function TableBrowserPage() {
                         <select
                           value={bulkEditValue === true ? "true" : bulkEditValue === false ? "false" : ""}
                           onChange={(e) => setBulkEditValue(e.target.value === "true")}
-                          className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+                          className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
                         >
                           <option value="">Select...</option>
                           <option value="true">true</option>
@@ -2855,7 +2855,7 @@ export default function TableBrowserPage() {
                             }
                           }}
                           step={col.type === "decimal" ? "0.01" : undefined}
-                          className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+                          className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
                           placeholder={col.nullable ? "Leave empty for NULL" : "Enter value"}
                         />
                       )}
@@ -3137,7 +3137,7 @@ export default function TableBrowserPage() {
                   value={newFilterName}
                   onChange={(e) => setNewFilterName(e.target.value)}
                   placeholder="e.g., Recent sessions"
-                  className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a]"
+                  className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveFilter();
@@ -3236,7 +3236,7 @@ export default function TableBrowserPage() {
                       placeholder={importFormat === "json"
                         ? '[{"column1": "value1", "column2": 123}, ...]'
                         : 'column1,column2\nvalue1,123\n...'}
-                      className="w-full h-32 px-3 py-2 text-sm font-mono border border-line rounded-lg bg-white dark:bg-[#1a1a1a] resize-y"
+                      className="w-full h-32 px-3 py-2 text-sm font-mono border border-field rounded-lg bg-white dark:bg-[#1a1a1a] resize-y"
                     />
                   </div>
 

@@ -347,7 +347,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
           <select
             value={selectedSender || ""}
             onChange={(e) => setSelectedSender(e.target.value || null)}
-            className="w-full text-xs px-2 py-1 border border-line rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full text-xs px-2 py-1 border border-field rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="">All senders</option>
             {senders.map(s => <option key={s} value={s}>{s}</option>)}

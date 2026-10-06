@@ -273,7 +273,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                 className={cn(
                   "w-full px-3 py-2 rounded-lg border",
                   "bg-paper",
-                  "border-line",
+                  "border-field",
                   "text-foreground",
                   "focus:outline-none focus:ring-2 focus:ring-amber-400"
                 )}
@@ -300,7 +300,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                 className={cn(
                   "w-full px-3 py-2 rounded-lg border font-mono",
                   "bg-paper",
-                  "border-line",
+                  "border-field",
                   "text-foreground",
                   "focus:outline-none focus:ring-2 focus:ring-amber-400",
                   "uppercase"

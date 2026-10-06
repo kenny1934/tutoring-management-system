@@ -87,14 +87,14 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Template name"
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="Template content"
               rows={2}
-              className="w-full px-2 py-1 text-xs border border-line rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button
               type="button"

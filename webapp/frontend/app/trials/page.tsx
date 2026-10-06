@@ -556,7 +556,7 @@ export default function TrialsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="pl-9 pr-8 py-1.5 w-40 sm:w-48 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                className="pl-9 pr-8 py-1.5 w-40 sm:w-48 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
               />
               {searchQuery && (
                 <button
@@ -575,7 +575,7 @@ export default function TrialsPage() {
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
-              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="px-2 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               <option value="30">Last 30 days</option>
               <option value="90">Last 90 days</option>
@@ -587,7 +587,7 @@ export default function TrialsPage() {
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
-              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="px-2 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               <option value="status">By Status</option>
               <option value="school">By School</option>
