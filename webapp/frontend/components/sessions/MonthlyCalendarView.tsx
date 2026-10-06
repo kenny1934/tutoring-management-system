@@ -389,11 +389,35 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
         )}>
           {date.getDate()}
         </span>
+        {totalSessions > 0 && (
+          // The day's statuses as icons with counts, beside the day number
+          // where there's room. Under three tutors the row fell past the load
+          // bar and was cut off. Three marks fit a cell on a 1280px screen,
+          // and the unpaid count takes one place when there is one.
+          <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-[11px] tabular-nums">
+            {Array.from(dayData.statusCounts.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, (isMobile ? 1 : 3) - (dayData.unpaidCount > 0 ? 1 : 0))
+              .map(([status, count]) => {
+                const { Icon, textClass } = getSessionStatusConfig(status);
+                return (
+                  <span key={status} className={cn("inline-flex items-center gap-0.5 flex-shrink-0", textClass)} title={`${count} ${status.toLowerCase()}`}>
+                    <Icon className="h-3 w-3" />
+                    {count}
+                  </span>
+                );
+              })}
+            {dayData.unpaidCount > 0 && (
+              <span className="inline-flex items-center gap-0.5 flex-shrink-0 text-red-600 dark:text-red-400" title={`${dayData.unpaidCount} unpaid`}>
+                <HandCoins className="h-3 w-3" />
+                {dayData.unpaidCount}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Tutor workloads, then the day's statuses as icons with counts. Status
-          words at this size were too small to read, and the icons carry the
-          same colours people scan the sessions page by. */}
+      {/* Tutor workloads */}
       {totalSessions > 0 && (
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="space-y-0.5">
@@ -416,26 +440,6 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
               </div>
             ))}
 
-            <div className="flex items-center gap-2 flex-wrap text-[11px] tabular-nums pt-0.5">
-              {Array.from(dayData.statusCounts.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, isMobile ? 1 : 3)
-                .map(([status, count]) => {
-                  const { Icon, textClass } = getSessionStatusConfig(status);
-                  return (
-                    <span key={status} className={cn("inline-flex items-center gap-0.5", textClass)} title={`${count} ${status.toLowerCase()}`}>
-                      <Icon className="h-3 w-3" />
-                      {count}
-                    </span>
-                  );
-                })}
-              {dayData.unpaidCount > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-red-600 dark:text-red-400" title={`${dayData.unpaidCount} unpaid`}>
-                  <HandCoins className="h-3 w-3" />
-                  {dayData.unpaidCount}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       )}
