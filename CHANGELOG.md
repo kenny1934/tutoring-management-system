@@ -6,6 +6,7 @@
 ### New Features
 
 * **A calmer look**: pages now sit on a plain background with squarer corners, lighter shadows and softer colours, so the colour that remains tells you how things stand.
+* **Buttons and fields that match**: buttons, text fields and labels across the sessions pages now share one size and look, with a single highlighted button for the main action and labels in sentence case.
 * **The wood desk is still there**: choose Background in the user menu, next to Theme, to bring back the wooden desk behind every page.
 * **A line about your day**: in place of the daily emoji, the dashboard greeting now mentions something worth noticing when there is one, such as your 100th class of the school year, a student's first lesson, a test most of your students sit or a holiday coming up.
 * **Coupon counts show their source**: the coupon tooltip on the student page now says when the count was last updated and which termination list it came from.
