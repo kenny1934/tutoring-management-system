@@ -735,8 +735,8 @@ export const DailyGridView = memo(function DailyGridView({
                                         )}
                                       </p>
                                     </div>
-                                    <div className={cn("w-4 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
-                                      <StatusIcon className={cn("h-2.5 w-2.5 text-white", statusConfig.iconClass)} />
+                                    <div className={cn("w-4 rounded-r flex items-center justify-center", statusConfig.stripClass)}>
+                                      <StatusIcon className={cn("h-2.5 w-2.5", statusConfig.stripIconClass)} />
                                     </div>
                                   </motion.div>
                                 );

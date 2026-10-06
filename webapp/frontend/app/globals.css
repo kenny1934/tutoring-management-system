@@ -108,11 +108,11 @@
   --gradient-primary: linear-gradient(135deg, #a0704b 0%, #cd853f 100%);
   --gradient-surface: linear-gradient(135deg, #1a1a1a 0%, #222222 100%);
 
-  /* ===== SHADOWS (for depth) ===== */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  /* ===== SHADOWS =====
+   * shadow-sm through shadow-xl are Tailwind's own, light values. This block
+   * used to override them with 30% to 50% black from the old dark glass
+   * design, which made every card look like it was floating. The public pages
+   * keep those old values through the `[data-shape="classic"]` rules below. */
   --shadow-glow: 0 0 20px rgba(160, 112, 75, 0.3);
 
   /* Paper shadows for realistic lift */
@@ -121,19 +121,20 @@
   --shadow-paper-lg: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10);
   --shadow-paper-curl: 2px 2px 4px rgba(0, 0, 0, 0.2);
 
-  /* ===== M3 EXPRESSIVE SHAPE SCALE (Corner Radius) ===== */
-  --radius-extra-small: 4px;
-  --radius-small: 8px;
-  --radius-medium: 12px;
-  --radius-large: 16px;
-  --radius-extra-large: 28px;
+  /* ===== CORNERS (the Ledger scale) =====
+   * Square corners on everything that isn't round on purpose, as in the
+   * supply order app and the template library. Every rounded-* class reads
+   * these, so this block sets the shape of the whole app. Pills, dots and
+   * avatars use rounded-full and stay round. The public pages keep their old
+   * rounder scale through `[data-shape="classic"]` below. */
+  --radius: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 6px;
   --radius-full: 9999px;
-
-  /* Legacy aliases for backwards compatibility */
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 28px;
 
   /* ===== M3 EXPRESSIVE MOTION SYSTEM ===== */
   /* Timing Values */
@@ -1768,6 +1769,46 @@ html {
 
 .surface-vignette {
   background: var(--surface-vignette);
+}
+
+/* ===== CLASSIC SHAPE FOR THE PUBLIC PAGES =====
+ * The summer and regular intake pages are not part of CSM and keep the look
+ * they had before the app moved to the Ledger scale. The boot script in the
+ * root layout puts `data-shape="classic"` on <html> for every public route
+ * (lib/shape.ts), and LayoutShell keeps it right on client navigation.
+ *
+ * Corners come back by resetting the radius variables. Shadows are harder,
+ * because Tailwind writes the theme's shadow values into each class when it
+ * builds, so the old values are restored class by class. These rules are
+ * unlayered, so they also beat any layered shadow variant on the same element.
+ * That is why the hover and group-hover forms are restored too, after the
+ * plain ones and more specific than them, in the order Tailwind uses. They are
+ * the only shadow variants the public pages use. Setting only --tw-shadow keeps
+ * coloured shadows working, since the colour is read on the element itself. */
+[data-shape="classic"] {
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-md: 6px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+}
+
+[data-shape="classic"] .shadow-sm { --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+[data-shape="classic"] .shadow-md { --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.4)), 0 2px 4px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+[data-shape="classic"] .shadow-lg { --tw-shadow: 0 10px 15px -3px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 4px 6px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+[data-shape="classic"] .shadow-xl { --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 10px 10px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+
+@media (hover: hover) {
+  [data-shape="classic"] .hover\:shadow-sm:hover { --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .hover\:shadow-md:hover { --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.4)), 0 2px 4px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .hover\:shadow-lg:hover { --tw-shadow: 0 10px 15px -3px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 4px 6px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .hover\:shadow-xl:hover { --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 10px 10px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .group:hover .group-hover\:shadow-sm { --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .group:hover .group-hover\:shadow-md { --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.4)), 0 2px 4px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .group:hover .group-hover\:shadow-lg { --tw-shadow: 0 10px 15px -3px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 4px 6px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
+  [data-shape="classic"] .group:hover .group-hover\:shadow-xl { --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 10px 10px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
 }
 
 /* Desk Paper Shadows - Light Mode (Natural sunlight, 45° angle) */

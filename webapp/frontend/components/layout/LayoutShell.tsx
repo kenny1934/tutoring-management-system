@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Menu, Search } from "lucide-react";
@@ -8,6 +8,7 @@ import { Sidebar } from "./Sidebar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
 import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
+import { applyShape } from "@/lib/shape";
 
 interface LayoutShellProps {
   children: React.ReactNode;
@@ -17,10 +18,18 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
+  const isPublic = isPublicSubdomain() || isPublicPath(pathname);
+
+  // The public pages keep their old rounder shape. The boot script sets it
+  // before the first paint, and this keeps it right when someone moves between
+  // public and staff pages without a full load. See lib/shape.ts.
+  useEffect(() => {
+    applyShape(isPublic);
+  }, [isPublic]);
 
   // Render without any shell: the parent-facing pages, plus zen mode. Zen is
   // staff-only, so it is asked about here rather than added to the public list.
-  if (isPublicSubdomain() || isPublicPath(pathname) || pathname?.startsWith("/zen")) {
+  if (isPublic || pathname?.startsWith("/zen")) {
     return <>{children}</>;
   }
 

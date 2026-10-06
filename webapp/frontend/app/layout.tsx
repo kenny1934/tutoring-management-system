@@ -5,6 +5,7 @@ import { LayoutShell } from "@/components/layout/LayoutShell";
 import { Providers } from "@/components/providers/Providers";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
 import { SURFACE_BOOT_SCRIPT } from "@/lib/surfaces";
+import { SHAPE_BOOT_SCRIPT } from "@/lib/shape";
 
 const inter = Inter({ subsets: ["latin"] });
 const caveat = Caveat({
@@ -25,8 +26,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Applies the chosen page background before the first paint. */}
-        <script dangerouslySetInnerHTML={{ __html: SURFACE_BOOT_SCRIPT }} />
+        {/* Applies the chosen page background, and the public pages' own shape, before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: SURFACE_BOOT_SCRIPT + SHAPE_BOOT_SCRIPT }} />
       </head>
       <body className={`${inter.className} ${caveat.variable} surface`}>
         {/* Skip navigation link for keyboard accessibility */}

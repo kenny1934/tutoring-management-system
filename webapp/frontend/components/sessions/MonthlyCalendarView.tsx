@@ -1394,8 +1394,8 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
       </div>
 
       {/* Status Icon Strip */}
-      <div className={cn("absolute inset-y-0 right-0 w-6 flex items-center justify-center", config.bgClass)}>
-        <StatusIcon className={cn("h-3 w-3 text-white", config.iconClass)} />
+      <div className={cn("absolute inset-y-0 right-0 w-6 flex items-center justify-center", config.stripClass)}>
+        <StatusIcon className={cn("h-3 w-3", config.stripIconClass)} />
       </div>
     </div>
   );
