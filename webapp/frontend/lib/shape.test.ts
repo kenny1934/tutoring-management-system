@@ -19,7 +19,7 @@ describe("SHAPE_BOOT_SCRIPT", () => {
     expect(document.documentElement.dataset.shape).toBe("classic");
   });
 
-  it("leaves CSM's own pages on the Ledger shape", () => {
+  it("leaves CSM's own pages on their own shape", () => {
     bootAt("/sessions");
     expect(document.documentElement.dataset.shape).toBeUndefined();
     // A staff page whose name only starts like a public one is still staff.
