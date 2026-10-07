@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Caveat } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { LayoutShell } from "@/components/layout/LayoutShell";
 import { Providers } from "@/components/providers/Providers";
@@ -8,10 +8,6 @@ import { SURFACE_BOOT_SCRIPT } from "@/lib/surfaces";
 import { SHAPE_BOOT_SCRIPT } from "@/lib/shape";
 
 const inter = Inter({ subsets: ["latin"] });
-const caveat = Caveat({
-  subsets: ["latin"],
-  variable: "--font-handwriting",
-});
 
 export const metadata: Metadata = {
   title: "CSM Pro",
@@ -29,7 +25,7 @@ export default function RootLayout({
         {/* Applies the chosen page background, and the public pages' own shape, before the first paint. */}
         <script dangerouslySetInnerHTML={{ __html: SURFACE_BOOT_SCRIPT + SHAPE_BOOT_SCRIPT }} />
       </head>
-      <body className={`${inter.className} ${caveat.variable} surface`}>
+      <body className={`${inter.className} surface`}>
         {/* Skip navigation link for keyboard accessibility */}
         <a
           href={`#${MAIN_CONTENT_ID}`}
