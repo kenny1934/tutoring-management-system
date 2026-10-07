@@ -32,7 +32,7 @@ import { formatShortDate } from "@/lib/formatters";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { GradeBadge } from "@/components/ui/grade-label";
-import { Button, IconButton, Input, Select, Segmented } from "@/components/controls";
+import { Button, IconButton, Input, PageHeader, Select, Segmented } from "@/components/controls";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -293,14 +293,9 @@ export default function StudentsPage() {
   // Calculate if there might be more pages
   const hasMorePages = students.length === STUDENTS_PER_PAGE;
 
-  // Toolbar: outer div is a clean sticky container, inner div carries the
-  // visual styling. Sticky breaks if applied to the same element as the flex
-  // layout, so the two responsibilities are split (matches the Sessions page).
-  const toolbarStickyClasses = "sticky top-0 z-30";
-  const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-2 sm:gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
-    !isMobile && "paper-texture"
-  );
+  // The header sticks to the top while the list scrolls under it, so it needs
+  // the page's own background behind it or the cards would show through.
+  const toolbarStickyClasses = "sticky top-0 z-30 bg-canvas pt-1";
 
   if (loading) {
     return (
@@ -308,10 +303,9 @@ export default function StudentsPage() {
         <PageTransition className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
           {/* Toolbar Skeleton */}
           <div className={toolbarStickyClasses}>
-            <div className={toolbarInnerClasses}>
-              <div className="h-5 w-5 bg-[#d4a574]/50 rounded animate-pulse" />
+            <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-3">
+              <div className="h-[18px] w-[18px] bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-              <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
               <div className="h-7 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
               <div className="ml-auto h-5 w-16 bg-amber-200/50 rounded-full animate-pulse" />
@@ -372,15 +366,23 @@ export default function StudentsPage() {
         )}>
           {/* Compact Toolbar */}
           <div className={toolbarStickyClasses}>
-          <div className={toolbarInnerClasses}>
-            {/* Title */}
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-accent-ink" />
-              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Students</h1>
-            </div>
-
-            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
+          <PageHeader
+            icon={Users}
+            title="Students"
+            actions={
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={() => setAddStudentModalOpen(true)}
+                disabled={!isAdmin}
+                aria-label="Add student"
+                title={!isAdmin ? "Admin access required" : undefined}
+              >
+                <span className="hidden sm:inline">Add student</span>
+              </Button>
+            }
+          >
             {/* View Toggle */}
             <Segmented
               label="Which students"
@@ -542,22 +544,7 @@ export default function StudentsPage() {
             )}
               </>
             )}
-
-            <div className="flex-1" />
-
-            {/* Add Student Button */}
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Plus}
-              onClick={() => setAddStudentModalOpen(true)}
-              disabled={!isAdmin}
-              aria-label="Add student"
-              title={!isAdmin ? "Admin access required" : undefined}
-            >
-              <span className="hidden sm:inline">Add student</span>
-            </Button>
-          </div>
+          </PageHeader>
           </div>
 
           {/* All Students View */}

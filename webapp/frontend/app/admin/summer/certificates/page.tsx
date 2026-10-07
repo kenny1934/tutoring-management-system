@@ -18,7 +18,7 @@ import { Award, Check, ChevronDown, Download, Loader2 } from "lucide-react";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import type { SummerStudentLessonsRow } from "@/types";
-import { Badge, Button, Input } from "@/components/controls";
+import { Badge, Button, Input, PageHeader } from "@/components/controls";
 
 
 /** Official rule: at least 80% of the full course, rounded up (7 of 8). */
@@ -225,21 +225,19 @@ export default function SummerCertificatesPage() {
     <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
-          {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
-                <Award className="h-5 w-5 text-accent-ink" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-lg font-semibold text-foreground">Certificates</h1>
-                <p className="hidden sm:block text-xs text-muted-foreground">
-                  {threshold !== null && config
-                    ? `Students qualify by attending at least ${threshold} of the ${config.total_lessons} lessons.`
-                    : "Sessions attended by each summer student."}
-                </p>
-              </div>
-              <div className="shrink-0 flex items-center gap-2">
+          <PageHeader
+            icon={Award}
+            title="Certificates"
+            subtitle={
+              <>
+                {threshold !== null && config
+                  ? `Students qualify by attending at least ${threshold} of the ${config.total_lessons} lessons.`
+                  : "Sessions attended by each summer student."}
+              </>
+            }
+            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            actions={
+              <>
                 {configs && configs.length > 1 && (
                   <PickerDropdown
                     align="right"
@@ -262,9 +260,9 @@ export default function SummerCertificatesPage() {
                 >
                   <span className="hidden sm:inline">Export</span>
                 </Button>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
 
           {/* Filters */}
           <div className="px-4 sm:px-6 py-2 border-b border-line flex items-center gap-2 flex-wrap">

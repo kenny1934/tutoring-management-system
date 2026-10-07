@@ -26,7 +26,7 @@ import DocContextMenu from "@/components/documents/DocContextMenu";
 import TagPopover from "@/components/documents/TagPopover";
 import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
-import { Button, IconButton, Input, Segmented } from "@/components/controls";
+import { Button, IconButton, Input, PageHeader, Segmented } from "@/components/controls";
 import { useDndDocuments, useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Document, DocumentFolder } from "@/types";
@@ -619,6 +619,9 @@ export default function DocumentsPage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
+        {/* The page had no name of its own before. The tabs, search and create
+            buttons stay in the toolbar inside the card, so this is only the name. */}
+        <PageHeader icon={FileText} title="Documents" className="mb-2 sm:mb-3" />
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sidebar — desktop */}

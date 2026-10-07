@@ -28,7 +28,7 @@ import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { isHomeBranch } from "@/lib/employment";
-import { Button, Input, Segmented } from "@/components/controls";
+import { Button, Input, PageHeader, Segmented } from "@/components/controls";
 
 // Lazy load chart components to keep Recharts (~40KB) out of initial bundle
 const TerminationTrendChart = dynamic(
@@ -155,7 +155,7 @@ function useToggleSort<T extends string>(defaultColumn: T, defaultDir: 'asc' | '
 }
 
 export default function TerminatedStudentsPage() {
-  usePageTitle("Terminated Students");
+  usePageTitle("Terminated students");
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -704,21 +704,57 @@ export default function TerminatedStudentsPage() {
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
-            {/* Toolbar - outer div is sticky container, inner div has visual styling */}
-            <div className="sticky top-0 z-30">
-              <div className={cn(
-                "flex flex-wrap items-center gap-2 sm:gap-3",
-                "bg-paper border-2 border-line-strong",
-                "rounded-lg px-3 sm:px-4 py-2",
-                !isMobile && "paper-texture"
-              )}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-              {/* Title and filters */}
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
-                <div className="flex items-center gap-2">
-                  <UserMinus className="h-5 w-5 text-accent-ink" />
-                  <h1 className="text-lg font-semibold">Terminated Students</h1>
-                </div>
+            {/* The header sticks while the page scrolls, on the page's own
+                background so the cards below don't show through it. */}
+            <div className="sticky top-0 z-30 bg-canvas pt-1">
+            <PageHeader
+              icon={UserMinus}
+              title="Terminated students"
+              actions={
+                <>
+                {/* CSV Export */}
+                <Button
+                  size="sm"
+                  icon={Download}
+                  onClick={() => selectedQuarter && selectedYear && exportTerminatedStudentsCSV(
+                    filteredTutorGroups, selectedQuarter, selectedYear,
+                    getEffectiveChecked, getEffectiveReason, getEffectiveCategory
+                  )}
+                  disabled={!selectedQuarter || !selectedYear || terminatedStudents.length === 0}
+                  aria-label="Export as CSV"
+                  title="Export as CSV"
+                >
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+
+                {/* Save/Discard - hide for read-only users */}
+                {!isReadOnly && pendingChanges.size > 0 && (
+                <>
+                  <Button
+                    size="sm"
+                    icon={RotateCcw}
+                    onClick={handleDiscardChanges}
+                    disabled={isSaving}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Save}
+                    onClick={() => setShowConfirmDialog(true)}
+                    loading={isSaving}
+                  >
+                    Save changes
+                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs">
+                      {pendingChanges.size}
+                    </span>
+                  </Button>
+                </>
+                )}
+                </>
+              }
+            >
 
                 {/* Quarter Selector */}
                 <div className="relative">
@@ -809,54 +845,8 @@ export default function TerminatedStudentsPage() {
                     </button>
                   )}
                 </div>
-              </div>
-
-              {/* Export + Save Buttons */}
-              <div className="flex items-center gap-2">
-                {/* CSV Export */}
-                <Button
-                  size="sm"
-                  icon={Download}
-                  onClick={() => selectedQuarter && selectedYear && exportTerminatedStudentsCSV(
-                    filteredTutorGroups, selectedQuarter, selectedYear,
-                    getEffectiveChecked, getEffectiveReason, getEffectiveCategory
-                  )}
-                  disabled={!selectedQuarter || !selectedYear || terminatedStudents.length === 0}
-                  aria-label="Export as CSV"
-                  title="Export as CSV"
-                >
-                  <span className="hidden sm:inline">Export</span>
-                </Button>
-
-                {/* Save/Discard - hide for read-only users */}
-                {!isReadOnly && pendingChanges.size > 0 && (
-                <>
-                  <Button
-                    size="sm"
-                    icon={RotateCcw}
-                    onClick={handleDiscardChanges}
-                    disabled={isSaving}
-                  >
-                    Discard
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={Save}
-                    onClick={() => setShowConfirmDialog(true)}
-                    loading={isSaving}
-                  >
-                    Save changes
-                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs">
-                      {pendingChanges.size}
-                    </span>
-                  </Button>
-                </>
-                )}
-              </div>
+            </PageHeader>
             </div>
-          </div>
-          </div>
 
           {/* Click outside to close dropdown */}
           {isQuarterDropdownOpen && (

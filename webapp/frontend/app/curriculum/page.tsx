@@ -8,7 +8,7 @@ import { Map as MapIcon, FileText, Loader2, TriangleAlert, X } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { scrollAppToTop } from "@/lib/scroll";
 import { PageSurface } from "@/components/layout/PageSurface";
-import { Input, Select, Segmented } from "@/components/controls";
+import { Input, PageHeader, Select, Segmented } from "@/components/controls";
 import { PageTransition } from "@/lib/design-system";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
@@ -813,22 +813,8 @@ export default function CurriculumPage() {
       <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
         {/* Toolbar. Sticky from sm up only: on phones it wraps to two or
             three rows and would pin that much of the viewport. */}
-        <div className="z-30 sm:sticky sm:top-0">
-          <div
-            className={cn(
-              "flex flex-wrap items-center gap-2 sm:gap-3",
-              "bg-paper border-2 border-line-strong",
-              "rounded-lg px-3 sm:px-4 py-2",
-              !isMobile && "paper-texture"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <MapIcon className="h-5 w-5 text-accent-ink" />
-              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
-                Curriculum
-              </h1>
-            </div>
-
+        <div className="surface z-30 sm:sticky sm:top-0">
+          <PageHeader icon={MapIcon} title="Curriculum" className="pb-2">
             <Segmented
               label="View"
               value={view}
@@ -844,7 +830,7 @@ export default function CurriculumPage() {
               ]}
             />
 
-            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            <div className="h-6 w-px bg-line hidden sm:block" />
 
             <Select
               size="sm"
@@ -907,7 +893,7 @@ export default function CurriculumPage() {
             {(coverageLoading || timelineLoading) && (
               <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
             )}
-          </div>
+          </PageHeader>
         </div>
 
         {gradeCheck && gradeCheck.students.length > 0 && (

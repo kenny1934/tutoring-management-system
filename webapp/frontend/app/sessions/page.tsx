@@ -18,7 +18,7 @@ import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Button, IconButton, Select, CountBadge } from "@/components/controls";
+import { Button, IconButton, Select, CountBadge, PageHeader } from "@/components/controls";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
@@ -1660,24 +1660,21 @@ function SessionsPageContent() {
           (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
         )}>
           {/* Toolbar Skeleton */}
-          <div className={cn(
-            "flex items-center gap-2 sm:gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
-            !isMobile && "paper-texture"
-          )}>
+          <div className="flex items-center gap-2 sm:gap-3 border-b border-line py-2">
             {/* Title with count badge */}
             <div className="relative">
               <div className="h-5 w-5 bg-line-strong/50 rounded animate-pulse" />
               <div className="absolute -top-1.5 -right-2.5 w-4 h-4 bg-accent-ink/30 rounded-full animate-pulse" />
             </div>
             <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            <div className="h-6 w-px bg-line hidden sm:block" />
             {/* View switcher */}
             <div className="flex gap-1">
               {[1,2,3,4].map(i => (
                 <div key={i} className="h-7 w-7 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               ))}
             </div>
-            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            <div className="h-6 w-px bg-line hidden sm:block" />
             {/* Filters placeholder */}
             <div className="h-7 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
             <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
@@ -1916,32 +1913,31 @@ function SessionsPageContent() {
 
   // Toolbar content (shared between animated and non-animated versions)
   const toolbarContent = (
-    <>
-      {/* Title */}
-      <div className="flex items-center gap-2">
-        <div className="relative mr-1.5">
-          <Calendar className="h-5 w-5 text-accent-ink" />
-          {countableSessionCount > 0 && (
-            <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-accent-ink text-white">
-              {countableSessionCount}
-            </span>
-          )}
-        </div>
-        <h1 className="hidden sm:block text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
-      </div>
+    <PageHeader
+      icon={Calendar}
+      // The name has always been left off on phones, where the toolbar needs
+      // the room, but screen readers still hear it.
+      title={<span className="max-sm:sr-only">Sessions</span>}
+      titleExtra={countableSessionCount > 0 && (
+        <span className="min-w-[16px] h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full bg-accent-ink text-white">
+          {countableSessionCount}
+        </span>
+      )}
+      className="pb-1.5 sm:pb-2"
+    >
 
       {/* View switcher. Hidden only in the pending make-ups view, which has to
           stay a list. The after-a-last-day view opens on the week grid, and the
           switcher is what says so and lets you move off it. */}
       {!isPendingMakeupsView && (
         <>
-          <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+          <div className="h-6 w-px bg-line hidden sm:block" />
           <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
         </>
       )}
 
       {/* Filters — status and tutor apply in every view */}
-      <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+      <div className="h-6 w-px bg-line hidden sm:block" />
 
       {/* Date Picker (list view only; the other views carry their own navigation).
           The pending make-ups window is fixed at 120 days, so no date to pick. */}
@@ -2080,7 +2076,7 @@ function SessionsPageContent() {
       )}
 
 
-    </>
+    </PageHeader>
   );
 
   // Built once and rendered in both branches, like the toolbar above it: the
@@ -2098,10 +2094,9 @@ function SessionsPageContent() {
 
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
-  const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-1.5 sm:gap-2 2xl:gap-3 bg-paper border-2 border-line-strong rounded-lg px-2 sm:px-4 py-1.5 sm:py-2",
-    !isMobile && "paper-texture"
-  );
+  // No box any more: the header draws its own hairline, and the solid page
+  // colour behind it keeps the list from showing through while it sticks.
+  const toolbarInnerClasses = "surface pt-1.5 sm:pt-2";
 
   // For list view: Use fullHeight to propagate height constraints for sticky positioning
   // For other views: Use PageTransition with animations

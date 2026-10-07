@@ -10,7 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useConfirm, useConfirmOpen } from "@/contexts/ConfirmContext";
 import { Grid3X3, CalendarDays, Maximize2, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
-import { Button, IconButton, Select, CountBadge } from "@/components/controls";
+import { Button, IconButton, Select, CountBadge, PageHeader } from "@/components/controls";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
@@ -1079,25 +1079,28 @@ export default function SummerArrangementPage() {
           </ArrangementFullScreenStrip>
         ) : (
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line space-y-2">
-            {/* Row 1: Title + search + location + refresh. On mobile the search
-                wraps to its own full-width row via order-last + w-full; on sm+
-                it sits inline between the title and the location select. */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center shrink-0">
-                <Grid3X3 className="h-5 w-5 text-accent-ink" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
-                  <span>Timetable arrangement</span>
+            {/* Row 1: the page header, with the search, the branch select and
+                refresh after the name. On a phone the search wraps to its own
+                full-width row through order-last and w-full, and the spacer keeps
+                the select and refresh at the right of the name. From sm up the
+                search's ml-auto pushes all three to the right instead. */}
+            <PageHeader
+              icon={Grid3X3}
+              title="Timetable arrangement"
+              titleExtra={
+                <>
                   {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
-                </h1>
-                <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
-              </div>
+                </>
+              }
+              subtitle="Manage slots, sessions, and lesson scheduling"
+              className="border-b-0 pb-0"
+            >
               <StudentJumpSearch
                 entries={searchEntries}
                 onSelect={handleSearchSelect}
-                className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
+                className="order-last w-full sm:order-none sm:ml-auto sm:w-56 md:w-72 sm:shrink-0"
               />
+              <span aria-hidden="true" className="ml-auto sm:hidden" />
               <Select
                 size="sm"
                 value={location}
@@ -1120,7 +1123,7 @@ export default function SummerArrangementPage() {
                 title="Refresh"
                 iconClassName={cn(isValidating && "animate-spin")}
               />
-            </div>
+            </PageHeader>
 
             {/* Row 2: Stats + actions */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

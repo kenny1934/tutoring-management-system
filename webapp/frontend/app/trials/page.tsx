@@ -16,7 +16,7 @@ import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollment
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { TutorLink } from "@/components/tutors/TutorLink";
-import { Button, Input, Select } from "@/components/controls";
+import { Button, Input, PageHeader, Select } from "@/components/controls";
 
 // Column configuration
 const COLUMNS = [
@@ -519,30 +519,17 @@ export default function TrialsPage() {
     <PageSurface>
       <PageTransition className="h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 overflow-hidden">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 h-full flex flex-col">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-tint rounded-lg">
-                  <FlaskConical className="h-5 w-5 sm:h-6 sm:w-6 text-accent-ink" />
-                </div>
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                    Trials
-                  </h1>
-                  <p className="text-sm text-foreground/60">
-                    {isTutorView ? "Your trial sessions" : "Manage trial enrollments"}
-                  </p>
-                </div>
-              </div>
-
-              {isAdmin && (
-                <Button variant="primary" icon={Plus} onClick={handleNewTrial} aria-label="New trial">
-                  <span className="hidden sm:inline">New trial</span>
-                </Button>
-              )}
-            </div>
-          </div>
+          <PageHeader
+            icon={FlaskConical}
+            title="Trials"
+            subtitle={isTutorView ? "Your trial sessions" : "Manage trial enrollments"}
+            className="mb-4"
+            actions={isAdmin && (
+              <Button variant="primary" icon={Plus} onClick={handleNewTrial} aria-label="New trial">
+                <span className="hidden sm:inline">New trial</span>
+              </Button>
+            )}
+          />
 
           {/* Filter Bar */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
