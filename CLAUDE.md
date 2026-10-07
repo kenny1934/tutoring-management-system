@@ -52,3 +52,5 @@ the user-facing sentences this changelog wants.
 - Run frontend tests: `cd webapp/frontend && npm run test:run`
 - Run E2E tests: `cd webapp/frontend && npm run test:e2e`
 - Create PR: `gh pr create --fill`
+- Sign in locally without Google: `cd webapp/backend && ./venv/bin/python scripts/dev_signin.py <tutor id>` prints a token to use as the `access_token` cookie on localhost. It only runs against a development backend.
+- Screenshot real screens: `cd webapp/frontend && node scripts/screens.mjs --as <tutor id> /dashboard /sessions`. Both local servers have to be running. It saves to `.claude/screens/`, which git ignores because the pictures show real names, and it blocks every request that would change data.

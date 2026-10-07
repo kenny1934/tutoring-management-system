@@ -12,13 +12,16 @@ from starlette.responses import Response
 import os
 from dotenv import load_dotenv
 
+# Load .env before importing anything that reads a setting when it's imported.
+# auth.jwt_handler reads JWT_SECRET_KEY at import, so loading .env after it
+# left the local backend signing with the built-in default key. Production
+# has no .env file and sets everything in the environment, so this is a no-op there.
+load_dotenv()
+
 from auth.gate import AuthGateMiddleware
 from services.departure_guard import DepartedTutorAssignment, install as install_departure_guard
 
 logger = logging.getLogger(__name__)
-
-# Load environment variables
-load_dotenv()
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
