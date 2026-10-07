@@ -33,7 +33,8 @@ export function LayoutShell({ children }: LayoutShellProps) {
     return <>{children}</>;
   }
 
-  const isLoginPage = pathname === "/login";
+  // The sign-in board's preview stands in for the login page, so it goes without the app frame too.
+  const isLoginPage = pathname === "/login" || pathname === "/dev/login-board";
 
   return (
     // h-dvh (not h-screen): static 100vh is taller than the visible area on

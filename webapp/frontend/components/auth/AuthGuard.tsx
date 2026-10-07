@@ -10,8 +10,11 @@ interface AuthGuardProps {
 }
 
 // Parent-facing pages come from lib/public-routes. /login is public too but is
-// only ever a staff destination, so it stays local to the guard.
-const PUBLIC_ROUTES = ["/login"];
+// only ever a staff destination, so it stays local to the guard. The preview of
+// the sign-in board is public on a development server only, because it stands
+// in for the login page and nobody previewing it is signed in.
+const PUBLIC_ROUTES =
+  process.env.NODE_ENV === "development" ? ["/login", "/dev/login-board"] : ["/login"];
 
 /**
  * AuthGuard component that redirects unauthenticated users to /login.
