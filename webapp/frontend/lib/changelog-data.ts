@@ -14,6 +14,9 @@ const changelogData = [
             "description": "**Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case."
           },
           {
+            "description": "**A new sign-in page**: the sign-in page shows today's date, the week of the school year and a worked problem written out on a board, a different one each day, with a line about what's new in the latest release."
+          },
+          {
             "description": "**Page headings that match**: every staff page now opens the same way, with its name and a short line about it on one row, its own buttons on the right and a thin line underneath, so lists start higher up the screen."
           },
           {
@@ -65,6 +68,15 @@ const changelogData = [
           },
           {
             "description": "**Coupon sync dates**: a coupon sync run early in the morning no longer shows the previous day's date."
+          },
+          {
+            "description": "**Pages appear sooner**: pages no longer wait for decorative fonts to download before they show."
+          },
+          {
+            "description": "**Grade colours in dark mode**: the slot cards on the summer and regular arrangement boards now show their grade colour down the left edge in dark mode too, as they already did in light mode."
+          },
+          {
+            "description": "**Lighter shadows**: session cards no longer carry the heavy dark-mode shadow in light mode."
           }
         ]
       }
