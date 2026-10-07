@@ -15,7 +15,7 @@ import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, Ex
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { PageSurface } from "@/components/layout/PageSurface";
-import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
+import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Select, CountBadge, PageHeader } from "@/components/controls";

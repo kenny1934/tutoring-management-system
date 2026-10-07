@@ -227,7 +227,6 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
               <div className="flex items-center gap-2 mb-2 pl-2">
                 <span
                   className="text-xs font-bold text-accent-ink uppercase tracking-wide"
-                  style={{ fontFamily: "'Permanent Marker', cursive" }}
                 >
                   {dateLabel}
                 </span>

@@ -9,7 +9,7 @@ import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useSession, usePageTitle, useMemoForSession, preloadCurriculumSuggestions } from "@/lib/hooks";
 import { useBackNavigation } from "@/lib/ui-hooks";
-import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
+import { PageTransition, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Session, UpcomingTestAlert } from "@/types";

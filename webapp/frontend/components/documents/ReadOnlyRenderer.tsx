@@ -20,6 +20,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import { createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, Indent, LineSpacing } from "@/lib/tiptap-extensions";
 import { cn } from "@/lib/utils";
 import "katex/dist/katex.min.css";
+import "./document-fonts.css";
 
 const ROTableCell = TableCell.extend({
   addAttributes() {

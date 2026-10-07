@@ -14,6 +14,7 @@ import { ZenHeader } from "./ZenHeader";
 import { ZenStatusBar, setZenStatus } from "./ZenStatusBar";
 import { ZenCommandBar } from "./ZenCommandBar";
 import { ZenHelpOverlay } from "./ZenHelpOverlay";
+import "./zen-fonts.css";
 
 interface ZenLayoutProps {
   children: ReactNode;

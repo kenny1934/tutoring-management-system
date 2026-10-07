@@ -340,10 +340,9 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
             <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle">
               <tspan
                 style={{
-                  fontSize: "28px",
+                  fontSize: "22px",
                   fill: "#a0704b",
-                  fontFamily: "'Caveat', cursive",
-                  fontWeight: 700,
+                  fontWeight: 600,
                 }}
               >
                 {totalStudents}
@@ -450,10 +449,9 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
             <text x="50%" y="85%" textAnchor="middle" dominantBaseline="middle">
               <tspan
                 style={{
-                  fontSize: "20px",
+                  fontSize: "16px",
                   fill: "#a0704b",
-                  fontFamily: "'Caveat', cursive",
-                  fontWeight: 700,
+                  fontWeight: 600,
                 }}
               >
                 {totalStudents}
