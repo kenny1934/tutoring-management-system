@@ -11,7 +11,7 @@ const changelogData = [
             "description": "**A calmer look**: pages now sit on a plain background with squarer corners, lighter shadows and softer colours, so the colour that remains tells you how things stand."
           },
           {
-            "description": "**Buttons and fields that match**: buttons, text fields and labels across the sessions, student, enrolment, parent contact and admin pages now share one size and look, with a single highlighted button for the main action and labels in sentence case."
+            "description": "**Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case."
           },
           {
             "description": "**The wood desk is still there**: choose Background in the user menu, next to Theme, to bring back the wooden desk behind every page."
