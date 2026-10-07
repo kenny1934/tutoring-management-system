@@ -19,9 +19,12 @@ import { cn } from "@/lib/utils";
 import { CATEGORY_CONFIG } from "@/lib/termination-constants";
 import type { QuarterTrendPoint } from "@/types";
 
+// Opening and closing are the two lines people compare most, so they need
+// colours that can't be mistaken for each other: oak for the start of the
+// quarter, a blue-green for the end.
 const LINE_COLORS = {
   opening: "#a0704b",
-  closing: "#8b6f47",
+  closing: "#2f7d8c",
   terminated: "#dc2626",
   term_rate: "#d97706",
 };
@@ -53,7 +56,7 @@ function OverviewTooltip({
             className="w-2.5 h-2.5 rounded-full shrink-0"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="capitalize">{entry.dataKey === "term_rate" ? "Term Rate" : entry.dataKey}:</span>
+          <span>{entry.dataKey === "term_rate" ? "Term rate" : entry.dataKey.charAt(0).toUpperCase() + entry.dataKey.slice(1)}:</span>
           <span className="font-medium text-gray-900 dark:text-gray-100">
             {entry.dataKey === "term_rate" ? `${entry.value.toFixed(1)}%` : entry.value}
           </span>
@@ -184,7 +187,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
           <TrendingDown className="h-5 w-5 text-accent-ink" />
-          Quarterly Trends
+          Quarterly trends
         </h2>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <button
@@ -218,7 +221,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
             <Tooltip content={<OverviewTooltip />} />
             <Legend
               formatter={(value: string) =>
-                value === "term_rate" ? "Term Rate" : value.charAt(0).toUpperCase() + value.slice(1)
+                value === "term_rate" ? "Term rate" : value.charAt(0).toUpperCase() + value.slice(1)
               }
               wrapperStyle={{ fontSize: 12 }}
             />

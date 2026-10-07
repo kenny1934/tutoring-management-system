@@ -85,6 +85,10 @@ const TABS: Tab[] = [
   { id: "contacts", label: "Parent Contacts", icon: Phone },
 ];
 
+// The count on a tab is neutral in both states: it says how many, not that
+// anything needs attention.
+const TAB_COUNT_CLASS = "bg-tint text-gray-700 dark:text-gray-200 ring-1 ring-inset ring-line";
+
 export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -571,10 +575,10 @@ export default function StudentDetailPage() {
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border",
                     isActive
-                      ? "bg-primary text-white shadow-md"
-                      : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-line"
+                      ? "bg-primary/10 text-accent-ink border-primary/40"
+                      : "bg-field-fill text-gray-600 dark:text-gray-400 hover:bg-tint border-line"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -582,32 +586,32 @@ export default function StudentDetailPage() {
                   {/* Badge for sessions/tests count */}
                   {tab.id === "sessions" && sortedSessions.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
+                      TAB_COUNT_CLASS
                     )}>
                       {sortedSessions.length}
                     </span>
                   )}
                   {tab.id === "courseware" && coursewareHistory.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
+                      TAB_COUNT_CLASS
                     )}>
                       {coursewareHistory.length}
                     </span>
                   )}
                   {tab.id === "tests" && filteredTests.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
+                      TAB_COUNT_CLASS
                     )}>
                       {filteredTests.length}
                     </span>
                   )}
                   {tab.id === "contacts" && parentContacts.length > 0 && (
                     <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-700"
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
+                      TAB_COUNT_CLASS
                     )}>
                       {parentContacts.length}
                     </span>
@@ -1293,7 +1297,7 @@ function ProfileTab({
                 onClick={(e) => onEnrollmentClick(enrollment, e)}
                 className={cn(
                   "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all",
-                  "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50",
+                  "bg-tint/60 hover:bg-tint",
                   selectedEnrollmentId === enrollment.id && "ring-2 ring-primary"
                 )}
               >

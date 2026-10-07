@@ -20,7 +20,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { Loader2, Check, X, ClipboardList, AlertTriangle, CheckSquare, Square, Minus, CheckCheck, UserX } from "lucide-react";
-import { Button } from "@/components/controls";
+import { Badge, Button } from "@/components/controls";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { UncheckedAttendanceReminder, Session } from "@/types";
@@ -40,8 +40,8 @@ interface UrgencyConfig {
 
 const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
   Critical: {
-    label: '7+ Days',
-    sectionLabel: 'Critical (7+ Days Overdue)',
+    label: '7+ days',
+    sectionLabel: 'Critical (7+ days overdue)',
     bgColor: 'bg-red-50 dark:bg-red-900/20',
     borderColor: 'border-red-200 dark:border-red-800',
     textColor: 'text-red-600 dark:text-red-400',
@@ -49,8 +49,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     iconColor: 'text-red-600',
   },
   High: {
-    label: '4-7 Days',
-    sectionLabel: 'High (4-7 Days Overdue)',
+    label: '4-7 days',
+    sectionLabel: 'High (4-7 days overdue)',
     bgColor: 'bg-orange-50 dark:bg-orange-900/20',
     borderColor: 'border-orange-200 dark:border-orange-800',
     textColor: 'text-orange-700 dark:text-orange-400',
@@ -58,8 +58,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     iconColor: 'text-orange-700',
   },
   Medium: {
-    label: '2-3 Days',
-    sectionLabel: 'Medium (2-3 Days Overdue)',
+    label: '2-3 days',
+    sectionLabel: 'Medium (2-3 days overdue)',
     bgColor: 'bg-amber-50 dark:bg-amber-900/20',
     borderColor: 'border-amber-200 dark:border-amber-800',
     textColor: 'text-amber-700 dark:text-amber-400',
@@ -67,8 +67,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     iconColor: 'text-amber-700',
   },
   Low: {
-    label: '0-1 Days',
-    sectionLabel: 'Low (0-1 Days Overdue)',
+    label: '0-1 days',
+    sectionLabel: 'Low (0-1 days overdue)',
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
     textColor: 'text-yellow-700 dark:text-yellow-400',
@@ -353,7 +353,7 @@ export default function UncheckedAttendancePage() {
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
                   <div className="flex items-center gap-2">
                     <ClipboardList className="h-5 w-5 text-accent-ink" />
-                    <h1 className="text-lg font-semibold">Unchecked Attendance</h1>
+                    <h1 className="text-lg font-semibold">Unchecked attendance</h1>
                     {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
                       <Link
                         href="/unchecked-attendance"
@@ -380,14 +380,9 @@ export default function UncheckedAttendancePage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={cn(
-                    "px-3 py-1 rounded-full text-sm font-medium",
-                    totalCount > 0
-                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                      : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  )}>
-                    {totalCount} Need Attention
-                  </span>
+                  <Badge tone={totalCount > 0 ? "warning" : "success"}>
+                    {totalCount} need attention
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -459,18 +454,20 @@ export default function UncheckedAttendancePage() {
                   const config = URGENCY_LEVELS[level];
                   const count = urgencyCounts[level];
                   const isActive = urgencyFilter === level;
+                  // An empty bucket is good news, so it stays neutral. The
+                  // severity tint only shows when there's something in it.
+                  const empty = count === 0;
                   return (
                     <Link
                       key={level}
                       href={isActive ? '/unchecked-attendance' : `/unchecked-attendance?urgency=${level}`}
                       className={cn(
                         "p-3 rounded-lg border text-center transition-all",
-                        config.bgColor,
-                        config.borderColor,
+                        empty ? "bg-paper border-line" : [config.bgColor, config.borderColor],
                         isActive && "ring-2 ring-offset-2 ring-primary"
                       )}
                     >
-                      <div className={cn("text-2xl font-bold", config.textColor)}>
+                      <div className={cn("text-2xl font-bold", empty ? "text-ink-subtle" : config.textColor)}>
                         {count}
                       </div>
                       <div className="text-sm text-muted-foreground">
@@ -552,16 +549,18 @@ export default function UncheckedAttendancePage() {
                                     )}
                                   </button>
                                 </th>
-                                <th className="px-4 py-3 text-left font-medium">Date</th>
-                                <th className="px-4 py-3 text-left font-medium">Time</th>
-                                <th className="px-4 py-3 text-left font-medium min-w-[120px]">Student</th>
-                                <th className="px-4 py-3 text-left font-medium w-16">Grade</th>
+                                {/* On a phone the less important columns hide and the time
+                                    moves under the date, so Attended and No show stay on screen. */}
+                                <th className="px-2 sm:px-4 py-3 text-left font-medium whitespace-nowrap">Date</th>
+                                <th className="hidden sm:table-cell px-4 py-3 text-left font-medium">Time</th>
+                                <th className="px-2 sm:px-4 py-3 text-left font-medium sm:min-w-[120px]">Student</th>
+                                <th className="hidden sm:table-cell px-4 py-3 text-left font-medium w-16">Grade</th>
                                 {viewMode === 'center-view' && (
-                                  <th className="px-4 py-3 text-left font-medium min-w-[100px]">Tutor</th>
+                                  <th className="hidden sm:table-cell px-4 py-3 text-left font-medium min-w-[100px]">Tutor</th>
                                 )}
-                                <th className="px-4 py-3 text-left font-medium">Status</th>
-                                <th className="px-4 py-3 text-center font-medium w-16">Days</th>
-                                <th className="px-4 py-3 text-right w-48"></th>
+                                <th className="hidden sm:table-cell px-4 py-3 text-left font-medium">Status</th>
+                                <th className="hidden sm:table-cell px-4 py-3 text-center font-medium w-16">Days</th>
+                                <th className="px-2 sm:px-4 py-3 text-right sm:w-48"><span className="sr-only">Actions</span></th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-line">
@@ -598,13 +597,16 @@ export default function UncheckedAttendancePage() {
                                         )}
                                       </button>
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
                                       {formatDateCompact(session.session_date)}
+                                      <div className="sm:hidden text-xs text-ink-subtle">
+                                        {session.time_slot || '-'}
+                                      </div>
                                     </td>
-                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                    <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">
                                       {session.time_slot || '-'}
                                     </td>
-                                    <td className="px-4 py-3 font-medium">
+                                    <td className="px-2 sm:px-4 py-3 font-medium">
                                       <div className="flex items-center gap-1.5">
                                         <span>{session.student_name}</span>
                                         <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
@@ -615,18 +617,18 @@ export default function UncheckedAttendancePage() {
                                         </div>
                                       )}
                                     </td>
-                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                    <td className="hidden sm:table-cell px-4 py-3 text-gray-600 dark:text-gray-400">
                                       {session.grade || '-'}
                                     </td>
                                     {viewMode === 'center-view' && (
-                                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600 dark:text-gray-400">
                                         <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                       </td>
                                     )}
-                                    <td className="px-4 py-3">
+                                    <td className="hidden sm:table-cell px-4 py-3">
                                       <SessionStatusTag status={session.session_status} size="sm" />
                                     </td>
-                                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                                    <td className="hidden sm:table-cell px-4 py-3 text-center whitespace-nowrap">
                                       <span className={cn(
                                         "px-2 py-0.5 rounded-full text-xs font-medium inline-block",
                                         config.badgeBg,
@@ -635,8 +637,8 @@ export default function UncheckedAttendancePage() {
                                         {session.days_overdue}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                                      <div className="flex items-center justify-end gap-2 flex-nowrap">
+                                    <td className="px-2 sm:px-4 py-3 text-right whitespace-nowrap">
+                                      <div className="flex items-center justify-end gap-1.5 sm:gap-2 flex-nowrap">
                                         <Button
                                           size="sm"
                                           icon={Check}

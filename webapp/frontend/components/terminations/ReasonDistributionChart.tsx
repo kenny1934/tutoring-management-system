@@ -88,7 +88,7 @@ export const ReasonDistributionChart = memo(function ReasonDistributionChart({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
           <PieIcon className="h-5 w-5 text-accent-ink dark:text-[#cd853f]" />
-          Termination Reasons
+          Termination reasons
         </h2>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <button

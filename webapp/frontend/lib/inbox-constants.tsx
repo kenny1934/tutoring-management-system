@@ -45,7 +45,7 @@ export const CATEGORY_SECTIONS: CategorySection[] = [
     items: [
       { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
       { id: "mentions", label: "Mentions", icon: <AtSign className="h-4 w-4" /> },
-      { id: "scheduled", label: "Send Later", icon: <Clock className="h-4 w-4" /> },
+      { id: "scheduled", label: "Send later", icon: <Clock className="h-4 w-4" /> },
       { id: "reminders", label: "Snoozed", icon: <AlarmClock className="h-4 w-4" /> },
     ],
   },

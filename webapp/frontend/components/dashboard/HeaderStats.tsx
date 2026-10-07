@@ -232,7 +232,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
             {stats.sessions_this_week}
           </span>
           <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
-            This Week
+            This week
           </span>
         </Link>
 
@@ -294,7 +294,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           )}
 
           <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
-            This Month
+            This month
           </span>
         </div>
       </div>

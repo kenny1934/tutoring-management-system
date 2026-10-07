@@ -70,8 +70,15 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// The changelog's section headings are written "New Features" and "Bug Fixes".
+// Staff pages use sentence case, and every heading is plain words, so only the
+// first letter keeps its capital.
+function sentenceCase(title: string): string {
+  return title.charAt(0) + title.slice(1).toLowerCase();
+}
+
 export default function WhatsNewPage() {
-  usePageTitle("What's New");
+  usePageTitle("What's new");
 
   // Mark current version as seen (clears blue dot in Sidebar immediately)
   useEffect(() => {
@@ -82,12 +89,12 @@ export default function WhatsNewPage() {
     <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 max-w-[48rem] mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5 backdrop-blur-sm bg-[rgba(245,240,232,0.6)] dark:bg-[rgba(42,42,42,0.3)] border border-white/20 dark:border-white/10">
+        <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5 bg-[rgba(245,240,232,0.6)] dark:bg-[rgba(42,42,42,0.3)] border border-white/20 dark:border-white/10">
           <div className="p-3 rounded-xl bg-[#f5f0e8] dark:bg-[#2d2618]">
             <Megaphone className="h-6 w-6 text-foreground/60" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">What&apos;s New</h1>
+            <h1 className="text-2xl font-bold text-foreground">What&apos;s new</h1>
             <p className="text-sm text-foreground/60">Latest updates and improvements</p>
           </div>
         </div>
@@ -104,7 +111,7 @@ export default function WhatsNewPage() {
               <div
                 key={release.version}
                 className={cn(
-                  "rounded-2xl border p-5 sm:p-6 backdrop-blur-sm",
+                  "rounded-2xl border p-5 sm:p-6",
                   "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
                   "border-white/20 dark:border-white/10",
                   idx === 0 && "ring-1 ring-primary/20"
@@ -119,11 +126,11 @@ export default function WhatsNewPage() {
                     </span>
                   </div>
                   {idx === 0 && (
-                    <span className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-primary/10 text-primary">
+                    <span className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-primary/10 text-accent-ink">
                       Latest
                     </span>
                   )}
-                  <span className="ml-auto text-xs text-foreground/40">
+                  <span className="ml-auto text-xs text-ink-subtle">
                     {formatDate(release.date)}
                   </span>
                 </div>
@@ -141,7 +148,7 @@ export default function WhatsNewPage() {
                             <Icon className="h-3.5 w-3.5" />
                           </div>
                           <h3 className="text-sm font-semibold text-foreground/80">
-                            {section.title}
+                            {sentenceCase(section.title)}
                           </h3>
                         </div>
                         <ul className="space-y-1.5 ml-7">

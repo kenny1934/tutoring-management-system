@@ -673,7 +673,7 @@ export default function SessionDetailPage() {
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{getExerciseDisplayName(exercise)}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{getExerciseDisplayName(exercise)}</p>
                                 {exercise.page_start && exercise.page_end ? (
                                   <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
                                 ) : exercise.page_start ? (
@@ -719,7 +719,7 @@ export default function SessionDetailPage() {
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{getExerciseDisplayName(exercise)}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{getExerciseDisplayName(exercise)}</p>
                                 {exercise.page_start && exercise.page_end ? (
                                   <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
                                 ) : exercise.page_start ? (

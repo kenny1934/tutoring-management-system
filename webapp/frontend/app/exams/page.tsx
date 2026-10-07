@@ -259,7 +259,7 @@ export default function ExamsPage() {
   const highlightExamId = searchParams.get('exam');
   const viewParam = searchParams.get('view');
 
-  usePageTitle("Exam Revision Classes");
+  usePageTitle("Exam revision classes");
 
   // Refs for auto-scroll to highlighted exam
   const highlightedRef = useRef<HTMLDivElement>(null);
@@ -570,7 +570,7 @@ export default function ExamsPage() {
                 </div>
                 <div>
                   <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
-                    Exam Revision Classes
+                    Exam revision classes
                   </h1>
                   <p className="hidden sm:block text-sm text-on-surface/70">
                     Create and manage revision sessions for upcoming exams
@@ -616,8 +616,9 @@ export default function ExamsPage() {
               />
             </div>
 
-            {/* School filter - share space on mobile */}
-            <div className="flex-1 sm:flex-none">
+            {/* School and grade filters - half the row each on a phone, so
+                "All schools" and "All grades" stay readable */}
+            <div className="basis-[calc(50%-0.25rem)] min-w-0 sm:basis-auto">
               <Select
                 value={schoolFilter}
                 onChange={(e) => setSchoolFilter(e.target.value)}
@@ -632,8 +633,7 @@ export default function ExamsPage() {
               </Select>
             </div>
 
-            {/* Grade filter - share space on mobile */}
-            <div className="flex-1 sm:flex-none">
+            <div className="basis-[calc(50%-0.25rem)] min-w-0 sm:basis-auto">
               <Select
                 value={gradeFilter}
                 onChange={(e) => setGradeFilter(e.target.value)}
@@ -649,13 +649,13 @@ export default function ExamsPage() {
             </div>
 
             {/* Type filter - custom dropdown with colored dots */}
-            <div ref={typeDropdownRef} className="relative flex-1 sm:flex-none">
+            <div ref={typeDropdownRef} className="relative flex-1 min-w-0 sm:flex-none">
               <button
                 onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
                 aria-label="Filter by type"
                 aria-haspopup="listbox"
                 aria-expanded={typeDropdownOpen}
-                className="flex h-8 items-center gap-2 w-full sm:w-auto px-2.5 text-sm border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 focus:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
+                className="flex h-8 items-center gap-2 w-full sm:w-auto px-2.5 text-sm whitespace-nowrap border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 focus:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
               >
                 {typeFilter ? (
                   <>

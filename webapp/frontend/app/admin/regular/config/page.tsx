@@ -171,8 +171,8 @@ export default function AdminRegularConfigPage() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <CalendarDays className="h-5 w-5 text-sky-700 dark:text-sky-400" />
+              <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center">
+                <CalendarDays className="h-5 w-5 text-accent-ink" />
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">Regular course config</h1>
@@ -194,9 +194,9 @@ export default function AdminRegularConfigPage() {
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
-                <div key={i} className="p-4 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 animate-pulse">
-                  <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
-                  <div className="h-4 w-64 bg-gray-100 dark:bg-gray-800 rounded mt-2" />
+                <div key={i} className="p-4 rounded-lg border bg-paper border-line animate-pulse">
+                  <div className="h-5 w-32 bg-tint rounded" />
+                  <div className="h-4 w-64 bg-tint rounded mt-2" />
                 </div>
               ))}
             </div>
@@ -209,11 +209,11 @@ export default function AdminRegularConfigPage() {
               {configs.map((config) => (
                 <div
                   key={config.id}
-                  className="p-4 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                  className="p-4 rounded-lg border bg-paper border-line"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-bold text-lg text-foreground">
                           {config.year}
                         </span>
@@ -241,7 +241,7 @@ export default function AdminRegularConfigPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                       <Button size="sm" icon={Pencil} onClick={() => setEditingId(config.id)}>
                         {isReadOnly ? "View" : "Edit"}
                       </Button>

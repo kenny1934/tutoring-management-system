@@ -231,7 +231,7 @@ export function TutorSelector({
           <User className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
         )}
         <span className="truncate max-w-[150px]">
-          {isAllTutorsSelected ? "All Tutors" : (selectedTutor?.tutor_name || placeholder)}
+          {isAllTutorsSelected ? "All tutors" : (selectedTutor?.tutor_name || placeholder)}
         </span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-accent-ink transition-transform", isOpen && "rotate-180")} />
       </button>
@@ -294,7 +294,7 @@ export function TutorSelector({
                     "text-gray-900 dark:text-gray-100",
                     isAllTutorsSelected && "font-medium"
                   )}>
-                    All Tutors
+                    All tutors
                   </span>
                 </button>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1" />

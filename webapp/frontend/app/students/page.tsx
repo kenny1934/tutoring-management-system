@@ -1083,19 +1083,14 @@ const StudentCard = memo(function StudentCard({
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{
-        delay: isMobile ? 0 : index * 0.03,
-        duration: 0.3,
-        ease: [0.38, 1.21, 0.22, 1.00]
+        delay: isMobile ? 0 : Math.min(index * 0.02, 0.2),
+        duration: 0.2,
+        ease: "easeOut"
       }}
-      whileHover={!isMobile ? { scale: 1.01, y: -2, transition: { duration: 0.15 } } : {}}
       className={cn(
-        "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-card border border-line",
-        !isMobile && "paper-texture",
+        "relative rounded-lg cursor-pointer transition-colors overflow-hidden flex bg-card border border-line hover:border-line-strong",
         isSelected && "ring-2 ring-primary"
       )}
-      style={{
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
-      }}
     >
       {/* Main content */}
       <div className="flex-1 p-3 min-w-0">
@@ -1139,15 +1134,20 @@ const StudentCard = memo(function StudentCard({
         )}
       </div>
 
-      {/* Enrollment count strip */}
-      <div className={cn(
-        "w-10 sm:w-12 flex-shrink-0 flex flex-col items-center justify-center",
-        student.enrollment_count && student.enrollment_count > 0
-          ? "bg-green-500 dark:bg-green-600"
-          : "bg-gray-300 dark:bg-gray-600"
-      )}>
-        <BookOpen className="h-4 w-4 text-white mb-0.5" />
-        <span className="text-xs font-bold text-white">
+      {/* Enrollment count. Nearly every student has one, so the count is quiet,
+          and it only takes a colour when it's zero, which is the case worth
+          noticing. */}
+      <div
+        className={cn(
+          "w-10 sm:w-12 flex-shrink-0 flex flex-col items-center justify-center border-l border-line",
+          student.enrollment_count && student.enrollment_count > 0
+            ? "text-ink-subtle"
+            : "text-amber-700 dark:text-amber-400"
+        )}
+        title={`${student.enrollment_count || 0} enrollment${student.enrollment_count === 1 ? "" : "s"}`}
+      >
+        <BookOpen className="h-4 w-4 mb-0.5" aria-hidden="true" />
+        <span className="text-xs font-semibold tabular-nums">
           {student.enrollment_count || 0}
         </span>
       </div>

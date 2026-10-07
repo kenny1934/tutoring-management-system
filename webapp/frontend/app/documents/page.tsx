@@ -775,14 +775,14 @@ export default function DocumentsPage() {
                         onClick={(e) => handleDocClick(doc.id, e)}
                         onDoubleClick={() => router.push(`/documents/${doc.id}`)}
                         className={cn(
-                          "group relative rounded-xl border border-l-[3px] p-3 sm:p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
+                          "group relative rounded-lg border p-3 sm:p-4 cursor-pointer transition-colors",
                           selectedIds.has(doc.id) && "ring-2 ring-primary/50 ring-offset-1",
-                          "border-l-[#a0704b]/40",
                           doc.is_archived && !isTrashTab
-                            ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
+                            ? "border-dashed border-line-strong bg-paper opacity-60"
                             : doc.is_template
-                            ? "border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/20 border-l-purple-400"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] shadow-[var(--shadow-paper-sm)] dark:shadow-none paper-texture"
+                            // Templates keep their purple, because it tells them apart from documents.
+                            ? "border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/20 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                            : "border-line bg-paper hover:bg-tint/50"
                         )}
                       >
                         {/* Grid card checkbox */}

@@ -62,7 +62,7 @@ const summerStudentsIn = (slot: SummerSlot) => slot.session_count ?? 0;
 /** The three arrangement views. The tab row renders them labelled; the
  *  full-screen strip renders them as icon toggles. */
 const VIEW_TABS = [
-  { tab: "slots", icon: Grid3X3, label: "Slot Setup" },
+  { tab: "slots", icon: Grid3X3, label: "Slot setup" },
   { tab: "calendar", icon: CalendarDays, label: "Calendar" },
   { tab: "students", icon: TableProperties, label: "Students" },
 ] as const;
@@ -103,7 +103,7 @@ function StatusFilterChip({
 }
 
 export default function SummerArrangementPage() {
-  usePageTitle("Summer Arrangement");
+  usePageTitle("Summer arrangement");
   const { canViewAdminPages: canView, isReadOnly: readOnly } = useAuth();
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -1083,12 +1083,12 @@ export default function SummerArrangementPage() {
                 wraps to its own full-width row via order-last + w-full; on sm+
                 it sits inline between the title and the location select. */}
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                <Grid3X3 className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+              <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center shrink-0">
+                <Grid3X3 className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
-                  <span>Timetable Arrangement</span>
+                  <span>Timetable arrangement</span>
                   {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
                 </h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>

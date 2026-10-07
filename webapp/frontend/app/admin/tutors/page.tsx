@@ -18,16 +18,11 @@ import { Users, Search, MapPin, RefreshCw, Repeat } from "lucide-react";
 import { Button, Input, Segmented } from "@/components/controls";
 import type { Tutor, TutorRole } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { ROLE_BADGE, ROLE_BADGE_FALLBACK, ROLE_CHIP } from "@/lib/tutor-role-badge";
 
 // Roles that represent teaching/admin staff we surface on this page. Supervisor
 // and Guest records stay editable only through the Super Admin debug panel.
 const LISTED_ROLES: TutorRole[] = ["Tutor", "Admin", "Super Admin"];
-
-const ROLE_BADGE: Record<string, string> = {
-  "Super Admin": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  Admin: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  Tutor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-};
 
 // How tutors can be grouped into sections.
 type GroupBy = "role" | "location" | "status";
@@ -119,9 +114,10 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
     <button
       onClick={onOpen}
       className={cn(
-        "group text-left flex items-center gap-4 p-4 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#221c12] hover:shadow-md hover:border-[#d4a574] transition-all",
+        "group text-left flex items-center gap-4 p-4 rounded-xl border border-line bg-paper hover:border-line-strong hover:bg-tint/50 transition-colors",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-        !isActive(tutor) && "opacity-70"
+        // Someone who has left fades whether or not the active flag has caught up.
+        (hasDeparted(tutor) || !isActive(tutor)) && "opacity-70"
       )}
     >
       {picture ? (
@@ -168,10 +164,7 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
         </div>
         <div className="mt-1 flex items-center gap-2 flex-wrap">
           <span
-            className={cn(
-              "text-[11px] font-medium px-1.5 py-0.5 rounded-full",
-              ROLE_BADGE[tutor.role] ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-            )}
+            className={cn(ROLE_CHIP, ROLE_BADGE[tutor.role] ?? ROLE_BADGE_FALLBACK)}
           >
             {tutor.role}
           </span>
@@ -263,8 +256,8 @@ function TutorsPageInner() {
           {/* Header */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                <Users className="h-6 w-6 text-amber-700 dark:text-amber-400" />
+              <div className="p-2 bg-tint rounded-lg">
+                <Users className="h-6 w-6 text-accent-ink" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
@@ -290,7 +283,7 @@ function TutorsPageInner() {
                 {syncing ? "Checking ARK…" : "Sync from ARK"}
               </Button>
             )}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none" aria-hidden="true" />
               <Input
                 type="text"
@@ -298,7 +291,7 @@ function TutorsPageInner() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search tutors…"
                 aria-label="Search tutors"
-                className="sm:w-64 pl-8"
+                className="w-full sm:w-64 pl-8"
               />
             </div>
           </div>

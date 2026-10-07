@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buttonClasses } from "@/components/controls";
 
 type PublishedFilter = "published" | "unpublished" | null;
 
@@ -57,19 +58,16 @@ export function PublishFilterDropdown({
   const isReadyToPublish =
     presetSupported && statusFilter === "Paid" && publishedFilter === "unpublished";
 
-  // Trigger label and accent reflect the most specific active state:
+  // The trigger's label reflects the most specific active state:
   // "Ready to publish" wins over the plain Published/Unpublished readout.
+  // The dot beside it carries the colour, so the button itself stays plain.
   let triggerLabel = "Publish";
-  let accent: "neutral" | "green" | "amber" = "neutral";
   if (isReadyToPublish) {
     triggerLabel = "Ready to publish";
-    accent = "amber";
   } else if (publishedFilter === "published") {
     triggerLabel = "Published";
-    accent = "green";
   } else if (publishedFilter === "unpublished") {
     triggerLabel = "Unpublished";
-    accent = "amber";
   }
 
   const apply = (next: PublishedFilter) => {
@@ -102,16 +100,7 @@ export function PublishFilterDropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         title="Filter by publish status"
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-lg border transition-colors",
-          accent === "green" &&
-            "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700",
-          accent === "amber" &&
-            "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700",
-          accent === "neutral" &&
-            "bg-white dark:bg-gray-800 text-foreground border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50",
-          open && "ring-1 ring-primary/30",
-        )}
+        className={cn(buttonClasses(), open && "ring-1 ring-primary/30")}
       >
         <span
           className={cn(
@@ -124,13 +113,13 @@ export function PublishFilterDropdown({
           )}
         />
         <span>{triggerLabel}</span>
-        <ChevronDown className="h-3 w-3 opacity-60" />
+        <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-1 min-w-[180px] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1"
+          className="absolute right-0 z-50 mt-1 min-w-[180px] bg-paper border border-line rounded-lg shadow-lg py-1"
         >
           {([
             { value: null as PublishedFilter, label: "All", dot: STATUS_DOT.all },

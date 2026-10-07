@@ -42,7 +42,7 @@ export const CONTACT_TYPE_META = {
   'General': {
     short: 'General',
     dot: 'bg-gray-500',
-    badge: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400',
+    badge: 'bg-tint text-gray-700 dark:text-gray-300',
     Icon: MessageCircle,
   },
   // Chasing a family about the next intake. Its own type because the retention
@@ -50,8 +50,8 @@ export const CONTACT_TYPE_META = {
   // intakes of contacts are in the table that cannot be worked out afterwards.
   'Course Renewal': {
     short: 'Renewal',
-    dot: 'bg-sky-500',
-    badge: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
+    dot: 'bg-violet-500',
+    badge: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
     Icon: CalendarCheck,
   },
 } as const;

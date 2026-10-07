@@ -11,11 +11,10 @@ import { cn } from "@/lib/utils";
 import { TONES } from "@/lib/tones";
 import { Button, IconButton } from "@/components/controls";
 import { toDateString } from "@/lib/calendar-utils";
-import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, PencilLine, Trash2 } from "lucide-react";
 import { CalendarEventModal } from "./CalendarEventModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
-import { TestsAccent } from "@/components/illustrations/CardAccents";
 import {
   useFloating,
   offset,
@@ -571,8 +570,8 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line bg-tint">
         <div className="flex items-center gap-2 min-w-0">
-          <TestsAccent className="w-8 h-6 flex-shrink-0" />
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Tests & Exams</h3>
+          <PencilLine className="h-4 w-4 flex-shrink-0 text-ink-subtle" aria-hidden="true" />
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Tests &amp; exams</h3>
           <Link
             href="/exams"
             className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-primary/10 hover:bg-primary/20 text-accent-ink transition-colors"

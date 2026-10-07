@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Sun, Moon, CloudSun, CloudMoon, Cloud, CloudFog, CloudDrizzle, CloudRain, Snowflake, CloudSnow, CloudLightning, Thermometer, type LucideIcon } from 'lucide-react';
 
 interface WeatherData {
   temperature: number;
@@ -41,6 +42,23 @@ export const getWeatherIcon = (code: number, isDay: boolean): string => {
   if (code >= 95 && code <= 99) return '⛈️';
 
   return '🌡️';
+};
+
+// The same mapping as plain line icons, for the staff UI, where an emoji
+// would be the loudest thing on the dashboard and looks different on every
+// machine. Zen mode keeps the emoji above, because it prints them as text.
+export const getWeatherLucideIcon = (code: number, isDay: boolean): LucideIcon => {
+  if (code === 0) return isDay ? Sun : Moon;
+  if (code === 1 || code === 2) return isDay ? CloudSun : CloudMoon;
+  if (code === 3) return Cloud;
+  if (code >= 45 && code <= 48) return CloudFog;
+  if (code >= 51 && code <= 57) return CloudDrizzle;
+  if (code >= 61 && code <= 67) return CloudRain;
+  if (code >= 71 && code <= 77) return Snowflake;
+  if (code >= 80 && code <= 82) return CloudRain;
+  if (code >= 85 && code <= 86) return CloudSnow;
+  if (code >= 95 && code <= 99) return CloudLightning;
+  return Thermometer;
 };
 
 export const getWeatherDescription = (code: number): string => {

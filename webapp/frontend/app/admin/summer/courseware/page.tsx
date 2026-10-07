@@ -191,8 +191,8 @@ export default function AdminSummerCoursewarePage() {
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-sky-700 dark:text-sky-400" />
+              <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-accent-ink" />
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">Summer courseware</h1>
@@ -334,9 +334,9 @@ export default function AdminSummerCoursewarePage() {
             isOpen={pendingScan !== null}
             onCancel={() => setPendingScan(null)}
             onConfirm={handleConfirmScan}
-            title="Update Courseware Index"
+            title="Update courseware index"
             message={`Replace the ${year} index with ${pendingScan?.files.length ?? 0} files scanned from "${pendingScan?.rootName}"? Lesson defaults will follow the new scan immediately.`}
-            confirmText="Update Index"
+            confirmText="Update index"
             loading={uploading}
           />
         </div>

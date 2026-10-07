@@ -60,7 +60,7 @@ export function PendingFollowupsSection({
 
   return (
     <div className={cn(
-      "bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800",
+      "bg-paper rounded-lg border border-line",
       "overflow-hidden"
     )}>
       {/* Header */}
@@ -68,26 +68,29 @@ export function PendingFollowupsSection({
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "w-full flex items-center gap-2 px-4 py-2",
-          "hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          "hover:bg-tint transition-colors"
         )}
       >
-        <Bell className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-        <span className="flex-1 text-left text-sm font-medium text-blue-800 dark:text-blue-200">
-          Pending Follow-ups
+        <Bell className="h-4 w-4 text-ink-subtle" />
+        <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-gray-100">
+          Pending follow-ups
         </span>
         <span className={cn(
           "px-2 py-0.5 rounded-full text-xs font-medium",
           overdueCount > 0
             ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-            : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+            : "bg-tint text-gray-700 dark:text-gray-300"
         )}>
-          {followups.length}
-          {overdueCount > 0 && ` (${overdueCount} overdue)`}
+          {overdueCount === 0
+            ? followups.length
+            : overdueCount === followups.length
+              ? `${overdueCount} overdue`
+              : `${followups.length}, ${overdueCount} overdue`}
         </span>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <ChevronUp className="h-4 w-4 text-ink-subtle" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <ChevronDown className="h-4 w-4 text-ink-subtle" />
         )}
       </button>
 
@@ -104,14 +107,14 @@ export function PendingFollowupsSection({
                   key={followup.student_id}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md",
-                    "bg-white dark:bg-[#1a1a1a] border",
-                    onStudentClick && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+                    "bg-field-fill border",
+                    onStudentClick && "cursor-pointer hover:bg-tint transition-colors",
                     selectedStudentId === followup.student_id && "ring-2 ring-accent-ink/50",
                     isOverdue
                       ? "border-red-200 dark:border-red-800"
                       : isToday
                         ? "border-orange-200 dark:border-orange-800"
-                        : "border-blue-200 dark:border-blue-800"
+                        : "border-line"
                   )}
                   onClick={() => onStudentClick?.(followup)}
                 >
@@ -121,7 +124,7 @@ export function PendingFollowupsSection({
                   ) : isToday ? (
                     <Clock className="h-4 w-4 text-orange-700 flex-shrink-0" />
                   ) : (
-                    <Bell className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <Bell className="h-4 w-4 text-ink-subtle flex-shrink-0" />
                   )}
 
                   {/* Content */}

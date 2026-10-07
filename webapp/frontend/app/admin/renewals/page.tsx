@@ -58,6 +58,14 @@ interface RenewalCardProps {
 }
 
 // Memoized RenewalCard to prevent unnecessary re-renders
+// formatDaysAgo starts "Today" and "Yesterday" with a capital, because they
+// usually stand alone. After "Expired" they sit mid-sentence, so they drop it.
+// Dates and "3d ago" come back unchanged.
+function expiredAgo(dateStr: string): string {
+  const ago = formatDaysAgo(dateStr);
+  return ago === "Today" || ago === "Yesterday" ? ago.toLowerCase() : ago;
+}
+
 const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox, selectedLocation, readOnly = false }: RenewalCardProps) {
   const isExpired = renewal.days_until_expiry < 0;
   const isThisWeek = renewal.days_until_expiry >= 0 && renewal.days_until_expiry <= 7;
@@ -95,20 +103,12 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
     <div
       data-renewal-index={index}
       className={cn(
-        "rounded-lg border transition-all overflow-hidden scroll-my-24",
-        "bg-white dark:bg-gray-900",
-        isVeryOld
-          ? "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-          : isExpired
-          ? "border-red-300 dark:border-red-800 hover:border-red-400 dark:hover:border-red-700"
-          : isThisWeek
-          ? "border-orange-300 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-700"
-          : isNextWeek
-          ? "border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700"
-          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600",
+        "rounded-lg border transition-colors overflow-hidden scroll-my-24",
+        // The urgency shows on the expiry line and the status mark, so the
+        // card itself stays plain. A red edge on every expired card shouted.
+        "bg-paper border-line hover:border-line-strong",
         // Selection ring
-        isSelected && "ring-2 ring-primary ring-offset-2",
-        !isFeePanelOpen && "hover:shadow-md"
+        isSelected && "ring-2 ring-primary ring-offset-2"
       )}
     >
       {/* Main card content - clickable */}
@@ -121,8 +121,13 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
           <div
             onClick={handleCheckboxClick}
             className={cn(
-              "flex items-center justify-center pt-0.5 transition-opacity",
-              showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              "items-center justify-center pt-0.5 transition-opacity",
+              // Until something is ticked, the box only appears on hover. A
+              // touch screen has no hover, so there it takes no space at all
+              // rather than leaving a blank gutter on every card.
+              showCheckbox
+                ? "flex opacity-100"
+                : "hidden [@media(hover:hover)]:flex opacity-0 group-hover:opacity-100"
             )}
           >
             <input
@@ -161,7 +166,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               {isExpired ? (
                 <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  <span>Expired {formatDaysAgo(renewal.effective_end_date)}</span>
+                  <span>Expired {expiredAgo(renewal.effective_end_date)}</span>
                 </div>
               ) : (
                 <div className={cn(
@@ -906,12 +911,12 @@ export default function AdminRenewalsPage() {
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                <RefreshCcw className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-700 dark:text-emerald-400" />
+              <div className="p-2 bg-tint rounded-lg">
+                <RefreshCcw className="h-5 w-5 sm:h-6 sm:w-6 text-accent-ink" />
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                  Enrollment Renewals
+                  Enrollment renewals
                 </h1>
                 <p className="text-xs sm:text-sm text-foreground/60">
                   Enrollments expiring soon or already expired
@@ -996,15 +1001,14 @@ export default function AdminRenewalsPage() {
             <button
               onClick={() => setActiveTab('not_renewed')}
               className={cn(
-                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'not_renewed'
                   ? "border-foreground text-foreground"
                   : "border-transparent text-foreground/50 hover:text-foreground/70"
               )}
             >
-              <RefreshCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Not renewed</span>
-              <span className="sm:hidden">Pending</span>
+              <RefreshCcw className="hidden sm:block h-4 w-4" />
+              <span>Not renewed</span>
               {notRenewedList.length > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
                   {notRenewedList.length}
@@ -1014,15 +1018,14 @@ export default function AdminRenewalsPage() {
             <button
               onClick={() => setActiveTab('to_send')}
               className={cn(
-                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'to_send'
                   ? "border-blue-500 text-blue-600 dark:text-blue-400"
                   : "border-transparent text-foreground/50 hover:text-foreground/70"
               )}
             >
-              <Send className="h-4 w-4" />
-              <span className="hidden sm:inline">To send</span>
-              <span className="sm:hidden">Send</span>
+              <Send className="hidden sm:block h-4 w-4" />
+              <span>To send</span>
               {toSendList.length > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                   {toSendList.length}
@@ -1032,15 +1035,14 @@ export default function AdminRenewalsPage() {
             <button
               onClick={() => setActiveTab('awaiting_payment')}
               className={cn(
-                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'awaiting_payment'
                   ? "border-orange-500 text-orange-700 dark:text-orange-400"
                   : "border-transparent text-foreground/50 hover:text-foreground/70"
               )}
             >
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Awaiting payment</span>
-              <span className="sm:hidden">Payment</span>
+              <CreditCard className="hidden sm:block h-4 w-4" />
+              <span>Awaiting payment</span>
               {awaitingPaymentList.length > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
                   {awaitingPaymentList.length}

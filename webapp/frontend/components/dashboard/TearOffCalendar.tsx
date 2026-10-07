@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useWeather, getWeatherIcon, getWeatherDescription } from "@/lib/hooks/useWeather";
+import { useWeather, getWeatherLucideIcon, getWeatherDescription } from "@/lib/hooks/useWeather";
 
 interface TearOffCalendarProps {
   className?: string;
@@ -41,7 +41,7 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
         <span className="text-base font-bold text-gray-900 dark:text-gray-100">
           {date}
         </span>
-        <span className="text-sm font-handwriting text-gray-500 dark:text-gray-400">
+        <span className="text-sm text-ink-subtle">
           {day}
         </span>
 
@@ -53,9 +53,10 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
             className="flex items-center gap-1 ml-1 pl-1.5 border-l border-line"
             title={getWeatherDescription(weather.weatherCode)}
           >
-            <span className="text-sm">
-              {getWeatherIcon(weather.weatherCode, weather.isDay)}
-            </span>
+            {(() => {
+              const WeatherIcon = getWeatherLucideIcon(weather.weatherCode, weather.isDay);
+              return <WeatherIcon className="h-3.5 w-3.5 text-ink-subtle" aria-label={getWeatherDescription(weather.weatherCode)} />;
+            })()}
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400 pr-1">
               {weather.temperature}°
             </span>

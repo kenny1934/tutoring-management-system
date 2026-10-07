@@ -409,13 +409,13 @@ function GradeCheckNote({ students }: { students: CurriculumGradeCheckStudent[] 
   return (
     <div className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-[11px] text-amber-900 dark:text-amber-200">
       <div className="flex items-start gap-2">
-        <TriangleAlert className="h-3.5 w-3.5 mt-0.5 text-amber-700 shrink-0" />
-        <p>Most of their worksheets are from a lower grade. Please check their grade.</p>
+        <TriangleAlert className="h-3.5 w-3.5 mt-0.5 text-amber-700 dark:text-amber-400 shrink-0" aria-hidden="true" />
+        <p>These students are mostly getting worksheets from a lower grade than the one on their record. Please check their grade.</p>
       </div>
       <ul className="mt-1.5 ml-[1.375rem] space-y-0.5">
         {students.map((s) => (
           <li key={s.student_id} className="flex flex-wrap items-baseline gap-x-1.5">
-            <span className="text-amber-700/80 dark:text-amber-300/70">
+            <span className="text-amber-800 dark:text-amber-300">
               {s.home_location ? `${s.home_location}-` : ""}
               {s.school_student_id}
             </span>
@@ -426,7 +426,7 @@ function GradeCheckNote({ students }: { students: CurriculumGradeCheckStudent[] 
             >
               {s.student_name}
             </Link>
-            <span className="text-amber-800/80 dark:text-amber-200/80">
+            <span className="text-amber-900 dark:text-amber-200">
               {s.school} {s.grade} on record
               {s.worksheet_grade ? ` · worksheets mostly ${s.worksheet_grade}` : ""}
               {" · "}
@@ -823,7 +823,7 @@ export default function CurriculumPage() {
             )}
           >
             <div className="flex items-center gap-2">
-              <MapIcon className="h-5 w-5 text-teal-700 dark:text-teal-400" />
+              <MapIcon className="h-5 w-5 text-accent-ink" />
               <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                 Curriculum
               </h1>

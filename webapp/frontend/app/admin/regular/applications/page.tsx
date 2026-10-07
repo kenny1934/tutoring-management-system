@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle, useDebouncedValue, useProspectPreview } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { Button, IconButton, Input, Label, Select } from "@/components/controls";
+import { Button, IconButton, Input, Label, Select, CountBadge, buttonClasses } from "@/components/controls";
 import { regularAPI } from "@/lib/api";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, REGULAR_STATUS_STEPS, REGULAR_EXIT_STATUSES,
@@ -53,7 +53,7 @@ function getAppBranchCode(a: RegularApplication): string | null {
 }
 
 export default function RegularApplicationsPage() {
-  usePageTitle("Regular Applications");
+  usePageTitle("Regular applications");
   const { canViewAdminPages, isReadOnly } = useAuth();
   const { showToast } = useToast();
 
@@ -374,12 +374,12 @@ export default function RegularApplicationsPage() {
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <ClipboardList className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+              <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
+                <ClipboardList className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
-                  <span className="truncate">Regular Applications</span>
+                  <span className="truncate">Regular applications</span>
                   <a
                     href="/regular/apply"
                     target="_blank"
@@ -395,7 +395,8 @@ export default function RegularApplicationsPage() {
                   Review September intake applications and publish confirmed schedules
                 </p>
               </div>
-              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* On a phone the controls take their own row, so the title isn't cut short. */}
+              <div className="flex w-full items-center gap-1 sm:w-auto sm:gap-2 sm:shrink-0">
                 {lastUpdated && <TimeAgo timestamp={lastUpdated} />}
                 <IconButton
                   label="Refresh applications"
@@ -514,13 +515,7 @@ export default function RegularApplicationsPage() {
                     <button
                       type="button"
                       {...triggerProps}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
-                        statusFilter
-                          ? cn(colors?.bg, colors?.text, "border-current/30")
-                          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
-                        open && "ring-1 ring-primary/30",
-                      )}
+                      className={cn(buttonClasses(), open && "ring-1 ring-primary/30")}
                       title="Filter by status"
                     >
                       {colors && <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />}
@@ -625,22 +620,12 @@ export default function RegularApplicationsPage() {
                   <button
                     type="button"
                     {...triggerProps}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
-                      moreFilterCount > 0
-                        ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-                        : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
-                      open && "ring-1 ring-primary/30",
-                    )}
+                    className={cn(buttonClasses(), open && "ring-1 ring-primary/30")}
                     title="More filters"
                   >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    <span className="font-medium">More</span>
-                    {moreFilterCount > 0 && (
-                      <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                        {moreFilterCount}
-                      </span>
-                    )}
+                    <SlidersHorizontal className="h-4 w-4 text-ink-subtle" aria-hidden="true" />
+                    <span>More</span>
+                    <CountBadge count={moreFilterCount} />
                   </button>
                 )}
               >

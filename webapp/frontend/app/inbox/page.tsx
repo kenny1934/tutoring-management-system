@@ -1453,7 +1453,7 @@ export default function InboxPage() {
       <PageTransition className="h-full">
         <div className="h-full flex flex-col overflow-hidden gap-1">
           {/* Header */}
-          <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-b-lg mx-1 px-4 py-3">
+          <div className="flex-shrink-0 bg-paper rounded-b-lg mx-1 px-4 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Inbox className="h-6 w-6 text-accent-ink" />
@@ -1600,7 +1600,7 @@ export default function InboxPage() {
                               key={cat.id}
                               onClick={() => setSelectedCategory(cat.id)}
                               className={cn(
-                                "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
+                                "w-full flex items-center gap-2 py-2 rounded-lg text-sm text-left transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
                                 categoryCollapsed ? "px-2" : "px-3",
                                 selectedCategory === cat.id
                                   ? "bg-tint text-accent-ink font-medium"

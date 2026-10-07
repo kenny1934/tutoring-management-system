@@ -520,7 +520,7 @@ export default function FolderSidebar({
 
           {/* Folders section header */}
           <div className="relative px-3 pt-3 pb-1">
-            <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
+            <div className="absolute top-0 left-3 right-3 border-t border-line" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Folders
@@ -597,7 +597,7 @@ export default function FolderSidebar({
           {/* Tags section */}
           {allTags.length > 0 && (
             <div className="relative px-3 pt-3 pb-3 mt-1">
-              <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
+              <div className="absolute top-0 left-3 right-3 border-t border-line" />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
                 Tags <span className="font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400">(right-click to manage)</span>
               </span>

@@ -783,7 +783,7 @@ export default function TerminatedStudentsPage() {
                 <CategoryDropdown
                   value={selectedCategory}
                   onChange={setSelectedCategory}
-                  placeholder="All Categories"
+                  placeholder="All categories"
                   showAllOption
                 />
 
@@ -883,7 +883,7 @@ export default function TerminatedStudentsPage() {
                 )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="text-center p-4 bg-tint rounded-lg border border-line">
-                    <button onClick={() => setStatDetailModal({ statType: "opening" })} className="text-2xl font-bold text-[#6b5a4a] dark:text-[#cd853f] hover:underline cursor-pointer">{stats.location_stats.opening}</button>
+                    <button onClick={() => setStatDetailModal({ statType: "opening" })} className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100 hover:underline cursor-pointer">{stats.location_stats.opening}</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Opening
                       <Tooltip content="Students with an active enrollment during the first week of the quarter, plus continuing students whose renewal starts within 21 days after (accounts for holidays). Around the summer course, the first week is the week regular lessons resume.">
@@ -891,12 +891,12 @@ export default function TerminatedStudentsPage() {
                       </Tooltip>
                     </div>
                   </div>
-                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-center p-4 bg-tint rounded-lg border border-line">
                     <button
                       onClick={() => setStatDetailModal({ statType: "enrollTransfer" })}
                       className={cn(
                         "text-2xl font-bold hover:underline cursor-pointer",
-                        stats.location_stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-700 dark:text-orange-400"
+                        stats.location_stats.enrollment_transfer >= 0 ? "text-gray-900 dark:text-gray-100" : "text-orange-700 dark:text-orange-400"
                       )}
                     >
                       {stats.location_stats.enrollment_transfer >= 0 ? "+" : ""}{stats.location_stats.enrollment_transfer}
@@ -917,8 +917,8 @@ export default function TerminatedStudentsPage() {
                       </Tooltip>
                     </div>
                   </div>
-                  <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <button onClick={() => setStatDetailModal({ statType: "closing" })} className="text-2xl font-bold text-green-700 dark:text-green-400 hover:underline cursor-pointer">{stats.location_stats.closing}</button>
+                  <div className="text-center p-4 bg-tint rounded-lg border border-line">
+                    <button onClick={() => setStatDetailModal({ statType: "closing" })} className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100 hover:underline cursor-pointer">{stats.location_stats.closing}</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Closing
                       <Tooltip content="Students still active at the end of the quarter, including those who renewed within 21 days after the quarter boundary (must have had an enrollment during the quarter). For the quarter running into the summer course, this is measured at the pause.">
@@ -926,10 +926,10 @@ export default function TerminatedStudentsPage() {
                       </Tooltip>
                     </div>
                   </div>
-                  <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <button onClick={() => setStatDetailModal({ statType: "termRate" })} className="text-2xl font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer">{stats.location_stats.term_rate.toFixed(2)}%</button>
+                  <div className="text-center p-4 bg-tint rounded-lg border border-line">
+                    <button onClick={() => setStatDetailModal({ statType: "termRate" })} className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100 hover:underline cursor-pointer">{stats.location_stats.term_rate.toFixed(2)}%</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                      Term Rate
+                      Term rate
                       <Tooltip content="Terminated ÷ Opening × 100%.">
                         <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
                       </Tooltip>
@@ -1120,9 +1120,9 @@ export default function TerminatedStudentsPage() {
                           <th className="px-4 py-3 text-left font-medium">
                             <button
                               onClick={() => handleSort('endDate')}
-                              className="flex items-center gap-1 hover:text-accent-ink transition-colors"
+                              className="flex items-center gap-1 whitespace-nowrap hover:text-accent-ink transition-colors"
                             >
-                              End Date
+                              End date
                               <SortIcon active={sortConfig.column === 'endDate'} direction={sortConfig.direction} />
                             </button>
                           </th>
@@ -1222,7 +1222,7 @@ export default function TerminatedStudentsPage() {
                             </th>
                             <th className="px-4 py-3 text-right font-medium">
                               <button onClick={() => handleTutorStatsSort('termRate')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
-                                Term Rate
+                                Term rate
                                 <Tooltip content="Terminated ÷ Opening × 100%." align="right"><Info className="h-3 w-3 opacity-40" /></Tooltip>
                                 <SortIcon active={tutorStatsSortConfig.column === 'termRate'} direction={tutorStatsSortConfig.direction} />
                               </button>

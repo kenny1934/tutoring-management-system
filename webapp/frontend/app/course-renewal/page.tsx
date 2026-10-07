@@ -85,7 +85,7 @@ const RENEWAL_STATE_LABEL: Record<RetentionState | "all", string> = {
  *  against other tutors. Just their students, what we know, and the three
  *  things they can do about it. */
 export default function CourseRenewalPage() {
-  usePageTitle("Course Renewal");
+  usePageTitle("Course renewal");
   const { isGuest, isReadOnly, user, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
   const [view, setView] = useState<RenewalView>("chasing");
   const [state, setState] = useState<RetentionState | "all">("no_response");
@@ -248,11 +248,11 @@ export default function CourseRenewalPage() {
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <CalendarCheck className="h-5 w-5 text-sky-700 dark:text-sky-400" />
+              <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
+                <CalendarCheck className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-lg font-semibold text-foreground">Course Renewal</h1>
+                <h1 className="text-base sm:text-lg font-semibold text-foreground">Course renewal</h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">
                   {view === "chasing"
                     ? "These are the students you taught last year and where each of them has got to."

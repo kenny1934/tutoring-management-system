@@ -41,13 +41,13 @@ interface DashboardHeaderProps {
 
 // Quick link definitions
 const quickLinks = [
-  { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
+  { id: 'tools', label: 'Useful tools', icon: Wrench, href: null }, // Special: opens dropdown
   { id: 'proposals', label: 'Make-up', icon: CalendarClock, href: null }, // Special: ProposalQuickLink component
   { id: 'trials', label: 'Trials', icon: ClipboardList, href: null }, // Special: TrialsQuickLink component
-  { id: 'parents', label: 'Parent Contacts', icon: Phone, href: '/parent-contacts' },
-  { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
-  { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
-  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: LeaveQuickLink component
+  { id: 'parents', label: 'Parent contacts', icon: Phone, href: '/parent-contacts' },
+  { id: 'revenue', label: 'My revenue', icon: DollarSign, href: '/revenue' },
+  { id: 'terminated', label: 'Terminated students', icon: UserMinus, href: '/terminated-students' },
+  { id: 'leave', label: 'Leave record', icon: ClipboardList, href: null }, // Special: LeaveQuickLink component
 ];
 
 
@@ -197,8 +197,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     )}
                   >
                     <Icon className="h-4 w-4" />
-                    <span className="hidden xs:inline">{link.label}</span>
-                    <span className="xs:hidden">Tools</span>
+                    <span title={link.label}>Tools</span>
                     <ChevronDown className={cn(
                       "h-3.5 w-3.5 transition-transform",
                       toolsOpen && "rotate-180"
@@ -327,8 +326,10 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 }}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden xs:inline">{link.label}</span>
-                <span className="xs:hidden">
+                {/* The short label at every width, as approved. The full name
+                    is the hover title. These used xs: to swap in the long
+                    label, which never fired until xs was defined. */}
+                <span title={link.label}>
                   {link.id === 'parents' && 'Parents'}
                   {link.id === 'revenue' && 'Revenue'}
                   {link.id === 'terminated' && 'Termed'}

@@ -2023,6 +2023,8 @@ function SessionsPageContent() {
           <div className="flex items-center">
             <button
               onClick={toggleSelectAll}
+              aria-label="Select all sessions"
+              title="Select all sessions"
               className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
             >
               {getGlobalSelectionState === 'all' ? (
@@ -2032,7 +2034,9 @@ function SessionsPageContent() {
               ) : (
                 <Square className="h-3.5 w-3.5" />
               )}
-              <span className="hidden sm:inline">Select</span>
+              {/* The word only shows on very wide screens: at 1440 the toolbar is
+                  full, and it used to push this control onto a line of its own. */}
+              <span className="hidden 2xl:inline">Select</span>
             </button>
             <button
               onClick={() => setShowSelectDropdown(!showSelectDropdown)}
@@ -2095,7 +2099,7 @@ function SessionsPageContent() {
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-1.5 sm:gap-3 bg-paper border-2 border-line-strong rounded-lg px-2 sm:px-4 py-1.5 sm:py-2",
+    "flex flex-wrap items-center gap-1.5 sm:gap-2 2xl:gap-3 bg-paper border-2 border-line-strong rounded-lg px-2 sm:px-4 py-1.5 sm:py-2",
     !isMobile && "paper-texture"
   );
 
@@ -2106,7 +2110,9 @@ function SessionsPageContent() {
       <>
       <PageSurface fullHeight>
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+          {/* Room at the bottom on phones, so the floating quick-attend button
+              never sits over the last card's status strip. */}
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 pb-24 sm:p-4 sm:pb-24 md:pb-4">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
             <div ref={setToolbarElement} className={toolbarStickyClasses}>
               <div className={toolbarInnerClasses}>
@@ -2290,7 +2296,7 @@ function SessionsPageContent() {
                     overdue: {
                       label: 'Overdue (60+ days)',
                       icon: <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-purple-600 dark:border-purple-500',
+                      borderColor: 'border-l-purple-600 dark:border-l-purple-500',
                       bgColor: 'bg-purple-600 dark:bg-purple-500',
                       badgeBg: 'bg-purple-100 dark:bg-purple-900',
                       badgeText: 'text-purple-900 dark:text-purple-100',
@@ -2299,7 +2305,7 @@ function SessionsPageContent() {
                     critical: {
                       label: 'Critical (45-60 days)',
                       icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-red-500 dark:border-red-600',
+                      borderColor: 'border-l-red-500 dark:border-l-red-600',
                       bgColor: 'bg-red-500 dark:bg-red-600',
                       badgeBg: 'bg-red-100 dark:bg-red-900',
                       badgeText: 'text-red-900 dark:text-red-100',
@@ -2308,7 +2314,7 @@ function SessionsPageContent() {
                     warning: {
                       label: 'Warning (30-44 days)',
                       icon: <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-orange-500 dark:border-orange-600',
+                      borderColor: 'border-l-orange-500 dark:border-l-orange-600',
                       bgColor: 'bg-orange-500 dark:bg-orange-600',
                       badgeBg: 'bg-orange-100 dark:bg-orange-900',
                       badgeText: 'text-orange-900 dark:text-orange-100',
@@ -2317,7 +2323,7 @@ function SessionsPageContent() {
                     ok: {
                       label: 'OK (0-29 days)',
                       icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-gray-400 dark:border-gray-500',
+                      borderColor: 'border-l-gray-400 dark:border-l-gray-500',
                       bgColor: 'bg-gray-400 dark:bg-gray-500',
                       badgeBg: 'bg-gray-100 dark:bg-gray-800',
                       badgeText: 'text-gray-900 dark:text-gray-100',
@@ -2331,11 +2337,9 @@ function SessionsPageContent() {
                         <div
                           onClick={() => toggleSlot(tierKey)}
                           className={cn(
-                            "bg-paper border-l-4 rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
-                            tierConfig.borderColor,
-                            !isMobile && "paper-texture"
+                            "bg-paper border border-line border-l-4 rounded-lg p-4 cursor-pointer hover:bg-tint transition-colors",
+                            tierConfig.borderColor
                           )}
-                          style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -2404,16 +2408,10 @@ function SessionsPageContent() {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
                                     transition={{
-                                      delay: isMobile || seenSlotsRef.current.has(tierKey) ? 0 : groupIndex * 0.05 + sessionIndex * 0.03,
-                                      duration: 0.35,
-                                      ease: [0.38, 1.21, 0.22, 1.00]
+                                      delay: isMobile || seenSlotsRef.current.has(tierKey) ? 0 : Math.min(groupIndex * 0.03 + sessionIndex * 0.02, 0.2),
+                                      duration: 0.2,
+                                      ease: "easeOut"
                                     }}
-                                    whileHover={!isMobile ? {
-                                      scale: 1.02,
-                                      y: -4,
-                                      transition: { duration: 0.2 }
-                                    } : {}}
-                                    whileTap={{ scale: 0.98 }}
                                     onClick={(e) => handleCardClick(session, e)}
                                     title="Click for quick view"
                                     ref={(el) => {
@@ -2421,17 +2419,12 @@ function SessionsPageContent() {
                                       else cardRefsMap.current.delete(session.id);
                                     }}
                                     className={cn(
-                                      "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
+                                      "relative rounded-lg cursor-pointer transition-colors overflow-hidden flex border border-line hover:border-line-strong",
                                       statusConfig.bgTint,
-                                      !isMobile && "paper-texture",
                                       // Only the keyboard focus outline: nothing in this
                                       // view can be selected.
                                       focusedSessionId === session.id && "outline outline-2 outline-accent-ink"
                                     )}
-                                    style={{
-                                      transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
-                                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                                    }}
                                   >
                                     {/* Main content */}
                                     <div className="flex-1 p-2 sm:p-3 min-w-0">
@@ -2574,7 +2567,7 @@ function SessionsPageContent() {
                         covers more than one day shows it, because everywhere else
                         the date picker in the toolbar has already said it. */}
                     {showDayHeading && (
-                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-accent-ink text-white desk-shadow-low">
+                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-accent-ink text-white">
                         <CalendarDays className="h-4 w-4" />
                         <span className="text-sm font-bold">{formatWeekdayLong(groupDate)}</span>
                         <span className="text-xs text-white/80">
@@ -2593,11 +2586,7 @@ function SessionsPageContent() {
                     <div className={cn("sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(slotKey)}
-                        className={cn(
-                          "bg-paper border-l-4 border-accent-ink rounded-lg px-3 py-2 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
-                          !isMobile && "paper-texture"
-                        )}
-                        style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
+                        className="bg-paper border border-line border-l-4 border-l-accent-ink rounded-lg px-3 py-2 cursor-pointer hover:bg-tint transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           {/* Slot selection checkbox with dropdown */}
@@ -2753,17 +2742,12 @@ function SessionsPageContent() {
                                 x: 0
                               }}
                               transition={{
-                                // Skip stagger delay on re-expand (only animate on first render)
-                                delay: isMobile || seenSlotsRef.current.has(slotKey) ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
-                                duration: 0.35,
-                                ease: [0.38, 1.21, 0.22, 1.00]
+                                // Skip the stagger on re-expand (only animate on first render),
+                                // and cap it so a long list doesn't keep arriving.
+                                delay: isMobile || seenSlotsRef.current.has(slotKey) ? 0 : Math.min(groupIndex * 0.03 + sessionIndex * 0.02, 0.2),
+                                duration: 0.2,
+                                ease: "easeOut"
                               }}
-                              whileHover={!isMobile ? {
-                                scale: 1.02,
-                                y: -4,
-                                transition: { duration: 0.2 }
-                              } : {}}
-                              whileTap={{ scale: 0.98 }}
                               onClick={(e) => handleCardClick(session, e)}
                               title="Click for quick view"
                               ref={(el) => {
@@ -2771,17 +2755,12 @@ function SessionsPageContent() {
                                       else cardRefsMap.current.delete(session.id);
                                     }}
                               className={cn(
-                                "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
+                                "relative rounded-lg cursor-pointer transition-colors overflow-hidden flex border border-line hover:border-line-strong",
                                 statusConfig.bgTint,
-                                !isMobile && "paper-texture",
                                 selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-accent-ink",
                                 focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-accent-ink",
                                 focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-accent-ink"
                               )}
-                              style={{
-                                transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
-                                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                              }}
                             >
                               {/* Checkbox for bulk selection */}
                               <button
@@ -3266,7 +3245,8 @@ function QuickAttendFAB({ selectedDate }: { selectedDate: Date }) {
     >
       <Link
         href="/quick-attend"
-        className="flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 active:scale-95 transition-transform"
+        aria-label={`Quick attend, ${unchecked.total} unchecked`}
+        className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-white shadow-lg hover:bg-primary-hover active:scale-95 transition-transform"
       >
         <ClipboardCheck className="h-6 w-6" />
         {unchecked.total > 0 && (

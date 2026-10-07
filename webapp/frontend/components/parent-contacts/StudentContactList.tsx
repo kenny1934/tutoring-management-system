@@ -186,13 +186,15 @@ export const StudentContactList = memo(function StudentContactList({
     )}>
       {/* Header */}
       <div className="px-3 py-2 border-b border-line bg-tint">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
+        {/* Wraps when the panel is narrow, so the sort select drops under the
+            heading instead of running past the panel's edge. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 mb-2">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
             Students ({filteredStudents.length})
           </h3>
 
           {/* Group Toggle */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <Segmented<GroupMode>
               label="Group students"
               value={groupMode}

@@ -431,7 +431,7 @@ export default function AdminWaitlistPage() {
   }) => (
     <button
       onClick={() => handleSort(field)}
-      className="flex items-center gap-1 text-xs font-medium text-foreground/60 hover:text-foreground/80 uppercase tracking-wider"
+      className="flex items-center gap-1 text-xs font-medium text-foreground/60 hover:text-foreground/80"
     >
       {children}
       {sortBy === field && (
@@ -451,8 +451,8 @@ export default function AdminWaitlistPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                <ClipboardList className="h-6 w-6 text-amber-700 dark:text-amber-400" />
+              <div className="p-2 bg-tint rounded-lg">
+                <ClipboardList className="h-6 w-6 text-accent-ink" />
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">Waitlist</h1>
@@ -887,17 +887,17 @@ export default function AdminWaitlistPage() {
                       <SortHeader field="grade">Grade</SortHeader>
                     </th>
                     <th className="text-left py-2 px-3 hidden sm:table-cell">
-                      <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
+                      <span className="text-xs font-medium text-foreground/60">
                         Phone
                       </span>
                     </th>
                     <th className="text-left py-2 px-3 hidden lg:table-cell">
-                      <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
+                      <span className="text-xs font-medium text-foreground/60">
                         Preferred slots
                       </span>
                     </th>
                     <th className="text-left py-2 px-3">
-                      <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
+                      <span className="text-xs font-medium text-foreground/60">
                         Status
                       </span>
                     </th>
@@ -905,7 +905,7 @@ export default function AdminWaitlistPage() {
                       <SortHeader field="created_at">Added</SortHeader>
                     </th>
                     <th className="text-right py-2 px-3">
-                      <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
+                      <span className="text-xs font-medium text-foreground/60">
                         Actions
                       </span>
                     </th>
@@ -1202,7 +1202,7 @@ function WaitlistRow({
             ))}
           </div>
         ) : (
-          <span className="text-xs text-foreground/30 italic">Any slot</span>
+          <span className="text-xs text-ink-subtle italic">Any slot</span>
         )}
       </td>
 
@@ -1211,7 +1211,7 @@ function WaitlistRow({
         {ctx && (
           <span
             className={cn(
-              "px-2 py-0.5 rounded text-xs font-medium",
+              "px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap",
               ctx.label === "Enrolled" &&
                 "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
               ctx.label === "Trial scheduled" &&
@@ -1219,7 +1219,7 @@ function WaitlistRow({
               ctx.label === "Student created" &&
                 "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
               ctx.label === "No student" &&
-                "bg-gray-100 dark:bg-gray-800 text-foreground/50",
+                "bg-tint text-ink-subtle",
               ctx.label === "Cancelled" &&
                 "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
             )}

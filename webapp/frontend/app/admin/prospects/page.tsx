@@ -1346,7 +1346,9 @@ const ProspectRow = memo(function ProspectRow({
       )}
       <td className="px-2 py-2">
         <div className="space-y-0.5">
-          <BranchBadges branches={p.preferred_branches || []} />
+          {/* With no branch chosen, BranchBadges prints a lone dash, which only
+              made every row taller. The Summer and Regular lines say enough. */}
+          {(p.preferred_branches?.length ?? 0) > 0 && <BranchBadges branches={p.preferred_branches || []} />}
           <div className="flex items-center gap-1">
             <span className="text-[11px] text-muted-foreground shrink-0">Summer</span>
             <IntentionBadge value={p.wants_summer} />
@@ -1482,12 +1484,14 @@ function HeaderBar({
   return (
     <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-          <GraduationCap className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+        <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center shrink-0">
+          <GraduationCap className="h-5 w-5 text-accent-ink" />
         </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
-            P6 Prospects
+        {/* The 10rem floor makes the controls wrap onto their own line on a
+            phone, instead of the title wrapping and running under them. */}
+        <div className="flex-1 min-w-[10rem]">
+          <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5 whitespace-nowrap">
+            P6 prospects
             <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-accent-ink transition-colors">
               <ExternalLink className="h-3.5 w-3.5" />
             </a>

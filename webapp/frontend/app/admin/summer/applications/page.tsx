@@ -165,7 +165,7 @@ function VirtualAppRow({
 }
 
 export default function SummerApplicationsPage() {
-  usePageTitle("Summer Applications");
+  usePageTitle("Summer applications");
   const { canViewAdminPages, isReadOnly } = useAuth();
   const { showToast } = useToast();
   const { selectedLocation } = useLocation();
@@ -940,12 +940,12 @@ export default function SummerApplicationsPage() {
             {/* Header */}
             <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                  <ClipboardList className="h-5 w-5 text-sky-700 dark:text-sky-400" />
+                <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
+                  <ClipboardList className="h-5 w-5 text-accent-ink" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
-                    <span className="truncate">Summer Applications</span>
+                    <span className="truncate">Summer applications</span>
                     <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
@@ -955,7 +955,8 @@ export default function SummerApplicationsPage() {
                     Review and process summer course applications
                   </p>
                 </div>
-                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                {/* On a phone the controls take their own row, so the title isn't cut short. */}
+                <div className="flex w-full items-center gap-1 sm:w-auto sm:gap-2 sm:shrink-0">
                   {lastUpdated && (
                     <TimeAgo timestamp={lastUpdated} />
                   )}
@@ -1081,13 +1082,7 @@ export default function SummerApplicationsPage() {
                       <button
                         type="button"
                         {...triggerProps}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
-                          statusFilter
-                            ? cn(colors?.bg, colors?.text, "border-current/30")
-                            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
-                          open && "ring-1 ring-primary/30",
-                        )}
+                        className={cn(buttonClasses(), open && "ring-1 ring-primary/30")}
                         title="Filter by status"
                       >
                         {colors && <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />}
@@ -1371,20 +1366,20 @@ export default function SummerApplicationsPage() {
               {appsLoading || !applications ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5 space-y-1">
+                    <div key={i} className="rounded-lg border border-line bg-paper px-3 py-2.5 space-y-1">
                       <div className="flex items-center gap-2">
                         <div className="h-4 w-28 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                        <div className="h-3.5 w-20 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="h-3.5 w-20 rounded animate-pulse bg-tint" />
                         <div className="ml-auto h-5 w-24 rounded-full animate-pulse bg-gray-200 dark:bg-gray-700" />
                       </div>
                       <div className="flex items-center gap-1.5 pl-6">
-                        <div className="h-5 w-8 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
-                        <div className="h-5 w-8 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
-                        <div className="h-5 w-12 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="h-5 w-8 rounded animate-pulse bg-tint" />
+                        <div className="h-5 w-8 rounded animate-pulse bg-tint" />
+                        <div className="h-5 w-12 rounded animate-pulse bg-tint" />
                       </div>
                       <div className="flex items-center gap-2 pl-6">
-                        <div className="h-3 w-36 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
-                        <div className="ml-auto h-3 w-12 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="h-3 w-36 rounded animate-pulse bg-tint" />
+                        <div className="ml-auto h-3 w-12 rounded animate-pulse bg-tint" />
                       </div>
                     </div>
                   ))}

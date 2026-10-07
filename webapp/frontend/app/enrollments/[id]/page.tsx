@@ -925,8 +925,8 @@ export default function EnrollmentDetailPage() {
                   <>
                     {/* Schedule Display */}
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                        <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      <div className="h-12 w-12 rounded-lg bg-tint flex items-center justify-center">
+                        <Calendar className="h-6 w-6 text-ink-subtle" />
                       </div>
                       <div>
                         <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -940,8 +940,8 @@ export default function EnrollmentDetailPage() {
 
                     {/* Tutor */}
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
-                        <User className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                      <div className="h-12 w-12 rounded-lg bg-tint flex items-center justify-center">
+                        <User className="h-6 w-6 text-ink-subtle" />
                       </div>
                       <div>
                         <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -954,8 +954,8 @@ export default function EnrollmentDetailPage() {
                     {/* Location */}
                     {enrollment.location && (
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                          <MapPin className="h-6 w-6 text-amber-700 dark:text-amber-400" />
+                        <div className="h-12 w-12 rounded-lg bg-tint flex items-center justify-center">
+                          <MapPin className="h-6 w-6 text-ink-subtle" />
                         </div>
                         <div>
                           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -981,7 +981,7 @@ export default function EnrollmentDetailPage() {
                     {/* Effective End Date */}
                     {enrollment.effective_end_date && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Enrollment Ends</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Enrollment ends</span>
                         <span className={cn(
                           "text-sm font-medium",
                           new Date(enrollment.effective_end_date) < new Date()
@@ -1208,7 +1208,7 @@ export default function EnrollmentDetailPage() {
                     {/* Lessons Paid */}
                     {enrollment.lessons_paid && (
                       <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Lessons Paid</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Lessons paid</span>
                         <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                           {enrollment.lessons_paid}
                         </span>
@@ -1287,7 +1287,7 @@ export default function EnrollmentDetailPage() {
 
                 {/* Session Stats - always visible (read-only) */}
                 <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Session Progress</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Session progress</p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
                       <p className="text-lg font-bold text-green-700 dark:text-green-400">{sessionStats.completed}</p>
@@ -1312,7 +1312,7 @@ export default function EnrollmentDetailPage() {
                   >
                     <span className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4" />
-                      Fee Message & Actions
+                      Fee message & actions
                     </span>
                     {showFeePanel ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </button>
@@ -1514,7 +1514,7 @@ export default function EnrollmentDetailPage() {
                   {/* Preview of new end date */}
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">New Effective End Date:</span>
+                      <span className="text-gray-600 dark:text-gray-400">New effective end date:</span>
                       <span className="font-medium text-blue-700 dark:text-blue-300">
                         {previewEffectiveEndDate || 'N/A'}
                       </span>
@@ -1559,15 +1559,15 @@ export default function EnrollmentDetailPage() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Extension Weeks</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Extension weeks</p>
                       <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                         {enrollment.deadline_extension_weeks || 0} week{(enrollment.deadline_extension_weeks || 0) !== 1 ? 's' : ''}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Effective End Date</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Effective end date</p>
                       <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {enrollment.effective_end_date || 'N/A'}
+                        {enrollment.effective_end_date ? formatShortDate(enrollment.effective_end_date) : 'N/A'}
                       </p>
                     </div>
                   </div>

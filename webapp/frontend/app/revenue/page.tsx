@@ -528,7 +528,7 @@ export default function RevenuePage() {
                   {/* Session Revenue */}
                   <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                     <p className="text-xs text-gray-500 dark:text-gray-400 tracking-wide">
-                      Session Revenue
+                      Session revenue
                     </p>
                     <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                       {formatCurrency(summary.session_revenue)}
