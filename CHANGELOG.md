@@ -7,6 +7,7 @@
 
 * **A calmer look**: pages now sit on a plain background with squarer corners, lighter shadows and softer colours, so the colour that remains tells you how things stand.
 * **Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case.
+* **A new sign-in page**: the sign-in page shows today's date, the week of the school year and a worked problem written out on a board, a different one each day, with a line about what's new in the latest release.
 * **Page headings that match**: every staff page now opens the same way, with its name and a short line about it on one row, its own buttons on the right and a thin line underneath, so lists start higher up the screen.
 * **Quieter session buttons**: the buttons on each session, such as Attended, No show and Sick, are now plain with a coloured icon, the same as the buttons for several sessions at once.
 * **The wood desk is still there**: choose Background in the user menu, next to Theme, to bring back the wooden desk behind every page.
@@ -27,6 +28,9 @@
 * **A quieter Ranking tab**: the courseware ranking has calmer titles and a softer Hot badge, and it keeps its medals.
 * **Smoother movement**: cards and panels settle into place without bouncing.
 * **Coupon sync dates**: a coupon sync run early in the morning no longer shows the previous day's date.
+* **Pages appear sooner**: pages no longer wait for decorative fonts to download before they show.
+* **Grade colours in dark mode**: the slot cards on the summer and regular arrangement boards now show their grade colour down the left edge in dark mode too, as they already did in light mode.
+* **Lighter shadows**: session cards no longer carry the heavy dark-mode shadow in light mode.
 
 ## [2.0.145](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.144...v2.0.145) (2026-09-21)
 
