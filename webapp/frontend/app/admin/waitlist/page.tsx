@@ -14,7 +14,7 @@ import { getGradeColor, GRADES } from "@/lib/constants";
 import { cn, formatError } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Button, IconButton, Input, Segmented, Select } from "@/components/controls";
+import { Button, IconButton, Input, PageHeader, Segmented, Select } from "@/components/controls";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -448,50 +448,41 @@ export default function AdminWaitlistPage() {
     <PageSurface fullHeight>
       <PageTransition className="h-full p-4 sm:p-6 flex flex-col">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-tint rounded-lg">
-                <ClipboardList className="h-6 w-6 text-accent-ink" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Waitlist</h1>
-                <p className="text-sm text-foreground/60">
-                  {activeCount} {showActive ? "active" : "closed"} entr
-                  {activeCount === 1 ? "y" : "ies"}
-                  {isReadOnly && (
-                    <span className="ml-2 text-amber-700">(Read-only)</span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* View toggle */}
-              <Segmented
-                label="View"
-                value={viewMode}
-                onChange={setViewMode}
-                options={[
-                  { value: "list", icon: List, title: "List", label: <span className="hidden sm:inline">List</span> },
-                  { value: "timetable", icon: CalendarDays, title: "Timetable", label: <span className="hidden sm:inline">Timetable</span> },
-                ]}
-              />
+          <PageHeader
+            className="mb-6"
+            icon={ClipboardList}
+            title="Waitlist"
+            subtitle={`${activeCount} ${showActive ? "active" : "closed"} entr${activeCount === 1 ? "y" : "ies"}`}
+            titleExtra={isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+            actions={
+              <>
+                {/* View toggle */}
+                <Segmented
+                  label="View"
+                  value={viewMode}
+                  onChange={setViewMode}
+                  options={[
+                    { value: "list", icon: List, title: "List", label: <span className="hidden sm:inline">List</span> },
+                    { value: "timetable", icon: CalendarDays, title: "Timetable", label: <span className="hidden sm:inline">Timetable</span> },
+                  ]}
+                />
 
-              {!isReadOnly && (
-                <Button
-                  variant="primary"
-                  icon={Plus}
-                  aria-label="Add entry"
-                  onClick={() => {
-                    setEditingEntry(null);
-                    setEntryModalOpen(true);
-                  }}
-                >
-                  <span className="hidden sm:inline">Add entry</span>
-                </Button>
-              )}
-            </div>
-          </div>
+                {!isReadOnly && (
+                  <Button
+                    variant="primary"
+                    icon={Plus}
+                    aria-label="Add entry"
+                    onClick={() => {
+                      setEditingEntry(null);
+                      setEntryModalOpen(true);
+                    }}
+                  >
+                    <span className="hidden sm:inline">Add entry</span>
+                  </Button>
+                )}
+              </>
+            }
+          />
 
           {viewMode === "timetable" ? (
             <>

@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useProposals, usePageTitle } from "@/lib/hooks";
 import { ProposalCardFull } from "@/components/proposals/ProposalCardFull";
@@ -14,7 +13,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { MakeupProposal, ProposalStatus } from "@/types";
 import {
   CalendarClock,
-  ArrowLeft,
   Inbox,
   Send,
   Filter,
@@ -27,7 +25,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { Badge, Button, Input, Segmented } from "@/components/controls";
+import { Badge, Button, Input, PageHeader, Segmented } from "@/components/controls";
 
 type TabType = "for-me" | "by-me" | "all";
 
@@ -247,32 +245,13 @@ export default function ProposalsPage() {
   return (
     <PageSurface>
       <PageTransition className="flex flex-col gap-4 p-4 sm:p-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              aria-label="Back to the dashboard"
-              title="Back to the dashboard"
-              className="p-2 hover:bg-tint rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-tint">
-                <CalendarClock className="h-6 w-6 text-accent-ink" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-on-surface">
-                  Make-up proposals
-                </h1>
-                <p className="text-sm text-on-surface/70">
-                  Manage make-up session requests
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          icon={CalendarClock}
+          title="Make-up proposals"
+          subtitle="Manage make-up session requests"
+          backHref="/"
+          backLabel="Back to the dashboard"
+        />
 
         {/* Tabs and Filters */}
         <div className={cn(

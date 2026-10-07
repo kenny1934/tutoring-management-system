@@ -7,6 +7,7 @@ import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, markVersionSeen } from "@/lib/hooks";
 import changelogData from "@/lib/changelog-data";
+import { PageHeader } from "@/components/controls";
 
 interface ChangelogItem {
   description: string;
@@ -88,16 +89,7 @@ export default function WhatsNewPage() {
   return (
     <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 max-w-[48rem] mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5 bg-[rgba(245,240,232,0.6)] dark:bg-[rgba(42,42,42,0.3)] border border-white/20 dark:border-white/10">
-          <div className="p-3 rounded-xl bg-[#f5f0e8] dark:bg-[#2d2618]">
-            <Megaphone className="h-6 w-6 text-foreground/60" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">What&apos;s new</h1>
-            <p className="text-sm text-foreground/60">Latest updates and improvements</p>
-          </div>
-        </div>
+        <PageHeader icon={Megaphone} title="What's new" subtitle="Latest updates and improvements" />
 
         {/* Release list */}
         {releases.length === 0 ? (

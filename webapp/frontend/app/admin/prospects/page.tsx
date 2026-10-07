@@ -30,7 +30,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { applicationSearchHref, prospectsAPI, summerAPI } from "@/lib/api";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { Button, CountBadge, IconButton, Input, Segmented, Select } from "@/components/controls";
+import { Button, CountBadge, IconButton, Input, PageHeader, Segmented, Select } from "@/components/controls";
 import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -1482,24 +1482,21 @@ function HeaderBar({
   readOnly?: boolean;
 }) {
   return (
-    <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center shrink-0">
-          <GraduationCap className="h-5 w-5 text-accent-ink" />
-        </div>
-        {/* The 10rem floor makes the controls wrap onto their own line on a
-            phone, instead of the title wrapping and running under them. */}
-        <div className="flex-1 min-w-[10rem]">
-          <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5 whitespace-nowrap">
-            P6 prospects
-            <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-accent-ink transition-colors">
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-            {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
-          </h1>
-          <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+    <PageHeader
+      className="px-4 pt-3 sm:px-6 sm:pt-4"
+      icon={GraduationCap}
+      title="P6 prospects"
+      subtitle="Track and manage P6 student feeder list"
+      titleExtra={
+        <>
+          <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" aria-label="Open public prospect page" className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors">
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+          {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+        </>
+      }
+      actions={
+        <>
           <label className="inline-flex items-center gap-1.5 text-sm">
             <span className="hidden sm:inline text-xs text-muted-foreground">Year</span>
             <Select
@@ -1536,9 +1533,9 @@ function HeaderBar({
               { value: "dashboard", icon: LayoutGrid, title: "Dashboard view", label: <span className="hidden sm:inline">Dashboard</span> },
             ]}
           />
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
 

@@ -7,7 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { Button, buttonClasses, Segmented } from "@/components/controls";
+import { Button, buttonClasses, Segmented, PageHeader } from "@/components/controls";
 import { regularAPI } from "@/lib/api";
 import { AlertTriangle, ChevronDown, Download, Link2, Loader2, Users } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -436,19 +436,13 @@ export default function RegularRetentionPage() {
     <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
-          {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
-                <Users className="h-5 w-5 text-accent-ink" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-lg font-semibold text-foreground">Retention</h1>
-                <p className="hidden sm:block text-xs text-muted-foreground">
-                  Have the students we already teach applied for this September?
-                </p>
-              </div>
-              <div className="shrink-0 flex items-center gap-2">
+          <PageHeader
+            icon={Users}
+            title="Retention"
+            subtitle="Have the students we already teach applied for this September?"
+            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            actions={
+              <>
                 {(branchChoices.length > 1 || branch !== null) && (
                   <DropdownMenu
                     align="right"
@@ -529,9 +523,9 @@ export default function RegularRetentionPage() {
                 >
                   <span className="hidden sm:inline">Export</span>
                 </Button>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
 
           {/* Tab bar */}
           <div className="px-4 sm:px-6 py-2 border-b border-line">

@@ -27,7 +27,7 @@ import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDeta
 import { useAuth } from "@/contexts/AuthContext";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 import { isHomeBranch } from "@/lib/employment";
-import { Badge, Button, IconButton, Input, Label } from "@/components/controls";
+import { Badge, Button, IconButton, Input, Label, PageHeader } from "@/components/controls";
 
 // Urgency levels
 type UrgencyLevel = 'critical' | 'high' | 'medium' | 'new' | 'dueSoon';
@@ -107,7 +107,7 @@ function getUrgencyLevel(daysOverdue: number): UrgencyLevel {
 const OVERDUE_SEARCH_FIELDS: (keyof OverdueEnrollment)[] = ['student_name', 'school_student_id', 'tutor_name', 'grade'];
 
 export default function OverduePaymentsPage() {
-  usePageTitle("Overdue Payments");
+  usePageTitle("Overdue payments");
 
   const searchParams = useSearchParams();
   const urgencyFilter = searchParams.get('urgency') as UrgencyLevel | null;
@@ -459,63 +459,54 @@ export default function OverduePaymentsPage() {
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
-            {/* Toolbar */}
-            <div className={cn(
-              "sticky top-0 z-30",
-              "bg-paper border-2 border-line-strong",
-              "rounded-lg px-3 sm:px-4 py-2",
-              !isMobile && "paper-texture"
-            )}>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-                {/* Title and filters */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-accent-ink" />
-                    <h1 className="text-lg font-semibold">Overdue payments</h1>
-                    {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
-                      <Link
-                        href="/overdue-payments"
-                        className={cn(
-                          "px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1",
-                          URGENCY_LEVELS[urgencyFilter].badgeBg,
-                          URGENCY_LEVELS[urgencyFilter].textColor
-                        )}
-                      >
-                        {URGENCY_LEVELS[urgencyFilter].label}
-                        <span className="text-[11px]">×</span>
-                      </Link>
+            {/* Toolbar: the page header and search stay stuck to the top. The
+                background is solid so rows don't show through as they scroll. */}
+            <div className="sticky top-0 z-30 bg-canvas pt-1">
+              <PageHeader
+                icon={AlertTriangle}
+                title="Overdue payments"
+                titleExtra={urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
+                  <Link
+                    href="/overdue-payments"
+                    className={cn(
+                      "px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1",
+                      URGENCY_LEVELS[urgencyFilter].badgeBg,
+                      URGENCY_LEVELS[urgencyFilter].textColor
                     )}
-                  </div>
-
-                  {/* Tutor Selector (center-view only) */}
-                  {viewMode === 'center-view' && (
-                    <TutorSelector
-                      value={selectedTutorId}
-                      onChange={setSelectedTutorId}
-                      location={effectiveLocation}
-                      showAllTutors
-                    />
-                  )}
-                </div>
-
-                {/* Total count badge + WeCom */}
-                <div className="flex items-center gap-2">
-                  <Badge tone={overdueCount > 0 ? "danger" : "success"} className="px-2 py-1 text-xs">
-                    {overdueCount} overdue
-                  </Badge>
-                  {isAdmin && overdueCount > 0 && (
-                    <Button
-                      size="sm"
-                      icon={MessageSquareShare}
-                      onClick={() => setShowWecom(true)}
-                      title="Send overdue payment reminder to WeCom"
-                      aria-label="Send overdue payment reminder to WeCom"
-                    >
-                      <span className="hidden sm:inline">WeCom</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
+                  >
+                    {URGENCY_LEVELS[urgencyFilter].label}
+                    <span className="text-[11px]">×</span>
+                  </Link>
+                )}
+                actions={
+                  <>
+                    <Badge tone={overdueCount > 0 ? "danger" : "success"} className="px-2 py-1 text-xs">
+                      {overdueCount} overdue
+                    </Badge>
+                    {isAdmin && overdueCount > 0 && (
+                      <Button
+                        size="sm"
+                        icon={MessageSquareShare}
+                        onClick={() => setShowWecom(true)}
+                        title="Send overdue payment reminder to WeCom"
+                        aria-label="Send overdue payment reminder to WeCom"
+                      >
+                        <span className="hidden sm:inline">WeCom</span>
+                      </Button>
+                    )}
+                  </>
+                }
+              >
+                {/* Tutor Selector (center-view only) */}
+                {viewMode === 'center-view' && (
+                  <TutorSelector
+                    value={selectedTutorId}
+                    onChange={setSelectedTutorId}
+                    location={effectiveLocation}
+                    showAllTutors
+                  />
+                )}
+              </PageHeader>
 
               {/* Search input */}
               <div className="mt-2 relative">

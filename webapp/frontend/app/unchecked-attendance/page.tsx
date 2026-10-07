@@ -20,7 +20,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { Loader2, Check, X, ClipboardList, AlertTriangle, CheckSquare, Square, Minus, CheckCheck, UserX } from "lucide-react";
-import { Badge, Button } from "@/components/controls";
+import { Badge, Button, PageHeader } from "@/components/controls";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { UncheckedAttendanceReminder, Session } from "@/types";
@@ -85,7 +85,7 @@ const BULK_ACTION_CONFIG: Record<BulkAction, { apiFn: (id: number) => Promise<un
 };
 
 export default function UncheckedAttendancePage() {
-  usePageTitle("Unchecked Attendance");
+  usePageTitle("Unchecked attendance");
 
   const searchParams = useSearchParams();
   const urgencyFilter = searchParams.get('urgency') as UrgencyLevel | null;
@@ -341,51 +341,40 @@ export default function UncheckedAttendancePage() {
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
-            <div className="sticky top-0 z-30 flex flex-col gap-3">
-            {/* Toolbar */}
-            <div className={cn(
-              "flex flex-wrap items-center gap-2 sm:gap-3",
-              "bg-paper border-2 border-line-strong",
-              "rounded-lg px-3 sm:px-4 py-2",
-              !isMobile && "paper-texture"
-            )}>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
-                  <div className="flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5 text-accent-ink" />
-                    <h1 className="text-lg font-semibold">Unchecked attendance</h1>
-                    {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
-                      <Link
-                        href="/unchecked-attendance"
-                        className={cn(
-                          "px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1",
-                          URGENCY_LEVELS[urgencyFilter].badgeBg,
-                          URGENCY_LEVELS[urgencyFilter].textColor
-                        )}
-                      >
-                        {URGENCY_LEVELS[urgencyFilter].label}
-                        <span className="text-[11px]">×</span>
-                      </Link>
-                    )}
-                  </div>
-
-                  {viewMode === 'center-view' && (
-                    <TutorSelector
-                      value={selectedTutorId}
-                      onChange={setSelectedTutorId}
-                      location={effectiveLocation}
-                      showAllTutors
-                    />
+            {/* The header and bulk bar stay stuck to the top. The background is
+                solid so rows don't show through as they scroll. */}
+            <div className="sticky top-0 z-30 flex flex-col gap-3 bg-canvas pt-1">
+            <PageHeader
+              icon={ClipboardList}
+              title="Unchecked attendance"
+              titleExtra={urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
+                <Link
+                  href="/unchecked-attendance"
+                  className={cn(
+                    "px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1",
+                    URGENCY_LEVELS[urgencyFilter].badgeBg,
+                    URGENCY_LEVELS[urgencyFilter].textColor
                   )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge tone={totalCount > 0 ? "warning" : "success"}>
-                    {totalCount} need attention
-                  </Badge>
-                </div>
-              </div>
-            </div>
+                >
+                  {URGENCY_LEVELS[urgencyFilter].label}
+                  <span className="text-[11px]">×</span>
+                </Link>
+              )}
+              actions={
+                <Badge tone={totalCount > 0 ? "warning" : "success"}>
+                  {totalCount} need attention
+                </Badge>
+              }
+            >
+              {viewMode === 'center-view' && (
+                <TutorSelector
+                  value={selectedTutorId}
+                  onChange={setSelectedTutorId}
+                  location={effectiveLocation}
+                  showAllTutors
+                />
+              )}
+            </PageHeader>
 
             {/* Bulk Action Bar */}
             {hasSelection && (

@@ -13,7 +13,7 @@ import { RegularConfigEditor } from "@/components/admin/RegularConfigEditor";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatShortDate } from "@/lib/formatters";
-import { Badge, Button, IconButton, Input } from "@/components/controls";
+import { Badge, Button, IconButton, Input, PageHeader } from "@/components/controls";
 
 export default function AdminRegularConfigPage() {
   usePageTitle("Regular config");
@@ -168,26 +168,26 @@ export default function AdminRegularConfigPage() {
     <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center">
-                <CalendarDays className="h-5 w-5 text-accent-ink" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">Regular course config</h1>
-                <p className="text-xs text-muted-foreground">
-                  Manage yearly regular course configurations
-                  {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
-                </p>
-              </div>
-            </div>
-            {!isReadOnly && (
-              <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
-                New config
-              </Button>
-            )}
-          </div>
+          <PageHeader
+            icon={CalendarDays}
+            title="Regular course config"
+            titleExtra={
+              <>
+                {isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+              </>
+            }
+            subtitle="Manage yearly regular course configurations"
+            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            actions={
+              <>
+                {!isReadOnly && (
+                  <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
+                    New config
+                  </Button>
+                )}
+              </>
+            }
+          />
 
           {/* Config list */}
           <div className="p-4 sm:p-6">

@@ -12,7 +12,7 @@ import { PageSurface } from "@/components/layout/PageSurface";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
-import { Button, IconButton, Input, buttonClasses } from "@/components/controls";
+import { Button, IconButton, Input, PageHeader, buttonClasses } from "@/components/controls";
 import { TutorAvatar } from "@/lib/avatar-utils";
 import { stripHtml } from "@/lib/html-utils";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -1453,23 +1453,22 @@ export default function InboxPage() {
       <PageTransition className="h-full">
         <div className="h-full flex flex-col overflow-hidden gap-1">
           {/* Header */}
-          <div className="flex-shrink-0 bg-paper rounded-b-lg mx-1 px-4 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Inbox className="h-6 w-6 text-accent-ink" />
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
-                  {isImpersonating && impersonatedTutor && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Viewing as: {impersonatedTutor.name}
-                    </p>
-                  )}
-                </div>
+          <div className="flex-shrink-0 mx-1 px-3 pt-3">
+            <PageHeader
+              icon={Inbox}
+              title="Inbox"
+              subtitle={isImpersonating && impersonatedTutor ? `Viewing as: ${impersonatedTutor.name}` : undefined}
+              titleExtra={
+                <>
                 {unreadCount && unreadCount.count > 0 && (
                   <span className="px-2 py-0.5 text-xs font-bold text-white bg-primary rounded-full">
                     {unreadCount.count}
                   </span>
                 )}
+                </>
+              }
+              actions={
+                <>
                 <button
                   onClick={() => setSoundEnabled(prev => !prev)}
                   className={cn(
@@ -1492,8 +1491,6 @@ export default function InboxPage() {
                 >
                   ?
                 </button>
-              </div>
-              <div className="flex items-center gap-3">
                 {isAdmin && !isReadOnlyInbox && (
                   <Button
                     variant="secondary"
@@ -1510,8 +1507,9 @@ export default function InboxPage() {
                     Compose
                   </Button>
                 )}
-              </div>
-            </div>
+                </>
+              }
+            />
           </div>
 
           {/* Main content - 3 panel layout */}

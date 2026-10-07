@@ -6,6 +6,7 @@ import { ExtensionRequestsList } from "@/components/admin/ExtensionRequestsList"
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { Clock } from "lucide-react";
+import { PageHeader } from "@/components/controls";
 
 export default function AdminExtensionsPage() {
   usePageTitle("Extension requests");
@@ -18,22 +19,13 @@ export default function AdminExtensionsPage() {
     <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6">
-        <div className="mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-tint rounded-lg">
-              <Clock className="h-6 w-6 text-accent-ink" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Extension requests
-              </h1>
-              <p className="text-sm text-foreground/60">
-                Review and approve enrollment extension requests
-                {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          className="mb-6"
+          icon={Clock}
+          title="Extension requests"
+          subtitle="Review and approve enrollment extension requests"
+          titleExtra={isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+        />
 
         {isLoading ? (
           /* Skeleton cards while loading tutors */

@@ -14,7 +14,7 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { RevenueMatrix } from "@/components/revenue/RevenueMatrix";
 import { sessionsAPI } from "@/lib/api";
 import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot, LayoutGrid, List, Info } from "lucide-react";
-import { IconButton, Input, Segmented, Select } from "@/components/controls";
+import { IconButton, Input, PageHeader, Segmented, Select } from "@/components/controls";
 import { cn } from "@/lib/utils";
 import { Tooltip } from "@/components/ui/tooltip";
 import { BONUS_TIERS } from "@/lib/constants";
@@ -240,13 +240,6 @@ export default function RevenuePage() {
   const hasMoreSessions = sessions.length > displayCount;
 
   // Toolbar classes (match sessions page pattern - separate sticky container from visual styling)
-  const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-2 sm:gap-3",
-    "bg-paper border-2 border-line-strong",
-    "rounded-lg px-3 sm:px-4 py-2",
-    !isMobile && "paper-texture"
-  );
-
   if (isGuest) {
     return (
       <PageSurface fullHeight>
@@ -262,22 +255,71 @@ export default function RevenuePage() {
     <PageSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3 p-2 sm:p-4 min-h-full">
-          {/* Toolbar - outer div is sticky container, inner div has visual styling */}
-          <div className="sticky top-0 z-30">
-            <div className={toolbarInnerClasses}>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-              {/* Top row: Title + view-specific controls */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                {/* Title */}
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-accent-ink" />
-                  <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
-                    Revenue
-                  </h1>
-                </div>
+          {/* The header is also the toolbar, stuck to the top. Its background is
+              solid so the table doesn't show through as it scrolls. */}
+          <div className="sticky top-0 z-30 bg-canvas pt-1">
+            <PageHeader
+              icon={DollarSign}
+              title="Revenue"
+              actions={
+                view === 'detail' ? (
+                  <div className="flex items-center gap-1">
+                  <IconButton
+                    icon={ChevronLeft}
+                    label="Previous month"
+                    onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, -1))}
+                  />
 
-                <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+                  <div className="relative flex items-center">
+                    <Calendar className="absolute left-2.5 z-10 h-4 w-4 text-accent-ink pointer-events-none" aria-hidden="true" />
+                    <Input
+                      type="month"
+                      value={selectedPeriod}
+                      onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
+                      max={getCurrentPeriod()}
+                      aria-label="Month"
+                      className="w-auto pl-8 font-medium cursor-pointer"
+                    />
+                  </div>
 
+                  <IconButton
+                    icon={ChevronRight}
+                    label="Next month"
+                    onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, 1))}
+                    disabled={selectedPeriod >= getCurrentPeriod()}
+                  />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <IconButton
+                      icon={ChevronLeft}
+                      label="Previous year"
+                      onClick={() => setSelectedYear(y => y - 1)}
+                    />
+                    <div className="relative flex items-center">
+                      <Calendar className="absolute left-2.5 z-10 h-4 w-4 text-accent-ink pointer-events-none" aria-hidden="true" />
+                      <Select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                        aria-label="Year"
+                        className="w-auto pl-8 font-medium"
+                      >
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const y = new Date().getFullYear() - i;
+                          return <option key={y} value={y}>{y}</option>;
+                        })}
+                      </Select>
+                    </div>
+                    <IconButton
+                      icon={ChevronRight}
+                      label="Next year"
+                      onClick={() => setSelectedYear(y => y + 1)}
+                      disabled={selectedYear >= new Date().getFullYear()}
+                    />
+                  </div>
+                )
+              }
+            >
                 {/* View toggle - admin/center-view only */}
                 {tableViewAvailable && (
                   <Segmented
@@ -320,67 +362,7 @@ export default function RevenuePage() {
                     allowClear={false}
                   />
                 )}
-              </div>
-
-              {/* Right side: month navigator (detail) or year selector (table) */}
-              {view === 'detail' ? (
-                <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
-                <IconButton
-                  icon={ChevronLeft}
-                  label="Previous month"
-                  onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, -1))}
-                />
-
-                <div className="relative flex items-center">
-                  <Calendar className="absolute left-2.5 z-10 h-4 w-4 text-accent-ink pointer-events-none" aria-hidden="true" />
-                  <Input
-                    type="month"
-                    value={selectedPeriod}
-                    onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
-                    max={getCurrentPeriod()}
-                    aria-label="Month"
-                    className="w-auto pl-8 font-medium cursor-pointer"
-                  />
-                </div>
-
-                <IconButton
-                  icon={ChevronRight}
-                  label="Next month"
-                  onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, 1))}
-                  disabled={selectedPeriod >= getCurrentPeriod()}
-                />
-                </div>
-              ) : (
-                <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
-                  <IconButton
-                    icon={ChevronLeft}
-                    label="Previous year"
-                    onClick={() => setSelectedYear(y => y - 1)}
-                  />
-                  <div className="relative flex items-center">
-                    <Calendar className="absolute left-2.5 z-10 h-4 w-4 text-accent-ink pointer-events-none" aria-hidden="true" />
-                    <Select
-                      value={selectedYear}
-                      onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-                      aria-label="Year"
-                      className="w-auto pl-8 font-medium"
-                    >
-                      {Array.from({ length: 5 }).map((_, i) => {
-                        const y = new Date().getFullYear() - i;
-                        return <option key={y} value={y}>{y}</option>;
-                      })}
-                    </Select>
-                  </div>
-                  <IconButton
-                    icon={ChevronRight}
-                    label="Next year"
-                    onClick={() => setSelectedYear(y => y + 1)}
-                    disabled={selectedYear >= new Date().getFullYear()}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+            </PageHeader>
           </div>
 
           {/* Auth loading state */}

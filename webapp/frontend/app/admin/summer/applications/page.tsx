@@ -14,7 +14,7 @@ import {
   RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button, IconButton, Input, Label, Select, CountBadge, buttonClasses } from "@/components/controls";
+import { Button, IconButton, Input, Label, Select, CountBadge, PageHeader, buttonClasses } from "@/components/controls";
 import useSWR, { mutate } from "swr";
 import { List, type RowComponentProps, useListRef, useDynamicRowHeight } from "react-window";
 import { summerAPI } from "@/lib/api";
@@ -937,26 +937,21 @@ export default function SummerApplicationsPage() {
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         {/* Paper card */}
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
-            {/* Header */}
-            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
-                  <ClipboardList className="h-5 w-5 text-accent-ink" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
-                    <span className="truncate">Summer applications</span>
-                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                    {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
-                  </h1>
-                  <p className="hidden sm:block text-xs text-muted-foreground">
-                    Review and process summer course applications
-                  </p>
-                </div>
-                {/* On a phone the controls take their own row, so the title isn't cut short. */}
-                <div className="flex w-full items-center gap-1 sm:w-auto sm:gap-2 sm:shrink-0">
+            <PageHeader
+              icon={ClipboardList}
+              title="Summer applications"
+              titleExtra={
+                <>
+                  <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" aria-label="Open application form" className="shrink-0 text-muted-foreground hover:text-accent-ink transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                  {readOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+                </>
+              }
+              subtitle="Review and process summer course applications"
+              className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+              actions={
+                <>
                   {lastUpdated && (
                     <TimeAgo timestamp={lastUpdated} />
                   )}
@@ -1046,9 +1041,9 @@ export default function SummerApplicationsPage() {
                       </DropdownMenu>
                     );
                   })()}
-                </div>
-              </div>
-            </div>
+                </>
+              }
+            />
 
             <div className="px-4 sm:px-6 py-2.5 border-b border-line/50">
               <div className="flex flex-wrap items-center gap-2">

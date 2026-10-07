@@ -23,11 +23,11 @@ import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
 import { Phone, Plus, Loader2, LayoutList, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/controls";
+import { Button, PageHeader } from "@/components/controls";
 import useSWR, { mutate } from "swr";
 
 export default function ParentContactsPage() {
-  usePageTitle("Parent Contacts");
+  usePageTitle("Parent contacts");
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -325,13 +325,6 @@ export default function ParentContactsPage() {
   const isLoading = loadingStatuses && studentStatuses.length === 0;
 
   // Toolbar classes
-  const toolbarClasses = cn(
-    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
-    "bg-paper border-2 border-line-strong",
-    "rounded-lg px-3 sm:px-4 py-2",
-    !isMobile && "paper-texture"
-  );
-
   if (isGuest) {
     return (
       <PageSurface fullHeight>
@@ -347,46 +340,32 @@ export default function ParentContactsPage() {
     <PageSurface fullHeight>
       <PageTransition className="flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden">
-          {/* Toolbar */}
-          <div className={toolbarClasses}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-              {/* Title + Tutor Selector */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-accent-ink" />
-                  <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
-                    Parent Contacts
-                  </h1>
-                </div>
-
-                <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-                {/* Tutor Selector - show for admin-level users */}
-                {canViewAdminPages && (
-                  <TutorSelector
-                    value={selectedTutorId}
-                    onChange={setSelectedTutorId}
-                    location={selectedLocation}
-                    showAllTutors={true}
-                  />
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 sm:ml-auto">
-                <Button
-                  variant="primary"
-                  icon={Plus}
-                  onClick={() => handleRecordContact()}
-                  disabled={isReadOnly}
-                  title={isReadOnly ? "Read-only access" : undefined}
-                >
-                  <span className="hidden sm:inline">Record contact</span>
-                  <span className="sm:hidden">Add</span>
-                </Button>
-              </div>
-            </div>
-          </div>
+          <PageHeader
+            icon={Phone}
+            title="Parent contacts"
+            actions={
+              <Button
+                variant="primary"
+                icon={Plus}
+                onClick={() => handleRecordContact()}
+                disabled={isReadOnly}
+                title={isReadOnly ? "Read-only access" : undefined}
+              >
+                <span className="hidden sm:inline">Record contact</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            }
+          >
+            {/* Tutor Selector - show for admin-level users */}
+            {canViewAdminPages && (
+              <TutorSelector
+                value={selectedTutorId}
+                onChange={setSelectedTutorId}
+                location={selectedLocation}
+                showAllTutors={true}
+              />
+            )}
+          </PageHeader>
 
           {/* Mobile Tab Switcher */}
           {isMobile && (

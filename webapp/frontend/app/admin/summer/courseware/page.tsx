@@ -23,7 +23,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatShortDate } from "@/lib/formatters";
 import { BookOpen, FolderSearch, AlertTriangle } from "lucide-react";
-import { Button, Select } from "@/components/controls";
+import { Button, Select, PageHeader } from "@/components/controls";
 
 export default function AdminSummerCoursewarePage() {
   usePageTitle("Summer courseware");
@@ -188,46 +188,44 @@ export default function AdminSummerCoursewarePage() {
     <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-tint flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-accent-ink" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">Summer courseware</h1>
-                <p className="text-xs text-muted-foreground">
-                  Scanned snapshot of the courseware drive, used for lesson defaults
-                  {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select
-                value={year ?? ""}
-                onChange={(e) => setYear(parseInt(e.target.value))}
-                aria-label="Year"
-                className="w-auto"
-              >
-                {configs.map((c) => (
-                  <option key={c.id} value={c.year}>
-                    {c.year}
-                  </option>
-                ))}
-              </Select>
-              {!isReadOnly && (
-                <Button
-                  variant="primary"
-                  icon={FolderSearch}
-                  loading={scanning}
-                  onClick={handlePickFolder}
-                  disabled={year === null}
+          <PageHeader
+            icon={BookOpen}
+            title="Summer courseware"
+            titleExtra={
+              <>
+                {isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+              </>
+            }
+            subtitle="Scanned snapshot of the courseware drive, used for lesson defaults"
+            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            actions={
+              <>
+                <Select
+                  value={year ?? ""}
+                  onChange={(e) => setYear(parseInt(e.target.value))}
+                  aria-label="Year"
+                  className="w-auto"
                 >
-                  {scanning ? <>Scanning… {scanProgress > 0 && `${scanProgress} files`}</> : "Rescan drive"}
-                </Button>
-              )}
-            </div>
-          </div>
+                  {configs.map((c) => (
+                    <option key={c.id} value={c.year}>
+                      {c.year}
+                    </option>
+                  ))}
+                </Select>
+                {!isReadOnly && (
+                  <Button
+                    variant="primary"
+                    icon={FolderSearch}
+                    loading={scanning}
+                    onClick={handlePickFolder}
+                    disabled={year === null}
+                  >
+                    {scanning ? <>Scanning… {scanProgress > 0 && `${scanProgress} files`}</> : "Rescan drive"}
+                  </Button>
+                )}
+              </>
+            }
+          />
 
           <div className="p-4 sm:p-6 space-y-6">
             {loading ? (

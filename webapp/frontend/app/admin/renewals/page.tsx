@@ -21,7 +21,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { RefreshButton } from "@/components/ui/RefreshButton";
-import { Button, IconButton, Input } from "@/components/controls";
+import { Button, IconButton, Input, PageHeader } from "@/components/controls";
 
 // Status icon component - matches tab icons (memoized for performance)
 const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
@@ -908,25 +908,14 @@ export default function AdminRenewalsPage() {
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sticky Header Section */}
         <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-[#faf8f5] dark:bg-[#1a1a1a]">
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-tint rounded-lg">
-                <RefreshCcw className="h-5 w-5 sm:h-6 sm:w-6 text-accent-ink" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                  Enrollment renewals
-                </h1>
-                <p className="text-xs sm:text-sm text-foreground/60">
-                  Enrollments expiring soon or already expired
-                  {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
-                </p>
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-2">
+        <PageHeader
+          className="mb-6"
+          icon={RefreshCcw}
+          title="Enrollment renewals"
+          subtitle="Enrollments expiring soon or already expired"
+          titleExtra={isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
+          actions={
+            <>
               <RefreshButton
                 onRefresh={handleRefresh}
                 isRefreshing={isRefreshing}
@@ -942,9 +931,9 @@ export default function AdminRenewalsPage() {
                 <span className="hidden xs:inline">New enrollment</span>
                 <span className="xs:hidden">Enrollment</span>
               </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Search and filter row */}
         <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">

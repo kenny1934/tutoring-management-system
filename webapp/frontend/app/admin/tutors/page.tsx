@@ -15,7 +15,7 @@ import { coverageLabel, departureLabel, hasDeparted, isLeaving } from "@/lib/emp
 import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
 import { Users, Search, MapPin, RefreshCw, Repeat } from "lucide-react";
-import { Button, Input, Segmented } from "@/components/controls";
+import { Button, Input, PageHeader, Segmented } from "@/components/controls";
 import type { Tutor, TutorRole } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ROLE_BADGE, ROLE_BADGE_FALLBACK, ROLE_CHIP } from "@/lib/tutor-role-badge";
@@ -253,36 +253,36 @@ function TutorsPageInner() {
     <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6">
-          {/* Header */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-tint rounded-lg">
-                <Users className="h-6 w-6 text-accent-ink" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Tutors
-                  {!isLoading && (
-                    <span className="ml-2 text-base font-medium text-foreground/40">
-                      {visibleTutors.length}
-                    </span>
-                  )}
-                </h1>
-                <p className="text-sm text-foreground/60">
-                  View profiles, schedules, and compensation
-                </p>
-              </div>
+          <PageHeader
+            className="mb-6"
+            icon={Users}
+            title="Tutors"
+            subtitle="View profiles, schedules, and compensation"
+            titleExtra={
+              !isLoading && (
+                <span className="text-base font-medium text-foreground/40">{visibleTutors.length}</span>
+              )
+            }
+            actions={
+              isAdmin && (
+                <Button
+                  icon={RefreshCw}
+                  loading={syncing}
+                  onClick={syncFromArk}
+                  title="Read leaving dates from ARK now instead of waiting for tonight's run"
+                >
+                  {syncing ? "Checking ARK…" : "Sync from ARK"}
+                </Button>
+              )
+            }
+          />
+
+          {/* Group-by control and search */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-foreground/50" aria-hidden="true">Group by</span>
+              <Segmented label="Group by" options={GROUP_OPTIONS} value={groupBy} onChange={setGroupBy} />
             </div>
-            {isAdmin && (
-              <Button
-                icon={RefreshCw}
-                loading={syncing}
-                onClick={syncFromArk}
-                title="Read leaving dates from ARK now instead of waiting for tonight's run"
-              >
-                {syncing ? "Checking ARK…" : "Sync from ARK"}
-              </Button>
-            )}
             <div className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none" aria-hidden="true" />
               <Input
@@ -294,12 +294,6 @@ function TutorsPageInner() {
                 className="w-full sm:w-64 pl-8"
               />
             </div>
-          </div>
-
-          {/* Group-by control */}
-          <div className="mb-5 flex items-center gap-2">
-            <span className="text-xs font-medium text-foreground/50" aria-hidden="true">Group by</span>
-            <Segmented label="Group by" options={GROUP_OPTIONS} value={groupBy} onChange={setGroupBy} />
           </div>
 
           {/* Groups */}

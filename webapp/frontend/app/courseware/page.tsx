@@ -12,7 +12,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { formatDateCompact } from "@/lib/formatters";
 import { PageSurface } from "@/components/layout/PageSurface";
-import { Button, IconButton, Input, Select, Label, Segmented, CountBadge, LABEL_CLASS } from "@/components/controls";
+import { Button, IconButton, Input, Select, Label, Segmented, CountBadge, LABEL_CLASS, PageHeader } from "@/components/controls";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import {
   BookOpen,
@@ -2881,16 +2881,13 @@ export default function CoursewarePage() {
     setExpandedFilename((prev) => (prev === filename ? null : filename));
   };
 
-  // Toolbar: outer div is a clean sticky container, inner div carries the
-  // visual styling. Sticky breaks if applied to the same element as the flex
-  // layout, so the two responsibilities are split (matches the Sessions page).
+  // Toolbar: the outer div is a clean sticky container and the inner one gives
+  // it a solid page colour, so the list doesn't show through while it sticks.
+  // Sticky breaks if applied to the same element as the flex layout, so the two
+  // responsibilities are split (matches the Sessions page). The header draws
+  // its own hairline, so there is no box any more.
   const toolbarStickyClasses = "sticky top-0 z-30";
-  const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-2 sm:gap-3",
-    "bg-paper border-2 border-line-strong",
-    "rounded-lg px-3 sm:px-4 py-2",
-    !isMobile && "paper-texture"
-  );
+  const toolbarInnerClasses = "surface pt-2";
 
   // Segmented button component for time range
   const TimeRangeToggle = () => (
@@ -2938,16 +2935,8 @@ export default function CoursewarePage() {
           {/* Toolbar */}
           <div className={toolbarStickyClasses}>
             <div className={toolbarInnerClasses}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full flex-wrap">
-              {/* Title */}
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-accent-ink" />
-                <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
-                  Courseware
-                </h1>
-              </div>
-
-              <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            <PageHeader icon={BookOpen} title="Courseware" className="pb-2">
+              <div className="h-6 w-px bg-line hidden sm:block" />
 
               {/* Tab navigation */}
               <Segmented
@@ -3049,7 +3038,7 @@ export default function CoursewarePage() {
                   </div>
                 </>
               )}
-            </div>
+            </PageHeader>
             </div>
           </div>
 

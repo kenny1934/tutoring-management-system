@@ -25,10 +25,9 @@ import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { useLocation } from "@/contexts/LocationContext";
 import type { ExamWithRevisionSlots, SlotDefaults, CalendarEvent } from "@/types";
-import { Button, IconButton, Input, Segmented, Select } from "@/components/controls";
+import { Button, IconButton, Input, PageHeader, Segmented, Select } from "@/components/controls";
 import {
   GraduationCap,
-  ArrowLeft,
   Loader2,
   Search,
   Calendar,
@@ -562,35 +561,26 @@ export default function ExamsPage() {
         <div ref={stickyHeaderRef} className="sticky top-0 z-40 surface border-b border-[#6b5a4a]/30">
           {/* Header */}
           <div className="p-4 sm:px-6 sm:py-4 surface">
-            <div className="flex items-center gap-4">
-              <IconButton icon={ArrowLeft} label="Back" onClick={goBack} />
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:block p-2 rounded-lg bg-tint">
-                  <GraduationCap className="h-6 w-6 text-accent-ink" />
-                </div>
-                <div>
-                  <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
-                    Exam revision classes
-                  </h1>
-                  <p className="hidden sm:block text-sm text-on-surface/70">
-                    Create and manage revision sessions for upcoming exams
-                  </p>
-                </div>
-              </div>
-              {/* Add Event button */}
-              {canManageEvents && (
-                <Button
-                  variant="primary"
-                  icon={Plus}
-                  onClick={handleOpenCreateEvent}
-                  className="ml-auto"
-                  title="Add event"
-                  aria-label="Add event"
-                >
-                  <span className="hidden md:inline">Add event</span>
-                </Button>
-              )}
-            </div>
+            <PageHeader
+              onBack={goBack}
+              backLabel="Back"
+              icon={GraduationCap}
+              title="Exam revision classes"
+              subtitle="Create and manage revision sessions for upcoming exams"
+              actions={
+                canManageEvents && (
+                  <Button
+                    variant="primary"
+                    icon={Plus}
+                    onClick={handleOpenCreateEvent}
+                    title="Add event"
+                    aria-label="Add event"
+                  >
+                    <span className="hidden md:inline">Add event</span>
+                  </Button>
+                )
+              }
+            />
           </div>
 
           {/* Toolbar */}

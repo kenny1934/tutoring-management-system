@@ -9,6 +9,7 @@ import { PathMappingSettings } from "@/components/settings/PathMappingSettings";
 import { PathAliasAdmin } from "@/components/admin/PathAliasAdmin";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
+import { PageHeader } from "@/components/controls";
 
 type SettingsSection = "path-mappings" | "path-aliases-admin" | null;
 
@@ -39,20 +40,11 @@ export default function SettingsPage() {
   return (
     <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-tint">
-            <Settings className="h-6 w-6 text-ink-subtle" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-on-surface">
-              Settings
-            </h1>
-            <p className="text-sm text-on-surface/70">
-              Configure your preferences and system settings
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={Settings}
+          title="Settings"
+          subtitle="Configure your preferences and system settings"
+        />
 
         {/* Settings Grid */}
         <div className="w-full">
