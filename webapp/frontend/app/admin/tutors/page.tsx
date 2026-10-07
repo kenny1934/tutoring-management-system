@@ -15,6 +15,7 @@ import { coverageLabel, departureLabel, hasDeparted, isLeaving } from "@/lib/emp
 import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
 import { Users, Search, MapPin, RefreshCw, Repeat } from "lucide-react";
+import { Button, Input, Segmented } from "@/components/controls";
 import type { Tutor, TutorRole } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
@@ -280,47 +281,32 @@ function TutorsPageInner() {
               </div>
             </div>
             {isAdmin && (
-              <button
+              <Button
+                icon={RefreshCw}
+                loading={syncing}
                 onClick={syncFromArk}
-                disabled={syncing}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-60"
                 title="Read leaving dates from ARK now instead of waiting for tonight's run"
               >
-                <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
                 {syncing ? "Checking ARK…" : "Sync from ARK"}
-              </button>
+              </Button>
             )}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-              <input
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none" aria-hidden="true" />
+              <Input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search tutors…"
-                className="w-full sm:w-64 pl-9 pr-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                aria-label="Search tutors"
+                className="sm:w-64 pl-8"
               />
             </div>
           </div>
 
           {/* Group-by control */}
           <div className="mb-5 flex items-center gap-2">
-            <span className="text-xs font-medium text-foreground/50">Group by</span>
-            <div className="inline-flex rounded-lg border border-foreground/15 bg-white dark:bg-[#231d14] p-0.5">
-              {GROUP_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setGroupBy(opt.value)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                    groupBy === opt.value
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                      : "text-foreground/60 hover:text-foreground"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <span className="text-xs font-medium text-foreground/50" aria-hidden="true">Group by</span>
+            <Segmented label="Group by" options={GROUP_OPTIONS} value={groupBy} onChange={setGroupBy} />
           </div>
 
           {/* Groups */}

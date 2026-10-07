@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IconButton, Input } from "@/components/controls";
 import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream, schoolGroupKey, schoolKeysOf } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { AdminNoteLine } from "@/components/admin/AdminNoteLine";
@@ -303,13 +304,7 @@ export function RegularUnassignedPanel({
         "absolute inset-0 flex flex-col items-center py-3 gap-2 transition-opacity duration-200",
         collapsed ? "opacity-100 delay-100" : "opacity-0 pointer-events-none"
       )}>
-        <button
-          onClick={() => setCollapsed(false)}
-          className="p-1 text-muted-foreground hover:text-foreground"
-          title="Expand panel"
-        >
-          <PanelRightOpen className="h-4 w-4" />
-        </button>
+        <IconButton size="sm" icon={PanelRightOpen} onClick={() => setCollapsed(false)} label="Expand panel" />
         <span className="text-[11px] text-muted-foreground font-medium [writing-mode:vertical-lr] rotate-180">
           {applications.length}
         </span>
@@ -338,35 +333,37 @@ export function RegularUnassignedPanel({
               {filtered.length !== applications.length && ` / ${applications.length}`}
             </span>
             {statusFilter && onClearStatusFilter && (
-              <button
+              <IconButton
+                size="sm"
+                icon={X}
                 onClick={onClearStatusFilter}
-                className="p-0.5 text-muted-foreground hover:text-foreground"
+                label="Clear status filter"
                 title={`Clear the ${statusFilter} filter`}
-                aria-label="Clear status filter"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+                className="-my-1"
+              />
             )}
             {!hideCollapse && (
-              <button
+              <IconButton
+                size="sm"
+                icon={PanelRightClose}
                 onClick={() => setCollapsed(true)}
-                className="p-0.5 text-muted-foreground hover:text-foreground"
-                title="Collapse panel"
-              >
-                <PanelRightClose className="h-3.5 w-3.5" />
-              </button>
+                label="Collapse panel"
+                className="-my-1"
+              />
             )}
           </div>
 
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
+            <Input
+              size="sm"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, ref code, school..."
-              className="w-full pl-7 pr-2 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800"
+              aria-label="Search applications"
+              className="pl-7"
             />
           </div>
 
@@ -619,6 +616,7 @@ export function RegularUnassignedPanel({
                             onClick={() => setSuggestForId(null)}
                             className="p-0.5 text-muted-foreground hover:text-foreground"
                             title="Close suggestions"
+                            aria-label="Close suggestions"
                           >
                             <X className="h-3 w-3" />
                           </button>

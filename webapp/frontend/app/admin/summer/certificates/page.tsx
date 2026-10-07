@@ -18,8 +18,8 @@ import { Award, Check, ChevronDown, Download, Loader2 } from "lucide-react";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import type { SummerStudentLessonsRow } from "@/types";
+import { Badge, Button, Input } from "@/components/controls";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** Official rule: at least 80% of the full course, rounded up (7 of 8). */
 function officialThreshold(totalLessons: number): number {
@@ -66,10 +66,10 @@ function PickerDropdown({ label, align, items }: {
     <DropdownMenu
       align={align}
       trigger={({ triggerProps }) => (
-        <button type="button" {...triggerProps} className={cn(selectClass, "inline-flex items-center gap-1.5")}>
-          <span className="font-medium">{label}</span>
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
+        <Button size="sm" {...triggerProps}>
+          {label}
+          <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
+        </Button>
       )}
     >
       {(close) => (
@@ -252,16 +252,16 @@ export default function SummerCertificatesPage() {
                     }))}
                   />
                 )}
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  icon={Download}
                   onClick={handleExport}
                   disabled={rows.length === 0}
-                  className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
                   title="Download this list as CSV"
+                  aria-label="Export"
                 >
-                  <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Export</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -284,28 +284,25 @@ export default function SummerCertificatesPage() {
                 ]}
               />
             )}
-            <input
+            <Input
+              size="sm"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Name or code"
               aria-label="Search students"
-              className={cn(selectClass, "w-40 sm:w-52")}
+              className="w-40 sm:w-52"
             />
-            <button
-              type="button"
+            <Button
+              size="sm"
+              icon={Award}
               onClick={() => setEligibleOnly((v) => !v)}
               aria-pressed={eligibleOnly}
-              className={cn(
-                selectClass,
-                "inline-flex items-center gap-1.5",
-                eligibleOnly &&
-                  "border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
-              )}
+              iconClassName={eligibleOnly ? "text-emerald-700 dark:text-emerald-400" : undefined}
+              className={cn(eligibleOnly && "border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400")}
             >
-              <Award className="h-3.5 w-3.5" />
               Eligible only
-            </button>
+            </Button>
             <div className="ml-auto text-xs text-muted-foreground tabular-nums">
               <span className="font-semibold text-emerald-700 dark:text-emerald-400">{eligibleRows.length}</span>
               {" of "}
@@ -386,10 +383,10 @@ export default function SummerCertificatesPage() {
                         </td>
                         <td className="px-3 py-2 text-right">
                           {eligible && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[11px] font-medium">
-                              <Check className="h-3 w-3" />
+                            <Badge tone="success">
+                              <Check className="h-3 w-3" aria-hidden="true" />
                               Eligible
-                            </span>
+                            </Badge>
                           )}
                         </td>
                       </tr>

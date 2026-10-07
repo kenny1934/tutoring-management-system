@@ -8,6 +8,7 @@ import { DAY_ABBREV, LOCATION_TO_CODE, displayLocation } from "@/lib/summer-util
 import useSWR from "swr";
 import type { ActiveTutorOption, TutorDuty, TutorDutyItem } from "@/types";
 import { isHomeBranch } from "@/lib/employment";
+import { Badge, Button, IconButton } from "@/components/controls";
 
 /** How the modal reaches one intake's roster. Both intakes keep their own
  *  duty table, so the caller supplies the three calls for its own. */
@@ -192,17 +193,10 @@ export function TutorDutyModal({
         <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
           <Users2 className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold flex-1">
-            Tutor Duties — {displayLocation(location)}
+            Tutor duties at {displayLocation(location)}
           </h2>
-          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-            {checked.size} duties
-          </span>
-          <button
-            onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <Badge>{checked.size} duties</Badge>
+          <IconButton icon={X} label="Close" onClick={onClose} />
         </div>
 
         {/* Body */}
@@ -302,24 +296,17 @@ export function TutorDutyModal({
 
         {/* Footer */}
         <div className="flex items-center gap-3 px-5 py-4 border-t border-border">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-secondary transition-colors"
-          >
-            Cancel
-          </button>
-          <button
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon={Save}
+            loading={saving}
             onClick={handleSave}
-            disabled={saving || loading}
-            className="ml-auto inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={loading}
+            className="ml-auto"
           >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Save Duties
-          </button>
+            Save duties
+          </Button>
         </div>
       </div>
     </div>

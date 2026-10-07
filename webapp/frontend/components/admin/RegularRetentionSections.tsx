@@ -6,7 +6,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   Download,
-  Loader2,
   MessageSquarePlus,
   Search,
   SlidersHorizontal,
@@ -15,6 +14,9 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Button, buttonClasses, Field, IconButton, Input, LABEL_CLASS, Segmented, Select, Textarea,
+} from "@/components/controls";
 import { parentCommunicationsAPI, terminationsAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveTutors, useDebouncedValue, useProspectPreview } from "@/lib/hooks";
@@ -68,17 +70,15 @@ import type {
   RetentionState,
 } from "@/types";
 
-// Shared table styling, matching the conversion board's tables.
-const wrap = "border border-line/50 rounded-lg overflow-hidden";
-const thead = "bg-[#f0e6d8]/50 dark:bg-[#2a2520]";
-const theadRow = "border-b border-line/30";
-const th = "px-3 py-2 text-left font-medium text-foreground";
-const thNum = "px-3 py-2 text-right font-medium text-foreground";
+// Styling for the tables here that keep their own markup. It copies the
+// shared Table in components/controls, as the conversion board's tables do.
+const wrap = "border border-line rounded-md overflow-hidden bg-field-fill";
+const thead = "bg-tint";
+const theadRow = "border-b border-line";
+const th = "h-8 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-subtle";
+const thNum = "h-8 whitespace-nowrap px-3 text-right text-[11px] font-semibold uppercase tracking-wider text-ink-subtle";
 const tdNum = "px-3 py-2 text-right tabular-nums";
-const rowDivide = "divide-y divide-line/30";
-
-const selectClass =
-  "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+const rowDivide = "divide-y divide-line";
 
 /** Whole-number percent, guarding a zero denominator. */
 function pct(n: number, d: number): string {
@@ -269,7 +269,7 @@ function AxisTable({
           <EmptyRow span={7}>Nothing to show yet.</EmptyRow>
         ) : (
           rows.map((r) => (
-            <tr key={r.key} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+            <tr key={r.key} className="hover:bg-tint/50">
               <td className="px-3 py-2 text-foreground">
                 {renderKey ? renderKey(r.key) : r.label ?? r.key}
               </td>
@@ -363,23 +363,13 @@ export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionRes
           </div>
           {/* The same pill switcher the chart above uses, so the two places
               where this page changes what it is showing look alike. */}
-          <div className="inline-flex bg-muted rounded-full p-0.5 shrink-0 flex-wrap">
-            {BREAKDOWN_AXES.map((a) => (
-              <button
-                key={a.key}
-                type="button"
-                onClick={() => setAxisKey(a.key)}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-medium rounded-full transition-all duration-200",
-                  a.key === axisKey
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Break down by"
+            className="shrink-0"
+            value={axisKey}
+            onChange={setAxisKey}
+            options={BREAKDOWN_AXES.map((a) => ({ value: a.key, label: a.label }))}
+          />
         </div>
         <div className={cn(wrap, "overflow-x-auto")}>
           <AxisTable rows={axis.rows(data)} label={axis.column} renderKey={axis.renderKey} />
@@ -413,7 +403,7 @@ export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionRes
                 const config = CATEGORY_CONFIG[r.key];
                 const Icon = config?.Icon;
                 return (
-                  <tr key={r.key} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+                  <tr key={r.key} className="hover:bg-tint/50">
                     <td className="px-3 py-2">
                       <span className="inline-flex items-center gap-1.5">
                         {Icon && (
@@ -494,14 +484,7 @@ export function NotReturningDialog({
         <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           <UserMinus className="h-4 w-4 text-rose-600 dark:text-rose-400" />
           <h2 className="text-sm font-semibold text-foreground flex-1">Mark as not returning</h2>
-          <button
-            type="button"
-            onClick={() => onClose(false)}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton label="Close" icon={X} size="sm" onClick={() => onClose(false)} />
         </div>
 
         <div className="p-4 space-y-3">
@@ -510,32 +493,27 @@ export function NotReturningDialog({
             {row.student_code && <span className="text-muted-foreground"> · {row.student_code}</span>}
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1">Reason</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className={cn(selectClass, "w-full")}
-            >
+          <Field label="Reason" id="not-returning-reason">
+            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
               <option value="">Choose a reason</option>
               {TERMINATION_REASON_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1">
-              Notes <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <textarea
+          <Field
+            label={<>Notes <span className="normal-case font-normal">(optional)</span></>}
+            id="not-returning-notes"
+          >
+            <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               placeholder="What the parent said"
-              className={cn(selectClass, "w-full resize-none")}
+              className="resize-none"
             />
-          </div>
+          </Field>
 
           <label className="flex items-start gap-2 rounded-lg border border-line/60 px-2.5 py-2 cursor-pointer">
             <input
@@ -563,24 +541,10 @@ export function NotReturningDialog({
         </div>
 
         <div className="flex justify-end gap-2 px-4 py-3 border-t border-line">
-          <button type="button" onClick={() => onClose(false)} className={selectClass}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || !category}
-            className={cn(
-              selectClass,
-              "text-white disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5",
-              stillWithUs
-                ? "bg-slate-600 border-slate-600 hover:bg-slate-700"
-                : "bg-rose-600 border-rose-600 hover:bg-rose-700"
-            )}
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          <Button onClick={() => onClose(false)}>Cancel</Button>
+          <Button variant="primary" onClick={save} loading={saving} disabled={!category}>
             {stillWithUs ? "Record as accounted for" : "Mark as not returning"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -753,14 +717,7 @@ export function BulkContactDialog({
           <h2 className="text-sm font-semibold text-foreground flex-1">
             Log a contact for {rows.length} student{rows.length === 1 ? "" : "s"}
           </h2>
-          <button
-            type="button"
-            onClick={() => onClose(0)}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton label="Close" icon={X} size="sm" onClick={() => onClose(0)} />
         </div>
 
         <div className="p-4 space-y-3 overflow-y-auto">
@@ -770,69 +727,52 @@ export function BulkContactDialog({
             {rows.map((r) => r.student_name).join(", ")}
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1">Contacted by</label>
-            <select
+          <Field
+            label="Contacted by"
+            id="bulk-contact-tutor"
+            hint={lockedToSelf ? "Recording as yourself" : undefined}
+          >
+            <Select
               value={tutorId ?? ""}
               onChange={(e) => setTutorId(e.target.value ? Number(e.target.value) : null)}
               disabled={lockedToSelf}
-              className={cn(selectClass, "w-full", lockedToSelf && "opacity-60 cursor-not-allowed")}
             >
               <option value="">Choose a name</option>
               {tutors.map((t) => (
                 <option key={t.id} value={t.id}>{t.tutor_name}</option>
               ))}
-            </select>
-            {lockedToSelf && (
-              <p className="text-[11px] text-muted-foreground mt-1">Recording as yourself</p>
-            )}
-          </div>
+            </Select>
+          </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1">Date</label>
-              <input
-                type="date"
-                value={when}
-                onChange={(e) => setWhen(e.target.value)}
-                className={cn(selectClass, "w-full")}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1">Method</label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className={cn(selectClass, "w-full")}
-              >
+            <Field label="Date" id="bulk-contact-date">
+              <Input type="date" value={when} onChange={(e) => setWhen(e.target.value)} />
+            </Field>
+            <Field label="Method" id="bulk-contact-method">
+              <Select value={method} onChange={(e) => setMethod(e.target.value)}>
                 {CONTACT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1">Type</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className={cn(selectClass, "w-full")}
-            >
+          <Field label="Type" id="bulk-contact-type">
+            <Select value={type} onChange={(e) => setType(e.target.value)}>
               {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1">
-              Notes <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <textarea
+          <Field
+            label={<>Notes <span className="normal-case font-normal">(optional)</span></>}
+            id="bulk-contact-notes"
+          >
+            <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Saved word for word against every student above"
-              className={cn(selectClass, "w-full resize-none")}
+              className="resize-none"
             />
-          </div>
+          </Field>
 
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -843,12 +783,12 @@ export function BulkContactDialog({
             <span className="text-xs text-foreground">Follow-up needed</span>
           </label>
           {followUp && (
-            <input
+            <Input
               type="date"
               value={followUpDate}
               onChange={(e) => setFollowUpDate(e.target.value)}
               min={new Date().toISOString().slice(0, 10)}
-              className={cn(selectClass, "w-full")}
+              aria-label="Follow-up date"
             />
           )}
 
@@ -862,22 +802,10 @@ export function BulkContactDialog({
         </div>
 
         <div className="flex justify-end gap-2 px-4 py-3 border-t border-line">
-          <button type="button" onClick={() => onClose(0)} className={selectClass}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || !tutorId}
-            className={cn(
-              selectClass,
-              "bg-primary border-primary text-primary-foreground hover:opacity-90",
-              "disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
-            )}
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          <Button onClick={() => onClose(0)}>Cancel</Button>
+          <Button variant="primary" onClick={save} loading={saving} disabled={!tutorId}>
             Log for {rows.length} student{rows.length === 1 ? "" : "s"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -998,18 +926,14 @@ export function ChaseSelectionBar({
               </span>
             )}
           </span>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            icon={MessageSquarePlus}
             onClick={picks.openBulk}
             disabled={selected > BULK_CONTACT_LIMIT}
-            className={cn(
-              selectClass,
-              "inline-flex items-center gap-1.5 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
           >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
             Log a contact
-          </button>
+          </Button>
           {selected > BULK_CONTACT_LIMIT && (
             <span className="text-xs text-amber-700 dark:text-amber-400">
               A contact can be logged for {BULK_CONTACT_LIMIT} students at a time.
@@ -1250,7 +1174,7 @@ function FilterField({
   if (!menu) return <>{children}</>;
   return (
     <div>
-      <span className="block mb-1 text-xs font-medium text-muted-foreground">{label}</span>
+      <span className={cn(LABEL_CLASS, "mb-1")}>{label}</span>
       {children}
     </div>
   );
@@ -1277,11 +1201,13 @@ function NarrowFilters({
   options: { grades: string[]; tutors: string[] };
   contactCounts: Record<Exclude<ContactFilter, "">, number>;
 }) {
-  const field = menu ? cn(selectClass, "w-full") : selectClass;
+  // In the menu a filter takes the menu's width; in the toolbar it sizes to
+  // its longest option.
+  const field = menu ? undefined : "w-auto";
   return (
     <>
       <FilterField menu={menu} label="Entering grade">
-        <select
+        <Select
           aria-label="Entering grade"
           value={filters.grade}
           onChange={(e) => set("grade", e.target.value)}
@@ -1289,11 +1215,11 @@ function NarrowFilters({
         >
           <option value="">All grades</option>
           {options.grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
-        </select>
+        </Select>
       </FilterField>
       {options.tutors.length > 1 && (
         <FilterField menu={menu} label="Tutor">
-          <select
+          <Select
             aria-label="Tutor"
             value={filters.tutor}
             onChange={(e) => set("tutor", e.target.value)}
@@ -1301,11 +1227,11 @@ function NarrowFilters({
           >
             <option value="">All tutors</option>
             {options.tutors.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          </Select>
         </FilterField>
       )}
       <FilterField menu={menu} label="Where they came from">
-        <select
+        <Select
           aria-label="Where they came from"
           value={filters.source}
           onChange={(e) => set("source", e.target.value)}
@@ -1315,7 +1241,7 @@ function NarrowFilters({
           {(Object.keys(SOURCE_LABELS) as RetentionSource[]).map((s) => (
             <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
           ))}
-        </select>
+        </Select>
       </FilterField>
       <FilterField menu={menu} label="How the chasing is going">
         <ContactButtons
@@ -1361,13 +1287,13 @@ function MoreFilters({
           type="button"
           {...triggerProps}
           className={cn(
-            selectClass,
-            "inline-flex shrink-0 items-center gap-1.5",
-            count > 0 && "border-primary/50 bg-primary/10 font-medium",
+            buttonClasses(),
+            "shrink-0",
+            count > 0 && "border-primary/50 bg-primary/10",
             open && "ring-1 ring-primary/30"
           )}
         >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <SlidersHorizontal className="h-4 w-4 text-ink-subtle" aria-hidden="true" />
           Filters
           {count > 0 && (
             <span className="min-w-[1rem] rounded-full bg-primary px-1 text-center text-[11px] leading-4 text-primary-foreground tabular-nums">
@@ -1544,7 +1470,7 @@ export function ChaseListBody({
               rows.map((r) => {
                 const due = isFollowUpDue(r, today);
                 return (
-                  <tr key={r.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+                  <tr key={r.student_id} className="hover:bg-tint/50">
                     {selection && (
                       <td className="px-3 py-1.5">
                         <input
@@ -1639,32 +1565,27 @@ export function ChaseListBody({
                     <td className="px-3 py-1.5">
                       {!isReadOnly && (
                         <div className="flex items-center gap-1 justify-end">
-                          <button
-                            type="button"
+                          <IconButton
+                            label="Log a contact about this student"
+                            icon={MessageSquarePlus}
+                            size="sm"
                             onClick={() => onContact(r)}
-                            title="Log a contact about this student"
-                            className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                          >
-                            <MessageSquarePlus className="h-3.5 w-3.5" />
-                          </button>
+                          />
                           {isRecordedAsLeaving(r.state) ? (
-                            <button
-                              type="button"
+                            <IconButton
+                              label="Put this student back on the list"
+                              icon={Undo2}
+                              size="sm"
                               onClick={() => onUndo(r)}
-                              title="Put this student back on the list"
-                              className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                            >
-                              <Undo2 className="h-3.5 w-3.5" />
-                            </button>
+                            />
                           ) : (
-                            <button
-                              type="button"
+                            <IconButton
+                              label="Mark this student as not returning"
+                              icon={UserMinus}
+                              size="sm"
+                              tone="danger"
                               onClick={() => onDecline(r)}
-                              title="Mark this student as not returning"
-                              className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
-                            >
-                              <UserMinus className="h-3.5 w-3.5" />
-                            </button>
+                            />
                           )}
                         </div>
                       )}
@@ -1827,36 +1748,22 @@ function ChaseCard({
 
           {!isReadOnly && (
             <div className="flex items-center gap-2 mt-2.5">
-              <button
-                type="button"
-                onClick={onContact}
-                className={cn(selectClass, "text-xs py-1 inline-flex items-center gap-1.5")}
-              >
-                <MessageSquarePlus className="h-3.5 w-3.5" />
+              <Button size="sm" icon={MessageSquarePlus} onClick={onContact}>
                 Log a contact
-              </button>
+              </Button>
               {leaving ? (
-                <button
-                  type="button"
-                  onClick={onUndo}
-                  className={cn(selectClass, "text-xs py-1 inline-flex items-center gap-1.5")}
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
+                <Button size="sm" icon={Undo2} onClick={onUndo}>
                   Put back on the list
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  icon={UserMinus}
+                  iconClassName="text-rose-600 dark:text-rose-400"
                   onClick={onDecline}
-                  className={cn(
-                    selectClass,
-                    "text-xs py-1 inline-flex items-center gap-1.5",
-                    "text-rose-600 dark:text-rose-400"
-                  )}
                 >
-                  <UserMinus className="h-3.5 w-3.5" />
                   Not returning
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -2059,16 +1966,17 @@ export function RegularRetentionChaseList({
         <div className="flex flex-col gap-2 @2xl/chase:flex-row @2xl/chase:items-start @2xl/chase:justify-between @2xl/chase:gap-4">
           <div className="flex items-center gap-2 min-w-0 @2xl/chase:flex-wrap">
             <div className="relative flex-1 min-w-0 @2xl/chase:flex-none @2xl/chase:w-auto">
-              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none" aria-hidden="true" />
+              <Input
                 type="search"
+                aria-label="Search the list"
                 value={filters.q}
                 onChange={(e) => set("q", e.target.value)}
                 placeholder="Name, code or phone"
                 // w-56 rather than w-52: the hint is 146px wide and the search
                 // icon eats 32px of the field, so anything narrower cut it off
                 // at "Name, code or phon".
-                className={cn(selectClass, "pl-8 w-full @2xl/chase:w-56")}
+                className="pl-8 @2xl/chase:w-56"
               />
             </div>
             {/* 56rem is where all four fit on one line beside the search box.
@@ -2114,17 +2022,19 @@ export function RegularRetentionChaseList({
                 as a menu. It follows the window rather than the toolbar because
                 what it stands in for is the table, and that is still a media
                 query. */}
-            <select
-              value={formatChaseSort(sort)}
-              onChange={(e) => setSort(parseChaseSort(e.target.value))}
-              className={cn(selectClass, "md:hidden")}
-              aria-label="Sort the list"
-            >
-              <option value="">{defaultOrderLabel}</option>
-              <option value="days_since_contact:desc">Longest waiting first</option>
-              <option value="student_name:asc">By name</option>
-              <option value="expected_grade:asc">By entering grade</option>
-            </select>
+            <div className="md:hidden">
+              <Select
+                value={formatChaseSort(sort)}
+                onChange={(e) => setSort(parseChaseSort(e.target.value))}
+                className="w-auto"
+                aria-label="Sort the list"
+              >
+                <option value="">{defaultOrderLabel}</option>
+                <option value="days_since_contact:desc">Longest waiting first</option>
+                <option value="student_name:asc">By name</option>
+                <option value="expected_grade:asc">By entering grade</option>
+              </Select>
+            </div>
             {filtersActive && (
               <button
                 type="button"
@@ -2134,16 +2044,15 @@ export function RegularRetentionChaseList({
                 Reset
               </button>
             )}
-            <button
-              type="button"
+            <Button
+              icon={Download}
               onClick={exportView}
               disabled={rows.length === 0}
               title="Download the rows shown as a call sheet"
-              className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
+              aria-label="Export view"
             >
-              <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Export view</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

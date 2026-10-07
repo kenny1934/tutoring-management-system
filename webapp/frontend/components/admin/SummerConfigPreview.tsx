@@ -260,7 +260,7 @@ export const SummerConfigPreview = memo(function SummerConfigPreview({
         </span>
         <button
           type="button"
-          onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+          aria-label="Switch the preview language" onClick={() => setLang(lang === "zh" ? "en" : "zh")}
           className="text-xs text-accent-ink hover:text-accent-ink-hover font-medium"
         >
           {lang === "zh" ? "EN" : "中文"}

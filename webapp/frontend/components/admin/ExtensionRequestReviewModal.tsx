@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, Field, Select, Textarea } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import { extensionRequestsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -208,15 +208,6 @@ export function ExtensionRequestReviewModal({
     }
   };
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
-
   const labelClass =
     "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 
@@ -239,22 +230,21 @@ export function ExtensionRequestReviewModal({
       footer={
         mode === "review" ? (
           <div className="flex justify-between w-full">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Close
             </Button>
             {!readOnly && (
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
+                  variant="secondary"
+                  icon={XCircle}
+                  iconClassName="text-red-600 dark:text-red-400"
                   onClick={() => setMode("reject")}
                   disabled={request._isLoading}
-                  className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
                   Reject
                 </Button>
-                <Button onClick={() => setMode("approve")} disabled={request._isLoading}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                <Button variant="primary" icon={CheckCircle} onClick={() => setMode("approve")} disabled={request._isLoading}>
                   Approve
                 </Button>
               </div>
@@ -263,81 +253,49 @@ export function ExtensionRequestReviewModal({
         ) : mode === "approve" ? (
           <div className="flex justify-end gap-3">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setMode("review")}
               disabled={isSubmitting}
             >
               Back
             </Button>
-            <Button onClick={handleApprove} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Approving...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Confirm Approval
-                </>
-              )}
+            <Button variant="primary" icon={CheckCircle} loading={isSubmitting} onClick={handleApprove}>
+              {isSubmitting ? "Approving..." : "Confirm approval"}
             </Button>
           </div>
         ) : mode === "reject" ? (
           <div className="flex justify-end gap-3">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setMode("review")}
               disabled={isSubmitting}
             >
               Back
             </Button>
-            <Button
-              onClick={handleReject}
-              disabled={isSubmitting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Rejecting...
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Confirm Rejection
-                </>
-              )}
+            <Button variant="danger" icon={XCircle} loading={isSubmitting} onClick={handleReject}>
+              {isSubmitting ? "Rejecting..." : "Confirm rejection"}
             </Button>
           </div>
         ) : mode === "approved" ? (
           <div className="flex justify-between w-full">
-            <Button variant="outline" onClick={handleCloseApproved}>
+            <Button variant="secondary" onClick={handleCloseApproved}>
               Close
             </Button>
             {!sessionForMakeup?.rescheduled_to_id && (
               <Button
+                variant="primary"
+                icon={CalendarPlus}
+                loading={isFetchingSession}
                 onClick={handleScheduleMakeup}
-                disabled={isFetchingSession}
               >
-                {isFetchingSession ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <CalendarPlus className="h-4 w-4 mr-2" />
-                    Schedule Makeup Now
-                  </>
-                )}
+                {isFetchingSession ? "Loading..." : "Schedule make-up now"}
               </Button>
             )}
           </div>
         ) : (
           // mode === "rejected"
           <div className="flex justify-end">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Close
             </Button>
           </div>
@@ -674,12 +632,10 @@ export function ExtensionRequestReviewModal({
               </div>
             </div>
 
-            <div>
-              <label className={labelClass}>Weeks to Grant</label>
-              <select
+            <Field label="Weeks to grant" id="extension-weeks-to-grant">
+              <Select
                 value={weeksToGrant}
                 onChange={(e) => setWeeksToGrant(Number(e.target.value))}
-                className={inputClass}
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                   <option key={n} value={n}>
@@ -687,19 +643,21 @@ export function ExtensionRequestReviewModal({
                     {n === request.requested_extension_weeks && " (requested)"}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div>
-              <label className={labelClass}>Admin Notes (optional)</label>
-              <textarea
+            <Field
+              label={<>Admin notes <span className="normal-case font-normal">(optional)</span></>}
+              id="extension-approval-notes"
+            >
+              <Textarea
                 value={approvalNotes}
                 onChange={(e) => setApprovalNotes(e.target.value)}
                 placeholder="Optional notes about this approval..."
                 rows={2}
-                className={cn(inputClass, "resize-none")}
+                className="resize-none"
               />
-            </div>
+            </Field>
 
             {request.proposed_reschedule_date && (
               <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
@@ -727,18 +685,19 @@ export function ExtensionRequestReviewModal({
               </div>
             </div>
 
-            <div>
-              <label className={labelClass}>
-                Rejection Reason <span className="text-red-600">*</span>
-              </label>
-              <textarea
+            <Field
+              label={<>Rejection reason <span className="text-red-600" aria-hidden="true">*</span></>}
+              id="extension-rejection-reason"
+            >
+              <Textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Why is this request being rejected?"
                 rows={3}
-                className={cn(inputClass, "resize-none")}
+                required
+                className="resize-none"
               />
-            </div>
+            </Field>
           </>
         )}
 

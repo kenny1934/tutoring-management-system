@@ -17,6 +17,7 @@ import {
   UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input } from "@/components/controls";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, DAY_ABBREV, formatCompactDate, RESCHEDULED_STATUS } from "@/lib/summer-utils";
@@ -449,6 +450,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
             onConstraintsChange(appId, { mode: "exclude", ranges: [] });
             setRangeStart(null);
           }}
+          aria-pressed={mode === "exclude"}
           className={cn(
             "text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors",
             mode === "exclude"
@@ -465,6 +467,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
             onConstraintsChange(appId, { mode: "include", ranges: [] });
             setRangeStart(null);
           }}
+          aria-pressed={mode === "include"}
           className={cn(
             "text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors",
             mode === "include"
@@ -557,24 +560,23 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
           {ranges.map(([s, e], idx) => (
             <span key={idx} className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium pl-1.5 pr-0.5 py-0.5 rounded-full", mode === "exclude" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300")}>
               {formatRangeLabel(s, e)}
-              <button onClick={() => removeRange(idx)} className="hover:bg-black/10 dark:hover:bg-white/10 rounded-full p-0.5"><X className="h-2.5 w-2.5" /></button>
+              <button onClick={() => removeRange(idx)} className="hover:bg-black/10 dark:hover:bg-white/10 rounded-full p-0.5" aria-label="Remove these dates"><X className="h-2.5 w-2.5" /></button>
             </span>
           ))}
           <button onClick={() => { onConstraintsChange(appId, { ranges: [] }); setRangeStart(null); }} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline ml-0.5">Clear</button>
         </div>
       )}
 
-      <button
+      <Button
+        size="sm"
         onClick={handleResuggest}
-        disabled={readjusting}
-        className={cn(
-          "text-[11px] font-medium px-2.5 py-1 rounded-md text-white flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full justify-center",
-          resuggestFlash ? "bg-green-600" : "bg-amber-600 hover:bg-amber-700"
-        )}
+        loading={readjusting}
+        icon={resuggestFlash ? CheckCircle2 : Wand2}
+        iconClassName={cn(resuggestFlash && "text-green-600 dark:text-green-400")}
+        className="w-full"
       >
-        {readjusting ? <Loader2 className="h-3 w-3 animate-spin" /> : resuggestFlash ? <CheckCircle2 className="h-3 w-3" /> : <Wand2 className="h-3 w-3" />}
         {resuggestFlash ? "Updated!" : ranges.length === 0 ? "Reset suggestion" : "Re-suggest"}
-      </button>
+      </Button>
     </div>
   );
 });
@@ -901,14 +903,9 @@ export function SummerAutoSuggestModal({
         <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e8d4b8] bg-paper rounded-t-xl">
           <Wand2 className="h-5 w-5 text-amber-700 dark:text-amber-400" />
           <h2 className="text-base font-semibold flex-1">
-            {applicationId ? `Suggest for ${studentName || "Student"}` : "Auto-Suggest Placements"}
+            {applicationId ? `Suggest for ${studentName || "Student"}` : "Auto-suggest placements"}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <IconButton icon={X} onClick={onClose} label="Close" />
         </div>
 
         {/* Body */}
@@ -974,12 +971,14 @@ export function SummerAutoSuggestModal({
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[180px] max-w-[240px]">
                     <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input
+                    <Input
+                      size="sm"
                       type="text"
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Search student..."
-                      className="w-full pl-7 pr-2 py-1 text-xs rounded-md border border-field bg-background focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      aria-label="Search students"
+                      className="pl-7"
                     />
                   </div>
                   <div className="flex items-center gap-1">
@@ -1152,6 +1151,8 @@ export function SummerAutoSuggestModal({
                                   : "text-muted-foreground hover:text-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800"
                               )}
                               title="Adjust date constraints"
+                              aria-label="Adjust date constraints"
+                              aria-pressed={isAdjusting}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const nextAdjusting = isAdjusting ? null : group.appId;
@@ -1448,25 +1449,19 @@ export function SummerAutoSuggestModal({
                 <span>Placing students...</span>
               </div>
             )}
-            <button
-              onClick={onClose}
-              disabled={accepting}
-              className="px-4 py-2 text-sm rounded-lg border border-[#e8d4b8] hover:bg-paper transition-colors disabled:opacity-50"
-            >
+            <Button onClick={onClose} disabled={accepting}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              icon={CheckCircle2}
+              loading={accepting}
               onClick={handleAccept}
-              disabled={selected.size === 0 || accepting}
-              className="ml-auto inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={selected.size === 0}
+              className="ml-auto"
             >
-              {accepting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
               Accept {selected.size} student{selected.size !== 1 ? "s" : ""}
-            </button>
+            </Button>
           </div>
         )}
       </div>

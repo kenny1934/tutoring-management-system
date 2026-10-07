@@ -14,6 +14,7 @@ import {
   RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, Label, Select, CountBadge, buttonClasses } from "@/components/controls";
 import useSWR, { mutate } from "swr";
 import { List, type RowComponentProps, useListRef, useDynamicRowHeight } from "react-window";
 import { summerAPI } from "@/lib/api";
@@ -96,7 +97,6 @@ function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
   return dir === "asc" ? "↑ A-Z" : "↓ Z-A";
 }
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 // Row heights are measured per-row so wrapping preference chips
 // (2× slots + alts on mobile) don't overlap the next card.
@@ -959,40 +959,43 @@ export default function SummerApplicationsPage() {
                   {lastUpdated && (
                     <TimeAgo timestamp={lastUpdated} />
                   )}
-                  <button
+                  <IconButton
+                    size="sm"
+                    icon={RefreshCw}
+                    iconClassName={cn(isValidating && "animate-spin")}
                     onClick={handleRefresh}
                     disabled={isValidating}
-                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
                     title="Refresh"
-                    aria-label="Refresh applications"
-                  >
-                    <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
-                  </button>
+                    label="Refresh applications"
+                  />
                   {!readOnly && (
-                    <button
+                    <Button
+                      size="sm"
+                      icon={Sparkles}
                       onClick={() => setLinkSuggestionsOpen(true)}
-                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
                       title="Preview which unlinked applications can be matched to prospects or existing students"
+                      aria-label="Link suggestions"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
                       <span className="hidden md:inline">Link suggestions</span>
-                    </button>
+                    </Button>
                   )}
                   {locationOptions.length > 0 && (
-                    <select
+                    <Select
+                      size="sm"
                       value={locationFilter || ""}
                       onChange={(e) => {
                         locationUserOverride.current = true;
                         setLocationFilter(e.target.value || null);
                       }}
-                      className="px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-field rounded-lg bg-card text-foreground"
+                      className="w-auto"
                       title="Filter by location"
+                      aria-label="Location"
                     >
                       <option value="">All</option>
                       {locationOptions.map((l) => (
                         <option key={l} value={l}>{displayLocation(l)}</option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                   {configs && configs.length > 1 && (() => {
                     const currentConfig = configs.find((c) => c.id === configId);
@@ -1003,7 +1006,7 @@ export default function SummerApplicationsPage() {
                           <button
                             type="button"
                             {...triggerProps}
-                            className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className={buttonClasses({ size: "sm" })}
                             title={currentConfig?.is_active ? "Active season" : "Past season"}
                           >
                             <span>{currentConfig?.year}</span>
@@ -1049,14 +1052,15 @@ export default function SummerApplicationsPage() {
             <div className="px-4 sm:px-6 py-2.5 border-b border-line/50">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-ink-subtle" aria-hidden="true" />
+                  <Input
                     ref={searchRef}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder='Search name, phone, ref code, student ID... (press "/")'
-                    className="w-full pl-9 pr-8 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+                    aria-label="Search applications"
+                    className="pl-9 pr-8"
                   />
                   {searchQuery && (
                     <button
@@ -1198,11 +1202,7 @@ export default function SummerApplicationsPage() {
                     <button
                       type="button"
                       {...triggerProps}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border font-medium transition-colors",
-                        "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-foreground hover:bg-amber-100/70 dark:hover:bg-amber-900/30",
-                        open && "ring-1 ring-amber-400/40",
-                      )}
+                      className={cn(buttonClasses(), open && "ring-1 ring-primary/30")}
                       title="Grouping and sort"
                     >
                       <span>{VIEW_PRESET_CONFIG[viewPreset].label}</span>
@@ -1260,53 +1260,43 @@ export default function SummerApplicationsPage() {
                     <button
                       type="button"
                       {...triggerProps}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
-                        moreFilterCount > 0
-                          ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-                          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
-                        open && "ring-1 ring-primary/30",
-                      )}
+                      className={cn(buttonClasses(), open && "ring-1 ring-primary/30")}
                       title="More filters"
                     >
-                      <SlidersHorizontal className="h-3.5 w-3.5" />
-                      <span className="font-medium">More</span>
-                      {moreFilterCount > 0 && (
-                        <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                          {moreFilterCount}
-                        </span>
-                      )}
+                      <SlidersHorizontal className="h-4 w-4 text-ink-subtle" aria-hidden="true" />
+                      <span>More</span>
+                      <CountBadge count={moreFilterCount} />
                     </button>
                   )}
                 >
                   {() => (
                     <>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Grade</label>
-                        <select
+                        <Label htmlFor="summer-apps-grade-filter">Grade</Label>
+                        <Select
+                          id="summer-apps-grade-filter"
                           value={gradeFilter || ""}
                           onChange={(e) => setGradeFilter(e.target.value || null)}
-                          className={cn(selectClass, "w-full")}
                         >
                           <option value="">All grades</option>
                           {gradeOptions.map((g) => (
                             <option key={g} value={g}>{g}</option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch origin</label>
-                        <select
+                        <Label htmlFor="summer-apps-branch-filter">Branch origin</Label>
+                        <Select
+                          id="summer-apps-branch-filter"
                           value={branchFilter || ""}
                           onChange={(e) => setBranchFilter(e.target.value || null)}
-                          className={cn(selectClass, "w-full")}
                         >
                           <option value="">All branches</option>
                           <option value="new">New (no branch)</option>
                           {branchOptions.map((code) => (
                             <option key={code} value={code}>{code}</option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1348,7 +1338,9 @@ export default function SummerApplicationsPage() {
                   ]}
                 />
 
-                <button
+                <IconButton
+                  size="sm"
+                  icon={CheckSquare}
                   onClick={() => {
                     if (batchMode || checkedIds.size > 0) {
                       setBatchMode(false);
@@ -1357,17 +1349,10 @@ export default function SummerApplicationsPage() {
                       setBatchMode(true);
                     }
                   }}
-                  title={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
-                  aria-label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
-                  className={cn(
-                    "p-1.5 rounded-lg transition-colors",
-                    showCheckboxes
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  <CheckSquare className="h-3.5 w-3.5" />
-                </button>
+                  label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                  aria-pressed={showCheckboxes}
+                  className={cn(showCheckboxes && "bg-primary/10 text-primary hover:text-primary")}
+                />
                 {showCheckboxes && (
                   <input
                     ref={selectAllRef}
@@ -1651,9 +1636,7 @@ export default function SummerApplicationsPage() {
               >
                 <div className="flex justify-between items-center mb-3">
                   <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Shortcuts</span>
-                  <button onClick={() => setShowShortcutHints(false)} className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
-                    <X className="h-4 w-4" />
-                  </button>
+                  <IconButton size="sm" label="Close shortcuts" icon={X} onClick={() => setShowShortcutHints(false)} />
                 </div>
                 <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
                   {[

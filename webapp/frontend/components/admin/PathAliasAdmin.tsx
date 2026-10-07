@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, Field, IconButton, Input } from "@/components/controls";
 import { Plus, Trash2, AlertCircle, FolderCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, PathAliasDefinition } from "@/lib/api";
@@ -105,7 +105,7 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
       {/* Current aliases */}
       <div>
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Defined Aliases
+          Defined aliases
         </h3>
         {aliases.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
@@ -134,14 +134,13 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
                     </p>
                   )}
                 </div>
-                <button
+                <IconButton
+                  icon={Trash2}
+                  tone="danger"
+                  label={`Delete the ${alias.alias} alias`}
                   onClick={() => handleDeleteAlias(alias.id, alias.alias)}
                   disabled={saving}
-                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50"
-                  title="Delete alias"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                />
               </div>
             ))}
           </div>
@@ -151,59 +150,41 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
       {/* Add new alias */}
       <div>
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Add New Alias
+          Add new alias
         </h3>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Alias Name (e.g., &quot;Center&quot;, &quot;Archive&quot;)
-            </label>
-            <input
+          <Field label="Alias name" id="path-alias-name">
+            <Input
               type="text"
               value={newAlias}
               onChange={(e) => setNewAlias(e.target.value)}
-              placeholder="Center"
-              className={cn(
-                "w-full px-3 py-2 rounded-lg border",
-                "bg-white dark:bg-gray-800",
-                "border-field",
-                "text-gray-900 dark:text-gray-100",
-                "focus:outline-none focus:ring-2 focus:ring-amber-400"
-              )}
+              placeholder="e.g. Center or Archive"
             />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Description (optional)
-            </label>
-            <input
+          </Field>
+          <Field label="Description (optional)" id="path-alias-description">
+            <Input
               type="text"
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               placeholder="Teaching center shared network drive"
-              className={cn(
-                "w-full px-3 py-2 rounded-lg border",
-                "bg-white dark:bg-gray-800",
-                "border-field",
-                "text-gray-900 dark:text-gray-100",
-                "focus:outline-none focus:ring-2 focus:ring-amber-400"
-              )}
             />
-          </div>
+          </Field>
           <Button
+            variant="primary"
+            icon={Plus}
+            loading={saving}
             onClick={handleAddAlias}
-            disabled={!newAlias.trim() || saving}
+            disabled={!newAlias.trim()}
             className="w-full"
           >
-            <Plus className="h-4 w-4 mr-1" />
-            {saving ? "Adding..." : "Add Alias"}
+            {saving ? "Adding..." : "Add alias"}
           </Button>
         </div>
       </div>
 
       {onClose && (
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button variant="outline" onClick={onClose} className="w-full">
+          <Button onClick={onClose} className="w-full">
             Done
           </Button>
         </div>

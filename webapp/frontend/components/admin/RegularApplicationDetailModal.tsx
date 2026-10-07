@@ -12,6 +12,9 @@ import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
+  Button, IconButton, Input, Label, LABEL_CLASS, Segmented, Select, Textarea,
+} from "@/components/controls";
+import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, displayLocation, DAY_ABBREV,
   getRegularTimeSlots, effectiveStream, divergentRecordStream, streamName,
   BRANCH_INFO, hkTodayIso,
@@ -51,9 +54,6 @@ import type {
   RegularPublishResponse,
   RegularPublishErrorDetail,
 } from "@/types";
-
-const inputClass = "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
-const smallLabelClass = "block text-[11px] text-muted-foreground mb-0.5";
 
 const PUBLISH_ERROR_TITLES: Record<string, string> = {
   no_linked_student: "No linked student",
@@ -902,63 +902,48 @@ export function RegularApplicationDetailModal({
           <div className="flex items-center">
             {(onPrev || onNext) && (
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
+                <IconButton
+                  label="Previous application"
+                  title="Previous (←)"
+                  icon={ChevronLeft}
                   onClick={() => onPrev && guardNav(onPrev)}
                   disabled={!hasPrev}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Previous (←)"
-                  aria-label="Previous application"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
+                />
                 {currentIndex != null && totalCount != null && (
                   <span className="text-xs text-muted-foreground tabular-nums px-1">
                     {currentIndex + 1} / {totalCount}
                   </span>
                 )}
-                <button
-                  type="button"
+                <IconButton
+                  label="Next application"
+                  title="Next (→)"
+                  icon={ChevronRight}
                   onClick={() => onNext && guardNav(onNext)}
                   disabled={!hasNext}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Next (→)"
-                  aria-label="Next application"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                />
               </div>
             )}
             {!readOnly && isSuperAdmin && (
-              <button
-                type="button"
+              <Button
+                variant="quiet"
+                icon={Trash2}
+                iconClassName="text-red-600 dark:text-red-400"
                 onClick={() => setPendingDelete(true)}
                 disabled={isPublished}
                 title={isPublished ? "Unpublish the enrollment before deleting" : undefined}
-                className="ml-2 px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="ml-2"
               >
-                <Trash2 className="h-3.5 w-3.5" />
                 Delete
-              </button>
+              </Button>
             )}
             {!readOnly && (
               <div className="flex items-center gap-2 ml-auto">
-                <button
-                  type="button"
-                  onClick={() => guardNav(onClose)}
-                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-                >
+                <Button variant="quiet" onClick={() => guardNav(onClose)}>
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!hasChanges || saving}
-                  className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Save Changes
-                </button>
+                </Button>
+                <Button variant="primary" onClick={handleSave} loading={saving} disabled={!hasChanges}>
+                  Save changes
+                </Button>
               </div>
             )}
           </div>
@@ -1035,12 +1020,12 @@ export function RegularApplicationDetailModal({
                 <div className="space-y-3 rounded-lg border border-dashed border-primary/40 p-3 bg-primary/5">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>School</label>
-                      <input type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} className={inputClass} />
+                      <Label htmlFor="app-school">School</Label>
+                      <Input id="app-school" type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} />
                     </div>
                     <div>
-                      <label className={smallLabelClass}>Grade</label>
-                      <select value={dGrade} onChange={(e) => setDGrade(e.target.value)} className={inputClass}>
+                      <Label htmlFor="app-grade">Grade</Label>
+                      <Select id="app-grade" value={dGrade} onChange={(e) => setDGrade(e.target.value)}>
                         {dGrade && !config?.available_grades.some((g) => (g.value ?? g.name) === dGrade) && (
                           <option value={dGrade}>{dGrade}</option>
                         )}
@@ -1048,28 +1033,27 @@ export function RegularApplicationDetailModal({
                           const v = g.value ?? g.name;
                           return <option key={v} value={v}>{v}</option>;
                         })}
-                      </select>
+                      </Select>
                     </div>
                     <div>
-                      <label className={smallLabelClass}>Stream</label>
-                      <select value={dLang} onChange={(e) => setDLang(e.target.value)} className={inputClass}>
+                      <Label htmlFor="app-stream">Stream</Label>
+                      <Select id="app-stream" value={dLang} onChange={(e) => setDLang(e.target.value)}>
                         <option value="">Not set</option>
                         {(config?.lang_stream_options || []).map((o) => {
                           const v = o.value ?? o.name;
                           return <option key={v} value={v}>{v}</option>;
                         })}
-                      </select>
+                      </Select>
                     </div>
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>WeChat ID</label>
-                      <input type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} className={inputClass} />
+                      <Label htmlFor="app-wechat-id">WeChat ID</Label>
+                      <Input id="app-wechat-id" type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} />
                     </div>
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>Preferred branch</label>
-                      <select
+                      <Label htmlFor="app-preferred-branch">Preferred branch</Label>
+                      <Select id="app-preferred-branch"
                         value={dLocation}
                         onChange={(e) => setDLocation(e.target.value)}
-                        className={inputClass}
                       >
                         <option value="">Not set</option>
                         {(config?.locations || []).map((l) => (
@@ -1077,7 +1061,7 @@ export function RegularApplicationDetailModal({
                             {l.name} ({LOCATION_TO_CODE[l.name] || l.name_en})
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     {([
                       { label: "First choice", day: dP1Day, setDay: setDP1Day, time: dP1Time, setTime: setDP1Time },
@@ -1087,44 +1071,38 @@ export function RegularApplicationDetailModal({
                       return (
                         <div key={pref.label} className="col-span-2 grid grid-cols-2 gap-2">
                           <div>
-                            <label className={smallLabelClass}>{pref.label} day</label>
-                            <select
+                            <Label htmlFor={`app-${pref.label === "First choice" ? "first" : "backup"}-day`}>{pref.label} day</Label>
+                            <Select id={`app-${pref.label === "First choice" ? "first" : "backup"}-day`}
                               value={pref.day}
                               onChange={(e) => { pref.setDay(e.target.value); pref.setTime(""); }}
-                              className={inputClass}
-                            >
+                                  >
                               <option value="">Not set</option>
                               {editOpenDays.map((d) => (
                                 <option key={d} value={d}>{d}</option>
                               ))}
-                            </select>
+                            </Select>
                           </div>
                           <div>
-                            <label className={smallLabelClass}>{pref.label} time</label>
-                            <select
+                            <Label htmlFor={`app-${pref.label === "First choice" ? "first" : "backup"}-time`}>{pref.label} time</Label>
+                            <Select id={`app-${pref.label === "First choice" ? "first" : "backup"}-time`}
                               value={pref.time}
                               onChange={(e) => pref.setTime(e.target.value)}
-                              className={inputClass}
-                              disabled={!pref.day}
+                                    disabled={!pref.day}
                             >
                               <option value="">Not set</option>
                               {slots.map((s) => (
                                 <option key={s} value={s}>{s}</option>
                               ))}
-                            </select>
+                            </Select>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                   <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingDetails(false)}
-                      className="px-3 py-1.5 text-xs rounded-lg text-muted-foreground hover:text-foreground"
-                    >
+                    <Button size="sm" variant="quiet" onClick={() => setEditingDetails(false)}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -1219,15 +1197,14 @@ export function RegularApplicationDetailModal({
                             </p>
                             {!readOnly && (
                               <>
-                                <button
-                                  type="button"
+                                <Button
+                                  size="sm"
                                   onClick={handleAdoptFormStream}
-                                  disabled={streamSaving}
-                                  className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-gray-800 px-2 py-1 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:opacity-50"
+                                  loading={streamSaving}
+                                  className="mt-1.5"
                                 >
-                                  {streamSaving && <Loader2 className="h-3 w-3 animate-spin" />}
                                   Put the record on {streamName(formStream)} too
-                                </button>
+                                </Button>
                                 <p className="mt-1 text-amber-800/80 dark:text-amber-300/70">
                                   The record is what every session, enrolment and student page
                                   colours this student&apos;s badge from, so their badge changes
@@ -1364,18 +1341,14 @@ export function RegularApplicationDetailModal({
                         <span className="font-mono font-semibold text-base text-foreground">
                           {activePromo.code}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => copyPromoCode(activePromo.code)}
-                          className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
+                        <IconButton
+                          label="Copy the offer code"
                           title="Copy to clipboard"
-                        >
-                          {promoCodeCopied ? (
-                            <Check className="h-3.5 w-3.5 text-green-700" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </button>
+                          icon={promoCodeCopied ? Check : Copy}
+                          size="sm"
+                          iconClassName={cn(promoCodeCopied && "text-green-700")}
+                          onClick={() => copyPromoCode(activePromo.code)}
+                        />
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         {activePromo.name_en} · saves ${activePromo.total_value}
@@ -1536,15 +1509,16 @@ export function RegularApplicationDetailModal({
                         </span>
                       )}
                       {canEdit && (
-                        <button
-                          type="button"
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          icon={Unlink}
                           onClick={handleUnlinkStudent}
-                          className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                          className="ml-auto"
                           title="Clear the student link"
                         >
-                          <Unlink className="h-3 w-3" />
                           Unlink
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {linkedStudent.home_location &&
@@ -1602,14 +1576,15 @@ export function RegularApplicationDetailModal({
                         </div>
                       )}
                       <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                        <input
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
+                        <Input
                           type="text"
+                          aria-label="Search students"
                           value={studentSearch}
                           onChange={(e) => setStudentSearch(e.target.value)}
                           onFocus={() => setSearchFocused(true)}
                           onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                          className={cn(inputClass, "pl-8")}
+                          className="pl-8"
                           placeholder="Search by name, student ID or phone..."
                         />
                       </div>
@@ -1636,24 +1611,23 @@ export function RegularApplicationDetailModal({
                     {showManualId ? (
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <input
+                          <Input
                             type="text"
+                            aria-label="School student ID"
                             value={manualIdInput}
                             onChange={(e) => setManualIdInput(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && manualIdInput) setManualIdConfirmed(manualIdInput.trim());
                             }}
-                            className={cn(inputClass, "max-w-[160px]")}
+                            className="max-w-[160px]"
                             placeholder="School student ID"
                           />
-                          <button
-                            type="button"
+                          <Button
                             onClick={() => manualIdInput && setManualIdConfirmed(manualIdInput.trim())}
                             disabled={!manualIdInput}
-                            className="px-2.5 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                           >
                             Search
-                          </button>
+                          </Button>
                           <button
                             type="button"
                             onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
@@ -1681,22 +1655,12 @@ export function RegularApplicationDetailModal({
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => setShowManualId(true)}
-                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          <Search className="h-3 w-3" />
+                        <Button size="sm" variant="quiet" icon={Search} onClick={() => setShowManualId(true)}>
                           Can&apos;t find? Search by student ID
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCreateStudentOpen(true)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" icon={UserPlus} onClick={() => setCreateStudentOpen(true)}>
                           Create new student
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1722,26 +1686,26 @@ export function RegularApplicationDetailModal({
                     {canEdit && (
                       <div className="ml-auto flex items-center gap-2">
                         {app.prospect_journey ? (
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
+                            variant="quiet"
+                            icon={Unlink}
                             onClick={handleUnlinkProspect}
                             disabled={prospectBusy}
-                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 disabled:opacity-50"
                             title="Clear the prospect link"
                           >
-                            <Unlink className="h-3 w-3" />
                             Unlink
-                          </button>
+                          </Button>
                         ) : (
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
+                            variant="quiet"
+                            icon={Link2}
                             onClick={() => setProspectModalOpen(true)}
-                            className="inline-flex items-center gap-1 text-xs text-accent-ink hover:underline"
                             title="Find and link a P6 prospect"
                           >
-                            <Link2 className="h-3 w-3" />
                             Find prospect
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -1772,25 +1736,21 @@ export function RegularApplicationDetailModal({
                     const Icon = key === "schedule" ? Copy : DollarSign;
                     const label = key === "schedule" ? "Schedule" : "Fee message";
                     return (
-                      <button
+                      <Button
                         key={key}
-                        type="button"
+                        size="sm"
+                        icon={Icon}
+                        aria-pressed={messagePanel === key}
                         onClick={() => setMessagePanel((m) => (m === key ? null : key))}
-                        className={cn(
-                          "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                          messagePanel === key
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                        )}
+                        className={cn(messagePanel === key && "bg-tint ring-1 ring-line-strong")}
                         title={
                           key === "schedule"
                             ? "Copy class schedule for parent"
                             : "Copy fee message for parent"
                         }
                       >
-                        <Icon className="h-3 w-3" />
                         {label}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -1868,15 +1828,17 @@ export function RegularApplicationDetailModal({
                       View enrollment #{enrollmentId}
                     </Link>
                     {!readOnly && (
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        icon={Trash2}
+                        iconClassName="text-red-600 dark:text-red-400"
                         onClick={() => setPendingUnpublish(true)}
-                        disabled={unpublishing}
-                        className="ml-auto inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 disabled:opacity-50"
+                        loading={unpublishing}
+                        className="ml-auto"
                       >
-                        {unpublishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                         Unpublish
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1915,76 +1877,63 @@ export function RegularApplicationDetailModal({
                   <div className="grid grid-cols-2 gap-2">
                     {!usingSlot && (<>
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>Branch</label>
-                      <div className="flex gap-1.5">
-                        {(config?.locations || []).map((l) => {
-                          const code = LOCATION_TO_CODE[l.name] || l.name;
-                          const active = pubLocation === code;
-                          return (
-                            <button
-                              key={code}
-                              type="button"
-                              onClick={() => {
-                                if (code === pubLocation) return;
-                                setPubLocation(code);
-                                // The tutor list is branch-scoped, so the old
-                                // pick is never valid here. Clearing it keeps
-                                // the incomplete-form guard honest.
-                                setPubTutorId("");
-                              }}
-                              className={cn(
-                                "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
-                                active
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-card text-foreground border-border hover:bg-muted"
-                              )}
-                              title={l.name}
-                            >
-                              {code}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <span className={cn(LABEL_CLASS, "mb-1")}>Branch</span>
+                      <Segmented
+                        label="Branch"
+                        value={pubLocation}
+                        onChange={(code) => {
+                          if (code === pubLocation) return;
+                          setPubLocation(code);
+                          // The tutor list is branch-scoped, so the old pick
+                          // is never valid here. Clearing it keeps the
+                          // incomplete-form guard honest.
+                          setPubTutorId("");
+                        }}
+                        options={(config?.locations || []).map((l) => ({
+                          value: LOCATION_TO_CODE[l.name] || l.name,
+                          label: LOCATION_TO_CODE[l.name] || l.name,
+                          title: l.name,
+                        }))}
+                      />
                     </div>
                     <div>
-                      <label className={smallLabelClass}>Day</label>
-                      <select value={pubDay} onChange={(e) => setPubDay(e.target.value)} className={inputClass}>
+                      <Label htmlFor="app-day">Day</Label>
+                      <Select id="app-day" value={pubDay} onChange={(e) => setPubDay(e.target.value)}>
                         {pubOpenDays.map((d) => (
                           <option key={d} value={d}>{d}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div>
-                      <label className={smallLabelClass}>Time</label>
-                      <select value={pubTime} onChange={(e) => setPubTime(e.target.value)} className={inputClass}>
+                      <Label htmlFor="app-time">Time</Label>
+                      <Select id="app-time" value={pubTime} onChange={(e) => setPubTime(e.target.value)}>
                         {pubSlots.map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>Tutor</label>
-                      <select value={pubTutorId} onChange={(e) => setPubTutorId(e.target.value)} className={inputClass}>
+                      <Label htmlFor="app-tutor">Tutor</Label>
+                      <Select id="app-tutor" value={pubTutorId} onChange={(e) => setPubTutorId(e.target.value)}>
                         <option value="">Select a tutor</option>
                         {tutorOptions.map((t) => (
                           <option key={t.id} value={t.id}>{t.tutor_name}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     </>)}
                     <div>
-                      <label className={smallLabelClass}>Lessons paid</label>
-                      <input
+                      <Label htmlFor="app-lessons-paid">Lessons paid</Label>
+                      <Input id="app-lessons-paid"
                         type="number"
                         min={1}
                         value={pubLessons}
                         onChange={(e) => setPubLessons(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                        className={inputClass}
                       />
                     </div>
                     <div>
-                      <label className={smallLabelClass}>First lesson</label>
-                      <input
+                      <Label htmlFor="app-first-lesson">First lesson</Label>
+                      <Input id="app-first-lesson"
                         type="date"
                         value={pubFirstLesson}
                         min={courseStart || undefined}
@@ -1992,18 +1941,16 @@ export function RegularApplicationDetailModal({
                           setPubFirstLesson(e.target.value);
                           setPubFirstLessonTouched(true);
                         }}
-                        className={inputClass}
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>Discount</label>
-                      <select
+                      <Label htmlFor="app-discount">Discount</Label>
+                      <Select id="app-discount"
                         value={pubDiscountId ?? ""}
                         onChange={(e) => {
                           setPubDiscountId(e.target.value ? parseInt(e.target.value, 10) : null);
                           setPubDiscountTouched(true);
                         }}
-                        className={inputClass}
                       >
                         <option value="">None</option>
                         {discounts.map((d) => (
@@ -2012,18 +1959,17 @@ export function RegularApplicationDetailModal({
                             {d.discount_value ? ` (−$${Number(d.discount_value).toLocaleString()})` : ""}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div className="col-span-2">
-                      <label className={smallLabelClass}>Payment</label>
-                      <select
+                      <Label htmlFor="app-payment">Payment</Label>
+                      <Select id="app-payment"
                         value={pubPayment}
                         onChange={(e) => setPubPayment(e.target.value as "Pending Payment" | "Paid")}
-                        className={inputClass}
                       >
                         <option value="Pending Payment">Pending Payment</option>
                         <option value="Paid">Paid</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
 
@@ -2080,11 +2026,13 @@ export function RegularApplicationDetailModal({
                   )}
 
                   {!readOnly && (
-                    <button
-                      type="button"
+                    <Button
+                      icon={Send}
+                      iconClassName="text-green-700 dark:text-green-400"
                       onClick={handlePublish}
-                      disabled={publishing || publishBlockers.length > 0 || publishFormIncomplete}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      loading={publishing}
+                      disabled={publishBlockers.length > 0 || publishFormIncomplete}
+                      className="w-full"
                       title={
                         publishBlockers.length > 0
                           ? publishBlockers[0]
@@ -2093,9 +2041,8 @@ export function RegularApplicationDetailModal({
                             : "Create the enrollment and its weekly sessions"
                       }
                     >
-                      {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       Publish to enrollment
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -2104,14 +2051,15 @@ export function RegularApplicationDetailModal({
 
               {!readOnly && (
                 <div>
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
-                  <textarea
+                  <Label htmlFor="app-notes">Notes</Label>
+                  <Textarea
+                    id="app-notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={notes ? 2 : 1}
                     onFocus={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 2; }}
                     onBlur={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 1; }}
-                    className={cn(inputClass, "mt-1 resize-none")}
+                    className="min-h-0 resize-none"
                     placeholder="Internal notes..."
                   />
                 </div>

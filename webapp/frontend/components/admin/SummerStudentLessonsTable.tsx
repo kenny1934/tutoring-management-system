@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Segmented } from "@/components/controls";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, RESCHEDULED_STATUS, sessionStatusBg, formatCompactDate, formatShortDate, getDayFromDate, getStartTime } from "@/lib/summer-utils";
 import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
 import { PrimaryBranchChip, isExistingOrigin } from "@/components/admin/PrimaryBranchChip";
@@ -124,30 +125,6 @@ function ToggleChipGroup<V>({
         </Chip>
       ))}
     </div>
-  );
-}
-
-function SortButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "px-2 py-0.5 text-[11px] transition-colors",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-transparent text-muted-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -396,17 +373,16 @@ export function SummerStudentLessonsTable({
 
         <div className="ml-auto inline-flex items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground">Sort</span>
-          <div className="inline-flex rounded-full overflow-hidden border border-border">
-            <SortButton active={sort === "completion"} onClick={() => setSort("completion")}>
-              Done
-            </SortButton>
-            <SortButton active={sort === "name"} onClick={() => setSort("name")}>
-              Name
-            </SortButton>
-            <SortButton active={sort === "grade"} onClick={() => setSort("grade")}>
-              Grade
-            </SortButton>
-          </div>
+          <Segmented
+            label="Sort by"
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: "completion", label: "Done", title: "Lessons done" },
+              { value: "name", label: "Name" },
+              { value: "grade", label: "Grade" },
+            ]}
+          />
           <button
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
             className="p-0.5 text-muted-foreground hover:text-foreground"

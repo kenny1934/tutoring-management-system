@@ -7,7 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
-import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, CreditCard, Eye, Send, ArrowRight, X, Loader2, Search } from "lucide-react";
+import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, CreditCard, Eye, Send, ArrowRight, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
@@ -21,6 +21,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { Button, IconButton, Input } from "@/components/controls";
 
 // Status icon component - matches tab icons (memoized for performance)
 const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
@@ -219,56 +220,43 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
             )}>
               {showRenewalInfo ? (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Eye}
+                  iconClassName="text-blue-600 dark:text-blue-400"
                   onClick={handleViewRenewalClick}
-                  className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                   title="View renewal enrollment"
+                  aria-label="View renewal enrollment"
                 >
-                  <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">View</span>
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={RefreshCcw}
                   onClick={handleRenewClick}
                   disabled={readOnly}
-                  className={cn(
-                    "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
-                    readOnly
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : cn(
-                          "hover:scale-[1.02] active:scale-[0.98]",
-                          isVeryOld
-                            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                            : isExpired
-                            ? "bg-red-500 hover:bg-red-600 text-white"
-                            : isThisWeek
-                            ? "bg-orange-500 hover:bg-orange-600 text-white"
-                            : isNextWeek
-                            ? "bg-purple-500 hover:bg-purple-600 text-white"
-                            : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                        )
-                  )}
                   title={readOnly ? "Read-only access" : "Create renewal"}
+                  aria-label="Create renewal"
                 >
-                  <RefreshCcw className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Renew</span>
-                </button>
+                </Button>
               )}
               {renewal.renewal_enrollment_id && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Copy}
                   onClick={handleCopyFeeClick}
-                  className={cn(
-                    "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
-                    "hover:scale-[1.02] active:scale-[0.98]",
-                    isFeePanelOpen
-                      ? "bg-gray-600 hover:bg-gray-700 text-white"
-                      : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground/80"
-                  )}
+                  aria-pressed={isFeePanelOpen}
+                  className={cn(isFeePanelOpen && "bg-tint")}
                   title="Copy fee message"
+                  aria-label="Copy fee message"
                 >
-                  <Copy className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Fee</span>
-                </button>
+                </Button>
               )}
             </div>
 
@@ -939,20 +927,16 @@ export default function AdminRenewalsPage() {
                 isRefreshing={isRefreshing}
                 lastUpdated={lastUpdated}
               />
-              <button
+              <Button
+                variant="primary"
+                icon={Plus}
                 onClick={handleNewEnrollment}
                 disabled={isReadOnly}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm font-medium transition-all",
-                  isReadOnly
-                    ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-[1.02] active:scale-[0.98]"
-                )}
                 title={isReadOnly ? "Read-only access" : undefined}
               >
-                <Plus className="h-4 w-4" />
-                <span className="hidden xs:inline">New</span> Enrollment
-              </button>
+                <span className="hidden xs:inline">New enrollment</span>
+                <span className="xs:hidden">Enrollment</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -961,17 +945,19 @@ export default function AdminRenewalsPage() {
         <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           {/* Search input */}
           <div className="relative flex-shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-            <input
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" aria-hidden="true" />
+            <Input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name or ID..."
-              className="pl-9 pr-8 py-1.5 w-full sm:w-64 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              aria-label="Search renewals"
+              className="pl-9 pr-8 sm:w-64"
             />
             {searchQuery && (
               <button
+                aria-label="Clear search"
                 onClick={() => {
                   setSearchQuery("");
                   searchInputRef.current?.focus();
@@ -1017,7 +1003,7 @@ export default function AdminRenewalsPage() {
               )}
             >
               <RefreshCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Not Renewed</span>
+              <span className="hidden sm:inline">Not renewed</span>
               <span className="sm:hidden">Pending</span>
               {notRenewedList.length > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
@@ -1035,7 +1021,7 @@ export default function AdminRenewalsPage() {
               )}
             >
               <Send className="h-4 w-4" />
-              <span className="hidden sm:inline">To Send</span>
+              <span className="hidden sm:inline">To send</span>
               <span className="sm:hidden">Send</span>
               {toSendList.length > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
@@ -1053,7 +1039,7 @@ export default function AdminRenewalsPage() {
               )}
             >
               <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Awaiting Payment</span>
+              <span className="hidden sm:inline">Awaiting payment</span>
               <span className="sm:hidden">Payment</span>
               {awaitingPaymentList.length > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
@@ -1292,67 +1278,45 @@ export default function AdminRenewalsPage() {
               )}
               <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
               {activeTab === 'not_renewed' && (
-                <button
+                <Button
+                  variant="primary"
+                  icon={RefreshCcw}
                   onClick={() => setBatchRenewModalOpen(true)}
                   disabled={batchLoading || isReadOnly}
-                  className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
-                    isReadOnly
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                  )}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
-                  <RefreshCcw className="h-4 w-4" />
-                  <span className="hidden xs:inline">Batch</span> Renew
-                </button>
+                  <span className="hidden xs:inline">Batch renew</span>
+                  <span className="xs:hidden">Renew</span>
+                </Button>
               )}
               {activeTab === 'to_send' && (
-                <button
+                <Button
+                  variant="secondary"
+                  icon={Send}
+                  iconClassName="text-blue-600 dark:text-blue-400"
+                  loading={batchLoading}
                   onClick={handleBatchMarkSent}
-                  disabled={batchLoading || isReadOnly}
-                  className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
-                    isReadOnly
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 hover:bg-blue-600 text-white"
-                  )}
+                  disabled={isReadOnly}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
-                  {batchLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  <span className="hidden xs:inline">Mark</span> Sent
-                </button>
+                  <span className="hidden xs:inline">Mark sent</span>
+                  <span className="xs:hidden">Sent</span>
+                </Button>
               )}
               {activeTab === 'awaiting_payment' && (
-                <button
+                <Button
+                  variant="secondary"
+                  icon={CreditCard}
+                  iconClassName="text-green-600 dark:text-green-400"
+                  loading={batchLoading}
                   onClick={handleBatchMarkPaid}
-                  disabled={batchLoading || isReadOnly}
-                  className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
-                    isReadOnly
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : "bg-green-500 hover:bg-green-600 text-white"
-                  )}
+                  disabled={isReadOnly}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
-                  {batchLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CreditCard className="h-4 w-4" />
-                  )}
-                  Confirm Payment
-                </button>
+                  Confirm payment
+                </Button>
               )}
-              <button
-                onClick={clearChecked}
-                className="flex items-center gap-1 px-2 py-1.5 text-foreground/60 hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <IconButton icon={X} label="Clear selection" onClick={clearChecked} />
             </div>
           </motion.div>
         )}
@@ -1408,7 +1372,7 @@ export default function AdminRenewalsPage() {
                         : "text-foreground/60 hover:text-foreground/80"
                     )}
                   >
-                    Create Renewal
+                    Create renewal
                   </button>
                 </div>
               )}
@@ -1518,6 +1482,7 @@ export default function AdminRenewalsPage() {
               {/* Close button - floating top right */}
               <button
                 onClick={handleCloseAll}
+                aria-label="Close"
                 className={cn(
                   "absolute z-10 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
                   isLargeScreen ? "-top-2 -right-2" : "top-2 right-2"
@@ -1613,6 +1578,7 @@ export default function AdminRenewalsPage() {
             isScrolledPastThreshold ? "bottom-20" : "bottom-4"
           )}
           title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
         >
           <span className="text-sm font-mono">?</span>
         </button>
@@ -1633,12 +1599,7 @@ export default function AdminRenewalsPage() {
               <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
                 Keyboard Shortcuts
               </span>
-              <button
-                onClick={() => setShowShortcutHints(false)}
-                className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <IconButton icon={X} size="sm" label="Close shortcuts" onClick={() => setShowShortcutHints(false)} />
             </div>
             <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
               <div className="flex justify-between gap-4">

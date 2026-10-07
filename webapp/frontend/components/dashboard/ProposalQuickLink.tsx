@@ -166,7 +166,7 @@ function CompactSlotItem({
         isOpen={showApproveConfirm}
         onConfirm={confirmApprove}
         onCancel={() => setShowApproveConfirm(false)}
-        title="Approve Make-up Slot"
+        title="Approve make-up slot"
         message={`Approve this slot on ${formatDateCompact(slot.proposed_date)} at ${slot.proposed_time_slot}?`}
         confirmText="Approve"
         variant="default"
@@ -175,7 +175,7 @@ function CompactSlotItem({
         isOpen={showRejectConfirm}
         onConfirm={confirmReject}
         onCancel={() => setShowRejectConfirm(false)}
-        title="Reject Make-up Slot"
+        title="Reject make-up slot"
         message="Are you sure you want to reject this slot option?"
         confirmText="Reject"
         variant="danger"

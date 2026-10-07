@@ -2479,7 +2479,7 @@ def _tutor_conflict_note(
         return None
     other_lesson, other_slot = other
     if other_slot.is_adhoc:
-        return "Tutor is already teaching another Make-up Slot at this time."
+        return "Tutor is already teaching another make-up slot at this time."
     bits = []
     if other_slot.grade:
         bits.append(other_slot.grade)
@@ -2501,7 +2501,7 @@ def create_makeup_slot(
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Create an ad-hoc Make-up Slot on a specific date/tutor.
+    """Create an ad-hoc make-up slot on a specific date/tutor.
 
     Ad-hoc slots are full-citizen SummerCourseSlot rows that bypass the
     weekly recurrence: _ensure_lessons_for_slot generates exactly one
@@ -3122,7 +3122,7 @@ def move_session(
 
     # Capture the source's effective lesson_number BEFORE we touch anything.
     # Used below to preserve the displayed L# across the move — without this,
-    # moving an L6 onto a freshly-created Make-up Slot (whose lesson has
+    # moving an L6 onto a freshly-created make-up slot (whose lesson has
     # lesson_number=NULL) would render as L-.
     source_effective_ln = (
         session.lesson_number
@@ -3263,7 +3263,7 @@ def move_session(
     # Pin the per-session lesson_number override when the destination lesson's
     # natural number differs from the source's effective number. This preserves
     # the L# the admin sees: L6 stays L6 even after moving onto a new ad-hoc
-    # Make-up Slot (whose lesson_number is NULL) or onto a regular slot whose
+    # make-up slot (whose lesson_number is NULL) or onto a regular slot whose
     # week-based number happens to be different.
     new_session_ln = session.lesson_number
     if (
@@ -5120,7 +5120,7 @@ def _ensure_lessons_for_slot(slot: SummerCourseSlot, db: Session) -> int:
     if existing:
         return 0
     if slot.is_adhoc:
-        # Ad-hoc Make-up Slot: exactly one lesson on the specific date, with
+        # Ad-hoc make-up slot: exactly one lesson on the specific date, with
         # no lesson_number (admins set it per-session later via session_log).
         if slot.adhoc_date is None:
             return 0

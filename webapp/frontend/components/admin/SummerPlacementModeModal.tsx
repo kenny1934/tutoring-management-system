@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import {
   useFloating,
   useDismiss,
@@ -198,19 +199,10 @@ export function SummerPlacementModeModal({
 
               {/* Actions */}
               <div className="flex justify-end gap-2 pt-1">
-                <button
-                  onClick={onClose}
-                  className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => onConfirm(selected)}
-                  disabled={selectedDisabled}
-                  className="px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                <Button onClick={onClose}>Cancel</Button>
+                <Button variant="primary" onClick={() => onConfirm(selected)} disabled={selectedDisabled}>
                   Place
-                </button>
+                </Button>
               </div>
             </div>
           </div>

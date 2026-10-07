@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IconButton, Input } from "@/components/controls";
 import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
@@ -60,6 +61,7 @@ function FilterBanner({
         onClick={onClear}
         className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
         title={clearTitle}
+        aria-label={clearTitle}
       >
         <X className="h-3 w-3" />
       </button>
@@ -157,13 +159,7 @@ export function SummerUnassignedPanel({
         "absolute inset-0 flex flex-col items-center py-3 gap-2 transition-opacity duration-200",
         collapsed ? "opacity-100 delay-100" : "opacity-0 pointer-events-none"
       )}>
-        <button
-          onClick={() => setCollapsed(false)}
-          className="p-1 text-muted-foreground hover:text-foreground"
-          title="Expand panel"
-        >
-          <PanelRightOpen className="h-4 w-4" />
-        </button>
+        <IconButton size="sm" icon={PanelRightOpen} onClick={() => setCollapsed(false)} label="Expand panel" />
         <span className="text-[11px] text-muted-foreground font-medium [writing-mode:vertical-lr] rotate-180">
           {applications.length}
         </span>
@@ -188,25 +184,27 @@ export function SummerUnassignedPanel({
             {filtered.length !== applications.length && ` / ${applications.length}`}
           </span>
           {!hideCollapse && (
-            <button
+            <IconButton
+              size="sm"
+              icon={PanelRightClose}
               onClick={() => setCollapsed(true)}
-              className="p-0.5 text-muted-foreground hover:text-foreground"
-              title="Collapse panel"
-            >
-              <PanelRightClose className="h-3.5 w-3.5" />
-            </button>
+              label="Collapse panel"
+              className="-my-1"
+            />
           )}
         </div>
 
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
+          <Input
+            size="sm"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, ref code, student ID..."
-            className="w-full pl-7 pr-2 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800"
+            aria-label="Search applications"
+            className="pl-7"
           />
         </div>
 
@@ -265,6 +263,8 @@ export function SummerUnassignedPanel({
                 : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
             )}
             title={noNotesOnly ? "Showing only students with no unavailability notes" : "Show only students with no unavailability notes"}
+            aria-label="Only students with no unavailability notes"
+            aria-pressed={noNotesOnly}
           >
             <CheckCircle2 className="h-3 w-3 inline -mt-px" />
           </button>
@@ -277,6 +277,8 @@ export function SummerUnassignedPanel({
                 : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
             )}
             title={buddiesOnly ? "Showing buddies only" : "Show buddies only"}
+            aria-label="Buddies only"
+            aria-pressed={buddiesOnly}
           >
             <Users className="h-3 w-3 inline -mt-px" />
           </button>
@@ -284,6 +286,7 @@ export function SummerUnassignedPanel({
             onClick={() => setSort(nextSort)}
             className="p-0.5 text-muted-foreground hover:text-foreground"
             title={`Sort by ${SORT_LABELS[nextSort]}`}
+            aria-label={`Sort by ${SORT_LABELS[nextSort]}`}
           >
             <ArrowUpDown className="h-3 w-3" />
           </button>

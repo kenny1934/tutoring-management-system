@@ -19,7 +19,7 @@ import {
   Filter,
   ArrowUpDown,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, Segmented } from "@/components/controls";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { ExtensionRequest, ExtensionRequestDetail, ExtensionRequestStatus } from "@/types";
 
@@ -185,14 +185,13 @@ export function ExtensionRequestsList({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
+            icon={RefreshCw}
+            iconClassName={isValidating ? "animate-spin" : undefined}
             onClick={() => mutate()}
             disabled={isValidating}
           >
-            <RefreshCw
-              className={cn("h-4 w-4 mr-1", isValidating && "animate-spin")}
-            />
             Refresh
           </Button>
         </div>
@@ -201,51 +200,42 @@ export function ExtensionRequestsList({
       {/* Filters and Sort */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <div className="flex gap-1">
-            {(["Pending", "Approved", "Rejected", "all"] as const).map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  "px-3 py-1.5 text-sm rounded-md transition-colors",
-                  statusFilter === status
-                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                )}
-              >
-                {status === "all" ? "All" : status}
-              </button>
-            ))}
-          </div>
+          <Filter className="h-4 w-4 text-gray-500" aria-hidden="true" />
+          <Segmented
+            label="Request status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={(["Pending", "Approved", "Rejected", "all"] as const).map((status) => ({
+              value: status,
+              label: status === "all" ? "All" : status,
+            }))}
+          />
         </div>
 
         {/* Sort buttons */}
         <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-gray-500" />
-          <div className="flex gap-1">
-            {([
+          <ArrowUpDown className="h-4 w-4 text-gray-500" aria-hidden="true" />
+          {/* Choosing the sort that's already on flips its direction. */}
+          <Segmented
+            label="Sort by"
+            value={sortOption}
+            onChange={handleSortClick}
+            options={([
               { value: 'requested_at', label: 'Date' },
               { value: 'student_name', label: 'Name' },
               { value: 'student_id', label: 'ID' },
-            ] as const).map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => handleSortClick(value)}
-                className={cn(
-                  "px-2 py-1 text-xs rounded-md transition-colors flex items-center gap-1",
-                  sortOption === value
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                )}
-              >
-                {label}
-                {sortOption === value && (
-                  <span className="text-[11px]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                )}
-              </button>
-            ))}
-          </div>
+            ] as const).map(({ value, label }) => ({
+              value,
+              label: (
+                <>
+                  {label}
+                  {sortOption === value && (
+                    <span className="text-[11px]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </>
+              ),
+            }))}
+          />
         </div>
       </div>
 
@@ -396,12 +386,13 @@ export function ExtensionRequestsList({
 
           {/* Load More Button */}
           {hasMore && (
-            <button
+            <Button
+              variant="secondary"
+              className="w-full"
               onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
-              className="w-full py-3 text-sm font-medium text-amber-700 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors border border-dashed border-amber-300 dark:border-amber-700"
             >
               Show {remainingCount} more request{remainingCount !== 1 ? "s" : ""}
-            </button>
+            </Button>
           )}
         </div>
       )}

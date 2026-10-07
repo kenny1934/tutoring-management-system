@@ -7,6 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { Button, buttonClasses, Segmented } from "@/components/controls";
 import { regularAPI } from "@/lib/api";
 import { AlertTriangle, ChevronDown, Download, Link2, Loader2, Users } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -21,7 +22,6 @@ import { formatProspectCode } from "@/lib/regular-utils";
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionResponse, RegularRetentionRow } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** The intake at a glance, the analysis axes, and the list staff actually work. */
 type RetentionTab = "overview" | "breakdowns" | "chase";
@@ -457,10 +457,10 @@ export default function RegularRetentionPage() {
                         type="button"
                         {...triggerProps}
                         title="Every tab on this page, including the chase list, follows this"
-                        className={cn(selectClass, "inline-flex items-center gap-1.5")}
+                        className={buttonClasses()}
                       >
-                        <span className="font-medium">{branch ?? "All branches"}</span>
-                        <ChevronDown className="h-3.5 w-3.5" />
+                        <span>{branch ?? "All branches"}</span>
+                        <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                       </button>
                     )}
                   >
@@ -496,9 +496,9 @@ export default function RegularRetentionPage() {
                 <DropdownMenu
                   align="right"
                   trigger={({ triggerProps }) => (
-                    <button type="button" {...triggerProps} className={cn(selectClass, "inline-flex items-center gap-1.5")}>
-                      <span className="font-medium">{year ?? "Year"}</span>
-                      <ChevronDown className="h-3.5 w-3.5" />
+                    <button type="button" {...triggerProps} className={buttonClasses()}>
+                      <span>{year ?? "Year"}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                     </button>
                   )}
                 >
@@ -520,43 +520,31 @@ export default function RegularRetentionPage() {
                     </div>
                   )}
                 </DropdownMenu>
-                <button
-                  type="button"
+                <Button
+                  icon={Download}
                   onClick={handleExport}
                   disabled={!data || data.totals.cohort === 0}
-                  className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
                   title="Download this report as CSV"
+                  aria-label="Export"
                 >
-                  <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Export</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Tab bar */}
           <div className="px-4 sm:px-6 py-2 border-b border-line">
-            <div className="inline-flex bg-muted rounded-full p-0.5">
-              {([
-                { key: "overview", label: "Overview" },
-                { key: "breakdowns", label: "Breakdowns" },
-                { key: "chase", label: `To chase${data ? ` (${noResponse})` : ""}` },
-              ] as { key: RetentionTab; label: string }[]).map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTab(t.key)}
-                  className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
-                    tab === t.key
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Report section"
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: "overview", label: "Overview" },
+                { value: "breakdowns", label: "Breakdowns" },
+                { value: "chase", label: `To chase${data ? ` (${noResponse})` : ""}` },
+              ]}
+            />
           </div>
 
           {/* Body */}
