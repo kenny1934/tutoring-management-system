@@ -694,7 +694,7 @@ export function CommandPalette() {
         aria-modal="true"
         aria-label="Command palette"
         className={cn(
-          "w-[min(90vw,36rem)] bg-[#fef9f3] dark:bg-[#1a1a1a] rounded-xl shadow-2xl",
+          "w-[min(90vw,36rem)] bg-paper dark:bg-raised rounded-xl shadow-2xl",
           "border border-line dark:border-tint",
           "overflow-hidden flex flex-col",
           // Mobile full-screen mode

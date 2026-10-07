@@ -295,7 +295,7 @@ export function RegularUnassignedPanel({
 
   return (
     <div className={cn(
-      "relative flex-shrink-0 flex flex-col border-2 border-line rounded-lg bg-[#fef9f3] dark:bg-[#1a1a1a] overflow-hidden transition-[width] duration-300 ease-in-out",
+      "relative flex-shrink-0 flex flex-col border-2 border-line rounded-lg bg-paper dark:bg-raised overflow-hidden transition-[width] duration-300 ease-in-out",
       collapsed ? "w-8" : "w-64",
       className
     )}>

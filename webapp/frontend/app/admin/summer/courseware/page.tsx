@@ -187,7 +187,7 @@ export default function AdminSummerCoursewarePage() {
   return (
     <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
+        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
           <PageHeader
             icon={BookOpen}
             title="Summer courseware"

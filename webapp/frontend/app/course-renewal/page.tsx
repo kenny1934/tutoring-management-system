@@ -244,7 +244,7 @@ export default function CourseRenewalPage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Two tabs rather than two pages. They are different questions
               about different people, but a tutor asks both in the same
               sitting in August, and the sidebar item is seasonal enough

@@ -447,7 +447,7 @@ export default function AdminWaitlistPage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className="h-full p-4 sm:p-6 flex flex-col">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
+        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
           <PageHeader
             className="mb-6"
             icon={ClipboardList}
@@ -866,7 +866,7 @@ export default function AdminWaitlistPage() {
           ) : entries && entries.length > 0 ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-[#faf8f5] dark:bg-[#1a1a1a]">
+                <thead className="sticky top-0 z-10 bg-paper dark:bg-raised">
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="text-left py-2 px-3">
                       <SortHeader field="student_name">Name</SortHeader>

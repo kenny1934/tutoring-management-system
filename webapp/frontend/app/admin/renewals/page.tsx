@@ -905,9 +905,9 @@ export default function AdminRenewalsPage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
+        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sticky Header Section */}
-        <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-[#faf8f5] dark:bg-[#1a1a1a]">
+        <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-paper dark:bg-raised">
         <PageHeader
           className="mb-6"
           icon={RefreshCcw}
