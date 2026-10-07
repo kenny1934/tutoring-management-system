@@ -26,7 +26,7 @@ interface StatusOption {
 }
 
 const STATUS_OPTIONS: StatusOption[] = [
-  { value: "", label: "All Statuses" },
+  { value: "", label: "All statuses" },
   { value: ACTIVE_FILTER, label: "Active", separator: true },
   { value: "Trial Class", label: "Trial Class" },
   { value: "Scheduled", label: "Scheduled" },

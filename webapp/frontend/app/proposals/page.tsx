@@ -83,7 +83,7 @@ export default function ProposalsPage() {
   const router = useRouter();
   const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
 
-  usePageTitle("Make-up Proposals");
+  usePageTitle("Make-up proposals");
 
   // Current tutor ID for proposal actions (respects impersonation)
   const currentTutorId = useMemo(() => {
@@ -252,6 +252,8 @@ export default function ProposalsPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/"
+              aria-label="Back to the dashboard"
+              title="Back to the dashboard"
               className="p-2 hover:bg-tint rounded-lg transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -262,7 +264,7 @@ export default function ProposalsPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-on-surface">
-                  Make-up Proposals
+                  Make-up proposals
                 </h1>
                 <p className="text-sm text-on-surface/70">
                   Manage make-up session requests
@@ -369,7 +371,8 @@ export default function ProposalsPage() {
                   value: filter.value,
                   label: filter.label,
                   icon: filter.icon,
-                  iconClassName: filter.iconClassName,
+                  // The icons hide on a phone so all four choices fit the width.
+                  iconClassName: cn("hidden sm:block", filter.iconClassName),
                 }))}
               />
             </div>
@@ -381,16 +384,9 @@ export default function ProposalsPage() {
           {isLoading ? (
             <ProposalListSkeleton />
           ) : filteredProposals.length === 0 ? (
-            <div className={cn(
-              "flex flex-col items-center justify-center py-16 rounded-xl",
-              "bg-white dark:bg-[#1a1a1a] border border-line",
-              "paper-texture"
-            )}>
+            <div className="flex flex-col items-center justify-center py-16 rounded-xl bg-paper border border-line">
               <EmptyCloud className="mb-2" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                No proposals found
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center px-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center px-4">
                 {activeTab === "all"
                   ? statusFilter === "pending"
                     ? "No pending proposals"

@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import {
   Clock,
   Calendar,
-  AlertCircle,
   CheckCircle,
   XCircle,
   ChevronRight,
@@ -166,12 +165,10 @@ export function ExtensionRequestsList({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Counts and refresh. The page above already has the title, so this
+          row doesn't repeat it. */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Extension Requests
-          </h2>
           {pendingCount > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               {pendingCount} pending
@@ -284,7 +281,7 @@ export function ExtensionRequestsList({
       {/* Empty State */}
       {!isLoading && !error && sortedRequests.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p>No {statusFilter !== "all" ? statusFilter.toLowerCase() : ""} extension requests</p>
         </div>
       )}

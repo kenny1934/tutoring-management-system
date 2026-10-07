@@ -81,10 +81,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'attended',
-    label: 'Mark Attended (A)',
+    label: 'Mark attended (A)',
     shortLabel: 'Attended',
     icon: CheckCircle2,
-    colorClass: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    colorClass: 'text-green-600 dark:text-green-400',
     isVisible: (s: Session, ctx?: VisibilityContext) => {
       if (!isNotAttended(s)) return false;
       // Tutors can only mark attendance on their own sessions
@@ -103,10 +103,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'no-show',
-    label: 'Mark No Show (N)',
-    shortLabel: 'No Show',
+    label: 'Mark no show (N)',
+    shortLabel: 'No show',
     icon: UserX,
-    colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    colorClass: 'text-red-600 dark:text-red-400',
     isVisible: (s: Session, ctx?: VisibilityContext) => {
       if (!isNotAttended(s)) return false;
       // Tutors can only mark no-show on their own sessions
@@ -129,10 +129,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'reschedule',
-    label: 'Request Reschedule',
+    label: 'Request reschedule',
     shortLabel: 'Reschedule',
     icon: CalendarClock,
-    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+    colorClass: 'text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -144,10 +144,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'sick-leave',
-    label: 'Mark Sick Leave',
+    label: 'Mark sick leave',
     shortLabel: 'Sick',
     icon: Ambulance,
-    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+    colorClass: 'text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -159,10 +159,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'weather-cancelled',
-    label: 'Weather Cancelled',
+    label: 'Weather cancelled',
     shortLabel: 'Weather',
     icon: CloudRain,
-    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+    colorClass: 'text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -178,10 +178,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'schedule-makeup',
-    label: 'Schedule Make-up Class',
+    label: 'Schedule make-up class',
     shortLabel: 'Make-up',
     icon: CalendarPlus,
-    colorClass: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400',
+    colorClass: 'text-teal-600 dark:text-teal-400',
     isVisible: isPendingMakeup,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -192,10 +192,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'request-extension',
-    label: 'Request Extension',
+    label: 'Request extension',
     shortLabel: 'Extension',
     icon: Clock,
-    colorClass: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    colorClass: 'text-purple-600 dark:text-purple-400',
     isVisible: canRequestExtension,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -210,10 +210,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'cw',
-    label: 'Add Classwork (C)',
+    label: 'Add classwork (C)',
     shortLabel: 'CW',
     icon: PenTool,
-    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    colorClass: 'text-amber-600 dark:text-amber-400',
     iconColorClass: 'text-red-600 dark:text-red-400',
     isVisible: (s) => !hideCwHw(s),
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
@@ -226,10 +226,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'hw',
-    label: 'Add Homework (H)',
+    label: 'Add homework (H)',
     shortLabel: 'HW',
     icon: Home,
-    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    colorClass: 'text-amber-600 dark:text-amber-400',
     iconColorClass: 'text-blue-600 dark:text-blue-400',
     isVisible: (s) => !hideCwHw(s),
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
@@ -246,10 +246,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'rate',
-    label: 'Rate & Comment (R)',
+    label: 'Rate & comment (R)',
     shortLabel: 'Rate',
     icon: MessageSquarePlus,
-    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    colorClass: 'text-amber-600 dark:text-amber-400',
     isVisible: () => true, // Always visible
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -264,10 +264,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'undo',
-    label: 'Undo Status Change',
+    label: 'Undo status change',
     shortLabel: 'Undo',
     icon: Undo2,
-    colorClass: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
+    colorClass: 'text-indigo-600 dark:text-indigo-400',
     pushRight: true,
     isVisible: canUndo,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
@@ -285,10 +285,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'copy-makeup-msg',
-    label: 'Copy Make-up Message',
+    label: 'Copy make-up message',
     shortLabel: 'Msg',
     icon: MessageSquareText,
-    colorClass: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
+    colorClass: 'text-sky-600 dark:text-sky-400',
     pushRight: true,
     isVisible: hasMakeupInfo,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
@@ -304,10 +304,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'cancel-makeup',
-    label: 'Cancel Make-up',
+    label: 'Cancel make-up',
     shortLabel: 'Cancel',
     icon: CalendarX2,
-    colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    colorClass: 'text-red-600 dark:text-red-400',
     pushRight: true,
     isVisible: canCancelMakeup,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
@@ -324,10 +324,10 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'edit',
-    label: 'Edit Session (E)',
+    label: 'Edit session (E)',
     shortLabel: 'Edit',
     icon: Pencil,
-    colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    colorClass: 'text-ink-subtle',
     pushRight: true,
     isVisible: () => true,
     allowedRoles: ['Admin', 'Super Admin'],

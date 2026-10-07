@@ -27,6 +27,12 @@ const sizeClasses = {
   md: "px-2 py-2 text-xs sm:px-1.5 sm:py-0.5 sm:text-[11px]",
 } as const;
 
+// Plain bordered buttons, the same as the shared secondary button: the action's
+// colour is on its icon only, so a row of them stays calm and the session's
+// status strip is the colour that stands out.
+const ACTION_BASE =
+  "flex items-center gap-1 rounded border border-line-strong bg-field-fill font-medium text-gray-800 dark:text-gray-200 transition-colors";
+
 const iconSizeClasses = {
   sm: "h-2.5 w-2.5",
   md: "h-4 w-4 sm:h-3 sm:w-3",
@@ -104,15 +110,13 @@ export function ActionButtons<T>({
             disabled={!isEnabled}
             onClick={(e) => handleClick(e, action)}
             className={cn(
-              "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
+              ACTION_BASE,
               sizeClasses[size],
-              isEnabled
-                ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
-                : cn(action.colorClass, "cursor-not-allowed opacity-50")
+              isEnabled ? "hover:bg-tint" : "cursor-not-allowed opacity-50"
             )}
             title={isEnabled ? action.label : "Coming soon"}
           >
-            <Icon className={iconSizeClasses[size]} />
+            <Icon className={cn(iconSizeClasses[size], action.iconColorClass ?? action.colorClass)} />
             {label && <span className="hidden sm:inline">{label}</span>}
           </button>
         );
@@ -469,9 +473,9 @@ export function SessionActionButtons({
           // Actions that open view-friendly modals (Supervisor can open but save is disabled inside)
           const isViewableAction = ["cw", "hw", "rate", "schedule-makeup"].includes(action.id);
           const isDisabledByReadOnly = isReadOnly && !isViewableAction;
-          const colorClass = action.id === 'copy-makeup-msg' && copiedMakeupMsg
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-            : action.colorClass;
+          const iconColor = action.id === 'copy-makeup-msg' && copiedMakeupMsg
+            ? 'text-green-600 dark:text-green-400'
+            : action.iconColorClass ?? action.colorClass;
           const opensExerciseModal = action.id === "cw" || action.id === "hw";
 
           const button = (
@@ -481,21 +485,21 @@ export function SessionActionButtons({
               onPointerEnter={opensExerciseModal ? warmExerciseModal : undefined}
               onFocus={opensExerciseModal ? warmExerciseModal : undefined}
               className={cn(
-                "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
+                ACTION_BASE,
                 sizeClasses[size],
                 isDisabledByReadOnly
-                  ? cn(colorClass, "cursor-not-allowed opacity-40")
+                  ? "cursor-not-allowed opacity-40"
                   : isEnabled && !isLoading
-                    ? cn(colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
-                    : cn(colorClass, "cursor-not-allowed opacity-50"),
-                isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
+                    ? "hover:bg-tint"
+                    : "cursor-not-allowed opacity-50",
+                isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1 ring-offset-paper"
               )}
               // The CW and HW buttons get a hover card listing what is assigned,
               // so a native tooltip there would just pop up on top of it.
               title={opensExerciseModal ? undefined : isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
               aria-label={opensExerciseModal ? action.label : undefined}
             >
-              <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
+              <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", iconColor)} />
               {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
             </button>
           );

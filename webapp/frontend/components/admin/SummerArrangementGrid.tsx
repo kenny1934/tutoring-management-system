@@ -218,11 +218,12 @@ export function SummerArrangementGrid({
             <button
               key={day}
               onClick={() => toggleDay(day)}
+              aria-pressed={isVisible}
               className={cn(
                 "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
                 isVisible
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
+                  ? "bg-primary/10 text-accent-ink"
+                  : "bg-tint text-foreground/40 hover:text-foreground/60"
               )}
               title={isVisible ? `Hide ${day}` : `Show ${day}`}
             >

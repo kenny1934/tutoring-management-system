@@ -11,7 +11,7 @@ import {
   Loader2
 } from "lucide-react";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
-import { CONTACT_TYPES, CONTACT_TYPE_META, getContactTypeDot } from "./contact-utils";
+import { CONTACT_TYPES, CONTACT_TYPE_META, getContactTypeDot, getContactTypeColor } from "./contact-utils";
 
 interface ContactCalendarProps {
   events: ParentCommunication[];
@@ -298,8 +298,8 @@ export function ContactCalendar({
                     className={cn(
                       "min-h-[60px] p-1 rounded border transition-colors",
                       day.isCurrentMonth
-                        ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
-                        : "bg-gray-50 dark:bg-gray-800/50 border-transparent",
+                        ? "bg-field-fill border-line"
+                        : "bg-tint border-transparent",
                       day.isToday && "ring-2 ring-primary ring-offset-1"
                     )}
                   >
@@ -317,7 +317,7 @@ export function ContactCalendar({
                         {day.day}
                       </span>
                       {hasFollowup && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" title="Follow-up scheduled" />
+                        <span className="w-2 h-2 rounded-full border-[1.5px] border-accent-ink" title="Follow-up scheduled" aria-label="Follow-up scheduled" />
                       )}
                     </div>
 
@@ -329,8 +329,8 @@ export function ContactCalendar({
                           onClick={() => onEventClick(event)}
                           className={cn(
                             "w-full text-left px-1 py-0.5 rounded text-[11px] truncate transition-all",
-                            getContactTypeDot(event.contact_type),
-                            "text-white hover:brightness-110",
+                            getContactTypeColor(event.contact_type),
+                            "hover:brightness-95 dark:hover:brightness-125",
                             selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
                           )}
                           title={`${event.student_name} - ${event.contact_type}`}
@@ -365,8 +365,8 @@ export function ContactCalendar({
                     onClick={() => onEventClick(event)}
                     className={cn(
                       "w-full text-left px-1.5 py-0.5 rounded text-[11px] truncate transition-all",
-                      getContactTypeDot(event.contact_type),
-                      "text-white hover:brightness-110",
+                      getContactTypeColor(event.contact_type),
+                      "hover:brightness-95 dark:hover:brightness-125",
                       selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
                     )}
                     title={`${event.student_name} - ${event.contact_type}`}
@@ -406,13 +406,13 @@ export function ContactCalendar({
                     key={day.dateKey}
                     className={cn(
                       "p-1 rounded border transition-colors overflow-auto",
-                      "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700",
+                      "bg-field-fill border-line",
                       day.isToday && "ring-2 ring-primary ring-offset-1"
                     )}
                   >
                     {hasFollowup && (
                       <div className="flex justify-end mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" title="Follow-up scheduled" />
+                        <span className="w-2 h-2 rounded-full border-[1.5px] border-accent-ink" title="Follow-up scheduled" aria-label="Follow-up scheduled" />
                       </div>
                     )}
                     <div className="space-y-0.5">
@@ -422,8 +422,8 @@ export function ContactCalendar({
                           onClick={() => onEventClick(event)}
                           className={cn(
                             "w-full text-left px-1 py-0.5 rounded text-[11px] truncate transition-all",
-                            getContactTypeDot(event.contact_type),
-                            "text-white hover:brightness-110",
+                            getContactTypeColor(event.contact_type),
+                            "hover:brightness-95 dark:hover:brightness-125",
                             selectedContactId === event.id && "ring-2 ring-offset-1 ring-primary"
                           )}
                           title={`${event.student_name} - ${event.contact_type}`}
@@ -523,6 +523,11 @@ export function ContactCalendar({
               </div>
             );
           })}
+          {/* The follow-up mark is a ring, so it can't be read as a contact type. */}
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full border-[1.5px] border-accent-ink" aria-hidden="true" />
+            Follow-up
+          </span>
         </div>
       </div>
     </div>

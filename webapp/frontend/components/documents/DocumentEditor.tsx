@@ -95,6 +95,7 @@ import { cn } from "@/lib/utils";
 import { Button, IconButton, Input } from "@/components/controls";
 import { extractPlainText, extractHtml } from "@/lib/tiptap-text-extract";
 import { documentsAPI, versionsAPI } from "@/lib/document-api";
+import { lockProblemFrom } from "@/lib/document-lock";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
@@ -336,40 +337,58 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     }
     return null;
   });
+  // True when the lock couldn't be checked at all, for example because the
+  // connection dropped. That says nothing about who is editing, so the editor
+  // pauses and keeps trying instead of naming a colleague.
+  const [lockOffline, setLockOffline] = useState(false);
   const lockAcquiredRef = useRef(false);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
+  }, []);
+
+  const showLockProblem = useCallback((err: unknown) => {
+    const problem = lockProblemFrom(err);
+    if (problem.kind === "other") {
+      setLockOffline(false);
+      setLockedByOther(problem.name);
+    } else {
+      setLockOffline(true);
+    }
+  }, []);
+
   const startHeartbeat = useCallback(() => {
-    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    stopHeartbeat();
     heartbeatRef.current = setInterval(async () => {
       try {
         await documentsAPI.heartbeat(doc.id);
-      } catch {
+      } catch (err: unknown) {
         lockAcquiredRef.current = false;
-        setLockedByOther("another user");
-        if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
+        stopHeartbeat();
+        showLockProblem(err);
       }
     }, HEARTBEAT_INTERVAL);
-  }, [doc.id]);
+  }, [doc.id, stopHeartbeat, showLockProblem]);
+
+  const acquireLock = useCallback(async () => {
+    try {
+      await documentsAPI.lock(doc.id);
+      lockAcquiredRef.current = true;
+      setLockedByOther(null);
+      setLockOffline(false);
+      startHeartbeat();
+    } catch (err: unknown) {
+      showLockProblem(err);
+    }
+  }, [doc.id, startHeartbeat, showLockProblem]);
 
   // Acquire lock on mount, release on unmount
   useEffect(() => {
-    const acquireLock = async () => {
-      try {
-        await documentsAPI.lock(doc.id);
-        lockAcquiredRef.current = true;
-        setLockedByOther(null);
-        startHeartbeat();
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "another user";
-        setLockedByOther(msg.replace("Document is locked by ", ""));
-      }
-    };
-
     acquireLock();
 
     return () => {
-      if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
+      stopHeartbeat();
       if (lockAcquiredRef.current) {
         fetch(`/api/documents/${doc.id}/lock`, {
           method: "DELETE",
@@ -379,27 +398,25 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         lockAcquiredRef.current = false;
       }
     };
-  }, [doc.id, startHeartbeat]);
+  }, [doc.id, acquireLock, stopHeartbeat]);
 
   // Re-acquire lock when tab becomes visible after being hidden
   useEffect(() => {
-    const handleVisibility = async () => {
-      if (document.visibilityState === "visible" && !lockAcquiredRef.current) {
-        try {
-          await documentsAPI.lock(doc.id);
-          lockAcquiredRef.current = true;
-          setLockedByOther(null);
-          startHeartbeat();
-        } catch {
-          // Still locked by someone else
-        }
-      }
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && !lockAcquiredRef.current) acquireLock();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [doc.id, startHeartbeat]);
+  }, [acquireLock]);
 
-  const isReadOnly = roleReadOnly || lockedByOther !== null || doc.is_archived;
+  // While the server can't be reached, keep trying every 30 seconds.
+  useEffect(() => {
+    if (!lockOffline) return;
+    const retry = setInterval(() => { if (!lockAcquiredRef.current) acquireLock(); }, 30 * 1000);
+    return () => clearInterval(retry);
+  }, [lockOffline, acquireLock]);
+
+  const isReadOnly = roleReadOnly || lockedByOther !== null || lockOffline || doc.is_archived;
 
   const handleForceUnlock = useCallback(async () => {
     try {
@@ -407,10 +424,12 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       await documentsAPI.lock(doc.id);
       lockAcquiredRef.current = true;
       setLockedByOther(null);
+      setLockOffline(false);
+      startHeartbeat();
     } catch {
       // Failed to take over
     }
-  }, [doc.id]);
+  }, [doc.id, startHeartbeat]);
 
   const handleRestore = useCallback(async () => {
     try {
@@ -2235,6 +2254,12 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
               Take over
             </Button>
           )}
+        </div>
+      )}
+      {lockOffline && !lockedByOther && !doc.is_archived && (
+        <div role="status" className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm print:hidden">
+          <Lock className="w-4 h-4 shrink-0" />
+          <span>Couldn&apos;t reach the server, so editing is paused. It will try again.</span>
         </div>
       )}
 

@@ -35,12 +35,12 @@ const navigation = [
 // Admin navigation items - only visible to Admin and Super Admin
 const adminNavigation = [
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
-  { name: "Overdue Payments", href: "/overdue-payments", icon: CreditCard },
+  { name: "Overdue payments", href: "/overdue-payments", icon: CreditCard },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
   { name: "Waitlist", href: "/admin/waitlist", icon: ClipboardList },
   { name: "Tutors", href: "/admin/tutors", icon: GraduationCap },
-  { name: "Summer Course", href: "/admin/summer", icon: Sun },
-  { name: "Regular Intake", href: "/admin/regular", icon: CalendarCheck },
+  { name: "Summer course", href: "/admin/summer", icon: Sun },
+  { name: "Regular intake", href: "/admin/regular", icon: CalendarCheck },
 ];
 
 interface SidebarProps {
@@ -101,7 +101,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   // goes to be missed.
   const mainNavigation = useMemo(() => {
     if (!intakeOpen) return navigation;
-    const renewal = { name: "Course Renewal", href: "/course-renewal", icon: CalendarCheck };
+    const renewal = { name: "Course renewal", href: "/course-renewal", icon: CalendarCheck };
     const inboxAt = navigation.findIndex((item) => item.name === "Inbox");
     if (inboxAt === -1) return [...navigation, renewal];
     return [...navigation.slice(0, inboxAt), renewal, ...navigation.slice(inboxAt)];
@@ -114,18 +114,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const adminBadgeFor = (name: string) => {
     const count =
       name === "Renewals" ? renewalCounts?.total
-      : name === "Overdue Payments" ? pendingPayments
+      : name === "Overdue payments" ? pendingPayments
       : name === "Extensions" ? extensionCount?.count
-      : name === "Summer Course" ? summerActionable
-      : name === "Regular Intake" ? regularActionable
+      : name === "Summer course" ? summerActionable
+      : name === "Regular intake" ? regularActionable
       : 0;
     const color =
-      name === "Overdue Payments" ? TONES.danger.solid
+      name === "Overdue payments" ? TONES.danger.solid
       : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? TONES.danger.solid
       : TONES.warning.solid;
     const isIntakeOpen =
-      (name === "Summer Course" && summerIsOpen) ||
-      (name === "Regular Intake" && regularIsOpen);
+      (name === "Summer course" && summerIsOpen) ||
+      (name === "Regular intake" && regularIsOpen);
     const showOpen = isIntakeOpen && (count ?? 0) <= 0;
     return { count, color, showOpen };
   };
@@ -142,7 +142,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         showToast(
           `You have ${newCount} new message${newCount > 1 ? 's' : ''}`,
           "info",
-          { label: "View Inbox", onClick: () => router.push('/inbox') },
+          { label: "View inbox", onClick: () => router.push('/inbox') },
           { persistent: true }
         );
       }
@@ -162,7 +162,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       showToast(
         `New in ${version} — see what's changed`,
         "info",
-        { label: "What's New", onClick: () => router.push('/whats-new') },
+        { label: "What's new", onClick: () => router.push('/whats-new') },
         { persistent: true }
       );
     }
@@ -279,15 +279,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const sidebarContent = (isMobile: boolean, desktopNavRef?: React.RefObject<HTMLElement | null>) => (
     <>
       {/* Logo Header */}
-      <div className="flex-shrink-0 flex h-16 items-center justify-between px-3 border-b border-white/10 dark:border-white/5">
+      <div className="flex-shrink-0 flex min-h-16 items-center justify-between px-3 py-2 border-b border-line">
         {isMobile ? (
           // Mobile: Logo + Close button
           <>
             <div className="flex items-center gap-3">
               <Image src="/logo.png" alt="CSM Pro" width={36} height={36} className="h-9 w-auto" priority />
               <div>
-                <span className="font-bold text-xl block">CSM Pro</span>
-                <span className="text-[11px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resources Orchestration</span>
+                <span className="font-bold text-xl leading-tight block">CSM Pro</span>
+                <span className="mt-0.5 text-[10px] leading-[1.25] text-ink-subtle block">Class Session Manager for<br />Productive Resource Orchestration</span>
               </div>
             </div>
             <button
@@ -320,8 +320,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               />
               {!isCollapsed && (
                 <div className="text-left">
-                  <span className="font-bold text-xl group-hover:text-accent-ink transition-colors block">CSM Pro</span>
-                  <span className="text-[11px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resource Orchestration</span>
+                  <span className="font-bold text-xl leading-tight group-hover:text-accent-ink transition-colors block">CSM Pro</span>
+                  <span className="mt-0.5 text-[10px] leading-[1.25] text-ink-subtle block">Class Session Manager for<br />Productive Resource Orchestration</span>
                 </div>
               )}
             </div>
@@ -335,7 +335,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           ref={desktopNavRef as React.RefObject<HTMLDivElement> | undefined}
           className="h-full overflow-y-auto scrollbar-hide"
         >
-        <nav className="space-y-2 px-3 py-4">
+        <nav className="space-y-1 px-3 py-3">
         {mainNavigation
           // Filter out Inbox for Guest (read-only role; Supervisors get broadcast-only view)
           .filter((item) => !(item.name === "Inbox" && isGuest))
@@ -350,7 +350,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               onMouseEnter={(e) => {
                 if (!showExpanded) {
                   const rect = e.currentTarget.getBoundingClientRect();
-                  const sidebarRect = e.currentTarget.closest('.backdrop-blur-md')?.getBoundingClientRect();
+                  const sidebarRect = e.currentTarget.closest('[data-sidebar-panel]')?.getBoundingClientRect();
                   if (sidebarRect) {
                     const top = rect.top - sidebarRect.top + rect.height / 2;
                     e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
@@ -367,9 +367,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 }}
                 className={cn(
                   "group relative flex items-center rounded-2xl text-sm font-medium",
-                  showExpanded ? "gap-3 px-4 py-3" : "justify-center p-3",
+                  showExpanded ? "gap-3 px-4 py-2" : "justify-center p-2.5",
                   isActive
-                    ? "bg-primary/10 text-primary shadow-sm"
+                    ? "bg-primary/10 text-accent-ink"
                     : "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
@@ -387,11 +387,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   {/* Course Renewal only appears at all while the intake is
                       taking applications, and the dot is there to catch the eye
                       on the way past. It sits on the icon rather than beside
-                      the label because "Course Renewal" needs 115px of the
+                      the label because "Course renewal" needs 115px of the
                       148px a row gives a label, which is not enough left over
                       for the "Open" pill the admin nav uses: the label wrapped
                       onto a second line. */}
-                  {item.name === "Course Renewal" && (
+                  {item.name === "Course renewal" && (
                     <span
                       className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500"
                       title="The September intake is taking applications"
@@ -422,9 +422,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         {unreadCount.count > 99 ? "99+" : unreadCount.count}
                       </span>
                     )}
-                    {isActive && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />
-                    )}
                   </>
                 )}
               </Link>
@@ -436,17 +433,17 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {isAdminOrAbove && (() => {
           const showExpanded = isMobile || !isCollapsed;
           return (
-            <div className="mt-2 pt-2 border-t border-white/10 dark:border-white/5">
+            <div className="mt-2 pt-2 border-t border-line">
               {/* Admin Header - Clickable to expand/collapse */}
               <button
                 onClick={() => setAdminExpanded(!adminExpanded)}
                 className={cn(
                   "w-full flex items-center rounded-2xl text-sm font-medium transition-colors",
-                  showExpanded ? "gap-3 px-4 py-3" : "justify-center p-3",
+                  showExpanded ? "gap-3 px-4 py-2" : "justify-center p-2.5",
                   "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
-                <Shield className="h-5 w-5 text-amber-700 dark:text-amber-500" />
+                <Shield className="h-5 w-5" />
                 {showExpanded && (
                   <>
                     <span className="flex-1 text-left">Admin</span>
@@ -475,9 +472,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         href={item.href}
                         onClick={handleNavClick}
                         className={cn(
-                          "flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors",
+                          "flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl transition-colors",
                           isActive
-                            ? "bg-primary/10 text-primary font-medium"
+                            ? "bg-primary/10 text-accent-ink font-medium"
                             : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
                         )}
                       >
@@ -535,7 +532,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         data-tooltip={item.name}
                         onMouseEnter={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
-                          const sidebarRect = e.currentTarget.closest('.backdrop-blur-md')?.getBoundingClientRect();
+                          const sidebarRect = e.currentTarget.closest('[data-sidebar-panel]')?.getBoundingClientRect();
                           if (sidebarRect) {
                             const top = rect.top - sidebarRect.top + rect.height / 2;
                             e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
@@ -548,7 +545,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           className={cn(
                             "flex items-center justify-center p-2.5 rounded-xl transition-colors",
                             isActive
-                              ? "bg-primary/10 text-primary"
+                              ? "bg-primary/10 text-accent-ink"
                               : "text-foreground/60 hover:bg-foreground/5"
                           )}
                         >
@@ -572,7 +569,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       data-tooltip="Debug"
                       onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const sidebarRect = e.currentTarget.closest('.backdrop-blur-md')?.getBoundingClientRect();
+                        const sidebarRect = e.currentTarget.closest('[data-sidebar-panel]')?.getBoundingClientRect();
                         if (sidebarRect) {
                           const top = rect.top - sidebarRect.top + rect.height / 2;
                           e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
@@ -604,7 +601,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {/* Notification Bell - only when NOT on dashboard */}
         {!isOnDashboard && (
           <div className={cn(
-            "pt-2 mt-2 border-t border-white/10 dark:border-white/5",
+            "pt-2 mt-2 border-t border-line",
             (isMobile || !isCollapsed) ? "px-4" : "flex justify-center px-3"
           )}>
             <div className={cn(
@@ -621,65 +618,57 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           </div>
         )}
         </nav>
+        {/* The mini calendar and the Center / My view switch scroll with the
+            nav. Pinned to the bottom they took about 270px, which pushed the
+            last admin links out of sight on a 900px-tall screen. */}
+        {(isMobile || !isCollapsed) && (
+          <div className="border-t border-line p-3">
+            <WeeklyMiniCalendar />
+          </div>
+        )}
+        {(isMobile || !isCollapsed) && (
+          <div className="border-t border-line px-3 py-2">
+            <div role="group" aria-label="Whose sessions to show" className="flex gap-0.5 rounded-md border border-line bg-tint p-0.5">
+              {([["center-view", "Center"], ["my-view", "My view"]] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  aria-pressed={viewMode === mode}
+                  className={cn(
+                    "flex-1 h-[26px] px-2 text-xs font-medium rounded transition-colors",
+                    viewMode === mode
+                      ? "bg-field-fill text-gray-900 ring-1 ring-line-strong dark:text-gray-100"
+                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                  )}
+                  suppressHydrationWarning
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         </div>
         {/* Scroll indicators — outside the scroll area so they stay pinned */}
         <div
           className={cn(
             "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
-            "bg-gradient-to-b from-white/80 to-transparent dark:from-black/60 dark:to-transparent",
+            "bg-gradient-to-b from-paper to-transparent",
             canScrollUp ? "opacity-100" : "opacity-0"
           )}
         />
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
-            "bg-gradient-to-t from-white/80 to-transparent dark:from-black/60 dark:to-transparent",
+            "bg-gradient-to-t from-paper to-transparent",
             canScrollDown ? "opacity-100" : "opacity-0"
           )}
         />
       </div>
 
-      {/* Mini-Calendar - show when expanded or mobile */}
-      {(isMobile || !isCollapsed) && (
-        <div className="flex-shrink-0 border-t border-white/10 dark:border-white/5 p-3">
-          <WeeklyMiniCalendar />
-        </div>
-      )}
-
-      {/* View Mode Toggle - show when expanded or mobile */}
-      {(isMobile || !isCollapsed) && (
-        <div className="flex-shrink-0 border-t border-white/10 dark:border-white/5 px-3 py-2">
-          <div className="flex gap-1 bg-foreground/5 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode("center-view")}
-              className={cn(
-                "flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all",
-                viewMode === "center-view"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-foreground/70 hover:bg-foreground/10"
-              )}
-              suppressHydrationWarning
-            >
-              Center
-            </button>
-            <button
-              onClick={() => setViewMode("my-view")}
-              className={cn(
-                "flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all",
-                viewMode === "my-view"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-foreground/70 hover:bg-foreground/10"
-              )}
-              suppressHydrationWarning
-            >
-              My View
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* User info with settings button */}
-      <div className="flex-shrink-0 border-t border-white/10 dark:border-white/5 p-4">
+      <div className="flex-shrink-0 border-t border-line p-2">
         {/* Get user initials */}
         {(() => {
           // When impersonating a specific tutor, show their name
@@ -697,15 +686,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <button
                 onClick={() => setIsUserMenuOpen(true)}
                 className={cn(
-                  "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg p-3",
-                  "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-                  isImpersonating
-                    ? "border-amber-400 dark:border-amber-600"
-                    : "border-white/10 dark:border-white/5"
+                  "w-full flex items-center justify-center rounded-md p-2 transition-colors hover:bg-tint",
+                  // Impersonating keeps an amber ring, because it has to be
+                  // obvious whose account is showing.
+                  isImpersonating && "ring-1 ring-amber-400 dark:ring-amber-600"
                 )}
-                style={{
-                  transition: 'all 250ms var(--ease-out)',
-                }}
                 title="User settings"
               >
                 {displayPicture ? (
@@ -714,17 +699,17 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     alt={displayName}
                     width={40}
                     height={40}
-                    className="h-10 w-10 rounded-full object-cover shadow-sm"
+                    className="h-10 w-10 rounded-full object-cover"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                  <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
                     <span className="text-sm font-bold text-primary-foreground">{initials}</span>
                   </div>
                 )}
               </button>
               {hasUnseenUpdates && (
-                <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-blue-500 border-2 border-[rgba(245,240,232,0.5)] dark:border-[rgba(42,42,42,0.3)]" />
+                <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-blue-500 border-2 border-paper" />
               )}
             </div>
           ) : (
@@ -733,15 +718,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <button
                 onClick={() => setIsUserMenuOpen(true)}
                 className={cn(
-                  "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg",
-                  "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-                  isImpersonating
-                    ? "border-amber-400 dark:border-amber-600"
-                    : "border-white/10 dark:border-white/5"
+                  "w-full flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-tint",
+                  isImpersonating && "ring-1 ring-amber-400 dark:ring-amber-600"
                 )}
-                style={{
-                  transition: 'all 250ms var(--ease-out)',
-                }}
               >
                 <div className="relative flex-shrink-0">
                   {displayPicture ? (
@@ -750,16 +729,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       alt={displayName}
                       width={44}
                       height={44}
-                      className="h-11 w-11 rounded-full object-cover shadow-sm"
+                      className="h-11 w-11 rounded-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                    <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center">
                       <span className="text-base font-bold text-primary-foreground">{initials}</span>
                     </div>
                   )}
                   {hasUnseenUpdates && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-blue-500 border-2 border-[rgba(245,240,232,0.5)] dark:border-[rgba(42,42,42,0.3)]" />
+                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-blue-500 border-2 border-paper" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
@@ -802,7 +781,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             </button>
 
             {/* User info header */}
-            <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5 pr-8">
+            <div className="flex items-center gap-3 pb-4 mb-4 border-b border-line pr-8">
               {user?.picture ? (
                 <Image
                   src={user.picture}
@@ -859,7 +838,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             )}
 
             {/* Divider */}
-            <div className="my-3 border-t border-white/10 dark:border-white/5" />
+            <div className="my-3 border-t border-line" />
 
             {/* Settings Link */}
             <Link
@@ -934,9 +913,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     <>
       {/* Desktop Sidebar - hidden on mobile */}
       <div
+        data-sidebar-panel
         className={cn(
-          "hidden md:flex h-screen flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50",
-          "bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(17,17,17,0.6)]",
+          "hidden md:flex h-screen flex-col border-r border-line bg-paper z-50",
           isCollapsed ? "w-[72px]" : "w-64"
         )}
         style={{
@@ -959,9 +938,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
       {/* Drawer */}
       <div
+        data-sidebar-panel
         className={cn(
-          "fixed inset-y-0 left-0 w-72 flex flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50 md:hidden",
-          "bg-[rgba(254,249,243,0.98)] dark:bg-[rgba(45,38,24,0.98)]",
+          "fixed inset-y-0 left-0 w-72 flex flex-col border-r border-line bg-paper z-50 md:hidden",
           "transition-transform duration-300 ease-out",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}

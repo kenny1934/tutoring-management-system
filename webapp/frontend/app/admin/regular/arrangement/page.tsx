@@ -92,7 +92,7 @@ function StatusFilterChip({
 }
 
 export default function RegularArrangementPage() {
-  usePageTitle("Regular Arrangement");
+  usePageTitle("Regular arrangement");
   const { canViewAdminPages: canView, isReadOnly: readOnly } = useAuth();
   const { showToast } = useToast();
   const confirmDialogOpen = useConfirmOpen();
@@ -787,8 +787,8 @@ export default function RegularArrangementPage() {
                   wraps to its own full-width row via order-last + w-full; on sm+
                   it sits inline between the title and the location select. */}
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <Grid3X3 className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+                <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
+                  <Grid3X3 className="h-5 w-5 text-accent-ink" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">

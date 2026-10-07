@@ -83,12 +83,6 @@ export function RegularWorkflowStatusIcon({
   );
 }
 
-// Subtle background tint per applying branch, matching the summer card.
-const BRANCH_TINT: Record<string, string> = {
-  MSA: "bg-blue-50/40 dark:bg-blue-950/20",
-  MSB: "bg-purple-50/40 dark:bg-purple-950/20",
-};
-
 export function RegularStatusBadge({ status }: { status: string }) {
   const colors = REGULAR_STATUS_COLORS[status] || REGULAR_STATUS_COLORS["Submitted"];
   const Icon = REGULAR_STATUS_ICONS[status];
@@ -214,8 +208,8 @@ function PrefChip({ day, time, backup }: { day: string; time: string; backup?: b
       className={cn(
         "shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded",
         backup
-          ? "border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground"
-          : "bg-gray-100 dark:bg-gray-800 text-foreground"
+          ? "border border-dashed border-line-strong text-muted-foreground"
+          : "bg-tint text-foreground"
       )}
     >
       {DAY_ABBREV[day] || day} {time}
@@ -257,7 +251,6 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
   };
 
   const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
-  const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";
   const statusBorderL = REGULAR_STATUS_COLORS[app.application_status]?.borderL || "border-l-gray-300";
   const isExited = REGULAR_EXIT_STATUSES.has(app.application_status);
   const hasPref1 = !!(app.preference_1_day && app.preference_1_time);
@@ -277,23 +270,25 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
       className={cn(
         "group rounded-lg border border-l-[3px] transition-all cursor-pointer scroll-my-24",
         statusBorderL,
-        branchTint,
-        "hover:bg-muted/40",
+        "bg-paper hover:bg-tint/50",
         isExited && !isChecked && "opacity-60 hover:opacity-100",
         isFocused && "ring-2 ring-primary/50",
         isChecked
           ? "border-primary !border-l-primary ring-1 ring-primary/30 bg-primary/[0.05]"
-          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm"
+          : "border-line hover:border-line-strong"
       )}
     >
       <div className="px-3 py-2.5 space-y-1.5">
-        {/* Row 1: identity */}
-        <div className="flex items-center gap-2">
+        {/* Row 1: identity. On a phone the status cluster wraps onto its own
+            line, so the name and school chips keep the full width. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {onToggleCheck && (
             <div
               className={cn(
                 "shrink-0 transition-opacity -ml-0.5",
-                showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                // The checkbox only appears on hover, so on a touch screen it
+                // takes no space until batch mode shows it.
+                showCheckbox ? "opacity-100" : "hidden [@media(hover:hover)]:block opacity-0 group-hover:opacity-100"
               )}
               onClick={(e) => e.stopPropagation()}
             >
@@ -332,7 +327,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               {branchCode}
             </span>
           )}
-          <div className="ml-auto shrink-0 flex items-center gap-1.5">
+          <div className="flex w-full items-center gap-1.5 sm:ml-auto sm:w-auto sm:shrink-0">
             {onStatusChange ? (
               <InlineStatusSelect
                 value={app.application_status}
@@ -361,7 +356,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
         <div className="flex items-center gap-1.5 text-xs flex-wrap">
           {hasPref1 || hasPref2 ? (
             <>
-              <Clock className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
+              <Clock className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
               {hasPref1 && <PrefChip day={app.preference_1_day!} time={app.preference_1_time!} />}
               {hasPref2 && (
                 <>
@@ -381,8 +376,8 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
             this student. Regular's counterpart to summer's placement strip. */}
         {slot && (
           <div className="flex items-center gap-1.5 text-xs flex-wrap">
-            <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-400" />
-            <span className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+            <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
+            <span className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-tint text-foreground border border-line">
               {DAY_ABBREV[slot.slot_day] || slot.slot_day} {slot.time_slot}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -401,10 +396,10 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
         )}
 
         {/* Row 3: meta footer */}
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           {app.contact_phone && (
             <span className="shrink-0 hidden sm:inline-flex items-center gap-1">
-              <Phone className="h-3 w-3 text-blue-600" />
+              <Phone className="h-3 w-3 text-ink-subtle" />
               <CopyableCell text={app.contact_phone} />
             </span>
           )}
@@ -426,7 +421,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
           <span className="ml-auto shrink-0 inline-flex items-center gap-2">
             {langChip && (
               <span
-                className="text-[11px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground"
+                className="text-[11px] px-1 py-0.5 rounded bg-tint text-muted-foreground"
                 title={`Form filled in ${app.form_language === "zh" ? "Chinese" : "English"}`}
               >
                 {langChip}

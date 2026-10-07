@@ -21,14 +21,14 @@ export default function SettingsPage() {
     {
       id: "path-mappings" as const,
       icon: FolderSync,
-      title: "Path Mappings",
+      title: "Path mappings",
       description: "Configure drive letter mappings for shared network folders",
       available: true,
     },
     {
       id: "path-aliases-admin" as const,
       icon: Shield,
-      title: "Path Aliases (Admin)",
+      title: "Path aliases (admin)",
       description: "Manage available path aliases for your organization",
       available: isAdmin,
     },
@@ -41,8 +41,8 @@ export default function SettingsPage() {
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-[#f5f0e8] dark:bg-[#2d2618]">
-            <Settings className="h-6 w-6 text-foreground/60" />
+          <div className="p-3 rounded-xl bg-tint">
+            <Settings className="h-6 w-6 text-ink-subtle" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-on-surface">
@@ -56,9 +56,11 @@ export default function SettingsPage() {
 
         {/* Settings Grid */}
         <div className="w-full">
-          <div className="grid md:grid-cols-3 gap-6">
+          {/* grid-cols-1 and min-w-0 let the long descriptions truncate on a
+              phone instead of pushing the cards past the edge of the screen. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Settings menu */}
-            <div className="md:col-span-1">
+            <div className="min-w-0 md:col-span-1">
               <div className="space-y-2">
                 {availableItems.map((item) => {
                   const Icon = item.icon;
@@ -108,16 +110,17 @@ export default function SettingsPage() {
             </div>
 
             {/* Settings content */}
-            <div className="md:col-span-2">
+            <div className="min-w-0 md:col-span-2">
               {activeSection === null ? (
-                <div className="flex items-center justify-center h-64 text-foreground/50">
+                // On a phone the list sits above this, so the prompt only fills space.
+                <div className="hidden md:flex items-center justify-center h-64 text-foreground/50">
                   <div className="text-center">
                     <Settings className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p className="text-sm">Select a setting to configure</p>
                   </div>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-6 shadow-sm">
+                <div className="bg-paper rounded-xl border border-line p-4 sm:p-6">
                   <h2 className="text-lg font-semibold text-foreground mb-4">
                     {settingsItems.find(i => i.id === activeSection)?.title}
                   </h2>

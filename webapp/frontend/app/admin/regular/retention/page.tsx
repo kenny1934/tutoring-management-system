@@ -316,7 +316,7 @@ function BranchCompare({
 }
 
 export default function RegularRetentionPage() {
-  usePageTitle("Regular Retention");
+  usePageTitle("Regular retention");
   const { canViewAdminPages, isReadOnly, user } = useAuth();
   const [year, setYear] = useState<number | null>(null);
   const [branch, setBranch] = useState<string | null>(null);
@@ -439,8 +439,8 @@ export default function RegularRetentionPage() {
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                <Users className="h-5 w-5 text-sky-700 dark:text-sky-400" />
+              <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
+                <Users className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Retention</h1>
@@ -592,7 +592,8 @@ export default function RegularRetentionPage() {
                       sub={
                         data.totals.declined > 0 ? "told us they are leaving" : "none so far"
                       }
-                      tone="text-rose-600 dark:text-rose-400"
+                      // Red only when someone is leaving. A zero is good news.
+                      tone={data.totals.declined > 0 ? "text-rose-600 dark:text-rose-400" : undefined}
                     />
                     <KpiCard
                       label="No response"

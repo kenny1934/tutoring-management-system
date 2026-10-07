@@ -163,7 +163,7 @@ function FunnelChart({ totals }: { totals: RegularConversionBranchRow }) {
 }
 
 export default function RegularConversionPage() {
-  usePageTitle("Regular Conversion");
+  usePageTitle("Regular conversion");
   const { canViewAdminPages, isReadOnly } = useAuth();
   const [year, setYear] = useState<number | null>(null);
   const [branch, setBranch] = useState<string | null>(null);
@@ -288,8 +288,8 @@ export default function RegularConversionPage() {
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+              <div className="w-9 h-9 shrink-0 rounded-lg bg-tint flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Conversion</h1>

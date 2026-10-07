@@ -45,8 +45,8 @@ interface UrgencyConfig {
 
 const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
   critical: {
-    label: '30+ Days',
-    sectionLabel: '30+ Days Overdue',
+    label: '30+ days',
+    sectionLabel: '30+ days overdue',
     min: 30,
     max: Infinity,
     bgColor: 'bg-red-50 dark:bg-red-900/20',
@@ -55,8 +55,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     badgeBg: 'bg-red-100 dark:bg-red-900/40',
   },
   high: {
-    label: '15-30 Days',
-    sectionLabel: '15-30 Days Overdue',
+    label: '15-30 days',
+    sectionLabel: '15-30 days overdue',
     min: 15,
     max: 29,
     bgColor: 'bg-orange-50 dark:bg-orange-900/20',
@@ -65,8 +65,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     badgeBg: 'bg-orange-100 dark:bg-orange-900/40',
   },
   medium: {
-    label: '8-14 Days',
-    sectionLabel: '8-14 Days Overdue',
+    label: '8-14 days',
+    sectionLabel: '8-14 days overdue',
     min: 8,
     max: 14,
     bgColor: 'bg-amber-50 dark:bg-amber-900/20',
@@ -75,8 +75,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     badgeBg: 'bg-amber-100 dark:bg-amber-900/40',
   },
   new: {
-    label: '1-7 Days',
-    sectionLabel: '1-7 Days Overdue',
+    label: '1-7 days',
+    sectionLabel: '1-7 days overdue',
     min: 1,
     max: 7,
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
@@ -85,8 +85,8 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
     badgeBg: 'bg-yellow-100 dark:bg-yellow-900/40',
   },
   dueSoon: {
-    label: 'Due Soon',
-    sectionLabel: 'Starting This Week',
+    label: 'Due soon',
+    sectionLabel: 'Starting this week',
     min: -7,
     max: 0,
     bgColor: 'bg-blue-50 dark:bg-blue-900/20',
@@ -471,7 +471,7 @@ export default function OverduePaymentsPage() {
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-accent-ink" />
-                    <h1 className="text-lg font-semibold">Overdue Payments</h1>
+                    <h1 className="text-lg font-semibold">Overdue payments</h1>
                     {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
                       <Link
                         href="/overdue-payments"
@@ -551,16 +551,18 @@ export default function OverduePaymentsPage() {
                 {(['critical', 'high', 'medium', 'new', 'dueSoon'] as UrgencyLevel[]).map((level) => {
                   const config = URGENCY_LEVELS[level];
                   const count = urgencyCounts[level];
+                  // An empty bucket is good news, so it stays neutral. The
+                  // severity tint only shows when there's something in it.
+                  const empty = count === 0;
                   return (
                     <div
                       key={level}
                       className={cn(
                         "rounded-lg border p-3 text-center",
-                        config.bgColor,
-                        config.borderColor
+                        empty ? "bg-paper border-line" : [config.bgColor, config.borderColor]
                       )}
                     >
-                      <div className={cn("text-2xl font-bold", config.textColor)}>
+                      <div className={cn("text-2xl font-bold", empty ? "text-ink-subtle" : config.textColor)}>
                         {count}
                       </div>
                       <div className="text-sm text-muted-foreground">{config.label}</div>
@@ -649,7 +651,7 @@ export default function OverduePaymentsPage() {
                                 <th className="px-4 py-3 text-left font-medium w-20">ID#</th>
                                 <th className="px-4 py-3 text-left font-medium min-w-[120px]">Student</th>
                                 <th className="px-4 py-3 text-left font-medium w-16">Grade</th>
-                                <th className="px-4 py-3 text-left font-medium min-w-[100px]">Instructor</th>
+                                <th className="px-4 py-3 text-left font-medium min-w-[100px]">Tutor</th>
                                 <th className="px-4 py-3 text-left font-medium w-28">Schedule</th>
                                 <th className="px-4 py-3 text-left font-medium w-28">Deadline</th>
                                 <th className="px-4 py-3 text-center font-medium w-16">Days</th>
@@ -905,7 +907,7 @@ function OverdueRow({
         {showLocationPrefix && enrollment.location && `${enrollment.location}-`}{enrollment.school_student_id || "-"}
       </td>
       {/* Name */}
-      <td className="px-4 py-3 font-medium">
+      <td className="px-4 py-3 font-medium whitespace-nowrap">
         <Link
           href={`/students/${enrollment.student_id}`}
           className="hover:text-accent-ink hover:underline"
@@ -917,9 +919,9 @@ function OverdueRow({
       {/* Grade */}
       <td className="px-4 py-3">{enrollment.grade || "-"}</td>
       {/* Tutor */}
-      <td className="px-4 py-3">{enrollment.tutor_name || "-"}</td>
+      <td className="px-4 py-3 whitespace-nowrap">{enrollment.tutor_name || "-"}</td>
       {/* Schedule */}
-      <td className="px-4 py-3 text-xs">{schedule}</td>
+      <td className="px-4 py-3 text-xs whitespace-nowrap">{schedule}</td>
       {/* First Lesson — or payment_deadline for Summer tiers */}
       <td className="px-4 py-3 text-xs">
         {enrollment.payment_deadline && enrollment.deadline_source === "payment_deadline" ? (

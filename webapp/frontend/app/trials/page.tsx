@@ -67,10 +67,8 @@ const TrialCard = React.memo(function TrialCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "bg-paper rounded-lg border-2 p-3",
-        "border-line-strong",
-        "paper-texture shadow-sm",
-        "hover:shadow-md transition-shadow cursor-pointer",
+        "bg-paper rounded-lg border border-line p-3",
+        "hover:bg-tint/50 transition-colors cursor-pointer",
         "group"
       )}
       onClick={() => onViewDetails(trial)}
@@ -215,7 +213,9 @@ const TrialColumn = React.memo(function TrialColumn({
     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
 
   return (
-    <div className="flex-1 min-w-[280px] max-w-[400px] flex flex-col h-full">
+    // 240px lets all four status columns fit side by side at 1440 with the
+    // sidebar open. Narrower screens still scroll the board sideways.
+    <div className="flex-1 min-w-[240px] max-w-[400px] flex flex-col h-full">
       {/* Column Header */}
       <div className={cn("px-3 py-2 rounded-t-lg border-b-2", headerColorClass)}>
         <div className="flex items-center justify-between">
@@ -523,8 +523,8 @@ export default function TrialsPage() {
           <div className="mb-6">
             <div className="flex flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
-                  <FlaskConical className="h-5 w-5 sm:h-6 sm:w-6 text-teal-700 dark:text-teal-400" />
+                <div className="p-2 bg-tint rounded-lg">
+                  <FlaskConical className="h-5 w-5 sm:h-6 sm:w-6 text-accent-ink" />
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold text-foreground">
@@ -715,7 +715,7 @@ export default function TrialsPage() {
                       className={cn(
                         "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tl-lg",
                         modalTabView === 'detail'
-                          ? "text-primary border-b-2 border-primary bg-primary/5"
+                          ? "text-accent-ink border-b-2 border-primary bg-primary/5"
                           : "text-foreground/60 hover:text-foreground/80"
                       )}
                     >
@@ -726,7 +726,7 @@ export default function TrialsPage() {
                       className={cn(
                         "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tr-lg",
                         modalTabView === 'create'
-                          ? "text-primary border-b-2 border-primary bg-primary/5"
+                          ? "text-accent-ink border-b-2 border-primary bg-primary/5"
                           : "text-foreground/60 hover:text-foreground/80"
                       )}
                     >

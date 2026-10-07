@@ -217,7 +217,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                   className="flex items-baseline gap-1.5 cursor-pointer select-none rounded hover:bg-[#efe3d3]/60 dark:hover:bg-[#4a3f2c]/60 -mx-1 px-1"
                 >
                   <span>Tutor{sortArrow("tutor")}</span>
-                  <span className="hidden sm:inline text-[11px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <span className="hidden sm:inline whitespace-nowrap text-[11px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Session revenue · MOP
                   </span>
                 </div>
@@ -321,13 +321,17 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                         }}
                         onMouseLeave={() => setHover(null)}
                       >
-                        {isColMax && (
-                          <Crown
-                            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-accent-ink"
-                            aria-label="Top earner for this month"
-                          />
-                        )}
-                        {formatNumber(value)}
+                        {/* The crown sits right beside its own number, so it can't be
+                            read as belonging to the month in the next column. */}
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {isColMax && (
+                            <Crown
+                              className="h-3 w-3 shrink-0 text-accent-ink"
+                              aria-label="Top earner for this month"
+                            />
+                          )}
+                          {formatNumber(value)}
+                        </span>
                       </td>
                     );
                   })}

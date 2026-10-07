@@ -8,7 +8,7 @@ import { usePageTitle } from "@/lib/hooks";
 import { Clock } from "lucide-react";
 
 export default function AdminExtensionsPage() {
-  usePageTitle("Extension Requests");
+  usePageTitle("Extension requests");
   const { user, isLoading, canViewAdminPages, isReadOnly } = useAuth();
 
   // Get current tutor ID from authenticated user
@@ -20,12 +20,12 @@ export default function AdminExtensionsPage() {
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6">
         <div className="mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-              <Clock className="h-6 w-6 text-amber-700 dark:text-amber-400" />
+            <div className="p-2 bg-tint rounded-lg">
+              <Clock className="h-6 w-6 text-accent-ink" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                Extension Requests
+                Extension requests
               </h1>
               <p className="text-sm text-foreground/60">
                 Review and approve enrollment extension requests
@@ -41,7 +41,7 @@ export default function AdminExtensionsPage() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="p-4 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                className="p-4 rounded-lg border bg-paper border-line"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 space-y-3">

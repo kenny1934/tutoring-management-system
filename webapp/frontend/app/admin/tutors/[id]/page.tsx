@@ -17,6 +17,7 @@ import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
 import { BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { ROLE_BADGE, ROLE_BADGE_FALLBACK, ROLE_CHIP } from "@/lib/tutor-role-badge";
 import { getWeekBounds, toDateString, getDayName, getMonthName, isSameDay } from "@/lib/calendar-utils";
 import { formatMOP, plural } from "@/lib/formatters";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -433,7 +434,7 @@ function TutorProfileInner() {
                 {tutor.nickname && (
                   <span className="text-foreground/60">“{tutor.nickname}”</span>
                 )}
-                <span className="text-amber-700 dark:text-amber-400 font-medium">
+                <span className={cn(ROLE_CHIP, ROLE_BADGE[tutor.role] ?? ROLE_BADGE_FALLBACK)}>
                   {tutor.role}
                 </span>
                 <span

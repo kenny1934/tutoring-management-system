@@ -206,8 +206,9 @@ export function ContactDetailPanel({
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Select a contact from the calendar to view details
           </p>
+          {/* Secondary, because the page header already has the oak Record contact. */}
           <Button
-            variant="primary"
+            variant="secondary"
             icon={Plus}
             onClick={() => onRecordNew()}
             disabled={readOnly}

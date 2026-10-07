@@ -10,11 +10,10 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
-import { SessionsAccent } from "@/components/illustrations/CardAccents";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
@@ -271,8 +270,8 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
       <div className="px-4 py-3 border-b border-line bg-tint flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <SessionsAccent className="w-8 h-6" />
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today's Sessions</h3>
+            <CalendarDays className="h-4 w-4 flex-shrink-0 text-ink-subtle" aria-hidden="true" />
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today's sessions</h3>
           </div>
           <div className="flex items-center gap-1.5">
             {/* Quick Attend shortcut - only when there are markable sessions */}
@@ -604,7 +603,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
               href={`/sessions?date=${todayString}`}
               className="flex items-center gap-1 text-sm text-accent-ink hover:underline"
             >
-              View All
+              View all
               <ChevronRight className="h-3 w-3" />
             </Link>
           </div>

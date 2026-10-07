@@ -25,6 +25,11 @@
 @variant dark (&:is(.dark *));
 
 @theme extend {
+  /* A small breakpoint below sm. The code had used xs: for button labels
+     that hide on a phone, but Tailwind v4 has no xs of its own, so those
+     labels never showed at any width until this was defined. */
+  --breakpoint-xs: 30rem;
+
   /* ===== LIGHT MODE COLORS (M3 Expressive) ===== */
   /* Warm, educational palette for classroom vibe */
   --color-background: #fef9f3; /* Warm cream background */

@@ -3,6 +3,8 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { getDaysUntil } from "@/lib/calendar-utils";
+import { countdownChipClass, countdownLabel } from "@/lib/countdown";
+import { TONES } from "@/lib/tones";
 import { useEligibleStudentsByExam } from "@/lib/hooks";
 import { RevisionSlotCard } from "./RevisionSlotCard";
 import { EnrollStudentModal } from "./EnrollStudentModal";
@@ -90,6 +92,36 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   const daysUntil = getDaysUntil(exam.start_date);
   const isPast = daysUntil < 0;
 
+  // The countdown and the two counts, shown beside the title on wider screens
+  // and under it on a phone.
+  const stats = (
+    <>
+      {isPast ? (
+        <span className="text-xs font-medium text-ink-subtle">Past</span>
+      ) : (
+        <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap", countdownChipClass(daysUntil))}>
+          {countdownLabel(daysUntil)}
+        </span>
+      )}
+      <span
+        className={cn(
+          "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+          exam.revision_slots.length > 0
+            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+            : TONES.neutral.soft
+        )}
+        title="Revision slots"
+      >
+        <BookOpen className="h-3 w-3" aria-hidden="true" />
+        {exam.revision_slots.length}
+      </span>
+      <span className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium", TONES.neutral.soft)} title="Students enrolled">
+        <Users className="h-3 w-3" aria-hidden="true" />
+        {exam.total_enrolled}
+      </span>
+    </>
+  );
+
   // Get event type badge color from canonical color map
   const typeBadgeColors = useMemo(() => {
     const colors = EXAM_TYPE_COLORS[exam.event_type || ""];
@@ -150,43 +182,19 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
         }}
         className="w-full px-4 py-4 flex items-start gap-4 text-left hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors cursor-pointer"
       >
-        {/* Date indicator */}
+        {/* Date indicator. Neutral, because how soon the exam is shows in the
+            countdown chip, and red is kept for things that have gone wrong. */}
         <div className={cn(
-          "flex-shrink-0 w-14 h-14 rounded-lg flex flex-col items-center justify-center",
-          isPast
-            ? "bg-gray-100 dark:bg-gray-800"
-            : daysUntil <= 7
-            ? "bg-red-50 dark:bg-red-900/20"
-            : "bg-amber-50 dark:bg-amber-900/20"
+          "flex-shrink-0 w-14 h-14 rounded-lg flex flex-col items-center justify-center bg-tint",
+          isPast && "opacity-60"
         )}>
-          <span className={cn(
-            "text-xs font-medium",
-            isPast
-              ? "text-gray-500"
-              : daysUntil <= 7
-              ? "text-red-600 dark:text-red-400"
-              : "text-amber-700 dark:text-amber-400"
-          )}>
+          <span className="text-xs font-medium text-ink-subtle">
             {examDate.toLocaleDateString("en-US", { month: "short" })}
           </span>
-          <span className={cn(
-            "text-xl font-bold leading-none",
-            isPast
-              ? "text-gray-600"
-              : daysUntil <= 7
-              ? "text-red-700 dark:text-red-300"
-              : "text-amber-700 dark:text-amber-300"
-          )}>
+          <span className="text-xl font-bold leading-none text-gray-900 dark:text-gray-100">
             {examDate.getDate()}
           </span>
-          <span className={cn(
-            "text-[11px] font-medium",
-            isPast
-              ? "text-gray-500"
-              : daysUntil <= 7
-              ? "text-red-600 dark:text-red-400"
-              : "text-amber-700 dark:text-amber-400"
-          )}>
+          <span className="text-[11px] font-medium text-ink-subtle">
             {examDate.getFullYear()}
           </span>
         </div>
@@ -225,49 +233,13 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                   </span>
                 )}
               </div>
+              <div className="flex sm:hidden flex-wrap items-center gap-2 mt-2">{stats}</div>
             </div>
 
-            {/* Stats and expand indicator */}
+            {/* Stats and expand indicator. On a phone the countdown and counts
+                move under the title, so the title has room. */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              {/* Days until */}
-              <div className="text-right hidden sm:block">
-                <span className={cn(
-                  "text-sm font-medium",
-                  isPast
-                    ? "text-gray-500"
-                    : daysUntil <= 7
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-gray-600 dark:text-gray-400"
-                )}>
-                  {isPast
-                    ? "Past"
-                    : daysUntil === 0
-                    ? "Today"
-                    : daysUntil === 1
-                    ? "Tomorrow"
-                    : `${daysUntil} days`}
-                </span>
-              </div>
-
-              {/* Revision slots count */}
-              <div className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                exam.revision_slots.length > 0
-                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-              )}>
-                <BookOpen className="h-3 w-3" />
-                {exam.revision_slots.length}
-              </div>
-
-              {/* Enrolled count */}
-              <div className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-              )}>
-                <Users className="h-3 w-3" />
-                {exam.total_enrolled}
-              </div>
+              <div className="hidden sm:flex items-center gap-3">{stats}</div>
 
               {/* Edit event button */}
               {canManageEvents && onEditEvent && (
