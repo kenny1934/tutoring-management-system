@@ -343,7 +343,7 @@ export function SummerUnassignedPanel({
                     onClickStudent?.(app.id);
                   }}
                   className={cn(
-                    "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-paper/80 dark:hover:bg-paper/50 transition-colors",
+                    "rounded border border-l-[3px] border-line/60 bg-raised px-2 py-1.5 hover:bg-paper/80 dark:hover:bg-paper/50 transition-colors",
                     readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
                     SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
                   )}

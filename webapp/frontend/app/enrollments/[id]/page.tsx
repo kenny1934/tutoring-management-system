@@ -751,7 +751,7 @@ export default function EnrollmentDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.3 }}
               className={cn(
-                "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+                "bg-raised border border-line rounded-lg p-4",
                 !isMobile && "paper-texture",
                 isEditingSchedule && "ring-2 ring-amber-400"
               )}
@@ -1027,7 +1027,7 @@ export default function EnrollmentDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
               className={cn(
-                "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+                "bg-raised border border-line rounded-lg p-4",
                 !isMobile && "paper-texture",
                 isEditingPayment && "ring-2 ring-amber-400"
               )}
@@ -1471,7 +1471,7 @@ export default function EnrollmentDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
               className={cn(
-                "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+                "bg-raised border border-line rounded-lg p-4",
                 !isMobile && "paper-texture"
               )}
             >
@@ -1610,7 +1610,7 @@ export default function EnrollmentDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.3 }}
             className={cn(
-              "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+              "bg-raised border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}
           >

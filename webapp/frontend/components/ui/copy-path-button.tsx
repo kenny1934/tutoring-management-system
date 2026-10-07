@@ -97,7 +97,7 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
         <div
           className={cn(
             "absolute right-0 top-full mt-1 z-50",
-            "bg-white dark:bg-[#1a1a1a] border border-line",
+            "bg-raised border border-line",
             "rounded-lg shadow-lg min-w-[300px] max-w-[90vw] sm:max-w-[600px] overflow-hidden"
           )}
           onClick={(e) => e.stopPropagation()}
@@ -115,10 +115,10 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
                 onClick={(e) => handleCopy(path, e)}
                 className={cn(
                   "w-full text-left px-3 py-2 text-xs",
-                  "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors",
+                  "hover:bg-wash transition-colors",
                   "flex items-center gap-2 border-b border-line/20 last:border-0",
-                  "focus:outline-none focus:bg-[#f5ede3] dark:focus:bg-[#2d2618]",
-                  i === focusedIndex && "bg-[#f5ede3] dark:bg-[#2d2618]"
+                  "focus:outline-none focus:bg-wash",
+                  i === focusedIndex && "bg-wash"
                 )}
                 role="option"
                 aria-selected={i === focusedIndex}

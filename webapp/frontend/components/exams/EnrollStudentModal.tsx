@@ -186,7 +186,7 @@ export function EnrollStudentModal({
       {/* Modal */}
       <div className={cn(
         "relative z-10 w-[min(calc(100vw-2rem),36rem)] max-h-[80vh] rounded-xl overflow-hidden flex flex-col",
-        "bg-white dark:bg-[#1a1a1a] border border-line",
+        "bg-raised border border-line",
         "shadow-2xl paper-texture"
       )}>
         {/* Header */}
@@ -232,7 +232,7 @@ export function EnrollStudentModal({
         )}
 
         {/* Search */}
-        <div className="flex-shrink-0 px-6 py-3 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+        <div className="flex-shrink-0 px-6 py-3 border-b border-line bg-paper/50">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
             <Input
@@ -280,7 +280,7 @@ export function EnrollStudentModal({
                   {/* Student header */}
                   <button
                     onClick={() => handleToggleStudent(student.student_id)}
-                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
+                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-paper/50 transition-colors"
                   >
                     <StudentInfoBadges student={student} showLink showLocationPrefix={showLocationPrefix} />
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -302,7 +302,7 @@ export function EnrollStudentModal({
 
                   {/* Expanded - session selection */}
                   {expandedStudentId === student.student_id && (
-                    <div className="border-t border-line p-4 bg-[#faf6f1]/30 dark:bg-[#2d2820]/30">
+                    <div className="border-t border-line p-4 bg-paper/30">
                       {/* Deadline warning */}
                       {student.is_past_deadline && (
                         <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">
@@ -333,7 +333,7 @@ export function EnrollStudentModal({
                                   : selectedSession?.studentId === student.student_id &&
                                       selectedSession?.sessionId === session.id
                                     ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                                    : "border-line dark:border-line bg-white dark:bg-[#1a1a1a] hover:border-primary/50"
+                                    : "border-line dark:border-line bg-field-fill dark:bg-field-fill hover:border-primary/50"
                               )}
                             >
                               <div className="flex items-center justify-between">

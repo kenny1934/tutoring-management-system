@@ -55,7 +55,7 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
   };
 
   return (
-    <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+    <div className="absolute right-0 top-full mt-1 w-56 bg-raised-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
       {options.map(opt => (
         <button
           key={opt.label}

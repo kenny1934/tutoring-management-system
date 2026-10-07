@@ -149,7 +149,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
         )}
 
         {dropdownOpen && input.trim() !== "" && (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-line-strong/60 dark:border-line-strong bg-white dark:bg-[#1a1a1a] shadow-lg overflow-hidden">
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-line-strong/60 dark:border-line-strong bg-raised shadow-lg overflow-hidden">
             <div role="listbox" aria-label="Matching topics">
               {matches.map((c, i) => (
                 <button

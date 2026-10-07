@@ -1639,7 +1639,7 @@ export default function SummerApplicationsPage() {
                     ["?", "Toggle this panel"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex justify-between gap-4">
-                      <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">{key}</kbd>
+                      <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">{key}</kbd>
                       <span>{desc}</span>
                     </div>
                   ))}

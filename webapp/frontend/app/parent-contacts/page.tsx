@@ -375,7 +375,7 @@ export default function ParentContactsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors",
                   mobileTab === 'list'
-                    ? "bg-white dark:bg-[#1a1a1a] text-accent-ink shadow-sm"
+                    ? "bg-field-fill text-accent-ink shadow-sm"
                     : "text-gray-600 dark:text-gray-400"
                 )}
               >
@@ -387,7 +387,7 @@ export default function ParentContactsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors",
                   mobileTab === 'calendar'
-                    ? "bg-white dark:bg-[#1a1a1a] text-accent-ink shadow-sm"
+                    ? "bg-field-fill text-accent-ink shadow-sm"
                     : "text-gray-600 dark:text-gray-400"
                 )}
               >
@@ -399,7 +399,7 @@ export default function ParentContactsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors",
                   mobileTab === 'details'
-                    ? "bg-white dark:bg-[#1a1a1a] text-accent-ink shadow-sm"
+                    ? "bg-field-fill text-accent-ink shadow-sm"
                     : "text-gray-600 dark:text-gray-400",
                   !selectedContact && !selectedStudentId && "opacity-50"
                 )}

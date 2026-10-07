@@ -747,7 +747,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Bottom section - toggles between upcoming and selected date events */}
-      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-[#f5ede3] dark:bg-[#252015] shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
+      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
         {/* Tab header */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line">
           <button

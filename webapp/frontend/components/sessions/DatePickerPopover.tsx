@@ -106,7 +106,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
         {...getReferenceProps()}
         className={cn(
           "flex items-center gap-1.5 px-2 py-1 text-sm",
-          "bg-white dark:bg-[#1a1a1a]",
+          "bg-field-fill",
           "border border-line-strong dark:border-line rounded-md",
           "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
@@ -128,7 +128,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
             {...getFloatingProps()}
             className={cn(
               "z-[9999]",
-              "bg-white dark:bg-[#1a1a1a]",
+              "bg-raised",
               "border border-line-strong dark:border-line",
               "rounded-md shadow-lg",
               "p-2 w-[260px]"
@@ -137,7 +137,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
             {/* Month navigation header */}
             <div className="flex items-center justify-between px-1 pb-2">
               <IconButton label="Previous month" icon={ChevronLeft} size="sm" onClick={() => setViewMonth(getPreviousMonth(viewMonth))} />
-              <span className="text-sm font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+              <span className="text-sm font-semibold text-ink-heading">
                 {getMonthName(viewMonth)} {viewMonth.getFullYear()}
               </span>
               <IconButton label="Next month" icon={ChevronRight} size="sm" onClick={() => setViewMonth(getNextMonth(viewMonth))} />

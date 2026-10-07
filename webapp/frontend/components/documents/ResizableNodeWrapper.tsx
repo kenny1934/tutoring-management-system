@@ -184,7 +184,7 @@ export function ResizableNodeWrapper({
 
       {/* Alignment toolbar — visible when selected */}
       {selected && (
-        <div className="resizable-align-toolbar absolute -top-9 left-0 flex items-center gap-0.5 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-md p-0.5 print:hidden z-10">
+        <div className="resizable-align-toolbar absolute -top-9 left-0 flex items-center gap-0.5 bg-raised border border-line rounded-lg shadow-md p-0.5 print:hidden z-10">
           {BLOCK_ALIGN_BUTTONS.map(({ value, Icon, label }) => (
             <button
               key={value}

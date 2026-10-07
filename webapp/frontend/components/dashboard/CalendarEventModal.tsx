@@ -333,7 +333,7 @@ export function CalendarEventModal({
       >
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-line">
-          <h2 className="text-lg font-semibold text-[#5c4934] dark:text-[#e8d4b8]">
+          <h2 className="text-lg font-semibold text-ink-heading">
             {isEditMode ? "Edit Calendar Event" : "Create Calendar Event"}
           </h2>
           <IconButton
@@ -353,7 +353,7 @@ export function CalendarEventModal({
               Title preview
             </div>
             <div className={cn(
-              "font-semibold text-[#5c4934] dark:text-[#e8d4b8]",
+              "font-semibold text-ink-heading dark:text-ink-heading",
               !generatedTitle && "text-gray-500 italic"
             )}>
               {generatedTitle || "Select school, grade, and type..."}

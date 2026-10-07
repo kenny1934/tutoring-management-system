@@ -58,7 +58,7 @@ const GRADE_BAR_FILL: Record<string, { solid: string; light: string }> = {
 const GRADE_BAR_DEFAULT = { solid: "bg-gray-400", light: "bg-gray-200 dark:bg-gray-700" };
 
 function heatColor(count: number): string {
-  if (count === 0) return "bg-white dark:bg-[#1a1a1a]";
+  if (count === 0) return "bg-raised dark:bg-raised";
   if (count <= 3) return "bg-orange-50/60 dark:bg-orange-950/20";
   if (count <= 6) return "bg-orange-100/60 dark:bg-orange-900/25";
   if (count <= 10) return "bg-orange-200/50 dark:bg-orange-800/25";

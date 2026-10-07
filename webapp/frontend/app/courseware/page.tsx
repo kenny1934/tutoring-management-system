@@ -363,7 +363,7 @@ function SchoolAutocomplete({
       />
       {showSuggestions && filtered.length > 0 && (
         <div
-          className="absolute top-full left-0 mt-1 w-48 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-md shadow-lg z-50"
+          className="absolute top-full left-0 mt-1 w-48 max-h-48 overflow-y-auto bg-raised border border-line-strong dark:border-line rounded-md shadow-lg z-50"
           role="listbox"
         >
           {filtered.map((s, i) => (
@@ -376,8 +376,8 @@ function SchoolAutocomplete({
                 setShowSuggestions(false);
               }}
               className={cn(
-                "w-full px-3 py-2 text-left text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] focus:outline-none focus:bg-[#f5ede3] dark:focus:bg-[#2d2618] min-h-[40px]",
-                i === highlightedIndex && "bg-[#f5ede3] dark:bg-[#2d2618]"
+                "w-full px-3 py-2 text-left text-sm hover:bg-wash focus:outline-none focus:bg-wash min-h-[40px]",
+                i === highlightedIndex && "bg-wash"
               )}
               role="option"
               aria-selected={i === highlightedIndex}
@@ -452,7 +452,7 @@ function Podium({
             >
               {/* Medal icon with sparkles */}
               <div className={cn(
-                "relative mb-2 p-2 rounded-full bg-white dark:bg-[#1a1a1a] shadow-lg",
+                "relative mb-2 p-2 rounded-full bg-raised shadow-lg",
                 config.glow
               )}>
                 <Sparkles color={rank === 0 ? "#fbbf24" : rank === 1 ? "#9ca3af" : "#b45309"} />
@@ -680,7 +680,7 @@ function UsageDetailPanel({
 
   return (
     <div className="px-4 pb-4">
-      <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-line overflow-hidden">
+      <div className="bg-raised rounded-lg border border-line overflow-hidden">
         <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-line/50">
           <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
             Who used this courseware
@@ -695,7 +695,7 @@ function UsageDetailPanel({
             return (
             <div
               key={`${detail.exercise_id}-${idx}`}
-              className="px-3 py-2 flex items-center gap-2 sm:gap-3 text-sm hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
+              className="px-3 py-2 flex items-center gap-2 sm:gap-3 text-sm hover:bg-wash/50"
             >
               {/* Date */}
               <div className="w-20 sm:w-24 flex-shrink-0 text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
@@ -795,7 +795,7 @@ function UsageDetailPanel({
         {hasMore && (
           <button
             onClick={() => setDisplayCount((c) => c + 10)}
-            className="w-full px-3 py-3 text-sm font-medium text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-line/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/50 min-h-[44px]"
+            className="w-full px-3 py-3 text-sm font-medium text-accent-ink hover:bg-wash transition-colors border-t border-line/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/50 min-h-[44px]"
           >
             See more...
           </button>
@@ -1512,7 +1512,7 @@ function CoursewareBrowserTab() {
   }
 
   return (
-    <div className="h-full flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden">
+    <div className="h-full flex gap-4 bg-raised rounded-lg border-2 border-line-strong overflow-hidden">
       {/* Browser panel */}
       {/* Below md the preview takes over the whole tab (a 40% split leaves
           an unusable sliver on phones); the preview's X brings this back. */}
@@ -1737,7 +1737,7 @@ function CoursewareBrowserTab() {
                     onMouseLeave={() => setHoveredPath(null)}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all group",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                      "hover:bg-wash",
                       isSelected && "bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-300 dark:ring-amber-700",
                       isFocused && !isSelected && "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-900/30"
                     )}
@@ -1829,7 +1829,7 @@ function CoursewareBrowserTab() {
                     onMouseLeave={() => setHoveredPath(null)}
                     className={cn(
                       "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer transition-all relative group",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-transparent",
+                      "hover:bg-wash border border-transparent",
                       "hover:border-amber-200 dark:hover:border-amber-700",
                       isSelected && "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700",
                       isFocused && !isSelected && "ring-2 ring-amber-400/50 border-amber-200"
@@ -2331,7 +2331,7 @@ function CoursewareSearchTab() {
   }, [focusedIndex]);
 
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden flex flex-col h-full">
+    <div className="bg-raised rounded-lg border-2 border-line-strong overflow-hidden flex flex-col h-full">
       {/* Header with search controls */}
       <div className="p-4 border-b border-line space-y-3">
         {/* Search Mode Tabs */}
@@ -2410,7 +2410,7 @@ function CoursewareSearchTab() {
               </Button>
 
               {isTagDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg">
+                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-raised shadow-lg">
                   {availableTags.map((tag) => (
                     <label
                       key={tag.id}
@@ -2517,7 +2517,7 @@ function CoursewareSearchTab() {
                         data-result-item
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
-                          "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                          "hover:bg-wash dark:hover:bg-wash",
                           index < 3 && "bg-gradient-to-r from-orange-50/50 to-transparent dark:from-orange-900/10",
                           focusedIndex === index && "ring-2 ring-amber-400/50 ring-inset",
                           selectedDocs.has(trendingId) && "bg-green-50 dark:bg-green-900/20"
@@ -2587,7 +2587,7 @@ function CoursewareSearchTab() {
                         data-result-item
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
-                          "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                          "hover:bg-wash dark:hover:bg-wash",
                           focusedIndex === recentIndex && "ring-2 ring-amber-400/50 ring-inset",
                           selectedDocs.has(doc.id) && "bg-green-50 dark:bg-green-900/20"
                         )}
@@ -2647,7 +2647,7 @@ function CoursewareSearchTab() {
                 data-result-item
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 border-b border-line/30 transition-colors cursor-pointer",
-                  "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                  "hover:bg-wash dark:hover:bg-wash",
                   focusedIndex === index && "bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400/50 ring-inset",
                   selectedDocs.has(doc.id) && "bg-green-50 dark:bg-green-900/20"
                 )}
@@ -2980,7 +2980,7 @@ export default function CoursewarePage() {
                     })()}
 
                     {filtersOpen && (
-                      <div className="absolute top-full mt-1 right-0 z-50 bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-lg shadow-lg p-4 min-w-[280px]">
+                      <div className="absolute top-full mt-1 right-0 z-50 bg-raised border border-line-strong dark:border-line rounded-lg shadow-lg p-4 min-w-[280px]">
                         <div className="flex flex-col gap-3">
                           <div className="flex flex-col">
                             <span className={cn(LABEL_CLASS, "mb-1")}>Type</span>
@@ -3087,7 +3087,7 @@ export default function CoursewarePage() {
               {!isLoading && !error && rankings.length > 0 && (
                 <div
                   className={cn(
-                    "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden",
+                    "bg-raised rounded-lg border-2 border-line-strong overflow-hidden",
                     !isMobile && "paper-texture",
                     "animate-fade-in"
                   )}

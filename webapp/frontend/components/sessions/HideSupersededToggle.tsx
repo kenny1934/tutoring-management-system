@@ -26,7 +26,7 @@ export function HideSupersededToggle({
         "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors",
         active
           ? "bg-primary/10 text-accent-ink font-medium"
-          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820]"
+          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-wash"
       )}
     >
       <EyeOff className="h-3.5 w-3.5" />

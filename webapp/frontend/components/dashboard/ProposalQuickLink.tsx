@@ -105,7 +105,7 @@ function CompactSlotItem({
             ? "bg-green-50 dark:bg-green-900/20"
             : slot.slot_status === "rejected"
             ? "bg-gray-50 dark:bg-gray-900/20 opacity-60"
-            : "bg-white dark:bg-[#2a2a2a]"
+            : "bg-raised-2 dark:bg-raised-2"
         )}
       >
         <div className="flex-1 min-w-0">
@@ -251,11 +251,11 @@ function CompactProposalCard({
     : "Input requested";
 
   return (
-    <div className="border border-line rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a]">
+    <div className="border border-line rounded-lg overflow-hidden bg-raised">
       {/* Clickable Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full text-left px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] hover:bg-tint transition-colors"
+        className="w-full text-left px-3 py-2 bg-paper hover:bg-tint transition-colors"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -321,7 +321,7 @@ function CompactProposalCard({
       {isExpanded && (
         <>
           {/* Proposer info and original session */}
-          <div className="px-3 py-2 border-t border-line/50 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+          <div className="px-3 py-2 border-t border-line/50 bg-paper/50">
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {isProposer ? (
                 <span className="flex items-center gap-1">
@@ -392,7 +392,7 @@ function CompactProposalCard({
           <Link
             href={`/proposals?id=${proposal.id}`}
             onClick={onClose}
-            className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors"
+            className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-paper dark:hover:bg-paper border-t border-line transition-colors"
           >
             View details <ChevronRight className="h-3 w-3 inline" />
           </Link>
@@ -504,7 +504,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
         {...getReferenceProps()}
         className={cn(
           "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-          "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+          "bg-field-fill dark:bg-field-fill border border-line-strong",
           "text-accent-ink",
           "hover:bg-tint hover:shadow-sm",
           isOpen && "bg-tint dark:bg-tint shadow-sm"
@@ -541,7 +541,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 className={cn(
                   "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
                   activeTab === "for-me"
-                    ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820] rounded-tl-lg"
+                    ? "text-accent-ink border-b-2 border-primary bg-paper rounded-tl-lg"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
@@ -558,7 +558,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 className={cn(
                   "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
                   activeTab === "by-me"
-                    ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820] rounded-tr-lg"
+                    ? "text-accent-ink border-b-2 border-primary bg-paper rounded-tr-lg"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
@@ -573,7 +573,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             </div>
 
             {/* Search and Sort */}
-            <div className="px-3 py-2 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+            <div className="px-3 py-2 border-b border-line bg-paper/50">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-2 top-1/2 z-10 h-3 w-3 -translate-y-1/2 text-gray-500" aria-hidden="true" />
@@ -634,7 +634,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <Link
               href="/proposals"
               onClick={() => setIsOpen(false)}
-              className="block px-4 py-3 text-sm text-center font-medium text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line rounded-b-lg transition-colors"
+              className="block px-4 py-3 text-sm text-center font-medium text-accent-ink hover:bg-paper dark:hover:bg-paper border-t border-line rounded-b-lg transition-colors"
             >
               View All Proposals <ChevronRight className="h-4 w-4 inline" />
             </Link>

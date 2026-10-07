@@ -51,7 +51,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         isOpen={isOpen}
         onClose={close}
         align="right"
-        className="w-64 bg-white dark:bg-[#2a2a2a] border border-line dark:border-line rounded-lg shadow-lg max-h-64 overflow-y-auto"
+        className="w-64 bg-raised-2 dark:bg-raised-2 border border-line dark:border-line rounded-lg shadow-lg max-h-64 overflow-y-auto"
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-line/30">
           <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Templates</span>

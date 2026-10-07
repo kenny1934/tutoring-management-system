@@ -415,7 +415,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             {showScheduleMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }} />
-                <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line py-1 min-w-[220px]">
+                <div className="absolute bottom-full right-0 mb-1 z-20 bg-raised-2 rounded-lg shadow-lg border border-line py-1 min-w-[220px]">
                   <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Schedule send</div>
                   {getSchedulePresets().map((preset) => (
                     <button

@@ -87,7 +87,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
                 "px-2.5 py-1 text-xs font-medium rounded-full border transition-all",
                 // Base state (unanswered)
                 userAnswer === null && [
-                  "bg-white dark:bg-[#1a1a1a]",
+                  "bg-field-fill dark:bg-field-fill",
                   "border-line-strong dark:border-line-strong",
                   "text-accent-ink dark:text-accent-ink",
                   "hover:bg-tint",

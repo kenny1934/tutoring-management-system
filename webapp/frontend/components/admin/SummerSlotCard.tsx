@@ -169,7 +169,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
         "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         dragOver
           ? "border-primary bg-primary/15"
-          : "border-line bg-white dark:bg-[#1a1a1a]",
+          : "border-line bg-raised",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80",
         isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",

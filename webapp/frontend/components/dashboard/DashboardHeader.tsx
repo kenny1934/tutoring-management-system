@@ -105,13 +105,13 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               className={cn(
                 "hidden sm:flex items-center gap-2 px-2 @[500px]/header:px-3 py-1.5",
                 "bg-card border border-line rounded-full",
-                "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors",
+                "hover:bg-wash transition-colors",
                 "text-gray-500 dark:text-gray-400"
               )}
             >
               <Search className="h-3.5 w-3.5" />
               <span className="hidden @[500px]/header:inline text-sm">Search</span>
-              <kbd className="hidden @[500px]/header:flex items-center gap-0.5 px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded text-[11px] font-medium">
+              <kbd className="hidden @[500px]/header:flex items-center gap-0.5 px-1.5 py-0.5 bg-wash rounded text-[11px] font-medium">
                 Ctrl+K
               </kbd>
             </button>
@@ -227,7 +227,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                             target="_blank"
                             rel="noopener noreferrer"
                             title={tool.description}
-                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
+                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-wash transition-colors group"
                             onClick={() => setToolsOpen(false)}
                           >
                             {/* Tool Icon - with warm sepia tint */}

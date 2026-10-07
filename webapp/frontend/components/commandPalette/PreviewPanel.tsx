@@ -98,7 +98,7 @@ export function PreviewSkeleton() {
 export function HelpPreview({ topic }: { topic: HelpTopic }) {
   return (
     <div className="space-y-3">
-      <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+      <div className="font-semibold text-ink-heading">
         {topic.title}
       </div>
       <div className="space-y-2">
@@ -107,7 +107,7 @@ export function HelpPreview({ topic }: { topic: HelpTopic }) {
             <span className="font-mono text-accent-ink shrink-0 w-20">
               {item.label}
             </span>
-            <span className="text-[#5d4a3a] dark:text-[#d4c4b0]">
+            <span className="text-ink-heading">
               {item.desc}
             </span>
           </div>
@@ -138,7 +138,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
           </div>
         )}
         {/* Name - semibold, main text */}
-        <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+        <div className="font-semibold text-ink-heading">
           {s.student_name}
         </div>
         {/* Badges - grade with color, school with amber */}
@@ -153,7 +153,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
           )}
         </div>
         {/* Contact info with icons */}
-        <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
+        <div className="text-xs space-y-1.5 text-ink-heading">
           {(s.contacts?.length ? s.contacts : s.phone ? [{ phone: s.phone }] : []).map((c, i) => (
             <div key={i} className="flex items-center gap-2">
               <Phone className="h-3 w-3 text-ink-subtle" />
@@ -201,7 +201,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
               {s.school_student_id}
             </div>
           )}
-          <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+          <div className="font-semibold text-ink-heading">
             {s.student_name}
           </div>
         </div>
@@ -228,7 +228,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         </div>
         {/* Tutor info */}
         {s.tutor_name && (
-          <div className="flex items-center gap-2 text-xs text-[#5d4a3a] dark:text-[#d4c4b0]">
+          <div className="flex items-center gap-2 text-xs text-ink-heading">
             <User className="h-3 w-3 text-ink-subtle" />
             <span>{s.tutor_name}</span>
           </div>
@@ -249,7 +249,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
             {e.school_student_id}
           </div>
         )}
-        <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+        <div className="font-semibold text-ink-heading">
           {e.student_name}
         </div>
         {/* Badges */}
@@ -273,7 +273,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
           )}
         </div>
         {/* Details */}
-        <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
+        <div className="text-xs space-y-1.5 text-ink-heading">
           {(e.assigned_day || e.assigned_time) && (
             <div className="flex items-center gap-2">
               <Calendar className="h-3 w-3 text-ink-subtle" />
@@ -303,7 +303,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
     return (
       <div className="space-y-3">
         {/* Title */}
-        <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+        <div className="font-semibold text-ink-heading">
           {ex.title}
         </div>
         {/* Date */}
@@ -341,7 +341,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
           )}
         </div>
         {/* Icon indicator */}
-        <div className="flex items-center gap-2 text-xs text-[#5d4a3a] dark:text-[#d4c4b0]">
+        <div className="flex items-center gap-2 text-xs text-ink-heading">
           <GraduationCap className="h-3 w-3 text-ink-subtle" />
           <span>Exam Schedule</span>
         </div>

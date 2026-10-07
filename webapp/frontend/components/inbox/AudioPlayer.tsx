@@ -96,7 +96,7 @@ export default function AudioPlayer({ src, filename, className, duration: initia
       <button
         type="button"
         onClick={togglePlay}
-        className="flex-shrink-0 w-8 h-8 rounded-full bg-primary hover:bg-[#8b5f3c] text-white flex items-center justify-center transition-colors"
+        className="flex-shrink-0 w-8 h-8 rounded-full bg-primary hover:bg-primary-hover text-white flex items-center justify-center transition-colors"
       >
         {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
       </button>

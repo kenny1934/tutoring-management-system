@@ -1594,40 +1594,40 @@ export default function AdminRenewalsPage() {
             </div>
             <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">↑ ↓</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">↑ ↓</kbd>
                 <span>Navigate cards</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Enter</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Enter</kbd>
                 <span>Open details</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">R</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">R</kbd>
                 <span>Quick renew</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">F</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">F</kbd>
                 <span>Toggle fee panel</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">M</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">M</kbd>
                 <span>Copy fee message</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Space</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Space</kbd>
                 <span>Toggle checkbox</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">/</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">/</kbd>
                 <span>Focus search</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
+                <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Esc</kbd>
                 <span>Clear / Close</span>
               </div>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
-              Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border font-mono">?</kbd> to toggle
+              Press <kbd className="px-1 py-0.5 bg-field-fill rounded border font-mono">?</kbd> to toggle
             </div>
           </motion.div>
         )}

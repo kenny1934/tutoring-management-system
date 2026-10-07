@@ -212,7 +212,7 @@ export default function ImportWorksheetModal({
             className={cn(
               "w-full flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors text-left",
               "border-line hover:border-accent-ink",
-              "hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
+              "hover:bg-wash/50"
             )}
           >
             <FolderOpen className="w-8 h-8 text-accent-ink shrink-0" />
@@ -235,7 +235,7 @@ export default function ImportWorksheetModal({
             className={cn(
               "flex flex-col items-center justify-center gap-2 p-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
               "border-gray-200 dark:border-gray-700/30 hover:border-accent-ink",
-              "hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
+              "hover:bg-wash/50"
             )}
           >
             <Upload className="w-6 h-6 text-gray-500 dark:text-gray-400" />

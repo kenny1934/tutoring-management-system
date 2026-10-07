@@ -111,7 +111,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
   return (
     <div className={cn(
       "rounded-lg border",
-      "bg-[#faf6f1]/30 dark:bg-[#2d2820]/30 border-line"
+      "bg-paper/30 border-line"
     )}>
       {/* Slot header */}
       <div className="px-4 py-3 flex items-center gap-4">
@@ -227,7 +227,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                   onClick={(e) => handleStudentClick(e, student.session_id)}
                   className={cn(
                     "flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer transition-colors",
-                    "bg-white dark:bg-[#1a1a1a] border border-line/50",
+                    "bg-raised border border-line/50",
                     "hover:bg-tint/60",
                     selectedSessionId === student.session_id && isLoadingSession && "opacity-70"
                   )}

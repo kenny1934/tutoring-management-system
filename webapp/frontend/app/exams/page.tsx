@@ -119,7 +119,7 @@ function ExamCalendarView({
       {/* Calendar grid */}
       <div className={cn(
         "rounded-xl border overflow-hidden",
-        "bg-white dark:bg-[#1a1a1a] border-line",
+        "bg-raised border-line",
         "paper-texture"
       )}>
         {/* Calendar header */}
@@ -166,7 +166,7 @@ function ExamCalendarView({
                   "relative p-2 min-h-[70px] border-b border-r border-line/50 text-left transition-colors",
                   !isCurrentMonth && "bg-gray-50 dark:bg-gray-900/30",
                   isSelected && "bg-tint dark:bg-tint ring-2 ring-inset ring-primary",
-                  !isSelected && hasExams && "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
+                  !isSelected && hasExams && "hover:bg-paper"
                 )}
               >
                 <span className={cn(
@@ -587,7 +587,7 @@ export default function ExamsPage() {
           <div
             className={cn(
               "mx-4 sm:mx-6 mb-4",
-              "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line",
+              "bg-raised rounded-xl border border-line",
               "paper-texture"
             )}
           >
@@ -658,7 +658,7 @@ export default function ExamsPage() {
                 <ChevronDown className={cn("h-3.5 w-3.5 ml-auto transition-transform", typeDropdownOpen && "rotate-180")} />
               </button>
               {typeDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-full sm:w-36 z-50 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute top-full left-0 mt-1 w-full sm:w-36 z-50 bg-raised border border-line rounded-lg shadow-lg overflow-hidden">
                   <button
                     onClick={() => { setTypeFilter(""); setTypeDropdownOpen(false); }}
                     className={cn(
@@ -762,7 +762,7 @@ export default function ExamsPage() {
           ) : sortedExams.length === 0 ? (
             <div className={cn(
               "flex flex-col items-center justify-center py-16 rounded-xl",
-              "bg-white dark:bg-[#1a1a1a] border border-line",
+              "bg-raised border border-line",
               "paper-texture"
             )}>
               <EmptyCloud className="mb-2" />

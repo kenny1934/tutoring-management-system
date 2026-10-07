@@ -101,9 +101,9 @@ function FolderTreeItem({
         className={cn(
           "group/folder flex items-center gap-2 px-2 py-1.5 md:py-1 [@media(pointer:coarse)]:py-2 rounded-lg cursor-pointer text-sm transition-all duration-150",
           isOver
-            ? "ring-2 ring-primary bg-[#f5ede3] dark:bg-[#2d2618]"
+            ? "ring-2 ring-primary bg-wash"
             : isActive
-              ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+              ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
               : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
@@ -158,7 +158,7 @@ function FolderTreeItem({
           </button>
           {menuOpen && menuPos && (
             <div
-              className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg py-1 min-w-[9rem] max-w-[calc(100vw-2rem)]"
+              className="fixed z-50 bg-raised border border-line rounded-lg shadow-lg py-1 min-w-[9rem] max-w-[calc(100vw-2rem)]"
               style={{ top: menuPos.top, left: menuPos.left, transform: "translateX(-100%)" }}
             >
               <button
@@ -167,7 +167,7 @@ function FolderTreeItem({
                   setMenuOpen(false);
                   onCreateSubfolder(node.id);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-wash"
               >
                 <FolderPlus className="w-3.5 h-3.5" />
                 New subfolder
@@ -179,7 +179,7 @@ function FolderTreeItem({
                     setMenuOpen(false);
                     onMoveFolder(node.id);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-wash"
                 >
                   <FolderInput className="w-3.5 h-3.5" />
                   Move to...
@@ -191,7 +191,7 @@ function FolderTreeItem({
                   setMenuOpen(false);
                   onRename(node);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-wash"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 Rename
@@ -399,7 +399,7 @@ export default function FolderSidebar({
             className={cn(
               "p-1.5 rounded transition-colors",
               activeFolderId === null && activeTags.length === 0 && activeTab !== "trash"
-                ? "bg-[#f5ede3] dark:bg-[#2d2618] text-accent-ink"
+                ? "bg-wash text-accent-ink"
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
             )}
             title="All documents"
@@ -413,7 +413,7 @@ export default function FolderSidebar({
               className={cn(
                 "p-1.5 rounded transition-colors",
                 isStarredActive
-                  ? "bg-[#f5ede3] dark:bg-[#2d2618]"
+                  ? "bg-wash"
                   : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
               )}
               title="Starred"
@@ -432,7 +432,7 @@ export default function FolderSidebar({
               className={cn(
                 "p-1.5 rounded transition-colors",
                 activeFolderId === node.id
-                  ? "bg-[#f5ede3] dark:bg-[#2d2618] text-accent-ink"
+                  ? "bg-wash text-accent-ink"
                   : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
               )}
               title={node.name}
@@ -450,7 +450,7 @@ export default function FolderSidebar({
                 className={cn(
                   "relative p-1.5 rounded transition-colors",
                   activeTab === "trash"
-                    ? "bg-[#f5ede3] dark:bg-[#2d2618] text-accent-ink"
+                    ? "bg-wash text-accent-ink"
                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
                 )}
                 title="Trash"
@@ -486,9 +486,9 @@ export default function FolderSidebar({
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
                 isOverAllDocs
-                  ? "ring-2 ring-primary bg-[#f5ede3] dark:bg-[#2d2618]"
+                  ? "ring-2 ring-primary bg-wash"
                   : activeFolderId === null && activeTab !== "trash"
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
                     : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
               )}
             >
@@ -508,7 +508,7 @@ export default function FolderSidebar({
                 className={cn(
                   "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
                   isStarredActive
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
                     : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
                 )}
               >
@@ -631,14 +631,14 @@ export default function FolderSidebar({
               {tagMenuOpen && (
                 <div className="fixed inset-0 z-50" onClick={() => setTagMenuOpen(null)}>
                   <div
-                    className="absolute bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg py-1 min-w-[8rem] animate-scale-in"
+                    className="absolute bg-raised border border-line rounded-lg shadow-lg py-1 min-w-[8rem] animate-scale-in"
                     style={{ top: Math.min(tagMenuOpen.y, window.innerHeight - 80), left: Math.min(tagMenuOpen.x, window.innerWidth - 140) }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {onRenameTag && (
                       <button
                         onClick={() => { setRenamingTag(tagMenuOpen.tag); setRenameTagValue(tagMenuOpen.tag); setTagMenuOpen(null); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-wash"
                       >
                         <Pencil className="w-3 h-3" /> Rename
                       </button>
@@ -667,7 +667,7 @@ export default function FolderSidebar({
             className={cn(
               "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
               activeTab === "trash"
-                ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
                 : "text-gray-500 dark:text-gray-400 hover:bg-paper dark:hover:bg-white/5"
             )}
           >
@@ -686,7 +686,7 @@ export default function FolderSidebar({
       {renamingFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRenamingFolder(null)}>
           <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5"
+            className="bg-raised rounded-xl border border-line shadow-xl p-5"
             style={{ width: "20rem", maxWidth: "calc(100vw - 2rem)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -720,7 +720,7 @@ export default function FolderSidebar({
       {renamingTag && onRenameTag && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRenamingTag(null)}>
           <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5"
+            className="bg-raised rounded-xl border border-line shadow-xl p-5"
             style={{ width: "20rem", maxWidth: "calc(100vw - 2rem)" }}
             onClick={(e) => e.stopPropagation()}
           >

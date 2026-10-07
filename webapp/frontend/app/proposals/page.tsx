@@ -31,8 +31,8 @@ type TabType = "for-me" | "by-me" | "all";
 
 function ProposalCardSkeleton() {
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line border-l-4 border-l-gray-200 dark:border-l-gray-700 overflow-hidden">
-      <div className="px-5 py-4 bg-[#faf6f1] dark:bg-[#2d2820]">
+    <div className="bg-raised rounded-xl border border-line border-l-4 border-l-gray-200 dark:border-l-gray-700 overflow-hidden">
+      <div className="px-5 py-4 bg-paper">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className="h-9 w-9 shimmer-sepia rounded-lg flex-shrink-0" />
@@ -221,12 +221,12 @@ export default function ProposalsPage() {
             </div>
           </div>
           {/* Tab bar skeleton */}
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line overflow-hidden">
+          <div className="bg-raised rounded-xl border border-line overflow-hidden">
             <div className="flex border-b border-line px-2 py-3 gap-4">
               <div className="h-5 w-20 shimmer-sepia rounded" />
               <div className="h-5 w-20 shimmer-sepia rounded" />
             </div>
-            <div className="px-4 py-3 flex flex-col gap-3 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+            <div className="px-4 py-3 flex flex-col gap-3 bg-paper/50">
               <div className="h-9 w-full sm:w-[450px] shimmer-sepia rounded-lg" />
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4].map(i => (
@@ -255,7 +255,7 @@ export default function ProposalsPage() {
 
         {/* Tabs and Filters */}
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line overflow-hidden",
+          "bg-raised rounded-xl border border-line overflow-hidden",
           "paper-texture"
         )}>
           {/* Tabs */}
@@ -265,7 +265,7 @@ export default function ProposalsPage() {
               className={cn(
                 "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
                 activeTab === "for-me"
-                  ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
+                  ? "text-accent-ink border-b-2 border-primary bg-paper"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
               )}
             >
@@ -282,7 +282,7 @@ export default function ProposalsPage() {
               className={cn(
                 "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
                 activeTab === "by-me"
-                  ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
+                  ? "text-accent-ink border-b-2 border-primary bg-paper"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
               )}
             >
@@ -300,7 +300,7 @@ export default function ProposalsPage() {
                 className={cn(
                   "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
                   activeTab === "all"
-                    ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
+                    ? "text-accent-ink border-b-2 border-primary bg-paper"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
                 )}
               >
@@ -316,7 +316,7 @@ export default function ProposalsPage() {
           </div>
 
           {/* Filters */}
-          <div className="px-4 py-3 flex flex-col gap-3 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+          <div className="px-4 py-3 flex flex-col gap-3 bg-paper/50">
             {/* Search and Sort */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:flex-none sm:w-[450px]">

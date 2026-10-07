@@ -728,19 +728,19 @@ export function CommandPalette() {
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="p-1 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] rounded transition-colors"
+              className="p-1 hover:bg-wash rounded transition-colors"
             >
               <X className="h-4 w-4 text-gray-500" />
             </button>
           )}
           <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 max-sm:hidden">
-            <kbd className="px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded border border-line dark:border-tint">
+            <kbd className="px-1.5 py-0.5 bg-wash rounded border border-line dark:border-tint">
               Ctrl+K
             </kbd>
           </div>
           <button
             onClick={close}
-            className="p-1 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] rounded transition-colors"
+            className="p-1 hover:bg-wash rounded transition-colors"
           >
             <X className="h-4 w-4 text-gray-500" />
           </button>
@@ -748,7 +748,7 @@ export function CommandPalette() {
 
         {/* Breadcrumb when in nested command submenu */}
         {commandPath.length > 0 && (
-          <div className="px-4 py-2 flex items-center gap-2 border-b border-line dark:border-tint bg-[#f5ede3]/50 dark:bg-[#2d2618]/50">
+          <div className="px-4 py-2 flex items-center gap-2 border-b border-line dark:border-tint bg-wash/50">
             <button
               onClick={() => {
                 setCommandPath([]);
@@ -1070,7 +1070,7 @@ export function CommandPalette() {
         </div>
 
         {/* Footer hints - hidden on mobile */}
-        <div className="px-4 py-2 border-t border-line dark:border-tint bg-[#f5ede3]/50 dark:bg-[#2d2618]/50 max-sm:hidden">
+        <div className="px-4 py-2 border-t border-line dark:border-tint bg-wash/50 max-sm:hidden">
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <ArrowUp className="h-3 w-3" />
@@ -1082,7 +1082,7 @@ export function CommandPalette() {
               Select
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border border-line dark:border-tint text-[11px]">
+              <kbd className="px-1 py-0.5 bg-field-fill rounded border border-line dark:border-tint text-[11px]">
                 Esc
               </kbd>
               {query ? "Clear" : "Close"}

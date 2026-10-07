@@ -403,7 +403,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   return (
     <div
       ref={panelRef}
-      className={cn("h-full flex flex-col", isMobile ? "bg-white dark:bg-[#1a1a1a]" : "bg-white/90 dark:bg-[#1a1a1a]/90")}
+      className={cn("h-full flex flex-col", isMobile ? "bg-raised" : "bg-raised/90")}
       {...touchHandlers}
     >
       {/* Header */}
@@ -509,7 +509,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             onClick={() => setShowMoreMenu(!showMoreMenu)}
           />
           {showMoreMenu && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+            <div className="absolute right-0 top-full mt-1 w-44 bg-raised-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
               <button
                 onClick={() => {
                   if (msg.is_thread_pinned) onThreadUnpin(msg.id);

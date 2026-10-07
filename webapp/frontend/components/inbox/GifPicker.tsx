@@ -102,7 +102,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         align="right"
-        className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line dark:border-line w-[340px] flex flex-col"
+        className="bg-raised-2 dark:bg-raised-2 rounded-lg shadow-lg border border-line dark:border-line w-[340px] flex flex-col"
       >
         {/* Search bar */}
         <div className="p-2 border-b border-line">

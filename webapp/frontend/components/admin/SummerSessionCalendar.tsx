@@ -523,7 +523,7 @@ export function SummerSessionCalendar({
                     return (
                       <div
                         key={key}
-                        className="bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px]"
+                        className="bg-raised p-0.5 min-h-[60px]"
                         aria-hidden
                       >
                         <div className="h-full w-full rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
@@ -538,7 +538,7 @@ export function SummerSessionCalendar({
                     <div
                       key={key}
                       className={cn(
-                        "group relative bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px] space-y-0.5 transition-opacity",
+                        "group relative bg-raised dark:bg-raised p-0.5 min-h-[60px] space-y-0.5 transition-opacity",
                         // With a filter on, cells holding no match recede so the
                         // matching lessons pop.
                         slotFilterActive && isEmptyCell && "opacity-40 hover:opacity-100",

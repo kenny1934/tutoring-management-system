@@ -110,7 +110,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl"
+        className="bg-raised rounded-xl border border-line shadow-xl"
         style={{ width: "32rem", maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 4rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -231,7 +231,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
               />
 
               {/* Placeholder hints */}
-              <div className="bg-[#f5ede3]/50 dark:bg-[#2d2618]/50 rounded-lg p-3">
+              <div className="bg-wash/50 rounded-lg p-3">
                 <p className="text-[10px] font-medium text-muted-foreground mb-1">Available placeholders</p>
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5">
                   {PLACEHOLDER_HINTS.map(({ tag, desc }) => (

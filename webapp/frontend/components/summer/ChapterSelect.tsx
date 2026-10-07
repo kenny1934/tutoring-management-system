@@ -7,8 +7,8 @@ import { chapterLabel, type Chapter } from "@/lib/summer-courseware-defaults";
 const FOLLOW_OWN_LESSON = "__follow_own_lesson__";
 
 const PALETTES = {
-  gray: "border-line dark:border-line bg-white/70 dark:bg-[#1a1a1a]/70 text-gray-700 dark:text-gray-300 [&>option]:bg-white [&>option]:text-gray-700 dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-gray-300",
-  amber: "border-[#e8d4b8] dark:border-[#5a4d3a] bg-white/70 dark:bg-[#1a1a1a]/70 text-[#6b5a42] dark:text-[#c4a882] [&>option]:bg-white [&>option]:text-[#6b5a42] dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-[#c4a882]",
+  gray: "border-line dark:border-line bg-raised/70 dark:bg-raised/70 text-gray-700 dark:text-gray-300 [&>option]:bg-white [&>option]:text-gray-700 dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-gray-300",
+  amber: "border-[#e8d4b8] dark:border-[#5a4d3a] bg-raised/70 dark:bg-raised/70 text-[#6b5a42] dark:text-[#c4a882] [&>option]:bg-white [&>option]:text-[#6b5a42] dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-[#c4a882]",
 };
 
 /**

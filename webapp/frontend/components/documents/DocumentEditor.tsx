@@ -296,12 +296,12 @@ function VariantChildrenDropdown({ items }: { items: { id: number; title: string
         <ChevronDown className="w-2.5 h-2.5 ml-0.5 inline" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[12rem] max-h-48 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 z-30 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[12rem] max-h-48 overflow-y-auto">
           {items.map(c => (
             <a
               key={c.id}
               href={`/documents/${c.id}`}
-              className="block px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 truncate"
+              className="block px-3 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300 truncate"
             >
               {c.title}
             </a>
@@ -1352,7 +1352,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
 }`}</style>
       {/* Top bar */}
-      <div className="border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div className="border-b border-line bg-raised print:hidden">
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 pt-2 pb-1">
         <IconButton icon={ArrowLeft} label="Back to documents" onClick={() => router.push("/documents")} />
 
@@ -1444,10 +1444,10 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             className={cn("border border-line-strong", showMoreMenu && "bg-tint")}
           />
           {showMoreMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
+            <div className="absolute top-full right-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
               <button
                 onClick={() => { setShowMoreMenu(false); setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300"
               >
                 <History className="w-3.5 h-3.5" />
                 History
@@ -1457,7 +1457,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 disabled={isReadOnly}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded",
-                  isReadOnly ? "opacity-50 cursor-not-allowed text-gray-500" : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                  isReadOnly ? "opacity-50 cursor-not-allowed text-gray-500" : "hover:bg-wash text-gray-700 dark:text-gray-300"
                 )}
               >
                 <FileSliders className="w-3.5 h-3.5" />
@@ -1465,7 +1465,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
               </button>
               <button
                 onClick={() => { setShowMoreMenu(false); handleCopyAll(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300"
               >
                 {allCopied ? <Check className="w-3.5 h-3.5 text-green-700" /> : <Copy className="w-3.5 h-3.5" />}
                 {allCopied ? "Copied!" : "Copy all"}
@@ -1498,16 +1498,16 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             </Button>
           </div>
           {showPrintMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
+            <div className="absolute top-full right-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
               <button
                 onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300"
               >
                 Questions only
               </button>
               <button
                 onClick={() => { setShowPrintMenu(false); handlePrint(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300"
               >
                 With answers
               </button>
@@ -1576,7 +1576,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       </div>
 
       {/* Toolbar — Tabbed layout */}
-      <div ref={toolbarRef} className="border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div ref={toolbarRef} className="border-b border-line bg-raised print:hidden">
         {/* Tab row: persistent controls + tab switcher + labels toggle */}
         <div className="flex items-center gap-0.5 [@media(pointer:coarse)]:gap-1 px-3 py-1 border-b border-line/40">
           {/* Persistent: Undo/Redo */}
@@ -1640,7 +1640,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {activeMenu === "heading" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
                     {HEADING_OPTIONS.map((h) => (
                       <button
                         key={h.label}
@@ -1653,9 +1653,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                           setActiveMenu(null);
                         }}
                         className={cn(
-                          "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                          "w-full text-left px-2 py-1.5 rounded hover:bg-wash dark:hover:bg-wash text-gray-700 dark:text-gray-300",
                           h.className,
-                          (h.level ? editor.isActive("heading", { level: h.level }) : !editor.isActive("heading")) && "bg-[#f5ede3] dark:bg-[#2d2618]"
+                          (h.level ? editor.isActive("heading", { level: h.level }) : !editor.isActive("heading")) && "bg-wash dark:bg-wash"
                         )}
                       >
                         {h.label}
@@ -1682,7 +1682,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {activeMenu === "fontFamily" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem] max-h-[20rem] overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[10rem] max-h-[20rem] overflow-y-auto">
                     {FONT_FAMILIES.map((ff) => (
                       <button
                         key={ff.label}
@@ -1695,8 +1695,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                           setActiveMenu(null);
                         }}
                         className={cn(
-                          "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
-                          (ff.value === editor.getAttributes("textStyle").fontFamily || (!ff.value && !editor.getAttributes("textStyle").fontFamily)) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                          "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-wash dark:hover:bg-wash text-gray-700 dark:text-gray-300",
+                          (ff.value === editor.getAttributes("textStyle").fontFamily || (!ff.value && !editor.getAttributes("textStyle").fontFamily)) && "bg-wash dark:bg-wash font-semibold"
                         )}
                         style={ff.value ? { fontFamily: ff.value } : undefined}
                       >
@@ -1723,7 +1723,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {activeMenu === "fontSize" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1">
                     <div className="grid grid-cols-4 gap-0.5 min-w-[8rem]">
                       {FONT_SIZES.map((fs) => (
                         <button
@@ -1737,9 +1737,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                             setActiveMenu(null);
                           }}
                           className={cn(
-                            "px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 text-center",
+                            "px-2 py-1 text-xs rounded hover:bg-wash dark:hover:bg-wash text-gray-700 dark:text-gray-300 text-center",
                             ((fs.value && editor.getAttributes("textStyle").fontSize === fs.value) ||
-                             (!fs.value && !editor.getAttributes("textStyle").fontSize)) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                             (!fs.value && !editor.getAttributes("textStyle").fontSize)) && "bg-wash dark:bg-wash font-semibold"
                           )}
                         >
                           {fs.label}
@@ -1858,14 +1858,14 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   {showLabels && <span className="text-[11px] leading-none">Align</span>}
                 </button>
                 {activeMenu === "align" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[8rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[8rem]">
                     {ALIGN_OPTIONS.map((item) => (
                       <button
                         key={item.value}
                         onClick={() => { editor.chain().focus().setTextAlign(item.value).run(); setActiveMenu(null); }}
                         className={cn(
-                          "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
-                          editor.isActive({ textAlign: item.value }) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                          "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash dark:hover:bg-wash text-gray-700 dark:text-gray-300",
+                          editor.isActive({ textAlign: item.value }) && "bg-wash dark:bg-wash font-semibold"
                         )}
                       >
                         <item.icon className="w-4 h-4" /> {item.label}
@@ -1899,7 +1899,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   {showLabels && <span className="text-[11px] leading-none">Spacing</span>}
                 </button>
                 {activeMenu === "lineSpacing" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[7rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-1 min-w-[7rem]">
                     {LINE_SPACINGS.map((ls) => {
                       const currentSpacing = editor.getAttributes("paragraph").lineSpacing || editor.getAttributes("heading").lineSpacing || null;
                       const isActive = ls.value === currentSpacing;
@@ -1908,8 +1908,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                           key={ls.label}
                           onClick={() => { editor.chain().focus().setLineSpacing(ls.value).run(); setActiveMenu(null); }}
                           className={cn(
-                            "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
-                            isActive && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                            "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300",
+                            isActive && "bg-wash font-semibold"
                           )}
                         >
                           {ls.label}
@@ -1943,7 +1943,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   )}
                 </div>
                 {activeMenu === "orderedListStart" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2 min-w-[10rem]">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-2 min-w-[10rem]">
                     <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">Start number</label>
                     <input
                       type="number"
@@ -1985,7 +1985,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   showLabel={showLabels}
                 />
                 {linkPopoverOpen && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2 flex items-center gap-1.5" style={{ width: "18rem" }}>
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-2 flex items-center gap-1.5" style={{ width: "18rem" }}>
                     <input
                       ref={linkInputRef}
                       type="url"
@@ -1997,7 +1997,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                     />
                     <button
                       onClick={applyLink}
-                      className="px-2 py-1 text-xs rounded bg-primary text-white hover:bg-[#8b5e3c] transition-colors"
+                      className="px-2 py-1 text-xs rounded bg-primary text-white hover:bg-primary-hover transition-colors"
                     >
                       Apply
                     </button>
@@ -2047,43 +2047,43 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   {showLabels && <span className="text-[11px] leading-none">Table</span>}
                 </button>
                 {activeMenu === "table" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2">
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-2">
                     {editor.isActive("table") ? (
                       <div className="flex flex-col gap-0.5">
-                        <button onClick={() => { editor.chain().focus().addRowBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addRowBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add row above
                         </button>
-                        <button onClick={() => { editor.chain().focus().addRowAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addRowAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add row below
                         </button>
-                        <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column left
                         </button>
-                        <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column right
                         </button>
                         <div className="h-px bg-line my-1" />
-                        <button onClick={() => { editor.chain().focus().deleteRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().deleteRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete row
                         </button>
-                        <button onClick={() => { editor.chain().focus().deleteColumn().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().deleteColumn().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete column
                         </button>
-                        <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300">
                           <ToggleLeft className="w-3 h-3" /> Toggle header row
                         </button>
                         <div className="h-px bg-line my-1" />
                         <button
                           onClick={() => { editor.chain().focus().mergeCells().run(); setActiveMenu(null); }}
                           disabled={!editor.can().mergeCells()}
-                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
                         >
                           <Combine className="w-3 h-3" /> Merge cells
                         </button>
                         <button
                           onClick={() => { editor.chain().focus().splitCell().run(); setActiveMenu(null); }}
                           disabled={!editor.can().splitCell()}
-                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-wash text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
                         >
                           <SplitSquareHorizontal className="w-3 h-3" /> Split cell
                         </button>
@@ -2168,7 +2168,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
       {/* Find & Replace bar */}
       {showFindReplace && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-line bg-raised print:hidden">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <Search className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
             <input
@@ -2471,12 +2471,12 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       </div>
 
       {/* Status bar: zoom controls + word count */}
-      <div className="flex items-center justify-between px-4 py-1 border-t border-line bg-white dark:bg-[#1a1a1a] text-xs text-gray-500 dark:text-gray-400 print:hidden">
+      <div className="flex items-center justify-between px-4 py-1 border-t border-line bg-raised text-xs text-gray-500 dark:text-gray-400 print:hidden">
         <div className="flex items-center gap-1">
           <button
             onClick={zoomOut}
             disabled={effectiveZoom <= 0.25}
-            className="p-0.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-0.5 rounded hover:bg-wash disabled:opacity-30 disabled:cursor-not-allowed"
             title="Zoom out (Ctrl+-)"
           >
             <Minus className="w-3.5 h-3.5" />
@@ -2487,7 +2487,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
               "px-1.5 py-0.5 rounded min-w-[3rem] text-center tabular-nums",
               zoomLevel === "fit"
                 ? "font-medium text-accent-ink"
-                : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                : "hover:bg-wash"
             )}
             title="Fit to width (Ctrl+0)"
           >
@@ -2496,7 +2496,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           <button
             onClick={zoomIn}
             disabled={effectiveZoom >= 2}
-            className="p-0.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-0.5 rounded hover:bg-wash disabled:opacity-30 disabled:cursor-not-allowed"
             title="Zoom in (Ctrl+=)"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -2507,8 +2507,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             className={cn(
               "p-0.5 rounded",
               paperMode
-                ? "text-amber-700 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                ? "text-amber-700 hover:bg-wash"
+                : "hover:bg-wash"
             )}
             title={paperMode ? "Paper mode: ON (document always light)" : "Paper mode: OFF (document follows theme)"}
           >
@@ -2570,7 +2570,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       {showShortcutsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print:hidden" onClick={() => setShowShortcutsModal(false)}>
           <div
-            className="flex flex-col overflow-hidden bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-6"
+            className="flex flex-col overflow-hidden bg-raised rounded-xl border border-line shadow-xl p-6"
             style={{ width: "28rem", maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 4rem)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2639,11 +2639,11 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
       {/* List context menu (right-click on ordered list) */}
       {listContextMenu && editor && (() => {
-        const ctxItemCls = "w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]";
+        const ctxItemCls = "w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-wash dark:hover:bg-wash";
         return (
           <div
             ref={listContextMenuRef}
-            className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg py-1 min-w-[11rem]"
+            className="fixed z-50 bg-raised border border-line rounded-lg shadow-lg py-1 min-w-[11rem]"
             style={{ left: listContextMenu.x, top: listContextMenu.y }}
           >
             <button
@@ -2800,7 +2800,7 @@ function ColorGrid({ colors, onSelect, onRemove, customValue, onCustom, removeTi
   customTitle: string;
 }) {
   return (
-    <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-2 flex gap-1 items-center">
+    <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-2 flex gap-1 items-center">
       {colors.map((c) => (
         <button
           key={c.color}
@@ -3094,7 +3094,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
         {!isReadOnly && (
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setTimeout(() => inputRef.current?.focus(), 50); }}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-wash transition-colors"
             title="Add tag"
             aria-label="Add tag"
             aria-expanded={dropdownOpen}
@@ -3110,7 +3110,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
 
       {/* Dropdown — anchored to wrapper, renders below the tag row */}
       {dropdownOpen && (
-        <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg" style={{ width: "16rem" }}>
+        <div className="absolute left-0 top-full mt-1 z-30 bg-raised border border-line rounded-lg shadow-lg" style={{ width: "16rem" }}>
           <div className="p-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 w-3 h-3 text-gray-500" aria-hidden="true" />
@@ -3143,7 +3143,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-wash transition-colors"
                 >
                   <div className={cn(
                     "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
@@ -3166,7 +3166,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
             {showCreate && (
               <button
                 onClick={() => createTag(search.trim())}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-accent-ink hover:bg-wash transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Create &ldquo;{search.trim()}&rdquo;

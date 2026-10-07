@@ -153,7 +153,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
       <button
         type="button"
         onClick={stopAndSend}
-        className="p-1.5 rounded-full text-white bg-primary hover:bg-[#8b5f3c] transition-colors"
+        className="p-1.5 rounded-full text-white bg-primary hover:bg-primary-hover transition-colors"
         title={mode === "attach" ? "Add voice recording" : "Send voice message"}
       >
         {mode === "attach" ? <Check className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}

@@ -58,7 +58,7 @@ function ScheduledTrialCard({
     <Link
       href={`/sessions/${trial.session_id}`}
       onClick={onClose}
-      className="block px-3 py-2.5 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] transition-colors border-b border-line/50 last:border-b-0"
+      className="block px-3 py-2.5 hover:bg-paper dark:hover:bg-paper transition-colors border-b border-line/50 last:border-b-0"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -317,7 +317,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
           {...getReferenceProps()}
           className={cn(
             "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-            "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+            "bg-field-fill dark:bg-field-fill border border-line-strong",
             "text-accent-ink",
             "hover:bg-tint hover:shadow-sm",
             isOpen && "bg-tint dark:bg-tint shadow-sm"
@@ -348,7 +348,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               )}
             >
               {/* Header */}
-              <div className="px-3 py-2 border-b border-line bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
+              <div className="px-3 py-2 border-b border-line bg-paper rounded-t-lg">
                 <div className="flex items-center gap-2">
                   <FlaskConical className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                   <span className="font-medium text-sm">Trial Sessions</span>
@@ -418,7 +418,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               <Link
                 href="/trials"
                 onClick={handleClose}
-                className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-line transition-colors rounded-b-lg"
+                className="block px-3 py-2 text-xs text-center text-accent-ink hover:bg-paper dark:hover:bg-paper border-t border-line transition-colors rounded-b-lg"
               >
                 View all trials <ChevronRight className="h-3 w-3 inline" />
               </Link>

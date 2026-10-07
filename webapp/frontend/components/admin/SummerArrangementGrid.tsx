@@ -343,7 +343,7 @@ export function SummerArrangementGrid({
                 return (
                   <div
                     key={key}
-                    className="bg-white dark:bg-[#1a1a1a] min-h-[80px] p-1.5"
+                    className="bg-raised min-h-[80px] p-1.5"
                     aria-hidden
                   >
                     <div className="h-full w-full rounded animate-pulse bg-gray-100 dark:bg-gray-800" />

@@ -70,7 +70,7 @@ export function PaidAtEditor({ applicationId, paidAt, readOnly, onSaved }: Props
             onChange={(e) => setDraft(e.target.value)}
             className={cn(
               "px-1.5 py-0.5 rounded border text-xs",
-              "border-line-strong dark:border-line bg-white dark:bg-[#1a1a1a]",
+              "border-line-strong dark:border-line bg-field-fill",
             )}
           />
           <button

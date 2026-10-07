@@ -169,7 +169,7 @@ export function VersionHistoryPanel({
             {versions.map((ver) => (
               <div
                 key={ver.id}
-                className="group px-4 py-2.5 hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50 transition-colors"
+                className="group px-4 py-2.5 hover:bg-wash/50 transition-colors"
               >
                 <div className="flex items-start gap-2">
                   <div className="mt-0.5">

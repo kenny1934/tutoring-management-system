@@ -121,7 +121,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
         <div className={cn("flex-1 flex flex-col items-center justify-center p-6 text-center", !collapsed && "min-w-[20rem]")}>
           <div className={cn("relative mb-4", !collapsed && "animate-empty-float")}>
             <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-line/50 dark:bg-line/20" />
-            <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-[#f5ede3]/70 dark:bg-[#2d2618]/50" />
+            <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-wash/70 dark:bg-wash/50" />
             <div className="relative w-12 h-16 rounded-lg bg-paper border border-line shadow-[var(--shadow-paper-sm)] flex items-center justify-center">
               <FileText className="w-6 h-6 text-accent-ink/40 dark:text-accent-ink/30" />
             </div>
@@ -158,7 +158,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                 {/* Title + star */}
                 <div className="flex items-center gap-1.5 mb-1">
                   {onToggleStar && (
-                    <button onClick={() => onToggleStar(docId)} className="shrink-0 p-0.5 rounded transition-colors hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]" aria-label={doc.is_starred ? "Unstar" : "Star"}>
+                    <button onClick={() => onToggleStar(docId)} className="shrink-0 p-0.5 rounded transition-colors hover:bg-wash" aria-label={doc.is_starred ? "Unstar" : "Star"}>
                       <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-700" : "text-gray-300 dark:text-gray-400")} />
                     </button>
                   )}
@@ -227,7 +227,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                       {doc.parent_id && (
                         <button
                           onClick={() => onOpenEditor(doc.parent_id!)}
-                          className="flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-accent-ink transition-colors"
+                          className="flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-wash text-left text-accent-ink transition-colors"
                         >
                           <FileText className="w-3 h-3 shrink-0" />
                           <span className="truncate">{doc.parent_title || `Doc #${doc.parent_id}`}</span>
@@ -244,7 +244,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                           key={child.id}
                           onClick={() => onOpenEditor(child.id)}
                           className={cn(
-                            "flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-accent-ink transition-colors",
+                            "flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-wash text-left text-accent-ink transition-colors",
                             !doc.parent_id && "pl-5"
                           )}
                         >
@@ -301,7 +301,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
               </div>
             ) : doc ? (
               <div className="p-4 preview-desk-surface">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-[2px] paper-mode overflow-hidden shadow-paper-preview paper-texture">
+              <div className="bg-raised rounded-[2px] paper-mode overflow-hidden shadow-paper-preview paper-texture">
                 <div
                   style={{
                     padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,

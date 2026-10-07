@@ -161,7 +161,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             <ChevronDown className={cn("w-3.5 h-3.5 text-ink-subtle transition-transform", showSortMenu && "rotate-180")} aria-hidden="true" />
           </Button>
           {showSortMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[10rem] animate-scale-in">
+            <div className="absolute top-full right-0 mt-1 z-20 bg-raised border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[10rem] animate-scale-in">
               {SORT_OPTIONS.map((opt, i) => (
                 <button
                   key={i}

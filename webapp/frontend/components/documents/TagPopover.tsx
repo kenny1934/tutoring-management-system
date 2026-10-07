@@ -26,7 +26,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl"
+        className="bg-raised rounded-xl border border-line shadow-xl"
         style={{ width: "18rem", maxWidth: "calc(100vw - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -62,7 +62,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
               <button
                 key={tag}
                 onClick={() => onToggleTag(doc.id, tag, !checked)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm hover:bg-wash transition-colors"
               >
                 <div className={cn(
                   "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
@@ -88,7 +88,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
                 onCreateTag(doc.id, search.trim());
                 setSearch("");
               }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-accent-ink hover:bg-wash transition-colors"
             >
               <Plus className="w-4 h-4" />
               Create &ldquo;{search.trim()}&rdquo;

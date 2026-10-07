@@ -374,7 +374,7 @@ export default function ComposeModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-line max-h-[85vh] flex flex-col"
+          className="relative bg-raised rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-line max-h-[85vh] flex flex-col"
         >
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <h2 className="font-semibold text-gray-900 dark:text-white">
@@ -468,7 +468,7 @@ export default function ComposeModal({
 
                 {/* Dropdown */}
                 {recipientDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  <div className="absolute z-10 mt-1 w-full bg-raised-2 border border-line rounded-lg shadow-lg max-h-64 overflow-y-auto">
                     {/* Broadcast option */}
                     <button
                       type="button"
@@ -565,7 +565,7 @@ export default function ComposeModal({
                   <ChevronDown className={cn("h-4 w-4 transition-transform", categoryDropdownOpen && "rotate-180")} />
                 </button>
                 {categoryDropdownOpen && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-raised-2 border border-line rounded-lg shadow-lg overflow-hidden">
                     {CATEGORY_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -600,7 +600,7 @@ export default function ComposeModal({
                   <ChevronDown className={cn("h-4 w-4 transition-transform", priorityDropdownOpen && "rotate-180")} />
                 </button>
                 {priorityDropdownOpen && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-raised-2 border border-line rounded-lg shadow-lg overflow-hidden">
                     {PRIORITY_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -794,7 +794,7 @@ export default function ComposeModal({
               {showScheduleMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }} />
-                  <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line py-1 min-w-[220px]">
+                  <div className="absolute bottom-full right-0 mb-1 z-20 bg-raised-2 rounded-lg shadow-lg border border-line py-1 min-w-[220px]">
                     <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Schedule send</div>
                     {getSchedulePresets().map((preset) => (
                       <button

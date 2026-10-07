@@ -343,7 +343,7 @@ export function EnrollmentDetailModal({
             </div>
 
             {/* Dates & Status */}
-            <div className={cn("bg-[#f5ebe0] dark:bg-[#251f15] rounded-lg space-y-2", compact ? "p-3" : "p-4 space-y-3")}>
+            <div className={cn("bg-wash rounded-lg space-y-2", compact ? "p-3" : "p-4 space-y-3")}>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-600 dark:text-gray-400">First Lesson</span>
                 <span className={cn("font-medium text-gray-900 dark:text-gray-100", compact && "text-sm")}>
@@ -539,7 +539,7 @@ export function EnrollmentDetailModal({
       {/* Footer Actions */}
       {detail && (
         <div className={cn(
-          "flex flex-wrap items-center gap-2 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg",
+          "flex flex-wrap items-center gap-2 border-t border-line bg-wash rounded-b-lg",
           compact ? "justify-end px-2 py-2 sm:px-3" : "justify-between px-3 py-2 sm:px-4 sm:py-3"
         )}>
           {!compact && (

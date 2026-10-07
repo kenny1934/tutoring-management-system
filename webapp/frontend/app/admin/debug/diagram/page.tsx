@@ -303,7 +303,7 @@ export default function DiagramPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleZoomOut}
-                  className="p-2 rounded-lg border border-line bg-white dark:bg-[#1a1a1a] hover:bg-tint transition-colors"
+                  className="p-2 rounded-lg border border-line bg-field-fill hover:bg-tint transition-colors"
                   title="Zoom out"
                 >
                   <ZoomOut className="h-4 w-4" />
@@ -311,14 +311,14 @@ export default function DiagramPage() {
                 <span className="text-sm text-gray-700 dark:text-gray-400 w-12 text-center">{Math.round(zoom * 100)}%</span>
                 <button
                   onClick={handleZoomIn}
-                  className="p-2 rounded-lg border border-line bg-white dark:bg-[#1a1a1a] hover:bg-tint transition-colors"
+                  className="p-2 rounded-lg border border-line bg-field-fill hover:bg-tint transition-colors"
                   title="Zoom in"
                 >
                   <ZoomIn className="h-4 w-4" />
                 </button>
                 <button
                   onClick={handleResetView}
-                  className="p-2 rounded-lg border border-line bg-white dark:bg-[#1a1a1a] hover:bg-tint transition-colors"
+                  className="p-2 rounded-lg border border-line bg-field-fill hover:bg-tint transition-colors"
                   title="Reset view"
                 >
                   <Maximize2 className="h-4 w-4" />

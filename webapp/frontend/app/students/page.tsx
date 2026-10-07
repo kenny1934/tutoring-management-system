@@ -477,7 +477,7 @@ export default function StudentsPage() {
               )}
               {/* Suggestions dropdown */}
               {showSchoolSuggestions && filteredSchools.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-40 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-md shadow-lg z-50">
+                <div className="absolute top-full left-0 mt-1 w-40 max-h-48 overflow-y-auto bg-raised border border-line-strong dark:border-line rounded-md shadow-lg z-50">
                   {filteredSchools.map((school, i) => (
                     <button
                       key={school}
@@ -1038,7 +1038,7 @@ function RichPopoverContent({
             e.stopPropagation();
             saveScrollPosition();
           }}
-          className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary hover:bg-[#8b6140] text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition-colors"
         >
           View Full Profile
           <ExternalLink className="h-4 w-4" />

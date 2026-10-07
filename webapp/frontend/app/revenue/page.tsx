@@ -430,7 +430,7 @@ export default function RevenuePage() {
           {/* Summary Card (detail) */}
           {view === 'detail' && summary && (
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden",
+              "bg-raised rounded-lg border-2 border-line-strong overflow-hidden",
               !isMobile && "paper-texture"
             )}>
               {/* Header */}
@@ -539,7 +539,7 @@ export default function RevenuePage() {
           {/* Session Details Table (detail) */}
           {view === 'detail' && sessions.length > 0 && (
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line overflow-hidden",
+              "bg-raised rounded-lg border border-line overflow-hidden",
               !isMobile && "paper-texture"
             )}>
               <div className="px-4 py-3 bg-tint border-b border-[#d4a574]/30">
@@ -616,7 +616,7 @@ export default function RevenuePage() {
                 {hasMoreSessions && (
                   <button
                     onClick={() => setDisplayCount(c => c + 30)}
-                    className="w-full py-3 text-sm font-medium text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-line/50"
+                    className="w-full py-3 text-sm font-medium text-accent-ink hover:bg-wash transition-colors border-t border-line/50"
                   >
                     Show more ({sessions.length - displayCount} remaining)
                   </button>

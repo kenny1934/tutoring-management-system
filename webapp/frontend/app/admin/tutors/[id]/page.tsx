@@ -149,7 +149,7 @@ function ExpandableList<T>({
   const hiddenCount = items.length - collapsedCount;
   return (
     <div>
-      <ul className="divide-y divide-[#efe4d2] dark:divide-[#3a3022]">
+      <ul className="divide-y divide-tint">
         {shown.map(renderItem)}
       </ul>
       {hiddenCount > 0 && (
@@ -191,7 +191,7 @@ function LoadChip({
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-raised dark:bg-raised px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
     >
       {label}
       <ChevronRight className="h-3 w-3" />

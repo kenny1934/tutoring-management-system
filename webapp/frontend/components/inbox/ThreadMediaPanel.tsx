@@ -417,7 +417,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   href={file.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-wash transition-colors group"
                 >
                   <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                     <FileText className="h-4 w-4" />
@@ -447,7 +447,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-wash transition-colors group"
                 >
                   <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                     <ExternalLink className="h-4 w-4" />
@@ -498,7 +498,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   key={`math-${i}`}
                   type="button"
                   onClick={() => handleCopyLatex(item.latex)}
-                  className="w-full text-left p-3 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                  className="w-full text-left p-3 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-wash transition-colors group"
                 >
                   <div
                     className="overflow-x-auto text-sm [&_.katex]:text-base"
@@ -529,9 +529,9 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                   key={`graph-${i}`}
                   type="button"
                   onClick={() => setViewerGraphJson(item.graphJson)}
-                  className="rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors overflow-hidden group relative"
+                  className="rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-wash transition-colors overflow-hidden group relative"
                 >
-                  <div className="aspect-[4/3] bg-white dark:bg-[#1a1a1a] flex items-center justify-center p-1">
+                  <div className="aspect-[4/3] bg-raised flex items-center justify-center p-1">
                     {item.svgThumbnail ? (
                       <img src={item.svgThumbnail} alt="Geometry diagram" className="w-full h-full object-contain" />
                     ) : (

@@ -125,7 +125,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 {...getFloatingProps()}
                 className={cn(
                   "z-50 w-80 sm:w-96",
-                  "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
+                  "bg-raised rounded-lg shadow-lg",
                   "border border-line",
                   "overflow-hidden"
                 )}

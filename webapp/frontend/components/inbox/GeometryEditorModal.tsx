@@ -1325,7 +1325,7 @@ export default function GeometryEditorModal({
 
       {/* Modal */}
       <div
-        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden"
+        className="relative w-full mx-4 bg-raised-2 rounded-xl shadow-2xl border border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden"
         style={{ maxWidth: "52rem", maxHeight: "85vh" }}
         role="dialog"
         aria-modal="true"
@@ -1463,7 +1463,7 @@ export default function GeometryEditorModal({
               <span className="hidden sm:inline">Shapes</span>
             </button>
             {shapeMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-line rounded-lg shadow-lg py-1 z-10 min-w-[170px]">
+              <div className="absolute top-full left-0 mt-1 bg-raised-2 border border-line rounded-lg shadow-lg py-1 z-10 min-w-[170px]">
                 {[
                   { id: "rectangle", label: "Rectangle" },
                   { id: "equilateral-triangle", label: "Equilateral Triangle" },
@@ -1623,7 +1623,7 @@ export default function GeometryEditorModal({
                     </div>
                     <button
                       onClick={handlePlot}
-                      className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                      className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-40 transition-colors"
                     >
                       {editingCurve ? "Update" : "Plot"}
                     </button>
@@ -1686,7 +1686,7 @@ export default function GeometryEditorModal({
                   )}
                   <button
                     onClick={handlePlot}
-                    className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                    className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-40 transition-colors"
                   >
                     {editingCurve ? "Update" : "Plot"}
                   </button>
@@ -1770,7 +1770,7 @@ export default function GeometryEditorModal({
             <button
               onClick={handleAddPoint}
               disabled={!coordInput.trim()}
-              className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-40 transition-colors"
             >
               Place
             </button>
@@ -1813,7 +1813,7 @@ export default function GeometryEditorModal({
             <button
               onClick={handleApplyCoordEdit}
               disabled={!editCoords.trim()}
-              className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-40 transition-colors"
             >
               Move
             </button>
@@ -1932,7 +1932,7 @@ export default function GeometryEditorModal({
           {tool === "polygon" && pendingCount >= 3 && (
             <button
               onClick={handleClosePolygon}
-              className="ml-auto px-2.5 py-0.5 text-[11px] font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] transition-colors"
+              className="ml-auto px-2.5 py-0.5 text-[11px] font-medium bg-primary text-white rounded hover:bg-primary-hover transition-colors"
             >
               Close Polygon
             </button>

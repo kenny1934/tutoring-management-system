@@ -201,7 +201,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
 
   return (
     <div className={cn(
-      "flex-1 min-h-[400px] flex flex-col rounded-lg border-2 border-line-strong bg-white dark:bg-[#1a1a1a] overflow-hidden",
+      "flex-1 min-h-[400px] flex flex-col rounded-lg border-2 border-line-strong bg-raised overflow-hidden",
       !isMobile && "paper-texture",
     )}>
       <div className="flex-1 min-h-0 overflow-auto" onScroll={() => setHover(null)}>
@@ -231,7 +231,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                     placeholder="Filter…"
                     className={cn(
                       "w-full pl-7 pr-2 py-1 text-xs font-normal",
-                      "bg-white dark:bg-[#1a1a1a] border border-field rounded",
+                      "bg-field-fill border border-field rounded",
                       "text-gray-900 dark:text-gray-100 placeholder:text-gray-400",
                       "focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary",
                     )}
@@ -283,7 +283,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                 <tr key={tutor.id} className="hover:bg-paper">
                   <th
                     scope="row"
-                    className="sticky left-0 z-10 bg-white dark:bg-[#1a1a1a] border-b border-r border-[#d4a574]/30 px-3 py-2 text-left font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap align-middle"
+                    className="sticky left-0 z-10 bg-raised border-b border-r border-[#d4a574]/30 px-3 py-2 text-left font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap align-middle"
                   >
                     <div className="leading-tight">{tutor.name}</div>
                     {tutor.default_location && (

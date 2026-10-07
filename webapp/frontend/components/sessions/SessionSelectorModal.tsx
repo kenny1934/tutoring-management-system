@@ -405,7 +405,7 @@ export function SessionSelectorModal({
         /* Confirmation View */
         <div className="space-y-4">
           <div className="text-center py-2">
-            <div className="text-lg font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+            <div className="text-lg font-semibold text-ink-heading">
               Confirm Assignment
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -414,7 +414,7 @@ export function SessionSelectorModal({
           </div>
 
           {/* Files summary */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
+          <div className="bg-raised border border-line rounded-lg p-3">
             <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
               {files.length} FILE{files.length !== 1 ? "S" : ""} TO ASSIGN
             </div>
@@ -437,7 +437,7 @@ export function SessionSelectorModal({
           </div>
 
           {/* Sessions summary grouped by type */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
+          <div className="bg-raised border border-line rounded-lg p-3">
             <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
               TO {selections.size} SESSION{selections.size !== 1 ? "S" : ""}
             </div>
@@ -483,7 +483,7 @@ export function SessionSelectorModal({
         /* Calendar Selection View */
         <div className="space-y-4">
           {/* Files to assign */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
+          <div className="bg-raised border border-line rounded-lg p-3">
             <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
               FILES TO ASSIGN ({files.length})
             </div>
@@ -514,7 +514,7 @@ export function SessionSelectorModal({
           </div>
 
           {/* Calendar */}
-        <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
+        <div className="bg-raised border border-line rounded-lg overflow-hidden">
           {/* Month navigation */}
           <div className="flex items-center justify-between px-3 py-2 bg-paper border-b border-line">
             <IconButton label="Previous month" icon={ChevronLeft} size="sm" onClick={goToPreviousMonth} />
@@ -522,7 +522,7 @@ export function SessionSelectorModal({
               <Button variant="quiet" size="sm" onClick={goToToday}>
                 Today
               </Button>
-              <span className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+              <span className="font-semibold text-ink-heading">
                 {getMonthName(viewDate)} {viewDate.getFullYear()}
               </span>
             </div>
@@ -600,7 +600,7 @@ export function SessionSelectorModal({
                             "text-accent-ink dark:text-accent-ink",
                           !dayData.isToday &&
                             dayData.isCurrentMonth &&
-                            "text-[#5d4e37] dark:text-[#e8d4b8]",
+                            "text-ink-heading dark:text-ink-heading",
                           dayData.isWeekend &&
                             dayData.isCurrentMonth &&
                             !dayData.isToday &&
@@ -632,7 +632,7 @@ export function SessionSelectorModal({
 
         {/* Selected sessions summary */}
         {selections.size > 0 && (
-          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-3">
+          <div className="bg-raised border border-line rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f]">
                 SELECTED SESSIONS ({selections.size})
@@ -835,7 +835,7 @@ function SessionDayPicker({
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <div className="flex items-center gap-3">
             <div>
-              <div className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+              <div className="font-semibold text-ink-heading">
                 {dayName}
               </div>
               <div className="text-xs text-[#8b6f47] dark:text-[#cd853f]">
@@ -857,7 +857,7 @@ function SessionDayPicker({
                 <ChevronDown className={cn("h-3 w-3 transition-transform text-ink-subtle", showTutorDropdown && "rotate-180")} aria-hidden="true" />
               </Button>
               {showTutorDropdown && (
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-md shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
+                <div className="absolute right-0 top-full mt-1 bg-raised border border-line-strong dark:border-line rounded-md shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
                   <button
                     onClick={() => { setFilterTutorId("all"); setShowTutorDropdown(false); }}
                     className={cn(
@@ -973,7 +973,7 @@ function SessionDayPicker({
                               {/* Middle row: student name + grade badge + school badge */}
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className={cn(
-                                  "font-semibold text-xs text-[#5d4e37] dark:text-[#e8d4b8] truncate",
+                                  "font-semibold text-xs text-ink-heading truncate",
                                   statusConfig.strikethrough && "line-through opacity-60"
                                 )}>
                                   {session.student_name || "Unknown"}
@@ -1030,7 +1030,7 @@ function SessionDayPicker({
 
         {/* Footer */}
         {filteredSessions.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-2 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15]">
+          <div className="flex items-center justify-between px-4 py-2 border-t border-line bg-wash">
             <div className="flex items-center gap-2">
               {/* Default type selector */}
               <span className="text-xs text-gray-500 dark:text-gray-400">
