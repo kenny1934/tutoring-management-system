@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
-import { render, screen, fireEvent, act, within } from "@testing-library/react";
+import { render, screen, fireEvent, act, within, waitFor } from "@testing-library/react";
 import { useState, type ComponentProps } from "react";
 import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
@@ -386,8 +386,13 @@ describe("DraftPane", () => {
       openTools();
       fireEvent.click(screen.getByRole("menuitem", { name: "Plot a graph" }));
     };
+    // The field appears as soon as MathLive has loaded, but its listeners are
+    // added a moment later by an effect, and anything typed in between is lost.
+    // That effect sets the keyboard policy in the same step, so waiting for the
+    // policy means the field is ready to type into.
     const type = async (latex: string) => {
-      const field = (await screen.findByLabelText("Function of x")) as HTMLElement & { value: string };
+      const field = (await screen.findByLabelText("Function of x")) as HTMLElement & { value: string; mathVirtualKeyboardPolicy?: string };
+      await waitFor(() => expect(field.mathVirtualKeyboardPolicy).toBe("manual"));
       field.value = latex;
       fireEvent.input(field);
     };
