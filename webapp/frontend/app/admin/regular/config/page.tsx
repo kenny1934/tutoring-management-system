@@ -149,7 +149,7 @@ export default function AdminRegularConfigPage() {
     return (
       <PageSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
-          <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
+          <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
             <RegularConfigEditor
               configId={editingId}
               isNew={creating}
@@ -167,7 +167,7 @@ export default function AdminRegularConfigPage() {
   return (
     <PageSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
+        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
           <PageHeader
             icon={CalendarDays}
             title="Regular course config"

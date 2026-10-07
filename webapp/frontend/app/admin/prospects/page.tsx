@@ -560,7 +560,7 @@ export default function AdminProspectsPage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
           <HeaderBar
             year={year}
             availableYears={availableYears}

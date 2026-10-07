@@ -480,7 +480,7 @@ export function NotReturningDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-line bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg">
+      <div className="w-full max-w-md rounded-xl border border-line bg-paper dark:bg-raised shadow-lg">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           <UserMinus className="h-4 w-4 text-rose-600 dark:text-rose-400" />
           <h2 className="text-sm font-semibold text-foreground flex-1">Mark as not returning</h2>
@@ -711,7 +711,7 @@ export function BulkContactDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-line bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-md rounded-xl border border-line bg-paper dark:bg-raised shadow-lg max-h-[90vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           <MessageSquarePlus className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold text-foreground flex-1">

@@ -341,7 +341,7 @@ export function WaitlistTimetable({
   return (
     <div className="border border-line rounded-lg overflow-hidden">
       {/* Day filter chips */}
-      <div className="flex items-center gap-1 px-3 py-2 bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-line">
+      <div className="flex items-center gap-1 px-3 py-2 bg-paper dark:bg-raised border-b border-line">
         <span className="text-[11px] text-foreground/40 mr-1">Days:</span>
         {DAYS.map((day) => {
           const ds = dayStats.get(day);
@@ -376,8 +376,8 @@ export function WaitlistTimetable({
       <div className="overflow-auto max-h-[65vh] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d4a574]/40">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20">
-            <tr className="bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-line">
-              <th className="text-left py-2 px-2 text-xs font-medium text-foreground/50 w-28 sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-30">
+            <tr className="bg-paper dark:bg-raised border-b border-line">
+              <th className="text-left py-2 px-2 text-xs font-medium text-foreground/50 w-28 sticky left-0 bg-paper dark:bg-raised z-30">
                 Time
               </th>
               {DAYS.filter((d) => visibleDays.has(d)).map((day) => {
@@ -407,7 +407,7 @@ export function WaitlistTimetable({
               key={timeSlot}
               className="border-t border-gray-200 dark:border-gray-700"
             >
-              <td className="py-2 px-2 text-xs font-mono text-foreground/50 align-top sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-10 border-r border-line">
+              <td className="py-2 px-2 text-xs font-mono text-foreground/50 align-top sticky left-0 bg-paper dark:bg-raised z-10 border-r border-line">
                 <div>{timeSlot}</div>
                 {(() => {
                   const tw = timeStats.get(normalizeTimeSlot(timeSlot)) || 0;

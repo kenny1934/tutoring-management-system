@@ -1044,7 +1044,7 @@ export default function SummerArrangementPage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-2 sm:p-6")}>
-        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
         {/* Header. Full screen swaps the rows and the view-tab strip for the
             shared slim strip so the timetable keeps the height. */}
         {fullScreen ? (
