@@ -165,7 +165,7 @@ function ExamCalendarView({
                 className={cn(
                   "relative p-2 min-h-[70px] border-b border-r border-line/50 text-left transition-colors",
                   !isCurrentMonth && "bg-gray-50 dark:bg-gray-900/30",
-                  isSelected && "bg-[#f5ede3] dark:bg-[#3d3628] ring-2 ring-inset ring-primary",
+                  isSelected && "bg-tint dark:bg-tint ring-2 ring-inset ring-primary",
                   !isSelected && hasExams && "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
                 )}
               >

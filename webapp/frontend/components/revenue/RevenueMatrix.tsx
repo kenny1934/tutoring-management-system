@@ -280,7 +280,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
             {sortedTutors.map((tutor) => {
               const tutorCells = data.cells[String(tutor.id)] ?? {};
               return (
-                <tr key={tutor.id} className="hover:bg-[#fbf6ee] dark:hover:bg-[#2a2418]">
+                <tr key={tutor.id} className="hover:bg-paper">
                   <th
                     scope="row"
                     className="sticky left-0 z-10 bg-white dark:bg-[#1a1a1a] border-b border-r border-[#d4a574]/30 px-3 py-2 text-left font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap align-middle"

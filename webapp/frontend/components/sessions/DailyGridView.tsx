@@ -326,7 +326,7 @@ export const DailyGridView = memo(function DailyGridView({
           <div className="text-center hidden sm:block">
             <p className={cn(
               "text-sm font-bold",
-              isToday ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-900 dark:text-gray-100"
+              isToday ? "text-accent-ink" : "text-gray-900 dark:text-gray-100"
             )}>
               {fullDateDisplay}
             </p>
@@ -391,7 +391,7 @@ export const DailyGridView = memo(function DailyGridView({
                       isCollapsed ? "py-1 px-0.5" : "py-1 px-1.5",
                       index % 2 === 1
                         ? "bg-[#f5ede3] dark:bg-[#181510] hover:bg-[#ebe3d3] dark:hover:bg-[#252015]"
-                        : "bg-[#fef9f3] dark:bg-[#2d2618] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        : "bg-paper hover:bg-tint"
                     )}
                   >
                     {isCollapsed ? (
@@ -467,7 +467,7 @@ export const DailyGridView = memo(function DailyGridView({
                     className={cn(
                       "relative h-full border-r last:border-r-0 border-line",
                       isCollapsed && "bg-gray-50 dark:bg-gray-900/30 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50",
-                      !isCollapsed && (index % 2 === 1 ? "bg-[#f8f4ef] dark:bg-[#131310]" : "bg-white dark:bg-[#1a1a1a]")
+                      !isCollapsed && (index % 2 === 1 ? "bg-paper dark:bg-canvas" : "bg-white dark:bg-[#1a1a1a]")
                     )}
                   >
                     {/* Collapsed tutor expand indicator */}

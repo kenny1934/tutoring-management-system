@@ -136,7 +136,7 @@ export function TutorWorkloadPanel<T extends WorkloadSlot>({
                   "flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1 rounded-md text-xs",
                   isUnassigned
                     ? "bg-red-50/60 dark:bg-red-900/10 border border-red-200/70 dark:border-red-900/30"
-                    : "bg-white/60 dark:bg-gray-800/40 border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/40",
+                    : "bg-white/60 dark:bg-gray-800/40 border border-line/50 dark:border-line/40",
                 )}
               >
                 <span

@@ -821,7 +821,7 @@ function GroupExerciseModal({
     >
       <div className="space-y-4">
         {/* Selected Sessions Header */}
-        <div className="bg-[#f5ebe0] dark:bg-[#3d3628] rounded-lg p-3">
+        <div className="bg-tint rounded-lg p-3">
           <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
             Assigning {title.toLowerCase()} to {sessions.length} session{sessions.length > 1 ? 's' : ''}:
           </div>

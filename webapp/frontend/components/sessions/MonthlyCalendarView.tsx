@@ -356,9 +356,9 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
         !isFirstCol && "border-l",
         !isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-50",
         isCurrentMonth && getLoadIntensity(totalSessions),
-        isWeekend && isCurrentMonth && !hasContent && "bg-[#fef9f3]/50 dark:bg-[#2d2618]/30",
+        isWeekend && isCurrentMonth && !hasContent && "bg-paper/50 dark:bg-paper/30",
         isPast && isCurrentMonth && "opacity-70",
-        isToday && "ring-2 ring-inset ring-[#d4a574] dark:ring-[#cd853f]",
+        isToday && "ring-2 ring-inset ring-line-strong dark:ring-accent-ink",
         hasContent && "cursor-pointer hover:bg-tint"
       )}
     >
@@ -366,10 +366,10 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
       <div className="flex items-start justify-between mb-0.5 flex-shrink-0">
         <span className={cn(
           "text-xs sm:text-sm font-bold",
-          isToday && "text-accent-ink dark:text-[#cd853f]",
+          isToday && "text-accent-ink dark:text-accent-ink",
           !isToday && isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]",
           !isCurrentMonth && "text-gray-500 dark:text-gray-400",
-          isWeekend && isCurrentMonth && !isToday && "text-accent-ink/70 dark:text-[#cd853f]/70"
+          isWeekend && isCurrentMonth && !isToday && "text-accent-ink/70 dark:text-accent-ink/70"
         )}>
           {date.getDate()}
         </span>

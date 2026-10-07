@@ -154,7 +154,7 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
 
   return (
     <div
-      className="px-3 py-2 cursor-pointer hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628] transition-colors"
+      className="px-3 py-2 cursor-pointer hover:bg-line/50 dark:hover:bg-tint transition-colors"
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-3">
@@ -635,7 +635,7 @@ function LeaveCalendarView() {
                   !isCurrentMonth && "opacity-30",
                   holiday && "bg-red-50 dark:bg-red-900/15",
                   clickable && "cursor-pointer",
-                  selectedDay === dateKey && "bg-[#f5ede3] dark:bg-[#3d3628] rounded",
+                  selectedDay === dateKey && "bg-tint dark:bg-tint rounded",
                 )}
                 onClick={() => clickable && setSelectedDay(selectedDay === dateKey ? null : dateKey)}
               >
@@ -792,7 +792,7 @@ function RequestCard({
             ? "border-green-200 dark:border-green-800/40 bg-green-50/50 dark:bg-green-900/10"
             : request.status === "rejected" || request.status === "cancelled"
             ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 opacity-60"
-            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]"
+            : "border-line dark:border-line bg-white dark:bg-[#1a1a1a]"
         )}
         onClick={() => setExpanded(!expanded)}
       >
@@ -1056,7 +1056,7 @@ function AllStaffBalancesPanel({
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
+                <tr className="bg-tint/80 dark:bg-tint/60 border-b border-line">
                   <th rowSpan={2} className="sticky top-0 px-2 py-1.5 text-left font-medium uppercase tracking-wider text-[11px] text-gray-500 dark:text-gray-400">
                     Staff
                   </th>
@@ -1067,7 +1067,7 @@ function AllStaffBalancesPanel({
                     Sick Leave
                   </th>
                 </tr>
-                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-line">
+                <tr className="bg-tint/80 dark:bg-tint/60 border-b border-line">
                   <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-line" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
                   <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Overtime compensation">OC</th>
                   <th className="px-1.5 py-1 text-right text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Birthday leave">Bday</th>
@@ -1083,7 +1083,7 @@ function AllStaffBalancesPanel({
                   <tr
                     key={r.staff_id}
                     onClick={onRowClick}
-                    className="cursor-pointer transition-colors hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628] border-b border-line/40"
+                    className="cursor-pointer transition-colors hover:bg-line/50 dark:hover:bg-tint border-b border-line/40"
                   >
                     <td className="px-2 py-1.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
                       {r.staff_name}
@@ -1108,7 +1108,7 @@ function AllStaffBalancesPanel({
               <button
                 key={r.staff_id}
                 onClick={onRowClick}
-                className="w-full px-3 py-2 text-left transition-colors hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628]"
+                className="w-full px-3 py-2 text-left transition-colors hover:bg-line/50 dark:hover:bg-tint"
               >
                 <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                   {r.staff_name}
@@ -1365,7 +1365,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
           "bg-white dark:bg-[#1a1a1a] border border-line-strong",
           "text-accent-ink",
           "hover:bg-tint hover:shadow-sm",
-          isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
+          isOpen && "bg-tint dark:bg-tint shadow-sm"
         )}
       >
         <Palmtree className="h-4 w-4" />
@@ -1385,7 +1385,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
               "z-50 max-h-[70vh] flex flex-col",
               drawerWidthCls,
               "paper-cream paper-texture rounded-lg shadow-xl",
-              "border border-[#d4a574] dark:border-[#6b5a4a]"
+              "border border-line-strong dark:border-line"
             )}
           >
             {showForm ? (
@@ -1431,7 +1431,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             )}
             {/* Tabs */}
             <div className={cn(
-              "flex border-b border-line bg-[#f5ede3]/60 dark:bg-[#3d3628]/40",
+              "flex border-b border-line bg-tint/60 dark:bg-tint/40",
               !isViewingOther && "rounded-t-lg"
             )}>
               {tabs.map((tab, i) => (

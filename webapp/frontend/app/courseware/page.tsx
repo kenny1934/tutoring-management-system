@@ -363,7 +363,7 @@ function SchoolAutocomplete({
       />
       {showSuggestions && filtered.length > 0 && (
         <div
-          className="absolute top-full left-0 mt-1 w-48 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg z-50"
+          className="absolute top-full left-0 mt-1 w-48 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-md shadow-lg z-50"
           role="listbox"
         >
           {filtered.map((s, i) => (
@@ -526,7 +526,7 @@ function RankingRow({
         "transition-all duration-200",
         isExpanded
           ? "bg-paper"
-          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30"
+          : "hover:bg-tint dark:hover:bg-gray-800/30"
       )}
     >
       <div
@@ -601,7 +601,7 @@ function RankingRow({
                   ? "bg-gradient-to-r from-gray-300 to-gray-400"
                   : rank === 3
                   ? "bg-gradient-to-r from-amber-600 to-amber-700"
-                  : "bg-gradient-to-r from-[#8f6240] to-[#c4956a]"
+                  : "bg-gradient-to-r from-primary to-[#c4956a]"
               )}
               style={{ width: `${progressPercent}%` }}
             />
@@ -2980,7 +2980,7 @@ export default function CoursewarePage() {
                     })()}
 
                     {filtersOpen && (
-                      <div className="absolute top-full mt-1 right-0 z-50 bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-lg shadow-lg p-4 min-w-[280px]">
+                      <div className="absolute top-full mt-1 right-0 z-50 bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-lg shadow-lg p-4 min-w-[280px]">
                         <div className="flex flex-col gap-3">
                           <div className="flex flex-col">
                             <span className={cn(LABEL_CLASS, "mb-1")}>Type</span>

@@ -2415,7 +2415,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
             "block p-3 rounded-lg border transition-colors",
             isPast
               ? "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60 hover:opacity-80 hover:bg-gray-100 dark:hover:bg-gray-700/50"
-              : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+              : "bg-white dark:bg-[#1a1a1a] border-line dark:border-line hover:bg-tint dark:hover:bg-tint",
             !isMobile && "paper-texture"
           )}
         >
@@ -2841,7 +2841,7 @@ function HomeworkStatusChips({
               "flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-colors",
               active
                 ? "bg-[#f5ede3] dark:bg-[#3a342a] border-primary text-gray-900 dark:text-gray-100"
-                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:border-primary",
+                : "bg-white dark:bg-[#1a1a1a] border-line text-gray-600 dark:text-gray-400 hover:border-primary",
               count === 0 && !active && "opacity-40 cursor-not-allowed"
             )}
           >

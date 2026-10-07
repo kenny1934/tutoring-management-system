@@ -1840,8 +1840,8 @@ export function ScheduleMakeupModal({
                         dayData.isHoliday && !isAdmin && "cursor-not-allowed",
                         !dayData.isHoliday && dayData.isPastLimitDay && "bg-red-50 dark:bg-red-900/20",
                         !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
-                        dayData.isSelected && "ring-2 ring-inset ring-primary dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
-                        !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
+                        dayData.isSelected && "ring-2 ring-inset ring-primary dark:ring-[#cd853f] bg-tint dark:bg-tint",
+                        !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-paper dark:hover:bg-paper",
                         !dayData.isSelected && dayData.isHoliday && isAdmin && dayData.isCurrentMonth && "hover:bg-rose-100 dark:hover:bg-rose-900/20",
                         dayData.isToday && "ring-1 ring-inset ring-blue-400"
                       )}

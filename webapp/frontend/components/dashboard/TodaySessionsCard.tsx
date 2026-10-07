@@ -673,7 +673,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
     <div
       className={cn(
         "px-3 py-2 cursor-pointer hover:bg-tint/60 transition-colors",
-        isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30",
+        isAlternate && "bg-tint/30 dark:bg-tint/30",
         isSelected && "bg-amber-50 dark:bg-amber-900/20",
         isCancelledEnrollment && "opacity-50"
       )}

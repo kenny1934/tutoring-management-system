@@ -477,7 +477,7 @@ export default function StudentsPage() {
               )}
               {/* Suggestions dropdown */}
               {showSchoolSuggestions && filteredSchools.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-40 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg z-50">
+                <div className="absolute top-full left-0 mt-1 w-40 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-md shadow-lg z-50">
                   {filteredSchools.map((school, i) => (
                     <button
                       key={school}
@@ -516,7 +516,7 @@ export default function StudentsPage() {
 
             {/* Tutor filter chip — appears when navigated here from a dashboard chart with a tutor selected */}
             {tutorIdFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-tint text-xs text-gray-700 dark:text-gray-200">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-line-strong dark:border-line bg-tint text-xs text-gray-700 dark:text-gray-200">
                 <User className="h-3 w-3 text-accent-ink" />
                 <span>Tutor: {tutorFilterName ?? `#${tutorIdFilter}`}</span>
                 <button
@@ -531,7 +531,7 @@ export default function StudentsPage() {
 
             {/* Language-stream filter chip — set when a stream segment of the grade chart is clicked */}
             {langStreamFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-tint text-xs text-gray-700 dark:text-gray-200">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-line-strong dark:border-line bg-tint text-xs text-gray-700 dark:text-gray-200">
                 <span>Stream: {langStreamFilter}</span>
                 <button
                   onClick={() => { setLangStreamFilter(''); setCurrentPage(1); }}

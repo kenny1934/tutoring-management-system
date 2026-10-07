@@ -120,10 +120,10 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
         /* Empty state */
         <div className={cn("flex-1 flex flex-col items-center justify-center p-6 text-center", !collapsed && "min-w-[20rem]")}>
           <div className={cn("relative mb-4", !collapsed && "animate-empty-float")}>
-            <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/20" />
+            <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-line/50 dark:bg-line/20" />
             <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-[#f5ede3]/70 dark:bg-[#2d2618]/50" />
             <div className="relative w-12 h-16 rounded-lg bg-paper border border-line shadow-[var(--shadow-paper-sm)] flex items-center justify-center">
-              <FileText className="w-6 h-6 text-accent-ink/40 dark:text-[#cd853f]/30" />
+              <FileText className="w-6 h-6 text-accent-ink/40 dark:text-accent-ink/30" />
             </div>
           </div>
           <p className="text-[13px] font-medium text-gray-500 dark:text-gray-400">No document selected</p>
@@ -132,7 +132,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
       ) : (
         <div ref={fadeRef} className={cn("flex flex-col h-full", !collapsed && "min-w-[20rem]")}>
           {/* Header */}
-          <div className="border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 px-3 py-3 shrink-0 bg-gradient-to-b from-[#fef9f3] to-[#fdf4ec] dark:from-[#1c1811] dark:to-[#181410]">
+          <div className="border-b border-line/60 dark:border-line/40 px-3 py-3 shrink-0 bg-gradient-to-b from-[#fef9f3] to-[#fdf4ec] dark:from-[#1c1811] dark:to-[#181410]">
             {/* Top row: open + close */}
             <div className="flex items-center justify-between mb-1.5">
               <Button size="sm" icon={ExternalLink} onClick={() => onOpenEditor(docId)}>
@@ -204,7 +204,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                   {onEditTags && (
                     <button
                       onClick={() => onEditTags(docId)}
-                      className="inline-flex items-center justify-center w-5 h-5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-primary hover:text-accent-ink dark:hover:border-[#cd853f] dark:hover:text-[#cd853f] transition-colors"
+                      className="inline-flex items-center justify-center w-5 h-5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-primary hover:text-accent-ink dark:hover:border-[#cd853f] transition-colors"
                       title="Edit tags"
                       aria-label="Edit tags"
                     >
@@ -248,7 +248,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                             !doc.parent_id && "pl-5"
                           )}
                         >
-                          <svg className="shrink-0 w-[14px] h-[14px] text-accent-ink/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
+                          <svg className="shrink-0 w-[14px] h-[14px] text-accent-ink/25 dark:text-accent-ink/20" viewBox="0 0 18 18" fill="none">
                         <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                           <span className="truncate">{child.title}</span>

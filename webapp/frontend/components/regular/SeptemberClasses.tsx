@@ -152,7 +152,7 @@ export function SeptemberClasses({
                   slot={slot}
                   showTime
                   showBranch={week.manyBranches}
-                  className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2 py-1.5"
+                  className="bg-white dark:bg-[#1a1a1a] border border-line dark:border-line rounded-lg px-2 py-1.5"
                 />
               ))}
             </div>
@@ -161,11 +161,11 @@ export function SeptemberClasses({
       </div>
 
       {/* The week itself, from a tablet up. */}
-      <div className="hidden md:flex min-h-0 flex-col bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+      <div className="hidden md:flex min-h-0 flex-col bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
         <div className="overflow-auto min-h-0">
           <div className="grid" style={{ gridTemplateColumns: gridColumns, minWidth: minGridWidth }}>
             {/* Header: the time corner, then every day of the week */}
-            <div className="sticky top-0 left-0 z-30 p-1.5 flex items-center bg-[#fef9f3] dark:bg-[#2d2618] border-b-2 border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="sticky top-0 left-0 z-30 p-1.5 flex items-center bg-paper border-b-2 border-r border-line">
               <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
             </div>
             {week.columns.map((day, i) => {
@@ -181,12 +181,12 @@ export function SeptemberClasses({
                     teaching ? undefined : `${shut ? "Show" : "Hide"} ${day}, a day you do not teach`
                   }
                   className={cn(
-                    "sticky top-0 z-20 py-1 bg-[#fef9f3] dark:bg-[#2d2618]",
-                    "border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                    "sticky top-0 z-20 py-1 bg-paper",
+                    "border-b-2 border-line",
                     i < week.columns.length - 1 && "border-r",
                     shut ? "px-0.5" : "px-1.5",
                     !teaching &&
-                      "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]"
+                      "cursor-pointer hover:bg-tint focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]"
                   )}
                 >
                   {shut ? (
@@ -219,7 +219,7 @@ export function SeptemberClasses({
               const { start, end } = splitSlotTime(time);
               return (
                 <Fragment key={time}>
-                  <div className="sticky left-0 z-10 px-2 py-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="sticky left-0 z-10 px-2 py-1.5 bg-paper border-t border-r border-line">
                     <div className="text-xs font-medium text-gray-700 dark:text-gray-300 tabular-nums">
                       {start}
                     </div>
@@ -235,7 +235,7 @@ export function SeptemberClasses({
                         key={day}
                         onClick={shut ? () => toggleDay(day) : undefined}
                         className={cn(
-                          "border-t border-[#e8d4b8] dark:border-[#6b5a4a] p-1 space-y-1.5",
+                          "border-t border-line p-1 space-y-1.5",
                           i < week.columns.length - 1 && "border-r",
                           shut && "bg-gray-50 dark:bg-gray-900/30 cursor-pointer"
                         )}

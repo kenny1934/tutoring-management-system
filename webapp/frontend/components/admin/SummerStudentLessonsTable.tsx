@@ -46,7 +46,7 @@ type OriginBucket = "new" | "existing";
 // Warm palette constants matching WeeklyGridView / applications page
 const HEADER_BG = "bg-paper";
 const HEADER_BORDER = "border-line";
-const ROW_HOVER = "hover:bg-[#fef9f3]/50 dark:hover:bg-[#2d2618]/30";
+const ROW_HOVER = "hover:bg-paper/50 dark:hover:bg-paper/30";
 
 const CHIP_INACTIVE =
   "bg-line/20 text-muted-foreground hover:bg-line/40";

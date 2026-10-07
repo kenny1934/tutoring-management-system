@@ -842,7 +842,7 @@ export default function DocumentsPage() {
                 ) : (
                   <div className="col-span-full flex flex-col items-center py-20 text-center">
                     <div className={cn("animate-empty-float w-16 h-16 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-[#f5ede3] dark:bg-[#2d2618]")}>
-                      {isTrashTab ? <Trash2 className="w-8 h-8 text-red-300 dark:text-red-800" /> : <FileText className="w-8 h-8 text-accent-ink/40 dark:text-[#cd853f]/30" />}
+                      {isTrashTab ? <Trash2 className="w-8 h-8 text-red-300 dark:text-red-800" /> : <FileText className="w-8 h-8 text-accent-ink/40 dark:text-accent-ink/30" />}
                     </div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[20rem]">{emptyMessage}</p>

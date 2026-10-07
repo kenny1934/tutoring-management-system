@@ -94,7 +94,7 @@ export function ExerciseHoverCard({ exercises, type, className, children }: Exer
                   <span className="font-normal text-gray-500 dark:text-gray-400">({assigned.length})</span>
                 )}
               </span>
-              <kbd className="rounded border border-[#d4a574]/60 dark:border-[#8b6f47] px-1 font-mono text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+              <kbd className="rounded border border-line-strong/60 dark:border-line-strong px-1 font-mono text-[11px] leading-4 text-gray-500 dark:text-gray-400">
                 {shortcut}
               </kbd>
             </div>

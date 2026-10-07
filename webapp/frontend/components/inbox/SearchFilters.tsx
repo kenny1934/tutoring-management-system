@@ -63,7 +63,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
             "flex items-center gap-1 text-xs px-2 py-1 border rounded-full transition-colors",
             filters.has_attachments
               ? "border-primary bg-primary/10 text-accent-ink"
-              : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              : "border-line text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           )}
         >
           <Paperclip className="h-3 w-3" />
@@ -81,7 +81,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
               "text-xs px-2 py-1 border rounded-full transition-colors",
               filters.priority === p
                 ? "border-primary bg-primary/10 text-accent-ink"
-                : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                : "border-line text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             )}
           >
             {p}

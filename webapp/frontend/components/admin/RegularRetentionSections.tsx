@@ -1669,7 +1669,7 @@ function ChaseCard({
         "rounded-lg border px-3 py-2.5",
         picked
           ? "border-primary/50 bg-primary/5"
-          : "border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02]"
+          : "border-line/60 bg-white/40 dark:bg-white/[0.02]"
       )}
     >
       <div className="flex items-start gap-2.5">

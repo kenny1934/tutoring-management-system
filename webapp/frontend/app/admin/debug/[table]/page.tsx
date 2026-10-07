@@ -2024,7 +2024,7 @@ export default function TableBrowserPage() {
                     "flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors btn-press",
                     showQuickFilters || activeQuickFilters.size > 0
                       ? "border-primary bg-primary/10 text-accent-ink"
-                      : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                      : "border-line bg-white dark:bg-[#1a1a1a] hover:bg-tint"
                   )}
                 >
                   <Filter className="h-4 w-4" aria-hidden="true" />
@@ -2095,7 +2095,7 @@ export default function TableBrowserPage() {
                         "px-3 py-1.5 text-xs font-medium rounded-full transition-colors btn-press",
                         activeQuickFilters.has(preset.id)
                           ? "bg-primary text-white"
-                          : "bg-white dark:bg-[#1a1a1a] border border-line hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628]"
+                          : "bg-white dark:bg-[#1a1a1a] border border-line hover:bg-line dark:hover:bg-tint"
                       )}
                     >
                       {preset.label}
@@ -2131,7 +2131,7 @@ export default function TableBrowserPage() {
                       <div key={index} className="flex items-center gap-1">
                         <button
                           onClick={() => handleApplySavedFilter(filter.filters)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full bg-white dark:bg-[#1a1a1a] border border-line hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full bg-white dark:bg-[#1a1a1a] border border-line hover:bg-line dark:hover:bg-tint transition-colors"
                         >
                           <Bookmark className="h-3 w-3 text-accent-ink" aria-hidden="true" />
                           {filter.name}
@@ -2161,7 +2161,7 @@ export default function TableBrowserPage() {
                     "flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors btn-press",
                     showFilterBuilder || filterConditions.length > 0
                       ? "border-primary bg-primary/10 text-accent-ink"
-                      : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                      : "border-line bg-white dark:bg-[#1a1a1a] hover:bg-tint"
                   )}
                 >
                   <Filter className="h-4 w-4" aria-hidden="true" />
@@ -2311,7 +2311,7 @@ export default function TableBrowserPage() {
                     <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-line">
                       <button
                         onClick={handleAddFilter}
-                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-primary hover:text-accent-ink transition-colors"
+                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed border-line hover:border-primary hover:text-accent-ink transition-colors"
                       >
                         <Plus className="h-4 w-4" aria-hidden="true" />
                         Add Filter
@@ -2428,7 +2428,7 @@ export default function TableBrowserPage() {
                       <th scope="col" className="px-3 py-2 w-10">
                         <button
                           onClick={toggleSelectAll}
-                          className="p-0.5 rounded hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628]"
+                          className="p-0.5 rounded hover:bg-line dark:hover:bg-tint"
                           aria-label={selectedRows.size === rows.length ? "Deselect all" : "Select all"}
                         >
                           {selectedRows.size === rows.length && rows.length > 0 ? (
@@ -2453,7 +2453,7 @@ export default function TableBrowserPage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleSort(col.name)}
-                              className="flex items-center gap-1 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors rounded px-1 -mx-1"
+                              className="flex items-center gap-1 hover:bg-line dark:hover:bg-tint transition-colors rounded px-1 -mx-1"
                               aria-label={`Sort by ${col.name}`}
                             >
                               <span className="truncate">{col.name}</span>
@@ -3207,7 +3207,7 @@ export default function TableBrowserPage() {
                           "px-4 py-2 text-sm rounded-lg border transition-colors",
                           importFormat === "json"
                             ? "bg-primary text-white border-primary"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                            : "border-line hover:bg-tint"
                         )}
                       >
                         JSON
@@ -3218,7 +3218,7 @@ export default function TableBrowserPage() {
                           "px-4 py-2 text-sm rounded-lg border transition-colors",
                           importFormat === "csv"
                             ? "bg-primary text-white border-primary"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                            : "border-line hover:bg-tint"
                         )}
                       >
                         CSV

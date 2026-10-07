@@ -51,7 +51,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         isOpen={isOpen}
         onClose={close}
         align="right"
-        className="w-64 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg max-h-64 overflow-y-auto"
+        className="w-64 bg-white dark:bg-[#2a2a2a] border border-line dark:border-line rounded-lg shadow-lg max-h-64 overflow-y-auto"
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-line/30">
           <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Templates</span>
@@ -108,7 +108,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                   <button
                     type="button"
                     onClick={() => { onSelect(t.content); setIsOpen(false); }}
-                    className="flex-1 text-left px-3 py-1.5 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors"
+                    className="flex-1 text-left px-3 py-1.5 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors"
                   >
                     <div className="font-medium text-gray-700 dark:text-gray-200 text-xs">{t.title}</div>
                     <div className="text-[11px] text-gray-500 truncate">{t.content}</div>
@@ -137,7 +137,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                   key={t.id}
                   type="button"
                   onClick={() => { onSelect(t.content); setIsOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors"
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors"
                 >
                   <div className="font-medium text-gray-700 dark:text-gray-200 text-xs">{t.title}</div>
                   <div className="text-[11px] text-gray-500 truncate">{t.content}</div>

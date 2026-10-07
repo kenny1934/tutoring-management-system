@@ -178,8 +178,8 @@ const AtlasNode = memo(function AtlasNode({
               : status === "covered-past"
                 ? "bg-teal-50/60 dark:bg-teal-900/10 border-teal-600/25 dark:border-teal-500/25 text-gray-600 dark:text-gray-400"
                 : status === "coming-up"
-                  ? "bg-[#fef9f3] dark:bg-[#2d2618] border-dashed border-amber-500 dark:border-amber-400 text-gray-700 dark:text-gray-300"
-                  : "bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574]/60 dark:border-[#8b6f47] text-gray-700 dark:text-gray-300 hover:border-[#d4a574] dark:hover:border-[#8b6f47]",
+                  ? "bg-paper dark:bg-paper border-dashed border-amber-500 dark:border-amber-400 text-gray-700 dark:text-gray-300"
+                  : "bg-paper dark:bg-paper border-line-strong/60 dark:border-line-strong text-gray-700 dark:text-gray-300 hover:border-line-strong dark:hover:border-line-strong",
           mode === "dimmed" && "opacity-25 saturate-50"
         )}
       >
@@ -464,7 +464,7 @@ const AtlasMinimap = memo(function AtlasMinimap({
   return (
     <div
       aria-hidden="true"
-      className="absolute bottom-3 right-3 z-40 hidden sm:block rounded-md border border-[#d4a574]/60 dark:border-[#8b6f47] bg-paper/95 shadow-md overflow-hidden"
+      className="absolute bottom-3 right-3 z-40 hidden sm:block rounded-md border border-line-strong/60 dark:border-line-strong bg-paper/95 shadow-md overflow-hidden"
     >
       <svg
         width={mmW}
@@ -899,7 +899,7 @@ export function CurriculumAtlas({
             key={r.strand}
             aria-hidden="true"
             className={cn(
-              "absolute left-0 right-0 border-b border-[#d4a574]/15 dark:border-[#8b6f47]/25",
+              "absolute left-0 right-0 border-b border-line-strong/15 dark:border-line-strong/25",
               i % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]"
             )}
             style={{
@@ -962,7 +962,7 @@ export function CurriculumAtlas({
       {/* Card header: series toggle + legend / hint + zoom and fullscreen */}
       <div
         className={cn(
-          "flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20",
+          "flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20",
           fullscreen && "shrink-0"
         )}
       >
@@ -997,7 +997,7 @@ export function CurriculumAtlas({
                 Coming up
               </span>
               <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
-                <span className="inline-block w-3.5 h-2.5 rounded-sm border border-[#d4a574]/50 dark:border-[#8b6f47]/70" />
+                <span className="inline-block w-3.5 h-2.5 rounded-sm border border-line-strong/50 dark:border-line-strong/70" />
                 No data
               </span>
             </>
@@ -1019,7 +1019,7 @@ export function CurriculumAtlas({
             Extension
           </span>
         </div>
-        <div className="flex items-center gap-0.5 pl-2 border-l border-[#d4a574]/40 dark:border-[#8b6f47]/60">
+        <div className="flex items-center gap-0.5 pl-2 border-l border-line-strong/40 dark:border-line-strong/60">
           <button
             type="button"
             aria-label="Zoom out"
@@ -1108,7 +1108,7 @@ export function CurriculumAtlas({
       >
         {/* Grade header (sticky top, with a sticky corner over the gutter) */}
         <div
-          className="sticky top-0 z-40 flex bg-paper border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
+          className="sticky top-0 z-40 flex bg-paper border-b border-line-strong/20 dark:border-line-strong/30"
           style={{ minWidth: innerMinWidth, height: HEADER_H }}
         >
           <div
@@ -1194,7 +1194,7 @@ export function CurriculumAtlas({
       {/* Mobile two-stage selection: tap shows the chain + this strip, second
           tap (or the button) opens the worksheets */}
       {twoStageTap && selectedNode && (
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-line-strong/40 dark:border-line-strong/60 text-xs">
           <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
             {conceptNameForStream(selectedNode.concept, stream)}
             <span className="text-gray-500">

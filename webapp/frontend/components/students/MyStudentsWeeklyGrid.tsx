@@ -555,7 +555,7 @@ export function MyStudentsWeeklyGrid({
                                     className={cn(
                                       "cursor-pointer rounded px-1.5 py-0.5 text-center transition-opacity",
                                       hasHighlightedHidden
-                                        ? "bg-primary border-2 border-[#8b6140] ring-2 ring-primary/50"
+                                        ? "bg-primary border-2 border-primary ring-2 ring-primary/50"
                                         : "bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-600",
                                       "shadow-sm hover:shadow-md transition-all flex-shrink-0",
                                       !hasMatchingHidden && "opacity-30"

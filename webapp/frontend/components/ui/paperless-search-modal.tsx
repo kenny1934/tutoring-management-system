@@ -764,7 +764,7 @@ export function PaperlessSearchModal({
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all",
                   "bg-white dark:bg-[#1a1a1a]",
-                  "border-[#e8d4b8] dark:border-[#6b5a4a]",
+                  "border-line dark:border-line",
                   "text-gray-700 dark:text-gray-300",
                   "hover:border-amber-300 dark:hover:border-amber-700",
                   selectedTagIds.length > 0 && "border-amber-400 dark:border-amber-600"
@@ -918,7 +918,7 @@ export function PaperlessSearchModal({
                             }}
                             className={cn(
                               "w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer",
-                              "border-[#e8d4b8] dark:border-[#6b5a4a]",
+                              "border-line dark:border-line",
                               "hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-sm",
                               "flex items-center gap-2",
                               // Gradient background for top 3 (when not focused/checked)
@@ -1123,7 +1123,7 @@ export function PaperlessSearchModal({
                               ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
                               : isFocused
                                 ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
-                                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-amber-300 dark:hover:border-amber-700"
+                                : "bg-white dark:bg-[#1a1a1a] border-line dark:border-line hover:border-amber-300 dark:hover:border-amber-700"
                           )}
                         >
                           {/* Thumbnail */}
@@ -1238,7 +1238,7 @@ export function PaperlessSearchModal({
                         ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
                         : isFocused
                           ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
-                          : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-amber-300 dark:hover:border-amber-700",
+                          : "bg-white dark:bg-[#1a1a1a] border-line dark:border-line hover:border-amber-300 dark:hover:border-amber-700",
                       !path && "opacity-50 cursor-not-allowed"
                     )}
                   >

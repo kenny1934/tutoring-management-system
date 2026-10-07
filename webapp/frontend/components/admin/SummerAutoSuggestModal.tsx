@@ -967,7 +967,7 @@ export function SummerAutoSuggestModal({
           ) : (
             <div className="space-y-4">
               {/* Sticky filter bar */}
-              <div className="sticky -top-5 z-10 -mx-5 px-5 py-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 space-y-2">
+              <div className="sticky -top-5 z-10 -mx-5 px-5 py-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur border-b border-line/60 dark:border-line/40 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[180px] max-w-[240px]">
                     <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -1148,7 +1148,7 @@ export function SummerAutoSuggestModal({
                                 "relative shrink-0 p-1.5 rounded-md transition-colors",
                                 isAdjusting
                                   ? "text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-line/30 dark:hover:bg-gray-800"
                               )}
                               title="Adjust date constraints"
                               aria-label="Adjust date constraints"

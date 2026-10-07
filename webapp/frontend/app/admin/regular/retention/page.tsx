@@ -288,7 +288,7 @@ function BranchCompare({
               type="button"
               onClick={() => onPick(r.key)}
               title={`Show only ${r.label ?? r.key}`}
-              className="text-left rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 hover:border-primary/60 transition-colors"
+              className="text-left rounded-lg border border-line/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 hover:border-primary/60 transition-colors"
             >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-foreground">{r.label ?? r.key}</span>

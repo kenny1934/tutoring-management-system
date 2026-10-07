@@ -264,7 +264,7 @@ export function SummerFindSlotDialog({
                         <div
                           key={result.lesson_id}
                           className={cn(
-                            "rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-3 py-2 transition-colors flex items-center gap-3",
+                            "rounded-lg border border-line/60 px-3 py-2 transition-colors flex items-center gap-3",
                             isFull ? "opacity-50" : "hover:border-primary/50"
                           )}
                         >
@@ -290,7 +290,7 @@ export function SummerFindSlotDialog({
                               {result.tutor_name && (
                                 <TutorLink tutorId={result.tutor_id} tutorName={result.tutor_name} className="text-[11px] text-muted-foreground" />
                               )}
-                              <div className="flex-1 h-1 bg-[#e8d4b8]/30 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div className="flex-1 h-1 bg-line/30 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div
                                   className={cn("h-full rounded-full", pct >= 100 ? "bg-red-400" : pct >= 75 ? "bg-yellow-400" : "bg-green-400")}
                                   style={{ width: `${Math.min(pct, 100)}%` }}

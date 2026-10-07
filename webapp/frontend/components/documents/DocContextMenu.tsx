@@ -94,7 +94,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         triggerRef={btnRef}
         isOpen={isVisible}
         onClose={close}
-        className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden animate-menu-stagger"
+        className="bg-white dark:bg-[#1a1a1a] border border-line dark:border-line rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden animate-menu-stagger"
       >
         <button
           onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); close(); }}
@@ -122,7 +122,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         {folders.length > 0 && (
           <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
         )}
-        <div className="my-1 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40" />
+        <div className="my-1 border-t border-line/60 dark:border-line/40" />
         <button
           onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}`, "_blank"); close(); }}
           className={menuItemCls}
@@ -137,7 +137,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           <Download className="w-3.5 h-3.5" />
           Export PDF
         </button>
-        <div className="my-1 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40" />
+        <div className="my-1 border-t border-line/60 dark:border-line/40" />
         {doc.is_archived ? (
           <>
             <button

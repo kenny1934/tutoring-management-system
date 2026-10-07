@@ -82,7 +82,7 @@ export function BrowsePdfPreview({
         onCleanedPdf={onCleanedPdf}
         showCleaned={showCleanedPreview}
         onToggleCleaned={onToggleCleaned}
-        className="mb-2 py-2 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
+        className="mb-2 py-2 border-b border-line/50 dark:border-line/50"
       />
 
       {/* PDF iframe */}

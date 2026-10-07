@@ -1583,7 +1583,7 @@ export default function AdminRenewalsPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
-              bg-paper border-[#d4a574] dark:border-[#8b6f47]
+              bg-paper border-line-strong dark:border-line-strong
               text-sm w-64"
           >
             <div className="flex justify-between items-center mb-3">

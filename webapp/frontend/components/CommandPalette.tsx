@@ -695,7 +695,7 @@ export function CommandPalette() {
         aria-label="Command palette"
         className={cn(
           "w-[min(90vw,36rem)] bg-[#fef9f3] dark:bg-[#1a1a1a] rounded-xl shadow-2xl",
-          "border border-[#e8d4b8] dark:border-[#3d3628]",
+          "border border-line dark:border-tint",
           "overflow-hidden flex flex-col",
           // Mobile full-screen mode
           "max-sm:w-full max-sm:h-full max-sm:rounded-none max-sm:border-0"
@@ -703,7 +703,7 @@ export function CommandPalette() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 max-sm:py-4 border-b border-[#e8d4b8] dark:border-[#3d3628]">
+        <div className="flex items-center gap-3 px-4 py-3 max-sm:py-4 border-b border-line dark:border-tint">
           <Search className="h-5 w-5 text-accent-ink flex-shrink-0" />
           <input
             ref={inputRef}
@@ -734,7 +734,7 @@ export function CommandPalette() {
             </button>
           )}
           <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 max-sm:hidden">
-            <kbd className="px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#3d3628]">
+            <kbd className="px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded border border-line dark:border-tint">
               Ctrl+K
             </kbd>
           </div>
@@ -748,7 +748,7 @@ export function CommandPalette() {
 
         {/* Breadcrumb when in nested command submenu */}
         {commandPath.length > 0 && (
-          <div className="px-4 py-2 flex items-center gap-2 border-b border-[#e8d4b8] dark:border-[#3d3628] bg-[#f5ede3]/50 dark:bg-[#2d2618]/50">
+          <div className="px-4 py-2 flex items-center gap-2 border-b border-line dark:border-tint bg-[#f5ede3]/50 dark:bg-[#2d2618]/50">
             <button
               onClick={() => {
                 setCommandPath([]);
@@ -788,7 +788,7 @@ export function CommandPalette() {
             aria-label="Search results"
             className={cn(
               "overflow-y-auto",
-              (debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length ? "w-[55%] border-r border-[#e8d4b8] dark:border-[#3d3628]" : "w-full"
+              (debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length ? "w-[55%] border-r border-line dark:border-tint" : "w-full"
             )}
           >
           {loading && (
@@ -798,10 +798,10 @@ export function CommandPalette() {
               </div>
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-2.5 animate-pulse">
-                  <div className="h-4 w-4 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+                  <div className="h-4 w-4 bg-line dark:bg-tint rounded" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-4 bg-[#e8d4b8] dark:bg-[#3d3628] rounded w-3/4" />
-                    <div className="h-3 bg-[#e8d4b8] dark:bg-[#3d3628] rounded w-1/2" />
+                    <div className="h-4 bg-line dark:bg-tint rounded w-3/4" />
+                    <div className="h-3 bg-line dark:bg-tint rounded w-1/2" />
                   </div>
                 </div>
               ))}
@@ -1070,7 +1070,7 @@ export function CommandPalette() {
         </div>
 
         {/* Footer hints - hidden on mobile */}
-        <div className="px-4 py-2 border-t border-[#e8d4b8] dark:border-[#3d3628] bg-[#f5ede3]/50 dark:bg-[#2d2618]/50 max-sm:hidden">
+        <div className="px-4 py-2 border-t border-line dark:border-tint bg-[#f5ede3]/50 dark:bg-[#2d2618]/50 max-sm:hidden">
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <ArrowUp className="h-3 w-3" />
@@ -1082,7 +1082,7 @@ export function CommandPalette() {
               Select
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border border-[#e8d4b8] dark:border-[#3d3628] text-[11px]">
+              <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border border-line dark:border-tint text-[11px]">
                 Esc
               </kbd>
               {query ? "Clear" : "Close"}

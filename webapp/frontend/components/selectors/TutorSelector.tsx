@@ -188,7 +188,7 @@ export function TutorSelector({
       >
         <User className={cn(
           "h-3.5 w-3.5 flex-shrink-0",
-          isSelected ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400"
+          isSelected ? "text-accent-ink dark:text-accent-ink" : "text-gray-500 dark:text-gray-400"
         )} />
         <span className={cn(
           "text-gray-900 dark:text-gray-100",
@@ -218,7 +218,7 @@ export function TutorSelector({
         className={cn(
           "flex items-center gap-1.5 px-3 py-1.5 text-sm",
           "bg-white dark:bg-[#1a1a1a]",
-          "border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+          "border border-line-strong dark:border-line rounded-md",
           "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800",
@@ -246,7 +246,7 @@ export function TutorSelector({
             className={cn(
               "z-[9999]",
               "bg-white dark:bg-[#1a1a1a]",
-              "border border-[#d4a574] dark:border-[#6b5a4a]",
+              "border border-line-strong dark:border-line",
               "rounded-md shadow-lg",
               "py-1 min-w-[180px] max-h-[300px] overflow-y-auto"
             )}
@@ -288,7 +288,7 @@ export function TutorSelector({
                 >
                   <Users className={cn(
                     "h-3.5 w-3.5 flex-shrink-0",
-                    isAllTutorsSelected ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400"
+                    isAllTutorsSelected ? "text-accent-ink dark:text-accent-ink" : "text-gray-500 dark:text-gray-400"
                   )} />
                   <span className={cn(
                     "text-gray-900 dark:text-gray-100",

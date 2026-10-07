@@ -61,7 +61,7 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
           key={opt.label}
           type="button"
           onClick={() => onSnooze(opt.value)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
         >
           <opt.icon className="h-4 w-4 text-gray-500" />
           <div>
@@ -80,7 +80,7 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
               setCustomTime(time);
               setShowCustom(true);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
           >
             <Calendar className="h-4 w-4 text-gray-500" />
             <span className="text-gray-700 dark:text-gray-200">Pick date & time</span>

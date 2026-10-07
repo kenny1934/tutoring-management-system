@@ -63,7 +63,7 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         align="right"
-        className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-1 min-w-[180px]"
+        className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-line dark:border-line py-1 min-w-[180px]"
       >
         {ATTACHMENT_OPTIONS.map((option) => (
           <button

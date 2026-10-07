@@ -71,7 +71,7 @@ function Facet<T extends string | number>({
                 numeric && "min-w-[26px] tabular-nums",
                 isSelected
                   ? "border-amber-600 bg-amber-500 text-white dark:border-amber-500 dark:bg-amber-600"
-                  : "border-[#e8d4b8] bg-white text-gray-700 hover:bg-[#f5ede3] dark:border-[#6b5a4a] dark:bg-[#1a1a1a] dark:text-gray-300 dark:hover:bg-[#3d3520]",
+                  : "border-line bg-white text-gray-700 hover:bg-[#f5ede3] dark:bg-[#1a1a1a] dark:text-gray-300 dark:hover:bg-[#3d3520]",
               )}
             >
               {value}
@@ -139,7 +139,7 @@ export function SummerFilterPopover({
           "flex items-center rounded-md border transition-colors",
           isActive
             ? "border-amber-500 bg-amber-100 dark:border-amber-600 dark:bg-amber-900/40"
-            : "border-[#d4a574] bg-white hover:bg-gray-50 dark:border-[#6b5a4a] dark:bg-[#1a1a1a] dark:hover:bg-gray-800",
+            : "border-line-strong bg-white hover:bg-gray-50 dark:border-line dark:bg-[#1a1a1a] dark:hover:bg-gray-800",
         )}
       >
         <button

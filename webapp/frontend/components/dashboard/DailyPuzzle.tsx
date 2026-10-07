@@ -88,8 +88,8 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
                 // Base state (unanswered)
                 userAnswer === null && [
                   "bg-white dark:bg-[#1a1a1a]",
-                  "border-[#d4a574] dark:border-[#8b6f47]",
-                  "text-accent-ink dark:text-[#cd853f]",
+                  "border-line-strong dark:border-line-strong",
+                  "text-accent-ink dark:text-accent-ink",
                   "hover:bg-tint",
                   "hover:scale-[1.02] active:scale-[0.98]",
                   "cursor-pointer",

@@ -516,7 +516,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   else onThreadPin(msg.id);
                   setShowMoreMenu(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
               >
                 <Pin className={cn("h-4 w-4", msg.is_thread_pinned && "text-blue-600")} />
                 <span>{msg.is_thread_pinned ? "Unpin from top" : "Pin to top"}</span>
@@ -527,7 +527,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   else onPin(msg.id);
                   setShowMoreMenu(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
               >
                 <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-700")} />
                 <span>{msg.is_pinned ? "Unstar" : "Star"}</span>
@@ -539,7 +539,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     else onThreadMute(msg.id);
                     setShowMoreMenu(false);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
                 >
                   {msg.is_thread_muted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
                   <span>{msg.is_thread_muted ? "Unmute" : "Mute"}</span>
@@ -556,7 +556,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                         setShowSnoozePicker(!showSnoozePicker);
                       }
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
                   >
                     <AlarmClock className="h-4 w-4" />
                     <span>{msg.is_snoozed ? "Remove reminder" : "Remind me"}</span>
@@ -579,7 +579,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   else onArchive(msg.id);
                   setShowMoreMenu(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-tint/60 dark:hover:bg-tint/50 transition-colors text-left"
               >
                 {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
                 <span>{isArchived ? "Unarchive" : "Archive"}</span>

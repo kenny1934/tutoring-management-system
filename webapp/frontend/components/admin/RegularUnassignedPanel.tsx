@@ -173,7 +173,7 @@ const panelPillClass = (active: boolean, solid = false) =>
       ? "bg-primary text-primary-foreground"
       : solid
         ? "bg-[#faf2e7] dark:bg-[#2a2724] text-muted-foreground hover:bg-[#f5eadb] dark:hover:bg-[#3a342d]"
-        : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+        : "bg-line/20 dark:bg-line/20 text-muted-foreground hover:bg-line/40 dark:hover:bg-line/40"
   );
 
 /** A pill toggle in the panel's grade/stream filter row. */
@@ -503,7 +503,7 @@ export function RegularUnassignedPanel({
                       }
                     }}
                     className={cn(
-                      "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                      "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-paper/80 dark:hover:bg-paper/50 transition-colors",
                       tapMode === "select"
                         ? "cursor-pointer"
                         : readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",

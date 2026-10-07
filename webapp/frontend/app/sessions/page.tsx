@@ -1744,7 +1744,7 @@ function SessionsPageContent() {
                   {[1, 2, 3].map(i => (
                     <div key={i} className={cn(
                       "py-1 px-0.5 border-r last:border-r-0 border-line",
-                      i % 2 === 1 ? "bg-[#f5ede3] dark:bg-[#181510]" : "bg-[#fef9f3] dark:bg-[#2d2618]"
+                      i % 2 === 1 ? "bg-[#f5ede3] dark:bg-[#181510]" : "bg-paper"
                     )}>
                       <div className="h-full flex items-center justify-center">
                         <div className="h-8 w-2 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
@@ -1770,7 +1770,7 @@ function SessionsPageContent() {
                   {[1, 2, 3].map(i => (
                     <div key={i} className={cn(
                       "border-r last:border-r-0 border-line",
-                      i % 2 === 1 ? "bg-[#f8f4ef] dark:bg-[#131310]" : ""
+                      i % 2 === 1 ? "bg-paper dark:bg-canvas" : ""
                     )} />
                   ))}
                 </div>
@@ -3050,7 +3050,7 @@ function SessionsPageContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
-                bg-paper border-[#d4a574] dark:border-[#8b6f47]
+                bg-paper border-line-strong dark:border-line-strong
                 text-sm w-64"
             >
               <div className="flex justify-between items-center mb-3">

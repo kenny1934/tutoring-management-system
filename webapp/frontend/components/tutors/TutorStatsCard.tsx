@@ -204,7 +204,7 @@ export const TutorStatsCard = memo(function TutorStatsCard({
                   "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                   active
                     ? "border-amber-400 bg-amber-50 font-medium text-foreground dark:border-amber-500 dark:bg-amber-900/30"
-                    : "border-[#e8d4b8] text-foreground/70 hover:bg-foreground/5 dark:border-[#6b5a4a]"
+                    : "border-line text-foreground/70 hover:bg-foreground/5"
                 )}
               >
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: g.color }} />
@@ -377,7 +377,7 @@ export const TutorStatsCard = memo(function TutorStatsCard({
                     "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                     active
                       ? "border-amber-400 bg-amber-50 font-medium text-foreground dark:border-amber-500 dark:bg-amber-900/30"
-                      : "border-[#e8d4b8] text-foreground/70 hover:bg-foreground/5 dark:border-[#6b5a4a]"
+                      : "border-line text-foreground/70 hover:bg-foreground/5"
                   )}
                 >
                   {loc.name}

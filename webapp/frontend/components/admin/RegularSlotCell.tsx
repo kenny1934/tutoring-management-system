@@ -366,7 +366,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
           className={cn(
             "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
             slots.length === 0
-              ? "py-2 text-xs border border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10"
+              ? "py-2 text-xs border border-dashed border-line/60 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10"
               : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/10"
           )}
         >

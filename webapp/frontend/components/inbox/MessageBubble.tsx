@@ -413,7 +413,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
               "hover:scale-110 hover:shadow-md active:scale-95",
               isMine
                 ? "bg-primary/10 border border-primary/60 dark:border-[#a0704b]/60"
-                : "bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60"
+                : "bg-white dark:bg-[#2a2a2a] border border-line/60"
             )}
             title={g.tutors.join(", ")}
           >
@@ -586,7 +586,7 @@ const MessageBubble = React.memo(function MessageBubble({
             : "flex-1 min-w-0",
           !isOwn && isBroadcast && "bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30",
           !isOwn && isGroup && !isBroadcast && "bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30",
-          !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]"
+          !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-line/50 dark:border-line"
         )}
       >
         {/* Sender name (others only, first in group) */}

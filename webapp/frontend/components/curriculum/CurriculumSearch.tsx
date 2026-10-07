@@ -149,7 +149,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
         )}
 
         {dropdownOpen && input.trim() !== "" && (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] shadow-lg overflow-hidden">
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-line-strong/60 dark:border-line-strong bg-white dark:bg-[#1a1a1a] shadow-lg overflow-hidden">
             <div role="listbox" aria-label="Matching topics">
               {matches.map((c, i) => (
                 <button
@@ -187,7 +187,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
               className={cn(
                 "px-3 py-1.5 text-[11px] text-gray-500 dark:text-gray-400",
                 matches.length > 0 &&
-                  "border-t border-[#d4a574]/30 dark:border-[#8b6f47]/40"
+                  "border-t border-line-strong/30 dark:border-line-strong/40"
               )}
             >
               {matchTotal > matches.length && (
@@ -206,7 +206,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
 
       {active && (
         <div className="mt-2 bg-paper rounded-lg border-2 border-line-strong overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
               Search results
             </span>
@@ -230,7 +230,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
           )}
 
           {results && results.concepts.length > 0 && (
-            <div className="divide-y divide-[#d4a574]/20 dark:divide-[#8b6f47]/30 max-h-[24rem] overflow-y-auto">
+            <div className="divide-y divide-line-strong/20 dark:divide-line-strong/30 max-h-[24rem] overflow-y-auto">
               {results.concepts.map((concept) => (
                 <div key={concept.concept_id} className="px-4 py-2.5">
                   <div className="flex items-center gap-2">

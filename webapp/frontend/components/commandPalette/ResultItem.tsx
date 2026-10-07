@@ -69,7 +69,7 @@ export function ResultItemButton({
             e.stopPropagation();
             onDelete();
           }}
-          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] rounded transition-all"
+          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-line dark:hover:bg-tint rounded transition-all"
         >
           <X className="h-3 w-3 text-gray-500" />
         </button>

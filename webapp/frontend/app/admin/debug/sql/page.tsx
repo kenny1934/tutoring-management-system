@@ -436,7 +436,7 @@ export default function SqlExecutorPage() {
                     "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors btn-press",
                     showTemplates
                       ? "bg-primary text-white border-primary"
-                      : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                      : "border-line hover:bg-tint"
                   )}
                 >
                   <FileCode className="h-4 w-4" aria-hidden="true" />
@@ -475,7 +475,7 @@ export default function SqlExecutorPage() {
                   "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors btn-press",
                   showHistory
                     ? "bg-primary text-white border-primary"
-                    : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                    : "border-line hover:bg-tint"
                 )}
               >
                 <History className="h-4 w-4" aria-hidden="true" />

@@ -507,7 +507,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
           "bg-white dark:bg-[#1a1a1a] border border-line-strong",
           "text-accent-ink",
           "hover:bg-tint hover:shadow-sm",
-          isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
+          isOpen && "bg-tint dark:bg-tint shadow-sm"
         )}
       >
         <CalendarClock className="h-4 w-4" />
@@ -531,11 +531,11 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             className={cn(
               "z-50 w-80 max-h-[70vh] flex flex-col",
               "paper-cream paper-texture rounded-lg shadow-xl",
-              "border border-[#d4a574] dark:border-[#6b5a4a]"
+              "border border-line-strong dark:border-line"
             )}
           >
             {/* Tabs */}
-            <div className="flex border-b border-line bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-t-lg">
+            <div className="flex border-b border-line bg-tint/60 dark:bg-tint/40 rounded-t-lg">
               <button
                 onClick={() => setActiveTab("for-me")}
                 className={cn(

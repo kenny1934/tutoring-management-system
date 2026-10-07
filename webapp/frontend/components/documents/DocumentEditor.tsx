@@ -1632,7 +1632,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
                     activeMenu === "heading"
                       ? "bg-primary text-white border-primary"
-                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                      : "text-gray-700 dark:text-gray-300 border-line hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Heading Level"
                 >
@@ -1674,7 +1674,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
                     activeMenu === "fontFamily"
                       ? "bg-primary text-white border-primary"
-                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                      : "text-gray-700 dark:text-gray-300 border-line hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Font Family"
                 >
@@ -1715,7 +1715,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
                     activeMenu === "fontSize"
                       ? "bg-primary text-white border-primary"
-                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                      : "text-gray-700 dark:text-gray-300 border-line hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Font Size"
                 >
@@ -2135,7 +2135,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                                   "w-5 h-5 rounded-sm border transition-colors",
                                   active
                                     ? "bg-primary border-primary"
-                                    : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-primary/50"
+                                    : "border-line hover:border-primary/50"
                                 )}
                                 onMouseEnter={() => setGridHover({ rows: row, cols: col })}
                                 onClick={() => {

@@ -83,13 +83,13 @@ type PreviewData =
 export function PreviewSkeleton() {
   return (
     <div className="space-y-3 animate-pulse">
-      <div className="h-4 w-24 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
-      <div className="h-5 w-32 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+      <div className="h-4 w-24 bg-line dark:bg-tint rounded" />
+      <div className="h-5 w-32 bg-line dark:bg-tint rounded" />
       <div className="flex gap-2">
-        <div className="h-5 w-12 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
-        <div className="h-5 w-16 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+        <div className="h-5 w-12 bg-line dark:bg-tint rounded" />
+        <div className="h-5 w-16 bg-line dark:bg-tint rounded" />
       </div>
-      <div className="h-4 w-28 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+      <div className="h-4 w-28 bg-line dark:bg-tint rounded" />
     </div>
   );
 }

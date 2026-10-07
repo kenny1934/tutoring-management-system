@@ -320,7 +320,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
             "bg-white dark:bg-[#1a1a1a] border border-line-strong",
             "text-accent-ink",
             "hover:bg-tint hover:shadow-sm",
-            isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
+            isOpen && "bg-tint dark:bg-tint shadow-sm"
           )}
         >
           <FlaskConical className="h-4 w-4" />
@@ -344,7 +344,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               className={cn(
                 "z-50 w-80 max-h-[70vh] flex flex-col",
                 "paper-cream paper-texture rounded-lg shadow-xl",
-                "border border-[#d4a574] dark:border-[#6b5a4a]"
+                "border border-line-strong dark:border-line"
               )}
             >
               {/* Header */}
