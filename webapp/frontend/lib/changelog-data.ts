@@ -14,6 +14,9 @@ const changelogData = [
             "description": "**Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case."
           },
           {
+            "description": "**Quieter session buttons**: the buttons on each session, such as Attended, No show and Sick, are now plain with a coloured icon, the same as the buttons for several sessions at once."
+          },
+          {
             "description": "**The wood desk is still there**: choose Background in the user menu, next to Theme, to bring back the wooden desk behind every page."
           },
           {
@@ -28,7 +31,7 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**Easier to read**: faint text and icons across the app are darker, and apart from the session cards in the calendars, nothing on CSM's own pages is smaller than 11px."
+            "description": "**Easier to read**: faint text and icons across the app are darker, and apart from the cards in the calendars and on the arrangement boards, nothing on CSM's own pages is smaller than 11px."
           },
           {
             "description": "**Text boxes you can find**: text fields, dropdowns and note boxes now have an edge you can see in both light and dark mode."
@@ -38,6 +41,18 @@ const changelogData = [
           },
           {
             "description": "**A quieter dashboard**: buttons and labels that only looked like warnings are plain now, while counts that need your attention stay highlighted."
+          },
+          {
+            "description": "**The whole menu fits**: every link in the sidebar now shows on a laptop screen, and the calendar and view switch scroll with it."
+          },
+          {
+            "description": "**Pages that fit a phone**: the course config, applications, unchecked attendance, exams, proposals and settings pages no longer squeeze or cut off on a phone."
+          },
+          {
+            "description": "**No false \"being edited by\"**: when the server can't be reached, a document now says editing is paused, instead of naming someone as its editor."
+          },
+          {
+            "description": "**Labels that were meant to show**: button labels that should appear on wider screens, such as New enrollment on the renewals page, now do."
           },
           {
             "description": "**A quieter Ranking tab**: the courseware ranking has calmer titles and a softer Hot badge, and it keeps its medals."
