@@ -16,6 +16,7 @@ import type {
   CurriculumFile,
   CurriculumSearchConcept,
 } from "@/types";
+import { Input } from "@/components/controls";
 import { CurriculumFileRow } from "./CurriculumFileRow";
 import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
 import { CurriculumTopicFiles } from "./CurriculumTopicFiles";
@@ -101,9 +102,8 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
     <div>
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-        <input
+        <Input
           ref={inputRef}
-          type="text"
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
@@ -135,7 +135,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={dropdownOpen && input.trim() !== ""}
-          className="w-full pl-8 pr-8 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          className="pl-8 pr-8"
         />
         {(input || active) && (
           <button

@@ -5,6 +5,7 @@ import { Loader2, ZoomIn, ZoomOut, ExternalLink, X, Copy, Check, ScanLine } from
 import { CalendarPlus } from "lucide-react";
 import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
+import { Button, IconButton } from "@/components/controls";
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
 
@@ -66,37 +67,11 @@ export function BrowsePdfPreview({
           {previewNode?.name}
         </span>
         <div className="flex items-center gap-1">
-          <button
-            onClick={onZoomOut}
-            disabled={zoomIndex === 0}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-            title="Zoom out"
-          >
-            <ZoomOut className="h-4 w-4 text-gray-500" />
-          </button>
+          <IconButton icon={ZoomOut} size="sm" label="Zoom out" onClick={onZoomOut} disabled={zoomIndex === 0} />
           <span className="text-xs text-gray-500 w-12 text-center">{currentZoom}%</span>
-          <button
-            onClick={onZoomIn}
-            disabled={zoomIndex === ZOOM_LEVELS.length - 1}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-            title="Zoom in"
-          >
-            <ZoomIn className="h-4 w-4 text-gray-500" />
-          </button>
-          <button
-            onClick={onOpenInNewTab}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-2"
-            title="Open in new tab"
-          >
-            <ExternalLink className="h-4 w-4 text-gray-500" />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-1"
-            title="Close preview"
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
+          <IconButton icon={ZoomIn} size="sm" label="Zoom in" onClick={onZoomIn} disabled={zoomIndex === ZOOM_LEVELS.length - 1} />
+          <IconButton icon={ExternalLink} size="sm" label="Open in new tab" onClick={onOpenInNewTab} className="ml-2" />
+          <IconButton icon={X} size="sm" label="Close preview" onClick={onClose} />
         </div>
       </div>
 
@@ -132,7 +107,8 @@ export function BrowsePdfPreview({
           {previewNode?.path}
         </span>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button
+          <Button
+            icon={ScanLine}
             onClick={async () => {
               const url = showCleanedPreview && cleanedPreviewUrl ? cleanedPreviewUrl : previewUrl;
               try {
@@ -146,30 +122,20 @@ export function BrowsePdfPreview({
                 setShowImportModal(true);
               }
             }}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700"
             title="Import to Document via AI OCR"
           >
-            <ScanLine className="h-4 w-4" />
             Import
-          </button>
-          <button
-            onClick={onAssign}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a]"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            Assign
-          </button>
-          <button
+          </Button>
+          <Button
+            icon={copiedPath === previewNode?.path ? Check : Copy}
+            iconClassName={copiedPath === previewNode?.path ? "text-green-600 dark:text-green-400" : undefined}
             onClick={() => previewNode && onCopyPath(previewNode.path)}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-primary text-white hover:bg-[#8b6340]"
           >
-            {copiedPath === previewNode?.path ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-            Copy Path
-          </button>
+            Copy path
+          </Button>
+          <Button variant="primary" icon={CalendarPlus} onClick={onAssign}>
+            Assign
+          </Button>
         </div>
       </div>
 

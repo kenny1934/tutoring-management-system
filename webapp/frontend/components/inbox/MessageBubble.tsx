@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  X, Pencil, Check, Trash2, Loader2, Reply, Forward,
+  X, Pencil, Check, Trash2, Reply, Forward,
   Smile, FileText, Download, Mic, Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import { TutorAvatar } from "@/lib/avatar-utils";
 import { isHtmlEmpty, stripHtml, renderMathInHtml, renderGeometryInHtml, highlightTextNodes } from "@/lib/html-utils";
 import { highlightCodeBlocks } from "@/lib/code-highlight";
@@ -311,6 +312,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
             onClick={() => setShowFullPicker(true)}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-tint transition-colors text-sm text-gray-500"
             title="More emojis"
+            aria-label="More emojis"
           >
             +
           </button>
@@ -623,6 +625,7 @@ const MessageBubble = React.memo(function MessageBubble({
                       <button
                         type="button"
                         onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
+                        aria-label="Remove image"
                         className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
                       >
                         <X className="h-3 w-3" />
@@ -633,21 +636,19 @@ const MessageBubble = React.memo(function MessageBubble({
               )}
             </div>
             <div className="flex gap-2">
-              <button
+              <Button
+                size="sm"
+                variant="primary"
+                icon={Check}
+                loading={isSaving}
                 onClick={handleSaveEdit}
-                disabled={isSaving || (isHtmlEmpty(editText) && editImages.length === 0)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isHtmlEmpty(editText) && editImages.length === 0}
               >
-                {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 Save
-              </button>
-              <button
-                onClick={onCancelEdit}
-                disabled={isSaving}
-                className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
-              >
+              </Button>
+              <Button size="sm" variant="quiet" onClick={onCancelEdit} disabled={isSaving}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : m.message.includes("Voice message") && m.file_attachments?.some(f => f.content_type?.startsWith("audio/")) ? (
@@ -758,19 +759,19 @@ const MessageBubble = React.memo(function MessageBubble({
           )}>
             <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
             {!isHtmlEmpty(m.message) && (
-              <button onClick={handleCopy} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Copy text">
+              <button onClick={handleCopy} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Copy text" aria-label="Copy text">
                 <Copy className="h-3.5 w-3.5" />
               </button>
             )}
-            <button onClick={onQuote} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Quote">
+            <button onClick={onQuote} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Quote" aria-label="Quote">
               <Reply className="h-3.5 w-3.5" />
             </button>
-            <button onClick={onForward} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Forward">
+            <button onClick={onForward} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Forward" aria-label="Forward">
               <Forward className="h-3.5 w-3.5" />
             </button>
             {isOwn && (
               <>
-                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Edit">
+                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-500 hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 transition-colors" title="Edit" aria-label="Edit">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 {showDeleteConfirm ? (
@@ -789,7 +790,7 @@ const MessageBubble = React.memo(function MessageBubble({
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-500 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors" title="Delete">
+                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-500 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors" title="Delete" aria-label="Delete">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}

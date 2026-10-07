@@ -4,12 +4,12 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { cn } from "@/lib/utils";
-import { TONES } from "@/lib/tones";
 import { formatDateCompact } from "@/lib/formatters";
 import { useProposals, usePendingProposalCount, useTutors } from "@/lib/hooks";
 import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Badge, CountBadge, IconButton, Input } from "@/components/controls";
 import { mutate } from "swr";
 import type { MakeupProposal, MakeupProposalSlot } from "@/types";
 import {
@@ -128,22 +128,23 @@ function CompactSlotItem({
 
         {canAct && (
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button
+            <IconButton
+              size="sm"
+              icon={isLoading ? Loader2 : Check}
+              label="Approve"
+              iconClassName={cn("text-green-700 dark:text-green-400", isLoading && "animate-spin")}
               onClick={handleApproveClick}
               disabled={isLoading}
-              className="p-1 text-accent-ink hover:bg-tint rounded transition-colors"
-              title="Approve"
-            >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            </button>
-            <button
+            />
+            <IconButton
+              size="sm"
+              icon={X}
+              label="Reject"
+              tone="danger"
+              iconClassName="text-red-600 dark:text-red-400"
               onClick={handleRejectClick}
               disabled={isLoading}
-              className="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
-              title="Reject"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            />
           </div>
         )}
 
@@ -511,11 +512,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
       >
         <CalendarClock className="h-4 w-4" />
         <span>Make-up</span>
-        {totalPending > 0 && (
-          <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid)}>
-            {totalPending > 99 ? "99+" : totalPending}
-          </span>
-        )}
+        <CountBadge count={totalPending} tone="warning" />
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 transition-transform",
@@ -549,11 +546,11 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 )}
               >
                 <InboxIcon className="h-4 w-4 inline mr-1.5" />
-                For Me
+                For me
                 {proposalsForMe.length > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
+                  <Badge tone="warning" className="ml-1.5 tabular-nums">
                     {proposalsForMe.length}
-                  </span>
+                  </Badge>
                 )}
               </button>
               <button
@@ -566,11 +563,11 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 )}
               >
                 <Send className="h-4 w-4 inline mr-1.5" />
-                By Me
+                By me
                 {proposalsByMe.length > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+                  <Badge tone="info" className="ml-1.5 tabular-nums">
                     {proposalsByMe.length}
-                  </span>
+                  </Badge>
                 )}
               </button>
             </div>
@@ -579,22 +576,23 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <div className="px-3 py-2 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
-                  <input
+                  <Search className="pointer-events-none absolute left-2 top-1/2 z-10 h-3 w-3 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+                  <Input
+                    size="sm"
                     type="text"
                     placeholder="Search student..."
+                    aria-label="Search student"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2 py-1.5 text-xs border border-field rounded bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                    className="pl-7"
                   />
                 </div>
-                <button
+                <IconButton
+                  size="sm"
+                  icon={sortOrder === "newest" ? ArrowDown : ArrowUp}
+                  label={sortOrder === "newest" ? "Newest first" : "Oldest first"}
                   onClick={() => setSortOrder(s => s === "newest" ? "oldest" : "newest")}
-                  className="p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                  title={sortOrder === "newest" ? "Newest first" : "Oldest first"}
-                >
-                  {sortOrder === "newest" ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
-                </button>
+                />
               </div>
             </div>
 

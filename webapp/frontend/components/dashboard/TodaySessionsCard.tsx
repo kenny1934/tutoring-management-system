@@ -10,7 +10,6 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { TONES } from "@/lib/tones";
 import { Calendar, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -36,6 +35,7 @@ import { toDateString, getNowSlotPosition } from "@/lib/calendar-utils";
 import { LessonNudge } from "@/components/sessions/LessonNudge";
 import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { Button, CountBadge, buttonClasses } from "@/components/controls";
 
 interface TodaySessionsCardProps {
   className?: string;
@@ -279,27 +279,29 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             {markableIds.length > 0 && (
               <Link
                 href="/quick-attend"
-                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md border border-line bg-card text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
+                className={buttonClasses({ variant: "secondary", size: "sm" })}
                 title="Quick attendance marking"
               >
-                <ClipboardCheck className="h-3 w-3 text-ink-subtle" />
+                <ClipboardCheck className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                 <span className="hidden sm:inline">Quick</span>
               </Link>
             )}
             {/* Record Memo button */}
-            <button
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={StickyNote}
               onClick={() => setMemoDrawerOpen(true)}
-              className="relative flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md border border-line bg-card text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
+              className="relative"
               title="Record a session memo"
             >
-              <StickyNote className="h-3 w-3 text-ink-subtle" />
               <span className="hidden sm:inline">Memo</span>
-              {(pendingMemoData?.count ?? 0) > 0 && (
-                <span className={cn("absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full", TONES.warning.solid)}>
-                  {pendingMemoData!.count}
-                </span>
-              )}
-            </button>
+              <CountBadge
+                count={pendingMemoData?.count ?? 0}
+                tone="warning"
+                className="absolute -top-1.5 -right-1.5"
+              />
+            </Button>
             {/* Progress Ring */}
             {stats.total > 0 && (
               <ProgressRing
@@ -338,20 +340,20 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                       onClick={() => { handleSelectMarkable(); setShowSelectDropdown(false); }}
                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
                     >
-                      Select Markable
+                      Select markable
                     </button>
                     <button
                       onClick={() => { handleSelectAttended(); setShowSelectDropdown(false); }}
                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
                     >
-                      Select Attended
+                      Select attended
                     </button>
                     {hasSelection && (
                       <button
                         onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
                         className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-red-600 dark:text-red-400"
                       >
-                        Clear Selection
+                        Clear selection
                       </button>
                     )}
                   </div>
@@ -477,74 +479,79 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             <div className="flex items-center gap-1.5 flex-wrap">
               {/* Attendance actions - conditional based on selected sessions */}
               {bulkActionsAvailable.attended && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={CheckCheck}
+                  iconClassName="text-green-700 dark:text-green-400"
+                  loading={bulkActionLoading === 'attended'}
                   onClick={() => handleBulkAction('attended')}
                   disabled={bulkActionLoading !== null}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
-                    bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-tint"
-                  )}
                   title="Mark all as attended"
+                  aria-label="Mark all as attended"
                 >
-                  <CheckCheck className={cn("h-3 w-3 text-green-700 dark:text-green-400", bulkActionLoading === 'attended' && "animate-pulse")} />
-                  <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
-                </button>
+                  <span className="hidden xs:inline">Attended</span>
+                </Button>
               )}
               {bulkActionsAvailable.noShow && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={UserX}
+                  iconClassName="text-red-600 dark:text-red-400"
+                  loading={bulkActionLoading === 'no-show'}
                   onClick={() => handleBulkAction('no-show')}
                   disabled={bulkActionLoading !== null}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
-                    bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-tint"
-                  )}
                   title="Mark all as no show"
+                  aria-label="Mark all as no show"
                 >
-                  <UserX className={cn("h-3 w-3 text-red-600 dark:text-red-400", bulkActionLoading === 'no-show' && "animate-pulse")} />
-                  <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
-                </button>
+                  <span className="hidden xs:inline">No show</span>
+                </Button>
               )}
               {bulkActionsAvailable.reschedule && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={CalendarClock}
+                  iconClassName="text-orange-700 dark:text-orange-400"
+                  loading={bulkActionLoading === 'reschedule'}
                   onClick={() => handleBulkAction('reschedule')}
                   disabled={bulkActionLoading !== null}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
-                    bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-tint"
-                  )}
                   title="Mark all as rescheduled"
+                  aria-label="Mark all as rescheduled"
                 >
-                  <CalendarClock className={cn("h-3 w-3 text-orange-700 dark:text-orange-400", bulkActionLoading === 'reschedule' && "animate-pulse")} />
-                  <span className="hidden xs:inline">{bulkActionLoading === 'reschedule' ? '...' : 'Reschedule'}</span>
-                </button>
+                  <span className="hidden xs:inline">Reschedule</span>
+                </Button>
               )}
               {bulkActionsAvailable.sickLeave && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Ambulance}
+                  iconClassName="text-orange-700 dark:text-orange-400"
+                  loading={bulkActionLoading === 'sick-leave'}
                   onClick={() => handleBulkAction('sick-leave')}
                   disabled={bulkActionLoading !== null}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
-                    bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-tint"
-                  )}
                   title="Mark all as sick leave"
+                  aria-label="Mark all as sick leave"
                 >
-                  <Ambulance className={cn("h-3 w-3 text-orange-700 dark:text-orange-400", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
-                  <span className="hidden xs:inline">{bulkActionLoading === 'sick-leave' ? '...' : 'Sick'}</span>
-                </button>
+                  <span className="hidden xs:inline">Sick</span>
+                </Button>
               )}
               {bulkActionsAvailable.weatherCancelled && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={CloudRain}
+                  iconClassName="text-orange-700 dark:text-orange-400"
+                  loading={bulkActionLoading === 'weather-cancelled'}
                   onClick={() => handleBulkAction('weather-cancelled')}
                   disabled={bulkActionLoading !== null}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-line bg-card text-gray-700 dark:text-gray-300",
-                    bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-tint"
-                  )}
                   title="Mark all as weather cancelled"
+                  aria-label="Mark all as weather cancelled"
                 >
-                  <CloudRain className={cn("h-3 w-3 text-orange-700 dark:text-orange-400", bulkActionLoading === 'weather-cancelled' && "animate-pulse")} />
-                  <span className="hidden xs:inline">{bulkActionLoading === 'weather-cancelled' ? '...' : 'Weather'}</span>
-                </button>
+                  <span className="hidden xs:inline">Weather</span>
+                </Button>
               )}
               {/* Exercise actions - always visible */}
               <ExerciseDropdownButton
@@ -566,13 +573,15 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 dropUp
               />
               {/* Clear button - always visible */}
-              <button
+              <Button
+                size="sm"
+                variant="quiet"
+                icon={X}
                 onClick={clearSelection}
-                className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                aria-label="Clear selection"
               >
-                <X className="h-3 w-3" />
                 <span className="hidden xs:inline">Clear</span>
-              </button>
+              </Button>
             </div>
           </div>
         ) : (

@@ -4,6 +4,7 @@ import { ReactNode, RefObject, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { IconButton } from "@/components/controls";
 
 /**
  * Dialog focus management shared by the curriculum overlays (modal shell,
@@ -111,14 +112,7 @@ export function CurriculumModalShell({
       >
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
           {header}
-          <button
-            type="button"
-            aria-label={closeLabel}
-            onClick={onClose}
-            className="ml-auto p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton icon={X} size="sm" label={closeLabel} onClick={onClose} className="ml-auto" />
         </div>
 
         {subtitle && (

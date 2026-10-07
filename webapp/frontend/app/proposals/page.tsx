@@ -25,7 +25,9 @@ import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
   Users,
+  type LucideIcon,
 } from "lucide-react";
+import { Badge, Button, Input, Segmented } from "@/components/controls";
 
 type TabType = "for-me" | "by-me" | "all";
 
@@ -69,11 +71,11 @@ function ProposalListSkeleton() {
 }
 
 // Status filter options
-const statusFilters: { value: ProposalStatus | "all"; label: string; icon: React.ElementType }[] = [
+const statusFilters: { value: ProposalStatus | "all"; label: string; icon: LucideIcon; iconClassName?: string }[] = [
   { value: "all", label: "All", icon: Filter },
-  { value: "pending", label: "Pending", icon: Clock },
-  { value: "approved", label: "Approved", icon: Check },
-  { value: "rejected", label: "Rejected", icon: X },
+  { value: "pending", label: "Pending", icon: Clock, iconClassName: "text-amber-700 dark:text-amber-400" },
+  { value: "approved", label: "Approved", icon: Check, iconClassName: "text-green-700 dark:text-green-400" },
+  { value: "rejected", label: "Rejected", icon: X, iconClassName: "text-red-600 dark:text-red-400" },
 ];
 
 export default function ProposalsPage() {
@@ -287,11 +289,11 @@ export default function ProposalsPage() {
               )}
             >
               <Inbox className="h-4 w-4" />
-              For Me
+              For me
               {proposalsForMe.length > 0 && (
-                <span className="px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
+                <Badge tone="warning" className="tabular-nums">
                   {proposalsForMe.length}
-                </span>
+                </Badge>
               )}
             </button>
             <button
@@ -304,11 +306,11 @@ export default function ProposalsPage() {
               )}
             >
               <Send className="h-4 w-4" />
-              By Me
+              By me
               {proposalsByMe.length > 0 && (
-                <span className="px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+                <Badge tone="info" className="tabular-nums">
                   {proposalsByMe.length}
-                </span>
+                </Badge>
               )}
             </button>
             {isAdmin && (
@@ -324,9 +326,9 @@ export default function ProposalsPage() {
                 <Users className="h-4 w-4" />
                 All
                 {allProposals.length > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">
+                  <Badge tone="neutral" className="tabular-nums">
                     {allProposals.length}
-                  </span>
+                  </Badge>
                 )}
               </button>
             )}
@@ -337,49 +339,39 @@ export default function ProposalsPage() {
             {/* Search and Sort */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:flex-none sm:w-[450px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <input
+                <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+                <Input
                   type="text"
                   placeholder="Search student or tutor..."
+                  aria-label="Search student or tutor"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                  className="pl-9"
                 />
               </div>
-              <button
+              <Button
+                variant="secondary"
+                icon={sortOrder === "newest" ? ArrowDownWideNarrow : ArrowUpWideNarrow}
                 onClick={() => setSortOrder(s => s === "newest" ? "oldest" : "newest")}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
-                  "border-line bg-white dark:bg-[#1a1a1a]",
-                  "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900/20"
-                )}
+                title={sortOrder === "newest" ? "Newest first" : "Oldest first"}
               >
-                {sortOrder === "newest" ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpWideNarrow className="h-4 w-4" />}
                 <span className="hidden sm:inline">{sortOrder === "newest" ? "Newest" : "Oldest"}</span>
-              </button>
+              </Button>
             </div>
 
             {/* Status filter - scrollable on mobile */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
-              {statusFilters.map((filter) => {
-                const Icon = filter.icon;
-                const isActive = statusFilter === filter.value;
-                return (
-                  <button
-                    key={filter.value}
-                    onClick={() => setStatusFilter(filter.value)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap transition-colors",
-                      isActive
-                        ? "bg-primary text-white"
-                        : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 border border-line hover:bg-gray-50 dark:hover:bg-gray-900/20"
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {filter.label}
-                  </button>
-                );
-              })}
+              <Segmented
+                label="Proposal status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={statusFilters.map((filter) => ({
+                  value: filter.value,
+                  label: filter.label,
+                  icon: filter.icon,
+                  iconClassName: filter.iconClassName,
+                }))}
+              />
             </div>
           </div>
         </div>

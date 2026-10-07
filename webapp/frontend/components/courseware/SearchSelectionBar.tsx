@@ -2,6 +2,7 @@
 
 import { CalendarPlus } from "lucide-react";
 import { type DocSelection } from "@/lib/hooks/useMapSelection";
+import { Button } from "@/components/controls";
 
 interface SearchSelectionBarProps {
   selections: Map<number, DocSelection>;
@@ -28,13 +29,9 @@ export function SearchSelectionBar({
       >
         Clear all
       </button>
-      <button
-        onClick={onAssign}
-        className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
-      >
-        <CalendarPlus className="h-3.5 w-3.5" />
-        Assign to Sessions
-      </button>
+      <Button variant="primary" size="sm" icon={CalendarPlus} onClick={onAssign} className="ml-auto">
+        Assign to sessions
+      </Button>
     </div>
   );
 }

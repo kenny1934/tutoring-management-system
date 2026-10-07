@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut, Maximize2, Download, Copy, Pencil } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Button, IconButton } from "@/components/controls";
 import { deserializeToBoard, createThemedBoard, applyBoardTheme, exportBoardPng, downloadBlob, type GeometryState } from "@/lib/geometry-utils";
 
 interface GeometryViewerModalProps {
@@ -157,13 +158,7 @@ export default function GeometryViewerModal({
           <h3 id="geometry-viewer-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             Interactive Diagram
           </h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
+          <IconButton size="sm" icon={X} label="Close" onClick={onClose} />
         </div>
 
         {/* Board */}
@@ -185,58 +180,22 @@ export default function GeometryViewerModal({
         <div className="flex items-center justify-between px-4 py-2 border-t border-line/40">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => boardRef.current?.zoomIn()}
-                title="Zoom in"
-                aria-label="Zoom in"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <ZoomIn className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => boardRef.current?.zoomOut()}
-                title="Zoom out"
-                aria-label="Zoom out"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <ZoomOut className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={handleZoomReset}
-                title="Reset view"
-                aria-label="Reset view"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </button>
+              <IconButton size="sm" icon={ZoomIn} label="Zoom in" onClick={() => boardRef.current?.zoomIn()} />
+              <IconButton size="sm" icon={ZoomOut} label="Zoom out" onClick={() => boardRef.current?.zoomOut()} />
+              <IconButton size="sm" icon={Maximize2} label="Reset view" onClick={handleZoomReset} />
             </div>
-            <button
-              onClick={handleExportPng}
-              title="Export as PNG"
-              className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>PNG</span>
-            </button>
+            <Button size="sm" variant="quiet" icon={Download} onClick={handleExportPng} title="Export as PNG">
+              PNG
+            </Button>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={handleCopyImage}
-              title="Copy diagram as image"
-              className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              <span>{copied ? "Copied!" : "Copy Image"}</span>
-            </button>
+            <Button size="sm" variant="quiet" icon={Copy} onClick={handleCopyImage} title="Copy diagram as image">
+              {copied ? "Copied!" : "Copy image"}
+            </Button>
             {onEditAsNew && (
-              <button
-                onClick={handleEditAsNew}
-                title="Edit as new diagram"
-                className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                <span>Edit as New</span>
-              </button>
+              <Button size="sm" variant="quiet" icon={Pencil} onClick={handleEditAsNew} title="Edit as new diagram">
+                Edit as new
+              </Button>
             )}
           </div>
         </div>

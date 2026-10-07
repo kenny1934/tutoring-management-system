@@ -12,6 +12,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { formatDateCompact } from "@/lib/formatters";
 import { PageSurface } from "@/components/layout/PageSurface";
+import { Button, IconButton, Input, Select, Label, Segmented, CountBadge, LABEL_CLASS } from "@/components/controls";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import {
   BookOpen,
@@ -276,10 +277,12 @@ function ConfettiBurst({
 
 // School autocomplete component
 function SchoolAutocomplete({
+  id,
   value,
   onChange,
   suggestions,
 }: {
+  id?: string;
   value: string;
   onChange: (val: string) => void;
   suggestions: string[];
@@ -337,6 +340,7 @@ function SchoolAutocomplete({
     <div className="relative">
       <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
       <input
+        id={id}
         type="text"
         value={value}
         placeholder="School..."
@@ -348,10 +352,10 @@ function SchoolAutocomplete({
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className={cn(
-          "w-36 pl-8 pr-3 py-2 text-sm rounded-md min-h-[40px]",
-          "bg-white dark:bg-[#1a1a1a] border border-field",
-          "text-gray-700 dark:text-gray-300 placeholder-gray-500",
-          "focus:outline-none focus:ring-2 focus:ring-primary/50"
+          "h-8 w-full min-w-0 pl-8 pr-2.5 text-sm rounded",
+          "bg-field-fill border border-field",
+          "text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400",
+          "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
         )}
         role="combobox"
         aria-expanded={showSuggestions && filtered.length > 0}
@@ -1497,13 +1501,9 @@ function CoursewareBrowserTab() {
               Set up shared drives in Settings → Path Mappings to browse files here.
             </p>
             {fsSupported && (
-              <button
-                onClick={handleAddFolder}
-                className="flex items-center gap-2 mx-auto px-4 py-2 rounded bg-primary text-white hover:bg-[#8b6340]"
-              >
-                <FolderPlus className="h-4 w-4" />
-                Add Folder
-              </button>
+              <Button variant="primary" icon={FolderPlus} onClick={handleAddFolder} className="mx-auto">
+                Add folder
+              </Button>
             )}
           </div>
         </StickyNote>
@@ -1533,13 +1533,7 @@ function CoursewareBrowserTab() {
                 <Home className="h-4 w-4" />
               </button>
               {isAtRoot && !summerOpen && fsSupported && (
-                <button
-                  onClick={handleAddFolder}
-                  className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-700"
-                  title="Add local folder"
-                >
-                  <FolderPlus className="h-4 w-4" />
-                </button>
+                <IconButton icon={FolderPlus} size="sm" label="Add local folder" onClick={handleAddFolder} className="ml-1" />
               )}
               {summerOpen && (
                 <>
@@ -1569,65 +1563,53 @@ function CoursewareBrowserTab() {
 
             {/* View toggle */}
             {!summerOpen && (
-            <div className="flex items-center gap-0.5 border border-gray-300 dark:border-gray-600 rounded-md p-0.5 shrink-0">
-              <button
-                onClick={() => setViewMode("list")}
-                className={cn(
-                  "p-1 rounded transition-colors",
-                  viewMode === "list"
-                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
-                )}
-                title="List view"
-              >
-                <List className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={cn(
-                  "p-1 rounded transition-colors",
-                  viewMode === "grid"
-                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
-                )}
-                title="Grid view"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-            </div>
+            <Segmented
+              label="View"
+              value={viewMode}
+              onChange={setViewMode}
+              className="shrink-0"
+              options={[
+                { value: "list", icon: List, title: "List view", label: <span className="sr-only">List view</span> },
+                { value: "grid", icon: LayoutGrid, title: "Grid view", label: <span className="sr-only">Grid view</span> },
+              ]}
+            />
             )}
           </div>
 
           {/* Row 2: Sort + Search + Item count (not applicable to the summer matrix) */}
           {!summerOpen && (
           <div className="flex items-center gap-3">
-            <select
+            <Select
+              size="sm"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="text-xs border border-field rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-amber-400"
+              aria-label="Sort files"
+              className="w-auto"
             >
               <option value="name-asc">Name A→Z</option>
               <option value="name-desc">Name Z→A</option>
               <option value="date-desc">Newest first</option>
               <option value="date-asc">Oldest first</option>
-            </select>
+            </Select>
 
             {/* Search input */}
             <div className="relative flex-1 max-w-[200px]">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-              <input
+              <Input
                 ref={searchInputRef}
-                type="text"
+                size="sm"
                 placeholder="Filter... (Ctrl+F)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-field bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                aria-label="Filter files in this folder"
+                className="pl-7 pr-7"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   title="Clear search"
+                  aria-label="Clear search"
                 >
                   <X className="h-3 w-3 text-gray-500" />
                 </button>
@@ -1653,17 +1635,21 @@ function CoursewareBrowserTab() {
           <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
             <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
             <span className="flex-1 text-sm text-red-700 dark:text-red-300">{error}</span>
-            <button
+            <IconButton
+              icon={X}
+              size="sm"
+              label="Dismiss"
+              className="text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
               onClick={() => {
                 setError(null);
                 if (currentPath.length > 0) navigateTo(-1);
               }}
-              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-600"
-              title="Dismiss"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <button
+            />
+            <IconButton
+              icon={RefreshCw}
+              size="sm"
+              label="Retry"
+              className="text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
               onClick={() => {
                 setError(null);
                 if (currentHandle && currentPath.length > 0) {
@@ -1673,11 +1659,7 @@ function CoursewareBrowserTab() {
                   loadRootFolders();
                 }
               }}
-              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-600"
-              title="Retry"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
+            />
           </div>
         )}
 
@@ -1906,13 +1888,14 @@ function CoursewareBrowserTab() {
 
           {/* Show more button */}
           {hasMore && (
-            <button
+            <Button
+              variant="quiet"
               onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
-              className="w-full py-3 mt-2 text-sm text-amber-700 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full mt-2"
             >
               Show {Math.min(remainingCount, ITEMS_PER_PAGE)} more
-              <span className="text-gray-500">({remainingCount} remaining)</span>
-            </button>
+              <span className="text-ink-subtle">({remainingCount} remaining)</span>
+            </Button>
           )}
         </div>
 
@@ -2353,37 +2336,23 @@ function CoursewareSearchTab() {
       <div className="p-4 border-b border-line space-y-3">
         {/* Search Mode Tabs */}
         <div className="overflow-x-auto -mx-1 px-1">
-          <div className="flex gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 min-w-max sm:min-w-0">
-            {SEARCH_MODE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setSearchMode(option.value)}
-                className={cn(
-                  "flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap",
-                  searchMode === option.value
-                    ? "bg-white dark:bg-[#2a2a2a] text-amber-700 dark:text-amber-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Search in"
+            value={searchMode}
+            onChange={setSearchMode}
+            options={SEARCH_MODE_OPTIONS}
+          />
         </div>
 
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          <input
-            type="text"
+          <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search courseware in Shelv..."
-            className={cn(
-              "w-full pl-10 pr-10 py-2.5 text-sm rounded-md",
-              "bg-paper border border-field",
-              "focus:outline-none focus:ring-2 focus:ring-primary/50"
-            )}
+            aria-label="Search courseware"
+            className="pl-10 pr-10"
           />
           {loading && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-700 animate-spin" />
@@ -2429,21 +2398,16 @@ function CoursewareSearchTab() {
           <div className="space-y-2">
             {/* Tag dropdown */}
             <div className="relative" ref={tagDropdownRef}>
-              <button
+              <Button
+                icon={Tag}
                 onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all",
-                  "bg-white dark:bg-[#2d2618]",
-                  "border-[#d4a574] dark:border-[#6b5a4a]",
-                  "text-gray-700 dark:text-gray-300",
-                  "hover:border-amber-400 dark:hover:border-amber-600",
-                  selectedTagIds.length > 0 && "border-amber-400 dark:border-amber-600"
-                )}
+                aria-expanded={isTagDropdownOpen}
+                className={cn(isTagDropdownOpen && "bg-tint")}
               >
-                <Tag className="h-4 w-4" />
-                <span>Filter by tags{selectedTagIds.length > 0 && ` (${selectedTagIds.length})`}</span>
-                <ChevronDown className={cn("h-4 w-4 ml-auto transition-transform", isTagDropdownOpen && "rotate-180")} />
-              </button>
+                Filter by tags
+                <CountBadge count={selectedTagIds.length} tone="neutral" />
+                <ChevronDown className={cn("h-4 w-4 text-ink-subtle transition-transform", isTagDropdownOpen && "rotate-180")} aria-hidden="true" />
+              </Button>
 
               {isTagDropdownOpen && (
                 <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg">
@@ -2469,28 +2433,15 @@ function CoursewareSearchTab() {
             {selectedTagIds.length >= 2 && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Match:</span>
-                <button
-                  onClick={() => setTagMatchMode("all")}
-                  className={cn(
-                    "px-2 py-0.5 rounded transition-colors",
-                    tagMatchMode === "all"
-                      ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  All (AND)
-                </button>
-                <button
-                  onClick={() => setTagMatchMode("any")}
-                  className={cn(
-                    "px-2 py-0.5 rounded transition-colors",
-                    tagMatchMode === "any"
-                      ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  Any (OR)
-                </button>
+                <Segmented
+                  label="Match tags"
+                  value={tagMatchMode}
+                  onChange={setTagMatchMode}
+                  options={[
+                    { value: "all", label: "All (AND)" },
+                    { value: "any", label: "Any (OR)" },
+                  ]}
+                />
               </div>
             )}
 
@@ -2509,6 +2460,7 @@ function CoursewareSearchTab() {
                       <button
                         onClick={() => handleRemoveTag(tagId)}
                         className="hover:bg-amber-200 dark:hover:bg-amber-800 rounded-full p-0.5"
+                        aria-label={`Remove the ${tag.name} tag`}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -2594,16 +2546,13 @@ function CoursewareSearchTab() {
                             </span>
                           </div>
                         </div>
-                        <button
+                        <IconButton
+                          size="sm"
+                          icon={copiedPath === getTrendingPath(item) ? Check : Copy}
+                          iconClassName={copiedPath === getTrendingPath(item) ? "text-green-700 dark:text-green-400" : undefined}
+                          label="Copy path"
                           onClick={(e) => { e.stopPropagation(); handleCopyPath(getTrendingPath(item)); }}
-                          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                        >
-                          {copiedPath === getTrendingPath(item) ? (
-                            <Check className="h-4 w-4 text-green-700" />
-                          ) : (
-                            <Copy className="h-4 w-4 text-gray-500" />
-                          )}
-                        </button>
+                        />
                       </div>
                     );
                   })}
@@ -2624,6 +2573,7 @@ function CoursewareSearchTab() {
                   <button
                     onClick={() => { clearRecentDocuments(); setRecentDocs([]); }}
                     className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+                    aria-label="Clear recent documents"
                   >
                     Clear
                   </button>
@@ -2659,12 +2609,12 @@ function CoursewareSearchTab() {
                           </div>
                           <div className="text-xs text-gray-500 truncate">{doc.path}</div>
                         </div>
-                        <button
+                        <IconButton
+                          size="sm"
+                          icon={Eye}
+                          label="Preview"
                           onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title); }}
-                          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                        >
-                          <Eye className="h-4 w-4 text-gray-500" />
-                        </button>
+                        />
                       </div>
                     );
                   })}
@@ -2742,24 +2692,20 @@ function CoursewareSearchTab() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
+                  <IconButton
+                    size="sm"
+                    icon={Eye}
+                    label="Preview"
                     onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title || doc.original_file_name || ""); }}
-                    className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                    title="Preview"
-                  >
-                    <Eye className="h-4 w-4 text-gray-500" />
-                  </button>
-                  <button
+                  />
+                  <Button
+                    size="sm"
+                    icon={copiedPath === getDocumentPath(doc) ? Check : Copy}
+                    iconClassName={copiedPath === getDocumentPath(doc) ? "text-green-700 dark:text-green-400" : undefined}
                     onClick={(e) => { e.stopPropagation(); handleCopyPath(getDocumentPath(doc)); }}
-                    className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
                   >
-                    {copiedPath === getDocumentPath(doc) ? (
-                      <Check className="h-3 w-3 text-green-700" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
                     Copy
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -2767,20 +2713,9 @@ function CoursewareSearchTab() {
             {/* Load more button */}
             {hasMore && (
               <div className="p-4 text-center">
-                <button
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-                >
-                  {isLoadingMore ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading...
-                    </span>
-                  ) : (
-                    "Load more results"
-                  )}
-                </button>
+                <Button onClick={handleLoadMore} loading={isLoadingMore}>
+                  {isLoadingMore ? "Loading..." : "Load more results"}
+                </Button>
               </div>
             )}
           </>
@@ -2959,64 +2894,38 @@ export default function CoursewarePage() {
 
   // Segmented button component for time range
   const TimeRangeToggle = () => (
-    <div className="flex rounded-md border border-[#d4a574] dark:border-[#6b5a4a] overflow-hidden" role="group" aria-label="Time range filter">
-      <button
-        onClick={() => setTimeRange("recent")}
-        className={cn(
-          "px-3 py-2 text-sm font-medium transition-colors min-h-[40px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/70",
-          timeRange === "recent"
-            ? "bg-primary text-white"
-            : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-        )}
-        aria-pressed={timeRange === "recent"}
-      >
-        Last 14 Days
-      </button>
-      <button
-        onClick={() => setTimeRange("all-time")}
-        className={cn(
-          "px-3 py-2 text-sm font-medium transition-colors border-l border-[#d4a574] dark:border-[#6b5a4a] min-h-[40px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/70",
-          timeRange === "all-time"
-            ? "bg-primary text-white"
-            : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-        )}
-        aria-pressed={timeRange === "all-time"}
-      >
-        All Time
-      </button>
-    </div>
+    <Segmented
+      label="Time range"
+      value={timeRange}
+      onChange={setTimeRange}
+      options={[
+        { value: "recent", label: "Last 14 days" },
+        { value: "all-time", label: "All time" },
+      ]}
+    />
   );
 
   // Filter dropdown component
   const FilterDropdown = ({
+    id,
     value,
     options,
     onChange,
     label,
   }: {
+    id: string;
     value: string;
     options: string[];
     onChange: (val: string) => void;
     label: string;
   }) => (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        "px-3 py-2 text-sm font-medium rounded-md min-h-[40px]",
-        "bg-white dark:bg-[#1a1a1a] border border-field",
-        "text-gray-700 dark:text-gray-300",
-        "focus:outline-none focus:ring-2 focus:ring-primary/50",
-        "cursor-pointer"
-      )}
-      aria-label={label}
-    >
+    <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
       {options.map((opt) => (
         <option key={opt} value={opt}>
-          {opt === "All" ? `All ${label}` : opt}
+          {opt === "All" ? `All ${label.toLowerCase()}` : opt}
         </option>
       ))}
-    </select>
+    </Select>
   );
 
   return (
@@ -3041,30 +2950,17 @@ export default function CoursewarePage() {
               <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
               {/* Tab navigation */}
-              <div className="flex rounded-md border border-[#d4a574] dark:border-[#6b5a4a] overflow-hidden" role="tablist" aria-label="Courseware sections">
-                {TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      role="tab"
-                      aria-selected={activeTab === tab.id}
-                      className={cn(
-                        "px-3 py-2 text-sm font-medium transition-colors min-h-[40px] flex items-center gap-1.5",
-                        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/70",
-                        "border-l border-[#d4a574] dark:border-[#6b5a4a] first:border-l-0",
-                        activeTab === tab.id
-                          ? "bg-primary text-white"
-                          : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="hidden sm:inline">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <Segmented
+                label="Courseware sections"
+                value={activeTab}
+                onChange={setActiveTab}
+                options={TABS.map((tab) => ({
+                  value: tab.id,
+                  icon: tab.icon,
+                  title: tab.label,
+                  label: <span className="hidden sm:inline">{tab.label}</span>,
+                }))}
+              />
 
               {/* Filters - only show for ranking tab */}
               {activeTab === "ranking" && (
@@ -3081,75 +2977,41 @@ export default function CoursewarePage() {
                       ].filter(Boolean).length;
 
                       return (
-                        <button
+                        <Button
+                          icon={Filter}
                           onClick={() => setFiltersOpen(!filtersOpen)}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md min-h-[40px]",
-                            "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
-                            "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
-                            "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                            filtersOpen && "ring-2 ring-primary/50"
-                          )}
+                          aria-expanded={filtersOpen}
+                          className={cn(filtersOpen && "bg-tint")}
                         >
-                          <Filter className="h-4 w-4" />
-                          <span>Filters</span>
-                          {activeCount > 0 && (
-                            <span className="ml-1 h-5 w-5 flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full">
-                              {activeCount}
-                            </span>
-                          )}
-                          <ChevronDown className={cn("h-4 w-4 transition-transform", filtersOpen && "rotate-180")} />
-                        </button>
+                          Filters
+                          <CountBadge count={activeCount} tone="neutral" />
+                          <ChevronDown className={cn("h-4 w-4 text-ink-subtle transition-transform", filtersOpen && "rotate-180")} aria-hidden="true" />
+                        </Button>
                       );
                     })()}
 
                     {filtersOpen && (
                       <div className="absolute top-full mt-1 right-0 z-50 bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-lg shadow-lg p-4 min-w-[280px]">
                         <div className="flex flex-col gap-3">
-                          <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Type</label>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => setExerciseType("All")}
-                                className={cn(
-                                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                                  exerciseType === "All"
-                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                )}
-                              >
-                                All
-                              </button>
-                              <button
-                                onClick={() => setExerciseType("CW")}
-                                className={cn(
-                                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1",
-                                  exerciseType === "CW"
-                                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                )}
-                              >
-                                <PenTool className="h-3 w-3" />
-                                CW
-                              </button>
-                              <button
-                                onClick={() => setExerciseType("HW")}
-                                className={cn(
-                                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1",
-                                  exerciseType === "HW"
-                                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                )}
-                              >
-                                <Home className="h-3 w-3" />
-                                HW
-                              </button>
-                            </div>
+                          <div className="flex flex-col">
+                            <span className={cn(LABEL_CLASS, "mb-1")}>Type</span>
+                            {/* CW and HW keep their red and blue on the icon, so the two read apart at a glance. */}
+                            <Segmented
+                              label="Exercise type"
+                              value={exerciseType}
+                              onChange={setExerciseType}
+                              options={[
+                                { value: "All", label: "All" },
+                                { value: "CW", label: "CW", icon: PenTool, iconClassName: "text-red-600 dark:text-red-400" },
+                                { value: "HW", label: "HW", icon: Home, iconClassName: "text-blue-600 dark:text-blue-400" },
+                              ]}
+                            />
                           </div>
 
-                          <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Grade</label>
+                          <div className="flex flex-col">
+                            <Label htmlFor="courseware-ranking-grade">Grade</Label>
                             <FilterDropdown
+                              id="courseware-ranking-grade"
                               value={grade}
                               options={GRADE_OPTIONS}
                               onChange={setGrade}
@@ -3157,9 +3019,10 @@ export default function CoursewarePage() {
                             />
                           </div>
 
-                          <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">School</label>
+                          <div className="flex flex-col">
+                            <Label htmlFor="courseware-ranking-school">School</Label>
                             <SchoolAutocomplete
+                              id="courseware-ranking-school"
                               value={school}
                               onChange={setSchool}
                               suggestions={schools}
@@ -3168,17 +3031,17 @@ export default function CoursewarePage() {
 
                           {/* Clear button */}
                           {(exerciseType !== "All" || grade !== "All" || school !== "") && (
-                            <button
+                            <Button
+                              variant="quiet"
+                              icon={X}
                               onClick={() => {
                                 setExerciseType("All");
                                 setGrade("All");
                                 setSchool("");
                               }}
-                              className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
-                              <X className="h-4 w-4" />
                               Clear filters
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>

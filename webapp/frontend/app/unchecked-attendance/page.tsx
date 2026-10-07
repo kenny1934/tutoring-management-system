@@ -20,6 +20,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { Loader2, Check, X, ClipboardList, AlertTriangle, CheckSquare, Square, Minus, CheckCheck, UserX } from "lucide-react";
+import { Button } from "@/components/controls";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { UncheckedAttendanceReminder, Session } from "@/types";
@@ -402,44 +403,48 @@ export default function UncheckedAttendancePage() {
                     {selectedIds.size} selected
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
+                    <Button
+                      size="sm"
+                      icon={CheckCheck}
+                      iconClassName="text-green-600 dark:text-green-400"
                       onClick={() => handleBulkAction('attended')}
+                      loading={bulkActionLoading === 'attended'}
                       disabled={bulkActionLoading !== null}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
-                        bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
-                      )}
                       title="Mark all as attended"
+                      aria-label="Mark all as attended"
                     >
-                      <CheckCheck className={cn("h-3 w-3", bulkActionLoading === 'attended' && "animate-pulse")} />
-                      <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
-                    </button>
-                    <button
+                      <span className="hidden xs:inline">Attended</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      icon={UserX}
+                      iconClassName="text-red-600 dark:text-red-400"
                       onClick={() => handleBulkAction('no-show')}
+                      loading={bulkActionLoading === 'no-show'}
                       disabled={bulkActionLoading !== null}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-                        bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
-                      )}
                       title="Mark all as no show"
+                      aria-label="Mark all as no show"
                     >
-                      <UserX className={cn("h-3 w-3", bulkActionLoading === 'no-show' && "animate-pulse")} />
-                      <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
-                    </button>
-                    <button
+                      <span className="hidden xs:inline">No show</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      icon={CheckSquare}
                       onClick={toggleSelectAll}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-[#f0e0cc] dark:bg-[#4a3d2e] text-accent-ink hover:bg-[#e8d4b8] dark:hover:bg-[#5a4a38]"
+                      aria-label={isAllSelected ? "Deselect all" : "Select all"}
                     >
-                      <CheckSquare className="h-3 w-3" />
-                      <span className="hidden xs:inline">{isAllSelected ? 'Deselect All' : 'Select All'}</span>
-                    </button>
-                    <button
+                      <span className="hidden xs:inline">{isAllSelected ? 'Deselect all' : 'Select all'}</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      icon={X}
                       onClick={clearSelection}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      aria-label="Clear selection"
                     >
-                      <X className="h-3 w-3" />
                       <span className="hidden xs:inline">Clear</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -536,6 +541,7 @@ export default function UncheckedAttendancePage() {
                                     disabled={isDisabled}
                                     className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                     title={sectionState === 'all' ? 'Deselect section' : 'Select section'}
+                                    aria-label={sectionState === 'all' ? 'Deselect section' : 'Select section'}
                                   >
                                     {sectionState === 'all' ? (
                                       <CheckSquare className="h-4 w-4 text-accent-ink" />
@@ -579,6 +585,8 @@ export default function UncheckedAttendancePage() {
                                           toggleSelect(session.session_id);
                                         }}
                                         disabled={isDisabled}
+                                        aria-label={`Select ${session.student_name}`}
+                                        aria-pressed={isSelected}
                                         className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                       >
                                         {isProcessing ? (
@@ -629,44 +637,35 @@ export default function UncheckedAttendancePage() {
                                     </td>
                                     <td className="px-4 py-3 text-right whitespace-nowrap">
                                       <div className="flex items-center justify-end gap-2 flex-nowrap">
-                                        <button
+                                        <Button
+                                          size="sm"
+                                          icon={Check}
+                                          iconClassName="text-green-600 dark:text-green-400"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleMark(session.session_id, 'attended');
                                           }}
+                                          loading={markingId === session.session_id}
                                           disabled={isDisabled}
                                           title="Mark as attended"
-                                          className={cn(
-                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                                            "bg-green-600 text-white shadow-sm",
-                                            "hover:bg-green-700 hover:shadow",
-                                            "disabled:opacity-50"
-                                          )}
+                                          aria-label="Mark as attended"
                                         >
-                                          {markingId === session.session_id ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <Check className="h-3 w-3" />
-                                          )}
                                           <span className="hidden sm:inline">Attended</span>
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          icon={X}
+                                          iconClassName="text-red-600 dark:text-red-400"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleMark(session.session_id, 'no-show');
                                           }}
                                           disabled={isDisabled}
                                           title="Mark as no show"
-                                          className={cn(
-                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                                            "bg-red-600 text-white shadow-sm",
-                                            "hover:bg-red-700 hover:shadow",
-                                            "disabled:opacity-50"
-                                          )}
+                                          aria-label="Mark as no show"
                                         >
-                                          <X className="h-3 w-3" />
-                                          <span className="hidden sm:inline">No Show</span>
-                                        </button>
+                                          <span className="hidden sm:inline">No show</span>
+                                        </Button>
                                       </div>
                                     </td>
                                   </tr>

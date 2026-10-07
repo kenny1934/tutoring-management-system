@@ -25,6 +25,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
         <select
           value={filters.from_tutor_id || ""}
           onChange={(e) => onChange({ ...filters, from_tutor_id: e.target.value ? Number(e.target.value) : undefined })}
+          aria-label="Sender"
           className="text-xs px-2 py-1 border border-field rounded-full bg-transparent text-gray-500 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
         >
           <option value="" className="bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100">Any sender</option>
@@ -57,6 +58,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
         <button
           type="button"
           onClick={() => onChange({ ...filters, has_attachments: !filters.has_attachments || undefined })}
+          aria-pressed={!!filters.has_attachments}
           className={cn(
             "flex items-center gap-1 text-xs px-2 py-1 border rounded-full transition-colors",
             filters.has_attachments
@@ -74,6 +76,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
             key={p}
             type="button"
             onClick={() => onChange({ ...filters, priority: filters.priority === p ? undefined : p })}
+            aria-pressed={filters.priority === p}
             className={cn(
               "text-xs px-2 py-1 border rounded-full transition-colors",
               filters.priority === p
@@ -90,7 +93,7 @@ export default function SearchFilters({ filters, onChange, tutors }: SearchFilte
           <button
             type="button"
             onClick={() => onChange({})}
-            className="flex items-center gap-1 text-xs px-2 py-1 text-red-600 hover:text-red-600 transition-colors"
+            className="flex items-center gap-1 text-xs px-2 py-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
           >
             <X className="h-3 w-3" />
             Clear

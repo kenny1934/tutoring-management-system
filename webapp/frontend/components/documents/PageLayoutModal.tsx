@@ -5,6 +5,7 @@ import { X, Upload, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
 import type { DocumentMetadata, DocumentMargins, DocumentHeaderFooter, DocumentWatermark } from "@/types";
+import { Button, Field, IconButton, Input, Label, Segmented, Select } from "@/components/controls";
 
 type LayoutTab = "margins" | "headerFooter" | "watermark" | "fonts";
 
@@ -115,17 +116,15 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-line">
-          <h2 className="text-base font-semibold text-foreground">Page Layout</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]">
-            <X className="w-4 h-4 text-muted-foreground" />
-          </button>
+          <h2 className="text-base font-semibold text-foreground">Page layout</h2>
+          <IconButton icon={X} size="sm" label="Close" onClick={onClose} />
         </div>
 
         {/* Tabs */}
         <div className="flex border-b border-line px-5">
           {([
             { key: "margins" as const, label: "Margins" },
-            { key: "headerFooter" as const, label: "Header & Footer" },
+            { key: "headerFooter" as const, label: "Header & footer" },
             { key: "watermark" as const, label: "Watermark" },
             { key: "fonts" as const, label: "Fonts" },
           ]).map(({ key, label }) => (
@@ -151,26 +150,20 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
             <div>
               {/* Presets */}
               <p className="text-xs text-muted-foreground mb-2">Presets</p>
-              <div className="flex gap-2 mb-4">
-                {MARGIN_PRESETS.map(({ label, margins: preset }) => {
-                  const isActive = margins.top === preset.top && margins.right === preset.right
-                    && margins.bottom === preset.bottom && margins.left === preset.left;
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => setMargins(preset)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
-                        isActive
-                          ? "bg-primary text-white border-primary"
-                          : "border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground hover:border-primary/50"
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* No option is pressed while the margins are custom. */}
+              <Segmented
+                label="Margin preset"
+                className="mb-4"
+                value={MARGIN_PRESETS.find(({ margins: preset }) =>
+                  margins.top === preset.top && margins.right === preset.right
+                  && margins.bottom === preset.bottom && margins.left === preset.left
+                )?.label ?? ""}
+                onChange={(label) => {
+                  const preset = MARGIN_PRESETS.find((p) => p.label === label);
+                  if (preset) setMargins(preset.margins);
+                }}
+                options={MARGIN_PRESETS.map(({ label }) => ({ value: label, label }))}
+              />
 
               {/* Custom inputs */}
               <p className="text-xs text-muted-foreground mb-2">Custom (mm)</p>
@@ -178,14 +171,14 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                 {(["top", "right", "bottom", "left"] as const).map((side) => (
                   <label key={side} className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground capitalize w-12">{side}</span>
-                    <input
+                    <Input
                       type="number"
                       min={5}
                       max={50}
                       step={0.1}
                       value={margins[side]}
                       onChange={(e) => setMargins(m => ({ ...m, [side]: parseFloat(e.target.value) || 0 }))}
-                      className="flex-1 px-2 py-1.5 rounded-lg border border-field bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="flex-1"
                     />
                   </label>
                 ))}
@@ -269,56 +262,44 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
               {watermark.enabled && (
                 <>
                   {/* Type selector */}
-                  <div className="flex gap-2 mb-3">
-                    {(["text", "image"] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setWatermark(w => ({ ...w, type: t }))}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors capitalize",
-                          watermark.type === t
-                            ? "bg-primary text-white border-primary"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground hover:border-primary/50"
-                        )}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
+                  <Segmented
+                    label="Watermark type"
+                    className="mb-3"
+                    value={watermark.type}
+                    onChange={(t) => setWatermark(w => ({ ...w, type: t }))}
+                    options={[
+                      { value: "text", label: "Text" },
+                      { value: "image", label: "Image" },
+                    ]}
+                  />
 
                   {watermark.type === "text" ? (
-                    <div className="mb-3">
-                      <label className="text-xs text-muted-foreground mb-1 block">Watermark text</label>
-                      <input
+                    <Field label="Watermark text" id="watermark-text" className="mb-3">
+                      <Input
                         type="text"
                         value={watermark.text || ""}
                         onChange={(e) => setWatermark(w => ({ ...w, text: e.target.value }))}
                         placeholder="e.g. DRAFT, CONFIDENTIAL"
-                        className="w-full px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#2a2420] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
-                    </div>
+                    </Field>
                   ) : (
                     <div className="mb-3">
-                      <label className="text-xs text-muted-foreground mb-1 block">Watermark image</label>
+                      <Label>Watermark image</Label>
                       {watermark.imageUrl ? (
                         <div className="flex items-center gap-2">
                           <img src={watermark.imageUrl} alt="Watermark" className="h-10 rounded border border-line" />
-                          <button
+                          <IconButton
+                            icon={Trash2}
+                            size="sm"
+                            tone="danger"
+                            label="Remove watermark image"
                             onClick={() => setWatermark(w => ({ ...w, imageUrl: null }))}
-                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          />
                         </div>
                       ) : (
-                        <button
-                          onClick={() => watermarkImageRef.current?.click()}
-                          disabled={uploading}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
+                        <Button size="sm" icon={Upload} loading={uploading} onClick={() => watermarkImageRef.current?.click()}>
                           Upload image
-                        </button>
+                        </Button>
                       )}
                       <input
                         ref={watermarkImageRef}
@@ -335,10 +316,11 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   )}
 
                   {/* Opacity slider */}
-                  <label className="text-xs text-muted-foreground mb-1 block">
+                  <Label htmlFor="watermark-opacity">
                     Opacity: {Math.round(watermark.opacity * 100)}%
-                  </label>
+                  </Label>
                   <input
+                    id="watermark-opacity"
                     type="range"
                     min={0.02}
                     max={1}
@@ -351,10 +333,11 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   {/* Size slider (image only) */}
                   {watermark.type === "image" && (
                     <>
-                      <label className="text-xs text-muted-foreground mb-1 block mt-2">
+                      <Label htmlFor="watermark-size" className="mt-2">
                         Size: {watermark.imageSize ?? 60}%
-                      </label>
+                      </Label>
                       <input
+                        id="watermark-size"
                         type="range"
                         min={20}
                         max={100}
@@ -397,44 +380,47 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
           {/* Fonts Tab */}
           {activeTab === "fonts" && (
             <div>
-              <p className="text-sm font-medium text-foreground mb-2">Body Font</p>
+              <p className="text-sm font-medium text-foreground mb-2">Body font</p>
               <p className="text-[10px] text-muted-foreground mb-2">Default font for document content (can be overridden per selection)</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
-                  <label className="text-[10px] text-muted-foreground">English Font</label>
-                  <select
+                  <Label htmlFor="body-font-latin">English font</Label>
+                  <Select
+                    id="body-font-latin"
+                    size="sm"
                     value={bodyFontFamily || ""}
                     onChange={(e) => setBodyFontFamily(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {HF_FONTS_LATIN.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label className="text-[10px] text-muted-foreground">中文字體</label>
-                  <select
+                  <Label htmlFor="body-font-cjk">Chinese font</Label>
+                  <Select
+                    id="body-font-cjk"
+                    size="sm"
                     value={bodyFontFamilyCjk || ""}
                     onChange={(e) => setBodyFontFamilyCjk(e.target.value || null)}
-                    className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {HF_FONTS_CJK.map((ff) => (
                       <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
-                <div className="w-16 shrink-0">
-                  <label className="text-[10px] text-muted-foreground">Size</label>
-                  <select
+                <div className="w-20 shrink-0">
+                  <Label htmlFor="body-font-size">Size</Label>
+                  <Select
+                    id="body-font-size"
+                    size="sm"
                     value={bodyFontSize}
                     onChange={(e) => setBodyFontSize(parseInt(e.target.value))}
-                    className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                   >
                     {[8, 10, 12, 14, 16, 18, 20, 24].map((s) => (
                       <option key={s} value={s}>{s}px</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -443,18 +429,12 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
 
         {/* Footer */}
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-line">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <Button onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-          >
+          </Button>
+          <Button variant="primary" onClick={handleSave}>
             Apply
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -477,6 +457,7 @@ function HeaderFooterSection({
   onImageUpload: (f: File) => void;
   uploading: boolean;
 }) {
+  const idPrefix = `layout-${label.toLowerCase()}`;
   return (
     <div>
       <label className="flex items-center gap-2 mb-2 cursor-pointer">
@@ -495,13 +476,14 @@ function HeaderFooterSection({
           <div className="grid grid-cols-3 gap-2">
             {(["left", "center", "right"] as const).map((pos) => (
               <div key={pos}>
-                <label className="text-[10px] text-muted-foreground capitalize">{pos}</label>
-                <input
+                <Label htmlFor={`${idPrefix}-${pos}`}>{pos}</Label>
+                <Input
+                  id={`${idPrefix}-${pos}`}
+                  size="sm"
                   type="text"
                   value={config[pos]}
                   onChange={(e) => onChange({ ...config, [pos]: e.target.value })}
                   placeholder={pos === "center" ? "e.g. Page {page}" : ""}
-                  className="w-full px-2 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </div>
             ))}
@@ -510,40 +492,43 @@ function HeaderFooterSection({
           {/* Font controls */}
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              <label className="text-[10px] text-muted-foreground">English Font</label>
-              <select
+              <Label htmlFor={`${idPrefix}-font-latin`}>English font</Label>
+              <Select
+                id={`${idPrefix}-font-latin`}
+                size="sm"
                 value={config.fontFamily || ""}
                 onChange={(e) => onChange({ ...config, fontFamily: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONTS_LATIN.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="flex-1 min-w-0">
-              <label className="text-[10px] text-muted-foreground">中文字體</label>
-              <select
+              <Label htmlFor={`${idPrefix}-font-cjk`}>Chinese font</Label>
+              <Select
+                id={`${idPrefix}-font-cjk`}
+                size="sm"
                 value={config.fontFamilyCjk || ""}
                 onChange={(e) => onChange({ ...config, fontFamilyCjk: e.target.value || null })}
-                className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONTS_CJK.map((ff) => (
                   <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground">Size</label>
-              <select
+            <div className="w-20 shrink-0">
+              <Label htmlFor={`${idPrefix}-font-size`}>Size</Label>
+              <Select
+                id={`${idPrefix}-font-size`}
+                size="sm"
                 value={config.fontSize ?? 9}
                 onChange={(e) => onChange({ ...config, fontSize: parseInt(e.target.value) })}
-                className="w-full px-1.5 py-1 rounded border border-field bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
                 {HF_FONT_SIZES.map((s) => (
                   <option key={s} value={s}>{s}px</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -552,31 +537,29 @@ function HeaderFooterSection({
             {config.imageUrl ? (
               <>
                 <img src={config.imageUrl} alt={`${label} image`} className="h-6 rounded border border-line" />
-                <select
+                <Select
+                  size="sm"
+                  aria-label={`${label} image position`}
                   value={config.imagePosition || "left"}
                   onChange={(e) => onChange({ ...config, imagePosition: e.target.value as "left" | "center" | "right" })}
-                  className="text-[10px] px-1 py-0.5 rounded border border-field bg-white dark:bg-[#2a2420] text-foreground"
+                  className="w-24"
                 >
                   <option value="left">Left</option>
                   <option value="center">Center</option>
                   <option value="right">Right</option>
-                </select>
-                <button
+                </Select>
+                <IconButton
+                  icon={Trash2}
+                  size="sm"
+                  tone="danger"
+                  label={`Remove ${label.toLowerCase()} image`}
                   onClick={() => onChange({ ...config, imageUrl: null, imagePosition: null })}
-                  className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                />
               </>
             ) : (
-              <button
-                onClick={() => imageRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-1 px-2 py-1 rounded border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
-              >
-                <Upload className="w-3 h-3" />
+              <Button size="sm" icon={Upload} loading={uploading} onClick={() => imageRef.current?.click()}>
                 Add logo
-              </button>
+              </Button>
             )}
             <input
               ref={imageRef}

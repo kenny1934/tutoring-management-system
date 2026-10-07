@@ -8,6 +8,7 @@ import { RevisionSlotCard } from "./RevisionSlotCard";
 import { EnrollStudentModal } from "./EnrollStudentModal";
 import { EditRevisionSlotModal } from "./EditRevisionSlotModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { Button, IconButton, Select } from "@/components/controls";
 import type { ExamWithRevisionSlots, ExamRevisionSlot, SlotDefaults } from "@/types";
 import {
   ChevronDown,
@@ -270,16 +271,15 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
 
               {/* Edit event button */}
               {canManageEvents && onEditEvent && (
-                <button
+                <IconButton
+                  icon={Pencil}
+                  size="sm"
+                  label="Edit event"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEditEvent(exam);
                   }}
-                  className="p-1.5 rounded-md hover:bg-[#d4a574]/30 transition-colors"
-                  title="Edit event"
-                >
-                  <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
-                </button>
+                />
               )}
 
               {/* Expand indicator */}
@@ -310,23 +310,19 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Revision Slots ({exam.revision_slots.length})
               </h4>
-              <button
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
                 onClick={(e) => {
                   e.stopPropagation();
                   onCreateSlot();
                 }}
                 disabled={readOnly}
                 title={readOnly ? "Read-only access" : undefined}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-                  "bg-primary hover:bg-[#8a5f3e] text-white",
-                  "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
               >
-                <Plus className="h-4 w-4" />
-                Create Slot
-              </button>
+                Create slot
+              </Button>
             </div>
 
             {/* Slots */}
@@ -337,7 +333,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                   No revision slots created yet
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Click &quot;Create Slot&quot; to schedule a revision session
+                  Click &quot;Create slot&quot; to schedule a revision session
                 </p>
               </div>
             ) : (
@@ -397,16 +393,18 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                       {/* Tutor filter */}
                       {uniqueTutors.length > 1 && (
                         <div className="flex items-center gap-2 mb-2">
-                          <select
+                          <Select
+                            size="sm"
                             value={tutorFilter}
                             onChange={(e) => setTutorFilter(e.target.value)}
-                            className="text-xs px-2 py-1 border border-amber-200 dark:border-amber-700 rounded bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                            aria-label="Filter by tutor"
+                            className="w-auto"
                           >
-                            <option value="">All Tutors ({eligibleStudents.length})</option>
+                            <option value="">All tutors ({eligibleStudents.length})</option>
                             {uniqueTutors.map((tutor) => (
                               <option key={tutor} value={tutor}>{tutor}</option>
                             ))}
-                          </select>
+                          </Select>
                           {tutorFilter && (
                             <span className="text-xs text-amber-700 dark:text-amber-400">
                               {filteredEligible.length} student{filteredEligible.length !== 1 ? "s" : ""}

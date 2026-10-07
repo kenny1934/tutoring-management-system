@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Search, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/controls";
 import { messagesAPI } from "@/lib/api";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { useHaptic } from "@/lib/useHaptic";
@@ -88,8 +89,10 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors"
+        className="inline-flex h-7 w-7 items-center justify-center rounded text-ink-subtle transition-colors hover:bg-tint hover:text-gray-900 dark:hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         title="Send GIF"
+        aria-label="Send GIF"
+        aria-expanded={isOpen}
       >
         <span className="h-[18px] w-[18px] flex items-center justify-center text-[10px] font-bold leading-none">GIF</span>
       </button>
@@ -105,18 +108,20 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
         <div className="p-2 border-b border-line">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search GIFs..."
-              className="w-full pl-7 pr-7 py-1.5 text-sm bg-[#f5ede3] dark:bg-[#1a1a1a] border border-field rounded-md text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Search GIFs"
+              className="pl-7 pr-7"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
+                aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600"
               >
                 <X className="h-3.5 w-3.5" />

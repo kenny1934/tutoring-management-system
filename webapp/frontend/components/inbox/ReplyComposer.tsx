@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperat
 import { Send, Loader2, X, ChevronDown, Clock, Calendar, FileText, GripVertical, Reply } from "lucide-react";
 import { Reorder } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Button, Input } from "@/components/controls";
 import { isHtmlEmpty } from "@/lib/html-utils";
 import { saveReplyDraft, loadReplyDraft, clearReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
 import { useFileUpload } from "@/lib/useFileUpload";
@@ -335,6 +336,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               <button
                 type="button"
                 onClick={() => setReplyFiles(prev => prev.filter((f) => f.url !== file.url))}
+                aria-label={`Remove ${file.filename}`}
                 className="p-0.5 text-gray-500 hover:text-red-600 transition-colors flex-shrink-0"
               >
                 <X className="h-3 w-3" />
@@ -358,6 +360,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               <button
                 type="button"
                 onClick={() => setReplyImages(prev => prev.filter((u) => u !== url))}
+                aria-label="Remove image"
                 className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
               >
                 <X className="h-3 w-3" />
@@ -384,28 +387,30 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             isUploading={isReplyUploading}
           />
           <div className="relative flex">
-            <button
+            <Button
+              variant="primary"
+              icon={Send}
+              loading={isReplySending}
               onClick={handleSendReply}
-              disabled={isReplySending || !hasContent}
+              disabled={!hasContent}
               title="Send (Ctrl+Enter)"
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-[#8b5f3c] text-white text-sm shadow-sm transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed",
-                onScheduleSend ? "rounded-l-full" : "rounded-full"
-              )}
+              aria-label="Send"
+              className={cn(onScheduleSend && "rounded-r-none")}
             >
-              {isReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="hidden sm:inline">Send</span>
-            </button>
+            </Button>
             {onScheduleSend && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 disabled={isReplySending || !hasContent}
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
-                className="px-1.5 py-1.5 bg-primary hover:bg-[#8b5f3c] text-white rounded-r-full border-l border-white/20 transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed"
                 title="Schedule send"
+                aria-label="Schedule send"
+                aria-expanded={showScheduleMenu}
+                className="rounded-l-none border-l border-white/20 px-1.5"
               >
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
             )}
             {showScheduleMenu && (
               <>
@@ -440,36 +445,29 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
                       </button>
                     ) : (
                       <div className="px-3 py-2 space-y-1.5">
-                        <input
+                        <Input
+                          size="sm"
                           type="date"
                           value={customScheduleDate}
                           onChange={(e) => setCustomScheduleDate(e.target.value)}
                           min={new Date().toISOString().split("T")[0]}
-                          className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
+                          aria-label="Send on date"
                         />
-                        <input
+                        <Input
+                          size="sm"
                           type="time"
                           value={customScheduleTime}
                           onChange={(e) => setCustomScheduleTime(e.target.value)}
                           min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                          className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
+                          aria-label="Send at time"
                         />
                         <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setShowCustomSchedule(false)}
-                            className="flex-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                          >
+                          <Button size="sm" variant="quiet" className="flex-1" onClick={() => setShowCustomSchedule(false)}>
                             Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCustomScheduleReply}
-                            disabled={!customScheduleDate}
-                            className="flex-1 px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
-                          >
+                          </Button>
+                          <Button size="sm" variant="primary" className="flex-1" onClick={handleCustomScheduleReply} disabled={!customScheduleDate}>
                             Set
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}

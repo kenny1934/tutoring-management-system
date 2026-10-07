@@ -44,6 +44,7 @@ import {
 import { conceptDisplayName, conceptNameForStream } from "@/lib/curriculum-labels";
 import { getAppScroller } from "@/lib/scroll";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
+import { Button, IconButton, Segmented } from "@/components/controls";
 import { useDialogFocus } from "./CurriculumModalShell";
 import type { CurriculumTimelineResponse } from "@/types";
 
@@ -968,24 +969,12 @@ export function CurriculumAtlas({
         <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
           Concept map
         </span>
-        <div className="flex gap-1" role="group" aria-label="Series">
-          {(["HK", "MAS"] as AtlasSeries[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={series === s}
-              onClick={() => setSeriesOverride(s)}
-              className={cn(
-                "text-[11px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors",
-                series === s
-                  ? "bg-teal-600 dark:bg-teal-500 border-teal-600 dark:border-teal-500 text-white"
-                  : "border-[#d4a574]/50 dark:border-[#8b6f47]/70 text-gray-500 dark:text-gray-400 hover:border-teal-500 hover:text-teal-700 dark:hover:text-teal-400"
-              )}
-            >
-              {s} series
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Series"
+          value={series}
+          onChange={setSeriesOverride}
+          options={(["HK", "MAS"] as AtlasSeries[]).map((s) => ({ value: s, label: `${s} series` }))}
+        />
         <div className="ml-auto flex items-center gap-2.5 flex-wrap">
           {overlayActive ? (
             <>
@@ -1215,26 +1204,19 @@ export function CurriculumAtlas({
               {layout.succs.get(selectedNode.concept.id)?.length || 0}
             </span>
           </span>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() =>
               onOpenFiles({
                 conceptId: selectedNode.concept.id,
                 name: conceptNameForStream(selectedNode.concept, stream),
               })
             }
-            className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-md bg-teal-600 dark:bg-teal-500 text-white"
           >
             Worksheets
-          </button>
-          <button
-            type="button"
-            aria-label="Clear selection"
-            onClick={() => setSelectedId(null)}
-            className="shrink-0 p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
+          <IconButton icon={X} size="sm" label="Clear selection" onClick={() => setSelectedId(null)} />
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import { buildHFontFamily } from "@/lib/tiptap-extensions";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 
 interface DocumentPreviewPaneProps {
   docId: number | null;
@@ -32,6 +33,7 @@ function SourceFileCopy({ filename }: { filename: string }) {
       }}
       className="inline-flex items-center gap-0.5 text-[9px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
       title="Click to copy source path"
+      aria-label={`Copy the source path ${filename}`}
     >
       {copied ? <Check className="w-2.5 h-2.5 text-green-700" /> : <ScanLine className="w-2.5 h-2.5" />}
       <span className="truncate max-w-[8rem]">{filename}</span>
@@ -133,19 +135,10 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
           <div className="border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 px-3 py-3 shrink-0 bg-gradient-to-b from-[#fef9f3] to-[#fdf4ec] dark:from-[#1c1811] dark:to-[#181410]">
             {/* Top row: open + close */}
             <div className="flex items-center justify-between mb-1.5">
-              <button
-                onClick={() => onOpenEditor(docId)}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-accent-ink hover:text-[#8b5e3c] dark:hover:text-[#e8a84a] transition-colors group/open"
-              >
-                <ExternalLink className="w-3 h-3 transition-transform duration-150 group-hover/open:translate-x-0.5 group-hover/open:-translate-y-0.5" />
-                Open in Editor
-              </button>
-              <button
-                onClick={onClose}
-                className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <Button size="sm" icon={ExternalLink} onClick={() => onOpenEditor(docId)}>
+                Open in editor
+              </Button>
+              <IconButton icon={X} size="sm" label="Close preview" onClick={onClose} />
             </div>
 
             {isLoading ? (
@@ -175,6 +168,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                       value={titleDraft}
                       onChange={(e) => setTitleDraft(e.target.value)}
                       onBlur={commitRename}
+                      aria-label="Document name"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") commitRename();
                         if (e.key === "Escape") { committedRef.current = true; setEditingTitle(false); }
@@ -194,7 +188,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                     </h2>
                   )}
                   {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-700" />}
-                  {doc.is_archived && <span className="text-[9px] text-red-600 dark:text-red-400 italic shrink-0">In Trash</span>}
+                  {doc.is_archived && <span className="text-[9px] text-red-600 dark:text-red-400 italic shrink-0">In trash</span>}
                 </div>
 
                 {/* Metadata line */}
@@ -212,6 +206,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                       onClick={() => onEditTags(docId)}
                       className="inline-flex items-center justify-center w-5 h-5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-primary hover:text-accent-ink dark:hover:border-[#cd853f] dark:hover:text-[#cd853f] transition-colors"
                       title="Edit tags"
+                      aria-label="Edit tags"
                     >
                       <Plus className="w-3 h-3" />
                     </button>

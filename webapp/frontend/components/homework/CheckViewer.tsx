@@ -18,6 +18,7 @@ import { getPageLabel, hasBrowserModifier, isTypingTarget, NO_FILE_ERROR } from 
 import { HomeworkCheckRow } from "./HomeworkCheckRow";
 import { useHomeworkAnswer } from "./useHomeworkAnswer";
 import type { HomeworkCompletion, SessionExercise } from "@/types";
+import { Button } from "@/components/controls";
 
 /** Tells items apart even when a list covers several lessons. */
 const checkItemKey = (item: CheckItem) => `${item.sessionId}:${item.homework.session_exercise_id}`;
@@ -285,14 +286,9 @@ export function CheckViewer({
                 Nobody chose one when the homework was set, and there isn&apos;t one under the usual name in your
                 connected folders or in Shelv.
               </p>
-              <button
-                type="button"
-                onClick={retryAnswer}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-primary text-white hover:bg-[#8b6040] transition-colors"
-              >
-                <Search className="h-3.5 w-3.5" />
+              <Button variant="primary" icon={Search} onClick={retryAnswer}>
                 Search again
-              </button>
+              </Button>
             </>
           }
           viewStates={answerViews}

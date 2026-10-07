@@ -8,6 +8,7 @@ import { formatActivityTime, formatActivityDate, formatFullTimestamp } from "@/l
 import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import type { ActivityEvent } from "@/types";
+import { Button, IconButton } from "@/components/controls";
 import {
   CheckCircle,
   CheckCircle2,
@@ -255,12 +256,7 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-line/50 transition-colors"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
+          <IconButton icon={X} label="Close" onClick={onClose} />
         </div>
 
         {/* Content */}
@@ -370,29 +366,14 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
                 {/* Load More Button */}
                 {hasMore && (
                   <div className="pt-4 pb-2 flex justify-center">
-                    <button
+                    <Button
+                      variant="secondary"
+                      icon={ChevronDown}
+                      loading={isLoadingMore}
                       onClick={handleLoadMore}
-                      disabled={isLoadingMore}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        "bg-line/50",
-                        "hover:bg-line",
-                        "text-[#5c4934] dark:text-[#e8d4b8]",
-                        "disabled:opacity-50 disabled:cursor-not-allowed"
-                      )}
                     >
-                      {isLoadingMore ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-4 w-4" />
-                          Load More
-                        </>
-                      )}
-                    </button>
+                      {isLoadingMore ? "Loading..." : "Load more"}
+                    </Button>
                   </div>
                 )}
               </div>

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Badge, Button, IconButton } from "@/components/controls";
 import { documentsAPI } from "@/lib/document-api";
 import type { ExtractedQuestion, ProcessQuestionResult, ProcessQuestionError, ProcessQuestionsResponse, Document } from "@/types";
 import katex from "katex";
@@ -428,29 +429,21 @@ export function QuestionPanel({
           <ListTree className="w-4 h-4 text-accent-ink" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Questions</h3>
           {questions && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">
-              {questions.length}
-            </span>
+            <Badge>{questions.length}</Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
           {questions && questions.length > 0 && (
-            <button
+            <IconButton
+              icon={RefreshCw}
+              iconClassName={loading ? "animate-spin" : undefined}
+              size="sm"
+              label="Re-extract questions"
               onClick={handleExtract}
               disabled={loading || processing || isReadOnly}
-              className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Re-extract questions"
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5 text-gray-500", loading && "animate-spin")} />
-            </button>
+            />
           )}
-          <button
-            onClick={onClose}
-            aria-label="Close questions panel"
-            className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-          >
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
+          <IconButton icon={X} size="sm" label="Close questions panel" onClick={onClose} />
         </div>
       </div>
 
@@ -494,13 +487,9 @@ export function QuestionPanel({
                 Parse the document to identify individual questions
               </p>
             </div>
-            <button
-              onClick={handleExtract}
-              disabled={loading || isReadOnly}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Extract Questions
-            </button>
+            <Button variant="primary" onClick={handleExtract} disabled={loading || isReadOnly}>
+              Extract questions
+            </Button>
             {error && <p className="text-xs text-red-600">{error}</p>}
           </div>
         ) : (
@@ -526,45 +515,46 @@ export function QuestionPanel({
       {questions && questions.length > 0 && !loading && (!processing || retryingIndex !== null) && !isReadOnly && (
         <div className="border-t border-line px-3 py-2.5 space-y-2">
           <div className="flex gap-2">
-            <button
+            <Button
+              size="sm"
+              icon={Brain}
+              iconClassName="text-blue-600 dark:text-blue-400"
               onClick={() => setPendingAction("solve")}
               disabled={processing}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
+              className="flex-1"
             >
-              <Brain className="w-3.5 h-3.5" />
               Solve ({questions.length})
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
+              icon={Shuffle}
+              iconClassName="text-purple-600 dark:text-purple-400"
               onClick={() => setPendingAction("vary")}
               disabled={processing}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/30 transition-colors"
+              className="flex-1"
             >
-              <Shuffle className="w-3.5 h-3.5" />
               Variants ({questions.length})
-            </button>
+            </Button>
           </div>
 
           {processResults && processResults.length > 0 && (
             <div className="flex gap-2">
               {hasSolutions && (
-                <button
-                  onClick={handleApplySolutions}
-                  disabled={applying}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-white bg-primary hover:bg-primary-hover transition-colors"
-                >
-                  {applying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-                  Apply Solutions
-                </button>
+                <Button variant="primary" size="sm" icon={BookOpen} loading={applying} onClick={handleApplySolutions} className="flex-1">
+                  Apply solutions
+                </Button>
               )}
               {hasVariants && (
-                <button
+                <Button
+                  size="sm"
+                  icon={FileOutput}
+                  iconClassName="text-purple-600 dark:text-purple-400"
+                  loading={creating}
                   onClick={handleCreateVariant}
-                  disabled={creating}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+                  className="flex-1"
                 >
-                  {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileOutput className="w-3.5 h-3.5" />}
-                  Create Variant
-                </button>
+                  Create variant
+                </Button>
               )}
             </div>
           )}
@@ -585,7 +575,7 @@ export function QuestionPanel({
           : `Generate variants for ${questions?.length ?? 0} questions?`}
         message={confirmMessage}
         consequences={confirmConsequences}
-        confirmText={pendingAction === "solve" ? "Solve All" : "Generate Variants"}
+        confirmText={pendingAction === "solve" ? "Solve all" : "Generate variants"}
       />
     </div>
   );

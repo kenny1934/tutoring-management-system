@@ -6,6 +6,7 @@ import { proposalsAPI } from "@/lib/api";
 import { formatProposalDate } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button, Input, Label } from "@/components/controls";
 import { mutate } from "swr";
 import type { MakeupProposal, MakeupProposalSlot } from "@/types";
 import {
@@ -17,7 +18,6 @@ import {
   User,
   Users,
   AlertCircle,
-  Loader2,
   Trash2,
   MessageSquare,
   Calendar,
@@ -147,47 +147,33 @@ function SlotItem({
         {/* Action buttons for target tutor */}
         {canAct && (
           <div className="flex flex-col gap-2">
-            <button
-              onClick={() => onApprove(slot.id)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-            >
-              <Check className="h-4 w-4" />
+            <Button size="sm" variant="secondary" icon={Check} iconClassName="text-green-700 dark:text-green-400" onClick={() => onApprove(slot.id)}>
               Approve
-            </button>
+            </Button>
             {showRejectInput ? (
               <div className="flex flex-col gap-1">
-                <input
+                <Input
+                  size="sm"
                   type="text"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Reason (optional)"
-                  className="w-full px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2a2a2a]"
+                  aria-label="Reason for rejecting"
                   autoFocus
                 />
                 <div className="flex gap-1">
-                  <button
-                    onClick={handleReject}
-                    disabled={isRejecting}
-                    className="flex-1 px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors disabled:opacity-50"
-                  >
+                  <Button size="sm" variant="danger" className="flex-1" onClick={handleReject} disabled={isRejecting}>
                     Confirm
-                  </button>
-                  <button
-                    onClick={() => setShowRejectInput(false)}
-                    className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                  >
+                  </Button>
+                  <Button size="sm" variant="quiet" onClick={() => setShowRejectInput(false)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <button
-                onClick={handleReject}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-white hover:bg-red-600 border border-red-300 dark:border-red-800 rounded-lg transition-colors"
-              >
-                <X className="h-4 w-4" />
+              <Button size="sm" variant="secondary" icon={X} iconClassName="text-red-600 dark:text-red-400" onClick={handleReject}>
                 Reject
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -410,20 +396,12 @@ export const ProposalCard = memo(function ProposalCard({
 
               {isNeedsInputTarget && proposal.status === "pending" && (
                 <div className="flex gap-2">
-                  <button
-                    onClick={onSelectSlot}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors"
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Select Slot
-                  </button>
-                  <button
-                    onClick={() => setShowRejectConfirm(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:text-white hover:bg-red-600 border border-red-300 dark:border-red-800 rounded-lg transition-colors"
-                  >
-                    <X className="h-4 w-4" />
+                  <Button variant="primary" icon={Calendar} className="flex-1" onClick={onSelectSlot}>
+                    Select slot
+                  </Button>
+                  <Button variant="secondary" icon={X} iconClassName="text-red-600 dark:text-red-400" onClick={() => setShowRejectConfirm(true)}>
                     Decline
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -433,18 +411,15 @@ export const ProposalCard = memo(function ProposalCard({
         {/* Footer actions */}
         {canCancel && (
           <div className="px-4 py-3 border-t border-line flex justify-end">
-            <button
+            <Button
+              variant="quiet"
+              icon={Trash2}
+              iconClassName="text-red-600 dark:text-red-400"
+              loading={loadingAction === "cancel"}
               onClick={() => setShowCancelConfirm(true)}
-              disabled={loadingAction === "cancel"}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
-              {loadingAction === "cancel" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              Cancel Proposal
-            </button>
+              Cancel proposal
+            </Button>
           </div>
         )}
       </div>
@@ -454,9 +429,9 @@ export const ProposalCard = memo(function ProposalCard({
         isOpen={showCancelConfirm}
         onConfirm={handleCancel}
         onCancel={() => setShowCancelConfirm(false)}
-        title="Cancel Proposal"
+        title="Cancel proposal"
         message="Are you sure you want to cancel this proposal? This action cannot be undone."
-        confirmText="Cancel Proposal"
+        confirmText="Cancel proposal"
         variant="danger"
         loading={loadingAction === "cancel"}
       />
@@ -469,18 +444,20 @@ export const ProposalCard = memo(function ProposalCard({
           setShowRejectConfirm(false);
           setRejectReason("");
         }}
-        title="Decline Request"
+        title="Decline request"
         message={
           <div className="space-y-3">
             <p>Are you sure you want to decline this make-up request?</p>
             <div>
-              <label className="block text-sm font-medium mb-1">Reason (optional)</label>
-              <input
+              <Label htmlFor={`decline-reason-${proposal.id}`}>
+                Reason <span className="normal-case font-normal">(optional)</span>
+              </Label>
+              <Input
+                id={`decline-reason-${proposal.id}`}
                 type="text"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g., No available slots this week"
-                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
               />
             </div>
           </div>

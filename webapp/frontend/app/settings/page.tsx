@@ -67,24 +67,25 @@ export default function SettingsPage() {
                     <button
                       key={item.id}
                       onClick={() => setActiveSection(isActive ? null : item.id)}
+                      aria-expanded={isActive}
                       className={cn(
                         "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-all",
                         isActive
-                          ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
-                          : "bg-[#fef9f3] dark:bg-[#2d2618] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-amber-300 dark:hover:border-amber-700"
+                          ? "bg-field-fill border-line-strong ring-1 ring-line-strong"
+                          : "bg-paper border-line hover:border-line-strong"
                       )}
                     >
                       <Icon className={cn(
                         "h-5 w-5 shrink-0",
                         isActive
-                          ? "text-amber-700 dark:text-amber-400"
+                          ? "text-accent-ink"
                           : "text-foreground/40"
                       )} />
                       <div className="flex-1 min-w-0">
                         <span className={cn(
                           "block font-medium truncate",
                           isActive
-                            ? "text-amber-800 dark:text-amber-200"
+                            ? "text-gray-900 dark:text-gray-100"
                             : "text-foreground"
                         )}>
                           {item.title}
@@ -97,7 +98,7 @@ export default function SettingsPage() {
                         "h-4 w-4 shrink-0 transition-transform",
                         isActive ? "rotate-90" : "",
                         isActive
-                          ? "text-amber-700 dark:text-amber-400"
+                          ? "text-foreground/70"
                           : "text-foreground/40"
                       )} />
                     </button>

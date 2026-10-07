@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { versionsAPI } from "@/lib/document-api";
 import type { DocumentVersion } from "@/types";
+import { Button, IconButton, Input } from "@/components/controls";
 
 interface VersionHistoryPanelProps {
   docId: number;
@@ -130,34 +131,26 @@ export function VersionHistoryPanel({
     <div className="fixed inset-y-0 right-0 z-50 w-80 md:relative md:inset-auto md:z-auto md:w-80 shrink-0 bg-white dark:bg-[#1a1410] border-l border-line shadow-xl md:shadow-none flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Version History</h3>
-        <button
-          onClick={onClose}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-[#2d2618] text-gray-500 dark:text-gray-400"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Version history</h3>
+        <IconButton icon={X} size="sm" label="Close version history" onClick={onClose} />
       </div>
 
       {/* Create checkpoint */}
       <div className="px-4 py-3 border-b border-line">
         <div className="flex gap-2">
-          <input
+          <Input
+            size="sm"
             type="text"
             value={checkpointLabel}
             onChange={(e) => setCheckpointLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleCreateCheckpoint(); }}
             placeholder="Checkpoint label (optional)"
-            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-field bg-white dark:bg-[#1a1410] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-primary"
+            aria-label="Checkpoint label"
+            className="flex-1"
           />
-          <button
-            onClick={handleCreateCheckpoint}
-            disabled={saving}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 whitespace-nowrap transition-colors"
-          >
-            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+          <Button variant="primary" size="sm" icon={Save} loading={saving} onClick={handleCreateCheckpoint}>
             Save
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -209,37 +202,29 @@ export function VersionHistoryPanel({
 
                   {/* Actions — visible on hover */}
                   <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                    <button
+                    <IconButton
+                      icon={Eye}
+                      size="sm"
+                      label="Preview this version"
                       onClick={() => onPreview(ver.id)}
-                      className="p-1 rounded hover:bg-line/50 text-gray-500 hover:text-blue-600"
-                      title="Preview this version"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
+                    />
+                    <IconButton
+                      icon={restoringId === ver.id ? Loader2 : RotateCcw}
+                      iconClassName={restoringId === ver.id ? "animate-spin" : undefined}
+                      size="sm"
+                      label="Restore this version"
                       onClick={() => handleRestore(ver.id)}
                       disabled={restoringId === ver.id}
-                      className="p-1 rounded hover:bg-line/50 text-gray-500 hover:text-green-700 disabled:opacity-50"
-                      title="Restore this version"
-                    >
-                      {restoringId === ver.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
+                    />
+                    <IconButton
+                      icon={deletingId === ver.id ? Loader2 : Trash2}
+                      iconClassName={deletingId === ver.id ? "animate-spin" : undefined}
+                      size="sm"
+                      tone="danger"
+                      label="Delete this version"
                       onClick={() => handleDelete(ver.id)}
                       disabled={deletingId === ver.id}
-                      className="p-1 rounded hover:bg-line/50 text-gray-500 hover:text-red-600 disabled:opacity-50"
-                      title="Delete this version"
-                    >
-                      {deletingId === ver.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    />
                   </div>
                 </div>
               </div>

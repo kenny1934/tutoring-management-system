@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, ChevronDown, ChevronRight, Eye, Code2 } from "lucide-react";
+import { X, ChevronDown, ChevronRight, Eye, Code2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
 import { patchMathLiveMenu } from "@/lib/mathlive-utils";
 
@@ -262,25 +263,13 @@ export default function MathEditorModal({
             {isEditing ? "Edit Equation" : "Insert Equation"}
           </h3>
           <div className="flex items-center gap-1">
-            <button
+            <IconButton
+              icon={sourceMode ? Eye : Code2}
+              label={sourceMode ? "Visual editor" : "LaTeX source"}
               onClick={() => setSourceMode((s) => !s)}
-              title={sourceMode ? "Visual editor" : "LaTeX source"}
-              className={cn(
-                "p-2 sm:p-1 rounded transition-colors",
-                sourceMode
-                  ? "bg-tint text-accent-ink"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
-              )}
-            >
-              {sourceMode ? <Eye className="h-4 w-4" /> : <Code2 className="h-4 w-4" />}
-            </button>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="p-2 sm:p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <X className="h-4 w-4 text-gray-500" />
-            </button>
+              className={cn(sourceMode && "bg-tint text-accent-ink")}
+            />
+            <IconButton icon={X} label="Close" onClick={onClose} />
           </div>
         </div>
 
@@ -290,12 +279,13 @@ export default function MathEditorModal({
         {/* Mathfield / Source editor */}
         <div className="px-4 pt-4 pb-2">
           {sourceMode ? (
-            <textarea
+            <Textarea
               value={latex}
               onChange={(e) => setLatex(e.target.value)}
               autoFocus
               spellCheck={false}
-              className="w-full rounded-lg border border-field bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-primary resize-none"
+              aria-label="LaTeX source"
+              className="font-mono p-3 resize-none"
               style={{ minHeight: "80px" }}
               placeholder="e.g. \frac{a}{b}"
             />
@@ -368,32 +358,15 @@ export default function MathEditorModal({
         {/* Mode toggle + actions */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-line/40">
           <div>
-            <div className="flex items-center gap-1 bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={() => setMode("inline")}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                  mode === "inline"
-                    ? "bg-white dark:bg-[#2a2a2a] text-accent-ink shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                )}
-              >
-                Inline
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("block")}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                  mode === "block"
-                    ? "bg-white dark:bg-[#2a2a2a] text-accent-ink shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                )}
-              >
-                Block
-              </button>
-            </div>
+            <Segmented
+              label="How the equation sits in the message"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "inline", label: "Inline" },
+                { value: "block", label: "Block" },
+              ]}
+            />
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 ml-0.5">
               {modeDescription}
             </p>
@@ -404,26 +377,16 @@ export default function MathEditorModal({
               Ctrl+Enter
             </span>
             {isEditing && (
-              <button
-                onClick={handleDelete}
-                className="px-3 py-2.5 sm:py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              >
+              <Button variant="quiet" icon={Trash2} iconClassName="text-red-600 dark:text-red-400" onClick={handleDelete}>
                 Delete
-              </button>
+              </Button>
             )}
-            <button
-              onClick={onClose}
-              className="px-3 py-2.5 sm:py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
+            <Button variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={handleInsert}
-              disabled={!latex.trim()}
-              className="px-4 py-2.5 sm:py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+            </Button>
+            <Button variant="primary" onClick={handleInsert} disabled={!latex.trim()}>
               {isEditing ? "Update" : "Insert"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import { LayoutTemplate, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
+import { Button, IconButton, Input, Textarea } from "@/components/controls";
 import type { MessageTemplate } from "@/types";
 
 interface TemplatePickerProps {
@@ -35,20 +36,15 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
 
   return (
     <div>
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="sm"
+        icon={LayoutTemplate}
+        label="Message templates"
         onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "p-1.5 rounded transition-colors",
-          isOpen
-            ? "text-accent-ink bg-[#f5ede3]/60 dark:bg-[#3d3628]/50"
-            : "text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-        )}
-        title="Message templates"
-      >
-        <LayoutTemplate className="h-4 w-4" />
-      </button>
+        aria-expanded={isOpen}
+        className={cn(isOpen && "bg-tint text-accent-ink")}
+      />
 
       <FloatingDropdown
         triggerRef={triggerRef}
@@ -61,56 +57,52 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
           <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Templates</span>
           <div className="flex items-center gap-1">
             {onCreate && (
-              <button
-                type="button"
+              <IconButton
+                size="sm"
+                icon={Plus}
+                label="Create template"
                 onClick={() => setShowCreate(!showCreate)}
-                className="p-1 text-gray-500 hover:text-accent-ink rounded transition-colors"
-                title="Create template"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
+                aria-expanded={showCreate}
+              />
             )}
-            <button
-              type="button"
-              onClick={close}
-              className="p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <IconButton size="sm" icon={X} label="Close" onClick={close} />
           </div>
         </div>
 
         {showCreate && (
           <div className="p-2 border-b border-line/30 space-y-1.5">
-            <input
+            <Input
+              size="sm"
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Template name"
-              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Template name"
             />
-            <textarea
+            <Textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="Template content"
+              aria-label="Template content"
               rows={2}
-              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              className="min-h-0 resize-none px-2 py-1 text-xs"
             />
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="primary"
+              className="w-full"
               onClick={handleCreate}
               disabled={!newTitle.trim() || !newContent.trim()}
-              className="w-full px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Save template
-            </button>
+            </Button>
           </div>
         )}
 
         <div className="py-1">
           {personalTemplates.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">My Templates</div>
+              <div className="px-3 py-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">My templates</div>
               {personalTemplates.map(t => (
                 <div key={t.id} className="group flex items-center">
                   <button
@@ -125,6 +117,8 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                     <button
                       type="button"
                       onClick={() => { if (window.confirm("Delete this template?")) onDelete(t.id); }}
+                      title="Delete template"
+                      aria-label={`Delete the ${t.title} template`}
                       className="p-1.5 mr-1 text-gray-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -137,7 +131,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
 
           {globalTemplates.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Quick Replies</div>
+              <div className="px-3 py-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Quick replies</div>
               {globalTemplates.map(t => (
                 <button
                   key={t.id}

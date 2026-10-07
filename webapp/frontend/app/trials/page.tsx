@@ -16,6 +16,7 @@ import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollment
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { Button, Input, Select } from "@/components/controls";
 
 // Column configuration
 const COLUMNS = [
@@ -139,28 +140,30 @@ const TrialCard = React.memo(function TrialCard({
       {showContactButton && (
         <div className="mt-3 pt-2 border-t border-line space-y-2">
           {/* Record Contact - all users */}
-          <button
+          <Button
+            size="sm"
+            icon={Phone}
             onClick={(e) => {
               e.stopPropagation();
               onRecordContact(trial.student_id);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 w-full justify-center border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm font-medium transition-colors"
+            className="w-full"
           >
-            <Phone className="h-4 w-4" />
-            Record Contact
-          </button>
+            Record contact
+          </Button>
           {/* Convert to Regular - admin only, pending status only */}
           {isAdmin && trial.trial_status === 'pending' && (
-            <button
+            <Button
+              size="sm"
+              icon={ArrowRight}
               onClick={(e) => {
                 e.stopPropagation();
                 onConvert(trial);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 w-full justify-center bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors"
+              className="w-full"
             >
-              <ArrowRight className="h-4 w-4" />
               Convert to Regular
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -534,13 +537,9 @@ export default function TrialsPage() {
               </div>
 
               {isAdmin && (
-                <button
-                  onClick={handleNewTrial}
-                  className="flex items-center gap-2 px-2 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Trial</span>
-                </button>
+                <Button variant="primary" icon={Plus} onClick={handleNewTrial} aria-label="New trial">
+                  <span className="hidden sm:inline">New trial</span>
+                </Button>
               )}
             </div>
           </div>
@@ -549,14 +548,15 @@ export default function TrialsPage() {
           <div className="mb-4 flex flex-wrap items-center gap-2">
             {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-              <input
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
+              <Input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="pl-9 pr-8 py-1.5 w-40 sm:w-48 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                aria-label="Search trials"
+                className="pl-9 pr-8 w-40 sm:w-48"
               />
               {searchQuery && (
                 <button
@@ -564,6 +564,7 @@ export default function TrialsPage() {
                     setSearchQuery("");
                     searchInputRef.current?.focus();
                   }}
+                  aria-label="Clear search"
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                 >
                   <X className="h-4 w-4 text-foreground/40" />
@@ -572,36 +573,38 @@ export default function TrialsPage() {
             </div>
 
             {/* Time Range Filter */}
-            <select
+            <Select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
-              className="px-2 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              aria-label="Time range"
+              className="w-auto"
             >
               <option value="30">Last 30 days</option>
               <option value="90">Last 90 days</option>
               <option value="academic">This academic year</option>
               <option value="all">All time</option>
-            </select>
+            </Select>
 
             {/* Group By Filter */}
-            <select
+            <Select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
-              className="px-2 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              aria-label="Group trials"
+              className="w-auto"
             >
-              <option value="status">By Status</option>
-              <option value="school">By School</option>
-              <option value="grade">By Grade</option>
-            </select>
+              <option value="status">By status</option>
+              <option value="school">By school</option>
+              <option value="grade">By grade</option>
+            </Select>
 
             {/* Sort Toggle */}
-            <button
+            <Button
+              icon={ArrowUpDown}
               onClick={() => setSortOrder(prev => prev === "newest" ? "oldest" : "newest")}
-              className="flex items-center gap-1.5 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              title="Change the sort order"
             >
-              <ArrowUpDown className="h-4 w-4" />
               {sortOrder === "newest" ? "Newest" : "Oldest"}
-            </button>
+            </Button>
 
             {/* Result count */}
             {trials && (
@@ -669,13 +672,9 @@ export default function TrialsPage() {
                 {isAdmin ? "Create a trial enrollment to get started" : "No trial sessions assigned to you"}
               </p>
               {isAdmin && (
-                <button
-                  onClick={handleNewTrial}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  New Trial
-                </button>
+                <Button icon={Plus} onClick={handleNewTrial}>
+                  New trial
+                </Button>
               )}
             </div>
           )}
@@ -720,7 +719,7 @@ export default function TrialsPage() {
                           : "text-foreground/60 hover:text-foreground/80"
                       )}
                     >
-                      Trial Details
+                      Trial details
                     </button>
                     <button
                       onClick={() => setModalTabView('create')}
@@ -858,6 +857,7 @@ export default function TrialsPage() {
                 {/* Close button - floating top right */}
                 <button
                   onClick={handleCloseComparison}
+                  aria-label="Close"
                   className={cn(
                     "absolute z-10 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
                     isLargeScreen ? "-top-2 -right-2" : "top-2 right-2"

@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { Paperclip, Image, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/controls";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 
 interface AttachmentMenuProps {
@@ -15,7 +16,7 @@ interface AttachmentMenuProps {
 const ATTACHMENT_OPTIONS = [
   {
     id: "media",
-    label: "Photos & Videos",
+    label: "Photos & videos",
     icon: Image,
     accept: "image/*,video/*",
   },
@@ -46,20 +47,16 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
 
   return (
     <div className={cn(className)}>
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="sm"
+        icon={isUploading ? Loader2 : Paperclip}
+        iconClassName={isUploading ? "animate-spin" : undefined}
+        label="Attach file"
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled || isUploading}
-        className="p-1.5 text-gray-500 hover:text-accent-ink hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors disabled:opacity-50"
-        title="Attach file"
-      >
-        {isUploading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Paperclip className="h-4 w-4" />
-        )}
-      </button>
+        aria-expanded={isOpen}
+      />
 
       <FloatingDropdown
         triggerRef={triggerRef}

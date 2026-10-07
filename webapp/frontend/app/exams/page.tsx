@@ -25,6 +25,7 @@ import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { useLocation } from "@/contexts/LocationContext";
 import type { ExamWithRevisionSlots, SlotDefaults, CalendarEvent } from "@/types";
+import { Button, IconButton, Input, Segmented, Select } from "@/components/controls";
 import {
   GraduationCap,
   ArrowLeft,
@@ -40,6 +41,7 @@ import {
 } from "lucide-react";
 
 type ViewStyle = "list" | "calendar";
+type DatePreset = "thisWeek" | "next2Weeks" | "thisMonth" | "next30Days";
 
 // Ordered list of known exam types for the filter dropdown
 const EXAM_TYPES = ["Test", "Exam", "Quiz"] as const;
@@ -123,29 +125,16 @@ function ExamCalendarView({
       )}>
         {/* Calendar header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-          <button
-            onClick={goToPrevMonth}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </button>
+          <IconButton icon={ChevronLeft} label="Previous month" onClick={goToPrevMonth} />
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </h3>
-            <button
-              onClick={goToToday}
-              className="px-2 py-1 text-xs font-medium rounded-md border border-line text-gray-600 dark:text-gray-400 hover:bg-tint transition-colors"
-            >
+            <Button size="sm" onClick={goToToday}>
               Today
-            </button>
+            </Button>
           </div>
-          <button
-            onClick={goToNextMonth}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-          >
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </button>
+          <IconButton icon={ChevronRight} label="Next month" onClick={goToNextMonth} />
         </div>
 
         {/* Day headers */}
@@ -574,12 +563,7 @@ export default function ExamsPage() {
           {/* Header */}
           <div className="p-4 sm:px-6 sm:py-4 surface">
             <div className="flex items-center gap-4">
-              <button
-                onClick={goBack}
-                className="p-2 hover:bg-tint rounded-lg transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              </button>
+              <IconButton icon={ArrowLeft} label="Back" onClick={goBack} />
               <div className="flex items-center gap-3">
                 <div className="hidden sm:block p-2 rounded-lg bg-tint">
                   <GraduationCap className="h-6 w-6 text-accent-ink" />
@@ -595,14 +579,16 @@ export default function ExamsPage() {
               </div>
               {/* Add Event button */}
               {canManageEvents && (
-                <button
+                <Button
+                  variant="primary"
+                  icon={Plus}
                   onClick={handleOpenCreateEvent}
-                  className="ml-auto flex items-center gap-1.5 px-2 sm:px-3 py-2 text-sm font-medium rounded-lg bg-primary hover:bg-[#8a5f3d] text-white transition-colors"
-                  title="Add Event"
+                  className="ml-auto"
+                  title="Add event"
+                  aria-label="Add event"
                 >
-                  <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-                  <span className="hidden md:inline">Add Event</span>
-                </button>
+                  <span className="hidden md:inline">Add event</span>
+                </Button>
               )}
             </div>
           </div>
@@ -619,46 +605,48 @@ export default function ExamsPage() {
           <div className="px-4 py-3 flex flex-wrap gap-2 sm:gap-3 items-center">
             {/* Search - full width on mobile */}
             <div className="relative w-full sm:w-auto sm:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <input
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
+              <Input
                 type="text"
                 placeholder="Search exams..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search exams"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                className="pl-9"
               />
             </div>
 
             {/* School filter - share space on mobile */}
-            <select
-              value={schoolFilter}
-              onChange={(e) => setSchoolFilter(e.target.value)}
-              aria-label="Filter by school"
-              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
-            >
-              <option value="">All Schools</option>
-              {schools.map((school) => (
-                <option key={school} value={school}>
-                  {school}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 sm:flex-none">
+              <Select
+                value={schoolFilter}
+                onChange={(e) => setSchoolFilter(e.target.value)}
+                aria-label="Filter by school"
+              >
+                <option value="">All schools</option>
+                {schools.map((school) => (
+                  <option key={school} value={school}>
+                    {school}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
             {/* Grade filter - share space on mobile */}
-            <select
-              value={gradeFilter}
-              onChange={(e) => setGradeFilter(e.target.value)}
-              aria-label="Filter by grade"
-              className="flex-1 sm:flex-none px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
-            >
-              <option value="">All Grades</option>
-              {grades.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 sm:flex-none">
+              <Select
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+                aria-label="Filter by grade"
+              >
+                <option value="">All grades</option>
+                {grades.map((grade) => (
+                  <option key={grade} value={grade}>
+                    {grade}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
             {/* Type filter - custom dropdown with colored dots */}
             <div ref={typeDropdownRef} className="relative flex-1 sm:flex-none">
@@ -667,7 +655,7 @@ export default function ExamsPage() {
                 aria-label="Filter by type"
                 aria-haspopup="listbox"
                 aria-expanded={typeDropdownOpen}
-                className="flex items-center gap-2 w-full sm:w-auto px-3 py-2 text-sm border border-line rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                className="flex h-8 items-center gap-2 w-full sm:w-auto px-2.5 text-sm border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 focus:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
               >
                 {typeFilter ? (
                   <>
@@ -675,7 +663,7 @@ export default function ExamsPage() {
                     <span>{typeFilter}</span>
                   </>
                 ) : (
-                  <span>All Types</span>
+                  <span>All types</span>
                 )}
                 <ChevronDown className={cn("h-3.5 w-3.5 ml-auto transition-transform", typeDropdownOpen && "rotate-180")} />
               </button>
@@ -688,7 +676,7 @@ export default function ExamsPage() {
                       !typeFilter && "bg-tint font-medium"
                     )}
                   >
-                    All Types
+                    All types
                   </button>
                   {EXAM_TYPES.map((type) => {
                     const colors = EXAM_TYPE_COLORS[type];
@@ -711,32 +699,15 @@ export default function ExamsPage() {
             </div>
 
             {/* View style toggle */}
-            <div className="inline-flex rounded-lg border border-line p-0.5 bg-paper">
-              <button
-                onClick={() => setViewStyle("list")}
-                className={cn(
-                  "p-1.5 rounded-md transition-colors",
-                  viewStyle === "list"
-                    ? "bg-primary text-white"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                )}
-                title="List view"
-              >
-                <List className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setViewStyle("calendar")}
-                className={cn(
-                  "p-1.5 rounded-md transition-colors",
-                  viewStyle === "calendar"
-                    ? "bg-primary text-white"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                )}
-                title="Calendar view"
-              >
-                <Calendar className="h-4 w-4" />
-              </button>
-            </div>
+            <Segmented<ViewStyle>
+              label="View"
+              value={viewStyle}
+              onChange={setViewStyle}
+              options={[
+                { value: "list", icon: List, title: "List view", label: <span className="sr-only">List view</span> },
+                { value: "calendar", icon: Calendar, title: "Calendar view", label: <span className="sr-only">Calendar view</span> },
+              ]}
+            />
 
           </div>
 
@@ -744,88 +715,44 @@ export default function ExamsPage() {
           <div className="px-4 pb-3 flex flex-col sm:flex-row gap-3 items-center border-t border-line/50 pt-3">
             {/* Date inputs */}
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 aria-label="From date"
-                className={cn(
-                  "px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300",
-                  isDefaultDateRange
-                    ? "border-field"
-                    : "border-primary ring-1 ring-primary/30"
-                )}
+                className={cn("w-auto", !isDefaultDateRange && "border-primary ring-1 ring-primary/30")}
               />
               <span className="text-gray-500 text-sm">to</span>
-              <input
+              <Input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 aria-label="To date"
-                className={cn(
-                  "px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300",
-                  isDefaultDateRange
-                    ? "border-field"
-                    : "border-primary ring-1 ring-primary/30"
-                )}
+                className={cn("w-auto", !isDefaultDateRange && "border-primary ring-1 ring-primary/30")}
               />
               {!isDefaultDateRange && (
-                <button
-                  onClick={setNext30Days}
-                  className="p-1 rounded-md text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  title="Reset date filter"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <IconButton icon={X} size="sm" label="Reset date filter" onClick={setNext30Days} />
               )}
             </div>
 
             {/* Quick filters - hidden on mobile */}
-            <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
-              <button
-                onClick={setThisWeek}
-                className={cn(
-                  "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
-                  activePreset === 'thisWeek'
-                    ? "bg-primary text-white border-primary"
-                    : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                )}
-              >
-                This Week
-              </button>
-              <button
-                onClick={setNext2Weeks}
-                className={cn(
-                  "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
-                  activePreset === 'next2Weeks'
-                    ? "bg-primary text-white border-primary"
-                    : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                )}
-              >
-                Next 2 Weeks
-              </button>
-              <button
-                onClick={setThisMonth}
-                className={cn(
-                  "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
-                  activePreset === 'thisMonth'
-                    ? "bg-primary text-white border-primary"
-                    : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                )}
-              >
-                This Month
-              </button>
-              <button
-                onClick={setNext30Days}
-                className={cn(
-                  "px-2 py-1 text-xs font-medium rounded-md border transition-colors",
-                  activePreset === 'next30Days'
-                    ? "bg-primary text-white border-primary"
-                    : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                )}
-              >
-                Next 30 Days
-              </button>
+            <div className="hidden sm:flex">
+              <Segmented<DatePreset>
+                label="Date range"
+                value={activePreset as DatePreset}
+                onChange={(preset) => {
+                  if (preset === "thisWeek") setThisWeek();
+                  else if (preset === "next2Weeks") setNext2Weeks();
+                  else if (preset === "thisMonth") setThisMonth();
+                  else setNext30Days();
+                }}
+                options={[
+                  { value: "thisWeek", label: "This week" },
+                  { value: "next2Weeks", label: "Next 2 weeks" },
+                  { value: "thisMonth", label: "This month" },
+                  { value: "next30Days", label: "Next 30 days" },
+                ]}
+              />
             </div>
 
             {/* Results count */}

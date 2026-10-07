@@ -41,9 +41,10 @@ export default function NewMessageBanner({ senderName, preview, threadId, isUrge
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        aria-label="Dismiss"
         className="p-0.5 rounded-full text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
       >
-        <X className="h-3 w-3" />
+        <X className="h-3 w-3" aria-hidden="true" />
       </button>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, Label, Select } from "@/components/controls";
 import { api } from "@/lib/api";
 import WecomRichEditor from "./WecomRichEditor";
 import { htmlToWecomMarkdown } from "./htmlToWecomMarkdown";
@@ -19,17 +19,17 @@ import {
 // Message templates for quick insertion
 const MESSAGE_TEMPLATES = [
   {
-    label: "Fee Reminder",
+    label: "Fee reminder",
     content:
       "Reminder: Please check the latest fee messages and follow up with parents for outstanding payments.",
   },
   {
-    label: "Attendance Alert",
+    label: "Attendance alert",
     content:
       "Reminder: Please mark attendance for all completed sessions today.",
   },
   {
-    label: "Custom Message",
+    label: "Custom message",
     content: "",
   },
 ];
@@ -221,9 +221,7 @@ export default function SendToWecomModal({
       <div className="space-y-4">
         {/* Webhook selector */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Target Group
-          </label>
+          <Label htmlFor="wecom-target-group">Target group</Label>
           {loadingWebhooks ? (
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -235,17 +233,17 @@ export default function SendToWecomModal({
               webhook URLs.
             </p>
           ) : (
-            <select
+            <Select
+              id="wecom-target-group"
               value={selectedWebhook}
               onChange={(e) => setSelectedWebhook(e.target.value)}
-              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
             >
               {webhooks.map((wh) => (
                 <option key={wh.webhook_name} value={wh.webhook_name}>
                   {wh.target_description || wh.webhook_name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           {selectedWebhookInfo && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -258,27 +256,24 @@ export default function SendToWecomModal({
 
         {/* Templates */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Templates
-          </label>
-          <div className="flex flex-wrap gap-2">
+          <Label id="wecom-templates">Templates</Label>
+          <div role="group" aria-labelledby="wecom-templates" className="flex flex-wrap gap-2">
             {MESSAGE_TEMPLATES.map((tmpl) => (
-              <button
+              <Button
                 key={tmpl.label}
+                size="sm"
+                variant="secondary"
                 onClick={() => handleTemplateSelect(tmpl)}
-                className="px-3 py-1 text-xs rounded-full border border-line-strong text-accent-ink dark:text-[#c49a6c] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] transition-colors"
               >
                 {tmpl.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         {/* Rich text editor */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Message
-          </label>
+          <Label>Message</Label>
           <input
             ref={fileInputRef}
             type="file"
@@ -346,29 +341,21 @@ export default function SendToWecomModal({
 
       {/* Footer */}
       <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-line">
-        <Button variant="outline" onClick={onClose} disabled={sending}>
+        <Button variant="secondary" onClick={onClose} disabled={sending}>
           Cancel
         </Button>
         <Button
+          variant="primary"
+          icon={Send}
+          loading={sending}
           onClick={handleSend}
           disabled={
-            sending ||
             !selectedWebhook ||
             (!markdownContent && !imageFile) ||
             webhooks.length === 0
           }
         >
-          {sending ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Sending...
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              Send to WeCom
-            </>
-          )}
+          {sending ? "Sending..." : "Send to WeCom"}
         </Button>
       </div>
     </Modal>

@@ -14,6 +14,7 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { RevenueMatrix } from "@/components/revenue/RevenueMatrix";
 import { sessionsAPI } from "@/lib/api";
 import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot, LayoutGrid, List, Info } from "lucide-react";
+import { IconButton, Input, Segmented, Select } from "@/components/controls";
 import { cn } from "@/lib/utils";
 import { Tooltip } from "@/components/ui/tooltip";
 import { BONUS_TIERS } from "@/lib/constants";
@@ -279,36 +280,35 @@ export default function RevenuePage() {
 
                 {/* View toggle - admin/center-view only */}
                 {tableViewAvailable && (
-                  <div className="inline-flex rounded-md border border-[#d4a574] dark:border-[#6b5a4a] overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setView('table')}
-                      className={cn(
-                        "flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors",
-                        view === 'table'
-                          ? "bg-primary text-white"
-                          : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                      )}
-                      title="Tutor x Month table"
-                    >
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Table</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setView('detail')}
-                      className={cn(
-                        "flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors border-l border-[#d4a574] dark:border-[#6b5a4a]",
-                        view === 'detail'
-                          ? "bg-primary text-white"
-                          : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                      )}
-                      title="Single tutor / single month detail"
-                    >
-                      <List className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Detail</span>
-                    </button>
-                  </div>
+                  <Segmented
+                    label="View"
+                    value={view}
+                    onChange={setView}
+                    options={[
+                      {
+                        value: "table",
+                        icon: LayoutGrid,
+                        title: "Tutor x Month table",
+                        label: (
+                          <>
+                            <span className="hidden sm:inline">Table</span>
+                            <span className="sr-only sm:hidden">Table</span>
+                          </>
+                        ),
+                      },
+                      {
+                        value: "detail",
+                        icon: List,
+                        title: "Single tutor / single month detail",
+                        label: (
+                          <>
+                            <span className="hidden sm:inline">Detail</span>
+                            <span className="sr-only sm:hidden">Detail</span>
+                          </>
+                        ),
+                      },
+                    ]}
+                  />
                 )}
 
                 {/* Detail view: Tutor Selector */}
@@ -325,96 +325,58 @@ export default function RevenuePage() {
               {/* Right side: month navigator (detail) or year selector (table) */}
               {view === 'detail' ? (
                 <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
-                <button
+                <IconButton
+                  icon={ChevronLeft}
+                  label="Previous month"
                   onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, -1))}
-                  className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                  title="Previous month"
-                >
-                  <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                </button>
+                />
 
                 <div className="relative flex items-center">
-                  <Calendar className="absolute left-2.5 h-4 w-4 text-accent-ink pointer-events-none" />
-                  <input
+                  <Calendar className="absolute left-2.5 z-10 h-4 w-4 text-accent-ink pointer-events-none" aria-hidden="true" />
+                  <Input
                     type="month"
                     value={selectedPeriod}
                     onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
                     max={getCurrentPeriod()}
-                    className={cn(
-                      "pl-8 pr-3 py-1.5 text-sm font-medium",
-                      "bg-white dark:bg-[#1a1a1a] border border-field rounded-md",
-                      "text-gray-900 dark:text-gray-100",
-                      "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                      "cursor-pointer"
-                    )}
+                    aria-label="Month"
+                    className="w-auto pl-8 font-medium cursor-pointer"
                   />
                 </div>
 
-                <button
+                <IconButton
+                  icon={ChevronRight}
+                  label="Next month"
                   onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, 1))}
-                  className={cn(
-                    "p-1.5 rounded transition-colors",
-                    selectedPeriod >= getCurrentPeriod()
-                      ? "cursor-not-allowed"
-                      : "hover:bg-gray-200 dark:hover:bg-gray-700"
-                  )}
-                  title="Next month"
                   disabled={selectedPeriod >= getCurrentPeriod()}
-                >
-                  <ChevronRight className={cn(
-                    "h-4 w-4",
-                    selectedPeriod >= getCurrentPeriod()
-                      ? "text-gray-300 dark:text-gray-400"
-                      : "text-gray-600 dark:text-gray-400"
-                  )} />
-                </button>
+                />
                 </div>
               ) : (
                 <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
-                  <button
+                  <IconButton
+                    icon={ChevronLeft}
+                    label="Previous year"
                     onClick={() => setSelectedYear(y => y - 1)}
-                    className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                    title="Previous year"
-                  >
-                    <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  </button>
+                  />
                   <div className="relative flex items-center">
-                    <Calendar className="absolute left-2.5 h-4 w-4 text-accent-ink pointer-events-none" />
-                    <select
+                    <Calendar className="absolute left-2.5 z-10 h-4 w-4 text-accent-ink pointer-events-none" aria-hidden="true" />
+                    <Select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-                      className={cn(
-                        "pl-8 pr-3 py-1.5 text-sm font-medium",
-                        "bg-white dark:bg-[#1a1a1a] border border-field rounded-md",
-                        "text-gray-900 dark:text-gray-100",
-                        "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                        "cursor-pointer"
-                      )}
+                      aria-label="Year"
+                      className="w-auto pl-8 font-medium"
                     >
                       {Array.from({ length: 5 }).map((_, i) => {
                         const y = new Date().getFullYear() - i;
                         return <option key={y} value={y}>{y}</option>;
                       })}
-                    </select>
+                    </Select>
                   </div>
-                  <button
+                  <IconButton
+                    icon={ChevronRight}
+                    label="Next year"
                     onClick={() => setSelectedYear(y => y + 1)}
-                    className={cn(
-                      "p-1.5 rounded transition-colors",
-                      selectedYear >= new Date().getFullYear()
-                        ? "cursor-not-allowed"
-                        : "hover:bg-gray-200 dark:hover:bg-gray-700"
-                    )}
-                    title="Next year"
                     disabled={selectedYear >= new Date().getFullYear()}
-                  >
-                    <ChevronRight className={cn(
-                      "h-4 w-4",
-                      selectedYear >= new Date().getFullYear()
-                        ? "text-gray-300 dark:text-gray-400"
-                        : "text-gray-600 dark:text-gray-400"
-                    )} />
-                  </button>
+                  />
                 </div>
               )}
             </div>

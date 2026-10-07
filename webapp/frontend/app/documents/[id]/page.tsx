@@ -8,6 +8,7 @@ import { usePageTitle } from "@/lib/hooks";
 import { trackDocView } from "@/lib/recent-docs";
 import { DocumentEditor } from "@/components/documents/DocumentEditor";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { Button } from "@/components/controls";
 
 function EditorSkeleton() {
   return (
@@ -91,12 +92,9 @@ export default function DocumentEditorPage() {
         {error && !error.message?.includes("not found") && (
           <p className="text-sm mt-1">{error.message}</p>
         )}
-        <button
-          onClick={() => router.push("/documents")}
-          className="mt-3 text-sm text-accent-ink hover:underline"
-        >
-          Back to Documents
-        </button>
+        <Button variant="primary" onClick={() => router.push("/documents")} className="mt-3">
+          Back to documents
+        </Button>
       </div>
     );
   }

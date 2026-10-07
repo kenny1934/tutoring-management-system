@@ -12,6 +12,7 @@ import { PageSurface } from "@/components/layout/PageSurface";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, buttonClasses } from "@/components/controls";
 import { TutorAvatar } from "@/lib/avatar-utils";
 import { stripHtml } from "@/lib/html-utils";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -42,7 +43,6 @@ import {
   ChevronRight,
   Heart,
   Reply,
-  Loader2,
   AlertCircle,
   Check,
   Search,
@@ -1479,6 +1479,7 @@ export default function InboxPage() {
                       : "text-gray-300 dark:text-gray-400 hover:text-accent-ink hover:bg-tint border-gray-200 dark:border-gray-700"
                   )}
                   title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
+                  aria-label={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
                 >
                   {soundEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
                 </button>
@@ -1487,30 +1488,27 @@ export default function InboxPage() {
                   onClick={() => setShowShortcuts(prev => !prev)}
                   className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-500 hover:text-accent-ink hover:bg-tint border border-gray-300 dark:border-gray-600 transition-colors"
                   title="Keyboard shortcuts (?)"
+                  aria-label="Keyboard shortcuts"
                 >
                   ?
                 </button>
               </div>
               <div className="flex items-center gap-3">
                 {isAdmin && !isReadOnlyInbox && (
-                  <button
+                  <Button
+                    variant="secondary"
+                    icon={MessageSquareShare}
                     onClick={() => setShowWecom(true)}
-                    className="flex items-center gap-2 px-4 py-2 border border-line-strong text-accent-ink dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
                     title="Send to WeCom group"
+                    aria-label="Send to WeCom group"
                   >
-                    <MessageSquareShare className="h-4 w-4" />
                     <span className="hidden sm:inline">WeCom</span>
-                  </button>
+                  </Button>
                 )}
                 {!isReadOnlyInbox && (
-                  <button
-                    onClick={handleCompose}
-                    disabled={!hasTutor}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                  >
-                    <PenSquare className="h-4 w-4" />
+                  <Button variant="primary" icon={PenSquare} onClick={handleCompose} disabled={!hasTutor}>
                     Compose
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -1534,6 +1532,7 @@ export default function InboxPage() {
                   onClick={() => setCategoryCollapsed(!categoryCollapsed)}
                   className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 mb-1"
                   title={categoryCollapsed ? "Expand" : "Collapse"}
+                  aria-label={categoryCollapsed ? "Expand the folder list" : "Collapse the folder list"}
                 >
                   {categoryCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
@@ -1647,13 +1646,14 @@ export default function InboxPage() {
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                    <input
+                    <Input
                       ref={searchInputRef}
                       type="text"
                       placeholder="Search..."
+                      aria-label="Search messages"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow outline-none"
+                      className="pl-9"
                     />
                   </div>
                   {displayThreads.some(t => t.total_unread > 0) && selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && (
@@ -1667,38 +1667,29 @@ export default function InboxPage() {
                           showToast("Failed to mark all as read", "error");
                         }
                       }}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded-lg transition-colors"
+                      className={cn(buttonClasses({ variant: "quiet" }), "flex-shrink-0")}
                       title="Mark all as read"
+                      aria-label="Mark all as read"
                     >
-                      <Check className="h-3.5 w-3.5" />
+                      <Check className="h-4 w-4 text-ink-subtle" aria-hidden="true" />
                       <span className="hidden sm:inline">Mark all read</span>
                     </button>
                   )}
-                  <button
+                  <IconButton
+                    icon={SlidersHorizontal}
+                    label={showFilters ? "Hide filters" : "Show filters"}
+                    aria-pressed={showFilters}
+                    className={cn((showFilters || Object.values(searchFilters).some(Boolean)) && "bg-tint text-accent-ink")}
                     onClick={() => { setShowFilters(prev => !prev); if (showFilters) setSearchFilters({}); }}
-                    className={cn(
-                      "flex-shrink-0 p-2 rounded-lg transition-colors",
-                      showFilters || Object.values(searchFilters).some(Boolean)
-                        ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                        : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-                    )}
-                    title={showFilters ? "Hide filters" : "Show filters"}
-                  >
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </button>
+                  />
                   {displayThreads.length > 0 && selectedCategory !== "sent" && !isReadOnlyInbox && (
-                    <button
+                    <IconButton
+                      icon={ListChecks}
+                      label={bulkMode ? "Exit select mode" : "Select threads"}
+                      aria-pressed={bulkMode}
+                      className={cn(bulkMode && "bg-tint text-accent-ink")}
                       onClick={() => { setBulkMode(prev => !prev); bulkClear(); }}
-                      className={cn(
-                        "flex-shrink-0 p-2 rounded-lg transition-colors",
-                        bulkMode
-                          ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                          : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-                      )}
-                      title={bulkMode ? "Exit select mode" : "Select threads"}
-                    >
-                      <ListChecks className="h-4 w-4" />
-                    </button>
+                    />
                   )}
                 </div>
                 {/* Search filters */}
@@ -1721,13 +1712,9 @@ export default function InboxPage() {
                 )}>
                   <div className="overflow-hidden">
                     <div className="flex items-center gap-1 px-2 py-1.5 border-t border-line/40">
-                      <button
-                        onClick={bulkToggleAll}
-                        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                      >
-                        {bulkAllSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                      <Button size="sm" variant="quiet" icon={bulkAllSelected ? CheckSquare : Square} onClick={bulkToggleAll}>
                         {bulkAllSelected ? "Deselect all" : "Select all"}
-                      </button>
+                      </Button>
                       {bulkHasSelection && (
                         <>
                           <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
@@ -1744,9 +1731,9 @@ export default function InboxPage() {
                                   showToast(`Archived ${bulkSelectedIds.size} thread(s)`, "success");
                                 } catch { showToast("Failed to archive", "error"); }
                               }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
+                              className={buttonClasses({ variant: "quiet", size: "sm" })}
                             >
-                              <Archive className="h-3.5 w-3.5" />
+                              <Archive className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                               Archive
                             </button>
                           )}
@@ -1761,9 +1748,9 @@ export default function InboxPage() {
                                   showToast(`Unarchived ${bulkSelectedIds.size} thread(s)`, "success");
                                 } catch { showToast("Failed to unarchive", "error"); }
                               }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
+                              className={buttonClasses({ variant: "quiet", size: "sm" })}
                             >
-                              <ArchiveRestore className="h-3.5 w-3.5" />
+                              <ArchiveRestore className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                               Unarchive
                             </button>
                           )}
@@ -1777,9 +1764,9 @@ export default function InboxPage() {
                                 showToast(`Starred ${bulkSelectedIds.size} thread(s)`, "success");
                               } catch { showToast("Failed to star", "error"); }
                             }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
+                            className={buttonClasses({ variant: "quiet", size: "sm" })}
                           >
-                            <Star className="h-3.5 w-3.5" />
+                            <Star className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                             Star
                           </button>
                         </>
@@ -1833,12 +1820,9 @@ export default function InboxPage() {
                     <AlertCircle className="h-6 w-6 mr-2" />
                     Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
                   </div>
-                  <button
-                    onClick={() => mutate(isAnyMessageKey)}
-                    className="px-4 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
+                  <Button variant="secondary" onClick={() => mutate(isAnyMessageKey)}>
                     Retry
-                  </button>
+                  </Button>
                 </div>
               ) : (selectedCategory === "makeup-confirmation" ? (proposals.length === 0 && makeupThreads.length === 0) : displayThreads.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
@@ -1854,14 +1838,9 @@ export default function InboxPage() {
                         : EMPTY_MESSAGES[selectedCategory] || "No messages in your inbox"}
                     </p>
                     {!searchQuery && !isReadOnlyInbox && ["inbox", "sent", "starred", "archived"].includes(selectedCategory) && (
-                      <button
-                        onClick={handleCompose}
-                        disabled={!hasTutor}
-                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                      >
-                        <PenSquare className="h-4 w-4" />
+                      <Button variant="secondary" icon={PenSquare} className="mt-4" onClick={handleCompose} disabled={!hasTutor}>
                         Compose
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1977,20 +1956,9 @@ export default function InboxPage() {
                   {/* Load More button for paginated threads (not for client-side categories) */}
                   {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && selectedCategory !== "reminders" && selectedCategory !== "scheduled" && selectedCategory !== "mentions" && hasMore && displayThreads.length > 0 && (
                     <div className="p-4 border-t border-line">
-                      <button
-                        onClick={loadMore}
-                        disabled={isLoadingMore}
-                        className="w-full py-2 px-4 text-sm text-accent-ink dark:text-[#c4a77d] hover:bg-[#f5ebe0] dark:hover:bg-[#3a3a3a] rounded-lg transition-colors flex items-center justify-center gap-2"
-                      >
-                        {isLoadingMore ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading more...
-                          </>
-                        ) : (
-                          <>Load more ({totalCount - displayThreads.length} remaining)</>
-                        )}
-                      </button>
+                      <Button variant="secondary" className="w-full" onClick={loadMore} loading={isLoadingMore}>
+                        {isLoadingMore ? "Loading more..." : `Load more (${totalCount - displayThreads.length} remaining)`}
+                      </Button>
                     </div>
                   )}
                 </div>

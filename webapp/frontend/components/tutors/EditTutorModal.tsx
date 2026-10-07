@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { mutate } from "swr";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Button, Field, Input, Label, LABEL_CLASS, Select } from "@/components/controls";
 import { useLocations } from "@/lib/hooks";
 import { tutorsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -184,10 +184,10 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
       size="md"
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button variant="primary" onClick={handleSave} loading={isSaving}>
             {isSaving ? "Saving…" : "Save changes"}
           </Button>
         </div>
@@ -195,31 +195,20 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
     >
       <div className="space-y-4">
         {/* Nickname */}
-        <div>
-          <label className="block text-sm font-medium text-foreground/80 mb-1">
-            Nickname
-          </label>
-          <input
+        <Field label="Nickname" id="edit-tutor-nickname" hint="Short name used in parent messages.">
+          <Input
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="e.g. David Sir, Miss Bella"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
-          <p className="mt-1 text-xs text-foreground/50">
-            Short name used in parent messages.
-          </p>
-        </div>
+        </Field>
 
         {/* Default location */}
-        <div>
-          <label className="block text-sm font-medium text-foreground/80 mb-1">
-            Default location
-          </label>
-          <select
+        <Field label="Default location" id="edit-tutor-location">
+          <Select
             value={defaultLocation}
             onChange={(e) => setDefaultLocation(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="">— None —</option>
             {locationOptions.map((loc) => (
@@ -227,8 +216,8 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
                 {loc}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
 
         {/* Also covers. Sits under the default location because it only makes
             sense next to it: this is the list of other branches somebody can be
@@ -237,9 +226,9 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             or a duty roster there. */}
         {coverableLocations.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
+            <p className={cn(LABEL_CLASS, "mb-1")}>
               Also covers
-            </label>
+            </p>
             <div className="space-y-3">
               {coverableLocations.map((loc) => {
                 const draft = draftFor(loc);
@@ -291,20 +280,22 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
                         <div className="flex flex-wrap gap-3">
                           <label className="text-xs text-foreground/60">
                             <span className="block mb-1">First day</span>
-                            <input
+                            <Input
+                              size="sm"
                               type="date"
                               value={draft.from}
                               onChange={(e) => editDraft(loc, { from: e.target.value })}
-                              className="px-2 py-1 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              className="w-auto"
                             />
                           </label>
                           <label className="text-xs text-foreground/60">
                             <span className="block mb-1">Last day</span>
-                            <input
+                            <Input
+                              size="sm"
                               type="date"
                               value={draft.until}
                               onChange={(e) => editDraft(loc, { until: e.target.value })}
-                              className="px-2 py-1 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              className="w-auto"
                             />
                           </label>
                         </div>
@@ -339,24 +330,26 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
 
         {/* Basic salary */}
         <div>
-          <label className="block text-sm font-medium text-foreground/80 mb-1">
-            Basic salary (monthly)
-          </label>
+          <Label htmlFor="edit-tutor-salary">
+            Basic salary <span className="normal-case font-normal">(monthly)</span>
+          </Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/50">
+            <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-foreground/50" aria-hidden="true">
               $
             </span>
-            <input
+            <Input
+              id="edit-tutor-salary"
               type="number"
               min={0}
               step="0.01"
               value={basicSalary}
               onChange={(e) => setBasicSalary(e.target.value)}
               placeholder="0.00"
-              className="w-full pl-7 pr-3 py-2 text-sm rounded-lg border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-describedby="edit-tutor-salary-hint"
+              className="pl-7"
             />
           </div>
-          <p className="mt-1 text-xs text-foreground/50">
+          <p id="edit-tutor-salary-hint" className="mt-1 text-xs text-ink-subtle">
             Base pay before session revenue and bonus.
           </p>
         </div>
@@ -377,22 +370,19 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
         {/* Last working day. Separate from the toggle above because they answer
             different questions: a Supervisor does not teach and is not leaving,
             and a tutor on notice teaches right up to the date below. */}
-        <div>
-          <label className="block text-sm font-medium text-foreground/80 mb-1">
-            Last working day
-          </label>
-          <input
+        <Field
+          label="Last working day"
+          id="edit-tutor-last-day"
+          hint={arkManaged
+            ? "This comes from ARK and the nightly sync will put it back if you change it here. Record the resignation in ARK instead."
+            : "Leave blank unless they are leaving. From the day after this date they cannot log in, they drop out of the tutor pickers, and no lesson can be booked for them."}
+        >
+          <Input
             type="date"
             value={departureOn}
             onChange={(e) => setDepartureOn(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
-          <p className="mt-1 text-xs text-foreground/60">
-            {arkManaged
-              ? "This comes from ARK and the nightly sync will put it back if you change it here. Record the resignation in ARK instead."
-              : "Leave blank unless they are leaving. From the day after this date they cannot log in, they drop out of the tutor pickers, and no lesson can be booked for them."}
-          </p>
-        </div>
+        </Field>
       </div>
     </Modal>
   );

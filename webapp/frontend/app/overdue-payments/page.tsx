@@ -27,6 +27,7 @@ import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDeta
 import { useAuth } from "@/contexts/AuthContext";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 import { isHomeBranch } from "@/lib/employment";
+import { Badge, Button, IconButton, Input, Label } from "@/components/controls";
 
 // Urgency levels
 type UrgencyLevel = 'critical' | 'high' | 'medium' | 'new' | 'dueSoon';
@@ -499,44 +500,34 @@ export default function OverduePaymentsPage() {
 
                 {/* Total count badge + WeCom */}
                 <div className="flex items-center gap-2">
-                  <span className={cn(
-                    "px-3 py-1 rounded-full text-sm font-medium",
-                    overdueCount > 0
-                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                      : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  )}>
-                    {overdueCount} Overdue
-                  </span>
+                  <Badge tone={overdueCount > 0 ? "danger" : "success"} className="px-2 py-1 text-xs">
+                    {overdueCount} overdue
+                  </Badge>
                   {isAdmin && overdueCount > 0 && (
-                    <button
+                    <Button
+                      size="sm"
+                      icon={MessageSquareShare}
                       onClick={() => setShowWecom(true)}
-                      className="flex items-center gap-1.5 px-3 py-1 text-sm border border-line-strong text-accent-ink dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
                       title="Send overdue payment reminder to WeCom"
+                      aria-label="Send overdue payment reminder to WeCom"
                     >
-                      <MessageSquareShare className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">WeCom</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
 
               {/* Search input */}
               <div className="mt-2 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <input
+                <Search className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
+                <Input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by student, ID, tutor, or grade..."
-                  className={cn(
-                    "w-full pl-9 pr-8 py-1.5 text-sm rounded-lg",
-                    "border border-field",
-                    "bg-white dark:bg-[#1a1a1a]",
-                    "placeholder-gray-400",
-                    "focus:outline-none focus:ring-1 focus:ring-accent-ink",
-                    "focus:border-accent-ink"
-                  )}
+                  aria-label="Search overdue enrollments"
+                  className="pl-9 pr-8"
                 />
                 {searchQuery && (
                   <button
@@ -544,6 +535,7 @@ export default function OverduePaymentsPage() {
                       setSearchQuery("");
                       searchInputRef.current?.focus();
                     }}
+                    aria-label="Clear search"
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#3d3628]"
                   >
                     <X className="h-4 w-4 text-gray-500" />
@@ -649,6 +641,7 @@ export default function OverduePaymentsPage() {
                                       checked={isAllSectionChecked(enrollments)}
                                       ref={el => { if (el) el.indeterminate = isSomeSectionChecked(enrollments) && !isAllSectionChecked(enrollments); }}
                                       onChange={() => toggleSectionCheck(enrollments)}
+                                      aria-label={`Select every enrollment in ${config.sectionLabel}`}
                                       className="h-4 w-4 rounded border-gray-300 cursor-pointer"
                                     />
                                   )}
@@ -725,42 +718,26 @@ export default function OverduePaymentsPage() {
               </p>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Payment Date</label>
-                <input
+                <Label htmlFor="overdue-payment-date">Payment date</Label>
+                <Input
+                  id="overdue-payment-date"
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg border",
-                    "border-field",
-                    "bg-white dark:bg-[#1a1a1a]",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  )}
                 />
               </div>
 
               <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-line-strong text-accent-ink hover:bg-tint"
-                >
+                <Button onClick={() => setShowPaymentModal(false)}>
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={handleSubmitPayment}
-                  disabled={markingPaidId !== null}
-                  className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium",
-                    "bg-green-600 text-white hover:bg-green-700",
-                    "disabled:opacity-50"
-                  )}
+                  loading={markingPaidId !== null}
                 >
-                  {markingPaidId !== null ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Confirm Payment"
-                  )}
-                </button>
+                  Confirm payment
+                </Button>
               </div>
             </div>
           </div>
@@ -780,30 +757,17 @@ export default function OverduePaymentsPage() {
                   {checkedIds.size} selected
                 </span>
                 <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
-                <button
+                <Button
+                  variant="primary"
+                  icon={CreditCard}
                   onClick={handleBatchMarkPaid}
-                  disabled={batchLoading || isReadOnly}
-                  className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
-                    isReadOnly
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : "bg-green-500 hover:bg-green-600 text-white"
-                  )}
+                  loading={batchLoading}
+                  disabled={isReadOnly}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
-                  {batchLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CreditCard className="h-4 w-4" />
-                  )}
-                  Confirm Payment
-                </button>
-                <button
-                  onClick={clearChecked}
-                  className="flex items-center gap-1 px-2 py-1.5 text-foreground/60 hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                  Confirm payment
+                </Button>
+                <IconButton icon={X} label="Clear selection" onClick={clearChecked} />
               </div>
             </motion.div>
           )}
@@ -931,6 +895,7 @@ function OverdueRow({
             type="checkbox"
             checked={isChecked}
             onChange={() => onToggleCheck(enrollment.id)}
+            aria-label={`Select ${enrollment.student_name}`}
             className="h-4 w-4 rounded border-gray-300 cursor-pointer"
           />
         </div>
@@ -991,36 +956,20 @@ function OverdueRow({
       {/* Actions */}
       <td className="px-4 py-3 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-2 flex-nowrap">
-          <button
+          <Button
+            size="sm"
+            icon={Check}
+            iconClassName="text-green-600 dark:text-green-400"
             onClick={() => onMarkPaid(enrollment)}
-            disabled={isMarking || readOnly}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-              readOnly
-                ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                : "bg-green-600 text-white shadow-sm hover:bg-green-700 hover:shadow",
-              "disabled:opacity-50"
-            )}
+            loading={isMarking}
+            disabled={readOnly}
             title={readOnly ? "Read-only access" : undefined}
           >
-            {isMarking ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Check className="h-3 w-3" />
-            )}
-            Confirm Payment
-          </button>
-          <button
-            onClick={(e) => onView(enrollment, e)}
-            className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-              "bg-tint text-accent-ink",
-              "hover:bg-[#e8d4b8] dark:hover:bg-[#4d4638]"
-            )}
-          >
-            <Eye className="h-3 w-3" />
+            Confirm payment
+          </Button>
+          <Button size="sm" variant="quiet" icon={Eye} onClick={(e) => onView(enrollment, e)}>
             View
-          </button>
+          </Button>
         </div>
       </td>
     </tr>
