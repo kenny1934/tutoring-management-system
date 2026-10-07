@@ -403,7 +403,7 @@ export default function SqlExecutorPage() {
                   isDark={isDark}
                 />
               ) : (
-                <div className="w-full min-h-[168px] border border-line rounded-xl bg-white dark:bg-[#1a1a1a]" />
+                <div className="w-full min-h-[168px] border border-line rounded-xl bg-raised" />
               )}
               <div className="mt-2 text-xs text-gray-500 text-right">
                 Press <span className="kbd-key">Ctrl</span> + <span className="kbd-key">Enter</span> to execute
@@ -444,8 +444,8 @@ export default function SqlExecutorPage() {
                   {showTemplates ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
                 </button>
                 {showTemplates && (
-                  <div className="absolute top-full left-0 mt-1 w-72 rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg z-50 overflow-hidden">
-                    <div className="px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line text-xs text-gray-500 dark:text-gray-400">
+                  <div className="absolute top-full left-0 mt-1 w-72 rounded-lg border border-line bg-raised shadow-lg z-50 overflow-hidden">
+                    <div className="px-3 py-2 bg-wash border-b border-line text-xs text-gray-500 dark:text-gray-400">
                       Click to insert • Replace {"{placeholders}"} with values
                     </div>
                     <div className="max-h-64 overflow-y-auto">
@@ -453,7 +453,7 @@ export default function SqlExecutorPage() {
                         <button
                           key={template.label}
                           onClick={() => handleInsertTemplate(template.query)}
-                          className="w-full text-left px-3 py-2 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                          className="w-full text-left px-3 py-2 hover:bg-wash transition-colors"
                         >
                           <div className="font-medium text-sm">{template.label}</div>
                           <pre className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate mt-0.5">
@@ -510,8 +510,8 @@ export default function SqlExecutorPage() {
 
             {/* Query History */}
             {showHistory && (
-              <div className="rounded-xl border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line">
+              <div className="rounded-xl border border-line bg-raised overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-wash border-b border-line">
                   <span className="text-sm font-medium">Query History</span>
                   {history.length > 0 && (
                     <button
@@ -530,7 +530,7 @@ export default function SqlExecutorPage() {
                     {history.map((item) => (
                       <div
                         key={item.timestamp}
-                        className="p-3 hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50 cursor-pointer flex items-start justify-between gap-2"
+                        className="p-3 hover:bg-wash/50 cursor-pointer flex items-start justify-between gap-2"
                         onClick={() => handleLoadFromHistory(item.query)}
                       >
                         <div className="flex-1 min-w-0">
@@ -577,9 +577,9 @@ export default function SqlExecutorPage() {
 
             {/* Results */}
             {result && (
-              <div className="rounded-xl border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              <div className="rounded-xl border border-line bg-raised overflow-hidden">
                 {/* Results Header */}
-                <div className="flex items-center justify-between px-4 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line">
+                <div className="flex items-center justify-between px-4 py-2 bg-wash border-b border-line">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium">
                       {result.row_count} {result.row_count === 1 ? "row" : "rows"}
@@ -599,7 +599,7 @@ export default function SqlExecutorPage() {
                   <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
                     <table className="w-full border-collapse min-w-max">
                       <thead className="sticky top-0 z-10">
-                        <tr className="bg-[#f5ede3] dark:bg-[#2d2618] border-b border-line">
+                        <tr className="bg-wash border-b border-line">
                           {result.columns.map((col) => (
                             <th
                               key={col}

@@ -896,7 +896,7 @@ export function SummerAutoSuggestModal({
     <div className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 transition-[left] duration-350">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className={cn(
-        "relative bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] rounded-xl shadow-xl w-full max-h-[85vh] flex flex-col mx-4 transition-[max-width] duration-200",
+        "relative bg-raised border-2 border-[#e8d4b8] rounded-xl shadow-xl w-full max-h-[85vh] flex flex-col mx-4 transition-[max-width] duration-200",
         adjustingAppId ? "max-w-5xl" : "max-w-3xl"
       )}>
         {/* Header */}
@@ -967,7 +967,7 @@ export function SummerAutoSuggestModal({
           ) : (
             <div className="space-y-4">
               {/* Sticky filter bar */}
-              <div className="sticky -top-5 z-10 -mx-5 px-5 py-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur border-b border-line/60 dark:border-line/40 space-y-2">
+              <div className="sticky -top-5 z-10 -mx-5 px-5 py-2 bg-raised/95 backdrop-blur border-b border-line/60 dark:border-line/40 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[180px] max-w-[240px]">
                     <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />

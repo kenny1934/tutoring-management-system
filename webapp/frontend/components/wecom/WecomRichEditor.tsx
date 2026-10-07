@@ -212,9 +212,9 @@ export default function WecomRichEditor({
   const activeColor = editor.getAttributes("textStyle").color;
 
   return (
-    <div className="border border-line rounded-lg bg-white dark:bg-[#2a2a2a]">
+    <div className="border border-line rounded-lg bg-raised-2">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2a2215] border-b border-line flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-wash border-b border-line flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
         <ToolbarButton
           icon={Bold}
           label="Bold"
@@ -277,7 +277,7 @@ export default function WecomRichEditor({
             <Palette className="w-4 h-4" style={activeColor ? { color: activeColor } : undefined} />
           </button>
           {showColorPicker && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line p-1.5 min-w-[140px]">
+            <div className="absolute top-full left-0 mt-1 z-50 bg-raised-2 rounded-lg shadow-xl border border-line p-1.5 min-w-[140px]">
               {WECOM_COLORS.map((c) => (
                 <button
                   key={c.id}

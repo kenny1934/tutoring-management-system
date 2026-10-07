@@ -135,7 +135,7 @@ export function EarlyBirdDeadlineDialog({
                 value={payDate}
                 max={deadline ?? undefined}
                 onChange={(e) => setPayDate(e.target.value)}
-                className="px-2 py-1 rounded border text-sm border-emerald-300 dark:border-emerald-800 bg-white dark:bg-[#1a1a1a]"
+                className="px-2 py-1 rounded border text-sm border-emerald-300 dark:border-emerald-800 bg-field-fill"
               />
               <button
                 type="button"

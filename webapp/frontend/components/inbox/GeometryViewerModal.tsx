@@ -147,7 +147,7 @@ export default function GeometryViewerModal({
 
       {/* Modal */}
       <div
-        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col"
+        className="relative w-full mx-4 bg-raised-2 rounded-xl shadow-2xl border border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col"
         style={{ maxWidth: "52rem", maxHeight: "80vh" }}
         role="dialog"
         aria-modal="true"

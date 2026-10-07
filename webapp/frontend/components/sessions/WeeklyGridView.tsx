@@ -273,13 +273,13 @@ export const WeeklyGridView = memo(function WeeklyGridView({
 
       {/* Calendar Grid */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden",
+        "bg-raised border-2 border-line rounded-lg overflow-hidden",
         fillHeight && "flex-1 flex flex-col min-h-0"
       )}>
-        <div className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-[#1a1a1a]" : "overflow-x-auto")}>
-          <div className={cn(fillHeight ? "flex-1 flex flex-col bg-white dark:bg-[#1a1a1a]" : "min-w-[800px]")} style={fillHeight ? { minWidth: `${minGridWidth}px` } : undefined}>
+        <div className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-raised" : "overflow-x-auto")}>
+          <div className={cn(fillHeight ? "flex-1 flex flex-col bg-raised" : "min-w-[800px]")} style={fillHeight ? { minWidth: `${minGridWidth}px` } : undefined}>
             {/* Day Headers */}
-            <div className="grid border-b-2 border-line sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
+            <div className="grid border-b-2 border-line sticky top-0 bg-raised z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1.5 bg-paper border-r border-line flex items-center">
                 <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
@@ -339,7 +339,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
 
             {/* Time Grid */}
             <div
-              className="grid bg-white dark:bg-[#1a1a1a]"
+              className="grid bg-raised"
               style={{ height: `${totalHeight}px`, gridTemplateColumns: gridColumns }}
             >
               {/* Time Labels Column */}

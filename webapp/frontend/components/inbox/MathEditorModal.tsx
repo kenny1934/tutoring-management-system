@@ -241,7 +241,7 @@ export default function MathEditorModal({
       {/* Modal — fullscreen on mobile, centered card on desktop */}
       <div
         className={cn(
-          "relative w-full bg-white dark:bg-[#2a2a2a] shadow-2xl border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col",
+          "relative w-full bg-raised-2 shadow-2xl border-line animate-in fade-in zoom-in-95 duration-150 flex flex-col",
           "h-full sm:h-auto",
           "rounded-none sm:rounded-xl",
           "mx-0 sm:mx-4",

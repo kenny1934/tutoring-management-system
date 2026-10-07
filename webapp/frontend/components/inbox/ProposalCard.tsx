@@ -105,7 +105,7 @@ function SlotItem({
           ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
           : slot.slot_status === "rejected"
           ? "bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700 opacity-60"
-          : "bg-white border-line dark:bg-[#2a2a2a] dark:border-line"
+          : "bg-raised-2 border-line dark:bg-raised-2 dark:border-line"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -279,7 +279,7 @@ export const ProposalCard = memo(function ProposalCard({
     <>
       <div
         className={cn(
-          "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 shadow-sm",
+          "bg-raised rounded-lg border-2 shadow-sm",
           statusStyles[proposal.status as keyof typeof statusStyles] || statusStyles.pending,
           className
         )}
@@ -305,7 +305,7 @@ export const ProposalCard = memo(function ProposalCard({
         </div>
 
         {/* Student & Session Info */}
-        <div className="px-4 py-3 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line">
+        <div className="px-4 py-3 bg-paper border-b border-line">
           {session ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2">

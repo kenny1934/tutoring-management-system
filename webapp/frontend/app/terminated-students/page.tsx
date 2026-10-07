@@ -762,7 +762,7 @@ export default function TerminatedStudentsPage() {
                     onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)}
                     className={cn(
                       "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                      "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+                      "bg-field-fill border border-line-strong",
                       "text-accent-ink",
                       "hover:bg-tint hover:shadow-sm"
                     )}
@@ -777,7 +777,7 @@ export default function TerminatedStudentsPage() {
                   </button>
 
                   {isQuarterDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-40 bg-white dark:bg-[#1a1a1a] border border-line-strong rounded-lg shadow-lg z-50">
+                    <div className="absolute top-full left-0 mt-2 w-40 bg-raised border border-line-strong rounded-lg shadow-lg z-50">
                       {quarters.map((q) => (
                         <button
                           key={`${q.quarter}-${q.year}`}
@@ -861,7 +861,7 @@ export default function TerminatedStudentsPage() {
             {/* Location Stats Card */}
             {stats ? (
               <div className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
+                "bg-raised rounded-xl border border-line p-4 shadow-sm",
                 !isMobile && "paper-texture"
               )}>
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
@@ -929,7 +929,7 @@ export default function TerminatedStudentsPage() {
               </div>
             ) : isLoading && (
               <div className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
+                "bg-raised rounded-xl border border-line p-4 shadow-sm",
                 !isMobile && "paper-texture"
               )}>
                 <div className="flex items-center gap-2 mb-4">
@@ -969,7 +969,7 @@ export default function TerminatedStudentsPage() {
                 </CompactErrorBoundary>
               ) : isLoading ? (
                 <div className={cn(
-                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
+                  "bg-raised rounded-xl border border-line p-4 shadow-sm",
                   !isMobile && "paper-texture"
                 )}>
                   {/* Header skeleton */}
@@ -1004,7 +1004,7 @@ export default function TerminatedStudentsPage() {
 
             {isLoading ? (
               <div className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
+                "bg-raised rounded-xl border border-line shadow-sm overflow-hidden",
                 !isMobile && "paper-texture"
               )}>
                 {/* Skeleton header */}
@@ -1069,7 +1069,7 @@ export default function TerminatedStudentsPage() {
               <>
                 {/* Terminated Students List */}
                 <div className={cn(
-                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
+                  "bg-raised rounded-xl border border-line shadow-sm overflow-hidden",
                   !isMobile && "paper-texture"
                 )}>
                   <div className="px-4 py-3 border-b border-line bg-tint/50 flex items-center justify-between">
@@ -1163,7 +1163,7 @@ export default function TerminatedStudentsPage() {
                 {/* Tutor Stats Table */}
                 {stats && stats.tutor_stats.length > 0 && (
                   <div className={cn(
-                    "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
+                    "bg-raised rounded-xl border border-line shadow-sm overflow-hidden",
                     !isMobile && "paper-texture"
                   )}>
                     <div className="px-4 py-3 border-b border-line bg-tint/50">

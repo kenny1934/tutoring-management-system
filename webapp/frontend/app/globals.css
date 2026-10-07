@@ -90,6 +90,10 @@
   --color-on-surface: #2a2219; /* Text drawn straight onto the page surface; the surface blocks set it */
   --color-field: #9c876f; /* The edge of a text field: 3.4:1 on white, the 3:1 an input's edge needs */
   --color-field-fill: #ffffff; /* Inside a text field, and the face of a secondary button, so both stand off the cream */
+  --color-wash: #f5ede3; /* The fill under the pointer and behind a selected row. It matches tint in light mode but stays a step darker in dark mode */
+  --color-raised: #ffffff; /* Cards, modals, popovers and panels that sit above the page. It matches field-fill for now, so a later palette can tell them apart */
+  --color-raised-2: #ffffff; /* Menus and pickers that open on top of a raised surface, a step lighter than it in dark mode */
+  --color-ink-heading: #5d4e37; /* Warm brown headings inside modals, the command palette and quick attend */
 
   /* ===== SHADOWS =====
    * shadow-sm through shadow-xl are Tailwind's own, light values. This block
@@ -175,6 +179,10 @@
   --color-canvas: #13110e;
   --color-field: #857160;
   --color-field-fill: #1a1a1a;
+  --color-wash: #2d2618;
+  --color-raised: #1a1a1a;
+  --color-raised-2: #2a2a2a;
+  --color-ink-heading: #e8d4b8;
 }
 
 /* Force light mode for summer public pages (neutralises .dark overrides) */

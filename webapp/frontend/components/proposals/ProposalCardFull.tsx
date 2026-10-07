@@ -239,7 +239,7 @@ function SlotItem({
             ? "bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700 opacity-60"
             : isEditing
             ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-            : "bg-white border-line dark:bg-[#2a2a2a] dark:border-line"
+            : "bg-raised-2 border-line dark:bg-raised-2 dark:border-line"
         )}
       >
         <div className="flex items-start justify-between gap-4">
@@ -661,7 +661,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
     <>
       <div
         className={cn(
-          "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden",
+          "bg-raised rounded-xl border border-line shadow-sm overflow-hidden",
           "border-l-4",
           statusStyles[proposal.status as keyof typeof statusStyles] || statusStyles.pending,
           className
@@ -670,11 +670,11 @@ export const ProposalCardFull = memo(function ProposalCardFull({
         {/* Clickable Header - Always visible */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-left px-5 py-4 bg-[#faf6f1] dark:bg-[#2d2820] hover:bg-tint transition-colors"
+          className="w-full text-left px-5 py-4 bg-paper hover:bg-tint transition-colors"
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0 flex-1">
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-line flex-shrink-0">
+              <div className="p-2 rounded-lg bg-raised border border-line flex-shrink-0">
                 <CalendarClock className="h-5 w-5 text-accent-ink" />
               </div>
               <div className="min-w-0 flex-1">

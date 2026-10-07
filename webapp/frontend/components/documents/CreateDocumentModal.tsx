@@ -40,7 +40,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
         ref={modalRef}
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-6"
+        className="bg-raised rounded-xl border border-line shadow-xl p-6"
         style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -52,7 +52,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
           <button
             disabled={creating}
             onClick={() => onCreate()}
-            className="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-primary/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
+            className="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-primary/50 hover:bg-wash transition-all text-left disabled:opacity-50"
           >
             <div className="p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
               <FileText className="w-5 h-5" />
@@ -73,7 +73,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
                 key={tpl.id}
                 disabled={creating}
                 onClick={() => handlePickTemplate(tpl.id)}
-                className="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-primary/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
+                className="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-primary/50 hover:bg-wash transition-all text-left disabled:opacity-50"
               >
                 <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                   <Stamp className="w-5 h-5" />

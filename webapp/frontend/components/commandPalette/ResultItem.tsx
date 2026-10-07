@@ -51,7 +51,7 @@ export function ResultItemButton({
           "group flex items-center gap-3 px-4 py-2.5 max-sm:py-3 transition-colors",
           isSelected
             ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-            : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            : "hover:bg-wash"
         )}
       >
         <button
@@ -91,7 +91,7 @@ export function ResultItemButton({
         "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
         isSelected
           ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-          : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          : "hover:bg-wash"
       )}
     >
       <Icon className={cn("h-4 w-4 flex-shrink-0", iconColor)} />

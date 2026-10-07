@@ -215,7 +215,7 @@ export function SummerFindSlotDialog({
             ref={refs.setFloating}
             {...getFloatingProps()}
             className={cn(
-              "bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl border-2 border-line flex flex-col",
+              "bg-raised rounded-xl shadow-xl border-2 border-line flex flex-col",
               showCalendar ? "w-full max-w-2xl max-h-[85vh]" : "w-full max-w-md max-h-[80vh]"
             )}
           >
@@ -403,7 +403,7 @@ export function SummerFindSlotDialog({
 
                           if (!lesson) {
                             return (
-                              <div key={key} className="bg-white dark:bg-[#1a1a1a] min-h-[32px]" />
+                              <div key={key} className="bg-raised min-h-[32px]" />
                             );
                           }
 
@@ -423,7 +423,7 @@ export function SummerFindSlotDialog({
                                   ? "bg-gray-100 dark:bg-gray-800 opacity-40 cursor-not-allowed"
                                   : isMatch
                                     ? "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 cursor-pointer"
-                                    : "bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-900/10 cursor-pointer"
+                                    : "bg-field-fill dark:bg-field-fill hover:bg-amber-50 dark:hover:bg-amber-900/10 cursor-pointer"
                               )}
                               title={`${formatShortDate(lesson.date)}, ${ts}, L${lesson.lesson_number} (${count}/${lesson.max_students})${isMatch ? "" : " — mismatch"}`}
                             >

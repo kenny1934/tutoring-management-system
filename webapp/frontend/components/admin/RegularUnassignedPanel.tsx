@@ -172,7 +172,7 @@ const panelPillClass = (active: boolean, solid = false) =>
     active
       ? "bg-primary text-primary-foreground"
       : solid
-        ? "bg-[#faf2e7] dark:bg-[#2a2724] text-muted-foreground hover:bg-[#f5eadb] dark:hover:bg-[#3a342d]"
+        ? "bg-[#faf2e7] dark:bg-[#2a2724] text-muted-foreground hover:bg-tint dark:hover:bg-tint"
         : "bg-line/20 dark:bg-line/20 text-muted-foreground hover:bg-line/40 dark:hover:bg-line/40"
   );
 
@@ -503,7 +503,7 @@ export function RegularUnassignedPanel({
                       }
                     }}
                     className={cn(
-                      "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-paper/80 dark:hover:bg-paper/50 transition-colors",
+                      "rounded border border-l-[3px] border-line/60 bg-raised px-2 py-1.5 hover:bg-paper/80 dark:hover:bg-paper/50 transition-colors",
                       tapMode === "select"
                         ? "cursor-pointer"
                         : readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
@@ -606,7 +606,7 @@ export function RegularUnassignedPanel({
                         with the list and never clips against the panel edge. */}
                     {suggestOpen && configId && (
                       <div
-                        className="mt-1 rounded border border-line bg-white dark:bg-[#1a1a1a] shadow-md overflow-hidden"
+                        className="mt-1 rounded border border-line bg-raised shadow-md overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                       >

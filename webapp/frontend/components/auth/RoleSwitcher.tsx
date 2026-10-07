@@ -108,7 +108,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
           transition-colors
           ${isImpersonating
             ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-            : "bg-tint text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-[#ebe0d0] dark:hover:bg-[#4d4638] border border-line"
+            : "bg-tint text-ink-heading dark:text-ink-heading hover:bg-[#ebe0d0] dark:hover:bg-[#4d4638] border border-line"
           }
         `}
         title="Switch role for testing"
@@ -152,7 +152,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
               w-full flex items-center gap-2 px-3 py-2 text-sm
               ${!isImpersonating
                 ? "bg-primary/10 text-accent-ink"
-                : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
+                : "text-ink-heading dark:text-ink-heading hover:bg-tint"
               }
             `}
           >
@@ -177,7 +177,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
                   w-full flex items-center gap-2 px-3 py-2 text-sm
                   ${isSelected
                     ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                    : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
+                    : "text-ink-heading dark:text-ink-heading hover:bg-tint"
                   }
                 `}
               >
@@ -213,7 +213,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
                           w-full flex items-center gap-2 px-3 py-2 text-sm
                           ${isSelected
                             ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                            : "text-[#5d4a3a] dark:text-[#d4c4b0] hover:bg-tint"
+                            : "text-ink-heading dark:text-ink-heading hover:bg-tint"
                           }
                         `}
                       >

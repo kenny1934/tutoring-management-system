@@ -213,7 +213,7 @@ export function MyStudentsView({
             role={isMobile ? "tabpanel" : undefined}
             aria-labelledby={isMobile ? "students-list-tab" : undefined}
             className={cn(
-              "flex-shrink-0 flex flex-col bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden",
+              "flex-shrink-0 flex flex-col bg-raised border-2 border-line rounded-lg overflow-hidden",
               isMobile ? "w-full" : "w-[280px]"
             )}
           >

@@ -1682,7 +1682,7 @@ function SessionsPageContent() {
 
           {viewMode === "weekly" ? (
             /* Weekly View Skeleton */
-            <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
+            <div className="flex-1 bg-raised border-2 border-line rounded-lg overflow-hidden">
               {/* Day headers row */}
               <div className="grid border-b-2 border-line" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
                 <div className="p-2 bg-paper" />
@@ -1729,7 +1729,7 @@ function SessionsPageContent() {
               </div>
 
               {/* Grid Skeleton */}
-              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
+              <div className="flex-1 bg-raised border-2 border-line rounded-lg overflow-hidden">
                 {/* Tutor headers row - 1 expanded + 3 collapsed */}
                 <div className="grid border-b-2 border-line" style={{ gridTemplateColumns: "60px 1fr 36px 36px 36px" }}>
                   <div className="p-1.5 bg-paper border-r border-line">
@@ -1790,7 +1790,7 @@ function SessionsPageContent() {
               </div>
 
               {/* Calendar Grid Skeleton */}
-              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
+              <div className="flex-1 bg-raised border-2 border-line rounded-lg overflow-hidden">
                 {/* Weekday Headers */}
                 <div className="grid grid-cols-7 border-b-2 border-line">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
@@ -1866,7 +1866,7 @@ function SessionsPageContent() {
                   <div className="ml-0 sm:ml-4 space-y-2">
                     {[1, 2].map((j) => (
                       <div key={j} className={cn(
-                        "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-line",
+                        "flex rounded-lg overflow-hidden bg-raised border border-line",
                         !isMobile && "paper-texture"
                       )}>
                         <div className="flex-1 p-2 sm:p-3 space-y-1.5">
@@ -2046,26 +2046,26 @@ function SessionsPageContent() {
             <div className="absolute top-full right-0 mt-1 bg-paper shadow-lg rounded-md border border-line z-50 py-1 min-w-[160px]">
               <button
                 onClick={() => { toggleSelectAll(); setShowSelectDropdown(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
               >
                 Select All
               </button>
               <button
                 onClick={() => { selectMarkableOnly(); setShowSelectDropdown(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
               >
                 Select Markable Only
               </button>
               <button
                 onClick={() => { selectAttendedOnly(); setShowSelectDropdown(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
               >
                 Select Attended
               </button>
               {hasSelection && (
                 <button
                   onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-red-600 dark:text-red-400"
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-red-600 dark:text-red-400"
                 >
                   Clear Selection
                 </button>
@@ -2609,19 +2609,19 @@ function SessionsPageContent() {
                               <div className="absolute top-full left-0 mt-1 bg-paper shadow-lg rounded-md border border-line z-[100] py-1 min-w-[160px]">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
-                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                                 >
                                   Select All in Slot
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); selectMarkableInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
-                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                                 >
                                   Select Markable Only
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); selectAttendedInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
-                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                                 >
                                   Select Attended in Slot
                                 </button>
@@ -3061,44 +3061,44 @@ function SessionsPageContent() {
               </div>
               <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">J↓ K↑</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">J↓ K↑</kbd>
                   <span>Navigate sessions</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Space</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Space</kbd>
                   <span>Toggle selection</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Enter</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Enter</kbd>
                   <span>Open details</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">A/N</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">A/N</kbd>
                   <span>Attended / No Show</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">C/H</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">C/H</kbd>
                   <span>CW / HW</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">R</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">R</kbd>
                   <span>Rate & Comment</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Ctrl+A</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Ctrl+A</kbd>
                   <span>Select all</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Ctrl+Shift+A</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Ctrl+Shift+A</kbd>
                   <span>Cycle markable/attended</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">Esc</kbd>
                   <span>Deselect / Clear</span>
                 </div>
               </div>
               <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
-                Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border font-mono">?</kbd> to toggle
+                Press <kbd className="px-1 py-0.5 bg-field-fill rounded border font-mono">?</kbd> to toggle
               </div>
             </motion.div>
           )}

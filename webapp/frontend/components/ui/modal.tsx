@@ -145,7 +145,7 @@ export function Modal({
 
       {/* Footer */}
       {footer && (
-        <div className="flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg overflow-hidden">
+        <div className="flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-wash rounded-b-lg overflow-hidden">
           <div className="w-full">{footer}</div>
         </div>
       )}

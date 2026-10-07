@@ -337,20 +337,20 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   <div className="absolute top-full right-0 mt-1 bg-paper shadow-lg rounded-md border border-line z-50 py-1 min-w-[160px]">
                     <button
                       onClick={() => { handleSelectMarkable(); setShowSelectDropdown(false); }}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                     >
                       Select markable
                     </button>
                     <button
                       onClick={() => { handleSelectAttended(); setShowSelectDropdown(false); }}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                     >
                       Select attended
                     </button>
                     {hasSelection && (
                       <button
                         onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-red-600 dark:text-red-400"
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-red-600 dark:text-red-400"
                       >
                         Clear selection
                       </button>

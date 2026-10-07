@@ -137,7 +137,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
   if (isLoading) {
     return (
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
+        "bg-raised rounded-xl border border-line p-4 shadow-sm",
         !isMobile && "paper-texture"
       )}>
         {/* Header skeleton */}
@@ -181,7 +181,7 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
 
   return (
     <div className={cn(
-      "bg-white dark:bg-[#1a1a1a] rounded-xl border border-line p-4 shadow-sm",
+      "bg-raised rounded-xl border border-line p-4 shadow-sm",
       !isMobile && "paper-texture"
     )}>
       <div className="flex items-center justify-between mb-4">

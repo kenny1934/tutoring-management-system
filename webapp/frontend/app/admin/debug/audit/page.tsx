@@ -75,7 +75,7 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
       <div className="flex items-center">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex-1 px-4 py-3 flex items-center gap-4 text-left hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] transition-colors"
+          className="flex-1 px-4 py-3 flex items-center gap-4 text-left hover:bg-paper transition-colors"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -272,7 +272,7 @@ export default function AuditLogPage() {
                   setTableFilter(e.target.value);
                   setPage(0);
                 }}
-                className="px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                className="px-3 py-2 text-sm border border-field rounded-lg bg-field-fill placeholder-gray-400"
               />
               <select
                 value={operationFilter}
@@ -280,7 +280,7 @@ export default function AuditLogPage() {
                   setOperationFilter(e.target.value);
                   setPage(0);
                 }}
-                className="px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                className="px-3 py-2 text-sm border border-field rounded-lg bg-field-fill text-gray-700 dark:text-gray-300"
               >
                 <option value="">All Operations</option>
                 <option value="CREATE">CREATE</option>
@@ -307,7 +307,7 @@ export default function AuditLogPage() {
             ) : (
               <div className={cn(
                 "rounded-xl border overflow-hidden",
-                "bg-white dark:bg-[#1a1a1a] border-line",
+                "bg-raised border-line",
                 "paper-texture"
               )}>
                 {logs.map((log) => (
@@ -346,7 +346,7 @@ export default function AuditLogPage() {
         {/* Revert Confirmation Modal */}
         {revertLog && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-modal-backdrop">
-            <div className="relative max-w-lg w-[calc(100%-2rem)] min-w-[20rem] mx-4 bg-white dark:bg-[#1a1a1a] rounded-xl border border-amber-300 dark:border-amber-700 shadow-xl animate-modal-in">
+            <div className="relative max-w-lg w-[calc(100%-2rem)] min-w-[20rem] mx-4 bg-raised rounded-xl border border-amber-300 dark:border-amber-700 shadow-xl animate-modal-in">
               <div className="flex items-center justify-between p-4 border-b border-line">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">

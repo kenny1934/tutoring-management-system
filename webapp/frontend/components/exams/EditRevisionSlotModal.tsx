@@ -192,7 +192,7 @@ export function EditRevisionSlotModal({
       {/* Modal */}
       <div className={cn(
         "relative z-10 w-[min(calc(100vw-2rem),28rem)] rounded-xl overflow-hidden",
-        "bg-white dark:bg-[#1a1a1a] border border-line",
+        "bg-raised border border-line",
         "shadow-2xl paper-texture"
       )}>
         {/* Header */}

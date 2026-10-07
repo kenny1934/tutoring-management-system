@@ -623,7 +623,7 @@ export default function DocumentsPage() {
             buttons stay in the toolbar inside the card, so this is only the name. */}
         <PageHeader icon={FileText} title="Documents" className="mb-2 sm:mb-3" />
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-        <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-sm overflow-hidden">
+        <div className="flex flex-1 min-h-0 bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sidebar — desktop */}
         <FolderSidebar
           hidden={isTemplatesTab}
@@ -652,7 +652,7 @@ export default function DocumentsPage() {
         {mobileDrawerOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-black/30 animate-backdrop-in" onClick={() => setMobileDrawerOpen(false)} />
-            <div className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto">
+            <div className="absolute left-0 top-0 bottom-0 w-72 bg-raised shadow-xl overflow-y-auto">
               <FolderSidebar
                 mobile
                 folders={folders}
@@ -765,7 +765,7 @@ export default function DocumentsPage() {
               <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-32 rounded-xl bg-[#f5ede3] dark:bg-[#2d2618] shimmer-sepia" />
+                    <div key={i} className="h-32 rounded-xl bg-wash shimmer-sepia" />
                   ))
                 ) : documents?.length ? (
                   documents.map((doc, i) => {
@@ -841,7 +841,7 @@ export default function DocumentsPage() {
                   })
                 ) : (
                   <div className="col-span-full flex flex-col items-center py-20 text-center">
-                    <div className={cn("animate-empty-float w-16 h-16 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-[#f5ede3] dark:bg-[#2d2618]")}>
+                    <div className={cn("animate-empty-float w-16 h-16 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-wash")}>
                       {isTrashTab ? <Trash2 className="w-8 h-8 text-red-300 dark:text-red-800" /> : <FileText className="w-8 h-8 text-accent-ink/40 dark:text-accent-ink/30" />}
                     </div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
@@ -880,7 +880,7 @@ export default function DocumentsPage() {
         </div>{/* end white card */}
         <DragOverlay dropAnimation={null}>
           {activeDragData && (
-            <div className="px-3 py-2 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg border border-primary/40 text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2 pointer-events-none">
+            <div className="px-3 py-2 bg-raised rounded-lg shadow-lg border border-primary/40 text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2 pointer-events-none">
               <FileText className="w-4 h-4 text-accent-ink" />
               <span className="truncate max-w-[200px]">{activeDragData.docTitle}</span>
               {activeDragData.selectedIds.length > 1 && (
@@ -966,14 +966,14 @@ export default function DocumentsPage() {
       {/* Bulk move to folder picker */}
       {bulkFolderPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBulkFolderPickerOpen(false)}>
-          <div ref={bulkFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div ref={bulkFolderRef} className="bg-raised rounded-xl border border-line shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move {selectedIds.size} document(s) to</h3>
             <div className="space-y-0.5">
-              <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+              <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-wash transition-colors">
                 <FolderOpen className="w-4 h-4 text-gray-500" /> No folder
               </button>
               {flatFolders.map(({ folder: f, depth }) => (
-                <button key={f.id} onClick={() => executeBulkMove(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
+                <button key={f.id} onClick={() => executeBulkMove(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-wash transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
                   <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
                 </button>
               ))}
@@ -985,7 +985,7 @@ export default function DocumentsPage() {
       {/* Bulk tag picker (add/remove) */}
       {bulkTagPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); setBulkTagMode("add"); }}>
-          <div ref={bulkTagRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
+          <div ref={bulkTagRef} className="bg-raised rounded-xl border border-line shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
             {/* Add / Remove tabs */}
             <Segmented
               label="Add or remove a tag"
@@ -1063,7 +1063,7 @@ export default function DocumentsPage() {
                 ["?", "Toggle this panel"],
               ].map(([key, desc]) => (
                 <div key={key} className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">{key}</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-field-fill rounded border text-xs font-mono">{key}</kbd>
                   <span>{desc}</span>
                 </div>
               ))}
@@ -1080,14 +1080,14 @@ export default function DocumentsPage() {
         collectDesc(movingFolderId);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setMovingFolderId(null)}>
-            <div ref={moveFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div ref={moveFolderRef} className="bg-raised rounded-xl border border-line shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move folder to</h3>
               <div className="space-y-0.5">
-                <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-wash transition-colors">
                   <FolderOpen className="w-4 h-4 text-gray-500" /> Root (no parent)
                 </button>
                 {flatFolders.filter(({ folder: f }) => !excludeIds.has(f.id)).map(({ folder: f, depth }) => (
-                  <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
+                  <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-wash transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
                     <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
                   </button>
                 ))}

@@ -280,9 +280,9 @@ export function WaitlistEntryModal({
         className="absolute inset-0 bg-black/40"
         onClick={handleClose}
       />
-      <div ref={modalScrollRef} className="relative bg-white dark:bg-[#1e1e1e] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
+      <div ref={modalScrollRef} className="relative bg-raised rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-[#1e1e1e] border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center justify-between rounded-t-xl z-10">
+        <div className="sticky top-0 bg-raised border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center justify-between rounded-t-xl z-10">
           <div className="min-w-0">
             <h2 id="waitlist-modal-title" className="text-lg font-semibold text-foreground">
               {entry ? "Edit Waitlist Entry" : "Add to Waitlist"}
@@ -367,7 +367,7 @@ export function WaitlistEntryModal({
                   />
                 </div>
                 {showStudentSearch && studentResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20 max-h-48 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-raised-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20 max-h-48 overflow-y-auto">
                     {studentResults.map((s) => (
                       <button
                         key={s.id}
@@ -439,7 +439,7 @@ export function WaitlistEntryModal({
                 placeholder="e.g. PCMS"
               />
               {showSchoolOptions && filteredSchools.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20 max-h-32 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-raised-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20 max-h-32 overflow-y-auto">
                   {filteredSchools.slice(0, 8).map((s) => (
                     <button
                       key={s}
@@ -628,7 +628,7 @@ export function WaitlistEntryModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white dark:bg-[#1e1e1e] border-t border-gray-200 dark:border-gray-700 px-5 py-3 flex justify-end gap-2 rounded-b-xl">
+        <div className="sticky bottom-0 bg-raised border-t border-gray-200 dark:border-gray-700 px-5 py-3 flex justify-end gap-2 rounded-b-xl">
           <Button variant="secondary" onClick={handleClose}>
             Cancel
           </Button>

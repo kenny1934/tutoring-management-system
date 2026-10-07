@@ -257,7 +257,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
           </Button>
           <div className="flex items-center gap-1.5">
             <CalendarDays className="h-4 w-4 text-accent-ink" />
-            <span className="font-bold text-[#5d4e37] dark:text-[#e8d4b8] text-sm sm:text-base">
+            <span className="font-bold text-ink-heading text-sm sm:text-base">
               {getMonthName(selectedDate)} {selectedDate.getFullYear()}
             </span>
           </div>
@@ -271,7 +271,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-raised border-2 border-line rounded-lg overflow-hidden flex flex-col">
         {/* Weekday Headers */}
         <div className="grid grid-cols-7 border-b-2 border-line">
           {WEEKDAY_NAMES.map((day, index) => (
@@ -367,7 +367,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
         <span className={cn(
           "text-xs sm:text-sm font-bold",
           isToday && "text-accent-ink dark:text-accent-ink",
-          !isToday && isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]",
+          !isToday && isCurrentMonth && "text-ink-heading dark:text-ink-heading",
           !isCurrentMonth && "text-gray-500 dark:text-gray-400",
           isWeekend && isCurrentMonth && !isToday && "text-accent-ink/70 dark:text-accent-ink/70"
         )}>
@@ -410,7 +410,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
                 key={tutor.id}
                 className="flex items-center gap-1 text-[11px]"
               >
-                <span className="font-semibold text-[#5d4e37] dark:text-[#e8d4b8] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1 rounded truncate max-w-[60px]">
+                <span className="font-semibold text-ink-heading bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1 rounded truncate max-w-[60px]">
                   {getTutorFirstName(tutor.tutor_name)}
                 </span>
                 <span className="text-accent-ink tabular-nums">
@@ -608,7 +608,7 @@ function DayPopover({
         <div className="flex items-center justify-between px-4 py-2 border-b border-line bg-tint">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-accent-ink" />
-            <span className="font-bold text-[#5d4e37] dark:text-[#e8d4b8]">
+            <span className="font-bold text-ink-heading">
               {getDayName(date, false)}, {getMonthName(date)} {date.getDate()}
             </span>
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1.5 py-0.5 rounded">
@@ -954,7 +954,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                   </div>
 
                   {/* Middle Row: Student Name + Grade + School */}
-                  <div className="flex items-center gap-1 text-xs font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+                  <div className="flex items-center gap-1 text-xs font-semibold text-ink-heading">
                     <span className="truncate">{ps.student_name || "Unknown"}</span>
                     {ps.grade && (
                       <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={ps.grade} langStream={ps.lang_stream} />
@@ -1064,7 +1064,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                   index % 2 === 1 && "bg-tint"
                 )}
               >
-                <div className="text-[11px] font-semibold text-[#5d4e37] dark:text-[#e8d4b8] truncate">
+                <div className="text-[11px] font-semibold text-ink-heading truncate">
                   {tutor ? getTutorFirstName(tutor.tutor_name) : "Unknown"}
                 </div>
                 <div className="text-[11px] text-[#8b6f47] dark:text-[#cd853f]">
@@ -1239,7 +1239,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
       onClick={onClick}
       className={cn(
         "relative flex items-center gap-2 pr-7 py-1 rounded-md cursor-pointer transition-all overflow-hidden",
-        "bg-white dark:bg-[#1a1a1a] border border-line",
+        "bg-raised border border-line",
         "hover:shadow-md hover:scale-[1.01]",
         config.bgTint,
         isSelected && "ring-2 ring-accent-ink",
@@ -1288,7 +1288,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
               ? "text-red-600 dark:text-red-400"
               : config.strikethrough
                 ? "text-gray-500 dark:text-gray-400"
-                : "text-[#5d4e37] dark:text-[#e8d4b8]",
+                : "text-ink-heading dark:text-ink-heading",
           config.strikethrough && "line-through"
         )}>
           <span className="truncate">{session.student_name || "Unknown"}</span>

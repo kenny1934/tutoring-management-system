@@ -410,7 +410,7 @@ export default function StudentDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Personal Info Card */}
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+              "bg-raised border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}>
               <div className="h-5 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
@@ -425,7 +425,7 @@ export default function StudentDetailPage() {
             </div>
             {/* Academic Info Card */}
             <div className={cn(
-              "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+              "bg-raised border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}>
               <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
@@ -440,7 +440,7 @@ export default function StudentDetailPage() {
             </div>
             {/* Enrollments Card - spans full width */}
             <div className={cn(
-              "lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4",
+              "lg:col-span-2 bg-raised border border-line rounded-lg p-4",
               !isMobile && "paper-texture"
             )}>
               <div className="h-5 w-36 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
@@ -973,7 +973,7 @@ function ProfileTab({
       <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 transition-all",
+        "bg-raised border border-line rounded-lg p-4 transition-all",
         !isMobile && "paper-texture",
         isEditingPersonal && "ring-2 ring-amber-400"
       )}>
@@ -1032,7 +1032,7 @@ function ProfileTab({
 
       {/* Academic Info Card */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 transition-all",
+        "bg-raised border border-line rounded-lg p-4 transition-all",
         !isMobile && "paper-texture",
         isEditingAcademic && "ring-2 ring-amber-400"
       )}>
@@ -1089,7 +1089,7 @@ function ProfileTab({
       {/* Discounts & Coupons Card - loading skeleton */}
       {couponLoading && (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
+          "bg-raised border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center gap-2 mb-3">
@@ -1103,7 +1103,7 @@ function ProfileTab({
       {/* Discounts & Coupons Card - show for admins or if has coupons/staff referral */}
       {!couponLoading && (couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2 transition-all",
+          "bg-raised border border-line rounded-lg p-4 md:col-span-2 transition-all",
           !isMobile && "paper-texture",
           isEditingStaffReferral && "ring-2 ring-amber-400"
         )}>
@@ -1257,7 +1257,7 @@ function ProfileTab({
       {/* Active Enrollments Card */}
       {enrollmentsLoading ? (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
+          "bg-raised border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center gap-2 mb-3">
@@ -1271,7 +1271,7 @@ function ProfileTab({
         </div>
       ) : enrollments.length > 0 ? (
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
+          "bg-raised border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center justify-between mb-3">
@@ -1363,7 +1363,7 @@ function ProfileTab({
       ) : (
         /* No Enrollments - Show New Trial CTA */
         <div className={cn(
-          "bg-white dark:bg-[#1a1a1a] border border-line rounded-lg p-4 md:col-span-2",
+          "bg-raised border border-line rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="text-center py-4">
@@ -1876,7 +1876,7 @@ function CopyLessonDatesButton({
             "bg-[#f5ede3] dark:bg-[#2d2820] border border-line",
             "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
             "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]",
-            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#f5ede3] dark:disabled:hover:bg-[#2d2820] disabled:hover:text-gray-600 dark:disabled:hover:text-gray-400"
+            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-wash disabled:hover:text-gray-600 dark:disabled:hover:text-gray-400"
           )}
           title={pillTitle}
         >
@@ -1900,7 +1900,7 @@ function CopyLessonDatesButton({
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-line py-1">
+        <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-raised border border-line py-1">
           <div className="px-2 py-1 text-[11px] text-gray-500 uppercase tracking-wider">Scope</div>
           {SCOPE_ORDER.map((s) => {
             const count = sessionsByScope[s].length;
@@ -1912,8 +1912,8 @@ function CopyLessonDatesButton({
                 disabled={disabled}
                 className={cn(
                   "w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between gap-2",
-                  !disabled && "hover:bg-[#f5ede3] dark:hover:bg-[#2d2820]",
-                  scope === s && !disabled && "bg-[#f5ede3] dark:bg-[#2d2820] text-accent-ink",
+                  !disabled && "hover:bg-wash",
+                  scope === s && !disabled && "bg-wash text-accent-ink",
                   disabled && "opacity-40 cursor-not-allowed"
                 )}
               >
@@ -1933,8 +1933,8 @@ function CopyLessonDatesButton({
               key={key}
               onClick={() => handleCopy(scope, key)}
               className={cn(
-                "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
-                dateFormat === key && "bg-[#f5ede3] dark:bg-[#2d2820] text-accent-ink"
+                "w-full text-left px-3 py-1.5 text-xs hover:bg-wash transition-colors",
+                dateFormat === key && "bg-wash text-accent-ink"
               )}
             >
               <div className="font-medium flex items-center gap-1.5">
@@ -2102,7 +2102,7 @@ function SessionsTab({
         animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
         transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
         className={cn(
-          "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-line cursor-pointer",
+          "flex rounded-lg overflow-hidden bg-raised border border-line cursor-pointer",
           statusConfig.bgTint,
           !isMobile && "paper-texture",
           selectedSessionId === session.id && "ring-2 ring-primary"
@@ -2415,7 +2415,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
             "block p-3 rounded-lg border transition-colors",
             isPast
               ? "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60 hover:opacity-80 hover:bg-gray-100 dark:hover:bg-gray-700/50"
-              : "bg-white dark:bg-[#1a1a1a] border-line dark:border-line hover:bg-tint dark:hover:bg-tint",
+              : "bg-raised dark:bg-raised border-line dark:border-line hover:bg-tint dark:hover:bg-tint",
             !isMobile && "paper-texture"
           )}
         >
@@ -2840,8 +2840,8 @@ function HomeworkStatusChips({
             className={cn(
               "flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-colors",
               active
-                ? "bg-[#f5ede3] dark:bg-[#3a342a] border-primary text-gray-900 dark:text-gray-100"
-                : "bg-white dark:bg-[#1a1a1a] border-line text-gray-600 dark:text-gray-400 hover:border-primary",
+                ? "bg-tint border-primary text-gray-900 dark:text-gray-100"
+                : "bg-field-fill border-line text-gray-600 dark:text-gray-400 hover:border-primary",
               count === 0 && !active && "opacity-40 cursor-not-allowed"
             )}
           >
@@ -3137,7 +3137,7 @@ function CoursewareTab({
   const tab = (
     <div className="space-y-4">
       {/* Progress Summary */}
-      <div className="px-4 py-2.5 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg space-y-2">
+      <div className="px-4 py-2.5 bg-wash rounded-lg space-y-2">
         <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
           <BarChart3 className="h-5 w-5 text-accent-ink" />
           <span className="text-sm">
@@ -3268,9 +3268,9 @@ function CoursewareTab({
             const sessionDate = new Date(firstEx.session_date + 'T00:00:00');
 
             return (
-              <div key={sessionId} className="rounded-lg border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              <div key={sessionId} className="rounded-lg border border-line bg-raised overflow-hidden">
                 {/* Session Header — top stripe */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line">
+                <div className="flex items-center gap-2 px-3 py-2 bg-wash border-b border-line">
                   <Calendar className="h-4 w-4 text-accent-ink" />
                   <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -3420,9 +3420,9 @@ function CoursewareTab({
       {groupBy === "pdf" && filteredExercises.length > 0 && (
         <div className="space-y-4">
           {Array.from(exercisesByPdf.entries()).map(([pdfName, exercises]) => (
-            <div key={pdfName} className="rounded-lg border border-line bg-white dark:bg-[#1a1a1a] overflow-hidden">
+            <div key={pdfName} className="rounded-lg border border-line bg-raised overflow-hidden">
               {/* PDF Header — top stripe */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line">
+              <div className="flex items-center gap-2 px-3 py-2 bg-wash border-b border-line">
                 <BookMarked className="h-4 w-4 text-accent-ink" />
                 <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                   {getDisplayName(pdfName)}
@@ -3441,7 +3441,7 @@ function CoursewareTab({
 
                   return (
                     <div key={`${exercise.session_id}-${exercise.id || index}`}>
-                      <div className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2820]/50 transition-colors">
+                      <div className="flex items-center gap-2 px-3 py-2 hover:bg-wash/50 transition-colors">
                         <span className="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">
                           {sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
@@ -3861,7 +3861,7 @@ function ParentContactsTab({
       {/* Header with Status and Add Button */}
       <div className={cn(
         "flex items-center justify-between p-3 rounded-lg",
-        "bg-[#f5ede3] dark:bg-[#2d2820] border border-line"
+        "bg-wash border border-line"
       )}>
         <div className="flex items-center gap-3">
           <ContactStatusBadge status={contactStatus} size="md" />
@@ -3906,7 +3906,7 @@ function ParentContactsTab({
               onClick={readOnly ? undefined : () => onEditContact(contact)}
               className={cn(
                 "p-3 rounded-lg transition-all",
-                "bg-white dark:bg-[#1a1a1a] border border-line",
+                "bg-raised border border-line",
                 !isMobile && "paper-texture",
                 readOnly
                   ? "cursor-default"

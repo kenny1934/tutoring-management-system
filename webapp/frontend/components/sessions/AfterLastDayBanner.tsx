@@ -59,7 +59,7 @@ export function AfterLastDayBanner({
                 "text-xs px-2 py-1 rounded border transition-colors",
                 selectedTutorId === String(leaver.tutor_id)
                   ? "bg-rose-200 dark:bg-rose-900/60 border-rose-400 dark:border-rose-600 text-rose-900 dark:text-rose-100 font-medium"
-                  : "bg-white dark:bg-[#1a1a1a] border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                  : "bg-field-fill dark:bg-field-fill border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30"
               )}
             >
               {leaver.tutor_name}, {departureLabel(leaver)?.toLowerCase()}, {leaver.sessions} to move

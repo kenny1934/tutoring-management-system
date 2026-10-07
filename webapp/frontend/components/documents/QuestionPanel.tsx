@@ -105,7 +105,7 @@ function QuestionCard({
   const copyText = [rest, q.full_text || q.preview].filter(Boolean).join(" ") || q.label;
 
   return (
-    <div className="w-full text-left px-4 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-b border-gray-100 dark:border-gray-800/50 last:border-0">
+    <div className="w-full text-left px-4 py-2.5 hover:bg-wash transition-colors border-b border-gray-100 dark:border-gray-800/50 last:border-0">
       <div className="flex items-center gap-2 mb-1">
         <button
           onClick={() => onScrollToNode(q.start_node)}
@@ -422,7 +422,7 @@ export function QuestionPanel({
   if (!isOpen) return null;
 
   return (
-    <div role="complementary" aria-label="Questions panel" className="w-80 border-l border-line bg-white dark:bg-[#1a1a1a] flex flex-col shrink-0 print:hidden max-md:fixed max-md:inset-0 max-md:w-full max-md:z-50">
+    <div role="complementary" aria-label="Questions panel" className="w-80 border-l border-line bg-raised flex flex-col shrink-0 print:hidden max-md:fixed max-md:inset-0 max-md:w-full max-md:z-50">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <div className="flex items-center gap-2">

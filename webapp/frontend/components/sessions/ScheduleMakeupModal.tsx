@@ -283,7 +283,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-[#5d4e37] dark:text-[#e8d4b8]">
+            <span className="text-sm font-medium text-ink-heading">
               {new Date(suggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
             <span className="text-xs text-gray-500">{suggestion.time_slot}</span>
@@ -1373,7 +1373,7 @@ export function ScheduleMakeupModal({
           {session.school_student_id && (
             <span className="text-[11px] text-gray-500 font-mono">{session.school_student_id}</span>
           )}
-          <span className="font-medium text-[#5d4e37] dark:text-[#e8d4b8]">{session.student_name}</span>
+          <span className="font-medium text-ink-heading">{session.student_name}</span>
           {session.grade && (
             <GradeBadge className="text-[11px] px-1 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
@@ -1453,7 +1453,7 @@ export function ScheduleMakeupModal({
               {proposalSlots.map((slot, idx) => (
                 <div
                   key={`${slot.date}-${slot.timeSlot}-${slot.tutorId}`}
-                  className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] rounded-md px-3 py-2 text-sm"
+                  className="flex items-center justify-between bg-raised rounded-md px-3 py-2 text-sm"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold text-blue-600 dark:text-blue-400">#{idx + 1}</span>
@@ -1514,7 +1514,7 @@ export function ScheduleMakeupModal({
         )}
 
         {/* Smart Suggestions */}
-        <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
+        <div className="bg-raised border border-line rounded-lg overflow-hidden">
           {/* Header - Entire row is clickable */}
           <div
             onClick={() => setShowSuggestions(!showSuggestions)}
@@ -1738,7 +1738,7 @@ export function ScheduleMakeupModal({
         {/* Calendar and Form */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Calendar */}
-          <div className="bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
+          <div className="bg-raised border border-line rounded-lg overflow-hidden">
             {/* Month navigation */}
             <div className="flex items-center justify-between px-3 py-2 bg-paper border-b border-line">
               <IconButton label="Previous month" icon={ChevronLeft} size="sm" onClick={goToPreviousMonth} />
@@ -1746,7 +1746,7 @@ export function ScheduleMakeupModal({
                 <Button variant="quiet" size="sm" onClick={goToToday}>
                   Today
                 </Button>
-                <span className="font-semibold text-sm text-[#5d4e37] dark:text-[#e8d4b8]">
+                <span className="font-semibold text-sm text-ink-heading">
                   {getMonthName(viewDate)} {viewDate.getFullYear()}
                 </span>
               </div>
@@ -1865,7 +1865,7 @@ export function ScheduleMakeupModal({
                         dayData.isHoliday && "text-rose-600",
                         !dayData.isHoliday && dayData.isPastLimitDay && "text-red-600 dark:text-red-400",
                         !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "text-amber-700 dark:text-amber-400",
-                        !dayData.isToday && !dayData.isHoliday && !dayData.isPastLimitDay && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
+                        !dayData.isToday && !dayData.isHoliday && !dayData.isPastLimitDay && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-ink-heading dark:text-ink-heading"
                       )}>
                         {dayData.date.getDate()}
                       </div>
@@ -2181,7 +2181,7 @@ export function ScheduleMakeupModal({
 
           {/* Time Slots Panel - Shows available slots for selected date */}
           {showDayPicker && dayPickerDate && (
-            <div className="lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg overflow-hidden">
+            <div className="lg:col-span-2 bg-raised border border-line rounded-lg overflow-hidden">
               {/* Header - Fixed outside scroll */}
               <div className="flex items-center justify-between px-3 py-2.5 bg-primary dark:bg-[#8b6f47]">
                 <span className="text-xs font-semibold text-white">
@@ -2203,7 +2203,7 @@ export function ScheduleMakeupModal({
 
               {/* Filter Options */}
               {dayPickerSlots.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-white dark:bg-[#1a1a1a]">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-raised">
                   <span className="text-[11px] text-gray-500 mr-1">Filter:</span>
                   <button
                     onClick={() => setFilterSameGrade(!filterSameGrade)}
@@ -2267,8 +2267,8 @@ export function ScheduleMakeupModal({
                               className={cn(
                                 "rounded-lg overflow-hidden transition-all",
                                 isSelected
-                                  ? "ring-2 ring-accent-ink bg-white dark:bg-[#1a1a1a]"
-                                  : "bg-white dark:bg-[#1a1a1a]"
+                                  ? "ring-2 ring-accent-ink bg-raised"
+                                  : "bg-raised"
                               )}
                             >
                               {/* Tutor Row */}
@@ -2289,7 +2289,7 @@ export function ScheduleMakeupModal({
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-medium text-[#5d4e37] dark:text-[#e8d4b8]">
+                                    <span className="text-sm font-medium text-ink-heading">
                                       {tutorName}
                                     </span>
                                     <span className={cn(

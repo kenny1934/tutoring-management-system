@@ -1255,7 +1255,7 @@ function WaitlistRow({
                 className="fixed inset-0 z-30"
                 onClick={() => setShowActions(false)}
               />
-              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2a2a2a] rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-40 min-w-[180px] py-1">
+              <div className="absolute right-0 top-full mt-1 bg-raised-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-40 min-w-[180px] py-1">
                 {!hasStudent && !isReadOnly && (
                   <button
                     onClick={() => {

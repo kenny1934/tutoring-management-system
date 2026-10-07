@@ -792,7 +792,7 @@ function RequestCard({
             ? "border-green-200 dark:border-green-800/40 bg-green-50/50 dark:bg-green-900/10"
             : request.status === "rejected" || request.status === "cancelled"
             ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 opacity-60"
-            : "border-line dark:border-line bg-white dark:bg-[#1a1a1a]"
+            : "border-line dark:border-line bg-raised dark:bg-raised"
         )}
         onClick={() => setExpanded(!expanded)}
       >
@@ -1023,7 +1023,7 @@ function AllStaffBalancesPanel({
   return (
     <div className="flex flex-col">
       {/* Search + branch badge */}
-      <div className="sticky top-0 z-10 px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line/60 flex items-center gap-2">
+      <div className="sticky top-0 z-10 px-3 py-2 bg-paper border-b border-line/60 flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" aria-hidden="true" />
           <Input
@@ -1362,7 +1362,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
         {...getReferenceProps()}
         className={cn(
           "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-          "bg-white dark:bg-[#1a1a1a] border border-line-strong",
+          "bg-field-fill dark:bg-field-fill border border-line-strong",
           "text-accent-ink",
           "hover:bg-tint hover:shadow-sm",
           isOpen && "bg-tint dark:bg-tint shadow-sm"
@@ -1441,7 +1441,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                   className={cn(
                     "flex-1 px-2 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
                     activeTab === tab.id
-                      ? "text-accent-ink border-b-2 border-primary bg-[#faf6f1] dark:bg-[#2d2820]"
+                      ? "text-accent-ink border-b-2 border-primary bg-paper"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
                     i === 0 && "rounded-tl-lg",
                     i === tabs.length - 1 && "rounded-tr-lg",

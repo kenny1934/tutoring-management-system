@@ -152,7 +152,7 @@ export function SeptemberClasses({
                   slot={slot}
                   showTime
                   showBranch={week.manyBranches}
-                  className="bg-white dark:bg-[#1a1a1a] border border-line dark:border-line rounded-lg px-2 py-1.5"
+                  className="bg-raised dark:bg-raised border border-line dark:border-line rounded-lg px-2 py-1.5"
                 />
               ))}
             </div>
@@ -161,7 +161,7 @@ export function SeptemberClasses({
       </div>
 
       {/* The week itself, from a tablet up. */}
-      <div className="hidden md:flex min-h-0 flex-col bg-white dark:bg-[#1a1a1a] border-2 border-line rounded-lg overflow-hidden">
+      <div className="hidden md:flex min-h-0 flex-col bg-raised border-2 border-line rounded-lg overflow-hidden">
         <div className="overflow-auto min-h-0">
           <div className="grid" style={{ gridTemplateColumns: gridColumns, minWidth: minGridWidth }}>
             {/* Header: the time corner, then every day of the week */}

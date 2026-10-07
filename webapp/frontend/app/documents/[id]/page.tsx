@@ -14,7 +14,7 @@ function EditorSkeleton() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Top bar skeleton */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-white dark:bg-[#1a1a1a]">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-raised">
         <div className="h-7 w-7 rounded bg-gray-200 dark:bg-gray-700" />
         <div className="h-5 w-48 rounded bg-gray-200 dark:bg-gray-700" />
         <div className="flex-1" />
@@ -23,7 +23,7 @@ function EditorSkeleton() {
         <div className="h-8 w-20 rounded-lg bg-gray-200 dark:bg-gray-700" />
       </div>
       {/* Toolbar skeleton */}
-      <div className="border-b border-line bg-white dark:bg-[#1a1a1a]">
+      <div className="border-b border-line bg-raised">
         <div className="flex items-center gap-1 px-3 py-1.5 border-b border-line/40">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-6 w-6 rounded bg-gray-100 dark:bg-gray-800" />

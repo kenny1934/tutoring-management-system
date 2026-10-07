@@ -699,7 +699,7 @@ export function PaperlessSearchModal({
             aria-label="Search documents"
             className={cn(
               "w-full pl-10 pr-4 py-2.5 rounded-lg border",
-              "bg-white dark:bg-[#1a1a1a]",
+              "bg-field-fill",
               "border-field",
               "text-gray-900 dark:text-gray-100",
               "placeholder:text-gray-400 dark:placeholder:text-gray-500",
@@ -763,7 +763,7 @@ export function PaperlessSearchModal({
                 aria-haspopup="listbox"
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all",
-                  "bg-white dark:bg-[#1a1a1a]",
+                  "bg-field-fill",
                   "border-line dark:border-line",
                   "text-gray-700 dark:text-gray-300",
                   "hover:border-amber-300 dark:hover:border-amber-700",
@@ -777,7 +777,7 @@ export function PaperlessSearchModal({
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-white dark:bg-[#1a1a1a] shadow-lg">
+                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-line bg-raised shadow-lg">
                   {availableTags.map((tag) => (
                     <label
                       key={tag.id}
@@ -924,7 +924,7 @@ export function PaperlessSearchModal({
                               // Gradient background for top 3 (when not focused/checked)
                               !isFocused && !isChecked && index < 3
                                 ? "bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]"
-                                : !isFocused && !isChecked ? "bg-white dark:bg-[#1a1a1a]" : "",
+                                : !isFocused && !isChecked ? "bg-raised dark:bg-raised" : "",
                               // Focus styling
                               isFocused && "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50",
                               // Highlight if selected in multi-select mode
@@ -1123,7 +1123,7 @@ export function PaperlessSearchModal({
                               ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
                               : isFocused
                                 ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
-                                : "bg-white dark:bg-[#1a1a1a] border-line dark:border-line hover:border-amber-300 dark:hover:border-amber-700"
+                                : "bg-raised dark:bg-raised border-line dark:border-line hover:border-amber-300 dark:hover:border-amber-700"
                           )}
                         >
                           {/* Thumbnail */}
@@ -1238,7 +1238,7 @@ export function PaperlessSearchModal({
                         ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
                         : isFocused
                           ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
-                          : "bg-white dark:bg-[#1a1a1a] border-line dark:border-line hover:border-amber-300 dark:hover:border-amber-700",
+                          : "bg-raised dark:bg-raised border-line dark:border-line hover:border-amber-300 dark:hover:border-amber-700",
                       !path && "opacity-50 cursor-not-allowed"
                     )}
                   >

@@ -97,7 +97,7 @@ export default function DebugPanelPage() {
                   placeholder="Search tables..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-field-fill placeholder-gray-400"
                 />
               </div>
               <Link
@@ -116,7 +116,7 @@ export default function DebugPanelPage() {
               </Link>
               <Link
                 href="/admin/debug/audit"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line bg-raised dark:bg-raised text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
               >
                 <History className="h-4 w-4" aria-hidden="true" />
                 Audit Logs
@@ -158,7 +158,7 @@ export default function DebugPanelPage() {
                             href={`/admin/debug/${table.name}`}
                             className={cn(
                               "p-4 rounded-xl border transition-all",
-                              "bg-white dark:bg-[#1a1a1a] border-line",
+                              "bg-raised dark:bg-raised border-line",
                               "hover:shadow-md hover:border-primary dark:hover:border-[#a0704b]",
                               "paper-texture",
                               group.accent

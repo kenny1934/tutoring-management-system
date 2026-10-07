@@ -18,7 +18,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
     <div>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-wash"
       >
         <FolderInput className="w-3.5 h-3.5" />
         Move to
@@ -29,7 +29,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
           <button
             onClick={(e) => { e.stopPropagation(); onMoveToFolder(null); }}
             className={cn(
-              "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+              "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-wash",
               !doc.folder_id && "font-semibold"
             )}
           >
@@ -41,7 +41,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
               key={f.id}
               onClick={(e) => { e.stopPropagation(); onMoveToFolder(f.id); }}
               className={cn(
-                "w-full flex items-center gap-2 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                "w-full flex items-center gap-2 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-wash",
                 doc.folder_id === f.id && "font-semibold"
               )}
               style={{ paddingLeft: `${32 + depth * 16}px` }}
@@ -70,7 +70,7 @@ export interface DocContextMenuProps {
   onEditTags: () => void;
 }
 
-const menuItemCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] [&>svg]:text-gray-400 [&>svg]:dark:text-gray-500 [&>svg]:shrink-0";
+const menuItemCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-wash dark:hover:bg-wash [&>svg]:text-gray-400 [&>svg]:dark:text-gray-500 [&>svg]:shrink-0";
 const menuDangerCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20";
 
 export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete, onSaveAsTemplate, folders, onMoveToFolder, onEditTags }: DocContextMenuProps) {
@@ -86,7 +86,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         onClick={(e) => { e.stopPropagation(); setMenuOpenId(isOpen ? null : doc.id); }}
         aria-label={`Actions for ${doc.title}`}
         aria-expanded={isOpen}
-        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity"
+        className="p-1 rounded hover:bg-wash sm:opacity-0 sm:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity"
       >
         <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </button>
@@ -94,7 +94,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         triggerRef={btnRef}
         isOpen={isVisible}
         onClose={close}
-        className="bg-white dark:bg-[#1a1a1a] border border-line dark:border-line rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden animate-menu-stagger"
+        className="bg-raised dark:bg-raised border border-line dark:border-line rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden animate-menu-stagger"
       >
         <button
           onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); close(); }}

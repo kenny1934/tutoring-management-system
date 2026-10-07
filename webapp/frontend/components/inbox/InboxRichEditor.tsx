@@ -153,7 +153,7 @@ const MentionList = React.forwardRef<MentionListRef, MentionListProps>(
     if (items.length === 0) return null;
 
     return (
-      <div className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line p-1 min-w-[160px] max-h-[200px] overflow-y-auto z-50">
+      <div className="bg-raised-2 rounded-lg shadow-xl border border-line p-1 min-w-[160px] max-h-[200px] overflow-y-auto z-50">
         {items.map((item, index) => (
           <button
             key={item.id}
@@ -615,9 +615,9 @@ export default function InboxRichEditor({
   const activeColor = editor.getAttributes("textStyle").color;
 
   return (
-    <div className="border border-line rounded-lg bg-white dark:bg-[#2a2a2a]">
+    <div className="border border-line rounded-lg bg-raised-2">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-line flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-wash border-b border-line flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
         <ToolbarButton
           icon={Bold}
           label="Bold"
@@ -713,7 +713,7 @@ export default function InboxRichEditor({
                 isOpen={showTableOps}
                 onClose={() => setShowTableOps(false)}
                 align="left"
-                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-1 min-w-[170px]"
+                className="bg-raised-2 dark:bg-raised-2 rounded-lg shadow-xl border border-line dark:border-line p-1 min-w-[170px]"
               >
                 {[
                   { icon: Plus, label: "Add row above", action: () => editor.chain().focus().addRowBefore().run() },
@@ -770,7 +770,7 @@ export default function InboxRichEditor({
                 isOpen={showTablePicker}
                 onClose={() => { setShowTablePicker(false); setTableHover([0, 0]); }}
                 align="left"
-                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-2"
+                className="bg-raised-2 dark:bg-raised-2 rounded-lg shadow-xl border border-line dark:border-line p-2"
               >
                 <div className="grid grid-cols-6 gap-[3px]" onMouseLeave={() => setTableHover([0, 0])}>
                   {Array.from({ length: 36 }, (_, i) => {
@@ -840,7 +840,7 @@ export default function InboxRichEditor({
           isOpen={showMoreTools}
           onClose={() => setShowMoreTools(false)}
           align="left"
-          className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-1 min-w-[180px]"
+          className="bg-raised-2 dark:bg-raised-2 rounded-lg shadow-xl border border-line dark:border-line p-1 min-w-[180px]"
         >
           {[
             { icon: Strikethrough, label: "Strikethrough", active: editor.isActive("strike"), action: () => editor.chain().focus().toggleStrike().run() },
@@ -903,7 +903,7 @@ export default function InboxRichEditor({
             isOpen={showColorPicker}
             onClose={() => setShowColorPicker(false)}
             align="left"
-            className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-1.5 min-w-[140px]"
+            className="bg-raised-2 dark:bg-raised-2 rounded-lg shadow-xl border border-line dark:border-line p-1.5 min-w-[140px]"
           >
             {EDITOR_COLORS.map((c) => (
               <button

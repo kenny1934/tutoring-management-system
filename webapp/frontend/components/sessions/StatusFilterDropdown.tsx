@@ -80,7 +80,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
         {...getReferenceProps()}
         className={cn(
           "flex items-center gap-1.5 px-2 py-1 text-sm",
-          "bg-white dark:bg-[#1a1a1a]",
+          "bg-field-fill",
           "border border-line-strong dark:border-line rounded-md",
           "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
@@ -109,7 +109,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
             {...getFloatingProps()}
             className={cn(
               "z-[9999]",
-              "bg-white dark:bg-[#1a1a1a]",
+              "bg-raised",
               "border border-line-strong dark:border-line",
               "rounded-md shadow-lg",
               "py-1 min-w-[180px] max-h-[300px] overflow-y-auto"

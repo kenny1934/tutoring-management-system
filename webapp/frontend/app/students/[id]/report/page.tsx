@@ -273,7 +273,7 @@ function StudentReportPageInner() {
           )}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-[#8b6140] transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
             Print / Save PDF

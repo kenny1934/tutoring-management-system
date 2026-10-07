@@ -171,7 +171,7 @@ const ThreadItem = React.memo(function ThreadItem({
         isSelected && !bulkMode
           ? "bg-tint dark:bg-tint"
           : "hover:bg-tint/60 dark:hover:bg-tint/50",
-        hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]",
+        hasUnread && "bg-paper dark:bg-paper",
         bulkSelected && "bg-tint/80 dark:bg-tint/60",
         priorityConfig.borderClass
       )}
@@ -365,7 +365,7 @@ function SwipeableThreadItem({
           {rightLabel || "Pin"}
         </div>
       )}
-      <div ref={containerRef} className="relative bg-white dark:bg-[#1a1a1a]" {...touchHandlers}>
+      <div ref={containerRef} className="relative bg-raised" {...touchHandlers}>
         {children}
       </div>
     </div>
@@ -1516,7 +1516,7 @@ export default function InboxPage() {
           <div className="flex-1 flex overflow-hidden min-h-0 gap-1 p-1 pt-0">
             {/* Left panel - Categories */}
             <div className={cn(
-              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-hidden relative",
+              "h-full flex-shrink-0 bg-raised/90 rounded-lg transition-all duration-200 overflow-hidden relative",
               categoryCollapsed ? "w-12" : "w-48"
             )}>
               {/* Top scroll indicator */}
@@ -1637,7 +1637,7 @@ export default function InboxPage() {
 
             {/* Middle panel - Thread list */}
             <div className={cn(
-              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg overflow-hidden flex flex-col"
+              "flex-1 min-w-0 min-h-0 bg-raised/90 rounded-lg overflow-hidden flex flex-col"
             )}>
               {/* Search bar */}
               <div className="flex-shrink-0 p-2 border-b border-line/60">
@@ -1798,7 +1798,7 @@ export default function InboxPage() {
                     ["w-1/3", "w-3/5"],
                     ["w-2/5", "w-1/2"],
                   ] as const).map(([nameW, bodyW], i) => (
-                    <div key={i} className="relative rounded-lg border border-line/40 bg-white dark:bg-[#1a1a1a] p-4 overflow-hidden"
+                    <div key={i} className="relative rounded-lg border border-line/40 bg-raised p-4 overflow-hidden"
                       style={{ animationDelay: `${i * 0.1}s` }}>
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0" />
@@ -2029,7 +2029,7 @@ export default function InboxPage() {
                 </ErrorBoundary>
               </div>
             ) : !isMobile && (
-              <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg">
+              <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-raised/90 rounded-lg">
                 <div className="text-center text-gray-500 dark:text-gray-400">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Select a conversation</p>
@@ -2084,7 +2084,7 @@ export default function InboxPage() {
           <>
             <div className="fixed inset-0 z-[60]" onClick={() => setShowShortcuts(false)} />
             <div
-              className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line px-4 py-3 w-56"
+              className="fixed z-[61] bg-raised-2 rounded-lg shadow-xl border border-line px-4 py-3 w-56"
               style={{ top: shortcutsPos.top, left: shortcutsPos.left }}
             >
               <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Keyboard Shortcuts</h4>

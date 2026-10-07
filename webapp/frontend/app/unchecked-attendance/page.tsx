@@ -493,7 +493,7 @@ export default function UncheckedAttendancePage() {
                       <div
                         key={level}
                         className={cn(
-                          "bg-white dark:bg-[#1a1a1a] rounded-xl border shadow-sm overflow-hidden",
+                          "bg-raised rounded-xl border shadow-sm overflow-hidden",
                           config.borderColor,
                           !isMobile && "paper-texture"
                         )}

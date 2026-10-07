@@ -143,7 +143,7 @@ export function DiscountOverrideControls({
             <select
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="mt-0.5 w-full px-2 py-1 rounded border text-sm bg-white dark:bg-[#1a1a1a]"
+              className="mt-0.5 w-full px-2 py-1 rounded border text-sm bg-field-fill"
             >
               <option value="">Select tier…</option>
               {tierOptions.map((t) => (
@@ -161,7 +161,7 @@ export function DiscountOverrideControls({
               onChange={(e) => setReason(e.target.value)}
               rows={2}
               placeholder="e.g. Parent transferred Jun 14; bank receipt on file"
-              className="mt-0.5 w-full px-2 py-1 rounded border text-sm bg-white dark:bg-[#1a1a1a]"
+              className="mt-0.5 w-full px-2 py-1 rounded border text-sm bg-field-fill"
             />
           </label>
 

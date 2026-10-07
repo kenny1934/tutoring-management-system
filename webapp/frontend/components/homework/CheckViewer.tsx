@@ -158,7 +158,7 @@ export function CheckViewer({
   const showNav = openable.length > 1 || index < 0;
 
   const header = (
-    <div className="flex items-center gap-1 pl-3 pr-1 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
+    <div className="flex items-center gap-1 pl-3 pr-1 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-wash">
       <BookCheck className="h-4 w-4 flex-none text-accent-ink" />
       <div className="min-w-0 flex-1 py-1.5 pl-1">
         <div className="flex items-baseline gap-1.5 min-w-0">
@@ -321,7 +321,7 @@ export function CheckViewer({
         {header}
 
         {isMobile && (
-          <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
+          <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-wash">
             <button type="button" onClick={() => setTab("answer")} className={viewerTabClass(tab === "answer")}>
               Answers
             </button>

@@ -54,7 +54,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSe
       isOpen={isOpen}
       onClose={onClose}
       align="right"
-      className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-2 w-64"
+      className="bg-raised-2 dark:bg-raised-2 rounded-lg shadow-xl border border-line dark:border-line p-2 w-64"
     >
       {/* Group tabs */}
       <div className="flex gap-1 mb-2 border-b border-line pb-2">

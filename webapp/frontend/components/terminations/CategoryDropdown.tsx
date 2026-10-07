@@ -78,10 +78,10 @@ export function CategoryDropdown({
           disabled
             ? "opacity-60 cursor-not-allowed bg-transparent border-transparent"
             : value
-              ? "bg-white dark:bg-[#1a1a1a] border-line-strong dark:border-line hover:bg-tint"
+              ? "bg-field-fill dark:bg-field-fill border-line-strong dark:border-line hover:bg-tint"
               : compact
-                ? "bg-white dark:bg-[#1a1a1a] border-transparent hover:border-line-strong dark:hover:border-line"
-                : "bg-white dark:bg-[#1a1a1a] border-line-strong dark:border-line hover:bg-tint"
+                ? "bg-field-fill dark:bg-field-fill border-transparent hover:border-line-strong dark:hover:border-line"
+                : "bg-field-fill dark:bg-field-fill border-line-strong dark:border-line hover:bg-tint"
         )}
       >
         {config && (
@@ -117,7 +117,7 @@ export function CategoryDropdown({
             {...getFloatingProps()}
             className={cn(
               "z-[9999]",
-              "bg-white dark:bg-[#1a1a1a]",
+              "bg-raised",
               "border border-line-strong dark:border-line",
               "rounded-lg shadow-lg",
               "py-1 min-w-[200px] max-h-[320px] overflow-y-auto"
