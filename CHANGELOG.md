@@ -7,6 +7,7 @@
 
 * **A calmer look**: pages now sit on a plain background with squarer corners, lighter shadows and softer colours, so the colour that remains tells you how things stand.
 * **Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case.
+* **Quieter session buttons**: the buttons on each session, such as Attended, No show and Sick, are now plain with a coloured icon, the same as the buttons for several sessions at once.
 * **The wood desk is still there**: choose Background in the user menu, next to Theme, to bring back the wooden desk behind every page.
 * **A line about your day**: in place of the daily emoji, the dashboard greeting now mentions something worth noticing when there is one, such as your 100th class of the school year, a student's first lesson, a test most of your students sit or a holiday coming up.
 * **Coupon counts show their source**: the coupon tooltip on the student page now says when the count was last updated and which termination list it came from.
@@ -14,10 +15,14 @@
 
 ### Bug Fixes
 
-* **Easier to read**: faint text and icons across the app are darker, and apart from the session cards in the calendars, nothing on CSM's own pages is smaller than 11px.
+* **Easier to read**: faint text and icons across the app are darker, and apart from the cards in the calendars and on the arrangement boards, nothing on CSM's own pages is smaller than 11px.
 * **Text boxes you can find**: text fields, dropdowns and note boxes now have an edge you can see in both light and dark mode.
 * **The month view at a glance**: each day shows its statuses as coloured icons with counts, beside the date.
 * **A quieter dashboard**: buttons and labels that only looked like warnings are plain now, while counts that need your attention stay highlighted.
+* **The whole menu fits**: every link in the sidebar now shows on a laptop screen, and the calendar and view switch scroll with it.
+* **Pages that fit a phone**: the course config, applications, unchecked attendance, exams, proposals and settings pages no longer squeeze or cut off on a phone.
+* **No false "being edited by"**: when the server can't be reached, a document now says editing is paused, instead of naming someone as its editor.
+* **Labels that were meant to show**: button labels that should appear on wider screens, such as New enrollment on the renewals page, now do.
 * **A quieter Ranking tab**: the courseware ranking has calmer titles and a softer Hot badge, and it keeps its medals.
 * **Smoother movement**: cards and panels settle into place without bouncing.
 * **Coupon sync dates**: a coupon sync run early in the morning no longer shows the previous day's date.
