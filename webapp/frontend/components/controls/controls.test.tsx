@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Check, Trash2 } from "lucide-react";
-import { Button, IconButton, Field, Input, Segmented, CountBadge } from "./index";
+import { Button, IconButton, Field, Input, Segmented, CountBadge, PageHeader } from "./index";
 
 describe("Button", () => {
   it("is a plain button by default, so it never submits a form by accident", () => {
@@ -81,5 +81,21 @@ describe("CountBadge", () => {
     expect(container).toBeEmptyDOMElement();
     rerender(<CountBadge count={140} />);
     expect(screen.getByText("99+")).toBeInTheDocument();
+  });
+});
+
+describe("PageHeader", () => {
+  it("names the page, describes it and keeps the page's own buttons", () => {
+    render(
+      <PageHeader title="Trials" subtitle="Manage trial enrollments" actions={<button type="button">New trial</button>} />,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Trials" })).toBeInTheDocument();
+    expect(screen.getByText("Manage trial enrollments")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New trial" })).toBeInTheDocument();
+  });
+
+  it("gives a page reached from another page a labelled way back", () => {
+    render(<PageHeader title="Exams" backHref="/" backLabel="Back to the dashboard" />);
+    expect(screen.getByRole("link", { name: "Back to the dashboard" })).toHaveAttribute("href", "/");
   });
 });
