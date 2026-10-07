@@ -85,7 +85,7 @@ export function CurriculumPdfPreview({
         className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-line-strong/40 dark:border-line-strong/60">
           <span
             className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate flex-1"
             title={filePath}

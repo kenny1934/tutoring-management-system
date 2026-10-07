@@ -110,13 +110,13 @@ export function CurriculumModalShell({
         className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
           {header}
           <IconButton icon={X} size="sm" label={closeLabel} onClick={onClose} className="ml-auto" />
         </div>
 
         {subtitle && (
-          <p className="px-4 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+          <p className="px-4 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 border-b border-line-strong/20 dark:border-line-strong/30">
             {subtitle}
           </p>
         )}

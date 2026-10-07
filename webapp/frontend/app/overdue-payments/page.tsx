@@ -830,7 +830,7 @@ function TierBadge({ enrollment }: { enrollment: OverdueEnrollment }) {
           "inline-block px-1.5 py-0.5 rounded text-[11px] font-mono font-medium",
           isOverride
             ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-            : "bg-[#f5e6d3] text-accent-ink dark:bg-[#3d2e1e] dark:text-[#cd853f]"
+            : "bg-[#f5e6d3] text-accent-ink dark:bg-[#3d2e1e]"
         )}
         title={
           isOverride

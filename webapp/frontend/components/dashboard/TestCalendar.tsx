@@ -756,7 +756,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
               "text-sm transition-colors",
               selectedDate
                 ? "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-400"
-                : "text-accent-ink dark:text-[#cd853f]"
+                : "text-accent-ink"
             )}
           >
             Upcoming

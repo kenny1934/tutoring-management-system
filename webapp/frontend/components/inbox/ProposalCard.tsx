@@ -105,7 +105,7 @@ function SlotItem({
           ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
           : slot.slot_status === "rejected"
           ? "bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700 opacity-60"
-          : "bg-white border-[#e8d4b8] dark:bg-[#2a2a2a] dark:border-[#6b5a4a]"
+          : "bg-white border-line dark:bg-[#2a2a2a] dark:border-line"
       )}
     >
       <div className="flex items-start justify-between gap-2">

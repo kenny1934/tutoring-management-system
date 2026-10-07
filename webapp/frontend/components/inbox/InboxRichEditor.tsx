@@ -713,7 +713,7 @@ export default function InboxRichEditor({
                 isOpen={showTableOps}
                 onClose={() => setShowTableOps(false)}
                 align="left"
-                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[170px]"
+                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-1 min-w-[170px]"
               >
                 {[
                   { icon: Plus, label: "Add row above", action: () => editor.chain().focus().addRowBefore().run() },
@@ -739,7 +739,7 @@ export default function InboxRichEditor({
                         "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors",
                         item.danger
                           ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-tint"
                       )}
                     >
                       <item.icon className="w-3.5 h-3.5" />
@@ -770,7 +770,7 @@ export default function InboxRichEditor({
                 isOpen={showTablePicker}
                 onClose={() => { setShowTablePicker(false); setTableHover([0, 0]); }}
                 align="left"
-                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2"
+                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-2"
               >
                 <div className="grid grid-cols-6 gap-[3px]" onMouseLeave={() => setTableHover([0, 0])}>
                   {Array.from({ length: 36 }, (_, i) => {
@@ -792,7 +792,7 @@ export default function InboxRichEditor({
                           "w-5 h-5 rounded-sm border transition-colors",
                           active
                             ? "bg-primary/20 border-primary"
-                            : "bg-white dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a]"
+                            : "bg-white dark:bg-[#3d3628] border-line"
                         )}
                       />
                     );
@@ -840,7 +840,7 @@ export default function InboxRichEditor({
           isOpen={showMoreTools}
           onClose={() => setShowMoreTools(false)}
           align="left"
-          className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[180px]"
+          className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-1 min-w-[180px]"
         >
           {[
             { icon: Strikethrough, label: "Strikethrough", active: editor.isActive("strike"), action: () => editor.chain().focus().toggleStrike().run() },
@@ -903,7 +903,7 @@ export default function InboxRichEditor({
             isOpen={showColorPicker}
             onClose={() => setShowColorPicker(false)}
             align="left"
-            className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5 min-w-[140px]"
+            className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-line dark:border-line p-1.5 min-w-[140px]"
           >
             {EDITOR_COLORS.map((c) => (
               <button
@@ -968,7 +968,7 @@ export default function InboxRichEditor({
 
       {/* Inline link input bar */}
       {showLinkInput && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#faf6f1] dark:bg-[#2a2518] border-b border-line">
+        <div className="flex items-center gap-2 px-3 py-2 bg-paper border-b border-line">
           <LinkIcon className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
           <input
             ref={linkInputRef}

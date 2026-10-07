@@ -97,7 +97,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               className={cn(
                 "px-2.5 py-1 text-[13px] font-medium rounded-md transition-colors",
                 activeTab === tab.id && !isTrashTab
-                  ? "text-accent-ink dark:text-[#cd853f] bg-primary/10 dark:bg-[#cd853f]/10 border-b-2 border-primary dark:border-[#cd853f] rounded-b-none"
+                  ? "text-accent-ink bg-primary/10 dark:bg-[#cd853f]/10 border-b-2 border-primary dark:border-[#cd853f] rounded-b-none"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b-2 border-transparent"
               )}
             >
@@ -168,7 +168,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                   onClick={() => { onSortChange(i); setShowSortMenu(false); }}
                   className={cn(
                     "w-full px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors",
-                    sortIdx === i ? "text-accent-ink dark:text-[#cd853f] font-medium" : "text-gray-600 dark:text-gray-400"
+                    sortIdx === i ? "text-accent-ink font-medium" : "text-gray-600 dark:text-gray-400"
                   )}
                 >
                   {opt.label}
@@ -203,7 +203,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
       {/* Row 3 (conditional): Active filters or bulk actions */}
       {(activeTags.length > 0 || activeFolderId || selectedCount > 0) && !isTemplatesTab && (
-        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/80 dark:bg-[#2d2618]/30 animate-slide-down">
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-line/40 bg-paper/80 dark:bg-paper/30 animate-slide-down">
           {selectedCount > 0 ? (
             <>
               <span className="text-[12px] font-medium text-accent-ink">{selectedCount} selected</span>

@@ -27,7 +27,7 @@ export function ViewSwitcher({ currentView, onViewChange, compact = false }: Vie
       "inline-flex rounded-lg",
       compact
         ? "bg-transparent p-0 gap-0.5"
-        : "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] p-1"
+        : "bg-paper border-2 border-line-strong p-1"
     )}>
       {views.map(({ mode, icon: Icon, label }) => (
         <motion.button

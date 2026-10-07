@@ -103,8 +103,8 @@ function FolderTreeItem({
           isOver
             ? "ring-2 ring-primary bg-[#f5ede3] dark:bg-[#2d2618]"
             : isActive
-              ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-              : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+              ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+              : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(isActive ? null : node.id)}
@@ -128,7 +128,7 @@ function FolderTreeItem({
           </button>
         )}
 
-        <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+        <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-accent-ink dark:text-accent-ink" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
         {node.document_count > 0 && (
           <span className="text-[11px] font-semibold tabular-nums bg-accent-ink/10 text-accent-ink px-1.5 py-0.5 rounded-full shrink-0">
@@ -488,11 +488,11 @@ export default function FolderSidebar({
                 isOverAllDocs
                   ? "ring-2 ring-primary bg-[#f5ede3] dark:bg-[#2d2618]"
                   : activeFolderId === null && activeTab !== "trash"
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
               )}
             >
-              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-accent-ink dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-accent-ink dark:text-accent-ink" : "text-gray-500 dark:text-gray-400")} />
               <span className="flex-1 text-left">All documents</span>
               {totalDocCount !== undefined && (
                 <span className="text-[11px] opacity-50 tabular-nums">{totalDocCount}</span>
@@ -508,8 +508,8 @@ export default function FolderSidebar({
                 className={cn(
                   "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
                   isStarredActive
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
                 )}
               >
                 <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-700" : "text-gray-500")} />
@@ -582,7 +582,7 @@ export default function FolderSidebar({
 
             {/* Empty state */}
             {!isReadOnly && tree.length === 0 && !creating && (
-              <div className="mx-1 mt-2 px-3 py-4 rounded-xl border border-dashed border-[#e8d4b8] dark:border-[#4a3a2a] bg-[#fef9f3]/60 dark:bg-white/[0.02] text-center">
+              <div className="mx-1 mt-2 px-3 py-4 rounded-xl border border-dashed border-[#e8d4b8] dark:border-[#4a3a2a] bg-paper/60 dark:bg-white/[0.02] text-center">
                 <FolderOpen className="w-6 h-6 mx-auto mb-1.5 text-[#c4a882] dark:text-[#6b5a4a]" />
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2 leading-relaxed">
                   Organise your documents into folders
@@ -667,8 +667,8 @@ export default function FolderSidebar({
             className={cn(
               "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
               activeTab === "trash"
-                ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-                : "text-gray-500 dark:text-gray-400 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+                ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                : "text-gray-500 dark:text-gray-400 hover:bg-paper dark:hover:bg-white/5"
             )}
           >
             <Trash2 className="w-4 h-4" />

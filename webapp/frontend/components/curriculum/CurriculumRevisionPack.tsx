@@ -161,7 +161,7 @@ export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRe
           return (
             <div
               key={concept.concept_id}
-              className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
+              className="px-4 py-2.5 border-b border-line-strong/20 dark:border-line-strong/30 last:border-b-0"
             >
               <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
                 {conceptNameForStream(concept, stream)}

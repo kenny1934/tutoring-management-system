@@ -134,7 +134,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
               className={cn(
                 "px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px",
                 activeTab === key
-                  ? "border-primary text-accent-ink dark:text-[#cd853f] dark:border-[#cd853f]"
+                  ? "border-primary text-accent-ink dark:border-[#cd853f]"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >

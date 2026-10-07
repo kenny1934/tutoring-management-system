@@ -1354,7 +1354,7 @@ export default function GeometryEditorModal({
                 "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors",
                 tool === t.id
                   ? "bg-primary text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-tint"
               )}
             >
               {t.icon}
@@ -1456,7 +1456,7 @@ export default function GeometryEditorModal({
                 "flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg transition-colors",
                 shapePreset
                   ? "bg-primary text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-tint"
               )}
             >
               <Shapes className="h-4 w-4" />
@@ -1521,7 +1521,7 @@ export default function GeometryEditorModal({
                     "px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors disabled:cursor-default",
                     curveMode === mode
                       ? "bg-primary text-white"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30"
+                      : "text-gray-500 dark:text-gray-400 hover:bg-line/30"
                   )}
                 >
                   {label}

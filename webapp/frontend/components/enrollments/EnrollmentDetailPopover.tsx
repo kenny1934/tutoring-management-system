@@ -382,7 +382,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
           {/* Schedule - with inline edit option */}
           {isEditingSchedule ? (
-            <div className="space-y-2 p-2 bg-paper rounded-md border border-[#d4a574] dark:border-[#6b5a4a]">
+            <div className="space-y-2 p-2 bg-paper rounded-md border border-line-strong dark:border-line">
               {/* Day selector */}
               <div className="flex items-center gap-2">
                 <Label htmlFor={`enrollment-${enrollment.id}-day`} className="mb-0 w-12 flex-shrink-0">Day</Label>

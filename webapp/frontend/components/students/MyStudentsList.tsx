@@ -643,13 +643,13 @@ export function MyStudentsList({
                         "sticky top-0 z-10 -mx-2 px-2 py-1 border-b mb-2 cursor-pointer transition-colors",
                         isGroupSelected
                           ? "bg-primary/20 dark:bg-[#cd853f]/20 border-primary dark:border-[#cd853f]"
-                          : "bg-[#f5ede3] dark:bg-[#3d3628] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#ebe0d4] dark:hover:bg-[#4d4638]"
+                          : "bg-tint border-line-strong dark:border-line hover:bg-[#ebe0d4] dark:hover:bg-[#4d4638]"
                       )}
                     >
                       <span className={cn(
                         "text-xs font-bold uppercase",
                         isGroupSelected
-                          ? "text-accent-ink dark:text-[#cd853f]"
+                          ? "text-accent-ink"
                           : "text-gray-700 dark:text-gray-300"
                       )}>
                         {getGroupLabel(groupKey)}
@@ -657,7 +657,7 @@ export function MyStudentsList({
                       <span className={cn(
                         "text-xs ml-2",
                         isGroupSelected
-                          ? "text-accent-ink/70 dark:text-[#cd853f]/70"
+                          ? "text-accent-ink/70"
                           : "text-gray-500 dark:text-gray-400"
                       )}>
                         ({groupEnrollments.length})

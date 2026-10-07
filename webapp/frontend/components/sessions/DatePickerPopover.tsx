@@ -107,7 +107,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
         className={cn(
           "flex items-center gap-1.5 px-2 py-1 text-sm",
           "bg-white dark:bg-[#1a1a1a]",
-          "border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+          "border border-line-strong dark:border-line rounded-md",
           "focus:outline-none focus:ring-1 focus:ring-primary",
           "text-gray-900 dark:text-gray-100 font-medium",
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -129,7 +129,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
             className={cn(
               "z-[9999]",
               "bg-white dark:bg-[#1a1a1a]",
-              "border border-[#d4a574] dark:border-[#6b5a4a]",
+              "border border-line-strong dark:border-line",
               "rounded-md shadow-lg",
               "p-2 w-[260px]"
             )}

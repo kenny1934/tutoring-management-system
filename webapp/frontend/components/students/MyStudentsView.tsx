@@ -181,7 +181,7 @@ export function MyStudentsView({
               "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary",
               mobileTab === 'list'
                 ? "bg-primary text-white"
-                : "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                : "bg-paper text-gray-700 dark:text-gray-300"
             )}
           >
             Students
@@ -196,7 +196,7 @@ export function MyStudentsView({
               "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary",
               mobileTab === 'calendar'
                 ? "bg-primary text-white"
-                : "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                : "bg-paper text-gray-700 dark:text-gray-300"
             )}
           >
             Calendar

@@ -319,7 +319,7 @@ export default function ImportWorksheetModal({
                   className={cn(
                     "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-sm transition-colors",
                     selectedTemplateId === null
-                      ? "bg-primary/10 border border-primary/30 text-accent-ink dark:text-[#cd853f]"
+                      ? "bg-primary/10 border border-primary/30 text-accent-ink"
                       : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-400"
                   )}
                 >
@@ -337,7 +337,7 @@ export default function ImportWorksheetModal({
                       className={cn(
                         "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-sm transition-colors",
                         isSelected
-                          ? "bg-primary/10 border border-primary/30 text-accent-ink dark:text-[#cd853f]"
+                          ? "bg-primary/10 border border-primary/30 text-accent-ink"
                           : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300"
                       )}
                     >

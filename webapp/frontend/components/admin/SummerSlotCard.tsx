@@ -169,7 +169,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
         "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         dragOver
           ? "border-primary bg-primary/15"
-          : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
+          : "border-line bg-white dark:bg-[#1a1a1a]",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80",
         isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",
@@ -234,7 +234,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
               "text-[9px] font-bold px-1 rounded transition-colors",
               slot.course_type
                 ? COURSE_TYPE_COLORS[slot.course_type] || "bg-primary/10 text-primary"
-                : "bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground hover:text-foreground"
+                : "bg-paper dark:bg-paper text-muted-foreground hover:text-foreground"
             )}
             title="Course type (click to toggle A/B)"
           >

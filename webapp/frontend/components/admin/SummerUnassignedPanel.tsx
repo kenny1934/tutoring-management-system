@@ -235,7 +235,7 @@ export function SummerUnassignedPanel({
               "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
               gradeFilter === null
                 ? "bg-primary text-primary-foreground"
-                : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+                : "bg-line/20 text-muted-foreground hover:bg-line/40"
             )}
           >
             All
@@ -248,7 +248,7 @@ export function SummerUnassignedPanel({
                 "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
                 gradeFilter === g
                   ? "bg-primary text-primary-foreground"
-                  : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+                  : "bg-line/20 text-muted-foreground hover:bg-line/40"
               )}
             >
               {g}
@@ -260,7 +260,7 @@ export function SummerUnassignedPanel({
               "ml-auto px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
               noNotesOnly
                 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+                : "bg-line/20 text-muted-foreground hover:bg-line/40"
             )}
             title={noNotesOnly ? "Showing only students with no unavailability notes" : "Show only students with no unavailability notes"}
             aria-label="Only students with no unavailability notes"
@@ -274,7 +274,7 @@ export function SummerUnassignedPanel({
               "px-1.5 py-0.5 text-[11px] rounded-full transition-colors",
               buddiesOnly
                 ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
-                : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+                : "bg-line/20 text-muted-foreground hover:bg-line/40"
             )}
             title={buddiesOnly ? "Showing buddies only" : "Show buddies only"}
             aria-label="Buddies only"
@@ -343,7 +343,7 @@ export function SummerUnassignedPanel({
                     onClickStudent?.(app.id);
                   }}
                   className={cn(
-                    "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                    "rounded border border-l-[3px] border-line/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-paper/80 dark:hover:bg-paper/50 transition-colors",
                     readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
                     SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
                   )}

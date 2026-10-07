@@ -210,7 +210,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
         "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         dragOver
           ? "border-primary bg-primary/15"
-          : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
+          : "border-line bg-white dark:bg-[#1a1a1a]",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80",
         schoolDimmed && "opacity-40",

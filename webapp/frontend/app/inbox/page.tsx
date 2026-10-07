@@ -169,10 +169,10 @@ const ThreadItem = React.memo(function ThreadItem({
       className={cn(
         "w-full text-left p-3 border-b border-line/30 transition-all duration-150 min-h-[64px] lg:min-h-0",
         isSelected && !bulkMode
-          ? "bg-[#f5ede3] dark:bg-[#3d3628]"
-          : "hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50",
+          ? "bg-tint dark:bg-tint"
+          : "hover:bg-tint/60 dark:hover:bg-tint/50",
         hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]",
-        bulkSelected && "bg-[#f5ede3]/80 dark:bg-[#3d3628]/60",
+        bulkSelected && "bg-tint/80 dark:bg-tint/60",
         priorityConfig.borderClass
       )}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}
@@ -1528,7 +1528,7 @@ export default function InboxPage() {
               <div ref={catNavRef} className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide p-2">
                 <button
                   onClick={() => setCategoryCollapsed(!categoryCollapsed)}
-                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 mb-1"
+                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-tint/60 dark:hover:bg-tint/50 mb-1"
                   title={categoryCollapsed ? "Expand" : "Collapse"}
                   aria-label={categoryCollapsed ? "Expand the folder list" : "Collapse the folder list"}
                 >
@@ -1602,7 +1602,7 @@ export default function InboxPage() {
                                 categoryCollapsed ? "px-2" : "px-3",
                                 selectedCategory === cat.id
                                   ? "bg-tint text-accent-ink font-medium"
-                                  : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
+                                  : "text-gray-800 dark:text-gray-300 hover:bg-tint/60 dark:hover:bg-tint/50"
                               )}
                               title={cat.label}
                             >

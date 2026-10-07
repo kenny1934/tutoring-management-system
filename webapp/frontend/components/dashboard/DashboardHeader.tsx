@@ -192,8 +192,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                       "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
                       "bg-card border border-line-strong",
                       "text-accent-ink",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
-                      toolsOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
+                      "hover:bg-tint hover:shadow-sm",
+                      toolsOpen && "bg-tint dark:bg-tint shadow-sm"
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -214,7 +214,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                         className={cn(
                           "z-50 w-80 sm:w-96 py-2 overflow-y-auto",
                           "paper-cream paper-texture rounded-lg shadow-xl",
-                          "border border-[#d4a574] dark:border-[#6b5a4a]"
+                          "border border-line-strong dark:border-line"
                         )}
                       >
                         <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -316,7 +316,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
                   "bg-card border border-line-strong",
                   "text-accent-ink",
-                  "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
+                  "hover:bg-tint dark:hover:bg-tint hover:shadow-sm",
                   link.href === '#' && "opacity-70 cursor-not-allowed"
                 )}
                 onClick={(e) => {

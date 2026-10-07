@@ -203,7 +203,7 @@ export function RateSessionModal({
     >
       <div className="space-y-5">
         {/* Session Info Header */}
-        <div className="flex items-center gap-2 flex-wrap bg-[#f5ebe0] dark:bg-[#3d3628] rounded-lg p-3">
+        <div className="flex items-center gap-2 flex-wrap bg-tint rounded-lg p-3">
           <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {session.school_student_id}
           </span>

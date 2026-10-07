@@ -501,7 +501,7 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
               "p-1 rounded border transition-colors",
               splitByStream
                 ? "bg-primary text-white border-primary"
-                : "bg-[#f5ede3] dark:bg-[#3d3628] text-gray-500 dark:text-gray-400 border-[#e8d4b8] dark:border-[#6b5a4a] hover:text-gray-700 dark:hover:text-gray-300"
+                : "bg-tint text-gray-500 dark:text-gray-400 border-line hover:text-gray-700 dark:hover:text-gray-300"
             )}
           >
             <Languages className="h-3.5 w-3.5" />

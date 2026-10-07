@@ -610,7 +610,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
       className={cn(
         "rounded-lg border text-xs transition-all duration-200 cursor-pointer",
         expanded
-          ? "bg-white dark:bg-[#252525] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
+          ? "bg-white dark:bg-[#252525] border-line-strong dark:border-line-strong shadow-sm"
           : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-line-strong",
         highlight === "current" && "ring-2 ring-blue-400 dark:ring-blue-500 bg-blue-50 dark:bg-blue-900/20",
         highlight === "preferred" && "border-2 border-dashed border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/10",

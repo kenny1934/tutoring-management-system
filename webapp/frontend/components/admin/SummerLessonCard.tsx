@@ -364,7 +364,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
               <span
                 className={cn(
                   "text-[9px] font-bold px-1 rounded",
-                  SUMMER_GRADE_BG[lesson.grade] || "bg-[#e8d4b8]/30 dark:bg-gray-700"
+                  SUMMER_GRADE_BG[lesson.grade] || "bg-line/30 dark:bg-gray-700"
                 )}
               >
                 {lesson.grade}
@@ -422,7 +422,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
           mirrors count); real cards (regular + admin-created ad-hoc) show it. */}
       {showCapacity && (
         <div className="flex items-center gap-1 px-1 pb-0.5">
-          <div className="flex-1 h-1.5 rounded-full bg-[#e8d4b8]/30 dark:bg-gray-700 overflow-hidden">
+          <div className="flex-1 h-1.5 rounded-full bg-line/30 dark:bg-gray-700 overflow-hidden">
             <div
               className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
               style={{ width: `${Math.min(fillPct * 100, 100)}%` }}

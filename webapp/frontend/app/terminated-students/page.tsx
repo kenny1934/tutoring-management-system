@@ -1960,7 +1960,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
   return (
     <tr className={cn(
       "hover:bg-tint/50 transition-colors",
-      hasPendingChanges && "bg-[#fef9f3] dark:bg-[#3d3628]"
+      hasPendingChanges && "bg-paper dark:bg-tint"
     )}>
       {/* Checkbox */}
       <td className="px-4 py-3">
@@ -1972,7 +1972,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
             readOnly && "opacity-50 cursor-not-allowed",
             effectiveCountAsTerminated
               ? "bg-[#dc2626] dark:bg-red-600 border-[#dc2626] dark:border-red-600 text-white"
-              : "border-[#d4a574] dark:border-[#6b5a4a]",
+              : "border-line-strong dark:border-line",
             !readOnly && !effectiveCountAsTerminated && "hover:border-primary dark:hover:border-[#8b6f47]"
           )}
           title={readOnly ? "Read-only access" : undefined}
@@ -2032,8 +2032,8 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
             !readOnly && isEditing
               ? "border-primary dark:border-[#cd853f] ring-1 ring-primary/20 dark:ring-[#cd853f]/20"
               : !readOnly && hasPendingChanges
-                ? "border-field bg-[#fef9f3]/50 dark:bg-[#3d3628]/50"
-                : "border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a] bg-transparent"
+                ? "border-field bg-paper/50 dark:bg-tint/50"
+                : "border-transparent hover:border-line-strong dark:hover:border-line bg-transparent"
           )}
         />
       </td>

@@ -104,7 +104,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
               "flex items-center gap-1.5 text-sm transition-all rounded-full px-2.5 py-1",
               "border border-line bg-white/50 dark:bg-[#2d2618]/50",
               "hover:bg-tint",
-              isStudentsOpen && "bg-[#f5ede3] dark:bg-[#3d3628]"
+              isStudentsOpen && "bg-tint dark:bg-tint"
             )}
           >
             <Users className="h-4 w-4 text-ink-subtle" />

@@ -134,8 +134,8 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
           className="
             absolute right-0 top-full mt-1
             w-52
-            bg-[#fef9f3] dark:bg-[#2d2618]
-            border border-[#e8d4b8] dark:border-[#6b5a4a]
+            bg-paper dark:bg-paper
+            border border-line dark:border-line
             rounded-lg shadow-lg
             py-1
             z-50

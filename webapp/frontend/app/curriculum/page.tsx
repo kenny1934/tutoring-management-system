@@ -105,7 +105,7 @@ function WeekAxis({
   children?: ReactNode;
 }) {
   return (
-    <div className="sticky top-0 z-30 flex h-6 bg-paper border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+    <div className="sticky top-0 z-30 flex h-6 bg-paper border-b border-line-strong/20 dark:border-line-strong/30">
       <div
         className="sticky left-0 z-30 shrink-0 bg-paper flex items-center px-4"
         style={{ width: LABEL_W }}
@@ -867,7 +867,7 @@ export default function CurriculumPage() {
               </Select>
             )}
             {school && effectiveStream && (
-              <span className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-gray-500 dark:text-gray-400">
+              <span className="text-xs px-2 py-1.5 rounded-lg border border-line-strong/40 dark:border-line-strong/60 text-gray-500 dark:text-gray-400">
                 {effectiveStream}
               </span>
             )}
@@ -939,7 +939,7 @@ export default function CurriculumPage() {
           <div
             className={cn(
               "text-sm text-gray-600 dark:text-gray-300 bg-paper",
-              "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-8 text-center",
+              "border-2 border-dashed border-line-strong/70 dark:border-line-strong rounded-lg p-8 text-center",
               !isMobile && "paper-texture"
             )}
           >
@@ -1024,7 +1024,7 @@ export default function CurriculumPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Weekly topics
               </span>
@@ -1141,7 +1141,7 @@ export default function CurriculumPage() {
 
             {/* Week card: what this school was doing in the focused week */}
             {focusWeek != null && focusWeekConcepts && (
-              <div className="border-t border-[#d4a574]/40 dark:border-[#8b6f47]/60 px-4 py-2 bg-teal-50/40 dark:bg-teal-900/10">
+              <div className="border-t border-line-strong/40 dark:border-line-strong/60 px-4 py-2 bg-teal-50/40 dark:bg-teal-900/10">
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">
@@ -1224,7 +1224,7 @@ export default function CurriculumPage() {
           <div
             className={cn(
               "text-sm text-gray-600 dark:text-gray-300 bg-paper",
-              "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-6 text-center",
+              "border-2 border-dashed border-line-strong/70 dark:border-line-strong rounded-lg p-6 text-center",
               !isMobile && "paper-texture"
             )}
           >
@@ -1237,7 +1237,7 @@ export default function CurriculumPage() {
           <div
             className={cn(
               "text-sm text-gray-600 dark:text-gray-300 bg-paper",
-              "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-6 text-center",
+              "border-2 border-dashed border-line-strong/70 dark:border-line-strong rounded-lg p-6 text-center",
               !isMobile && "paper-texture"
             )}
           >
@@ -1254,7 +1254,7 @@ export default function CurriculumPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Typical pace
               </span>

@@ -52,12 +52,12 @@ export function ProspectDashboard({
     { total: 0, wants_summer_yes: 0, wants_summer_considering: 0, wants_regular_yes: 0, wants_regular_considering: 0, applied_summer: 0, enrolled_summer: 0, applied_regular: 0, enrolled_regular: 0, not_started: 0, wechat_added: 0, wechat_issues: 0 }
   );
 
-  const groupBorder = "border-l border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30";
-  const cellBorder = "border-l border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20";
+  const groupBorder = "border-l border-line/30 dark:border-line/30";
+  const cellBorder = "border-l border-line/20 dark:border-line/20";
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm pb-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm pb-4 border-b border-line/50">
         <div><span className="text-2xl font-bold text-foreground">{totals.total}</span> <span className="text-muted-foreground">prospects</span></div>
         <span className="text-border hidden sm:inline">|</span>
         <button onClick={() => onJumpToList({ wants_summer: "Yes" })} className="hover:underline">
@@ -90,10 +90,10 @@ export function ProspectDashboard({
         </button>
       </div>
 
-      <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-x-auto">
+      <div className="border border-line/50 rounded-lg overflow-x-auto">
         <table className="w-full text-xs min-w-[820px]">
           <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
-            <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+            <tr className="border-b border-line/30">
               <th rowSpan={2} className="px-3 py-1.5 text-left font-medium text-foreground align-bottom">Branch</th>
               <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom">Total</th>
               <th colSpan={4} className={`px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider ${groupBorder}`}>Summer</th>
@@ -114,7 +114,7 @@ export function ProspectDashboard({
               <th className="px-3 py-1 text-right text-[10px] text-red-600 font-medium">Issues</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+          <tbody className="divide-y divide-line/30">
             {stats.map((s, i) => (
               <tr key={s.branch} className={`cursor-pointer hover:bg-primary/5 ${i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}`} onClick={() => onJumpToList({ branch: s.branch })}>
                 <td className="px-3 py-2 font-semibold text-foreground">
@@ -138,7 +138,7 @@ export function ProspectDashboard({
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] font-semibold border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+          <tfoot className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] font-semibold border-t border-line/50">
             <tr>
               <td className="px-3 py-2 text-foreground">Total</td>
               <td className="px-3 py-2 text-right">{totals.total}</td>

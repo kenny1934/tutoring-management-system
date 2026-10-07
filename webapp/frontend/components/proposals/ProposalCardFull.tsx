@@ -239,7 +239,7 @@ function SlotItem({
             ? "bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700 opacity-60"
             : isEditing
             ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-            : "bg-white border-[#e8d4b8] dark:bg-[#2a2a2a] dark:border-[#6b5a4a]"
+            : "bg-white border-line dark:bg-[#2a2a2a] dark:border-line"
         )}
       >
         <div className="flex items-start justify-between gap-4">

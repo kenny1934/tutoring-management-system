@@ -84,7 +84,7 @@ export function CurriculumExamStrip({
         !isMobile && "paper-texture"
       )}
     >
-      <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
+      <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
         <CalendarClock className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400 shrink-0 self-center" />
         <h2 className="text-xs font-semibold text-gray-800 dark:text-gray-200 shrink-0">
           Tests and exams
@@ -106,7 +106,7 @@ export function CurriculumExamStrip({
                 "flex-none w-[190px] flex flex-col items-start gap-1.5 rounded-lg border p-2.5 text-left transition-colors",
                 upcoming
                   ? "border-amber-400/70 dark:border-amber-500/50 bg-amber-50/60 dark:bg-amber-900/10 hover:border-amber-500"
-                  : "border-[#d4a574]/40 dark:border-[#8b6f47]/50 hover:border-teal-500 dark:hover:border-teal-500"
+                  : "border-line-strong/40 dark:border-line-strong/50 hover:border-teal-500 dark:hover:border-teal-500"
               )}
             >
               <span className="flex items-center gap-1.5 flex-wrap">

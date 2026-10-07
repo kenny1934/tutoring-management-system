@@ -587,9 +587,9 @@ export function SessionSelectorModal({
                           dayData.sessionCount > 0 &&
                           "cursor-pointer hover:bg-tint",
                         dayData.isToday &&
-                          "ring-2 ring-inset ring-[#d4a574] dark:ring-[#cd853f]",
+                          "ring-2 ring-inset ring-line-strong dark:ring-accent-ink",
                         dayData.selectedCount > 0 &&
-                          "bg-[#f5ede3] dark:bg-[#3d3628]"
+                          "bg-tint dark:bg-tint"
                       )}
                     >
                       {/* Day number */}
@@ -597,14 +597,14 @@ export function SessionSelectorModal({
                         className={cn(
                           "text-xs font-semibold mb-0.5",
                           dayData.isToday &&
-                            "text-accent-ink dark:text-[#cd853f]",
+                            "text-accent-ink dark:text-accent-ink",
                           !dayData.isToday &&
                             dayData.isCurrentMonth &&
                             "text-[#5d4e37] dark:text-[#e8d4b8]",
                           dayData.isWeekend &&
                             dayData.isCurrentMonth &&
                             !dayData.isToday &&
-                            "text-accent-ink/70 dark:text-[#cd853f]/70"
+                            "text-accent-ink/70 dark:text-accent-ink/70"
                         )}
                       >
                         {dayData.date.getDate()}
@@ -857,7 +857,7 @@ function SessionDayPicker({
                 <ChevronDown className={cn("h-3 w-3 transition-transform text-ink-subtle", showTutorDropdown && "rotate-180")} aria-hidden="true" />
               </Button>
               {showTutorDropdown && (
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
+                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1a1a1a] border border-line-strong dark:border-line rounded-md shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
                   <button
                     onClick={() => { setFilterTutorId("all"); setShowTutorDropdown(false); }}
                     className={cn(
@@ -913,7 +913,7 @@ function SessionDayPicker({
                     <span className="text-[11px] font-mono font-medium text-[#8b6f47] dark:text-[#cd853f] whitespace-nowrap">
                       {timeSlot}
                     </span>
-                    <div className="flex-1 border-t border-[#d4a574] dark:border-[#6b5a4a]" />
+                    <div className="flex-1 border-t border-line-strong dark:border-line" />
                   </div>
 
                   {/* Sessions in this time slot */}
@@ -935,7 +935,7 @@ function SessionDayPicker({
                             className={cn(
                               "group flex items-start gap-2 p-2 rounded-md transition-colors border border-transparent cursor-pointer",
                               isSelected
-                                ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#d4a574] dark:border-[#8b6f47]"
+                                ? "bg-tint border-line-strong dark:border-line-strong"
                                 : "hover:bg-paper"
                             )}
                             onClick={(e) => {

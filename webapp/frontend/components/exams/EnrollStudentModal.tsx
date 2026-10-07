@@ -333,7 +333,7 @@ export function EnrollStudentModal({
                                   : selectedSession?.studentId === student.student_id &&
                                       selectedSession?.sessionId === session.id
                                     ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                                    : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-primary/50"
+                                    : "border-line dark:border-line bg-white dark:bg-[#1a1a1a] hover:border-primary/50"
                               )}
                             >
                               <div className="flex items-center justify-between">

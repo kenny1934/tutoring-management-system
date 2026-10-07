@@ -151,7 +151,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className={cn("animate-empty-float w-14 h-14 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-[#f5ede3] dark:bg-[#2d2618]")}>
-          {isTrashTab ? <Trash2 className="w-7 h-7 text-red-300 dark:text-red-800" /> : <FileText className="w-7 h-7 text-accent-ink/40 dark:text-[#cd853f]/30" />}
+          {isTrashTab ? <Trash2 className="w-7 h-7 text-red-300 dark:text-red-800" /> : <FileText className="w-7 h-7 text-accent-ink/40 dark:text-accent-ink/30" />}
         </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[20rem]">{emptyMessage}</p>
@@ -163,7 +163,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[500px]">
         <thead className="sticky top-0 z-10 bg-white dark:bg-[#1a1a1a] docs-table-header">
-          <tr className="border-b border-[#e8d4b8] dark:border-[#6b5a4a]/50">
+          <tr className="border-b border-line dark:border-line/50">
             <th className="w-10 py-2.5 px-4">
               <input
                 type="checkbox"
@@ -197,11 +197,11 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 onDoubleClick={onDocOpen ? () => onDocOpen(doc.id) : undefined}
                 dataDocId={doc.id}
                 className={cn(
-                  "group border-l-2 border-b border-b-[#e8d4b8]/30 dark:border-b-[#6b5a4a]/30 cursor-pointer transition-colors",
+                  "group border-l-2 border-b border-b-line/30 dark:border-b-line/30 cursor-pointer transition-colors",
                   isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
                   selected && "bg-primary/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
                   isPreviewing && !selected && "bg-[#f5ede3]/50 dark:bg-[#2d2618]/30 border-l-[#a0704b]",
-                  !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]/40",
+                  !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-paper dark:hover:bg-paper/40",
                   doc.is_archived && !isTrashTab && "opacity-40",
                 )}
               >
@@ -228,7 +228,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-400 transition-transform", isExpanded && "rotate-90")} />
                       </button>
                     ) : isVariant ? (
-                      <svg className="shrink-0 w-[18px] h-[18px] text-accent-ink/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
+                      <svg className="shrink-0 w-[18px] h-[18px] text-accent-ink/25 dark:text-accent-ink/20" viewBox="0 0 18 18" fill="none">
                         <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="animate-path-draw" />
                       </svg>
                     ) : (
@@ -240,7 +240,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-700" : "text-gray-300 dark:text-gray-400")} />
                       </button>
                     )}
-                    <FileText className="w-4 h-4 shrink-0 text-accent-ink/60 dark:text-[#cd853f]/50" />
+                    <FileText className="w-4 h-4 shrink-0 text-accent-ink/60 dark:text-accent-ink/50" />
 
                     {editingId === doc.id ? (
                       <input

@@ -173,7 +173,7 @@ export function CurriculumTopicFiles({
             {trail.length > 0 && (
               // The walked path, oldest first; each crumb jumps back to that
               // point (the header's back arrow only steps one).
-              <div className="px-4 py-1 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex items-center gap-1 flex-wrap">
+              <div className="px-4 py-1 border-b border-line-strong/20 dark:border-line-strong/30 flex items-center gap-1 flex-wrap">
                 {trail.map((t, i) => (
                   <span
                     key={`${t.conceptId}-${i}`}
@@ -203,7 +203,7 @@ export function CurriculumTopicFiles({
               </div>
             )}
             {(buildsOn.length > 0 || leadsTo.length > 0) && (
-              <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
+              <div className="px-4 py-1.5 border-b border-line-strong/20 dark:border-line-strong/30 flex flex-col gap-1">
                 {buildsOn.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] text-gray-500 shrink-0">
@@ -245,7 +245,7 @@ export function CurriculumTopicFiles({
           return (
             <div
               key={concept.concept_id}
-              className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
+              className="px-4 py-2.5 border-b border-line-strong/20 dark:border-line-strong/30 last:border-b-0"
             >
               {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
