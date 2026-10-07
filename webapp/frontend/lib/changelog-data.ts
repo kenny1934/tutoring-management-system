@@ -14,6 +14,9 @@ const changelogData = [
             "description": "**Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case."
           },
           {
+            "description": "**Page headings that match**: every staff page now opens the same way, with its name and a short line about it on one row, its own buttons on the right and a thin line underneath, so lists start higher up the screen."
+          },
+          {
             "description": "**Quieter session buttons**: the buttons on each session, such as Attended, No show and Sick, are now plain with a coloured icon, the same as the buttons for several sessions at once."
           },
           {

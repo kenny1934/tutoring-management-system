@@ -7,6 +7,7 @@
 
 * **A calmer look**: pages now sit on a plain background with squarer corners, lighter shadows and softer colours, so the colour that remains tells you how things stand.
 * **Buttons and fields that match**: buttons, text fields and labels across the staff pages now share one size and look, with a single highlighted button for the main action and labels in sentence case.
+* **Page headings that match**: every staff page now opens the same way, with its name and a short line about it on one row, its own buttons on the right and a thin line underneath, so lists start higher up the screen.
 * **Quieter session buttons**: the buttons on each session, such as Attended, No show and Sick, are now plain with a coloured icon, the same as the buttons for several sessions at once.
 * **The wood desk is still there**: choose Background in the user menu, next to Theme, to bring back the wooden desk behind every page.
 * **A line about your day**: in place of the daily emoji, the dashboard greeting now mentions something worth noticing when there is one, such as your 100th class of the school year, a student's first lesson, a test most of your students sit or a holiday coming up.
