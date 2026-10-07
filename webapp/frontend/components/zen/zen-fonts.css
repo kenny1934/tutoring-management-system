@@ -1,0 +1,6 @@
+/* Most zen themes are set in JetBrains Mono, which they name by its plain
+   family name, so it loads from Google Fonts under that name rather than
+   through next/font. This file is imported only by the zen layout, so the
+   rest of the app doesn't wait for it. Themes that name other monospace fonts
+   fall back to the system's monospace, as they always have. */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');

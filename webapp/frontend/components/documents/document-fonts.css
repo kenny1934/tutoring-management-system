@@ -1,0 +1,8 @@
+/* The two Chinese typefaces a document can choose, 思源黑體 and 思源宋體.
+   Documents store the family names 'Noto Sans TC' and 'Noto Serif TC' as
+   plain text, so these load from Google Fonts under those exact names rather
+   than through next/font, which would rename them. This file is imported only
+   by the document editor and the read-only renderer, so other pages don't
+   wait for these fonts. Pagination measures pages after document.fonts.ready,
+   and loading the fonts with the editor keeps them in time for that. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;700&display=swap');

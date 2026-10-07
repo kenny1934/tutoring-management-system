@@ -25,6 +25,7 @@ import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBr
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
+import "./document-fonts.css";
 import {
   ArrowLeft,
   Bold,

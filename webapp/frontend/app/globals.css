@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;700&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
 
 /* Public-facing summer routes opt into this class to deter the casual
@@ -34,15 +33,11 @@
   /* Warm, educational palette for classroom vibe */
   --color-background: #fef9f3; /* Warm cream background */
   --color-surface: #ffffff; /* Pure white elevated surface */
-  --color-surface-elevated: #fef9f3; /* Cream for higher elevation */
-  --color-surface-variant: #f5f0e8; /* Warm neutral variant */
   --color-foreground: #2a2219; /* Warm dark brown text */
 
   /* Cards & Containers */
   --color-card: #ffffff;
   --color-card-foreground: #2a2219;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #2a2219;
 
   /* ===== BRAND COLORS ===== */
   /* Golden oak, one shade darker than it started, so white text on a
@@ -65,7 +60,6 @@
   --color-warning: #ea580c; /* Orange */
   --color-destructive: #dc2626; /* Red */
   --color-destructive-foreground: #FFFFFF;
-  --color-info: #2563eb; /* Blue */
 
   /* ===== BORDERS ===== */
   --color-border: #e8d4b8; /* Warm tan border */
@@ -97,40 +91,15 @@
   --color-field: #9c876f; /* The edge of a text field: 3.4:1 on white, the 3:1 an input's edge needs */
   --color-field-fill: #ffffff; /* Inside a text field, and the face of a secondary button, so both stand off the cream */
 
-  /* ===== GLASSMORPHISM ===== */
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-blur: 12px;
-  --glass-blur-lg: 24px;
-
-  /* ===== PAPER TEXTURES ===== */
-  --paper-cream: #fef9f3;
-  --paper-cream-dark: #2d2618;
-  --paper-white: #fefefe;
-  --paper-white-dark: #1a1a1a;
-  --paper-yellow: #fff9db;
-  --paper-yellow-dark: #2b2a1f;
-  --paper-lined-blue: #a7c5e3;
-  --paper-lined-blue-dark: #3d5975;
-  --paper-lined-red: #e8b4b8;
-  --paper-lined-red-dark: #6b3a3f;
-
-  /* ===== GRADIENTS ===== */
-  --gradient-primary: linear-gradient(135deg, #a0704b 0%, #cd853f 100%);
-  --gradient-surface: linear-gradient(135deg, #1a1a1a 0%, #222222 100%);
-
   /* ===== SHADOWS =====
    * shadow-sm through shadow-xl are Tailwind's own, light values. This block
    * used to override them with 30% to 50% black from the old dark glass
    * design, which made every card look like it was floating. The public pages
    * keep those old values through the `[data-shape="classic"]` rules below. */
-  --shadow-glow: 0 0 20px rgba(160, 112, 75, 0.3);
 
   /* Paper shadows for realistic lift */
   --shadow-paper-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
   --shadow-paper-md: 0 3px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
-  --shadow-paper-lg: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10);
-  --shadow-paper-curl: 2px 2px 4px rgba(0, 0, 0, 0.2);
 
   /* ===== CORNERS (the Tight scale) =====
    * Small, even corners: 4px on buttons and inputs, 6px on cards, 8px on
@@ -152,41 +121,25 @@
   /* Timing Values */
   --timing-fast: 200ms; /* M3 Expressive fast */
   --timing-medium: 350ms; /* M3 Expressive default */
-  --timing-slow: 500ms; /* M3 Expressive slow */
-
-  /* M3 Expressive Spring Motion (Spatial - for position/size) */
-  --spring-expressive-fast: cubic-bezier(0.30, 1.25, 0.40, 1.00); /* Approximates damping 0.6, stiffness 800 */
-  --spring-expressive-default: cubic-bezier(0.38, 1.21, 0.22, 1.00); /* Approximates damping 0.8, stiffness 380 */
-  --spring-expressive-slow: cubic-bezier(0.42, 1.15, 0.30, 1.00); /* Approximates damping 0.8, stiffness 200 */
-
-  /* M3 Standard Spring Motion (less bouncy) */
-  --spring-standard-fast: cubic-bezier(0.40, 0.95, 0.50, 1.00); /* Approximates damping 0.9, stiffness 1400 */
-  --spring-standard-default: cubic-bezier(0.45, 0.90, 0.55, 1.00); /* Approximates damping 0.9, stiffness 700 */
 
   /* Legacy animation easings */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
-  /* Smooth deceleration with no overshoot. The expressive springs above bounce
-   * past their target, which reads as playful, so the staff pages use this
+  /* Smooth deceleration with no overshoot. The old expressive springs bounced
+   * past their target, which read as playful, so the staff pages use this
    * and only lesson mode reaches for a spring by name. */
   --ease-spring: var(--ease-out);
 
   /* ===== DESK SURFACE COLORS ===== */
   --color-desk-light-base: #8b6f47;
   --color-desk-light-highlight: #a67c52;
-  --color-desk-light-shadow: #6b5437;
 
   --color-desk-dark-base: #3d2817;
   --color-desk-dark-highlight: #4a3428;
-  --color-desk-dark-shadow: #2a1810;
 
   /* Desk lighting */
   --color-lamp-glow-light: rgba(255, 245, 220, 0.3);
   --color-lamp-glow-dark: rgba(255, 220, 150, 0.08);
-
-  /* Desk shadows */
-  --shadow-desk-soft: rgba(0, 0, 0, 0.15);
-  --shadow-desk-strong: rgba(0, 0, 0, 0.5);
 }
 
 /* ===== DARK MODE COLOR OVERRIDES ===== */
@@ -194,14 +147,10 @@
 .dark {
   --color-background: #0a0a0a;
   --color-surface: #111111;
-  --color-surface-elevated: #1a1a1a;
-  --color-surface-variant: #2a2a2a;
   --color-foreground: #FFFFFF;
 
   --color-card: #1a1a1a;
   --color-card-foreground: #FFFFFF;
-  --color-popover: #1a1a1a;
-  --color-popover-foreground: #FFFFFF;
 
   --color-secondary: #2a2a2a;
   --color-secondary-foreground: #FFFFFF;
@@ -232,13 +181,9 @@
 .summer-light {
   --color-background: #fef9f3;
   --color-surface: #ffffff;
-  --color-surface-elevated: #fef9f3;
-  --color-surface-variant: #f5f0e8;
   --color-foreground: #2a2219;
   --color-card: #ffffff;
   --color-card-foreground: #2a2219;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #2a2219;
   --color-secondary: #f5f0e8;
   --color-secondary-foreground: #2a2219;
   --color-muted: #f5f0e8;
@@ -254,13 +199,9 @@
 .buddy-theme {
   --color-background: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-elevated: #fafafa;
-  --color-surface-variant: #f5f5f5;
   --color-foreground: #171717;
   --color-card: #ffffff;
   --color-card-foreground: #171717;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #171717;
   --color-primary: #dc2626;
   --color-primary-foreground: #ffffff;
   --color-secondary: #f5f5f5;
@@ -279,13 +220,9 @@
 .dark .buddy-theme {
   --color-background: #0a0a0a;
   --color-surface: #111111;
-  --color-surface-elevated: #1a1a1a;
-  --color-surface-variant: #2a2a2a;
   --color-foreground: #ffffff;
   --color-card: #1a1a1a;
   --color-card-foreground: #ffffff;
-  --color-popover: #1a1a1a;
-  --color-popover-foreground: #ffffff;
   --color-primary: #ef4444;
   --color-primary-foreground: #ffffff;
   --color-secondary: #2a2a2a;
@@ -516,27 +453,6 @@
   100% { background-position: 1000px 0; }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(200, 16, 46, 0.3); }
-  50% { box-shadow: 0 0 30px rgba(200, 16, 46, 0.5); }
-}
-
-@keyframes page-curl {
-  from {
-    transform: rotateZ(0deg) translateY(0);
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-  }
-  to {
-    transform: rotateZ(-1deg) translateY(-2px);
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
-  }
-}
-
-@keyframes paper-crinkle {
-  0%, 100% { transform: rotate(-0.5deg); }
-  50% { transform: rotate(0.5deg); }
-}
-
 @keyframes message-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -568,12 +484,6 @@
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
-/* Typing indicator dots (iMessage-style) */
-@keyframes typing-dot {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 1; }
-}
-
 /* Shimmer wave for loading skeletons */
 .skeleton-shimmer {
   background: linear-gradient(90deg, transparent 0%, rgba(160,112,75,0.08) 50%, transparent 100%);
@@ -581,38 +491,10 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Unread badge pulse glow */
-@keyframes badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(160,112,75,0.4); }
-  50% { box-shadow: 0 0 0 4px rgba(160,112,75,0); }
-}
-
 /* Date separator line grow */
 @keyframes line-grow {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
-}
-
-/* ===== UTILITY CLASSES ===== */
-.glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-}
-
-.glass-lg {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur-lg));
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
-}
-
-.text-gradient {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .animate-fade-in {
@@ -649,20 +531,6 @@
 .animate-menu-stagger > *:nth-child(7) { animation-delay: 120ms; }
 .animate-menu-stagger > *:nth-child(n+8) { animation-delay: 130ms; }
 
-/* View mode switch crossfade — reuses existing slideUp keyframe */
-.animate-view-enter {
-  animation: slideUp var(--timing-medium) var(--ease-out) both;
-}
-
-/* Grid card stagger entrance */
-@keyframes cardEnter {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-.animate-card-enter {
-  animation: cardEnter var(--timing-medium) var(--ease-spring) both;
-}
-
 /* Variant tree connector draw-in */
 @keyframes pathDraw {
   from { stroke-dashoffset: 30; opacity: 0.3; }
@@ -683,13 +551,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-empty-float { animation: none; }
-}
-
-/* Warm focus ring for toolbar/sidebar interactive elements */
-.focus-warm:focus-visible {
-  outline: 2px solid rgba(160, 112, 75, 0.6);
-  outline-offset: 2px;
-  border-radius: 6px;
 }
 
 /* Table row name nudge on hover */
@@ -726,18 +587,6 @@ tr:hover .table-row-name-hover {
 /* Preview page paper shadow — extends paper-sm with an inset border */
 .shadow-paper-preview {
   box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.04);
-}
-
-.animate-shimmer {
-  background: linear-gradient(
-    to right,
-    #1a1a1a 0%,
-    #2a2a2a 20%,
-    #1a1a1a 40%,
-    #1a1a1a 100%
-  );
-  background-size: 1000px 100%;
-  animation: shimmer 2s linear infinite;
 }
 
 /* Sepia-toned shimmer for warm parchment loading states */
@@ -818,25 +667,8 @@ tr:hover .table-row-name-hover {
   background-color: #1a1a1a;
 }
 
-.paper-yellow {
-  background-color: #fff9db;
-}
-
-.dark .paper-yellow {
-  background-color: #2b2a1f;
-}
-
-/* Realistic paper shadow */
-.paper-shadow-sm {
-  box-shadow: var(--shadow-paper-sm);
-}
-
 .paper-shadow-md {
   box-shadow: var(--shadow-paper-md);
-}
-
-.paper-shadow-lg {
-  box-shadow: var(--shadow-paper-lg);
 }
 
 /* Ruled notebook lines - fixed with proper dark mode support */
@@ -860,41 +692,6 @@ tr:hover .table-row-name-hover {
     );
   }
 
-/* Red margin line (left side of notebook) */
-.margin-line-left::before {
-  content: '';
-  position: absolute;
-  left: 2.5rem;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: rgba(239, 68, 68, 0.4);
-  pointer-events: none;
-}
-
-.dark .margin-line-left::before {
-    background: rgba(239, 68, 68, 0.25);
-  }
-
-/* Page curl effect (top-right corner) */
-.page-curl::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0 24px 24px 0;
-  border-color: transparent #e5e5e5 transparent transparent;
-  box-shadow: var(--shadow-paper-curl);
-  pointer-events: none;
-}
-
-.dark .page-curl::after {
-    border-color: transparent #2a2a2a transparent transparent;
-  }
-
 /* ===== TORN PAPER EDGE EFFECTS ===== */
 
 /* Torn top edge - organic irregular pattern */
@@ -913,229 +710,10 @@ tr:hover .table-row-name-hover {
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
 }
 
-/* Torn bottom edge */
-.torn-edge-bottom {
-  clip-path: polygon(
-    0 0, 100% 0,
-    100% 98%, 99% 99%, 97% 97.5%, 95% 99%, 93% 98%, 91% 97%, 89% 98.5%,
-    87% 97%, 85% 99%, 83% 98%, 81% 97.5%, 79% 99%, 77% 98%, 75% 97%,
-    73% 98.5%, 71% 97.5%, 69% 99%, 67% 98%, 65% 97%, 63% 98.5%, 61% 97%,
-    59% 99%, 57% 98%, 55% 97.5%, 53% 99%, 51% 98%, 49% 97%, 47% 98.5%,
-    45% 97%, 43% 99%, 41% 98%, 39% 97.5%, 37% 99%, 35% 97.5%, 33% 98%,
-    31% 97%, 29% 98.5%, 27% 97%, 25% 99%, 23% 98%, 21% 97.5%, 19% 99%,
-    17% 98%, 15% 97%, 13% 98.5%, 11% 97%, 9% 99%, 7% 98%, 5% 97.5%,
-    3% 99%, 1% 98%, 0 97%
-  );
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
-}
-
-/* Torn right edge (for notebook pages ripped from spiral) */
-.torn-edge-right {
-  clip-path: polygon(
-    0 0, 97% 0, 98% 2%, 99% 1%, 98.5% 3%, 99% 5%, 97% 4%, 98% 7%,
-    99% 9%, 98% 11%, 99% 13%, 97.5% 15%, 99% 17%, 98% 19%, 99% 21%,
-    98% 23%, 99% 25%, 97% 27%, 98.5% 29%, 99% 31%, 98% 33%, 99% 35%,
-    98% 37%, 99% 39%, 97.5% 41%, 99% 43%, 98% 45%, 99% 47%, 98% 49%,
-    99% 51%, 97.5% 53%, 99% 55%, 98% 57%, 99% 59%, 98% 61%, 99% 63%,
-    98% 65%, 99% 67%, 97% 69%, 98.5% 71%, 99% 73%, 98% 75%, 99% 77%,
-    98% 79%, 99% 81%, 97.5% 83%, 99% 85%, 98% 87%, 99% 89%, 98% 91%,
-    99% 93%, 98% 95%, 99% 97%, 97% 99%, 98% 100%,
-    0 100%
-  );
-  filter: drop-shadow(2px 0 3px rgba(0, 0, 0, 0.15));
-}
-
-/* Perforated left edge (spiral notebook binding holes) */
-.perforated-left {
-  position: relative;
-}
-
-.perforated-left::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 48px;
-  background:
-    radial-gradient(circle at 24px 32px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 96px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 160px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 224px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 288px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 352px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 416px, transparent 6px, currentColor 6px),
-    radial-gradient(circle at 24px 480px, transparent 6px, currentColor 6px);
-  background-repeat: no-repeat;
-  pointer-events: none;
-  color: inherit;
-  opacity: 0.8;
-}
-
-/* Enhanced wrinkled/crumpled paper texture */
-.paper-wrinkled {
-  position: relative;
-}
-
-.paper-wrinkled::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 30%, transparent 40%, rgba(0,0,0,0.03) 70%),
-    radial-gradient(ellipse at 70% 60%, transparent 45%, rgba(0,0,0,0.02) 75%),
-    radial-gradient(ellipse at 40% 80%, transparent 50%, rgba(0,0,0,0.025) 80%);
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-/* ===== HIGHLIGHTER UTILITIES ===== */
-
-.highlight-yellow {
-  background: linear-gradient(
-    104deg,
-    rgba(255, 255, 0, 0) 0.9%,
-    rgba(255, 255, 0, 0.3) 2.4%,
-    rgba(255, 255, 0, 0.4) 5.8%,
-    rgba(255, 255, 0, 0.35) 93%,
-    rgba(255, 255, 0, 0.3) 96%,
-    rgba(255, 255, 0, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-pink {
-  background: linear-gradient(
-    104deg,
-    rgba(255, 182, 193, 0) 0.9%,
-    rgba(255, 182, 193, 0.3) 2.4%,
-    rgba(255, 182, 193, 0.4) 5.8%,
-    rgba(255, 182, 193, 0.35) 93%,
-    rgba(255, 182, 193, 0.3) 96%,
-    rgba(255, 182, 193, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-green {
-  background: linear-gradient(
-    104deg,
-    rgba(144, 238, 144, 0) 0.9%,
-    rgba(144, 238, 144, 0.3) 2.4%,
-    rgba(144, 238, 144, 0.4) 5.8%,
-    rgba(144, 238, 144, 0.35) 93%,
-    rgba(144, 238, 144, 0.3) 96%,
-    rgba(144, 238, 144, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-blue {
-  background: linear-gradient(
-    104deg,
-    rgba(173, 216, 230, 0) 0.9%,
-    rgba(173, 216, 230, 0.3) 2.4%,
-    rgba(173, 216, 230, 0.4) 5.8%,
-    rgba(173, 216, 230, 0.35) 93%,
-    rgba(173, 216, 230, 0.3) 96%,
-    rgba(173, 216, 230, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-orange {
-  background: linear-gradient(
-    104deg,
-    rgba(255, 200, 124, 0) 0.9%,
-    rgba(255, 200, 124, 0.3) 2.4%,
-    rgba(255, 200, 124, 0.4) 5.8%,
-    rgba(255, 200, 124, 0.35) 93%,
-    rgba(255, 200, 124, 0.3) 96%,
-    rgba(255, 200, 124, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-/* ===== RUBBER STAMP UTILITIES ===== */
-
-.rubber-stamp {
-  display: inline-block;
-  padding: 0.5em 1em;
-  border: 3px solid currentColor;
-  border-radius: 0.5em;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.7;
-  transform: rotate(-3deg);
-  font-size: 0.9em;
-  line-height: 1.2;
-}
-
-.rubber-stamp-circle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.5em;
-  height: 3.5em;
-  border: 3px solid currentColor;
-  border-radius: 50%;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  opacity: 0.7;
-  transform: rotate(-5deg);
-  font-size: 0.85em;
-  text-align: center;
-  padding: 0.5em;
-  line-height: 1.1;
-}
-
-.rubber-stamp-red {
-  color: #dc2626;
-}
-
-.rubber-stamp-green {
-  color: #16a34a;
-}
-
-.rubber-stamp-blue {
-  color: #2563eb;
-}
-
-.rubber-stamp-orange {
-  color: #ea580c;
-}
-
-.rubber-stamp-purple {
-  color: #9333ea;
-}
-
 /* ===== HANDWRITING FONTS ===== */
 
 .font-handwriting {
   font-family: var(--font-handwriting), 'Caveat', cursive;
-}
-
-.font-handwriting-cursive {
-  font-family: var(--font-handwriting), 'Caveat', cursive;
-}
-
-.font-handwriting-print {
-  font-family: 'Indie Flower', cursive;
-}
-
-.font-handwriting-marker {
-  font-family: 'Permanent Marker', cursive;
-}
-
-.font-handwriting-pencil {
-  font-family: 'Shadows Into Light', cursive;
 }
 
 /* ===== GLOBAL STYLES ===== */
@@ -1307,379 +885,6 @@ html {
       );
   }
 
-/* Highlighter Marks */
-.highlight-yellow {
-  background: linear-gradient(
-    104deg,
-    rgba(255, 255, 0, 0) 0.9%,
-    rgba(255, 255, 0, 0.3) 2.4%,
-    rgba(255, 255, 0, 0.4) 5.8%,
-    rgba(255, 255, 0, 0.5) 93%,
-    rgba(255, 255, 0, 0.4) 96%,
-    rgba(255, 255, 0, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-pink {
-  background: linear-gradient(
-    104deg,
-    rgba(255, 182, 193, 0) 0.9%,
-    rgba(255, 182, 193, 0.3) 2.4%,
-    rgba(255, 182, 193, 0.4) 5.8%,
-    rgba(255, 182, 193, 0.5) 93%,
-    rgba(255, 182, 193, 0.4) 96%,
-    rgba(255, 182, 193, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-green {
-  background: linear-gradient(
-    104deg,
-    rgba(144, 238, 144, 0) 0.9%,
-    rgba(144, 238, 144, 0.3) 2.4%,
-    rgba(144, 238, 144, 0.4) 5.8%,
-    rgba(144, 238, 144, 0.5) 93%,
-    rgba(144, 238, 144, 0.4) 96%,
-    rgba(144, 238, 144, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-blue {
-  background: linear-gradient(
-    104deg,
-    rgba(173, 216, 230, 0) 0.9%,
-    rgba(173, 216, 230, 0.3) 2.4%,
-    rgba(173, 216, 230, 0.4) 5.8%,
-    rgba(173, 216, 230, 0.5) 93%,
-    rgba(173, 216, 230, 0.4) 96%,
-    rgba(173, 216, 230, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-.highlight-orange {
-  background: linear-gradient(
-    104deg,
-    rgba(255, 165, 0, 0) 0.9%,
-    rgba(255, 165, 0, 0.3) 2.4%,
-    rgba(255, 165, 0, 0.4) 5.8%,
-    rgba(255, 165, 0, 0.5) 93%,
-    rgba(255, 165, 0, 0.4) 96%,
-    rgba(255, 165, 0, 0) 98%
-  );
-  border-radius: 0.5em 0.3em;
-  padding: 0.1em 0.2em;
-}
-
-/* Rubber Stamp Styles */
-.rubber-stamp {
-  display: inline-block;
-  padding: 0.5em 1em;
-  border: 3px solid currentColor;
-  border-radius: 0.25em;
-  transform: rotate(-3deg);
-  opacity: 0.7;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.rubber-stamp-red {
-  color: #dc2626;
-}
-
-.rubber-stamp-green {
-  color: #16a34a;
-}
-
-.rubber-stamp-blue {
-  color: #2563eb;
-}
-
-/* ===== ENGINEERING & TECHNICAL PAPER PATTERNS ===== */
-
-/* Quad paper - 4 squares per inch (lighter blue/green engineering style) */
-.quad-paper-4 {
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.35mm
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.35mm
-    );
-}
-
-.dark .quad-paper-4 {
-    background-image:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 6.25mm,
-        rgba(34, 139, 34, 0.15) 6.25mm,
-        rgba(34, 139, 34, 0.15) 6.35mm
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 6.25mm,
-        rgba(34, 139, 34, 0.15) 6.25mm,
-        rgba(34, 139, 34, 0.15) 6.35mm
-      );
-  }
-
-/* Quad paper with major gridlines (every 5th line thicker) */
-.quad-paper-4-major {
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.35mm
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.25mm,
-      rgba(34, 139, 34, 0.25) 6.35mm
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 31.25mm,
-      rgba(34, 139, 34, 0.4) 31.25mm,
-      rgba(34, 139, 34, 0.4) 31.5mm
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 31.25mm,
-      rgba(34, 139, 34, 0.4) 31.25mm,
-      rgba(34, 139, 34, 0.4) 31.5mm
-    );
-}
-
-/* Engineering paper - light blue engineering tradition */
-.engineering-paper {
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 4.9mm,
-      rgba(65, 105, 225, 0.22) 4.9mm,
-      rgba(65, 105, 225, 0.22) 5mm
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 4.9mm,
-      rgba(65, 105, 225, 0.22) 4.9mm,
-      rgba(65, 105, 225, 0.22) 5mm
-    );
-}
-
-.dark .engineering-paper {
-    background-image:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 4.9mm,
-        rgba(65, 105, 225, 0.15) 4.9mm,
-        rgba(65, 105, 225, 0.15) 5mm
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 4.9mm,
-        rgba(65, 105, 225, 0.15) 4.9mm,
-        rgba(65, 105, 225, 0.15) 5mm
-      );
-  }
-
-/* Isometric paper - for 3D drawings */
-.isometric-paper {
-  background-image:
-    repeating-linear-gradient(
-      60deg,
-      transparent,
-      transparent 19px,
-      rgba(59, 130, 246, 0.25) 19px,
-      rgba(59, 130, 246, 0.25) 20px
-    ),
-    repeating-linear-gradient(
-      120deg,
-      transparent,
-      transparent 19px,
-      rgba(59, 130, 246, 0.25) 19px,
-      rgba(59, 130, 246, 0.25) 20px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 19px,
-      rgba(59, 130, 246, 0.25) 19px,
-      rgba(59, 130, 246, 0.25) 20px
-    );
-}
-
-.dark .isometric-paper {
-    background-image:
-      repeating-linear-gradient(
-        60deg,
-        transparent,
-        transparent 19px,
-        rgba(59, 130, 246, 0.15) 19px,
-        rgba(59, 130, 246, 0.15) 20px
-      ),
-      repeating-linear-gradient(
-        120deg,
-        transparent,
-        transparent 19px,
-        rgba(59, 130, 246, 0.15) 19px,
-        rgba(59, 130, 246, 0.15) 20px
-      ),
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 19px,
-        rgba(59, 130, 246, 0.15) 19px,
-        rgba(59, 130, 246, 0.15) 20px
-      );
-  }
-
-/* ===== COMPOSITION NOTEBOOK STYLES ===== */
-
-/* Marbled cover - classic black composition notebook texture */
-.marbled-cover {
-  background:
-    radial-gradient(ellipse at 10% 20%, #2a2a2a 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, #3d3d3d 0%, transparent 50%),
-    radial-gradient(ellipse at 30% 70%, #333333 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 30%, #4a4a4a 0%, transparent 50%),
-    radial-gradient(ellipse at 90% 50%, #2d2d2d 0%, transparent 50%),
-    radial-gradient(ellipse at 40% 90%, #454545 0%, transparent 50%),
-    radial-gradient(ellipse at 20% 50%, #383838 0%, transparent 50%),
-    linear-gradient(135deg, #3d3d3d 0%, #2a2a2a 50%, #4a4a4a 100%);
-}
-
-/* Sewn binding effect */
-.sewn-binding {
-  position: relative;
-}
-
-.sewn-binding::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 100%;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.1) 2px,
-      rgba(0, 0, 0, 0.1) 3px
-    );
-  pointer-events: none;
-}
-
-/* Wide-ruled lines (standard school notebook) */
-.ruled-wide {
-  background-image:
-    repeating-linear-gradient(
-      transparent,
-      transparent 43px,
-      rgba(59, 130, 246, 0.25) 43px,
-      rgba(59, 130, 246, 0.25) 44px
-    );
-}
-
-.dark .ruled-wide {
-    background-image:
-      repeating-linear-gradient(
-        transparent,
-        transparent 43px,
-        rgba(147, 197, 253, 0.15) 43px,
-        rgba(147, 197, 253, 0.15) 44px
-      );
-  }
-
-/* College-ruled lines (narrower spacing) */
-.ruled-college {
-  background-image:
-    repeating-linear-gradient(
-      transparent,
-      transparent 31px,
-      rgba(59, 130, 246, 0.25) 31px,
-      rgba(59, 130, 246, 0.25) 32px
-    );
-}
-
-.dark .ruled-college {
-    background-image:
-      repeating-linear-gradient(
-        transparent,
-        transparent 31px,
-        rgba(147, 197, 253, 0.15) 31px,
-        rgba(147, 197, 253, 0.15) 32px
-      );
-  }
-
-/* ===== CERTIFICATE & FOIL EFFECTS ===== */
-
-/* Ribbon tail clip-path for certificate seals */
-.clip-ribbon-tail {
-  clip-path: polygon(
-    0 0,
-    100% 0,
-    100% 85%,
-    50% 100%,
-    0 85%
-  );
-}
-
-/* Foil gradient effects */
-.foil-gold {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 25%, #ffd700 50%, #ffed4e 75%, #ffd700 100%);
-  background-size: 200% 200%;
-}
-
-.foil-silver {
-  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 25%, #c0c0c0 50%, #e8e8e8 75%, #c0c0c0 100%);
-  background-size: 200% 200%;
-}
-
-.foil-bronze {
-  background: linear-gradient(135deg, #cd7f32 0%, #e9a76e 25%, #cd7f32 50%, #e9a76e 75%, #cd7f32 100%);
-  background-size: 200% 200%;
-}
-
-/* Embossed seal effect */
-.embossed-seal {
-  box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.3),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
 /* ===== PAGE SURFACE =====
  * The background behind the pages, which people choose in the user menu.
  * Each choice is a block of variables keyed on `data-surface`, and the
@@ -1832,17 +1037,13 @@ html {
   [data-shape="classic"] .hover\:shadow-md:hover { --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.4)), 0 2px 4px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
   [data-shape="classic"] .hover\:shadow-lg:hover { --tw-shadow: 0 10px 15px -3px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 4px 6px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
   [data-shape="classic"] .hover\:shadow-xl:hover { --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 10px 10px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
-  [data-shape="classic"] .group:hover .group-hover\:shadow-sm { --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
-  [data-shape="classic"] .group:hover .group-hover\:shadow-md { --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.4)), 0 2px 4px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
   [data-shape="classic"] .group:hover .group-hover\:shadow-lg { --tw-shadow: 0 10px 15px -3px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 4px 6px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
-  [data-shape="classic"] .group:hover .group-hover\:shadow-xl { --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.5)), 0 10px 10px -5px var(--tw-shadow-color, rgba(0, 0, 0, 0.3)); }
 }
 
-/* Desk Paper Shadows - Light Mode (Natural sunlight, 45° angle) */
-.desk-shadow-high {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
+/* Desk paper shadows, used on the sessions list and the session page. The
+   heavier pair is for dark mode only. Until October 2026 the dark rules were
+   missing their .dark prefix, so they came later in the file and won in light
+   mode too, which is why these cards used to look so heavily shadowed. */
 .desk-shadow-medium {
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18), 0 3px 6px rgba(0, 0, 0, 0.12);
 }
@@ -1851,113 +1052,12 @@ html {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.desk-shadow-flat {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08);
+.dark .desk-shadow-medium {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), 0 4px 8px rgba(0, 0, 0, 0.25);
 }
 
-/* Desk Paper Shadows - Dark Mode (Desk lamp, stronger contrast) */
-
-.dark .desk-shadow-high {
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5), 0 6px 12px rgba(0, 0, 0, 0.3);
-  }
-
-  .desk-shadow-medium {
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), 0 4px 8px rgba(0, 0, 0, 0.25);
-  }
-
-  .desk-shadow-low {
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 3px 6px rgba(0, 0, 0, 0.2);
-  }
-
-  .desk-shadow-flat {
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15);
-  }
-
-/* ===== CORK BOARD SIDEBAR TEXTURE ===== */
-
-/* Cork Board Base Colors */
-.cork-board-background {
-  background: linear-gradient(
-    135deg,
-    #c19a6b 0%,
-    #d4a574 50%,
-    #c19a6b 100%
-  );
-}
-
-.dark .cork-board-background {
-  background: linear-gradient(
-    135deg,
-    #5a4a3a 0%,
-    #6b5a4a 50%,
-    #5a4a3a 100%
-  );
-}
-
-/* Cork Texture Pattern - Realistic cork grain */
-.cork-texture {
-  background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='corkNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='6' /%3E%3CfeColorMatrix type='saturate' values='0.3'/%3E%3C/filter%3E%3C/defs%3E%3C!-- Cork grain texture --%3E%3Crect width='100%25' height='100%25' fill='url(%23corkNoise)' opacity='0.25'/%3E%3C!-- Random cork specks and variations --%3E%3Ccircle cx='45' cy='67' r='2' fill='%23000' opacity='0.15'/%3E%3Ccircle cx='123' cy='189' r='1.5' fill='%23000' opacity='0.12'/%3E%3Ccircle cx='234' cy='98' r='2.5' fill='%23000' opacity='0.14'/%3E%3Ccircle cx='178' cy='234' r='1.8' fill='%23000' opacity='0.13'/%3E%3Ccircle cx='312' cy='145' r='2.2' fill='%23000' opacity='0.11'/%3E%3Ccircle cx='89' cy='298' r='1.6' fill='%23000' opacity='0.14'/%3E%3Ccircle cx='267' cy='45' r='2' fill='%23000' opacity='0.12'/%3E%3Ccircle cx='156' cy='156' r='1.7' fill='%23000' opacity='0.13'/%3E%3Ccircle cx='345' cy='267' r='2.3' fill='%23000' opacity='0.11'/%3E%3Ccircle cx='67' cy='356' r='1.9' fill='%23000' opacity='0.15'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 200px 200px;
-  mix-blend-mode: multiply;
-}
-
-.dark .cork-texture {
-  opacity: 0.7;
-  mix-blend-mode: overlay;
-}
-
-/* File Folder Tab Styles */
-.folder-tab {
-  position: relative;
-  background: linear-gradient(
-    to bottom,
-    #f5e6d3 0%,
-    #e8d4b8 100%
-  );
-  border: 1px solid #c4a67a;
-  border-radius: 4px 4px 0 0;
-  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.dark .folder-tab {
-  background: linear-gradient(
-    to bottom,
-    #4a3f2f 0%,
-    #3a2f1f 100%
-  );
-  border-color: #6b5a4a;
-}
-
-.folder-tab-active {
-  background: linear-gradient(
-    to bottom,
-    #fff8e7 0%,
-    #f5e6d3 100%
-  );
-  transform: translateX(-2px);
-  box-shadow:
-    -2px -2px 4px rgba(0, 0, 0, 0.15),
-    0 2px 4px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-.dark .folder-tab-active {
-  background: linear-gradient(
-    to bottom,
-    #5a4f3f 0%,
-    #4a3f2f 100%
-  );
-}
-
-/* Folder color dots */
-.folder-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+.dark .desk-shadow-low {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 3px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== SIDEBAR TOOLTIP - M3 Expressive ===== */
@@ -2029,28 +1129,6 @@ html {
   }
 }
 
-@keyframes dropUpIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(8px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) translateX(-8px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0) scale(1);
-  }
-}
-
 /* ===== SCROLLBAR UTILITIES ===== */
 
 /* Hide scrollbar while maintaining scroll functionality */
@@ -2078,21 +1156,6 @@ html {
   }
   50% {
     background-position: 100% 50%;
-  }
-}
-
-@keyframes gentle-float {
-  0%, 100% {
-    transform: translate(0, 0);
-  }
-  25% {
-    transform: translate(10px, -15px);
-  }
-  50% {
-    transform: translate(5px, -25px);
-  }
-  75% {
-    transform: translate(-5px, -10px);
   }
 }
 
@@ -2156,15 +1219,6 @@ html {
   }
 }
 
-@keyframes warm-glow {
-  0%, 100% {
-    box-shadow: 0 4px 20px rgba(217,119,6,0.15);
-  }
-  50% {
-    box-shadow: 0 4px 30px rgba(217,119,6,0.3);
-  }
-}
-
 @keyframes border-shimmer {
   0% {
     background-position: 0% 50%;
@@ -2224,9 +1278,6 @@ html {
   @keyframes warm-gradient {
     0%, 100% { background-position: 0% 50%; }
   }
-  @keyframes gentle-float {
-    0%, 100% { transform: translate(0, 0); }
-  }
   @keyframes aurora-drift {
     0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
   }
@@ -2238,9 +1289,6 @@ html {
   }
   @keyframes scale-in {
     from, to { opacity: 1; transform: rotate(-0.3deg) scale(1); }
-  }
-  @keyframes warm-glow {
-    0%, 100% { box-shadow: 0 4px 20px rgba(217,119,6,0.15); }
   }
   @keyframes border-shimmer {
     0%, 100% { background-position: 0% 50%; }
@@ -2254,7 +1302,7 @@ html {
 
 /* Monospace font for table data */
 .font-mono-data {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 /* Modal animations */
@@ -2297,22 +1345,6 @@ html {
 
 .btn-press:active {
   transform: scale(0.97);
-}
-
-/* Pulsing dot animation */
-@keyframes pulse-dot {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.15);
-  }
-}
-
-.animate-pulse-dot {
-  animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 /* Table row hover effect */
@@ -2440,27 +1472,6 @@ html {
   border-left: 4px solid #9ca3af;
 }
 
-/* Checkbox animation */
-@keyframes checkbox-pop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-.checkbox-animate:checked {
-  animation: checkbox-pop 200ms ease-out;
-}
-
-/* Selection pulse effect */
-@keyframes selection-pulse {
-  0% { background-color: rgba(59, 130, 246, 0.2); }
-  100% { background-color: rgba(59, 130, 246, 0.08); }
-}
-
-.animate-selection-pulse {
-  animation: selection-pulse 300ms ease-out forwards;
-}
-
 /* Keyboard shortcuts help modal */
 .kbd-key {
   display: inline-flex;
@@ -2469,7 +1480,7 @@ html {
   min-width: 1.5rem;
   height: 1.5rem;
   padding: 0 0.5rem;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.75rem;
   font-weight: 600;
   background: linear-gradient(180deg, #f5f5f5 0%, #e5e5e5 100%);
@@ -2494,57 +1505,6 @@ html {
 
 .animate-refresh-in {
   animation: refresh-fade 300ms ease-out forwards;
-}
-
-/* Success flash animation for saved rows */
-@keyframes save-success-flash {
-  0% {
-    background-color: rgba(22, 163, 74, 0.3);
-    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.4);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-.animate-save-success {
-  animation: save-success-flash 600ms ease-out forwards;
-}
-
-/* Delete fade animation */
-@keyframes delete-fade-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0);
-    background-color: rgba(220, 38, 38, 0.15);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-20px);
-    background-color: rgba(220, 38, 38, 0.3);
-  }
-}
-
-.animate-delete-fade {
-  animation: delete-fade-out 400ms ease-out forwards;
-}
-
-/* Button success pulse */
-@keyframes btn-success-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(22, 163, 74, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
-  }
-}
-
-.animate-btn-success {
-  animation: btn-success-pulse 500ms ease-out;
 }
 
 /* Tiptap editor styles */
@@ -2763,7 +1723,7 @@ html {
   padding: 0.75rem 1rem;
   margin: 8px 0;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85em;
   line-height: 1.6;
 }
@@ -2788,7 +1748,7 @@ html {
   padding: 0.75rem 1rem;
   margin: 8px 0;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85em;
   line-height: 1.6;
 }
@@ -3447,7 +2407,6 @@ body.student-print .print-answer-key {
 .dark .page-gap::after {
   box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.12);
 }
-
 
 /* ─── First-page header and last-page footer (React components) ───── */
 .first-page-header,
