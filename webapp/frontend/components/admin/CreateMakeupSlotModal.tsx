@@ -9,9 +9,9 @@ import {
   FloatingFocusManager,
   FloatingPortal,
 } from "@floating-ui/react";
-import { CalendarPlus, Loader2, AlertCircle } from "lucide-react";
+import { CalendarPlus, AlertCircle } from "lucide-react";
 import useSWR from "swr";
-import { cn } from "@/lib/utils";
+import { Button, Input, Label, Select } from "@/components/controls";
 import { summerAPI } from "@/lib/api";
 import { worksAt } from "@/lib/employment";
 import { TutorOptions } from "@/components/selectors/TutorOptions";
@@ -119,14 +119,14 @@ export function CreateMakeupSlotModal({
       });
       showToast(
         resp.tutor_conflict_note
-          ? `Make-up Slot created. ${resp.tutor_conflict_note}`
-          : "Make-up Slot created.",
+          ? `Make-up slot created. ${resp.tutor_conflict_note}`
+          : "Make-up slot created.",
         resp.tutor_conflict_note ? "info" : "success"
       );
       onCreated();
       onClose();
     } catch (e: any) {
-      showToast(e?.message || "Failed to create Make-up Slot", "error");
+      showToast(e?.message || "Failed to create make-up slot", "error");
     } finally {
       setSubmitting(false);
     }
@@ -150,7 +150,7 @@ export function CreateMakeupSlotModal({
                   <CalendarPlus className="h-5 w-5 text-amber-700 dark:text-amber-300" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">New Make-up Slot</h3>
+                  <h3 className="text-sm font-semibold">New make-up slot</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     One-off lesson on a specific date.
                   </p>
@@ -159,19 +159,19 @@ export function CreateMakeupSlotModal({
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1">Date</label>
-                  <input
+                  <Label htmlFor="makeup-slot-date">Date</Label>
+                  <Input
+                    id="makeup-slot-date"
                     type="date"
                     value={date}
                     min={courseStartDate}
                     max={courseEndDate}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1">Time</label>
+                  <Label>Time</Label>
                   <TimeSlotPicker
                     state={timeState}
                     onChange={setTimeState}
@@ -180,17 +180,17 @@ export function CreateMakeupSlotModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1">Tutor</label>
-                  <select
+                  <Label htmlFor="makeup-slot-tutor">Tutor</Label>
+                  <Select
+                    id="makeup-slot-tutor"
                     value={tutorId ?? ""}
                     onChange={(e) =>
                       setTutorId(e.target.value ? Number(e.target.value) : null)
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
                   >
                     <option value="">— select tutor —</option>
                     <TutorOptions tutors={tutors} location={locationCode} />
-                  </select>
+                  </Select>
                   {tutors.length === 0 && allTutors && (
                     <p className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
                       <AlertCircle className="h-3 w-3" />
@@ -200,10 +200,9 @@ export function CreateMakeupSlotModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1">
-                    Max students
-                  </label>
-                  <input
+                  <Label htmlFor="makeup-slot-max">Max students</Label>
+                  <Input
+                    id="makeup-slot-max"
                     type="number"
                     min={1}
                     max={20}
@@ -211,31 +210,18 @@ export function CreateMakeupSlotModal({
                     onChange={(e) =>
                       setMaxStudents(parseInt(e.target.value, 10) || 1)
                     }
-                    className="w-24 px-2 py-1.5 text-sm border border-field rounded-md bg-background"
+                    className="w-24"
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
-                <button
-                  onClick={onClose}
-                  disabled={submitting}
-                  className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                >
+                <Button onClick={onClose} disabled={submitting}>
                   Cancel
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit || submitting}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
-                    "bg-amber-600 text-white hover:bg-amber-600/90",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                </Button>
+                <Button variant="primary" onClick={handleSubmit} loading={submitting} disabled={!canSubmit}>
                   Create
-                </button>
+                </Button>
               </div>
             </div>
           </div>

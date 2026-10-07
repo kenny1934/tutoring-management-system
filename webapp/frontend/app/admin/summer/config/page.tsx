@@ -13,9 +13,10 @@ import { SummerConfigEditor } from "@/components/admin/SummerConfigEditor";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatShortDate } from "@/lib/formatters";
+import { Badge, Button, IconButton, Input } from "@/components/controls";
 
 export default function AdminSummerConfigPage() {
-  usePageTitle("Summer Config");
+  usePageTitle("Summer config");
   const { user, isLoading: authLoading, canViewAdminPages, isReadOnly } = useAuth();
   const { showToast } = useToast();
 
@@ -174,7 +175,7 @@ export default function AdminSummerConfigPage() {
                 <Sun className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-foreground">Summer Course Config</h1>
+                <h1 className="text-lg font-semibold text-foreground">Summer course config</h1>
                 <p className="text-xs text-muted-foreground">
                   Manage yearly summer course configurations
                   {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
@@ -182,13 +183,9 @@ export default function AdminSummerConfigPage() {
               </div>
             </div>
             {!isReadOnly && (
-              <button
-                onClick={() => setCreating(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New Config
-              </button>
+              <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
+                New config
+              </Button>
             )}
           </div>
 
@@ -224,13 +221,9 @@ export default function AdminSummerConfigPage() {
                           {config.title}
                         </span>
                         {config.is_active ? (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                            Active
-                          </span>
+                          <Badge tone="success">Active</Badge>
                         ) : (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded-full">
-                            Inactive
-                          </span>
+                          <Badge>Inactive</Badge>
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
@@ -253,40 +246,30 @@ export default function AdminSummerConfigPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => setEditingId(config.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
+                      <Button size="sm" icon={Pencil} onClick={() => setEditingId(config.id)}>
                         {isReadOnly ? "View" : "Edit"}
-                      </button>
+                      </Button>
                       {!isReadOnly && (
                         <>
-                          <button
+                          <Button
+                            size="sm"
+                            icon={Power}
+                            iconClassName={config.is_active ? "text-amber-600" : "text-green-600"}
                             onClick={() => setToggleTarget({ id: config.id, year: config.year, activate: !config.is_active })}
-                            className={`flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
-                              config.is_active
-                                ? "text-amber-700 hover:text-amber-700 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                                : "text-green-700 hover:text-green-700 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20"
-                            }`}
                           >
-                            <Power className="h-3.5 w-3.5" />
                             {config.is_active ? "Deactivate" : "Activate"}
-                          </button>
-                          <button
-                            onClick={() => { setCloneDialogId(config.id); setCloneYear(String(config.year + 1)); setCloneDuplicateWarning(false); }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" icon={Copy} onClick={() => { setCloneDialogId(config.id); setCloneYear(String(config.year + 1)); setCloneDuplicateWarning(false); }}>
                             Clone
-                          </button>
+                          </Button>
                           {!config.is_active && (
-                            <button
+                            <IconButton
+                              icon={Trash2}
+                              size="sm"
+                              tone="danger"
+                              label={`Delete the ${config.year} config`}
                               onClick={() => setDeleteTarget({ id: config.id, year: config.year })}
-                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            />
                           )}
                         </>
                       )}
@@ -302,33 +285,27 @@ export default function AdminSummerConfigPage() {
           <Modal
             isOpen={cloneDialogId !== null}
             onClose={() => { setCloneDialogId(null); setCloneYear(""); setCloneDuplicateWarning(false); }}
-            title="Clone Config"
+            title="Clone config"
             size="sm"
             footer={
               <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => { setCloneDialogId(null); setCloneYear(""); setCloneDuplicateWarning(false); }}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <Button onClick={() => { setCloneDialogId(null); setCloneYear(""); setCloneDuplicateWarning(false); }}>
                   Cancel
-                </button>
-                <button
-                  onClick={() => cloneDialogId !== null && handleClone(cloneDialogId)}
-                  className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors font-medium"
-                >
-                  {cloneDuplicateWarning ? "Clone Anyway" : "Clone"}
-                </button>
+                </Button>
+                <Button variant="primary" onClick={() => cloneDialogId !== null && handleClone(cloneDialogId)}>
+                  {cloneDuplicateWarning ? "Clone anyway" : "Clone"}
+                </Button>
               </div>
             }
           >
             <p className="text-sm text-muted-foreground mb-4">
               Enter the target year for the cloned config. Dates will be shifted automatically.
             </p>
-            <input
+            <Input
               type="number"
+              aria-label="Year"
               value={cloneYear}
               onChange={(e) => { setCloneYear(e.target.value); setCloneDuplicateWarning(false); }}
-              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
               placeholder="e.g. 2026"
               min={2025}
               max={2099}
@@ -345,7 +322,7 @@ export default function AdminSummerConfigPage() {
             isOpen={toggleTarget !== null}
             onCancel={() => setToggleTarget(null)}
             onConfirm={handleToggleActive}
-            title={toggleTarget?.activate ? "Activate Config" : "Deactivate Config"}
+            title={toggleTarget?.activate ? "Activate config" : "Deactivate config"}
             message={
               toggleTarget?.activate
                 ? `Activate the ${toggleTarget?.year} config? This will deactivate any currently active config.`
@@ -361,7 +338,7 @@ export default function AdminSummerConfigPage() {
             isOpen={deleteTarget !== null}
             onCancel={() => setDeleteTarget(null)}
             onConfirm={handleDelete}
-            title="Delete Config"
+            title="Delete config"
             message={`Delete the ${deleteTarget?.year} config? This cannot be undone.`}
             confirmText="Delete"
             variant="danger"

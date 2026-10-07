@@ -11,6 +11,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useConfirmOpen } from "@/contexts/ConfirmContext";
 import { BarChart3, Grid3X3, Maximize2, RefreshCw, Users, Users2, UploadCloud, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
+import { Button, IconButton, Select, CountBadge } from "@/components/controls";
 import { regularAPI, tutorsAPI } from "@/lib/api";
 import { ArrangementFullScreenStrip } from "@/components/admin/ArrangementFullScreenStrip";
 import { RegularArrangementGrid } from "@/components/admin/RegularArrangementGrid";
@@ -804,10 +805,11 @@ export default function RegularArrangementPage() {
                   placeholder="Find student..."
                   className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
                 />
-                <select
+                <Select
+                  size="sm"
                   value={location}
                   onChange={(e) => { setLocation(e.target.value); setPendingPlacementAppId(null); }}
-                  className="px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+                  className="max-w-[7rem] sm:max-w-none"
                   aria-label="Branch"
                 >
                   {locations.map((l) => (
@@ -815,16 +817,16 @@ export default function RegularArrangementPage() {
                       {LOCATION_TO_CODE[l.name] || l.name}
                     </option>
                   ))}
-                </select>
-                <button
+                </Select>
+                <IconButton
+                  size="sm"
+                  icon={RefreshCw}
                   onClick={refreshAll}
                   disabled={isValidating}
-                  className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  label="Refresh arrangement data"
                   title="Refresh"
-                  aria-label="Refresh arrangement data"
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
-                </button>
+                  iconClassName={cn(isValidating && "animate-spin")}
+                />
               </div>
 
               {/* Row 2: Stats + actions */}
@@ -866,39 +868,43 @@ export default function RegularArrangementPage() {
                 {/* Secondary actions stay icon-only; only Publish, which
                     changes data, keeps its label. */}
                 {!readOnly && (
-                  <button
+                  <IconButton
+                    size="sm"
+                    icon={Users2}
                     onClick={() => setDutyModalOpen(true)}
                     disabled={!location}
-                    title="Tutor duties"
-                    aria-label="Tutor duties"
-                    className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Users2 className="h-4 w-4" />
-                  </button>
+                    label="Tutor duties"
+                    className="border border-line-strong bg-field-fill"
+                  />
                 )}
-                <button
+                <IconButton
+                  size="sm"
+                  icon={BarChart3}
                   onClick={() => setWorkloadOpen((v) => !v)}
+                  label="Workload summary"
                   title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
                   aria-pressed={workloadOpen}
                   className={cn(
-                    "p-1.5 rounded-lg border transition-colors",
+                    "border",
                     workloadOpen
-                      ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
-                      : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                      ? "border-primary bg-primary/10 text-accent-ink hover:bg-primary/15 hover:text-accent-ink dark:hover:text-accent-ink"
+                      : "border-line-strong bg-field-fill",
                   )}
-                >
-                  <BarChart3 className="h-4 w-4" />
-                </button>
-                <button
+                />
+                <IconButton
+                  size="sm"
+                  icon={Maximize2}
                   onClick={() => setFullScreen(true)}
+                  label="Full screen"
                   title="Full screen (Esc to exit)"
-                  aria-label="Full screen"
-                  className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
+                  className="border border-line-strong bg-field-fill"
+                />
                 {!readOnly && (
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={UploadCloud}
+                    loading={publishing}
                     onClick={() => setPublishConfirmOpen(true)}
                     disabled={publishEligible.length === 0 || publishing}
                     title={
@@ -906,15 +912,13 @@ export default function RegularArrangementPage() {
                         ? "Nothing is ready. An application has to be placed in a slot and have its fee message sent before it can be published."
                         : `Publish ${publishEligible.length} placed application${publishEligible.length === 1 ? "" : "s"} whose fee message has been sent. Anything still earlier on the ladder is left alone.`
                     }
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <UploadCloud className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Publish ready</span>
                     <span className="sm:hidden">Publish</span>
                     {publishEligible.length > 0 && (
                       <span className="tabular-nums">({publishEligible.length})</span>
                     )}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1015,11 +1019,7 @@ export default function RegularArrangementPage() {
                 aria-label="Open unassigned applications panel"
               >
                 <Users className="h-5 w-5" />
-                {unassignedApps.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-                    {unassignedApps.length}
-                  </span>
-                )}
+                <CountBadge count={unassignedApps.length} tone="danger" className="absolute -top-1 -right-1" />
               </button>
 
               {/* Mobile: panel overlay (always mounted for slide animation) */}
@@ -1168,12 +1168,9 @@ export default function RegularArrangementPage() {
                 </div>
               )}
               <div className="flex justify-end">
-                <button
-                  onClick={() => setPublishResult(null)}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
+                <Button variant="primary" onClick={() => setPublishResult(null)}>
                   Close
-                </button>
+                </Button>
               </div>
             </div>
           </div>

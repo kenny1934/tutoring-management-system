@@ -22,10 +22,11 @@ import {
 } from "@/lib/summer-courseware-scan";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatShortDate } from "@/lib/formatters";
-import { BookOpen, FolderSearch, AlertTriangle, Loader2 } from "lucide-react";
+import { BookOpen, FolderSearch, AlertTriangle } from "lucide-react";
+import { Button, Select } from "@/components/controls";
 
 export default function AdminSummerCoursewarePage() {
-  usePageTitle("Summer Courseware");
+  usePageTitle("Summer courseware");
   const { user, isLoading: authLoading, canViewAdminPages, isReadOnly } = useAuth();
   const { showToast } = useToast();
 
@@ -194,7 +195,7 @@ export default function AdminSummerCoursewarePage() {
                 <BookOpen className="h-5 w-5 text-sky-700 dark:text-sky-400" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-foreground">Summer Courseware</h1>
+                <h1 className="text-lg font-semibold text-foreground">Summer courseware</h1>
                 <p className="text-xs text-muted-foreground">
                   Scanned snapshot of the courseware drive, used for lesson defaults
                   {isReadOnly && <span className="ml-2 text-amber-700">(Read-only)</span>}
@@ -202,35 +203,28 @@ export default function AdminSummerCoursewarePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <select
+              <Select
                 value={year ?? ""}
                 onChange={(e) => setYear(parseInt(e.target.value))}
-                className="px-3 py-1.5 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
+                aria-label="Year"
+                className="w-auto"
               >
                 {configs.map((c) => (
                   <option key={c.id} value={c.year}>
                     {c.year}
                   </option>
                 ))}
-              </select>
+              </Select>
               {!isReadOnly && (
-                <button
+                <Button
+                  variant="primary"
+                  icon={FolderSearch}
+                  loading={scanning}
                   onClick={handlePickFolder}
-                  disabled={scanning || year === null}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50"
+                  disabled={year === null}
                 >
-                  {scanning ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Scanning… {scanProgress > 0 && `${scanProgress} files`}
-                    </>
-                  ) : (
-                    <>
-                      <FolderSearch className="h-3.5 w-3.5" />
-                      Rescan Drive
-                    </>
-                  )}
-                </button>
+                  {scanning ? <>Scanning… {scanProgress > 0 && `${scanProgress} files`}</> : "Rescan drive"}
+                </Button>
               )}
             </div>
           </div>

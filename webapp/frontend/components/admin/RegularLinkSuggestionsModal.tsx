@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import {
   CheckCircle2, AlertTriangle, Link2, Loader2, Users, GraduationCap,
 } from "lucide-react";
@@ -150,25 +151,20 @@ export function RegularLinkSuggestionsModal({
       size="xl"
       footer={
         <div className="flex items-center justify-end gap-2 w-full">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
+          <Button variant={isResult ? "secondary" : "quiet"} onClick={handleClose}>
             {isResult ? "Close" : "Cancel"}
-          </button>
+          </Button>
           {!isResult && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={handleExecute}
-              disabled={executing || loading || totalMatches === 0}
-              className="inline-flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              loading={executing}
+              disabled={loading || totalMatches === 0}
             >
-              {executing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {totalMatches > 0
                 ? `Link ${totalMatches} record${totalMatches === 1 ? "" : "s"}`
                 : "Nothing to link"}
-            </button>
+            </Button>
           )}
         </div>
       }

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { BarChart3, ExternalLink, Loader2, RefreshCw, Send } from "lucide-react";
+import { BarChart3, ExternalLink, RefreshCw, Send } from "lucide-react";
+import { Button, Table, Th, Td, Tr } from "@/components/controls";
 import type { BranchRevenueReportResponse, BranchRevenueSummary } from "@/types";
 
 const BRANCHES = ["MSA", "MSB"] as const;
@@ -107,38 +108,24 @@ export default function BranchRevenueCard({ className }: { className?: string })
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={loadReport}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-        >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+        <Button size="sm" variant="secondary" icon={RefreshCw} loading={loading} onClick={loadReport}>
           {report ? "Reload" : "Load report"}
-        </button>
-        <button
-          type="button"
-          onClick={handlePush}
-          disabled={pushing}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {pushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        </Button>
+        <Button size="sm" variant="primary" icon={Send} loading={pushing} onClick={handlePush}>
           Refresh sheet
-        </button>
+        </Button>
       </div>
 
       {report && (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-xs">
+        <div className="mt-4">
+          <Table className="text-xs">
             <thead>
-              <tr className="text-muted-foreground border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left font-medium py-1.5 pr-2">
-                  Summer {report.year}
-                </th>
+              <tr>
+                <Th>Summer {report.year}</Th>
                 {BRANCHES.map((br) => (
-                  <th key={br} className="text-right font-medium py-1.5 px-2">{br}</th>
+                  <Th key={br} numeric>{br}</Th>
                 ))}
-                <th className="text-right font-semibold py-1.5 pl-2">Total</th>
+                <Th numeric>Total</Th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -194,9 +181,9 @@ export default function BranchRevenueCard({ className }: { className?: string })
               />
 
               <tr>
-                <td colSpan={4} className="pt-3 pb-1.5 text-muted-foreground font-medium border-b border-gray-200 dark:border-gray-700">
+                <Th colSpan={4} scope="colgroup" className="border-t border-line">
                   Regular course (July / August {report.year})
-                </td>
+                </Th>
               </tr>
               <Row
                 label="July sessions · revenue"
@@ -220,9 +207,9 @@ export default function BranchRevenueCard({ className }: { className?: string })
               />
 
               <tr>
-                <td colSpan={4} className="pt-3 pb-1.5 text-muted-foreground font-medium border-b border-gray-200 dark:border-gray-700">
+                <Th colSpan={4} scope="colgroup" className="border-t border-line">
                   July–August outlook (summer + regular)
-                </td>
+                </Th>
               </tr>
               <Row
                 label="Confirmed"
@@ -240,7 +227,7 @@ export default function BranchRevenueCard({ className }: { className?: string })
                 ]}
               />
             </tbody>
-          </table>
+          </Table>
 
           {/* Tier breakdown — receivable split by discount tier */}
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -287,20 +274,21 @@ function Row({
   muted?: boolean;
 }) {
   return (
-    <tr className={cn("border-b border-gray-100 dark:border-gray-800", muted && "text-muted-foreground")}>
-      <td className={cn("py-1.5 pr-2", bold && "font-semibold")}>{label}</td>
+    <Tr className={cn(muted && "text-muted-foreground")}>
+      <Td className={cn(bold && "font-semibold")}>{label}</Td>
       {cells.map((c, i) => (
-        <td
+        <Td
           key={i}
+          numeric
           className={cn(
-            "py-1.5 px-2 text-right whitespace-nowrap",
+            "whitespace-nowrap",
             bold && "font-semibold",
-            i === cells.length - 1 && "pl-2 font-medium",
+            i === cells.length - 1 && "font-medium",
           )}
         >
           {c}
-        </td>
+        </Td>
       ))}
-    </tr>
+    </Tr>
   );
 }

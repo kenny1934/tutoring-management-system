@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { Clock, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
+import { Input, Select } from "@/components/controls";
 
 export type TimeSlotState = {
   useCustom: boolean;
@@ -69,17 +69,17 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
     return (
       <div className="space-y-1">
         <div className="relative">
-          <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
-          <select
+          <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle pointer-events-none z-10" aria-hidden="true" />
+          <Select
             value={state.preset}
             onChange={(e) => onChange({ ...state, preset: e.target.value })}
-            className="w-full pl-8 pr-7 py-1.5 text-sm border border-field rounded-md bg-background appearance-none"
+            aria-label="Time slot"
+            className="pl-8"
           >
             {presetTimeSlots.map((slot) => (
               <option key={slot} value={slot}>{slot}</option>
             ))}
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
+          </Select>
         </div>
         <button
           type="button"
@@ -96,30 +96,26 @@ export function TimeSlotPicker({ state, onChange, presetTimeSlots }: TimeSlotPic
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="time"
           value={state.start}
           onChange={(e) => onChange({ ...state, start: e.target.value })}
           aria-label="Start time"
-          className={cn(
-            "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
-            showInvalid ? "border-red-400" : "border-field",
-          )}
+          aria-invalid={showInvalid || undefined}
+          className="flex-1"
         />
         <span className="text-foreground/50 text-xs">to</span>
-        <input
+        <Input
           type="time"
           value={state.end}
           onChange={(e) => onChange({ ...state, end: e.target.value })}
           aria-label="End time"
-          className={cn(
-            "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
-            showInvalid ? "border-red-400" : "border-field",
-          )}
+          aria-invalid={showInvalid || undefined}
+          className="flex-1"
         />
       </div>
       {showInvalid && (
-        <p className="text-[11px] text-red-600">End time must be after start time.</p>
+        <p className="text-[11px] text-red-700 dark:text-red-400">End time must be after start time.</p>
       )}
       <button
         type="button"

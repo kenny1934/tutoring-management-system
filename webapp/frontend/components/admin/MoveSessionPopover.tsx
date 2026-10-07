@@ -10,8 +10,8 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import useSWR from "swr";
-import { Loader2, AlertCircle, ArrowRightLeft, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { AlertCircle, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { Button, Input, Label, Select } from "@/components/controls";
 import { summerAPI } from "@/lib/api";
 import { worksAt } from "@/lib/employment";
 import { TutorOptions } from "@/components/selectors/TutorOptions";
@@ -196,19 +196,19 @@ export function MoveSessionPopover({
 
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium mb-1">Date</label>
-          <input
+          <Label htmlFor="move-session-date">Date</Label>
+          <Input
+            id="move-session-date"
             type="date"
             value={date}
             min={courseStartDate}
             max={courseEndDate}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1">Time</label>
+          <Label>Time</Label>
           <TimeSlotPicker
             state={timeState}
             onChange={setTimeState}
@@ -217,17 +217,17 @@ export function MoveSessionPopover({
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1">Tutor</label>
-          <select
+          <Label htmlFor="move-session-tutor">Tutor</Label>
+          <Select
+            id="move-session-tutor"
             value={tutorId ?? ""}
             onChange={(e) =>
               setTutorId(e.target.value ? Number(e.target.value) : null)
             }
-            className="w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background"
           >
             <option value="">— select tutor —</option>
             <TutorOptions tutors={tutors} location={locationCode} />
-          </select>
+          </Select>
           {tutors.length === 0 && allTutors && (
             <p className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
               <AlertCircle className="h-3 w-3" />
@@ -245,25 +245,12 @@ export function MoveSessionPopover({
       )}
 
       <div className="flex justify-end gap-2 pt-1">
-        <button
-          onClick={onClose}
-          disabled={submitting}
-          className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-        >
+        <Button onClick={onClose} disabled={submitting}>
           Cancel
-        </button>
-        <button
-          onClick={runPreview}
-          disabled={!canSubmit}
-          className={cn(
-            "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
-            "bg-blue-600 text-white hover:bg-blue-600/90",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-          )}
-        >
-          {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        </Button>
+        <Button variant="primary" onClick={runPreview} loading={submitting} disabled={!canSubmit}>
           Move
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -281,11 +268,11 @@ export function MoveSessionPopover({
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold">
-              {isAdhoc ? "Create a new Make-up Slot?" : "Grade mismatch, proceed?"}
+              {isAdhoc ? "Create a new make-up slot?" : "Grade mismatch, proceed?"}
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
               {isAdhoc
-                ? `${tutorName} doesn’t have a class at ${friendlyDate}, ${timeSlot} in this branch yet. A new Make-up Slot will be created with ${tutorName} as the tutor and this student placed into it.`
+                ? `${tutorName} doesn’t have a class at ${friendlyDate}, ${timeSlot} in this branch yet. A new make-up slot will be created with ${tutorName} as the tutor and this student placed into it.`
                 : preview.grade_warning}
             </p>
             {preview.tutor_conflict_note && (
@@ -304,40 +291,27 @@ export function MoveSessionPopover({
         )}
 
         <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <button
+          <Button
+            variant="quiet"
             onClick={() => {
               setStep("form");
               setPreview(null);
               setError(null);
             }}
             disabled={submitting}
-            className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             Back
-          </button>
+          </Button>
           {/* Grade mismatch only: offer to skip the existing slot and create
-              a dedicated Make-up Slot instead. Hidden on create-Make-up previews. */}
+              a dedicated make-up slot instead. Hidden on create-Make-up previews. */}
           {!isAdhoc && (
-            <button
-              onClick={() => runExecute(true)}
-              disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
-            >
-              Create separate Make-up Slot
-            </button>
+            <Button onClick={() => runExecute(true)} disabled={submitting}>
+              Create separate make-up slot
+            </Button>
           )}
-          <button
-            onClick={() => runExecute(false)}
-            disabled={submitting}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
-              "bg-amber-600 text-white hover:bg-amber-600/90",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {isAdhoc ? "Create Make-up Slot and move" : "Place anyway"}
-          </button>
+          <Button variant="primary" onClick={() => runExecute(false)} loading={submitting}>
+            {isAdhoc ? "Create make-up slot and move" : "Place anyway"}
+          </Button>
         </div>
       </div>
     );

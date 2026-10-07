@@ -72,7 +72,7 @@ const BACKUP_BAR_OPACITY = 0.45;
 // the row is 7px and these have to stay inside it, or neighbouring rows overlap
 // visibly now that the label carries a background.
 const DEMAND_CHIP =
-  "text-[11px] font-bold w-[24px] shrink-0 text-center leading-none rounded px-0.5";
+  "text-[8px] font-bold w-[24px] shrink-0 text-center leading-none rounded px-0.5";
 
 function heatColor(count: number): string {
   if (count === 0) return "bg-white dark:bg-[#1a1a1a]";
@@ -367,7 +367,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
             "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
             slots.length === 0
               ? "py-2 text-xs border border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10"
-              : "py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-primary/10"
+              : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/10"
           )}
         >
           <Plus className={slots.length === 0 ? "h-3.5 w-3.5" : "h-3 w-3"} />

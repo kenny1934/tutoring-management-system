@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { X, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 
 /** One application's outcome from a batch publish. Both intakes return this
  *  same per-application shape. */
@@ -55,9 +56,7 @@ export function BatchPublishResultsModal({
       >
         <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h3 className="text-base font-semibold text-foreground">Publish results</h3>
-          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton size="sm" label="Close" icon={X} onClick={onClose} />
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 text-sm">
           {results.map((r) => (
@@ -91,12 +90,9 @@ export function BatchPublishResultsModal({
           ))}
         </div>
         <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-          >
+          <Button variant="primary" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
       </div>
     </div>

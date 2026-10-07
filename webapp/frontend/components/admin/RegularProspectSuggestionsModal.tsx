@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import { AlertTriangle, Loader2, Users, Link2 } from "lucide-react";
 import { regularAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -123,13 +124,9 @@ export function RegularProspectSuggestionsModal({
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleLink(s.prospect_id)}
-                      className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
-                    >
+                    <Button size="sm" className="shrink-0" onClick={() => handleLink(s.prospect_id)}>
                       Link this
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>

@@ -30,6 +30,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { applicationSearchHref, prospectsAPI, summerAPI } from "@/lib/api";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { Button, CountBadge, IconButton, Input, Segmented, Select } from "@/components/controls";
 import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -67,9 +68,6 @@ import {
   SECONDARY_BRANCHES,
   OUTREACH_STATUS_HINTS,
 } from "@/types";
-
-const inputSmall =
-  "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
 
 // Widened index type: URL params arrive as plain strings.
 const STATE_FILTER_LABELS: Record<string, string> = COURSE_STATE_FILTER_LABELS;
@@ -617,7 +615,7 @@ export default function AdminProspectsPage() {
 
           {/* Branch Choice — desktop only; mobile copy lives in the filter drawer */}
           <div className="hidden sm:flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Branch Choice</span>
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Branch choice</span>
             {SECONDARY_BRANCHES.map((b) => {
               const active = choice.includes(b);
               const count = choiceCounts[b] ?? 0;
@@ -651,54 +649,54 @@ export default function AdminProspectsPage() {
 
           <div className="flex sm:hidden gap-2 items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <Input
+                size="sm"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
-                className={`${inputSmall} pl-8 w-full`}
+                aria-label="Search prospects"
+                className="pl-8"
               />
             </div>
-            <button
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={SlidersHorizontal}
+              className="shrink-0"
               onClick={() => setShowFilterDrawer(true)}
-              className="shrink-0 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-foreground hover:border-primary/50 transition-colors"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
               Filters
-              {activeFilterCount > 0 && (
-                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-primary text-white">{activeFilterCount}</span>
-              )}
-            </button>
+              <CountBadge count={activeFilterCount} tone="neutral" />
+            </Button>
           </div>
 
           <div className="hidden sm:flex flex-wrap gap-2 items-center">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <Input
+                size="sm"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
-                className={`${inputSmall} pl-8 w-52`}
+                aria-label="Search prospects"
+                className="pl-8 w-52"
               />
             </div>
             <DropdownMenu
               align="left"
               menuClassName="w-[380px] p-3"
               trigger={({ open, triggerProps }) => (
-                <button
+                <Button
                   {...triggerProps}
-                  className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                    selectFilterCount > 0 || open
-                      ? "border-primary/50 text-accent-ink"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                  }`}
+                  size="sm"
+                  variant="secondary"
+                  icon={SlidersHorizontal}
+                  className={open ? "bg-tint" : undefined}
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
                   Filters
-                  {selectFilterCount > 0 && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-primary text-white">{selectFilterCount}</span>
-                  )}
-                </button>
+                  <CountBadge count={selectFilterCount} tone="neutral" />
+                </Button>
               )}
             >
               {() => <FilterPanel filters={filters} setFilters={setFilters} />}
@@ -712,14 +710,16 @@ export default function AdminProspectsPage() {
               </button>
             )}
             <div className="relative ml-auto">
-              <button
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={Columns3}
+                aria-expanded={showColMenu}
                 onClick={() => setShowColMenu((v) => !v)}
-                className="hidden sm:inline-flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
               >
-                <Columns3 className="h-3 w-3" />
                 Columns
                 {hiddenCols.size > 0 && <span className="text-[11px] opacity-60">({hiddenCols.size} hidden)</span>}
-              </button>
+              </Button>
               {showColMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowColMenu(false)} />
@@ -774,9 +774,7 @@ export default function AdminProspectsPage() {
             <div className="flex items-center gap-2 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-400">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span className="flex-1">{pageError}</span>
-              <button onClick={() => setPageError(null)} className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <IconButton icon={X} size="sm" label="Dismiss" className="text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => setPageError(null)} />
             </div>
           )}
 
@@ -837,7 +835,7 @@ export default function AdminProspectsPage() {
                       {colVisible("grade") && <SortTh label="Grade" sortKey="grade" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
                       {colVisible("tutor") && <SortTh label="Tutor" sortKey="tutor_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
                       {colVisible("phone") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>}
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch choice</th>
                       {colVisible("pref") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Preferred time / tutor notes">Pref</th>}
                       {colVisible("wechat") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-700" />WeChat</span></th>}
                       {colVisible("remark") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>}
@@ -966,7 +964,7 @@ function FilterField({ label, children }: { label: string; children: React.React
   return (
     <label className="flex items-center gap-2">
       <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{label}</span>
-      {children}
+      <div className="flex-1 min-w-0">{children}</div>
     </label>
   );
 }
@@ -981,57 +979,56 @@ function FilterPanel({
   filters: FiltersShape;
   setFilters: React.Dispatch<React.SetStateAction<FiltersShape>>;
 }) {
-  const select = `${inputSmall} flex-1 min-w-0`;
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
         <div className={filterGroupHeading}>Summer</div>
         <div className={filterGroupHeading}>Regular</div>
         <FilterField label="Intent">
-          <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))}>
             <option value="">All</option>
             {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Intent">
-          <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))}>
             <option value="">All</option>
             {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Journey">
-          <select value={filters.summer_state} onChange={(e) => setFilters((f) => ({ ...f, summer_state: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.summer_state} onChange={(e) => setFilters((f) => ({ ...f, summer_state: e.target.value }))}>
             <option value="">All</option>
             {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Journey">
-          <select value={filters.regular_state} onChange={(e) => setFilters((f) => ({ ...f, regular_state: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.regular_state} onChange={(e) => setFilters((f) => ({ ...f, regular_state: e.target.value }))}>
             <option value="">All</option>
             {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
-          </select>
+          </Select>
         </FilterField>
       </div>
       <div className="space-y-2">
         <div className={filterGroupHeading}>Contact</div>
         <FilterField label="WeChat">
-          <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))}>
             <option value="">All</option>
             <option value="yes">Has WeChat</option>
             <option value="no">No WeChat</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Outreach">
-          <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))}>
             <option value="">All</option>
             {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Status">
-          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={select}>
+          <Select size="sm" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
             <option value="">All</option>
             {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-          </select>
+          </Select>
         </FilterField>
       </div>
     </div>
@@ -1103,14 +1100,17 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
                         {m.reference_code} · {m.contact_phone} · {m.match_type}
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleLink(m.application_id)}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={Link2}
+                      className="shrink-0"
+                      loading={linking === m.application_id}
                       disabled={linking !== null}
-                      className="shrink-0 inline-flex items-center gap-1 text-[11px] bg-primary text-white px-2 py-0.5 rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      onClick={() => handleLink(m.application_id)}
                     >
-                      <Link2 className="h-2.5 w-2.5" />
                       Link
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -1498,56 +1498,40 @@ function HeaderBar({
         <div className="flex items-center gap-2 shrink-0 ml-auto">
           <label className="inline-flex items-center gap-1.5 text-sm">
             <span className="hidden sm:inline text-xs text-muted-foreground">Year</span>
-            <select
+            <Select
               value={year ?? ""}
               onChange={(e) => onYearChange(Number(e.target.value))}
               aria-label="Year"
-              className="px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground"
+              className="w-auto"
             >
               {availableYears.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
-            </select>
+            </Select>
           </label>
           {!readOnly && (
-            <button
+            <Button
+              variant="secondary"
+              icon={Sparkles}
+              loading={autoMatching}
               onClick={onAutoMatch}
-              disabled={autoMatching}
               title="Preview which unlinked prospects would be linked to summer applications by phone number."
-              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 bg-primary/10 text-primary hover:bg-primary/20"
+              aria-label="Auto-match"
             >
-              {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">
-                {autoMatching ? "Loading..." : "Auto-Match"}
+                {autoMatching ? "Loading..." : "Auto-match"}
               </span>
-            </button>
+            </Button>
           )}
-          <div className="flex bg-muted rounded-full p-0.5">
-            <button
-              onClick={() => onTabChange("list")}
-              aria-label="List view"
-              className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
-                tab === "list"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <ListIcon className="h-3.5 w-3.5 sm:hidden" />
-              <span className="hidden sm:inline">List</span>
-            </button>
-            <button
-              onClick={() => onTabChange("dashboard")}
-              aria-label="Dashboard view"
-              className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
-                tab === "dashboard"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5 sm:hidden" />
-              <span className="hidden sm:inline">Dashboard</span>
-            </button>
-          </div>
+          <Segmented
+            label="View"
+            value={tab}
+            onChange={onTabChange}
+            options={[
+              { value: "list", icon: ListIcon, title: "List view", label: <span className="hidden sm:inline">List</span> },
+              { value: "dashboard", icon: LayoutGrid, title: "Dashboard view", label: <span className="hidden sm:inline">Dashboard</span> },
+            ]}
+          />
         </div>
       </div>
     </div>
@@ -1582,13 +1566,11 @@ function MobileFilterDrawer({
             <SlidersHorizontal className="h-4 w-4" />
             Filters
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground hover:bg-primary/10">
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton icon={X} label="Close filters" onClick={onClose} />
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Branch Choice</div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Branch choice</div>
             <div className="flex flex-wrap items-center gap-1.5">
               {SECONDARY_BRANCHES.map((b) => {
                 const active = choice.includes(b);
@@ -1617,13 +1599,9 @@ function MobileFilterDrawer({
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
           <span className="text-xs text-muted-foreground">{activeFilterCount} active</span>
-          <button
-            onClick={onClearAll}
-            disabled={activeFilterCount === 0}
-            className="text-sm font-medium px-4 py-2 rounded-lg border border-border text-foreground hover:border-primary/50 disabled:opacity-50 transition-colors"
-          >
+          <Button variant="secondary" onClick={onClearAll} disabled={activeFilterCount === 0}>
             Clear all
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1663,9 +1641,7 @@ function BulkActionBar({
               </button>
             );
           })}
-          <button onClick={onClear} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton icon={X} size="sm" label="Clear selection" className="ml-auto" onClick={onClear} />
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
           <span className="text-xs text-muted-foreground shrink-0">Status:</span>

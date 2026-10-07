@@ -15,6 +15,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue, useStudent } from "@/lib/hooks";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, Label, Segmented, Select, Textarea } from "@/components/controls";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending, getSummerTimeSlots } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
@@ -55,7 +56,6 @@ import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDeta
 import { MoveSessionPopover } from "@/components/admin/MoveSessionPopover";
 import { UserPlus, ArrowRightLeft } from "lucide-react";
 
-const inputClass = "w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
 const NEXT_STATUS_MAP: Record<string, string[]> = {
   "Submitted":           ["Under Review", "Rejected"],
@@ -74,6 +74,7 @@ function CopyButton({ value, className = "p-0.5", iconClassName = "h-3 w-3" }: {
       onClick={() => copy(value)}
       className={cn(className, "text-muted-foreground hover:text-foreground")}
       title="Copy to clipboard"
+      aria-label="Copy to clipboard"
     >
       {copied ? <Check className={cn(iconClassName, "text-green-700")} /> : <Copy className={iconClassName} />}
     </button>
@@ -101,14 +102,13 @@ function ReceiptCodeBlock({
           <>
             <div className="mt-1 flex items-center gap-2 flex-wrap">
               <span className="font-mono font-semibold text-base text-foreground">{result.code}</span>
-              <button
-                type="button"
+              <IconButton
+                size="sm"
+                label="Copy receipt code"
+                icon={copied ? Check : Copy}
+                iconClassName={copied ? "text-green-700" : undefined}
                 onClick={() => copy(result.code!)}
-                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
-                title="Copy to clipboard"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
+              />
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{result.reason}</div>
           </>
@@ -129,7 +129,7 @@ function FieldValue({ label, value, mono, copyable }: { label: React.ReactNode; 
       <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
       <span className={`text-sm text-foreground ${mono ? "font-mono" : ""}`}>{value}</span>
       {copyable && (
-        <button onClick={() => copy(value)} className="p-0.5 text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => copy(value)} className="p-0.5 text-muted-foreground hover:text-foreground" aria-label="Copy to clipboard" title="Copy to clipboard">
           {copied ? <Check className="h-3 w-3 text-green-700" /> : <Copy className="h-3 w-3" />}
         </button>
       )}
@@ -807,7 +807,7 @@ export function SummerApplicationDetailModal({
       onUpdated(),
     ]);
     const notes: string[] = [];
-    if (result.action === "created_adhoc") notes.push("Created a new Make-up Slot.");
+    if (result.action === "created_adhoc") notes.push("Created a new make-up slot.");
     if (result.tutor_conflict_note) notes.push(result.tutor_conflict_note);
     showToast(
       notes.length ? `Lesson moved. ${notes.join(" ")}` : "Lesson moved.",
@@ -1022,47 +1022,37 @@ export function SummerApplicationDetailModal({
           {/* Left: Prev/Next navigation */}
           {(onPrev || onNext) && (
             <div className="flex items-center gap-1">
-              <button
+              <IconButton
+                icon={ChevronLeft}
+                label="Previous application"
+                title="Previous (←)"
                 onClick={() => onPrev && guardNav(onPrev)}
                 disabled={!hasPrev}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous (←)"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
+              />
               {currentIndex != null && totalCount != null && (
                 <span className="text-xs text-muted-foreground tabular-nums px-1">
                   {currentIndex + 1} / {totalCount}
                 </span>
               )}
-              <button
+              <IconButton
+                icon={ChevronRight}
+                label="Next application"
+                title="Next (→)"
                 onClick={() => onNext && guardNav(onNext)}
                 disabled={!hasNext}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next (→)"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              />
             </div>
           )}
 
           {/* Right: Cancel + Save */}
           {!readOnly && (
             <div className="flex items-center gap-2 ml-auto">
-              <button
-                onClick={() => guardNav(onClose)}
-                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-              >
+              <Button variant="quiet" onClick={() => guardNav(onClose)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!hasChanges || saving}
-                className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-              >
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Save Changes
-              </button>
+              </Button>
+              <Button variant="primary" onClick={handleSave} disabled={!hasChanges} loading={saving}>
+                Save changes
+              </Button>
             </div>
           )}
         </div>
@@ -1177,28 +1167,23 @@ export function SummerApplicationDetailModal({
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 flex-wrap">
-                    {["C", "E"].map((ls) => (
-                      <button
-                        key={ls}
-                        onClick={() => setLangStream(ls)}
-                        className={cn(
-                          "px-3 py-1 rounded-full text-xs font-medium transition-all",
-                          langStream === ls
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                        )}
-                      >
-                        {ls}
-                      </button>
-                    ))}
+                    <Segmented
+                      label="Language stream"
+                      value={langStream}
+                      onChange={setLangStream}
+                      options={[
+                        { value: "C", label: "C", title: "Chinese stream" },
+                        { value: "E", label: "E", title: "English stream" },
+                      ]}
+                    />
                     {langStream && (
-                      <button
-                        onClick={() => setLangStream("")}
-                        className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      <IconButton
+                        size="sm"
+                        icon={X}
+                        label="Clear language stream"
                         title="Clear"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                        onClick={() => setLangStream("")}
+                      />
                     )}
                     {studentLang && langStream && studentLang !== langStream && (
                       <button
@@ -1281,13 +1266,7 @@ export function SummerApplicationDetailModal({
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={handleUnlink}
-                    className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                    title="Unlink student"
-                  >
-                    <Unlink className="h-3.5 w-3.5" />
-                  </button>
+                  <IconButton size="sm" icon={Unlink} label="Unlink student" onClick={handleUnlink} />
                 </div>
               ) : studentId ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1335,15 +1314,16 @@ export function SummerApplicationDetailModal({
                       </div>
                     )}
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <input
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
+                      <Input
                         type="text"
                         value={studentSearch}
                         onChange={(e) => setStudentSearch(e.target.value)}
                         onFocus={() => setSearchFocused(true)}
                         onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                        className={cn(inputClass, "pl-8")}
+                        className="pl-8"
                         placeholder="Search by name, ID, or phone..."
+                        aria-label="Search students"
                       />
                     </div>
                   </div>
@@ -1368,7 +1348,7 @@ export function SummerApplicationDetailModal({
                   {showManualId ? (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <input
+                        <Input
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
@@ -1379,16 +1359,16 @@ export function SummerApplicationDetailModal({
                               setManualIdConfirmed(manualIdInput);
                             }
                           }}
-                          className={cn(inputClass, "max-w-[140px]")}
+                          className="max-w-[140px]"
                           placeholder="School student ID"
+                          aria-label="School student ID"
                         />
-                        <button
+                        <Button
                           onClick={() => manualIdInput && setManualIdConfirmed(manualIdInput)}
                           disabled={!manualIdInput}
-                          className="px-2.5 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                         >
                           Search
-                        </button>
+                        </Button>
                         <button
                           onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
                           className="text-[11px] text-muted-foreground hover:text-foreground"
@@ -1418,13 +1398,9 @@ export function SummerApplicationDetailModal({
                         <Search className="h-3 w-3" />
                         Can&apos;t find? Enter student ID manually
                       </button>
-                      <button
-                        onClick={() => setCreateStudentOpen(true)}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" />
+                      <Button size="sm" icon={UserPlus} onClick={() => setCreateStudentOpen(true)}>
                         Create new student
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1445,38 +1421,17 @@ export function SummerApplicationDetailModal({
               )}
             >
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setMessagePanel("schedule")}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                      messagePanel === "schedule"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700",
-                    )}
-                    title="Copy class schedule for parent"
-                  >
-                    <Copy className="h-3 w-3" />
-                    Schedule
-                  </button>
-                  {effectiveDiscount && (
-                    <button
-                      type="button"
-                      onClick={() => setMessagePanel("fee")}
-                      className={cn(
-                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                        messagePanel === "fee"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700",
-                      )}
-                      title="Copy fee message for parent"
-                    >
-                      <DollarSign className="h-3 w-3" />
-                      Fee message
-                    </button>
-                  )}
-                </div>
+                <Segmented<SummerMessageMode>
+                  label="Message for the parent"
+                  value={messagePanel ?? ("" as SummerMessageMode)}
+                  onChange={setMessagePanel}
+                  options={[
+                    { value: "schedule", label: "Schedule", icon: Copy, title: "Copy class schedule for parent" },
+                    ...(effectiveDiscount
+                      ? [{ value: "fee" as const, label: "Fee message", icon: DollarSign, title: "Copy fee message for parent" }]
+                      : []),
+                  ]}
+                />
                 {messagePanel && config && (messagePanel === "schedule" || effectiveDiscount) ? (
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <SummerMessagePanel
@@ -1543,34 +1498,30 @@ export function SummerApplicationDetailModal({
                       : <CheckCircle2 className="h-3.5 w-3.5" />}
                     Published · Enrollment #{app.published_enrollment_id}
                   </button>
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     onClick={() => setPendingUnpublish(true)}
-                    disabled={publishing}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60 disabled:opacity-50"
+                    loading={publishing}
+                    icon={RotateCcw}
+                    iconClassName="text-amber-600 dark:text-amber-400"
                   >
-                    {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
                     Unpublish
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
                       onClick={doPublish}
-                      disabled={!!publishBlocker || publishing}
+                      disabled={!!publishBlocker}
+                      loading={publishing}
+                      icon={Send}
+                      iconClassName="text-emerald-600 dark:text-emerald-400"
                       title={publishBlocker ?? "Create the summer enrollment so tutors can start marking attendance for these sessions."}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                        publishBlocker
-                          ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
-                          : "bg-primary text-primary-foreground hover:bg-primary/90",
-                      )}
                     >
-                      {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                       Publish
-                    </button>
+                    </Button>
                     {publishBlocker && (
                       <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3" />
@@ -1593,14 +1544,15 @@ export function SummerApplicationDetailModal({
 
           {!readOnly && (
             <div>
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
-              <textarea
+              <Label htmlFor={`summer-app-notes-${app.id}`}>Notes</Label>
+              <Textarea
+                id={`summer-app-notes-${app.id}`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={notes ? 2 : 1}
                 onFocus={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 2; }}
                 onBlur={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 1; }}
-                className={cn(inputClass, "mt-1 resize-none")}
+                className="min-h-0 resize-none"
                 placeholder="Internal notes..."
               />
             </div>
@@ -1677,23 +1629,23 @@ export function SummerApplicationDetailModal({
             <div className="space-y-3 rounded-lg border border-dashed border-primary/40 p-3 bg-primary/5">
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
-                  <label className="block text-[11px] text-muted-foreground mb-0.5">Student name</label>
-                  <input type="text" value={dStudentName} onChange={(e) => setDStudentName(e.target.value)} className={inputClass} />
+                  <Label htmlFor={`summer-app-name-${app.id}`}>Student name</Label>
+                  <Input id={`summer-app-name-${app.id}`} type="text" value={dStudentName} onChange={(e) => setDStudentName(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-muted-foreground mb-0.5">Grade</label>
-                  <input type="text" value={dGrade} onChange={(e) => setDGrade(e.target.value)} className={inputClass} />
+                  <Label htmlFor={`summer-app-grade-${app.id}`}>Grade</Label>
+                  <Input id={`summer-app-grade-${app.id}`} type="text" value={dGrade} onChange={(e) => setDGrade(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-muted-foreground mb-0.5">School</label>
-                  <input type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} className={inputClass} />
+                  <Label htmlFor={`summer-app-school-${app.id}`}>School</Label>
+                  <Input id={`summer-app-school-${app.id}`} type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} />
                 </div>
                 <div className="col-span-2">
-                  <label className="flex items-center gap-1 text-[11px] text-muted-foreground mb-0.5">
+                  <Label htmlFor={`summer-app-wechat-${app.id}`} className="flex items-center gap-1">
                     <WeChatIcon className="h-3 w-3 text-green-700" />
                     WeChat ID
-                  </label>
-                  <input type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} className={inputClass} />
+                  </Label>
+                  <Input id={`summer-app-wechat-${app.id}`} type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} />
                 </div>
               </div>
 
@@ -2077,43 +2029,44 @@ export function SummerApplicationDetailModal({
                       cancelled first.
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <label className="text-[11px] font-medium text-foreground/80">Lessons:</label>
-                      <select
+                      <Label htmlFor={`summer-app-plan-${app.id}`} className="mb-0">Lessons</Label>
+                      <Select
+                        id={`summer-app-plan-${app.id}`}
+                        size="sm"
                         value={planDraft ?? planCurrent}
                         onChange={(e) => setPlanDraft(parseInt(e.target.value, 10))}
                         disabled={planSaving}
-                        className="px-2 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800 text-foreground disabled:opacity-50"
+                        className="w-auto"
                       >
                         {planOptions.map((n) => (
                           <option key={n} value={n}>{n}{n === planTotal ? " (full plan)" : ""}</option>
                         ))}
-                      </select>
+                      </Select>
                       {placedCount > 0 && (
                         <span className="text-[11px] text-muted-foreground">
                           {placedCount} session{placedCount === 1 ? "" : "s"} placed
                         </span>
                       )}
                       <div className="ml-auto flex items-center gap-2">
-                        <button
-                          type="button"
+                        <Button
+                          variant="quiet"
+                          size="sm"
                           onClick={() => {
                             setPlanEditorOpen(false);
                             setPlanDraft(null);
                           }}
                           disabled={planSaving}
-                          className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                           Cancel
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          size="sm"
                           onClick={handleSavePlan}
-                          disabled={planSaving || (planDraft ?? planCurrent) === planCurrent}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                          disabled={(planDraft ?? planCurrent) === planCurrent}
+                          loading={planSaving}
                         >
-                          {planSaving && <Loader2 className="h-3 w-3 animate-spin" />}
                           Save
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -2129,16 +2082,17 @@ export function SummerApplicationDetailModal({
                     <span className="text-[11px] text-amber-800 dark:text-amber-200">
                       {tentativeCount} session{tentativeCount === 1 ? "" : "s"} still tentative — confirm before sending fee or publishing.
                     </span>
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
                       onClick={handleConfirmPlacement}
-                      disabled={confirming}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 shrink-0"
+                      loading={confirming}
+                      icon={Check}
+                      iconClassName="text-green-600 dark:text-green-400"
+                      className="shrink-0"
                       title="Mark all of this application's tentative sessions as Confirmed"
                     >
-                      {confirming ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                       Confirm placement
-                    </button>
+                    </Button>
                   </div>
                 );
               })()}
@@ -2415,45 +2369,33 @@ export function SummerApplicationDetailModal({
                   <>
                 {buddyEditing ? (
                   <div className="mt-1 space-y-2">
-                    <div className="flex gap-1 text-[11px]">
-                      <button
-                        onClick={() => setBuddyEditMode("search")}
-                        className={cn(
-                          "px-2 py-1 rounded-md border transition-colors",
-                          buddyEditMode === "search"
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "border-border text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        Find application
-                      </button>
-                      <button
-                        onClick={() => setBuddyEditMode("code")}
-                        className={cn(
-                          "px-2 py-1 rounded-md border transition-colors",
-                          buddyEditMode === "code"
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "border-border text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        Enter code
-                      </button>
-                    </div>
+                    <Segmented
+                      label="How to find the group"
+                      value={buddyEditMode}
+                      onChange={setBuddyEditMode}
+                      options={[
+                        { value: "search", label: "Find application" },
+                        { value: "code", label: "Enter code" },
+                      ]}
+                    />
 
                     {buddyEditMode === "code" ? (
                       <div className="space-y-1.5">
                         <div className="flex gap-1.5">
-                          <input
+                          <Input
+                            size="sm"
                             type="text"
                             value={buddyEditCode}
                             onChange={(e) => {
                               setBuddyEditCode(e.target.value.toUpperCase());
                               setBuddyEditValid(null);
                             }}
-                            className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-field bg-background"
+                            className="flex-1"
                             placeholder="BG-XXXX"
+                            aria-label="Buddy group code"
                           />
-                          <button
+                          <Button
+                            size="sm"
                             onClick={async () => {
                               if (!buddyEditCode.trim()) return;
                               setBuddyEditLoading(true);
@@ -2469,11 +2411,10 @@ export function SummerApplicationDetailModal({
                                 setBuddyEditLoading(false);
                               }
                             }}
-                            disabled={buddyEditLoading}
-                            className="text-[11px] px-2 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                            loading={buddyEditLoading}
                           >
-                            {buddyEditLoading ? "..." : "Verify"}
-                          </button>
+                            Verify
+                          </Button>
                         </div>
                         {buddyEditValid === true && !buddyEditGroupFull && (
                           <div className="text-[11px] text-green-700">Valid code</div>
@@ -2487,7 +2428,8 @@ export function SummerApplicationDetailModal({
                           <div className="text-[11px] text-red-600">Invalid code</div>
                         )}
                         {buddyEditValid && (
-                          <button
+                          <Button
+                            size="sm"
                             onClick={() =>
                               setBuddyPendingAction({
                                 type: "join",
@@ -2495,20 +2437,20 @@ export function SummerApplicationDetailModal({
                                 targetLabel: `code ${buddyEditCode.trim()}`,
                               })
                             }
-                            className="text-[11px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover"
                           >
                             Join this group
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ) : (
                       <div className="space-y-1.5">
-                        <input
+                        <Input
+                          size="sm"
                           type="text"
                           value={buddySearchQuery}
                           onChange={(e) => setBuddySearchQuery(e.target.value)}
-                          className="w-full text-xs px-2 py-1.5 rounded-lg border border-field bg-background"
                           placeholder="Search by name, ref code, or phone..."
+                          aria-label="Search applications"
                         />
                         {buddySearchLoading && (
                           <div className="text-[11px] text-muted-foreground">Searching...</div>
@@ -2578,19 +2520,18 @@ export function SummerApplicationDetailModal({
                     )}
 
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border">
-                      <button
-                        onClick={() => setBuddyPendingAction({ type: "create" })}
-                        className="text-[11px] px-2 py-1 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/10"
-                      >
+                      <Button size="sm" onClick={() => setBuddyPendingAction({ type: "create" })}>
                         Create new group
-                      </button>
+                      </Button>
                       {app.buddy_group_id && (
-                        <button
+                        <Button
+                          size="sm"
+                          icon={X}
+                          iconClassName="text-red-600 dark:text-red-400"
                           onClick={() => setBuddyPendingAction({ type: "remove" })}
-                          className="text-[11px] px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
                           Remove from group
-                        </button>
+                        </Button>
                       )}
                       <button
                         onClick={() => setBuddyEditing(false)}
@@ -2643,13 +2584,13 @@ export function SummerApplicationDetailModal({
                               </span>
                             )}
                             <StatusBadge status={b.application_status} />
-                            <button
+                            <IconButton
+                              size="sm"
+                              icon={ExternalLink}
+                              label="View application"
                               onClick={() => onSelectApplication?.(b)}
-                              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground shrink-0"
-                              title="View application"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </button>
+                              className="ml-auto"
+                            />
                           </div>
                         </Fragment>
                       );
@@ -2723,20 +2664,24 @@ export function SummerApplicationDetailModal({
                             <div className="flex items-center gap-1.5">
                               {isPending ? (
                                 <>
-                                  <button
+                                  <Button
+                                    size="sm"
+                                    icon={Check}
+                                    iconClassName="text-green-600 dark:text-green-400"
                                     onClick={() => verifySibling(sib.id, "Confirmed")}
-                                    className="text-xs font-medium px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700"
                                   >
                                     Confirm
-                                  </button>
-                                  <button
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    icon={X}
+                                    iconClassName="text-red-600 dark:text-red-400"
                                     onClick={() =>
                                       setSiblingPendingReject({ id: sib.id, name: sib.name_en })
                                     }
-                                    className="text-xs font-medium px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                   >
                                     Reject
-                                  </button>
+                                  </Button>
                                 </>
                               ) : (
                                 <button

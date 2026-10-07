@@ -14,6 +14,7 @@ import { getGradeColor, GRADES } from "@/lib/constants";
 import { cn, formatError } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button, IconButton, Input, Segmented, Select } from "@/components/controls";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -466,44 +467,28 @@ export default function AdminWaitlistPage() {
             </div>
             <div className="flex items-center gap-2">
               {/* View toggle */}
-              <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium transition-colors",
-                    viewMode === "list"
-                      ? "bg-primary text-white"
-                      : "bg-transparent text-foreground/60 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  <List className="h-4 w-4" />
-                  <span className="hidden sm:inline">List</span>
-                </button>
-                <button
-                  onClick={() => setViewMode("timetable")}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium transition-colors",
-                    viewMode === "timetable"
-                      ? "bg-primary text-white"
-                      : "bg-transparent text-foreground/60 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  <CalendarDays className="h-4 w-4" />
-                  <span className="hidden sm:inline">Timetable</span>
-                </button>
-              </div>
+              <Segmented
+                label="View"
+                value={viewMode}
+                onChange={setViewMode}
+                options={[
+                  { value: "list", icon: List, title: "List", label: <span className="hidden sm:inline">List</span> },
+                  { value: "timetable", icon: CalendarDays, title: "Timetable", label: <span className="hidden sm:inline">Timetable</span> },
+                ]}
+              />
 
               {!isReadOnly && (
-                <button
+                <Button
+                  variant="primary"
+                  icon={Plus}
+                  aria-label="Add entry"
                   onClick={() => {
                     setEditingEntry(null);
                     setEntryModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-primary hover:bg-[#8b6040] text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Add Entry</span>
-                </button>
+                  <span className="hidden sm:inline">Add entry</span>
+                </Button>
               )}
             </div>
           </div>
@@ -520,7 +505,7 @@ export default function AdminWaitlistPage() {
                       className="flex items-center gap-2 text-xs text-foreground/50 hover:text-foreground/70 transition-colors mb-1 w-full"
                     >
                       {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      <span>Slot Change Requests ({slotChangeEntries.length})</span>
+                      <span>Slot Change requests ({slotChangeEntries.length})</span>
                       {highlightedEntry ? (
                         <span
                           onClick={(ev) => { ev.stopPropagation(); setHighlightedEntry(null); }}
@@ -638,60 +623,57 @@ export default function AdminWaitlistPage() {
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             {/* Active/Closed toggle */}
-            <button
-              onClick={() => setShowActive(!showActive)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
-                showActive
-                  ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
-                  : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-foreground/60"
-              )}
-            >
-              {showActive ? (
-                <ToggleRight className="h-4 w-4" />
-              ) : (
-                <ToggleLeft className="h-4 w-4" />
-              )}
-              {showActive ? "Active" : "Closed"}
-            </button>
+            <Segmented
+              label="Which entries"
+              value={showActive ? "active" : "closed"}
+              onChange={(v) => setShowActive(v === "active")}
+              options={[
+                { value: "active", label: "Active" },
+                { value: "closed", label: "Closed" },
+              ]}
+            />
 
             {/* Grade filter */}
-            <select
+            <Select
+              aria-label="Grade"
+              className="w-auto"
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="">All Grades</option>
+              <option value="">All grades</option>
               {GRADES.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>
               ))}
-            </select>
+            </Select>
 
             {/* Type filter */}
-            <select
+            <Select
+              aria-label="Type"
+              className="w-auto"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="">All Types</option>
+              <option value="">All types</option>
               <option value="New">New</option>
               <option value="Slot Change">Slot Change</option>
-            </select>
+            </Select>
 
             {/* Search */}
             <div className="relative flex-1 min-w-[140px] sm:min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-              <input
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" aria-hidden="true" />
+              <Input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, school, phone..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Search waitlist"
+                className="pl-9 pr-8"
               />
               {search && (
                 <button
+                  aria-label="Clear search"
                   onClick={() => setSearch("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                 >
@@ -840,12 +822,13 @@ export default function AdminWaitlistPage() {
                                   {row.phone}
                                 </td>
                                 <td className="py-1.5 px-1">
-                                  <button
+                                  <IconButton
+                                    icon={Trash2}
+                                    size="sm"
+                                    tone="danger"
+                                    label={`Remove ${row.student_name || "row"}`}
                                     onClick={() => removePastedRow(i)}
-                                    className="p-0.5 text-red-600 hover:text-red-600 rounded"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
+                                  />
                                 </td>
                               </tr>
                             ))}
@@ -853,16 +836,18 @@ export default function AdminWaitlistPage() {
                         </table>
                       </div>
                       <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-                        <button
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          icon={Upload}
+                          loading={bulkSaving}
                           onClick={handleBulkSubmit}
-                          disabled={bulkSaving || pastedRows.length === 0}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-[#8b6040] text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                          disabled={pastedRows.length === 0}
                         >
-                          <Upload className="h-3.5 w-3.5" />
                           {bulkSaving
                             ? "Saving..."
-                            : `Add ${pastedRows.length} to Waitlist`}
-                        </button>
+                            : `Add ${pastedRows.length} to waitlist`}
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -908,7 +893,7 @@ export default function AdminWaitlistPage() {
                     </th>
                     <th className="text-left py-2 px-3 hidden lg:table-cell">
                       <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
-                        Preferred Slots
+                        Preferred slots
                       </span>
                     </th>
                     <th className="text-left py-2 px-3">
@@ -1057,21 +1042,21 @@ export default function AdminWaitlistPage() {
       />
       <ConfirmDialog
         isOpen={!!closingEntry}
-        title="Close Entry"
+        title="Close entry"
         message={
           <div className="space-y-2">
             <p>Close this waitlist entry for <strong>{closingEntry?.student_name || "this entry"}</strong>?</p>
-            <input
+            <Input
               type="text"
               value={closeReason}
               onChange={(e) => setCloseReason(e.target.value)}
               placeholder="Reason (optional)"
-              className="w-full px-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Reason for closing"
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConfirmClose(); } }}
             />
           </div>
         }
-        confirmText="Close Entry"
+        confirmText="Close entry"
         cancelText="Cancel"
         variant="warning"
         loading={closingInProgress}
@@ -1266,12 +1251,13 @@ function WaitlistRow({
           className="relative inline-block"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <IconButton
+            icon={MoreHorizontal}
+            size="sm"
+            label="Actions"
+            aria-expanded={showActions}
             onClick={() => setShowActions(!showActions)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <MoreHorizontal className="h-4 w-4 text-foreground/50" />
-          </button>
+          />
           {showActions && (
             <>
               <div
@@ -1288,7 +1274,7 @@ function WaitlistRow({
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                   >
                     <UserPlus className="h-4 w-4 text-foreground/50" />
-                    Create Student
+                    Create student
                   </button>
                 )}
                 {hasStudent && !hasEnrollment && !isReadOnly && (
@@ -1301,7 +1287,7 @@ function WaitlistRow({
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                     >
                       <Play className="h-4 w-4 text-foreground/50" />
-                      Schedule Trial
+                      Schedule trial
                     </button>
                     <button
                       onClick={() => {
@@ -1311,7 +1297,7 @@ function WaitlistRow({
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                     >
                       <UserPlus className="h-4 w-4 text-foreground/50" />
-                      Enroll Directly
+                      Enroll directly
                     </button>
                   </>
                 )}
@@ -1324,7 +1310,7 @@ function WaitlistRow({
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                   >
                     <Eye className="h-4 w-4 text-foreground/50" />
-                    View Enrollment
+                    View enrollment
                   </button>
                 )}
                 {!isReadOnly && (
@@ -1340,7 +1326,7 @@ function WaitlistRow({
                       {entry.is_active ? (
                         <>
                           <ToggleLeft className="h-4 w-4 text-foreground/50" />
-                          Close Entry
+                          Close entry
                         </>
                       ) : (
                         <>

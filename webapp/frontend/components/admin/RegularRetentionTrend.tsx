@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { cn } from "@/lib/utils";
+import { Segmented } from "@/components/controls";
 import type { RegularRetentionResponse, RegularRetentionTrendPoint } from "@/types";
 
 /** Which of the three dated events the chart is showing. */
@@ -158,23 +158,16 @@ export function RegularRetentionTrend({ data }: { data: RegularRetentionResponse
             {lastSeven < total && ` ${lastSeven} of those came in the last seven days.`}
           </p>
         </div>
-        <div className="inline-flex bg-muted rounded-full p-0.5 shrink-0">
-          {METRICS.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMetric(m.key)}
-              className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-full transition-all duration-200 tabular-nums",
-                metric === m.key
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {m.label} ({totals[m.key]})
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Which count the chart shows"
+          className="shrink-0"
+          value={metric}
+          onChange={setMetric}
+          options={METRICS.map((m) => ({
+            value: m.key,
+            label: <span className="tabular-nums">{m.label} ({totals[m.key]})</span>,
+          }))}
+        />
       </div>
 
       {total === 0 ? (

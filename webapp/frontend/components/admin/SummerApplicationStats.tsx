@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/controls";
 import { BRANCH_INFO, EXIT_STATUSES, displayLocation, MIN_GROUP_SIZE, isPlaced } from "@/lib/summer-utils";
 import { STATUS_COLORS, ALL_STATUSES } from "./SummerApplicationCard";
 import {
@@ -19,7 +20,7 @@ import {
   gradeDonutSegments,
   type StatsFilterHandler,
 } from "./application-stats-atoms";
-import { Users, User, Send, Loader2, ExternalLink } from "lucide-react";
+import { Users, User, Send, ExternalLink } from "lucide-react";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import BranchRevenueCard from "./BranchRevenueCard";
@@ -434,20 +435,16 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
           </div>
         )}
       </div>
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        size="sm"
         onClick={handlePush}
-        disabled={pushing}
-        className={cn(
-          "shrink-0 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-          pushing
-            ? "bg-gray-100 text-muted-foreground cursor-not-allowed dark:bg-gray-800"
-            : "bg-primary text-primary-foreground hover:bg-primary/90",
-        )}
+        loading={pushing}
+        icon={Send}
+        className="shrink-0"
       >
-        {pushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
         {pushing ? "Pushing…" : <><span className="sm:hidden">Push</span><span className="hidden sm:inline">Push snapshot</span></>}
-      </button>
+      </Button>
     </div>
   );
 }

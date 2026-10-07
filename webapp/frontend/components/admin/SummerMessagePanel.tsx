@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, Check, X, Undo2, Loader2 } from "lucide-react";
+import { Copy, Check, X, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import { summerAPI } from "@/lib/api";
 import type { SummerApplication, SummerCourseConfig } from "@/types";
@@ -119,54 +120,26 @@ export function SummerMessagePanel({
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold text-foreground">{title}</span>
-          <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-            <button
-              type="button"
-              onClick={() => setLang("zh")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium transition-colors",
-                lang === "zh"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700",
-              )}
-            >
-              中文
-            </button>
-            <button
-              type="button"
-              onClick={() => setLang("en")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium transition-colors border-l border-gray-300 dark:border-gray-600",
-                lang === "en"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700",
-              )}
-            >
-              English
-            </button>
-          </div>
+          <Segmented
+            label="Message language"
+            value={lang}
+            onChange={setLang}
+            options={[
+              { value: "zh", label: "中文" },
+              { value: "en", label: "English" },
+            ]}
+          />
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4 text-foreground/50" />
-        </button>
+        <IconButton size="sm" label="Close" icon={X} onClick={onClose} />
       </div>
 
       <div className="p-4">
-        <textarea
+        <Textarea
           value={message}
           onChange={(e) => { if (isEditable) setDraft(e.target.value); }}
           readOnly={!isEditable}
-          className={cn(
-            "w-full h-64 p-3 text-sm font-mono rounded-lg border resize-none transition-colors",
-            isEditable
-              ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-              : "border-field bg-gray-100 dark:bg-gray-900 cursor-default",
-          )}
+          aria-label="Message"
+          className={cn("h-64 resize-none font-mono", !isEditable && "cursor-default bg-tint")}
         />
       </div>
 
@@ -192,50 +165,27 @@ export function SummerMessagePanel({
 
         <div className="flex items-center gap-2">
           {showMarkSent && (
-            <button
-              type="button"
+            <Button
               onClick={handleMarkSent}
-              disabled={marking}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+              loading={marking}
+              icon={Check}
+              iconClassName="text-orange-600 dark:text-orange-400"
             >
-              {marking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Mark Sent
-            </button>
+              Mark sent
+            </Button>
           )}
           {showUnmarkSent && (
-            <button
-              type="button"
-              onClick={handleUnmarkSent}
-              disabled={marking}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-            >
-              {marking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
-              Unmark Sent
-            </button>
+            <Button variant="quiet" onClick={handleUnmarkSent} loading={marking} icon={Undo2}>
+              Unmark sent
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={handleCopy}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              copied
-                ? "bg-green-500 text-white"
-                : "bg-primary hover:bg-primary/90 text-primary-foreground",
-            )}
+            icon={copied ? Check : Copy}
           >
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                Copy
-              </>
-            )}
-          </button>
+            {copied ? "Copied!" : "Copy"}
+          </Button>
         </div>
       </div>
     </div>

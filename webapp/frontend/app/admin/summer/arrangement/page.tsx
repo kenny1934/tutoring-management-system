@@ -10,6 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useConfirm, useConfirmOpen } from "@/contexts/ConfirmContext";
 import { Grid3X3, CalendarDays, Maximize2, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
+import { Button, IconButton, Select, CountBadge } from "@/components/controls";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
@@ -350,7 +351,7 @@ export default function SummerArrangementPage() {
 
   const isValidating = slotsValidating || demandValidating || unassignedValidating;
 
-  // Ad-hoc Make-up Slots are date-pinned one-offs that belong to the Calendar
+  // Ad-hoc make-up slots are date-pinned one-offs that belong to the Calendar
   // tab; the Slot Setup grid models weekly recurrence only. Keep them out of
   // the grid and everything keyed off its cells (buddy highlights, search
   // scroll targets, workload). Header tentative/confirmed stats and id
@@ -680,7 +681,7 @@ export default function SummerArrangementPage() {
   }, [pendingDrop, refreshAll, showToast]);
 
   // Calendar drop → single session for a specific lesson. `lessonNumber` is
-  // supplied only by ad-hoc Make-up Slot drops (collected via the in-card
+  // supplied only by ad-hoc make-up slot drops (collected via the in-card
   // prompt); regular drops leave it undefined and inherit from SummerLesson.
   const executeCalendarDrop = useCallback(async (
     applicationId: number,
@@ -983,7 +984,7 @@ export default function SummerArrangementPage() {
     }
     // Slot Setup is the primary target — find every regular slot the student
     // sits in, pick the earliest by day/time as the scroll anchor, let all
-    // matching cards ring. Ad-hoc Make-up Slots don't render in the grid, so
+    // matching cards ring. Ad-hoc make-up slots don't render in the grid, so
     // a student placed only via make-ups falls through to the Calendar path.
     const matchingSlots = regularSlots.filter((s) =>
       s.sessions.some((p) => p.application_id === entry.applicationId),
@@ -1097,26 +1098,28 @@ export default function SummerArrangementPage() {
                 onSelect={handleSearchSelect}
                 className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
               />
-              <select
+              <Select
+                size="sm"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+                aria-label="Location"
+                className="max-w-[7rem] sm:max-w-none"
               >
                 {locations.map((loc) => (
                   <option key={loc.name} value={loc.name}>
                     {LOCATION_TO_CODE[loc.name] || loc.name}
                   </option>
                 ))}
-              </select>
-              <button
+              </Select>
+              <IconButton
+                size="sm"
+                icon={RefreshCw}
                 onClick={refreshAll}
                 disabled={isValidating}
-                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                label="Refresh arrangement data"
                 title="Refresh"
-                aria-label="Refresh arrangement data"
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
-              </button>
+                iconClassName={cn(isValidating && "animate-spin")}
+              />
             </div>
 
             {/* Row 2: Stats + actions */}
@@ -1168,49 +1171,51 @@ export default function SummerArrangementPage() {
               {/* Secondary actions stay icon-only; only Auto-Suggest, which
                   proposes data changes, keeps its label. */}
               {!readOnly && (
-                <button
+                <IconButton
+                  size="sm"
+                  icon={Users2}
                   onClick={() => setDutyModalOpen(true)}
                   disabled={!location}
-                  title="Tutor duties"
-                  aria-label="Tutor duties"
-                  className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Users2 className="h-4 w-4" />
-                </button>
+                  label="Tutor duties"
+                  className="border border-line-strong bg-field-fill"
+                />
               )}
               {activeTab === "slots" && (
-                <button
+                <IconButton
+                  size="sm"
+                  icon={BarChart3}
                   onClick={() => setWorkloadOpen((v) => !v)}
+                  label="Workload summary"
                   title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
                   aria-pressed={workloadOpen}
                   className={cn(
-                    "p-1.5 rounded-lg border transition-colors",
+                    "border",
                     workloadOpen
-                      ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
-                      : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                      ? "border-primary bg-primary/10 text-accent-ink hover:bg-primary/15 hover:text-accent-ink dark:hover:text-accent-ink"
+                      : "border-line-strong bg-field-fill",
                   )}
-                >
-                  <BarChart3 className="h-4 w-4" />
-                </button>
+                />
               )}
-              <button
+              <IconButton
+                size="sm"
+                icon={Maximize2}
                 onClick={() => setFullScreen(true)}
+                label="Full screen"
                 title="Full screen (Esc to exit)"
-                aria-label="Full screen"
-                className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
+                className="border border-line-strong bg-field-fill"
+              />
               {!readOnly && (
-                <button
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={Wand2}
                   onClick={() => setAutoSuggestOpen(true)}
                   disabled={!unassigned?.length || !slots?.length}
-                  title="Auto-Suggest"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Auto-suggest"
+                  aria-label="Auto-suggest"
                 >
-                  <Wand2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Auto-Suggest</span>
-                </button>
+                  <span className="hidden sm:inline">Auto-suggest</span>
+                </Button>
               )}
             </div>
 
@@ -1358,13 +1363,10 @@ export default function SummerArrangementPage() {
             <button
               className="md:hidden fixed bottom-4 right-4 z-40 rounded-full bg-primary text-primary-foreground p-3 shadow-lg"
               onClick={() => setMobilePanelOpen(true)}
+              aria-label="Open unassigned applications panel"
             >
               <Users className="h-5 w-5" />
-              {totalIncomplete > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-                  {totalIncomplete}
-                </span>
-              )}
+              <CountBadge count={totalIncomplete} tone="danger" className="absolute -top-1 -right-1" />
             </button>
 
             {/* Mobile: panel overlay (always mounted for slide animation) */}

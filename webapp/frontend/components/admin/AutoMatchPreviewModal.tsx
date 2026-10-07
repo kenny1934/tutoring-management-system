@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Link2, Loader2 } from "lucide-react";
+import { Button } from "@/components/controls";
+import { CheckCircle2, Link2 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -96,23 +97,18 @@ export function AutoMatchPreviewModal({
       size="xl"
       footer={
         <div className="flex items-center justify-end gap-2 w-full">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
+          <Button variant={isResult ? "secondary" : "quiet"} onClick={handleClose}>
             {isResult ? "Close" : "Cancel"}
-          </button>
+          </Button>
           {!isResult && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={handleExecute}
-              disabled={executing || matches.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              disabled={matches.length === 0}
+              loading={executing}
             >
-              {executing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {matches.length > 0 ? `Link ${matches.length} prospect${matches.length === 1 ? "" : "s"}` : "Nothing to link"}
-            </button>
+            </Button>
           )}
         </div>
       }

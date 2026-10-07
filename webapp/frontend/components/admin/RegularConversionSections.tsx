@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input, Select, Table, Td, Th, Tr } from "@/components/controls";
 import { prospectsAPI } from "@/lib/api";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { STAGE_TONES } from "@/lib/regular-utils";
@@ -33,15 +34,17 @@ import type {
   RegularConversionLostRow, RegularConversionResponse,
 } from "@/types";
 
-// Shared table styling, matching the funnel table already on the page.
-const wrap = "border border-line/50 rounded-lg overflow-hidden";
+// Styling for the sortable tables, which keep their own markup so the header
+// can sort. It copies the shared Table in components/controls, so a sortable
+// table and a plain one on the same board look the same.
+const wrap = "border border-line rounded-md overflow-hidden bg-field-fill";
 const scroll = "overflow-x-auto";
-const thead = "bg-[#f0e6d8]/50 dark:bg-[#2a2520]";
-const theadRow = "border-b border-line/30";
-const th = "px-3 py-2 text-left font-medium text-foreground";
-const thNum = "px-3 py-2 text-right font-medium text-foreground";
+const thead = "bg-tint";
+const theadRow = "border-b border-line";
+const th = "h-8 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-subtle";
+const thNum = "h-8 whitespace-nowrap px-3 text-right text-[11px] font-semibold uppercase tracking-wider text-ink-subtle";
 const tdNum = "px-3 py-2 text-right tabular-nums";
-const rowDivide = "divide-y divide-line/30";
+const rowDivide = "divide-y divide-line";
 
 /** Whole-number percent, guarding a zero denominator. */
 function pct(n: number, d: number): string {
@@ -168,62 +171,54 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
     >
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Regular intention -> applied / enrolled regular */}
-        <div className={wrap}>
-          <div className={scroll}>
-            <table className="w-full text-xs min-w-[360px]">
-              <thead className={thead}>
-                <tr className={theadRow}>
-                  <th className={th}>Wants regular</th>
-                  <th className={thNum}>Prospects</th>
-                  <th className={thNum}>Applied</th>
-                  <th className={thNum}>Enrolled</th>
-                  <th className={thNum} title="Applied as a share of prospects at this intention">Apply %</th>
-                  <th className={thNum} title="Enrolled as a share of prospects at this intention">Enrol %</th>
-                </tr>
-              </thead>
-              <tbody className={rowDivide}>
-                {data.by_regular_intention.map((r) => (
-                  <tr key={r.intention}>
-                    <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
-                    <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, STAGE_TONES.applied)}>{r.applied_regular}</td>
-                    <td className={cn(tdNum, STAGE_TONES.enrolled)}>{r.enrolled_regular}</td>
-                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.applied_regular, r.prospects)}</td>
-                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
-                  </tr>
-                ))}
-                {data.by_regular_intention.length === 0 && <EmptyRow span={6}>No prospects.</EmptyRow>}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table className="min-w-[360px] text-xs">
+          <thead>
+            <tr>
+              <Th>Wants regular</Th>
+              <Th numeric>Prospects</Th>
+              <Th numeric>Applied</Th>
+              <Th numeric>Enrolled</Th>
+              <Th numeric title="Applied as a share of prospects at this intention">Apply %</Th>
+              <Th numeric title="Enrolled as a share of prospects at this intention">Enrol %</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.by_regular_intention.map((r) => (
+              <Tr key={r.intention}>
+                <Td className="font-medium text-foreground">{r.intention}</Td>
+                <Td numeric>{r.prospects}</Td>
+                <Td numeric className={STAGE_TONES.applied}>{r.applied_regular}</Td>
+                <Td numeric className={STAGE_TONES.enrolled}>{r.enrolled_regular}</Td>
+                <Td numeric className="text-muted-foreground">{pct(r.applied_regular, r.prospects)}</Td>
+                <Td numeric className="text-muted-foreground">{pct(r.enrolled_regular, r.prospects)}</Td>
+              </Tr>
+            ))}
+            {data.by_regular_intention.length === 0 && <EmptyRow span={6}>No prospects.</EmptyRow>}
+          </tbody>
+        </Table>
 
         {/* Summer intention -> attended summer */}
-        <div className={wrap}>
-          <div className={scroll}>
-            <table className="w-full text-xs min-w-[360px]">
-              <thead className={thead}>
-                <tr className={theadRow}>
-                  <th className={th}>Wants summer</th>
-                  <th className={thNum}>Prospects</th>
-                  <th className={thNum}>Did summer</th>
-                  <th className={thNum} title="Did summer as a share of prospects at this intention">Rate</th>
-                </tr>
-              </thead>
-              <tbody className={rowDivide}>
-                {data.by_summer_intention.map((r) => (
-                  <tr key={r.intention}>
-                    <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
-                    <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, STAGE_TONES.didSummer)}>{r.attended_summer}</td>
-                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.attended_summer, r.prospects)}</td>
-                  </tr>
-                ))}
-                {data.by_summer_intention.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table className="min-w-[360px] text-xs">
+          <thead>
+            <tr>
+              <Th>Wants summer</Th>
+              <Th numeric>Prospects</Th>
+              <Th numeric>Did summer</Th>
+              <Th numeric title="Did summer as a share of prospects at this intention">Rate</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.by_summer_intention.map((r) => (
+              <Tr key={r.intention}>
+                <Td className="font-medium text-foreground">{r.intention}</Td>
+                <Td numeric>{r.prospects}</Td>
+                <Td numeric className={STAGE_TONES.didSummer}>{r.attended_summer}</Td>
+                <Td numeric className="text-muted-foreground">{pct(r.attended_summer, r.prospects)}</Td>
+              </Tr>
+            ))}
+            {data.by_summer_intention.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
+          </tbody>
+        </Table>
       </div>
     </Section>
   );
@@ -326,41 +321,33 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
           )}
         </p>
       )}
-      <div className={wrap}>
-        <div className={scroll}>
-          <table className="w-full text-xs min-w-[360px]">
-            <thead className={thead}>
-              <tr className={theadRow}>
-                <th className={th}>Wanted</th>
-                <th className="px-1 py-2" aria-hidden />
-                <th className={th}>Enrolled at</th>
-                <th className={thNum}>Students</th>
-              </tr>
-            </thead>
-            <tbody className={rowDivide}>
-              {data.branch_movement.map((r, i) => {
-                const crossing = isCrossing(r.wanted_branch, r.enrolled_branch);
-                return (
-                  <tr key={`${r.wanted_branch}-${r.enrolled_branch}-${i}`} className={crossing ? "bg-amber-50/60 dark:bg-amber-900/15" : ""}>
-                    <td className="px-3 py-2 font-medium text-foreground">{r.wanted_branch}</td>
-                    <td className="px-1 py-2 text-muted-foreground"><ArrowRight className="h-3 w-3" /></td>
-                    <td className={cn("px-3 py-2 font-medium", crossing ? "text-amber-700 dark:text-amber-400" : "text-foreground")}>{r.enrolled_branch}</td>
-                    <td className={tdNum}>{r.count}</td>
-                  </tr>
-                );
-              })}
-              {data.branch_movement.length === 0 && <EmptyRow span={4}>No enrolled prospects yet.</EmptyRow>}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Table className="min-w-[360px] text-xs">
+        <thead>
+          <tr>
+            <Th>Wanted</Th>
+            <Th className="px-1" aria-hidden />
+            <Th>Enrolled at</Th>
+            <Th numeric>Students</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.branch_movement.map((r, i) => {
+            const crossing = isCrossing(r.wanted_branch, r.enrolled_branch);
+            return (
+              <Tr key={`${r.wanted_branch}-${r.enrolled_branch}-${i}`} className={crossing ? "bg-amber-50/60 dark:bg-amber-900/15" : ""}>
+                <Td className="font-medium text-foreground">{r.wanted_branch}</Td>
+                <Td className="px-1 text-muted-foreground"><ArrowRight className="h-3 w-3" /></Td>
+                <Td className={cn("font-medium", crossing ? "text-amber-700 dark:text-amber-400" : "text-foreground")}>{r.enrolled_branch}</Td>
+                <Td numeric>{r.count}</Td>
+              </Tr>
+            );
+          })}
+          {data.branch_movement.length === 0 && <EmptyRow span={4}>No enrolled prospects yet.</EmptyRow>}
+        </tbody>
+      </Table>
     </Section>
   );
 }
-
-// Native select styling for the chase-list filters, sized to the table text.
-const filterSelect =
-  "text-xs border border-border rounded-lg px-2 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30";
 
 // Tighter header padding than the shared `th`, matching the chase table's
 // px-2 cells.
@@ -504,30 +491,31 @@ export function RegularConversionChaseList({
             than w-52 because the hint runs to about 165px and the icon eats
             another 28px, so anything narrower cut it off mid-word. */}
         <div className="relative w-full sm:w-56">
-          <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
+          <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none" aria-hidden="true" />
+          <Input
+            size="sm"
             type="search"
             value={filters.q}
             onChange={(e) => set("q", e.target.value)}
             placeholder="Name, code, phone or school"
             aria-label="Search this list"
-            className={cn(filterSelect, "pl-7 w-full")}
+            className="pl-7"
           />
         </div>
-        <select
+        <Select
+          size="sm"
           value={filters.wantsBranch}
           onChange={(e) => set("wantsBranch", e.target.value)}
-          className={filterSelect}
           aria-label="Filter by the branch the prospect wants"
         >
           <option value="">Wants branch: all</option>
           {wantedOptions.map((b) => <option key={b} value={b}>{b}</option>)}
           {hasNoWanted && <option value={NO_BRANCH_WANTED}>Not specified</option>}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="sm"
           value={filters.wantsRegular}
           onChange={(e) => set("wantsRegular", e.target.value)}
-          className={filterSelect}
           aria-label="Filter by regular intention"
         >
           <option value="">Wants regular: all</option>
@@ -536,16 +524,16 @@ export function RegularConversionChaseList({
               {INTENTION_LABELS[v as ProspectIntention] ?? v}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="sm"
           value={filters.outreach}
           onChange={(e) => set("outreach", e.target.value)}
-          className={filterSelect}
           aria-label="Filter by outreach status"
         >
           <option value="">Outreach: all</option>
           {outreachOptions.map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
+        </Select>
         {isFiltered && (
           <>
             <span className="text-xs text-muted-foreground tabular-nums">

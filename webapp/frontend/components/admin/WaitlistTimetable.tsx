@@ -350,13 +350,14 @@ export function WaitlistTimetable({
             <button
               key={day}
               onClick={() => toggleDay(day)}
+              aria-pressed={visibleDays.has(day)}
               className={cn(
                 "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
                 visibleDays.has(day)
                   ? hasData
-                    ? "bg-primary text-white"
-                    : "bg-gray-300 dark:bg-gray-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
+                    ? "bg-field-fill text-gray-900 dark:text-gray-100 ring-1 ring-line-strong"
+                    : "bg-field-fill text-foreground/50 ring-1 ring-line"
+                  : "text-foreground/40 hover:text-foreground/70"
               )}
             >
               {day}

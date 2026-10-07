@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 import {
   FloatingOverlay,
   FloatingFocusManager,
@@ -298,13 +299,15 @@ export function SummerFindSlotDialog({
                               <span className="text-[11px] text-muted-foreground">{result.current_count}/{result.max_students}</span>
                             </div>
                           </div>
-                          <button
+                          <Button
+                            size="sm"
                             onClick={() => handlePlaceResult(result)}
+                            loading={isPlacing}
                             disabled={isFull || placingId !== null}
-                            className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                            className="shrink-0"
                           >
-                            {isPlacing ? <Loader2 className="h-3 w-3 animate-spin" /> : "Place"}
-                          </button>
+                            Place
+                          </Button>
                         </div>
                       );
                     })}
@@ -324,17 +327,17 @@ export function SummerFindSlotDialog({
 
                   {/* Week nav */}
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <button
+                    <IconButton
+                      size="sm"
+                      icon={ChevronLeft}
                       onClick={() => {
                         const d = new Date(calWeekStart + "T00:00:00");
                         d.setDate(d.getDate() - 7);
                         setCalWeekStart(toDateString(d));
                       }}
                       disabled={!canGoPrev}
-                      className="p-0.5 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </button>
+                      label="Previous week"
+                    />
                     <span className="text-[11px] font-medium min-w-[130px] text-center">
                       {formatWeekLabel(
                         weekDates[0] || calWeekStart,
@@ -342,17 +345,17 @@ export function SummerFindSlotDialog({
                         courseStartDate!
                       )}
                     </span>
-                    <button
+                    <IconButton
+                      size="sm"
+                      icon={ChevronRight}
                       onClick={() => {
                         const d = new Date(calWeekStart + "T00:00:00");
                         d.setDate(d.getDate() + 7);
                         setCalWeekStart(toDateString(d));
                       }}
                       disabled={!canGoNext}
-                      className="p-0.5 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
+                      label="Next week"
+                    />
                   </div>
 
                   {/* Grid */}
@@ -458,13 +461,9 @@ export function SummerFindSlotDialog({
 
             {/* Footer */}
             <div className="px-4 py-2.5 border-t border-line flex justify-end">
-              <button
-                onClick={onClose}
-                disabled={placingId !== null}
-                className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              >
+              <Button onClick={onClose} disabled={placingId !== null}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </FloatingFocusManager>

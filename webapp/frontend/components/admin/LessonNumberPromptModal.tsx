@@ -9,7 +9,7 @@ import {
   FloatingFocusManager,
   FloatingPortal,
 } from "@floating-ui/react";
-import { cn } from "@/lib/utils";
+import { Button, Input, Label } from "@/components/controls";
 
 interface LessonNumberPromptModalProps {
   isOpen: boolean;
@@ -94,10 +94,11 @@ export function LessonNumberPromptModal({
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-1">
-                  Lesson number
-                </label>
-                <input
+                <Label htmlFor="lesson-number-prompt">Lesson number</Label>
+                <Input
+                  id="lesson-number-prompt"
+                  aria-describedby="lesson-number-prompt-hint"
+                  aria-invalid={!isValid || undefined}
                   ref={inputRef}
                   type="number"
                   value={value}
@@ -111,30 +112,17 @@ export function LessonNumberPromptModal({
                     }
                   }}
                   placeholder="Leave blank to skip"
-                  className={cn(
-                    "w-full px-2 py-1.5 text-sm border border-field rounded-md bg-background",
-                    !isValid && "border-red-400",
-                  )}
                 />
-                <p className="text-[11px] text-muted-foreground mt-1">
+                <p id="lesson-number-prompt-hint" className="text-[11px] text-muted-foreground mt-1">
                   1–{maxLesson}, or leave blank.
                 </p>
               </div>
 
               <div className="flex justify-end gap-2">
-                <button
-                  onClick={onClose}
-                  className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={!isValid}
-                  className="px-4 py-1.5 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-600/90 transition-colors disabled:opacity-50"
-                >
+                <Button onClick={onClose}>Cancel</Button>
+                <Button variant="primary" onClick={handleConfirm} disabled={!isValid}>
                   {confirmLabel}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

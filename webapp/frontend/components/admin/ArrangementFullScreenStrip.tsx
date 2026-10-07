@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { Minimize2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IconButton, Select } from "@/components/controls";
 import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
 import { LOCATION_TO_CODE } from "@/lib/summer-utils";
 
@@ -41,10 +42,11 @@ export function ArrangementFullScreenStrip({
         className="w-full max-w-[14rem] sm:max-w-xs"
       />
       <div className="flex-1" />
-      <select
+      <Select
+        size="sm"
         value={location}
         onChange={(e) => onLocationChange(e.target.value)}
-        className="px-2.5 py-1 text-sm border border-field rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+        className="max-w-[7rem] sm:max-w-none"
         aria-label="Branch"
       >
         {locations.map((l) => (
@@ -52,24 +54,24 @@ export function ArrangementFullScreenStrip({
             {LOCATION_TO_CODE[l.name] || l.name}
           </option>
         ))}
-      </select>
-      <button
+      </Select>
+      <IconButton
+        size="sm"
+        icon={RefreshCw}
         onClick={onRefresh}
         disabled={refreshing}
-        className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+        label="Refresh arrangement data"
         title="Refresh"
-        aria-label="Refresh arrangement data"
-      >
-        <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-      </button>
-      <button
+        iconClassName={cn(refreshing && "animate-spin")}
+      />
+      <IconButton
+        size="sm"
+        icon={Minimize2}
         onClick={onExit}
-        className="p-1.5 shrink-0 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        label="Exit full screen"
         title="Exit full screen (Esc)"
-        aria-label="Exit full screen"
-      >
-        <Minimize2 className="h-4 w-4" />
-      </button>
+        className="border border-line-strong bg-field-fill"
+      />
     </div>
   );
 }

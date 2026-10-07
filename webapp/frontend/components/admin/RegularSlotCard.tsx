@@ -228,7 +228,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
         {readOnly ? (
           <span
             className={cn(
-              "text-[11px] font-bold px-1 py-0 rounded bg-paper",
+              "text-[10px] font-bold px-1 py-0 rounded bg-paper",
               slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
             )}
             title="Grade and stream"
@@ -241,7 +241,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
               value={slot.grade || ""}
               onChange={(e) => onUpdate({ grade: e.target.value || null })}
               className={cn(
-                "text-[11px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-paper appearance-none",
+                "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-paper appearance-none",
                 slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
               )}
               title="Grade"
@@ -255,7 +255,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
               value={slot.lang_stream || ""}
               onChange={(e) => onUpdate({ lang_stream: e.target.value || null })}
               className={cn(
-                "text-[11px] font-bold px-0.5 py-0 rounded border-0 cursor-pointer bg-paper appearance-none",
+                "text-[10px] font-bold px-0.5 py-0 rounded border-0 cursor-pointer bg-paper appearance-none",
                 slot.lang_stream ? "text-foreground" : "text-muted-foreground"
               )}
               title="Stream"
@@ -303,12 +303,12 @@ export const RegularSlotCard = memo(function RegularSlotCard({
       {/* Row 2: tutor picker */}
       <div className="px-1 pb-0.5 flex items-center gap-1">
         {readOnly ? (
-          <span className="flex-1 min-w-0 text-[11px] px-0.5 py-0 rounded bg-paper text-muted-foreground dark:text-gray-300 text-center truncate">
+          <span className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-paper text-muted-foreground dark:text-gray-300 text-center truncate">
             {slot.tutor_name || "No tutor"}
           </span>
         ) : onDutyTutors.length === 0 ? (
           <span
-            className="flex-1 min-w-0 text-[11px] px-0.5 py-0 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-center truncate"
+            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-center truncate"
             title={NO_DUTY_HINT}
           >
             {slot.tutor_name || "Set duties first"}
@@ -320,7 +320,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
               const val = e.target.value;
               onUpdate({ tutor_id: val ? parseInt(val) : null });
             }}
-            className="flex-1 min-w-0 text-[11px] px-0.5 py-0 rounded border-0 bg-paper text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
+            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-paper text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
             title="Assign tutor"
           >
             <option value="">No tutor</option>
@@ -342,7 +342,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           />
         </div>
         {readOnly ? (
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+          <span className="text-[9px] text-muted-foreground whitespace-nowrap">
             {slot.assigned_count}/{slot.max_students}
           </span>
         ) : editingMax ? (
@@ -352,7 +352,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
             defaultValue={slot.max_students}
             min={1}
             max={20}
-            className="text-[11px] w-8 px-0.5 rounded border border-field bg-white dark:bg-gray-800 text-center"
+            className="text-[9px] w-8 px-0.5 rounded border border-field bg-white dark:bg-gray-800 text-center"
             autoFocus
             onBlur={commitMax}
             onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
@@ -360,7 +360,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
         ) : (
           <button
             onClick={() => setEditingMax(true)}
-            className="text-[11px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
+            className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
             title="Click to edit capacity"
           >
             {slot.assigned_count}/{slot.max_students}
@@ -373,13 +373,13 @@ export const RegularSlotCard = memo(function RegularSlotCard({
       {(expanded || hasSchoolMatch) && (
         <div className="px-1.5 pb-1 space-y-0.5">
           {slot.students.length === 0 && (
-            <div className="text-[11px] text-muted-foreground italic py-1">
+            <div className="text-[9px] text-muted-foreground italic py-1">
               {readOnly ? "No students assigned." : "No students assigned yet. Drag here to assign."}
             </div>
           )}
           {schoolComposition && (
             <div
-              className="text-[11px] text-muted-foreground truncate"
+              className="text-[9px] text-muted-foreground truncate"
               title={`Schools in this class: ${schoolComposition}`}
             >
               {schoolComposition}

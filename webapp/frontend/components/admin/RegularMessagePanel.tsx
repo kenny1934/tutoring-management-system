@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Copy, Check, X, Undo2, Loader2, AlertTriangle } from "lucide-react";
+import { Copy, Check, X, Undo2, Loader2, AlertTriangle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import { regularAPI } from "@/lib/api";
 import type { RegularApplication } from "@/types";
@@ -117,33 +118,17 @@ export function RegularMessagePanel({
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold text-foreground">{title}</span>
-          <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-            {(["zh", "en"] as const).map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLang(l)}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium transition-colors",
-                  l === "en" && "border-l border-gray-300 dark:border-gray-600",
-                  lang === l
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-white dark:bg-gray-800 text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-700"
-                )}
-              >
-                {l === "zh" ? "中文" : "English"}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Message language"
+            value={lang}
+            onChange={setLang}
+            options={[
+              { value: "zh", label: "中文" },
+              { value: "en", label: "English" },
+            ]}
+          />
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4 text-foreground/50" />
-        </button>
+        <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
       </div>
 
       {data?.schedule_source === "preference" && (
@@ -173,15 +158,14 @@ export function RegularMessagePanel({
             {error instanceof Error ? error.message : "Could not generate this message."}
           </div>
         ) : (
-          <textarea
+          <Textarea
             value={message}
             onChange={(e) => { if (isEditable) setDraft(e.target.value); }}
             readOnly={!isEditable}
+            aria-label={title}
             className={cn(
-              "w-full h-64 p-3 text-sm font-mono rounded-lg border resize-none transition-colors",
-              isEditable
-                ? "border-primary bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary/30"
-                : "border-field bg-gray-100 dark:bg-gray-900 cursor-default"
+              "h-64 resize-none font-mono",
+              !isEditable && "cursor-default bg-tint"
             )}
           />
         )}
@@ -212,8 +196,8 @@ export function RegularMessagePanel({
             <MarkButton
               busy={marking}
               tone="offer"
-              icon={<Check className="h-4 w-4" />}
-              label="Mark Offered"
+              icon={Check}
+              label="Mark offered"
               onClick={() => setStatus(STATUS_PLACEMENT_OFFERED, "Marked as offered!")}
             />
           )}
@@ -221,8 +205,8 @@ export function RegularMessagePanel({
             <MarkButton
               busy={marking}
               tone="undo"
-              icon={<Undo2 className="h-4 w-4" />}
-              label="Unmark Offered"
+              icon={Undo2}
+              label="Unmark offered"
               onClick={() => setStatus("Under Review", "Unmarked as offered")}
             />
           )}
@@ -230,8 +214,8 @@ export function RegularMessagePanel({
             <MarkButton
               busy={marking}
               tone="offer"
-              icon={<Check className="h-4 w-4" />}
-              label="Mark Sent"
+              icon={Check}
+              label="Mark sent"
               onClick={() => setStatus(STATUS_FEE_SENT, "Marked as sent!")}
             />
           )}
@@ -239,35 +223,19 @@ export function RegularMessagePanel({
             <MarkButton
               busy={marking}
               tone="undo"
-              icon={<Undo2 className="h-4 w-4" />}
-              label="Unmark Sent"
+              icon={Undo2}
+              label="Unmark sent"
               onClick={() => setStatus(STATUS_PLACEMENT_CONFIRMED, "Unmarked as sent")}
             />
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={handleCopy}
             disabled={!message}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              "hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100",
-              copied
-                ? "bg-green-500 text-white"
-                : "bg-primary hover:bg-primary/90 text-primary-foreground"
-            )}
+            icon={copied ? Check : Copy}
           >
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                Copy
-              </>
-            )}
-          </button>
+            {copied ? "Copied!" : "Copy"}
+          </Button>
         </div>
       </div>
     </div>
@@ -283,24 +251,21 @@ function MarkButton({
 }: {
   busy: boolean;
   tone: "offer" | "undo";
-  icon: React.ReactNode;
+  icon: LucideIcon;
   label: string;
   onClick: () => void;
 }) {
+  // Marking moves the application on, so its icon carries the offer colour.
+  // Undoing is the quieter of the two.
   return (
-    <button
-      type="button"
+    <Button
+      variant={tone === "offer" ? "secondary" : "quiet"}
       onClick={onClick}
-      disabled={busy}
-      className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50",
-        tone === "offer"
-          ? "border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-          : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-      )}
+      loading={busy}
+      icon={icon}
+      iconClassName={tone === "offer" ? "text-orange-600 dark:text-orange-400" : undefined}
     >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
       {label}
-    </button>
+    </Button>
   );
 }

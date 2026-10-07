@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle, useDebouncedValue, useProspectPreview } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, Label, Select } from "@/components/controls";
 import { regularAPI } from "@/lib/api";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, REGULAR_STATUS_STEPS, REGULAR_EXIT_STATUSES,
@@ -32,7 +33,6 @@ import {
 } from "lucide-react";
 import type { RegularApplication, RegularPublishResult } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** The ladder, split the way the status menu groups it: the rungs an
  *  application climbs, then the ways it leaves. Both come from the shared
@@ -397,38 +397,40 @@ export default function RegularApplicationsPage() {
               </div>
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 {lastUpdated && <TimeAgo timestamp={lastUpdated} />}
-                <button
+                <IconButton
+                  label="Refresh applications"
+                  title="Refresh"
+                  icon={RefreshCw}
+                  size="sm"
                   onClick={handleRefresh}
                   disabled={isValidating}
-                  className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-                  title="Refresh"
-                  aria-label="Refresh applications"
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
-                </button>
+                  iconClassName={cn(isValidating && "animate-spin")}
+                />
                 {!isReadOnly && (
-                  <button
+                  <Button
+                    size="sm"
+                    icon={Sparkles}
                     onClick={() => setLinkSuggestionsOpen(true)}
                     disabled={!configId || !activeConfig?.year}
-                    className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium disabled:opacity-50"
                     title="Preview which applications can be matched to P6 prospects and existing student records"
+                    aria-label="Link suggestions"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
                     <span className="hidden md:inline">Link suggestions</span>
-                  </button>
+                  </Button>
                 )}
                 {locationOptions.length > 0 && (
-                  <select
+                  <Select
+                    size="sm"
                     value={locationFilter || ""}
                     onChange={(e) => setLocationFilter(e.target.value || null)}
-                    className="px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-field rounded-lg bg-card text-foreground"
                     title="Filter by branch"
+                    aria-label="Filter by branch"
                   >
                     <option value="">All</option>
                     {locationOptions.map((l) => (
                       <option key={l} value={l}>{l}</option>
                     ))}
-                  </select>
+                  </Select>
                 )}
                 {configs && configs.length > 1 && (
                   <DropdownMenu
@@ -483,14 +485,15 @@ export default function RegularApplicationsPage() {
           <div className="px-4 sm:px-6 py-2.5 border-b border-line/50">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle" aria-hidden="true" />
+                <Input
                   ref={searchRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder='Search name, phone, ref code, student ID... (press "/")'
-                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-field rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+                  aria-label="Search applications"
+                  className="pl-9 pr-8"
                 />
                 {searchQuery && (
                   <button
@@ -644,44 +647,44 @@ export default function RegularApplicationsPage() {
                 {() => (
                   <>
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Grade</label>
-                      <select
+                      <Label htmlFor="filter-grade">Grade</Label>
+                      <Select
+                        id="filter-grade"
                         value={gradeFilter || ""}
                         onChange={(e) => setGradeFilter(e.target.value || null)}
-                        className={cn(selectClass, "w-full")}
                       >
                         <option value="">All grades</option>
                         {gradeOptions.map((g) => (
                           <option key={g} value={g}>{g}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch origin</label>
-                      <select
+                      <Label htmlFor="filter-branch-origin">Branch origin</Label>
+                      <Select
+                        id="filter-branch-origin"
                         value={branchFilter || ""}
                         onChange={(e) => setBranchFilter(e.target.value || null)}
-                        className={cn(selectClass, "w-full")}
                       >
                         <option value="">All branches</option>
                         <option value="new">New (no branch)</option>
                         {branchOptions.map((code) => (
                           <option key={code} value={code}>{code}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Prospect journey</label>
-                      <select
+                      <Label htmlFor="filter-prospect-journey">Prospect journey</Label>
+                      <Select
+                        id="filter-prospect-journey"
                         value={prospectFilter || ""}
                         onChange={(e) => setProspectFilter((e.target.value || null) as typeof prospectFilter)}
-                        className={cn(selectClass, "w-full")}
                       >
                         <option value="">Any</option>
                         <option value="skipped">Prospect, skipped summer</option>
                         <option value="did">Prospect, did summer</option>
                         <option value="none">Not a prospect</option>
-                      </select>
+                      </Select>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -719,7 +722,11 @@ export default function RegularApplicationsPage() {
               />
 
               {!isReadOnly && viewMode === "list" && (
-                <button
+                <IconButton
+                  label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                  icon={CheckSquare}
+                  size="sm"
+                  aria-pressed={showCheckboxes}
                   onClick={() => {
                     if (showCheckboxes) {
                       setBatchMode(false);
@@ -728,17 +735,8 @@ export default function RegularApplicationsPage() {
                       setBatchMode(true);
                     }
                   }}
-                  title={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
-                  aria-label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
-                  className={cn(
-                    "p-1.5 rounded-lg transition-colors",
-                    showCheckboxes
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  <CheckSquare className="h-3.5 w-3.5" />
-                </button>
+                  className={cn(showCheckboxes && "bg-tint text-accent-ink")}
+                />
               )}
               {showCheckboxes && viewMode === "list" && (
                 <input

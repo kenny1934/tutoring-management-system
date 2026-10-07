@@ -1333,7 +1333,7 @@ export function ScheduleMakeupModal({
       title={
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-accent-ink" />
-          <span>{mode === "propose" ? "Propose Make-up Slots" : "Schedule Make-up Class"}</span>
+          <span>{mode === "propose" ? "Propose make-up slots" : "Schedule make-up class"}</span>
         </div>
       }
       size="xl"

@@ -7,6 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { Button, buttonClasses, Segmented, Table, Td, Th, Tr } from "@/components/controls";
 import { regularAPI } from "@/lib/api";
 import { splitGradeStream, STAGE_TONES } from "@/lib/regular-utils";
 import { EnteringGradeBadge } from "@/components/ui/grade-label";
@@ -20,7 +21,6 @@ import {
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularConversionBranchRow, RegularConversionResponse } from "@/types";
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-field rounded-lg bg-card text-foreground";
 
 /** The three tabs the report splits into: the intake at a glance, the deeper
  *  analysis axes, and the actionable still-to-chase list. */
@@ -306,10 +306,10 @@ export default function RegularConversionPage() {
                         type="button"
                         {...triggerProps}
                         title="Every tab on this page, including the chase list, follows this"
-                        className={cn(selectClass, "inline-flex items-center gap-1.5")}
+                        className={buttonClasses()}
                       >
-                        <span className="font-medium">{branch ?? "All branches"}</span>
-                        <ChevronDown className="h-3.5 w-3.5" />
+                        <span>{branch ?? "All branches"}</span>
+                        <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                       </button>
                     )}
                   >
@@ -345,9 +345,9 @@ export default function RegularConversionPage() {
                 <DropdownMenu
                   align="right"
                   trigger={({ triggerProps }) => (
-                    <button type="button" {...triggerProps} className={cn(selectClass, "inline-flex items-center gap-1.5")}>
-                      <span className="font-medium">{year ?? "Year"}</span>
-                      <ChevronDown className="h-3.5 w-3.5" />
+                    <button type="button" {...triggerProps} className={buttonClasses()}>
+                      <span>{year ?? "Year"}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
                     </button>
                   )}
                 >
@@ -369,40 +369,30 @@ export default function RegularConversionPage() {
                     </div>
                   )}
                 </DropdownMenu>
-                <button
-                  type="button"
+                <Button
+                  icon={Download}
                   onClick={handleExport}
                   disabled={!data || data.totals.prospects === 0}
-                  className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
                   title="Download this report as CSV"
+                  aria-label="Export"
                 >
-                  <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Export</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Tab bar: the intake at a glance, the analysis axes, and the chase list */}
           <div className="px-4 sm:px-6 py-2 border-b border-line">
-            <div className="inline-flex bg-muted rounded-full p-0.5">
-              {CONVERSION_TABS.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setTab(key)}
-                  className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
-                    tab === key
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {TAB_LABELS[key]}
-                  {key === "chase" && data ? ` (${data.lost_prospects.length})` : ""}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Report section"
+              value={tab}
+              onChange={setTab}
+              options={CONVERSION_TABS.map((key) => ({
+                value: key,
+                label: `${TAB_LABELS[key]}${key === "chase" && data ? ` (${data.lost_prospects.length})` : ""}`,
+              }))}
+            />
           </div>
 
           {/* Body */}
@@ -465,65 +455,63 @@ export default function RegularConversionPage() {
               {/* Per-branch funnel — hidden when scoped to one branch, since the
                   cards and chart above already show that branch's numbers */}
               {branch === null && (
-              <div className="border border-line/50 rounded-xl overflow-x-auto">
-                <table className="w-full text-xs min-w-[860px]">
-                  <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
-                    <tr className="border-b border-line/30">
-                      <th className="px-3 py-2 text-left font-medium text-foreground">Branch</th>
+                <Table className="min-w-[860px] text-xs">
+                  <thead>
+                    <tr>
+                      <Th>Branch</Th>
                       {COLUMNS.map((c) => (
-                        <th key={c.key} className="px-3 py-2 text-right font-medium text-foreground cursor-help" title={c.title}>
+                        <Th key={c.key} numeric className="cursor-help" title={c.title}>
                           {c.label}
-                        </th>
+                        </Th>
                       ))}
-                      <th className="px-3 py-2 text-right font-medium text-foreground cursor-help border-l border-line/40" title="Applied as a share of prospects">
+                      <Th numeric className="cursor-help border-l border-line" title="Applied as a share of prospects">
                         Apply %
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-foreground cursor-help" title="Enrolled as a share of prospects">
+                      </Th>
+                      <Th numeric className="cursor-help" title="Enrolled as a share of prospects">
                         Enrol %
-                      </th>
+                      </Th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line/30">
-                    {data.branches.map((row, i) => (
-                      <tr key={row.branch} className={i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}>
-                        <td className="px-3 py-2 font-semibold text-foreground">{row.branch}</td>
+                  <tbody>
+                    {data.branches.map((row) => (
+                      <Tr key={row.branch}>
+                        <Td className="font-semibold text-foreground">{row.branch}</Td>
                         {COLUMNS.map((c) => (
-                          <td key={c.key} className={cn("px-3 py-2 text-right", c.tone)}>{row[c.key]}</td>
+                          <Td key={c.key} numeric className={c.tone}>{row[c.key]}</Td>
                         ))}
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground border-l border-line/40">
+                        <Td numeric className="text-muted-foreground border-l border-line">
                           {pct(row.applied_regular, row.prospects)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        </Td>
+                        <Td numeric className="text-muted-foreground">
                           {pct(row.enrolled_regular, row.prospects)}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
                     {data.branches.length === 0 && (
                       <tr>
-                        <td colSpan={COLUMNS.length + 3} className="px-3 py-6 text-center text-muted-foreground italic">
+                        <Td colSpan={COLUMNS.length + 3} className="py-6 text-center text-muted-foreground italic">
                           No prospects recorded for {year}.
-                        </td>
+                        </Td>
                       </tr>
                     )}
                   </tbody>
                   {data.branches.length > 0 && (
-                    <tfoot className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] font-semibold border-t border-line/50">
+                    <tfoot className="bg-tint font-semibold">
                       <tr>
-                        <td className="px-3 py-2 text-foreground">Total</td>
+                        <Td className="text-foreground">Total</Td>
                         {COLUMNS.map((c) => (
-                          <td key={c.key} className={cn("px-3 py-2 text-right", c.tone)}>{data.totals[c.key]}</td>
+                          <Td key={c.key} numeric className={c.tone}>{data.totals[c.key]}</Td>
                         ))}
-                        <td className="px-3 py-2 text-right tabular-nums border-l border-line/40">
+                        <Td numeric className="border-l border-line">
                           {pct(data.totals.applied_regular, data.totals.prospects)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
+                        </Td>
+                        <Td numeric>
                           {pct(data.totals.enrolled_regular, data.totals.prospects)}
-                        </td>
+                        </Td>
                       </tr>
                     </tfoot>
                   )}
-                </table>
-              </div>
+                </Table>
               )}
 
               {/* Grade-stream breakdown of regular applicants */}

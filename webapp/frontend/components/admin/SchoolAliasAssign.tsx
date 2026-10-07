@@ -6,6 +6,7 @@ import { Check, Loader2 } from "lucide-react";
 import { regularAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/controls";
 import { Autocomplete } from "@/components/ui/autocomplete";
 
 /**
@@ -55,18 +56,17 @@ export function SchoolAliasAssign({ raw, onAssigned, className }: {
         onEnterWithoutHighlight={save}
         placeholder="School code"
         wrapperClassName="relative"
-        className="w-36 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+        className="h-7 w-36 rounded border border-field bg-field-fill px-2 text-xs text-foreground placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
       />
-      <button
-        type="button"
+      <IconButton
+        size="sm"
+        icon={saving ? Loader2 : Check}
+        iconClassName={saving ? "animate-spin" : "text-primary"}
         onClick={save}
         disabled={!value.trim() || saving}
-        className="p-1 rounded-md text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
         title="Save this school code"
-        aria-label={`Assign a school code to ${raw}`}
-      >
-        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-      </button>
+        label={`Assign a school code to ${raw}`}
+      />
     </span>
   );
 }

@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X, Plus, Trash2, Search } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
-import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button, Field, IconButton, Input, LABEL_CLASS, Label, Segmented, Select, Textarea } from "@/components/controls";
 import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -309,43 +309,24 @@ export function WaitlistEntryModal({
               );
             })()}
           </div>
-          <button
-            onClick={handleClose}
-            className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <IconButton icon={X} label="Close" onClick={handleClose} />
         </div>
 
         <div className="px-5 py-4 space-y-4" onChangeCapture={() => setIsDirty(true)}>
           {/* Entry Type Toggle */}
           <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-              Type
-            </label>
-            <div className="flex gap-2">
-              {(["New", "Slot Change"] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => { setEntryType(type); setIsDirty(true); }}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                    entryType === type
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 dark:bg-gray-800 text-foreground/70 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  )}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+            <Label>Type</Label>
+            <Segmented
+              label="Type"
+              value={entryType}
+              onChange={(type) => { setEntryType(type); setIsDirty(true); }}
+              options={(["New", "Slot Change"] as const).map((type) => ({ value: type, label: type }))}
+            />
           </div>
 
           {/* Link Student */}
           <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-              Linked Student
-            </label>
+            <Label htmlFor={studentId ? undefined : "waitlist-student-search"}>Linked student</Label>
             {studentId ? (
               <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -366,18 +347,14 @@ export function WaitlistEntryModal({
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={handleUnlinkStudent}
-                  className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <IconButton icon={X} size="sm" tone="danger" label="Unlink student" onClick={handleUnlinkStudent} />
               </div>
             ) : (
               <div className="relative">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
-                  <input
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" aria-hidden="true" />
+                  <Input
+                    id="waitlist-student-search"
                     type="text"
                     value={studentSearch}
                     onChange={(e) => {
@@ -386,7 +363,7 @@ export function WaitlistEntryModal({
                     }}
                     onFocus={() => setShowStudentSearch(true)}
                     placeholder="Search by name, ID, or phone..."
-                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="pl-9"
                   />
                 </div>
                 {showStudentSearch && studentResults.length > 0 && (
@@ -423,39 +400,32 @@ export function WaitlistEntryModal({
 
           {/* Name + Phone */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Student Name <span className="text-red-600">*</span>
-              </label>
-              <input
+            <Field label={<>Student name <span className="text-red-600" aria-hidden="true">*</span></>} id="waitlist-student-name">
+              <Input
                 type="text"
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. Chan Tai Man"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Phone <span className="text-red-600">*</span>
-              </label>
-              <input
+            </Field>
+            <Field label={<>Phone <span className="text-red-600" aria-hidden="true">*</span></>} id="waitlist-phone">
+              <Input
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. 91234567"
               />
-            </div>
+            </Field>
           </div>
 
           {/* School + Grade + Lang */}
           <div className="grid grid-cols-3 gap-3">
             <div className="relative">
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                School <span className="text-red-600">*</span>
-              </label>
-              <input
+              <Label htmlFor="waitlist-school">
+                School <span className="text-red-600" aria-hidden="true">*</span>
+              </Label>
+              <Input
+                id="waitlist-school"
                 type="text"
                 value={school}
                 onChange={(e) => {
@@ -466,7 +436,6 @@ export function WaitlistEntryModal({
                 onBlur={() =>
                   setTimeout(() => setShowSchoolOptions(false), 200)
                 }
-                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="e.g. PCMS"
               />
               {showSchoolOptions && filteredSchools.length > 0 && (
@@ -487,14 +456,10 @@ export function WaitlistEntryModal({
                 </div>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Grade <span className="text-red-600">*</span>
-              </label>
-              <select
+            <Field label={<>Grade <span className="text-red-600" aria-hidden="true">*</span></>} id="waitlist-grade">
+              <Select
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select</option>
                 {GRADES.map((g) => (
@@ -502,16 +467,12 @@ export function WaitlistEntryModal({
                     {g}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                Stream
-              </label>
-              <select
+              </Select>
+            </Field>
+            <Field label="Stream" id="waitlist-stream">
+              <Select
                 value={langStream}
                 onChange={(e) => setLangStream(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">—</option>
                 {LANG_STREAMS.map((ls) => (
@@ -519,52 +480,43 @@ export function WaitlistEntryModal({
                     {ls}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
           {/* Parent WeChat ID */}
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 mb-1.5">
-              <WeChatIcon className="h-4 w-4 text-green-700" />
+            <Label htmlFor="waitlist-parent-wechat" className="flex items-center gap-1.5">
+              <WeChatIcon className="h-3.5 w-3.5 text-green-700" />
               Parent WeChat ID
-            </label>
-            <input
+            </Label>
+            <Input
+              id="waitlist-parent-wechat"
               type="text"
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Optional"
             />
           </div>
 
           {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-              Notes
-            </label>
-            <textarea
+          <Field label="Notes" id="waitlist-notes">
+            <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="resize-none"
               rows={2}
               placeholder="Source, context, etc."
             />
-          </div>
+          </Field>
 
           {/* Slot Preferences */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-foreground/70">
-                Preferred Slots
-              </label>
-              <button
-                onClick={addSlotPreference}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-accent-ink hover:bg-primary/10 rounded-lg transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Slot
-              </button>
+              <span className={LABEL_CLASS}>Preferred slots</span>
+              <Button size="sm" variant="quiet" icon={Plus} onClick={addSlotPreference}>
+                Add slot
+              </Button>
             </div>
             {slotPreferences.length === 0 ? (
               <p className="text-xs text-foreground/40 italic">
@@ -577,12 +529,14 @@ export function WaitlistEntryModal({
                     key={i}
                     className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
                   >
-                    <select
+                    <Select
+                      size="sm"
+                      aria-label={`Slot ${i + 1} location`}
+                      className="w-auto"
                       value={sp.location}
                       onChange={(e) =>
                         updateSlotPreference(i, "location", e.target.value)
                       }
-                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       {locations
                         .filter((l) => l !== "All Locations")
@@ -591,8 +545,11 @@ export function WaitlistEntryModal({
                             {l}
                           </option>
                         ))}
-                    </select>
-                    <select
+                    </Select>
+                    <Select
+                      size="sm"
+                      aria-label={`Slot ${i + 1} day`}
+                      className="w-auto"
                       value={sp.day_of_week || ""}
                       onChange={(e) =>
                         updateSlotPreference(
@@ -601,7 +558,6 @@ export function WaitlistEntryModal({
                           e.target.value || null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Any day</option>
                       {DAYS.map((d) => (
@@ -609,8 +565,11 @@ export function WaitlistEntryModal({
                           {d}
                         </option>
                       ))}
-                    </select>
-                    <select
+                    </Select>
+                    <div className="flex-1 min-w-0">
+                    <Select
+                      size="sm"
+                      aria-label={`Slot ${i + 1} time`}
                       value={sp.time_slot || ""}
                       onChange={(e) =>
                         updateSlotPreference(
@@ -619,7 +578,6 @@ export function WaitlistEntryModal({
                           e.target.value || null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary flex-1"
                     >
                       <option value="">Any time</option>
                       {(sp.day_of_week
@@ -630,8 +588,12 @@ export function WaitlistEntryModal({
                           {t}
                         </option>
                       ))}
-                    </select>
-                    <select
+                    </Select>
+                    </div>
+                    <Select
+                      size="sm"
+                      aria-label={`Slot ${i + 1} tutor`}
+                      className="w-auto"
                       value={sp.preferred_tutor_id ?? ""}
                       onChange={(e) =>
                         updateSlotPreference(
@@ -640,7 +602,6 @@ export function WaitlistEntryModal({
                           e.target.value ? Number(e.target.value) : null
                         )
                       }
-                      className="px-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Any tutor</option>
                       {[...tutors]
@@ -651,13 +612,14 @@ export function WaitlistEntryModal({
                             {t.tutor_name}
                           </option>
                         ))}
-                    </select>
-                    <button
+                    </Select>
+                    <IconButton
+                      icon={Trash2}
+                      size="sm"
+                      tone="danger"
+                      label={`Remove slot ${i + 1}`}
                       onClick={() => removeSlotPreference(i)}
-                      className="p-1 text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    />
                   </div>
                 ))}
               </div>
@@ -667,19 +629,12 @@ export function WaitlistEntryModal({
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-white dark:bg-[#1e1e1e] border-t border-gray-200 dark:border-gray-700 px-5 py-3 flex justify-end gap-2 rounded-b-xl">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
+          <Button variant="secondary" onClick={handleClose}>
             Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#8b6040] rounded-lg transition-colors disabled:opacity-50"
-          >
-            {saving ? "Saving..." : entry ? "Save Changes" : "Add to Waitlist"}
-          </button>
+          </Button>
+          <Button variant="primary" loading={saving} onClick={handleSubmit}>
+            {saving ? "Saving..." : entry ? "Save changes" : "Add to waitlist"}
+          </Button>
         </div>
       </div>
       <ConfirmDialog

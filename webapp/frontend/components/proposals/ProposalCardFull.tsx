@@ -464,7 +464,7 @@ function SlotItem({
         isOpen={showApproveConfirm}
         onConfirm={confirmApprove}
         onCancel={() => setShowApproveConfirm(false)}
-        title="Approve Make-up Slot"
+        title="Approve make-up slot"
         message={`Are you sure you want to approve this slot? This will schedule a make-up session on ${formatProposalDate(slot.proposed_date)} at ${slot.proposed_time_slot}.`}
         confirmText="Approve"
         variant="default"
@@ -475,7 +475,7 @@ function SlotItem({
         isOpen={showRejectConfirm}
         onConfirm={confirmReject}
         onCancel={() => setShowRejectConfirm(false)}
-        title="Reject Make-up Slot"
+        title="Reject make-up slot"
         message={
           <div className="space-y-2">
             <p>Are you sure you want to reject this slot option?</p>
@@ -897,7 +897,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                         className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors shadow-sm"
                       >
                         <Calendar className="h-5 w-5" />
-                        Select Make-up Slot
+                        Select make-up slot
                       </button>
                       <button
                         onClick={() => setShowRejectConfirm(true)}

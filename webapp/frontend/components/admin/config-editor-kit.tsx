@@ -9,6 +9,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronDown, GripVertical, Plus, X } from "lucide-react";
 import { Reorder, useDragControls, type DragControls } from "framer-motion";
+import { Button, IconButton, Input, LABEL_CLASS } from "@/components/controls";
+import { cn } from "@/lib/utils";
 
 // Helper to format date strings for input[type=date] and input[type=datetime-local]
 export function toDateInput(val: string | null | undefined): string {
@@ -138,19 +140,25 @@ export function Label({
   htmlFor?: string;
 }) {
   return (
-    <label
-      htmlFor={htmlFor}
-      className="block text-xs font-medium text-muted-foreground mb-1"
-    >
+    <label htmlFor={htmlFor} className={cn(LABEL_CLASS, "mb-1")}>
       {children}
     </label>
   );
 }
 
-// Reusable input class for editor fields. Named editorInputClass to avoid
-// clashing with summer-utils' public-form inputClass.
+// The look of the shared text field, as one class string, because the editors
+// put it on inputs, selects and growing textareas alike. It has no fixed
+// height: the padding and the text make a single-line field 32px, the same as
+// the shared Input, and a textarea grows from there. A field turns red when it
+// has aria-invalid set, and amber when it has data-warn set, for a value that
+// is allowed but probably a mistake. Named editorInputClass so it can't be
+// confused with summer-utils' inputClass for the public form.
 export const editorInputClass =
-  "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
+  "w-full min-w-0 rounded border border-field bg-field-fill px-2.5 py-1.5 text-sm text-gray-900 dark:text-gray-100 " +
+  "placeholder:text-gray-500 dark:placeholder:text-gray-400 " +
+  "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 " +
+  "disabled:cursor-not-allowed disabled:opacity-60 " +
+  "data-[warn=true]:border-amber-500 aria-[invalid=true]:border-red-600 dark:aria-[invalid=true]:border-red-500";
 
 // Bilingual text field — paired ZH/EN inputs. Use multiline for textareas.
 export function BilingualTextField({
@@ -218,7 +226,7 @@ export function BilingualTextField({
 // Inline validation helper text
 export function ValidationHint({ message }: { message: string | null }) {
   if (!message) return null;
-  return <p className="text-xs text-red-600 mt-1">{message}</p>;
+  return <p className="text-xs text-red-700 dark:text-red-400 mt-1">{message}</p>;
 }
 
 // Image thumbnail preview
@@ -311,24 +319,24 @@ export function TimeSlotAdder({ lastSlot, onAdd }: { lastSlot?: string; onAdd: (
 
   if (!show) {
     return (
-      <button type="button" onClick={() => { const d = getDefaults(); setStart(d.start); setEnd(d.end); setShow(true); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-accent-ink hover:text-accent-ink-hover border border-dashed border-primary/40 rounded-md hover:border-primary/60">
-        <Plus className="h-3 w-3" /> Add
-      </button>
+      <Button size="sm" icon={Plus} onClick={() => { const d = getDefaults(); setStart(d.start); setEnd(d.end); setShow(true); }}>
+        Add
+      </Button>
     );
   }
 
   return (
     <div className="inline-flex items-center gap-1.5">
-      <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="px-1.5 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800 text-foreground" />
+      <Input size="sm" type="time" aria-label="Start time" value={start} onChange={(e) => setStart(e.target.value)} className="w-auto" />
       <span className="text-xs text-muted-foreground">to</span>
-      <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="px-1.5 py-1 text-xs border border-field rounded bg-white dark:bg-gray-800 text-foreground" />
-      <button type="button" onClick={() => {
+      <Input size="sm" type="time" aria-label="End time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-auto" />
+      <IconButton onClick={() => {
         if (start && end && start < end) {
           onAdd(`${start} - ${end}`);
           setShow(false);
         }
-      }} className="p-1 text-accent-ink hover:text-accent-ink-hover"><Plus className="h-3.5 w-3.5" /></button>
-      <button type="button" onClick={() => setShow(false)} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+      }} label="Add this time slot" icon={Plus} size="sm" iconClassName="text-accent-ink" />
+      <IconButton label="Cancel" icon={X} size="sm" onClick={() => setShow(false)} />
     </div>
   );
 }

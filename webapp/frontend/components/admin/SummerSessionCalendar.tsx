@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 import { DAY_ABBREV, compareSummerSlots, isNonAttending } from "@/lib/summer-utils";
 import {
   getWeekStartStr,
@@ -263,7 +264,7 @@ export function SummerSessionCalendar({
   }, [visibleLessons]);
 
   // Merge in any lesson times that fall outside the configured timeSlots
-  // (typically ad-hoc Make-up Slots at non-standard times). Extension rows
+  // (typically ad-hoc make-up slots at non-standard times). Extension rows
   // get a subtle italic marker so admins know they're not regular slot rows.
   const configuredTimeSet = useMemo(() => new Set(timeSlots), [timeSlots]);
   const effectiveTimeSlots = useMemo(() => {
@@ -356,26 +357,14 @@ export function SummerSessionCalendar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Week navigation + day toggles + Make-up Slot create */}
+      {/* Week navigation + day toggles + make-up slot create */}
       <div className="flex items-center gap-3 py-2 flex-wrap">
         <div className="flex items-center gap-1">
-          <button
-            onClick={goPrev}
-            disabled={!canGoPrev}
-            className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+          <IconButton size="sm" icon={ChevronLeft} onClick={goPrev} disabled={!canGoPrev} label="Previous week" />
           <span className="text-sm font-medium min-w-[140px] text-center">
             {formatWeekRange(weekDates[0] || weekStart, weekDates[weekDates.length - 1] || weekEnd, courseStartDate)}
           </span>
-          <button
-            onClick={goNext}
-            disabled={!canGoNext}
-            className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <IconButton size="sm" icon={ChevronRight} onClick={goNext} disabled={!canGoNext} label="Next week" />
         </div>
 
         {/* Day filter chips — subset of openDays */}
@@ -467,14 +456,16 @@ export function SummerSessionCalendar({
         </div>
 
         {!readOnly && (
-          <button
+          <Button
+            size="sm"
+            icon={CalendarPlus}
+            iconClassName="text-amber-700 dark:text-amber-300"
             onClick={() => setMakeupModal({})}
-            className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-            title="Create a one-off Make-up Slot"
+            className="ml-auto"
+            title="Create a one-off make-up slot"
           >
-            <CalendarPlus className="h-3.5 w-3.5" />
-            Make-up Slot
-          </button>
+            Make-up slot
+          </Button>
         )}
       </div>
 
@@ -576,7 +567,7 @@ export function SummerSessionCalendar({
                         <button
                           onClick={() => setMakeupModal({ date: dateStr, time: ts })}
                           className="absolute inset-0 flex items-center justify-center text-[11px] text-amber-700/70 dark:text-amber-300/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
-                          title="Add a Make-up Slot at this time"
+                          title="Add a make-up slot at this time"
                         >
                           <Plus className="h-3.5 w-3.5 mr-0.5" />
                           Make-up
@@ -595,7 +586,7 @@ export function SummerSessionCalendar({
         <p className="mt-2 text-xs text-muted-foreground text-center">
           {readOnly
             ? "No lessons this week."
-            : "No lessons this week. Hover an empty cell to add a Make-up Slot."}
+            : "No lessons this week. Hover an empty cell to add a make-up slot."}
         </p>
       )}
 

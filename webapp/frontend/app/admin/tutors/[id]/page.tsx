@@ -21,6 +21,7 @@ import { getWeekBounds, toDateString, getDayName, getMonthName, isSameDay } from
 import { formatMOP, plural } from "@/lib/formatters";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Session } from "@/types";
+import { Button, Input, Select } from "@/components/controls";
 import {
   ArrowLeft,
   Pencil,
@@ -495,14 +496,14 @@ function TutorProfileInner() {
             </div>
 
             {isAdmin && (
-              <button
+              <Button
+                icon={Pencil}
                 onClick={() => setEditing(true)}
                 aria-label="Edit tutor"
-                className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex-shrink-0"
+                className="flex-shrink-0"
               >
-                <Pencil className="h-4 w-4" />
                 <span className="hidden sm:inline">Edit</span>
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -665,28 +666,30 @@ function TutorProfileInner() {
                 <div className="mb-3 space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <div className="relative flex-1">
-                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/40" />
-                      <input
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" aria-hidden="true" />
+                      <Input
                         type="text"
                         value={search}
                         onChange={(ev) => setSearch(ev.target.value)}
                         placeholder="Search name, school, ID…"
-                        className="w-full rounded-lg border border-field bg-white py-1.5 pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-[#231d14]"
+                        aria-label="Search students"
+                        className="pl-8"
                       />
                     </div>
                     <div className="relative">
-                      <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/40" />
-                      <select
+                      <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" aria-hidden="true" />
+                      <Select
                         value={sort}
                         onChange={(ev) => setSort(ev.target.value as RosterSort)}
-                        className="w-full rounded-lg border border-field bg-white py-1.5 pl-8 pr-7 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto dark:bg-[#231d14]"
+                        aria-label="Sort students"
+                        className="pl-8 sm:w-auto"
                       >
                         {ROSTER_SORTS.map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   </div>
                   {(search || hasFacets) && (

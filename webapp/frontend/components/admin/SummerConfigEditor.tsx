@@ -18,7 +18,6 @@ import {
   Plus,
   Trash2,
   Save,
-  Loader2,
   Eye,
   EyeOff,
   X,
@@ -48,6 +47,7 @@ import {
 } from "./config-editor-kit";
 import { SummerConfigPreview } from "./SummerConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button, IconButton } from "@/components/controls";
 
 interface SummerConfigEditorProps {
   configId: number | null;
@@ -655,16 +655,11 @@ export function SummerConfigEditor({
     <div ref={editorRef} className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
+          <Button variant="quiet" icon={ChevronLeft} onClick={handleCancel}>
             Back
-          </button>
+          </Button>
           <h2 className="text-xl font-bold text-foreground">
-            {isNew ? "New Config" : `Edit ${year} Config`}
+            {isNew ? "New config" : `Edit ${year} config`}
           </h2>
           {isDirty && (
             <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
@@ -679,30 +674,13 @@ export function SummerConfigEditor({
         </div>
         <div className="flex items-center gap-2">
           {/* Mobile preview toggle */}
-          <button
-            type="button"
-            onClick={() => setShowPreview(!showPreview)}
-            className="lg:hidden flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            {showPreview ? (
-              <><EyeOff className="h-4 w-4" /> Editor</>
-            ) : (
-              <><Eye className="h-4 w-4" /> Preview</>
-            )}
-          </button>
+          <Button className="lg:hidden" icon={showPreview ? EyeOff : Eye} onClick={() => setShowPreview(!showPreview)}>
+            {showPreview ? "Editor" : "Preview"}
+          </Button>
           {!isReadOnly && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors text-sm font-medium disabled:opacity-50"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
+            <Button variant="primary" icon={Save} loading={saving} onClick={handleSave}>
               {saving ? "Saving..." : "Save"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -713,7 +691,7 @@ export function SummerConfigEditor({
         <div className={`space-y-4 ${showPreview ? "hidden lg:block" : ""}`}>
 
       {/* Section 1: Basic Info */}
-      <Section title="Basic Info & Banner" subtitle="Step 1" status={{ filled: !!title.trim() }} defaultOpen forceOpen={errorSections.has("basic")} onOpen={() => setPreviewStep(1)}>
+      <Section title="Basic info & banner" subtitle="Step 1" status={{ filled: !!title.trim() }} defaultOpen forceOpen={errorSections.has("basic")} onOpen={() => setPreviewStep(1)}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="year">Year</Label>
@@ -724,7 +702,8 @@ export function SummerConfigEditor({
               onChange={(e) => setYear(parseInt(e.target.value) || 0)}
               onBlur={validateYear}
               data-field="year"
-              className={`${inputClass} ${validationErrors.year ? "border-red-300 dark:border-red-700" : ""}`}
+              className={inputClass}
+                  aria-invalid={validationErrors.year ? true : undefined}
               disabled={isReadOnly}
             />
             <ValidationHint message={validationErrors.year ?? null} />
@@ -754,14 +733,15 @@ export function SummerConfigEditor({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             data-field="title"
-            className={`${inputClass} ${validationErrors.title ? "border-red-300 dark:border-red-700" : ""}`}
+            className={inputClass}
+                  aria-invalid={validationErrors.title ? true : undefined}
             disabled={isReadOnly}
             placeholder="e.g. 2026 Summer Course"
           />
           <ValidationHint message={validationErrors.title ?? null} />
         </div>
         <div>
-          <Label htmlFor="bannerUrl">Banner Image URL</Label>
+          <Label htmlFor="bannerUrl">Banner image URL</Label>
           <input
             id="bannerUrl"
             type="text"
@@ -776,33 +756,35 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 2: Dates */}
-      <Section title="Dates & Schedule" subtitle="Step 1" status={{ filled: !!(appOpenDate && appCloseDate && courseStartDate && courseEndDate) }} forceOpen={errorSections.has("dates")} onOpen={() => setPreviewStep(1)}>
+      <Section title="Dates & schedule" subtitle="Step 1" status={{ filled: !!(appOpenDate && appCloseDate && courseStartDate && courseEndDate) }} forceOpen={errorSections.has("dates")} onOpen={() => setPreviewStep(1)}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>Application Open</Label>
+            <Label>Application open</Label>
             <input
               type="datetime-local"
               value={appOpenDate}
               onChange={(e) => setAppOpenDate(e.target.value)}
               onBlur={validateDates}
               data-field="dates"
-              className={`${inputClass} ${validationErrors.dates ? "border-red-300 dark:border-red-700" : ""}`}
+              className={inputClass}
+                  aria-invalid={validationErrors.dates ? true : undefined}
               disabled={isReadOnly}
             />
           </div>
           <div>
-            <Label>Application Close</Label>
+            <Label>Application close</Label>
             <input
               type="datetime-local"
               value={appCloseDate}
               onChange={(e) => setAppCloseDate(e.target.value)}
               onBlur={validateDates}
-              className={`${inputClass} ${validationErrors.dates ? "border-red-300 dark:border-red-700" : ""}`}
+              className={inputClass}
+                  aria-invalid={validationErrors.dates ? true : undefined}
               disabled={isReadOnly}
             />
           </div>
           <div>
-            <Label>Course Start</Label>
+            <Label>Course start</Label>
             <input
               type="date"
               value={courseStartDate}
@@ -813,7 +795,7 @@ export function SummerConfigEditor({
             />
           </div>
           <div>
-            <Label>Course End</Label>
+            <Label>Course end</Label>
             <input
               type="date"
               value={courseEndDate}
@@ -827,7 +809,7 @@ export function SummerConfigEditor({
         <ValidationHint message={validationErrors.dates ?? null} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>Pre-grade Window Start (optional)</Label>
+            <Label>Pre-grade window start (optional)</Label>
             <input
               type="date"
               value={preGradeStart}
@@ -835,10 +817,10 @@ export function SummerConfigEditor({
               className={inputClass}
               disabled={isReadOnly}
             />
-            <p className="text-[11px] text-foreground/60 mt-1">Defaults to Course Start.</p>
+            <p className="text-[11px] text-foreground/60 mt-1">Leave this blank to start on the first day of the course.</p>
           </div>
           <div>
-            <Label>Pre-grade Window End (optional)</Label>
+            <Label>Pre-grade window end (optional)</Label>
             <input
               type="date"
               value={preGradeEnd}
@@ -846,11 +828,11 @@ export function SummerConfigEditor({
               className={inputClass}
               disabled={isReadOnly}
             />
-            <p className="text-[11px] text-foreground/60 mt-1">Defaults to Aug 31 — promotion fires Sept 1.</p>
+            <p className="text-[11px] text-foreground/60 mt-1">Leave this blank to end on 31 August, the day before students move up a grade.</p>
           </div>
         </div>
         <div className="max-w-xs">
-          <Label>Total Lessons</Label>
+          <Label>Total lessons</Label>
           <input
             type="number"
             value={totalLessons}
@@ -863,23 +845,24 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 3: Pricing */}
-      <Section title="Pricing & Discounts" subtitle="Step 1" status={{ filled: baseFee > 0 }} forceOpen={errorSections.has("pricing")} onOpen={() => setPreviewStep(1)}>
+      <Section title="Pricing & discounts" subtitle="Step 1" status={{ filled: baseFee > 0 }} forceOpen={errorSections.has("pricing")} onOpen={() => setPreviewStep(1)}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>Base Fee ($)</Label>
+            <Label>Base fee ($)</Label>
             <input
               type="number"
               value={baseFee}
               onChange={(e) => setBaseFee(parseInt(e.target.value) || 0)}
               onBlur={validateBaseFee}
               data-field="baseFee"
-              className={`${inputClass} ${validationErrors.baseFee ? "border-red-300 dark:border-red-700" : ""}`}
+              className={inputClass}
+                  aria-invalid={validationErrors.baseFee ? true : undefined}
               disabled={isReadOnly}
             />
             <ValidationHint message={validationErrors.baseFee ?? null} />
           </div>
           <div>
-            <Label>Registration Fee ($)</Label>
+            <Label>Registration fee ($)</Label>
             <input
               type="number"
               value={registrationFee}
@@ -904,7 +887,7 @@ export function SummerConfigEditor({
                   <span className="text-xs font-medium text-muted-foreground">{d.code || `Discount ${i + 1}`}</span>
                 </div>
                 {!isReadOnly && (
-                  <button type="button" onClick={() => deleteWithUndo(discounts, i, setDiscounts, "Discount")} className="p-1 text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
+                  <IconButton icon={Trash2} size="sm" label="Remove discount" tone="danger" onClick={() => deleteWithUndo(discounts, i, setDiscounts, "Discount")} />
                 )}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -982,7 +965,7 @@ export function SummerConfigEditor({
               }
               className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
             >
-              <Plus className="h-3 w-3" /> Add Discount
+              <Plus className="h-3 w-3" /> Add discount
             </button>
           )}
         </div>
@@ -1037,7 +1020,7 @@ export function SummerConfigEditor({
             </div>
             <div title="Hide from the public application form; admins can still pick it">
               {i === 0 && <span className="text-[11px] text-muted-foreground whitespace-nowrap">Admin only</span>}
-              <div className="flex items-center justify-center h-9">
+              <div className="flex items-center justify-center h-8">
                 <input
                   type="checkbox"
                   checked={!!g.admin_only}
@@ -1053,13 +1036,7 @@ export function SummerConfigEditor({
               </div>
             </div>
             {!isReadOnly && (
-              <button
-                type="button"
-                onClick={() => deleteWithUndo(grades, i, setGrades, "Grade")}
-                className="p-2 text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <IconButton icon={Trash2} label="Remove grade" tone="danger" onClick={() => deleteWithUndo(grades, i, setGrades, "Grade")} />
             )}
           </div>
           )}
@@ -1074,14 +1051,14 @@ export function SummerConfigEditor({
             }
             className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
-            <Plus className="h-3 w-3" /> Add Grade
+            <Plus className="h-3 w-3" /> Add grade
           </button>
         )}
       </Section>
 
       {/* Section 4b: Language Stream Options → Step 1 */}
-      <Section title="Language Stream Options" subtitle="Step 1" status={{ filled: langStreamOptions.length > 0, count: langStreamOptions.length > 0 ? `${langStreamOptions.length}` : undefined }} onOpen={() => setPreviewStep(1)}>
-        <Label>Language of Instruction</Label>
+      <Section title="Language stream options" subtitle="Step 1" status={{ filled: langStreamOptions.length > 0, count: langStreamOptions.length > 0 ? `${langStreamOptions.length}` : undefined }} onOpen={() => setPreviewStep(1)}>
+        <Label>Language of instruction</Label>
         <p className="text-[11px] text-muted-foreground mb-2">Options shown on the public form. Leave empty to hide the question.</p>
         <Reorder.Group axis="y" values={langStreamOptions.map(o => o._id)} onReorder={(newOrder) => setLangStreamOptions(reorderByIds(langStreamOptions, newOrder))} className="space-y-0">
         {langStreamOptions.map((o, i) => (
@@ -1129,13 +1106,7 @@ export function SummerConfigEditor({
               />
             </div>
             {!isReadOnly && (
-              <button
-                type="button"
-                onClick={() => deleteWithUndo(langStreamOptions, i, setLangStreamOptions, "Language Stream")}
-                className="p-2 text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <IconButton icon={Trash2} label="Remove language stream" tone="danger" onClick={() => deleteWithUndo(langStreamOptions, i, setLangStreamOptions, "Language Stream")} />
             )}
           </div>
           )}
@@ -1150,14 +1121,14 @@ export function SummerConfigEditor({
             }
             className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
-            <Plus className="h-3 w-3" /> Add Language Stream
+            <Plus className="h-3 w-3" /> Add language stream
           </button>
         )}
       </Section>
 
       {/* Section 5: Student Options → Step 2 */}
-      <Section title="Student Options" subtitle="Step 2" status={{ filled: existingStudentOptions.length > 0 || centerOptions.length > 0, count: (existingStudentOptions.length + centerOptions.length) > 0 ? `${existingStudentOptions.length + centerOptions.length}` : undefined }} onOpen={() => setPreviewStep(2)}>
-        <Label>Existing Student Options & Centers</Label>
+      <Section title="Student options" subtitle="Step 2" status={{ filled: existingStudentOptions.length > 0 || centerOptions.length > 0, count: (existingStudentOptions.length + centerOptions.length) > 0 ? `${existingStudentOptions.length + centerOptions.length}` : undefined }} onOpen={() => setPreviewStep(2)}>
+        <Label>Existing student options & centers</Label>
         <p className="text-[11px] text-muted-foreground mb-2">Each student type shows its associated centers below. Centers are matched by name prefix.</p>
         <Reorder.Group axis="y" values={existingStudentOptions.map(o => o._id)} onReorder={(newOrder) => {
           setExistingStudentOptions(reorderByIds(existingStudentOptions, newOrder));
@@ -1199,13 +1170,7 @@ export function SummerConfigEditor({
                     />
                   </div>
                   {!isReadOnly && (
-                    <button
-                      type="button"
-                      onClick={() => deleteWithUndo(existingStudentOptions, oi, setExistingStudentOptions, "Option")}
-                      className="p-2 text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <IconButton icon={Trash2} label="Remove option" tone="danger" onClick={() => deleteWithUndo(existingStudentOptions, oi, setExistingStudentOptions, "Option")} />
                   )}
                 </div>
                 {/* Nested centers */}
@@ -1263,13 +1228,7 @@ export function SummerConfigEditor({
                                 placeholder="Name (EN)"
                               />
                               {!isReadOnly && (
-                                <button
-                                  type="button"
-                                  onClick={() => deleteWithUndo(centerOptions, flatIdx, setCenterOptions, "Center")}
-                                  className="p-2 text-red-600 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <IconButton icon={Trash2} label="Remove center" tone="danger" onClick={() => deleteWithUndo(centerOptions, flatIdx, setCenterOptions, "Center")} />
                               )}
                             </div>
                             )}
@@ -1292,7 +1251,7 @@ export function SummerConfigEditor({
                           }}
                           className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
                         >
-                          <Plus className="h-3 w-3" /> Add Center
+                          <Plus className="h-3 w-3" /> Add center
                         </button>
                       )}
                     </div>
@@ -1311,13 +1270,13 @@ export function SummerConfigEditor({
             onClick={() => setExistingStudentOptions([...existingStudentOptions, { _id: genId("o"), name: "", name_en: "" }])}
             className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
-            <Plus className="h-3 w-3" /> Add Student Option
+            <Plus className="h-3 w-3" /> Add student option
           </button>
         )}
       </Section>
 
       {/* Section 6: Locations → Step 3 */}
-      <Section title="Locations & Time Slots" subtitle="Step 3" status={{ filled: locations.length > 0, count: locations.length > 0 ? `${locations.length}` : undefined }} forceOpen={errorSections.has("locations")} onOpen={() => setPreviewStep(3)}>
+      <Section title="Locations & time slots" subtitle="Step 3" status={{ filled: locations.length > 0, count: locations.length > 0 ? `${locations.length}` : undefined }} forceOpen={errorSections.has("locations")} onOpen={() => setPreviewStep(3)}>
         <Reorder.Group axis="y" values={locations.map(l => l._id)} onReorder={(newOrder) => {
           setLocations(reorderByIds(locations, newOrder));
         }} className="space-y-3">
@@ -1342,7 +1301,7 @@ export function SummerConfigEditor({
               {!isReadOnly && (
                 <div className="flex items-center gap-1 shrink-0">
                   <DragHandle controls={dragControls} />
-                  <button type="button" onClick={() => deleteWithUndo(locations, i, setLocations, "Location")} className="p-1 text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
+                  <IconButton icon={Trash2} size="sm" label="Remove location" tone="danger" onClick={() => deleteWithUndo(locations, i, setLocations, "Location")} />
                 </div>
               )}
             </div>
@@ -1360,7 +1319,8 @@ export function SummerConfigEditor({
                   }}
                   onBlur={() => validateLocationName(i)}
                   data-field={`locationName_${i}`}
-                  className={`${inputClass} ${validationErrors[`locationName_${i}`] ? "border-red-300 dark:border-red-700" : ""}`}
+                  className={inputClass}
+                  aria-invalid={validationErrors[`locationName_${i}`] ? true : undefined}
                   disabled={isReadOnly}
                 />
               </div>
@@ -1374,7 +1334,8 @@ export function SummerConfigEditor({
                     setLocations(next);
                   }}
                   onBlur={() => validateLocationName(i)}
-                  className={`${inputClass} ${validationErrors[`locationName_${i}`] ? "border-red-300 dark:border-red-700" : ""}`}
+                  className={inputClass}
+                  aria-invalid={validationErrors[`locationName_${i}`] ? true : undefined}
                   disabled={isReadOnly}
                 />
                 <ValidationHint message={validationErrors[`locationName_${i}`] ?? null} />
@@ -1421,7 +1382,7 @@ export function SummerConfigEditor({
                 <ImagePreview url={loc.image_url || ""} className="w-24 h-16" />
               </div>
               <div>
-                <Label>Open Days</Label>
+                <Label>Open days</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {ALL_DAYS.map((day) => {
                     const isOn = loc.open_days.includes(day);
@@ -1465,7 +1426,7 @@ export function SummerConfigEditor({
             {loc.open_days.length > 0 && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Time Slots per Day</Label>
+                  <Label>Time slots per day</Label>
                   {!isReadOnly && loc.open_days.length > 1 && (
                     <button
                       type="button"
@@ -1504,7 +1465,7 @@ export function SummerConfigEditor({
                               newTimeSlots[day] = newSlots;
                               next[i] = { ...loc, time_slots: newTimeSlots };
                               setLocations(next);
-                            }} className="hover:text-red-600"><X className="h-3 w-3" /></button>
+                            }} aria-label={`Remove ${slot}`} title={`Remove ${slot}`} className="hover:text-red-600"><X className="h-3 w-3" aria-hidden="true" /></button>
                           )}
                         </span>
                       ))}
@@ -1548,7 +1509,7 @@ export function SummerConfigEditor({
             }}
             className="text-xs text-accent-ink hover:text-accent-ink-hover flex items-center gap-1 mt-2"
           >
-            <Plus className="h-3 w-3" /> Add Location
+            <Plus className="h-3 w-3" /> Add location
           </button>
         )}
       </Section>
@@ -1603,7 +1564,8 @@ export function SummerConfigEditor({
                         value={pillar.zh}
                         onChange={(e) => updateIntroPillar(idx, "zh", e.target.value)}
                         placeholder="熟悉來年重點"
-                        className={`${inputClass} ${onlyOneSide && !pillar.zh.trim() ? "border-amber-300" : ""}`}
+                        className={inputClass}
+                        data-warn={onlyOneSide && !pillar.zh.trim() || undefined}
                         disabled={isReadOnly}
                       />
                       <input
@@ -1611,19 +1573,13 @@ export function SummerConfigEditor({
                         value={pillar.en}
                         onChange={(e) => updateIntroPillar(idx, "en", e.target.value)}
                         placeholder="Preview next year's key topics"
-                        className={`${inputClass} ${onlyOneSide && !pillar.en.trim() ? "border-amber-300" : ""}`}
+                        className={inputClass}
+                        data-warn={onlyOneSide && !pillar.en.trim() || undefined}
                         disabled={isReadOnly}
                       />
                     </div>
                     {!isReadOnly && (
-                      <button
-                        type="button"
-                        onClick={() => removeIntroPillar(idx)}
-                        className="p-2 text-muted-foreground hover:text-red-600"
-                        aria-label="Remove pillar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <IconButton icon={Trash2} label="Remove pillar" tone="danger" onClick={() => removeIntroPillar(idx)} />
                     )}
                   </div>
                 );
@@ -1653,7 +1609,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 7: Text Content */}
-      <Section title="Text Content (Bilingual)" subtitle="All steps" status={{ filled: Object.keys(textContent).length > 0 }} onOpen={() => setPreviewStep(1)}>
+      <Section title="Text content (bilingual)" subtitle="All steps" status={{ filled: Object.keys(textContent).length > 0 }} onOpen={() => setPreviewStep(1)}>
         <p className="text-xs text-muted-foreground mb-3">
           Bilingual text used in the application form. Edit pairs (ZH / EN) below. Empty fields fall back to hardcoded defaults.
         </p>
@@ -1731,10 +1687,10 @@ export function SummerConfigEditor({
           try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
           onCancel();
         }}
-        title="Unsaved Changes"
+        title="Unsaved changes"
         message="You have unsaved changes. Are you sure you want to leave?"
         confirmText="Discard"
-        cancelText="Keep Editing"
+        cancelText="Keep editing"
         variant="danger"
       />
     </div>
