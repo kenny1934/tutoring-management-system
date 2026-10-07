@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import {
   serializeBoard,
@@ -1335,13 +1336,7 @@ export default function GeometryEditorModal({
           <h3 id="geometry-editor-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {isEditing ? "Edit Diagram" : "Create Diagram"}
           </h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
+          <IconButton size="sm" icon={X} label="Close" onClick={onClose} />
         </div>
 
         {/* Scrollable middle section */}
@@ -1997,61 +1992,27 @@ export default function GeometryEditorModal({
               {objectCount} object{objectCount !== 1 ? "s" : ""}
             </span>
             <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => boardRef.current?.zoomIn()}
-                title="Zoom in"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <ZoomIn className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => boardRef.current?.zoomOut()}
-                title="Zoom out"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <ZoomOut className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={handleZoomReset}
-                title="Reset view"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </button>
+              <IconButton size="sm" icon={ZoomIn} label="Zoom in" onClick={() => boardRef.current?.zoomIn()} />
+              <IconButton size="sm" icon={ZoomOut} label="Zoom out" onClick={() => boardRef.current?.zoomOut()} />
+              <IconButton size="sm" icon={Maximize2} label="Reset view" onClick={handleZoomReset} />
             </div>
-            <button
-              onClick={handleExportPng}
-              disabled={objectCount === 0}
-              title="Export as PNG"
-              className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-30"
-            >
-              <Download className="h-3.5 w-3.5" />
+            <Button size="sm" variant="quiet" icon={Download} onClick={handleExportPng} disabled={objectCount === 0} title="Export as PNG" aria-label="Export as PNG">
               <span className="hidden sm:inline">PNG</span>
-            </button>
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
             {isEditing && (
-              <button
-                onClick={handleDelete}
-                className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              >
+              <Button variant="quiet" icon={Trash2} iconClassName="text-red-600 dark:text-red-400" onClick={handleDelete}>
                 Delete
-              </button>
+              </Button>
             )}
-            <button
-              onClick={onClose}
-              className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
+            <Button variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={handleInsert}
-              disabled={objectCount === 0}
-              className="px-4 py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+            </Button>
+            <Button variant="primary" onClick={handleInsert} disabled={objectCount === 0}>
               {isEditing ? "Update" : "Insert"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

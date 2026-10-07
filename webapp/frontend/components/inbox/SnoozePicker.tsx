@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Clock, Sun, Calendar } from "lucide-react";
+import { Button, Input } from "@/components/controls";
 
 function getDefaultCustomDateTime() {
   const d = new Date(Date.now() + 60_000);
@@ -86,36 +87,29 @@ export default function SnoozePicker({ onSnooze, onClose }: SnoozePickerProps) {
           </button>
         ) : (
           <div className="px-3 py-2 space-y-1.5">
-            <input
+            <Input
+              size="sm"
               type="date"
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
-              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Snooze until date"
             />
-            <input
+            <Input
+              size="sm"
               type="time"
               value={customTime}
               onChange={(e) => setCustomTime(e.target.value)}
               min={customDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-              className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Snooze until time"
             />
             <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => setShowCustom(false)}
-                className="flex-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-              >
+              <Button size="sm" variant="quiet" className="flex-1" onClick={() => setShowCustom(false)}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCustomSnooze}
-                disabled={!customDate}
-                className="flex-1 px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
-              >
+              </Button>
+              <Button size="sm" variant="primary" className="flex-1" onClick={handleCustomSnooze} disabled={!customDate}>
                 Set
-              </button>
+              </Button>
             </div>
           </div>
         )}

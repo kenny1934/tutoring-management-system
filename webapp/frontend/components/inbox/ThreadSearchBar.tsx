@@ -80,6 +80,7 @@ export default function ThreadSearchBar({
           }
         }}
         placeholder="Search messages..."
+        aria-label="Search this conversation"
         className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none"
       />
       {threadSearch && (
@@ -93,6 +94,7 @@ export default function ThreadSearchBar({
             onClick={() => { const prev = (clampedIdx - 1 + matchCount) % matchCount; setSearchMatchIdx(prev); scrollToMatch(prev); }}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             title="Previous match (Shift+Enter)"
+            aria-label="Previous match"
           >
             <ChevronUp className="h-3.5 w-3.5 text-gray-500" />
           </button>
@@ -100,6 +102,7 @@ export default function ThreadSearchBar({
             onClick={() => { const next = (clampedIdx + 1) % matchCount; setSearchMatchIdx(next); scrollToMatch(next); }}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             title="Next match (Enter)"
+            aria-label="Next match"
           >
             <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
           </button>
@@ -108,6 +111,8 @@ export default function ThreadSearchBar({
       <button
         onClick={onClose}
         className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+        title="Close search"
+        aria-label="Close search"
       >
         <X className="h-3.5 w-3.5 text-gray-500" />
       </button>

@@ -6,6 +6,7 @@ import { usePanelSwipe } from "@/lib/usePanelSwipe";
 import { useSwipeable } from "@/lib/useSwipeable";
 import { messagesAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@/components/controls";
 import { stripHtml, stripBlockquotes, renderMathInHtml } from "@/lib/html-utils";
 import { shatterElement } from "@/lib/shatter-animation";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
@@ -45,6 +46,7 @@ import {
   Mic,
   Reply,
   Image,
+  XCircle,
 } from "lucide-react";
 
 // Swipeable message wrapper — swipe right to quote (mobile only)
@@ -408,7 +410,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] z-[1] relative">
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
+          aria-label="Back to the inbox"
+          className="p-1 rounded hover:bg-tint lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -468,64 +471,43 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             )}
           </div>
         </div>
-        <button
+        <IconButton
+          icon={msg.is_read ? Circle : CircleDot}
+          label={msg.is_read ? "Mark as unread" : "Mark as read"}
+          iconClassName={cn(!msg.is_read && "text-blue-600 dark:text-blue-400")}
           onClick={() => msg.is_read ? onMarkUnread(msg.id) : onMarkRead(msg.id)}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-            msg.is_read
-              ? "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-              : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          )}
-          title={msg.is_read ? "Mark as unread" : "Mark as read"}
-        >
-          {msg.is_read ? <Circle className="h-4 w-4" /> : <CircleDot className="h-4 w-4" />}
-        </button>
-        <button
+        />
+        <IconButton
+          icon={Search}
+          label="Search in thread"
+          aria-pressed={showThreadSearch}
+          className={cn(showThreadSearch && "bg-tint text-accent-ink")}
           onClick={() => {
             if (showThreadSearch) setThreadSearch("");
             setShowThreadSearch(!showThreadSearch);
             if (!showThreadSearch) setShowMediaPanel(false);
           }}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-            showThreadSearch
-              ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
-              : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-          )}
-          title="Search in thread"
-        >
-          <Search className="h-4 w-4" />
-        </button>
-        <button
+        />
+        <IconButton
+          icon={Image}
+          label="Media & files"
+          aria-pressed={showMediaPanel}
+          className={cn(showMediaPanel && "bg-tint text-accent-ink")}
           onClick={() => {
             setShowMediaPanel(v => !v);
             setShowThreadSearch(false);
             setThreadSearch("");
           }}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-            showMediaPanel
-              ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
-              : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-          )}
-          title="Media & files"
-        >
-          <Image className="h-4 w-4" />
-        </button>
+        />
         {/* More actions dropdown */}
         {!readOnly && <div className="relative" ref={moreMenuRef}>
-          <button
+          <IconButton
+            icon={MoreVertical}
+            label="More actions"
+            aria-expanded={showMoreMenu}
+            className={cn(showMoreMenu && "bg-tint text-accent-ink")}
             onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-              showMoreMenu
-                ? "text-accent-ink bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-            )}
-            title="More actions"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </button>
+          />
           {showMoreMenu && (
             <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
               <button
@@ -615,21 +597,13 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             Scheduled for {formatScheduledAt(msg.scheduled_at)}
           </span>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEditingMessageId(msg.id)}
-              className="px-3 py-1 text-xs font-medium rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            >
+            <Button size="sm" variant="secondary" onClick={() => setEditingMessageId(msg.id)}>
               Edit
-            </button>
+            </Button>
             {onCancelScheduled && (
-              <button
-                type="button"
-                onClick={() => onCancelScheduled(msg.id)}
-                className="px-3 py-1 text-xs font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
-              >
+              <Button size="sm" variant="secondary" icon={XCircle} iconClassName="text-red-600 dark:text-red-400" onClick={() => onCancelScheduled(msg.id)}>
                 Cancel send
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -782,23 +756,21 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 <AlertCircle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
                 <span className="text-xs text-red-600 dark:text-red-400">Failed to send</span>
                 <div className="flex-1" />
-                <button
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  icon={RotateCcw}
+                  iconClassName="text-red-600 dark:text-red-400"
                   onClick={() => {
                     replyComposerRef.current?.restoreContent(optimisticMessage.text, [...optimisticMessage.images]);
                     setOptimisticMessage(null);
                   }}
-                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
                 >
-                  <RotateCcw className="h-3 w-3" />
                   Retry
-                </button>
-                <button
-                  onClick={() => setOptimisticMessage(null)}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                >
-                  <Trash2 className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="quiet" icon={Trash2} onClick={() => setOptimisticMessage(null)}>
                   Discard
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="flex items-center justify-end gap-1 mt-1">
@@ -821,6 +793,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               showScrollBottom ? "scale-100" : "scale-75"
             )}
             title="Scroll to bottom"
+            aria-label="Scroll to bottom"
           >
             <ChevronDown className="h-5 w-5" />
           </button>

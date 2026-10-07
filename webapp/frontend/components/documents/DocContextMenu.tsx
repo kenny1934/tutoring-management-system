@@ -84,6 +84,8 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
       <button
         ref={btnRef}
         onClick={(e) => { e.stopPropagation(); setMenuOpenId(isOpen ? null : doc.id); }}
+        aria-label={`Actions for ${doc.title}`}
+        aria-expanded={isOpen}
         className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity"
       >
         <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -106,7 +108,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           className={menuItemCls}
         >
           <Tag className="w-3.5 h-3.5" />
-          Edit Tags
+          Edit tags
         </button>
         {onSaveAsTemplate && (
           <button
@@ -114,7 +116,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
             className={menuItemCls}
           >
             <Stamp className="w-3.5 h-3.5" />
-            Save as Template
+            Save as template
           </button>
         )}
         {folders.length > 0 && (
@@ -126,7 +128,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           className={menuItemCls}
         >
           <ExternalLink className="w-3.5 h-3.5" />
-          Open in New Tab
+          Open in new tab
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}?print=student`, "_blank"); close(); }}
@@ -150,7 +152,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
               className={menuDangerCls}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Delete Permanently
+              Delete permanently
             </button>
           </>
         ) : (
@@ -159,7 +161,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
             className={menuItemCls}
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Move to Trash
+            Move to trash
           </button>
         )}
       </FloatingDropdown>

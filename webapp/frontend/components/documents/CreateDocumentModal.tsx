@@ -7,6 +7,7 @@ import { useFocusTrap } from "@/lib/hooks";
 import { documentsAPI } from "@/lib/document-api";
 import { formatTimeAgo } from "@/lib/formatters";
 import type { Document } from "@/types";
+import { Button } from "@/components/controls";
 
 export interface CreateDocumentModalProps {
   onClose: () => void;
@@ -43,7 +44,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
         style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Document</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New document</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Start with a blank page or pick a template:
         </p>
@@ -57,7 +58,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Blank Document</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Blank document</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
             </div>
           </button>
@@ -88,12 +89,9 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
             ))
           ) : null}
         </div>
-        <button
-          onClick={onClose}
-          className="w-full mt-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-        >
+        <Button variant="quiet" onClick={onClose} className="w-full mt-4">
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );

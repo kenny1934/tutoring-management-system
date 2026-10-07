@@ -9,6 +9,7 @@ import { examRevisionAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { Button, IconButton, Input } from "@/components/controls";
 import type { ExamRevisionSlot, EligibleStudent, PendingSessionInfo } from "@/types";
 import {
   X,
@@ -209,12 +210,7 @@ export function EnrollStudentModal({
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
+          <IconButton icon={X} label="Close" onClick={onClose} />
         </div>
 
         {/* Success/Error messages */}
@@ -238,14 +234,14 @@ export function EnrollStudentModal({
         {/* Search */}
         <div className="flex-shrink-0 px-6 py-3 border-b border-line bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
+            <Input
               type="text"
               placeholder="Search students..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search students"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+              className="pl-9"
             />
           </div>
         </div>
@@ -383,24 +379,14 @@ export function EnrollStudentModal({
 
                       {/* Enroll button */}
                       {selectedSession?.studentId === student.student_id && (
-                        <button
+                        <Button
+                          variant="primary"
                           onClick={() => handleConfirmEnroll(student, selectedSession.sessionId)}
-                          disabled={enrollingStudent === student.student_id}
-                          className={cn(
-                            "mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                            "bg-primary hover:bg-[#8a5f3e] text-white",
-                            "disabled:opacity-50 disabled:cursor-not-allowed"
-                          )}
+                          loading={enrollingStudent === student.student_id}
+                          className="mt-3 w-full"
                         >
-                          {enrollingStudent === student.student_id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Enrolling...
-                            </>
-                          ) : (
-                            "Enroll Student"
-                          )}
-                        </button>
+                          {enrollingStudent === student.student_id ? "Enrolling..." : "Enroll student"}
+                        </Button>
                       )}
                     </div>
                   )}

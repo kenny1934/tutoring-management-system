@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { X, FileText, Download, ExternalLink, Play, Image as ImageIcon, File, Link2, Copy, Radical, Triangle, Mic, CornerDownLeft } from "lucide-react";
 import katex from "katex";
 import { cn } from "@/lib/utils";
+import { IconButton, Select } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
 import ImageLightbox from "@/components/inbox/ImageLightbox";
 import GeometryViewerModal from "@/components/inbox/GeometryViewerModal";
@@ -302,14 +303,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Shared content</h3>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-full text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title="Close"
-          aria-label="Close media panel"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <IconButton size="sm" icon={X} label="Close media panel" title="Close" onClick={onClose} />
       </div>
 
       {/* Tabs */}
@@ -344,14 +338,15 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
       {/* Sender filter */}
       {senders.length > 1 && (
         <div className="px-3 py-2 border-b border-line/50">
-          <select
+          <Select
+            size="sm"
             value={selectedSender || ""}
             onChange={(e) => setSelectedSender(e.target.value || null)}
-            className="w-full text-xs px-2 py-1 border border-field rounded-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
+            aria-label="Sender"
           >
             <option value="">All senders</option>
             {senders.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
       )}
 

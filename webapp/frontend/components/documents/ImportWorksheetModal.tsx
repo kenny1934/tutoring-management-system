@@ -10,6 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { Modal } from "@/components/ui/modal";
 import { FolderTreeModal } from "@/components/ui/folder-tree-modal";
 import type { DocumentMetadata } from "@/types";
+import { Button, Field, Input, Label } from "@/components/controls";
 
 const FONT_LABELS: Record<string, string> = {
   "'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif": "思源黑體",
@@ -160,41 +161,32 @@ export default function ImportWorksheetModal({
   const modalTitle = (
     <span className="flex items-center gap-2">
       <ScanLine className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-      Import Worksheet
+      Import worksheet
     </span>
   );
 
   const footer = step === "options" && file ? (
     <div className="flex gap-3 w-full">
-      <button
+      <Button
         onClick={() => {
           if (preloadedPdf) { onClose(); } else { setStep("upload"); setFile(null); }
         }}
-        className="flex-1 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded-lg border border-gray-200 dark:border-gray-700/30"
+        className="flex-1"
       >
         {preloadedPdf ? "Cancel" : "Back"}
-      </button>
-      <button
-        onClick={handleImport}
-        className="flex-1 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm"
-      >
+      </Button>
+      <Button variant="primary" onClick={handleImport} className="flex-1">
         Import
-      </button>
+      </Button>
     </div>
   ) : step === "done" ? (
     <div className="flex flex-col gap-2 w-full">
-      <button
-        onClick={handleOpenEditor}
-        className="w-full py-2.5 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm"
-      >
-        Open in Editor
-      </button>
-      <button
-        onClick={onClose}
-        className="w-full py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-      >
+      <Button variant="primary" onClick={handleOpenEditor} className="w-full">
+        Open in editor
+      </Button>
+      <Button variant="quiet" onClick={onClose} className="w-full">
         Close
-      </button>
+      </Button>
     </div>
   ) : undefined;
 
@@ -291,16 +283,14 @@ export default function ImportWorksheetModal({
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-              <input
+            <Field label="Title" id="import-worksheet-title">
+              <Input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Document title"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
-            </div>
+            </Field>
 
             <label className="flex items-center gap-3 cursor-pointer" onClick={() => setRemoveHandwriting(v => !v)}>
               <div className={cn(
@@ -320,7 +310,7 @@ export default function ImportWorksheetModal({
 
             {/* Template selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Page layout template</label>
+              <Label>Page layout template</Label>
               <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-lg border border-line p-1.5">
                 {/* None option */}
                 <button

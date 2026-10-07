@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, Field, IconButton, Input, Select } from "@/components/controls";
 import { Plus, Trash2, AlertCircle, FolderSync, Info, FolderCheck, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, PathAliasDefinition } from "@/lib/api";
@@ -161,7 +161,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
           <p className="font-medium mb-1">Setting up shared drives:</p>
           <ol className="text-amber-700 dark:text-amber-300 list-decimal list-inside space-y-1">
             <li>Add a mapping below (e.g., &quot;Center&quot; → &quot;Z:&quot;)</li>
-            <li>Click &quot;Grant Access&quot; and select your drive folder</li>
+            <li>Click &quot;Grant access&quot; and select your drive folder</li>
             <li>The drive will now appear in file browser dialogs</li>
           </ol>
           <p className="text-amber-700/80 dark:text-amber-300/80 text-xs mt-2">
@@ -222,33 +222,35 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                   {/* Access status and button */}
                   <div className="flex items-center gap-2">
                     {hasAccess ? (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={FolderCheck}
+                        iconClassName="text-green-600 dark:text-green-400"
                         onClick={() => handleRevokeAccess(mapping.alias)}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                         title="Click to revoke browser access"
                       >
-                        <FolderCheck className="h-3.5 w-3.5" />
-                        <span>Access granted</span>
-                      </button>
+                        Access granted
+                      </Button>
                     ) : (
-                      <button
+                      <Button
+                        size="sm"
+                        icon={FolderPlus}
+                        iconClassName="text-amber-600 dark:text-amber-400"
                         onClick={() => handleGrantAccess(mapping.alias, mapping.drivePath)}
-                        disabled={isGranting}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50"
+                        loading={isGranting}
                         title={`Grant browser access to ${mapping.drivePath}`}
                       >
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        <span>{isGranting ? "Waiting..." : "Grant Access"}</span>
-                      </button>
+                        {isGranting ? "Waiting..." : "Grant access"}
+                      </Button>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleRemoveMapping(mapping.alias)}
-                    className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-foreground/40 hover:text-red-600 transition-colors"
+                  <IconButton
+                    icon={Trash2}
+                    tone="danger"
+                    label={`Remove the ${mapping.alias} mapping`}
                     title="Remove mapping"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    onClick={() => handleRemoveMapping(mapping.alias)}
+                  />
                 </div>
               );
             })}
@@ -263,20 +265,10 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
             Add New Mapping
           </h3>
           <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <label className="block text-xs text-foreground/60 mb-1">
-                Alias
-              </label>
-              <select
+            <Field label="Alias" id="path-mapping-alias" className="flex-1">
+              <Select
                 value={selectedAlias}
                 onChange={(e) => setSelectedAlias(e.target.value)}
-                className={cn(
-                  "w-full px-3 py-2 rounded-lg border",
-                  "bg-paper",
-                  "border-field",
-                  "text-foreground",
-                  "focus:outline-none focus:ring-2 focus:ring-amber-400"
-                )}
               >
                 <option value="">Select an alias...</option>
                 {unmappedAliases.map((alias) => (
@@ -285,34 +277,25 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                     {alias.description ? ` - ${alias.description}` : ""}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div className="w-24">
-              <label className="block text-xs text-foreground/60 mb-1">
-                Drive Letter
-              </label>
-              <input
+              </Select>
+            </Field>
+            <Field label="Drive letter" id="path-mapping-drive" className="w-24">
+              <Input
                 type="text"
                 value={drivePath}
                 onChange={(e) => setDrivePath(e.target.value.toUpperCase())}
                 placeholder="Z:"
                 maxLength={2}
-                className={cn(
-                  "w-full px-3 py-2 rounded-lg border font-mono",
-                  "bg-paper",
-                  "border-field",
-                  "text-foreground",
-                  "focus:outline-none focus:ring-2 focus:ring-amber-400",
-                  "uppercase"
-                )}
+                className="font-mono uppercase"
               />
-            </div>
+            </Field>
             <Button
+              variant="primary"
+              icon={Plus}
               onClick={handleAddMapping}
               disabled={!selectedAlias || !drivePath}
               className="shrink-0"
             >
-              <Plus className="h-4 w-4 mr-1" />
               Add
             </Button>
           </div>
@@ -338,7 +321,7 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
 
       {onClose && (
         <div className="pt-4 border-t border-line">
-          <Button variant="outline" onClick={onClose} className="w-full">
+          <Button onClick={onClose} className="w-full">
             Done
           </Button>
         </div>

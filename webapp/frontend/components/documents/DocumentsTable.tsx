@@ -212,6 +212,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     checked={selected}
                     onChange={() => onToggleSelect(doc.id)}
                     className="w-3.5 h-3.5 rounded border-line accent-primary"
+                    aria-label={`Select ${doc.title}`}
                   />
                 </td>
 
@@ -249,6 +250,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         onBlur={commitRename}
                         onKeyDown={(e) => { if (e.key === "Enter") { commitRename(); (e.target as HTMLInputElement).blur(); } if (e.key === "Escape") { setEditingId(null); (e.target as HTMLInputElement).blur(); } }}
                         onClick={(e) => e.stopPropagation()}
+                        aria-label="Document name"
                         className="text-[13px] font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a1a1a] border border-primary/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary/40 min-w-0 w-full"
                       />
                     ) : (

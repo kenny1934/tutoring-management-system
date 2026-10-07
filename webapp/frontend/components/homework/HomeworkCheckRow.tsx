@@ -15,6 +15,7 @@ import { useCheckViewer } from "./CheckViewerProvider";
 import { HOMEWORK_STATES } from "./homework-status";
 import { useHomeworkAttachments } from "./useHomeworkAttachments";
 import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
+import { Textarea } from "@/components/controls";
 
 interface HomeworkCheckRowProps {
   homework: HomeworkCompletion;
@@ -222,6 +223,8 @@ export function HomeworkCheckRow({
           onClick={() => setCommentOpen((open) => !open)}
           disabled={readOnly}
           title={state.tutor_comments || "Add a comment"}
+          aria-label={hasComment ? "Edit the comment" : "Add a comment"}
+          aria-expanded={commentOpen}
           className={cn(
             "p-1 rounded transition-colors",
             hasComment
@@ -242,7 +245,7 @@ export function HomeworkCheckRow({
       {(commentOpen || hasComment) && (
         <div className="mt-1">
           {commentOpen ? (
-            <textarea
+            <Textarea
               ref={commentRef}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -250,7 +253,8 @@ export function HomeworkCheckRow({
               rows={2}
               maxLength={1000}
               placeholder="How was it? Anything to follow up"
-              className="w-full text-xs rounded border border-field bg-white dark:bg-gray-800 px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+              aria-label="Homework comment"
+              className="min-h-0 px-2 py-1 text-xs resize-none"
             />
           ) : (
             <button

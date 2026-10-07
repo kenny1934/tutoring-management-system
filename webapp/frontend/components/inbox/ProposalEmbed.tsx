@@ -9,6 +9,7 @@ import { useProposal, useTutors } from "@/lib/hooks";
 import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { IconButton } from "@/components/controls";
 import { mutate } from "swr";
 import type { MakeupProposalSlot } from "@/types";
 import {
@@ -93,22 +94,23 @@ function SlotItem({
 
         {canAct && (
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button
+            <IconButton
+              size="sm"
+              icon={isLoading ? Loader2 : Check}
+              iconClassName={isLoading ? "animate-spin" : "text-green-700 dark:text-green-400"}
+              label="Approve"
               onClick={() => setShowApproveConfirm(true)}
               disabled={isLoading}
-              className="p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors"
-              title="Approve"
-            >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            </button>
-            <button
+            />
+            <IconButton
+              size="sm"
+              icon={X}
+              tone="danger"
+              iconClassName="text-red-600 dark:text-red-400"
+              label="Reject"
               onClick={() => setShowRejectConfirm(true)}
               disabled={isLoading}
-              className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
-              title="Reject"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            />
           </div>
         )}
 

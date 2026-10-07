@@ -5,12 +5,12 @@ import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
-import { TONES } from "@/lib/tones";
 import { formatDateCompact } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { Button, CountBadge } from "@/components/controls";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
@@ -165,21 +165,25 @@ function AwaitingTrialCard({
 
       {/* Action buttons */}
       <div className="flex gap-2 mt-2">
-        <button
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={Phone}
+          className="flex-1"
           onClick={() => onRecordContact(trial.student_id)}
-          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <Phone className="h-3 w-3" />
           Contact
-        </button>
+        </Button>
         {isAdmin && (
-          <button
+          <Button
+            size="sm"
+            variant="primary"
+            icon={ArrowRight}
+            className="flex-1"
             onClick={() => onConvert(trial)}
-            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors"
           >
-            <ArrowRight className="h-3 w-3" />
             Convert
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -321,11 +325,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
         >
           <FlaskConical className="h-4 w-4" />
           <span>Trials</span>
-          {totalCount > 0 && (
-            <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.neutral.solid)}>
-              {totalCount > 99 ? "99+" : totalCount}
-            </span>
-          )}
+          <CountBadge count={totalCount} tone="neutral" />
           <ChevronDown
             className={cn(
               "h-3.5 w-3.5 transition-transform",
@@ -479,7 +479,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
                         : "text-foreground/60 hover:text-foreground/80"
                     )}
                   >
-                    Trial Details
+                    Trial details
                   </button>
                   <button
                     onClick={() => setModalTabView('create')}

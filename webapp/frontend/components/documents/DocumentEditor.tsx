@@ -92,6 +92,7 @@ import {
   EllipsisVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input } from "@/components/controls";
 import { extractPlainText, extractHtml } from "@/lib/tiptap-text-extract";
 import { documentsAPI, versionsAPI } from "@/lib/document-api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -286,6 +287,7 @@ function VariantChildrenDropdown({ items }: { items: { id: number; title: string
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
         className="hover:underline font-medium text-accent-ink"
       >
         {items.length} variants
@@ -1332,13 +1334,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       {/* Top bar */}
       <div className="border-b border-line bg-white dark:bg-[#1a1a1a] print:hidden">
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 pt-2 pb-1">
-        <button
-          onClick={() => router.push("/documents")}
-          className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-          title="Back to documents"
-        >
-          <ArrowLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        </button>
+        <IconButton icon={ArrowLeft} label="Back to documents" onClick={() => router.push("/documents")} />
 
         <input
           type="text"
@@ -1347,7 +1343,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           onBlur={handleTitleBlur}
           readOnly={isReadOnly}
           className="flex-1 min-w-0 text-base sm:text-lg font-semibold bg-transparent text-gray-900 dark:text-white outline-none border-none"
-          placeholder="Untitled Document"
+          placeholder="Untitled document"
+          aria-label="Document title"
         />
 
         {/* Save indicator / lock status */}
@@ -1373,67 +1370,59 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           </button>
         )}
 
-        <button
+        <Button
+          icon={ListTree}
           onClick={() => { setQuestionPanelOpen(!questionPanelOpen); if (!questionPanelOpen) setVersionPanelOpen(false); }}
           aria-expanded={questionPanelOpen}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-            questionPanelOpen
-              ? "border-primary bg-primary/10 text-accent-ink dark:text-[#cd853f]"
-              : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-          )}
+          aria-label="Questions"
+          className={cn(questionPanelOpen && "bg-tint")}
           title="Extract & view questions"
         >
-          <ListTree className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Questions</span>
-        </button>
+        </Button>
 
         {/* History, Layout, Copy All — visible on md+, collapsed into overflow menu on smaller screens */}
-        <button
+        <Button
+          icon={History}
           onClick={() => { setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-line text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          className="hidden md:inline-flex"
           title="Version history"
+          aria-label="Version history"
         >
-          <History className="w-3.5 h-3.5" />
           <span className="hidden lg:inline">History</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
+          icon={FileSliders}
           onClick={() => !isReadOnly && setPageLayoutOpen(true)}
           disabled={isReadOnly}
-          className={cn(
-            "hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-line transition-colors",
-            isReadOnly ? "opacity-50 cursor-not-allowed text-gray-500 dark:text-gray-400" : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-          )}
+          className="hidden md:inline-flex"
           title="Page layout settings"
+          aria-label="Page layout settings"
         >
-          <FileSliders className="w-3.5 h-3.5" />
           <span className="hidden lg:inline">Layout</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
+          icon={allCopied ? Check : Copy}
+          iconClassName={allCopied ? "text-green-700 dark:text-green-400" : undefined}
           onClick={handleCopyAll}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-line text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          className="hidden md:inline-flex"
           title="Copy all content as plain text with LaTeX"
+          aria-label={allCopied ? "Copied" : "Copy all"}
         >
-          {allCopied ? <Check className="w-3.5 h-3.5 text-green-700" /> : <Copy className="w-3.5 h-3.5" />}
-          <span className="hidden lg:inline">{allCopied ? "Copied" : "Copy All"}</span>
-        </button>
+          <span className="hidden lg:inline">{allCopied ? "Copied" : "Copy all"}</span>
+        </Button>
 
         {/* Overflow menu — visible below md, contains History + Layout + Copy All */}
         <div className="relative md:hidden" ref={moreMenuRef}>
-          <button
+          <IconButton
+            icon={EllipsisVertical}
+            label="More actions"
+            aria-expanded={showMoreMenu}
             onClick={() => setShowMoreMenu(s => !s)}
-            className={cn(
-              "flex items-center p-1.5 rounded-lg text-sm font-medium border transition-colors",
-              showMoreMenu
-                ? "border-primary bg-primary/10 text-accent-ink"
-                : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-            )}
-            title="More actions"
-          >
-            <EllipsisVertical className="w-3.5 h-3.5" />
-          </button>
+            className={cn("border border-line-strong", showMoreMenu && "bg-tint")}
+          />
           {showMoreMenu && (
             <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
               <button
@@ -1459,7 +1448,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
               >
                 {allCopied ? <Check className="w-3.5 h-3.5 text-green-700" /> : <Copy className="w-3.5 h-3.5" />}
-                {allCopied ? "Copied!" : "Copy All"}
+                {allCopied ? "Copied!" : "Copy all"}
               </button>
             </div>
           )}
@@ -1467,20 +1456,26 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
         <div className="relative" ref={printMenuRef}>
           <div className="flex items-center">
-            <button
+            {/* A split button: the face prints the questions, the chevron offers the answers too. */}
+            <Button
+              variant="primary"
+              icon={Printer}
               onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+              className="rounded-r-none"
               title="Print (questions only — no answers)"
+              aria-label="Print questions only"
             >
-              <Printer className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Print</span>
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => setShowPrintMenu(s => !s)}
-              className="flex items-center self-stretch px-1.5 rounded-r-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover border-l border-primary-foreground/20 transition-colors"
+              className="rounded-l-none border-l border-white/20 px-1.5"
+              aria-label="More print options"
+              aria-expanded={showPrintMenu}
             >
-              <ChevronDown className="w-3 h-3" />
-            </button>
+              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+            </Button>
           </div>
           {showPrintMenu && (
             <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg p-1 min-w-[10rem]">
@@ -1488,13 +1483,13 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
               >
-                Questions Only
+                Questions only
               </button>
               <button
                 onClick={() => { setShowPrintMenu(false); handlePrint(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
               >
-                With Answers
+                With answers
               </button>
             </div>
           )}
@@ -1549,6 +1544,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 <button
                   className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   title="Copy source path"
+                  aria-label="Copy source path"
                   onClick={() => { navigator.clipboard.writeText(doc.source_filename!); setSourceCopied(true); setTimeout(() => setSourceCopied(false), 1500); }}
                 >
                   {sourceCopied ? <Check className="w-2.5 h-2.5 text-green-700" /> : <Copy className="w-2.5 h-2.5" />}
@@ -2159,6 +2155,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
               ref={findInputRef}
               type="text"
               placeholder="Find..."
+              aria-label="Find in document"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); editor.commands.setSearchTerm(e.target.value); }}
               onKeyDown={(e) => {
@@ -2172,10 +2169,10 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 ? `${editor.storage.searchAndReplace.resultIndex + 1}/${editor.storage.searchAndReplace.results}`
                 : searchTerm ? "0/0" : ""}
             </span>
-            <button onClick={() => editor.commands.goToPreviousResult()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Previous (Shift+Enter)">
+            <button onClick={() => editor.commands.goToPreviousResult()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Previous (Shift+Enter)" aria-label="Previous match">
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => editor.commands.goToNextResult()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Next (Enter)">
+            <button onClick={() => editor.commands.goToNextResult()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Next (Enter)" aria-label="Next match">
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2183,6 +2180,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             onClick={() => setShowReplace(s => !s)}
             className={cn("p-1 rounded transition-colors", showReplace ? "text-accent-ink" : "text-gray-500 hover:text-gray-600")}
             title="Toggle replace"
+            aria-label="Toggle replace"
+            aria-pressed={showReplace}
           >
             <Replace className="w-3.5 h-3.5" />
           </button>
@@ -2191,6 +2190,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
               <input
                 type="text"
                 placeholder="Replace..."
+                aria-label="Replace with"
                 value={replaceTerm}
                 onChange={(e) => { setReplaceTerm(e.target.value); editor.commands.setReplaceTerm(e.target.value); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); editor.commands.replaceCurrent(); } }}
@@ -2208,6 +2208,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             onClick={() => { setShowFindReplace(false); setSearchTerm(""); setReplaceTerm(""); editor.commands.clearSearch(); }}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
             title="Close (Escape)"
+            aria-label="Close find and replace"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -2219,12 +2220,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-900/50 border-b border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm print:hidden">
           <Archive className="w-4 h-4 shrink-0" />
           <span>This document is archived and read-only.</span>
-          <button
-            onClick={handleRestore}
-            className="ml-auto px-2 py-0.5 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          >
+          <Button size="sm" onClick={handleRestore} className="ml-auto">
             Restore
-          </button>
+          </Button>
         </div>
       )}
       {/* Lock banner */}
@@ -2233,12 +2231,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           <Lock className="w-4 h-4 shrink-0" />
           <span>This document is being edited by <strong>{lockedByOther}</strong>. You&apos;re viewing in read-only mode.</span>
           {isAdmin && (
-            <button
-              onClick={handleForceUnlock}
-              className="ml-auto px-2 py-0.5 text-xs font-medium rounded bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors"
-            >
+            <Button size="sm" onClick={handleForceUnlock} className="ml-auto">
               Take over
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -2250,18 +2245,12 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             Comparing: v{previewVersionNumber} vs Current
           </span>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleVersionRestore(previewVersionId)}
-              className="px-3 py-1 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors"
-            >
+            <Button size="sm" icon={History} iconClassName="text-green-700 dark:text-green-400" onClick={() => handleVersionRestore(previewVersionId)}>
               Restore v{previewVersionNumber}
-            </button>
-            <button
-              onClick={exitVersionPreview}
-              className="px-3 py-1 text-xs font-medium rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-            >
+            </Button>
+            <Button size="sm" variant="quiet" onClick={exitVersionPreview}>
               Exit
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -2560,14 +2549,12 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Keyboard Shortcuts</h2>
-              <button onClick={() => setShowShortcutsModal(false)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                <X className="w-4 h-4" />
-              </button>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Keyboard shortcuts</h2>
+              <IconButton icon={X} size="sm" label="Close shortcuts" onClick={() => setShowShortcutsModal(false)} />
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
               {([
-                ["Text Formatting", [
+                ["Text formatting", [
                   ["Ctrl+B", "Bold"],
                   ["Ctrl+I", "Italic"],
                   ["Ctrl+U", "Underline"],
@@ -2586,7 +2573,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   ["Ctrl+Z", "Undo"],
                   ["Ctrl+Shift+Z", "Redo"],
                   ["Ctrl+S", "Save"],
-                  ["Ctrl+F", "Find & Replace"],
+                  ["Ctrl+F", "Find & replace"],
                   ["Ctrl+A", "Select all"],
                 ]],
                 ["Insert", [
@@ -3072,7 +3059,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
           <span key={tag} className={cn("inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", getTagColorEditor(tag))}>
             {tag}
             {!isReadOnly && (
-              <button onClick={() => removeTag(tag)} className="hover:opacity-70">
+              <button onClick={() => removeTag(tag)} aria-label={`Remove the ${tag} tag`} className="hover:opacity-70">
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -3083,6 +3070,8 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
             onClick={() => { setDropdownOpen(!dropdownOpen); setTimeout(() => inputRef.current?.focus(), 50); }}
             className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
             title="Add tag"
+            aria-label="Add tag"
+            aria-expanded={dropdownOpen}
           >
             <Plus className="w-3 h-3" />
             {tags.length === 0 && <span>Add tags</span>}
@@ -3098,11 +3087,13 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
         <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-line rounded-lg shadow-lg" style={{ width: "16rem" }}>
           <div className="p-2">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
-              <input
+              <Search className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 w-3 h-3 text-gray-500" aria-hidden="true" />
+              <Input
                 ref={inputRef}
+                size="sm"
                 type="text"
                 placeholder="Search or create tag..."
+                aria-label="Search or create a tag"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
@@ -3115,7 +3106,7 @@ function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate
                     setSearch("");
                   }
                 }}
-                className="w-full pl-6 pr-2 py-1.5 rounded border border-field bg-white dark:bg-[#1a1a1a] text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="pl-6"
               />
             </div>
           </div>

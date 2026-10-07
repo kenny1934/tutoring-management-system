@@ -171,6 +171,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
         </a>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
         >
           <X className="h-5 w-5" />
@@ -181,6 +182,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
       {!isZoomed && hasPrev && (
         <button
           onClick={goPrev}
+          aria-label="Previous image"
           className="absolute left-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
         >
           <ChevronLeft className="h-6 w-6" />
@@ -189,6 +191,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onChangeI
       {!isZoomed && hasNext && (
         <button
           onClick={goNext}
+          aria-label="Next image"
           className="absolute right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
         >
           <ChevronRight className="h-6 w-6" />

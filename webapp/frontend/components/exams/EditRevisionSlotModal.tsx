@@ -11,7 +11,6 @@ import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constan
 import type { ExamRevisionSlot } from "@/types";
 import {
   X,
-  Loader2,
   Calendar,
   Clock,
   MapPin,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { worksAt } from "@/lib/employment";
 import { TutorOptions } from "@/components/selectors/TutorOptions";
+import { Button, IconButton, Label, Input, Select, Textarea } from "@/components/controls";
 
 interface EditRevisionSlotModalProps {
   slot: ExamRevisionSlot;
@@ -205,12 +205,7 @@ export function EditRevisionSlotModal({
               {new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} • {slot.time_slot}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
+          <IconButton icon={X} label="Close" onClick={onClose} />
         </div>
 
         {/* Form */}
@@ -236,21 +231,17 @@ export function EditRevisionSlotModal({
 
           {/* Date */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <Calendar className="h-4 w-4" />
-              Session Date
-            </label>
-            <input
+            <Label htmlFor="edit-slot-date" className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+              Session date
+            </Label>
+            <Input
+              id="edit-slot-date"
               type="date"
               value={sessionDate}
               onChange={(e) => setSessionDate(e.target.value)}
               min={toDateString(new Date())}
               disabled={hasEnrolledStudents}
-              aria-label="Session date"
-              className={cn(
-                "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
-                hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
-              )}
               required
               aria-required="true"
             />
@@ -259,10 +250,10 @@ export function EditRevisionSlotModal({
           {/* Time Slot */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <Clock className="h-4 w-4" />
-                Time Slot
-              </label>
+              <Label htmlFor={useCustomTime && !hasEnrolledStudents ? "edit-slot-start" : "edit-slot-time"} className="mb-0 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                Time slot
+              </Label>
               {!hasEnrolledStudents && (
                 <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                   <input
@@ -280,46 +271,41 @@ export function EditRevisionSlotModal({
             {useCustomTime && !hasEnrolledStudents ? (
               <div>
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
+                    id="edit-slot-start"
                     type="time"
                     value={customStartTime}
                     onChange={(e) => setCustomStartTime(e.target.value)}
                     aria-label="Start time"
-                    className={cn(
-                      "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
-                      !isTimeValid ? "border-red-500" : "border-field"
-                    )}
+                    aria-describedby={!isTimeValid ? "edit-slot-time-error" : undefined}
+                    aria-invalid={!isTimeValid ? "true" : undefined}
+                    className="flex-1"
                     required
                     aria-required="true"
                   />
-                  <span className="text-gray-500">–</span>
-                  <input
+                  <span className="text-gray-500" aria-hidden="true">–</span>
+                  <Input
                     type="time"
                     value={customEndTime}
                     onChange={(e) => setCustomEndTime(e.target.value)}
                     aria-label="End time"
-                    className={cn(
-                      "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
-                      !isTimeValid ? "border-red-500" : "border-field"
-                    )}
+                    aria-describedby={!isTimeValid ? "edit-slot-time-error" : undefined}
+                    aria-invalid={!isTimeValid ? "true" : undefined}
+                    className="flex-1"
                     required
                     aria-required="true"
                   />
                 </div>
                 {!isTimeValid && (
-                  <p className="mt-1 text-xs text-red-600">End time must be after start time</p>
+                  <p id="edit-slot-time-error" className="mt-1 text-xs text-red-700 dark:text-red-400" role="alert">End time must be after start time</p>
                 )}
               </div>
             ) : (
-              <select
+              <Select
+                id="edit-slot-time"
                 value={hasEnrolledStudents ? slot.time_slot : selectedPresetSlot}
                 onChange={(e) => setSelectedPresetSlot(e.target.value)}
                 disabled={hasEnrolledStudents}
-                aria-label="Time slot"
-                className={cn(
-                  "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
-                  hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
-                )}
                 required
                 aria-required="true"
               >
@@ -333,21 +319,20 @@ export function EditRevisionSlotModal({
                     {slot.time_slot} (current)
                   </option>
                 )}
-              </select>
+              </Select>
             )}
           </div>
 
           {/* Tutor */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <User className="h-4 w-4" />
+            <Label htmlFor="edit-slot-tutor" className="flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" aria-hidden="true" />
               Tutor
-            </label>
-            <select
+            </Label>
+            <Select
+              id="edit-slot-tutor"
               value={tutorId}
               onChange={(e) => setTutorId(parseInt(e.target.value))}
-              aria-label="Tutor"
-              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
               aria-required="true"
             >
@@ -361,24 +346,20 @@ export function EditRevisionSlotModal({
                   {slot.tutor_name} (current)
                 </option>
               )}
-            </select>
+            </Select>
           </div>
 
           {/* Location */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <MapPin className="h-4 w-4" />
+            <Label htmlFor="edit-slot-location" className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
               Location
-            </label>
-            <select
+            </Label>
+            <Select
+              id="edit-slot-location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               disabled={hasEnrolledStudents || isLocationLocked}
-              aria-label="Location"
-              className={cn(
-                "w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a]",
-                (hasEnrolledStudents || isLocationLocked) && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
-              )}
               required
               aria-required="true"
             >
@@ -389,7 +370,7 @@ export function EditRevisionSlotModal({
                     {loc}
                   </option>
                 ))}
-            </select>
+            </Select>
             {hasEnrolledStudents && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Remove enrollments to change location
@@ -399,48 +380,34 @@ export function EditRevisionSlotModal({
 
           {/* Notes */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <FileText className="h-4 w-4" />
-              Notes (optional)
-            </label>
-            <textarea
+            <Label htmlFor="edit-slot-notes" className="flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              Notes <span className="normal-case font-normal">(optional)</span>
+            </Label>
+            <Textarea
+              id="edit-slot-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any additional notes about this revision slot..."
-              aria-label="Notes"
-              className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
+              className="resize-none"
             />
           </div>
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-            >
+            <Button variant="quiet" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={readOnly || isSubmitting || !isTimeValid}
+              variant="primary"
+              loading={isSubmitting}
+              disabled={readOnly || !isTimeValid}
               title={readOnly ? "Read-only access" : undefined}
-              className={cn(
-                "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                "bg-primary hover:bg-[#8a5f3e] text-white",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </button>
+              {isSubmitting ? "Saving..." : "Save changes"}
+            </Button>
           </div>
         </form>
       </div>

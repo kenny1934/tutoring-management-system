@@ -10,6 +10,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { Button, IconButton } from "@/components/controls";
 import type { ExamRevisionSlot, EnrolledStudentInfo } from "@/types";
 import {
   Calendar,
@@ -159,58 +160,42 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          <button
+          <Button
+            size="sm"
+            icon={UserPlus}
+            iconClassName="text-green-600 dark:text-green-400"
             onClick={onEnroll}
             disabled={readOnly}
             title={readOnly ? "Read-only access" : undefined}
-            className={cn(
-              "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors",
-              "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400",
-              "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
           >
-            <UserPlus className="h-3 w-3" />
             Enroll
-          </button>
-          <button
+          </Button>
+          <IconButton
+            icon={Pencil}
+            size="sm"
+            label="Edit slot"
             onClick={onEdit}
             disabled={readOnly}
-            className={cn(
-              "p-1.5 rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
             title={readOnly ? "Read-only access" : "Edit slot"}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <button
+          />
+          <IconButton
+            icon={Copy}
+            size="sm"
+            label="Duplicate slot"
             onClick={onDuplicate}
             disabled={readOnly}
-            className={cn(
-              "p-1.5 rounded-md text-gray-500 hover:text-purple-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
             title={readOnly ? "Read-only access" : "Duplicate slot"}
-          >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-          <button
+          />
+          <IconButton
+            icon={isDeleting ? Loader2 : Trash2}
+            iconClassName={isDeleting ? "animate-spin" : undefined}
+            size="sm"
+            tone="danger"
+            label="Delete slot"
             onClick={handleDeleteClick}
             disabled={readOnly || isDeleting}
-            className={cn(
-              "p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
             title={readOnly ? "Read-only access" : slot.enrolled_count > 0 ? "Delete (will unenroll students)" : "Delete slot"}
-          >
-            {isDeleting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-          </button>
+          />
         </div>
       </div>
 
@@ -264,6 +249,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                       disabled={readOnly || isRemovingId === student.session_id}
                       className="p-1 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title={readOnly ? "Read-only access" : "Remove enrollment"}
+                      aria-label={`Remove ${student.student_name} from this slot`}
                     >
                       {isRemovingId === student.session_id ? (
                         <Loader2 className="h-3 w-3 animate-spin" />

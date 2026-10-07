@@ -6,6 +6,7 @@ import { ExternalLink, Loader2, Plus, X } from "lucide-react";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { openFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { Button, IconButton } from "@/components/controls";
 import { useDialogFocus } from "./CurriculumModalShell";
 
 interface CurriculumPdfPreviewProps {
@@ -92,34 +93,25 @@ export function CurriculumPdfPreview({
             {fileLabel}
           </span>
           {onAdd && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Plus}
               onClick={() => {
                 onAdd();
                 onClose();
               }}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-white bg-teal-600 hover:bg-teal-700 transition-colors shrink-0"
             >
-              <Plus className="h-3 w-3" />
               Add to session
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            title="Open in a new tab"
+          <IconButton
+            icon={ExternalLink}
+            size="sm"
+            label="Open in a new tab"
             onClick={() => openFileFromPathWithFallback(filePath, searchPaperlessByPath)}
-            className="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 shrink-0"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label="Close preview"
-            onClick={onClose}
-            className="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          />
+          <IconButton icon={X} size="sm" label="Close preview" onClick={onClose} />
         </div>
 
         <div className="flex-1 min-h-0 bg-gray-100 dark:bg-gray-900">

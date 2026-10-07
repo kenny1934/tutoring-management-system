@@ -8,6 +8,7 @@ import { Map as MapIcon, FileText, Loader2, TriangleAlert, X } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { scrollAppToTop } from "@/lib/scroll";
 import { PageSurface } from "@/components/layout/PageSurface";
+import { Input, Select, Segmented } from "@/components/controls";
 import { PageTransition } from "@/lib/design-system";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
@@ -36,9 +37,6 @@ import { CurriculumExamStrip } from "@/components/curriculum/CurriculumExamStrip
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import type { CurriculumGradeCheckStudent, CurriculumPacingBand } from "@/types";
-
-const selectClass =
-  "text-xs px-2 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
 
 // Width of the topic-label column inside the horizontally scrollable charts.
 const LABEL_W = "11rem";
@@ -831,38 +829,27 @@ export default function CurriculumPage() {
               </h1>
             </div>
 
-            <div
-              className="flex rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] overflow-hidden"
-              role="group"
-              aria-label="View"
-            >
-              {(["timeline", "atlas"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={view === v}
-                  onClick={() => {
-                    setView(v);
-                    // The views differ in height: keeping the old scroll
-                    // position strands the user mid-page.
-                    scrollAppToTop();
-                  }}
-                  className={cn(
-                    "text-xs px-3 py-1.5 font-medium transition-colors",
-                    view === v
-                      ? "bg-teal-600 dark:bg-teal-500 text-white"
-                      : "text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400"
-                  )}
-                >
-                  {v === "timeline" ? "Timeline" : "Atlas"}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="View"
+              value={view}
+              onChange={(v) => {
+                setView(v);
+                // The views differ in height: keeping the old scroll
+                // position strands the user mid-page.
+                scrollAppToTop();
+              }}
+              options={[
+                { value: "timeline", label: "Timeline" },
+                { value: "atlas", label: "Atlas" },
+              ]}
+            />
 
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-            <select
-              className={selectClass}
+            <Select
+              size="sm"
+              className="w-auto"
+              aria-label="School"
               value={school || ""}
               onChange={(e) => changeSchool(e.target.value || null)}
             >
@@ -872,10 +859,12 @@ export default function CurriculumPage() {
                   {s}
                 </option>
               ))}
-            </select>
+            </Select>
             {school && (
-              <select
-                className={selectClass}
+              <Select
+                size="sm"
+                className="w-auto"
+                aria-label="Grade"
                 value={effectiveGrade || ""}
                 onChange={(e) => {
                   setGrade(e.target.value);
@@ -889,7 +878,7 @@ export default function CurriculumPage() {
                     {g}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
             {school && effectiveStream && (
               <span className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-gray-500 dark:text-gray-400">
@@ -897,8 +886,10 @@ export default function CurriculumPage() {
               </span>
             )}
             {view === "timeline" && timeline && timeline.years_available.length > 0 && (
-              <select
-                className={selectClass}
+              <Select
+                size="sm"
+                className="w-auto"
+                aria-label="School year"
                 value={displayYear || ""}
                 onChange={(e) => {
                   setYear(e.target.value);
@@ -911,7 +902,7 @@ export default function CurriculumPage() {
                     {y}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
             {(coverageLoading || timelineLoading) && (
               <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
@@ -979,8 +970,8 @@ export default function CurriculumPage() {
                 {/* The same picker as the toolbar, in the reader's line of
                     sight — "above" pointed at a small control in a busy row. */}
                 <div className="mt-3 flex justify-center">
-                  <select
-                    className={cn(selectClass, "text-sm px-3 py-2")}
+                  <Select
+                    className="w-auto"
                     value=""
                     aria-label="Pick a school"
                     onChange={(e) => e.target.value && changeSchool(e.target.value)}
@@ -991,7 +982,7 @@ export default function CurriculumPage() {
                         {s}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                   Built from assignments, prep folders, curriculum sheets and tutor
@@ -1065,9 +1056,10 @@ export default function CurriculumPage() {
               </span>
               <span className="text-[11px] text-gray-500">Click a row for detail</span>
               <div className="ml-auto flex items-center gap-1.5">
-                <input
-                  type="text"
+                <Input
+                  size="sm"
                   aria-label="Go to week"
+                  aria-invalid={weekQueryInvalid || undefined}
                   value={weekQuery}
                   onChange={(e) => {
                     setWeekQuery(e.target.value);
@@ -1077,12 +1069,7 @@ export default function CurriculumPage() {
                     if (e.key === "Enter") handleWeekQuerySubmit();
                   }}
                   placeholder="Week 30 or 18 Mar"
-                  className={cn(
-                    "w-32 text-[11px] px-2 py-1 rounded-lg border bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500",
-                    weekQueryInvalid
-                      ? "border-rose-300 dark:border-rose-700"
-                      : "border-field"
-                  )}
+                  className="w-32"
                   title="Type a week number or a date and press Enter"
                 />
                 {weekQueryInvalid && (
@@ -1314,8 +1301,10 @@ export default function CurriculumPage() {
                   </span>
                 ))}
                 {compares.length < 2 && compareOptions.length > 0 && (
-                  <select
-                    className="text-[11px] px-1.5 py-1 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  <Select
+                    size="sm"
+                    className="w-auto"
+                    aria-label="Compare with another school"
                     value=""
                     onChange={(e) => {
                       if (!e.target.value) return;
@@ -1337,7 +1326,7 @@ export default function CurriculumPage() {
                         {comboLabel(c)}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 )}
               </div>
             </div>

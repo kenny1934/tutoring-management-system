@@ -6,6 +6,7 @@ import { Search, X, ChevronDown, ArchiveRestore, LayoutGrid, Table2, PanelRight,
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
 import type { DocumentFolder } from "@/types";
+import { Button, IconButton, Input, Segmented } from "@/components/controls";
 
 const SORT_OPTIONS = [
   { label: "Last modified", sort_by: "updated_at", sort_order: "desc" },
@@ -79,12 +80,13 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       <div className="flex items-center px-4 py-1.5 border-b border-line/40">
         {/* Mobile: Folder drawer trigger */}
         {!isTemplatesTab && !isTrashTab && (
-          <button
+          <IconButton
+            icon={FolderOpen}
+            size="sm"
+            label="Folders"
             onClick={onOpenMobileDrawer}
-            className="lg:hidden p-1.5 mr-1 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <FolderOpen className="w-4 h-4" />
-          </button>
+            className="lg:hidden mr-1"
+          />
         )}
 
         <div className="flex items-center gap-0.5">
@@ -109,29 +111,17 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         {!isReadOnly && (
           <div className="flex items-center gap-1.5">
             {isTemplatesTab ? (
-              <button
-                onClick={onCreateTemplate}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
+              <Button variant="primary" size="sm" icon={Plus} onClick={onCreateTemplate} aria-label="New template">
                 <span className="hidden sm:inline">Template</span>
-              </button>
+              </Button>
             ) : (
               <>
-                <button
-                  onClick={onImportWorksheet}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <ScanLine className="w-3.5 h-3.5" />
+                <Button variant="quiet" size="sm" icon={ScanLine} onClick={onImportWorksheet} aria-label="Import worksheet">
                   <span className="hidden sm:inline">Import</span>
-                </button>
-                <button
-                  onClick={onCreateDocument}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-md bg-primary text-white hover:bg-[#8b5e3c] transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="primary" size="sm" icon={Plus} onClick={onCreateDocument} aria-label="New document">
                   <span className="hidden sm:inline">New</span>
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -141,16 +131,18 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       {/* Row 2: Search + filters + view controls */}
       <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
         <div className="relative flex-1 min-w-0 sm:max-w-[14rem]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-          <input
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
+          <Input
+            size="sm"
             type="text"
             placeholder="Search by title or tag..."
+            aria-label="Search documents"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1 rounded-md border border-field bg-[#fef9f3] dark:bg-[#1a1a1a]/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-colors"
+            className="pl-8 pr-7"
           />
           {search && (
-            <button onClick={() => onSearchChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+            <button onClick={() => onSearchChange("")} aria-label="Clear search" className="absolute right-2 top-1/2 z-10 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
               <X className="w-3 h-3 text-gray-500" />
             </button>
           )}
@@ -158,14 +150,16 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
         {/* Sort */}
         <div ref={sortRef} className="relative">
-          <button
+          <Button
+            variant="quiet"
+            size="sm"
             onClick={() => setShowSortMenu(!showSortMenu)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-[12px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus-warm"
             title="Sort" aria-label="Sort documents"
+            aria-expanded={showSortMenu}
           >
             <span className="hidden sm:inline">{SORT_OPTIONS[sortIdx].label}</span>
-            <ChevronDown className={cn("w-3 h-3 transition-transform", showSortMenu && "rotate-180")} />
-          </button>
+            <ChevronDown className={cn("w-3.5 h-3.5 text-ink-subtle transition-transform", showSortMenu && "rotate-180")} aria-hidden="true" />
+          </Button>
           {showSortMenu && (
             <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[10rem] animate-scale-in">
               {SORT_OPTIONS.map((opt, i) => (
@@ -185,36 +179,26 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         </div>
 
         {/* View toggle (hidden on small screens — card view is forced) */}
-        <div className="hidden sm:flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
-          <button
-            onClick={() => onViewModeChange("table")}
-            className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-accent-ink dark:text-[#cd853f]" : "text-gray-500 hover:text-gray-600")}
-            title="Table view" aria-label="Table view"
-          >
-            <Table2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onViewModeChange("grid")}
-            className={cn("p-1 rounded transition-all", viewMode === "grid" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-accent-ink dark:text-[#cd853f]" : "text-gray-500 hover:text-gray-600")}
-            title="Grid view" aria-label="Grid view"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <Segmented
+          label="View"
+          className="hidden sm:inline-flex"
+          value={viewMode}
+          onChange={onViewModeChange}
+          options={[
+            { value: "table", icon: Table2, title: "Table view", label: <span className="sr-only">Table view</span> },
+            { value: "grid", icon: LayoutGrid, title: "Grid view", label: <span className="sr-only">Grid view</span> },
+          ]}
+        />
 
         {/* Preview toggle (desktop) */}
-        <button
+        <IconButton
+          icon={PanelRight}
+          size="sm"
+          label="Preview pane"
+          aria-pressed={previewEnabled}
           onClick={() => onTogglePreview()}
-          className={cn(
-            "hidden lg:flex p-1.5 rounded-md transition-colors focus-warm",
-            previewEnabled
-              ? "bg-primary/10 text-accent-ink dark:text-[#cd853f]"
-              : "text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-          )}
-          title="Preview pane" aria-label="Toggle preview pane"
-        >
-          <PanelRight className="w-3.5 h-3.5" />
-        </button>
+          className={cn("hidden lg:inline-flex", previewEnabled && "bg-tint text-accent-ink")}
+        />
       </div>
 
       {/* Row 3 (conditional): Active filters or bulk actions */}
@@ -226,30 +210,30 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
               {isTrashTab ? (
                 <>
-                  <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-accent-ink hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                    <ArchiveRestore className="w-3 h-3" /> Restore
-                  </button>
-                  <button onClick={onBulkDelete} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Trash2 className="w-3 h-3" /> Delete Forever
-                  </button>
+                  <Button variant="quiet" size="sm" icon={ArchiveRestore} onClick={onBulkArchive}>
+                    Restore
+                  </Button>
+                  <Button variant="quiet" size="sm" icon={Trash2} iconClassName="text-red-600 dark:text-red-400" onClick={onBulkDelete}>
+                    Delete forever
+                  </Button>
                 </>
               ) : (
                 <>
-                  <button onClick={onBulkMoveToFolder} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                    <FolderInput className="w-3 h-3" /> Move
-                  </button>
-                  <button onClick={onBulkAddTag} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                    <Tag className="w-3 h-3" /> Tag
-                  </button>
-                  <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                    <Trash2 className="w-3 h-3" /> Trash
-                  </button>
+                  <Button variant="quiet" size="sm" icon={FolderInput} onClick={onBulkMoveToFolder}>
+                    Move
+                  </Button>
+                  <Button variant="quiet" size="sm" icon={Tag} onClick={onBulkAddTag}>
+                    Tag
+                  </Button>
+                  <Button variant="quiet" size="sm" icon={Trash2} onClick={onBulkArchive}>
+                    Trash
+                  </Button>
                 </>
               )}
               <div className="flex-1" />
-              <button onClick={onClearSelection} className="text-[11px] text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <Button variant="quiet" size="sm" onClick={onClearSelection}>
                 Clear
-              </button>
+              </Button>
             </>
           ) : (
             <>
@@ -264,13 +248,13 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                       </button>
                     </span>
                   ))}
-                  <button onClick={() => onClearFolder()} className="ml-0.5 text-gray-500 hover:text-gray-600"><X className="w-3 h-3" /></button>
+                  <button onClick={() => onClearFolder()} aria-label="Clear folder filter" className="ml-0.5 text-gray-500 hover:text-gray-600"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {activeTags.map((tag) => (
                 <span key={tag} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium", getTagColor(tag))}>
                   {tag}
-                  <button onClick={() => onClearTag(tag)} className="ml-0.5 hover:text-red-600"><X className="w-3 h-3" /></button>
+                  <button onClick={() => onClearTag(tag)} aria-label={`Remove the ${tag} filter`} className="ml-0.5 hover:text-red-600"><X className="w-3 h-3" /></button>
                 </span>
               ))}
             </>

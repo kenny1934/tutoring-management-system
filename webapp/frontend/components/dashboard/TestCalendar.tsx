@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CalendarEvent, Holiday } from "@/types";
 import { cn } from "@/lib/utils";
 import { TONES } from "@/lib/tones";
+import { Button, IconButton } from "@/components/controls";
 import { toDateString } from "@/lib/calendar-utils";
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, Trash2 } from "lucide-react";
 import { CalendarEventModal } from "./CalendarEventModal";
@@ -581,14 +582,16 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           </Link>
           {/* Create event button (admin only) */}
           {canManageEvents && (
-            <button
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={Plus}
               onClick={() => handleOpenCreate()}
-              className="ml-2 hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-line bg-card text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
+              className="ml-2 hidden lg:inline-flex"
               title="Create new calendar event"
             >
-              <Plus className="h-3 w-3 text-ink-subtle" />
               Add
-            </button>
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -614,36 +617,34 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             )}
           </AnimatePresence>
           {/* Sync button */}
-          <button
+          <IconButton
+            size="sm"
+            icon={isSyncing ? Loader2 : RefreshCw}
+            iconClassName={cn(isSyncing && "animate-spin")}
+            label="Sync calendar with Google"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="p-1.5 hover:bg-[#d4a574]/20 rounded transition-colors disabled:opacity-50"
-            title="Sync calendar with Google"
-          >
-            {isSyncing ? (
-              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-            ) : (
-              <RefreshCw className="h-4 w-4 text-gray-500" />
-            )}
-          </button>
-          <button
+          />
+          <IconButton
+            size="sm"
+            icon={ChevronLeft}
+            label="Previous month"
             onClick={goToPrevMonth}
-            className="p-1.5 hover:bg-[#d4a574]/20 rounded transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          </button>
-          <button
+          />
+          <Button
+            size="sm"
+            variant="quiet"
             onClick={goToToday}
-            className="hidden lg:block px-2 py-1 text-xs font-medium text-accent-ink hover:bg-[#d4a574]/20 rounded transition-colors"
+            className="hidden lg:inline-flex"
           >
             Today
-          </button>
-          <button
+          </Button>
+          <IconButton
+            size="sm"
+            icon={ChevronRight}
+            label="Next month"
             onClick={goToNextMonth}
-            className="p-1.5 hover:bg-[#d4a574]/20 rounded transition-colors"
-          >
-            <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          </button>
+          />
         </div>
       </div>
 
@@ -811,13 +812,14 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             <div className="px-3 py-4 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No events on this date</p>
               {canManageEvents && (
-                <button
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Plus}
                   onClick={() => handleOpenCreate(selectedDate)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
                 >
-                  <Plus className="h-3 w-3" />
                   Add event
-                </button>
+                </Button>
               )}
             </div>
           ) : eventsWithDaysUntil.length === 0 ? (

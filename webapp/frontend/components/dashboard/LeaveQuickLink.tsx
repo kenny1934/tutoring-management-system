@@ -9,6 +9,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button, CountBadge, IconButton, Input, Label, Segmented, Select, Textarea, buttonClasses } from "@/components/controls";
 import { ARK_BASE_URL } from "@/config/leave-records";
 import { mutate } from "swr";
 import useSWR from "swr";
@@ -113,7 +114,6 @@ function classifyRange(
   return { workingDays, excluded };
 }
 
-const inputCls = "w-full text-sm border border-field rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-primary";
 
 
 type ExcludedDay = { date: string; reason: "holiday" | "rdo"; label: string };
@@ -203,7 +203,6 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-const labelCls = "text-[11px] text-gray-500 dark:text-gray-400 ml-0.5";
 
 
 // ─── File leave form ───
@@ -316,11 +315,11 @@ function FileLeaveForm({
     <div className="p-3 space-y-2.5">
       {/* Leave type */}
       <div>
-        <select
+        <Select
+          size="sm"
           value={leaveTypeId}
           onChange={(e) => setLeaveTypeId(Number(e.target.value))}
           aria-label="Leave type"
-          className={inputCls}
         >
           <option value={0}>Select leave type...</option>
           {balances.map(b => (
@@ -328,7 +327,7 @@ function FileLeaveForm({
               {b.leave_type.name_en} ({b.leave_type.name_zh})
             </option>
           ))}
-        </select>
+        </Select>
         {remaining !== null && (
           <p className={cn("text-[11px] mt-0.5 ml-0.5", remaining > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600")}>
             {remaining.toFixed(2)} days remaining
@@ -339,12 +338,12 @@ function FileLeaveForm({
       {/* Dates */}
       <div className="flex gap-2">
         <div className="flex-1">
-          <label htmlFor="leave-start" className={labelCls}>Start</label>
-          <input id="leave-start" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setDaysManual(false); }} className={inputCls} />
+          <Label htmlFor="leave-start">Start</Label>
+          <Input size="sm" id="leave-start" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setDaysManual(false); }} />
         </div>
         <div className="flex-1">
-          <label htmlFor="leave-end" className={labelCls}>End</label>
-          <input id="leave-end" type="date" value={endDate} min={startDate} onChange={(e) => { setEndDate(e.target.value); setDaysManual(false); }} className={inputCls} />
+          <Label htmlFor="leave-end">End</Label>
+          <Input size="sm" id="leave-end" type="date" value={endDate} min={startDate} onChange={(e) => { setEndDate(e.target.value); setDaysManual(false); }} />
         </div>
       </div>
       {dateError && <p className="text-[11px] text-red-600 -mt-1 ml-0.5">End date must be after start date</p>}
@@ -353,12 +352,12 @@ function FileLeaveForm({
       {isSameDay && (
         <div className="flex gap-2">
           <div className="flex-1">
-            <label htmlFor="leave-start-time" className={labelCls}>Start time</label>
-            <input id="leave-start-time" type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+            <Label htmlFor="leave-start-time">Start time</Label>
+            <Input size="sm" id="leave-start-time" type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setDaysManual(false); }} />
           </div>
           <div className="flex-1">
-            <label htmlFor="leave-end-time" className={labelCls}>End time</label>
-            <input id="leave-end-time" type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+            <Label htmlFor="leave-end-time">End time</Label>
+            <Input size="sm" id="leave-end-time" type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setDaysManual(false); }} />
           </div>
         </div>
       )}
@@ -366,18 +365,19 @@ function FileLeaveForm({
       {/* Days + Reason */}
       <div className="flex gap-2">
         <div className="w-20 flex-shrink-0">
-          <label htmlFor="leave-days" className={labelCls}>Days</label>
-          <input
+          <Label htmlFor="leave-days">Days</Label>
+          <Input
+            size="sm"
             id="leave-days" type="number" step="0.01" min="0.01"
             value={days}
             readOnly={!!hasTimeRange}
             onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
-            className={cn(inputCls, hasTimeRange && "opacity-60")}
+            className={cn(hasTimeRange && "opacity-60")}
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="leave-reason" className={labelCls}>Reason</label>
-          <input id="leave-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional" className={cn(inputCls, "placeholder-gray-400")} />
+          <Label htmlFor="leave-reason">Reason</Label>
+          <Input size="sm" id="leave-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional" />
         </div>
       </div>
 
@@ -397,8 +397,11 @@ function FileLeaveForm({
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">Back</button>
-        <button
+        <Button size="sm" variant="quiet" onClick={onCancel}>Back</Button>
+        <Button
+          size="sm"
+          variant="primary"
+          loading={isSubmitting}
           onClick={() => canSubmit && onSubmit({
             leave_type_id: leaveTypeId,
             start_date: startDate,
@@ -409,10 +412,9 @@ function FileLeaveForm({
             reason: reason || undefined,
           })}
           disabled={!canSubmit}
-          className="px-3 py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
         >
-          {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
-        </button>
+          Submit
+        </Button>
       </div>
     </div>
   );
@@ -455,54 +457,57 @@ function FileOvertimeForm({
     <div className="p-3 space-y-2.5">
       {/* Date */}
       <div>
-        <label htmlFor="ot-date" className={labelCls}>Date</label>
-        <input id="ot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+        <Label htmlFor="ot-date">Date</Label>
+        <Input size="sm" id="ot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
 
       {/* Time range (optional) */}
       <div className="flex gap-2">
         <div className="flex-1">
-          <label htmlFor="ot-start-time" className={labelCls}>Start time</label>
-          <input id="ot-start-time" type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+          <Label htmlFor="ot-start-time">Start time</Label>
+          <Input size="sm" id="ot-start-time" type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setDaysManual(false); }} />
         </div>
         <div className="flex-1">
-          <label htmlFor="ot-end-time" className={labelCls}>End time</label>
-          <input id="ot-end-time" type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+          <Label htmlFor="ot-end-time">End time</Label>
+          <Input size="sm" id="ot-end-time" type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setDaysManual(false); }} />
         </div>
       </div>
 
       {/* Days + Description */}
       <div className="flex gap-2">
         <div className="w-20 flex-shrink-0">
-          <label htmlFor="ot-days" className={labelCls}>Days</label>
-          <input
+          <Label htmlFor="ot-days">Days</Label>
+          <Input
+            size="sm"
             id="ot-days" type="number" step="0.01" min="0.01"
             value={days} placeholder="e.g. 0.5"
             readOnly={!!hasTimeRange}
             onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
-            className={cn(inputCls, "placeholder-gray-400", hasTimeRange && "opacity-60")}
+            className={cn(hasTimeRange && "opacity-60")}
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="ot-desc" className={labelCls}>Description</label>
-          <input id="ot-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" className={cn(inputCls, "placeholder-gray-400")} />
+          <Label htmlFor="ot-desc">Description</Label>
+          <Input size="sm" id="ot-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">Back</button>
-        <button
+        <Button size="sm" variant="quiet" onClick={onCancel}>Back</Button>
+        <Button
+          size="sm"
+          variant="primary"
+          loading={isSubmitting}
           onClick={() => canSubmit && onSubmit({
             date,
             hours: Math.round(Number(days) * hpd * 10) / 10,
             description: description || undefined,
           })}
           disabled={!canSubmit}
-          className="px-3 py-1.5 text-xs font-medium bg-primary hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
         >
-          {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
-        </button>
+          Submit
+        </Button>
       </div>
     </div>
   );
@@ -580,21 +585,21 @@ function LeaveCalendarView() {
     <div className="p-3">
       {/* Month nav */}
       <div className="flex items-center justify-between mb-2">
-        <button
+        <IconButton
+          size="sm"
+          icon={ChevronLeft}
+          label="Previous month"
           onClick={() => { setViewMonth(getPreviousMonth(viewMonth)); setSelectedDay(null); }}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+        />
         <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
           {getMonthName(viewMonth)} {viewMonth.getFullYear()}
         </span>
-        <button
+        <IconButton
+          size="sm"
+          icon={ChevronRight}
+          label="Next month"
           onClick={() => { setViewMonth(getNextMonth(viewMonth)); setSelectedDay(null); }}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        />
       </div>
 
       {/* Weekday headers */}
@@ -859,22 +864,26 @@ function RequestCard({
         {/* Admin: approve/reject */}
         {canReview && (
           <div className="flex items-center justify-end gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
-            <button
+            <Button
+              size="sm"
+              variant="quiet"
+              icon={Check}
+              iconClassName="text-green-700 dark:text-green-400"
+              loading={isActing === request.id}
               onClick={() => { setReviewerNote(""); setShowApproveConfirm(true); }}
-              disabled={isActing === request.id}
-              className="px-3 py-1.5 text-xs text-accent-ink hover:bg-tint rounded transition-colors"
             >
-              {isActing === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 inline mr-0.5" />}
               Approve
-            </button>
-            <button
-              onClick={() => { setReviewerNote(""); setShowRejectConfirm(true); }}
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              icon={X}
+              iconClassName="text-red-600 dark:text-red-400"
               disabled={isActing === request.id}
-              className="px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+              onClick={() => { setReviewerNote(""); setShowRejectConfirm(true); }}
             >
-              <X className="h-3.5 w-3.5 inline mr-0.5" />
               Reject
-            </button>
+            </Button>
           </div>
         )}
 
@@ -885,7 +894,7 @@ function RequestCard({
         isOpen={showApproveConfirm}
         onConfirm={() => { onReview(request.id, "approved", reviewerNote || undefined); setShowApproveConfirm(false); }}
         onCancel={() => setShowApproveConfirm(false)}
-        title="Approve Leave"
+        title="Approve leave"
         message={
           <div className="space-y-2">
             <p>Approve {request.staff_name || "this"}&apos;s {request.leave_type.name_en} request ({request.days_requested} day{request.days_requested !== 1 ? "s" : ""})?</p>
@@ -904,12 +913,12 @@ function RequestCard({
                 )}
               </>
             )}
-            <textarea
+            <Textarea
               value={reviewerNote}
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Note (optional)"
+              aria-label="Note for the approval"
               rows={2}
-              className="w-full text-sm border border-field rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         }
@@ -921,16 +930,16 @@ function RequestCard({
         isOpen={showRejectConfirm}
         onConfirm={() => { onReview(request.id, "rejected", reviewerNote || undefined); setShowRejectConfirm(false); }}
         onCancel={() => setShowRejectConfirm(false)}
-        title="Reject Leave"
+        title="Reject leave"
         message={
           <div className="space-y-2">
             <p>Reject this leave request?</p>
-            <textarea
+            <Textarea
               value={reviewerNote}
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Reason (optional)"
+              aria-label="Reason for the rejection"
               rows={2}
-              className="w-full text-sm border border-field rounded-md px-2 py-1.5 bg-transparent placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         }
@@ -943,11 +952,11 @@ function RequestCard({
           isOpen={showCancelConfirm}
           onConfirm={() => { onCancel(request.id); setShowCancelConfirm(false); }}
           onCancel={() => setShowCancelConfirm(false)}
-          title="Cancel Leave Request"
+          title="Cancel leave request"
           message={request.status === "approved"
             ? `Cancel your approved ${request.leave_type.name_en} request (${dateStr})? The balance will be restored.`
             : `Cancel your ${request.leave_type.name_en} request (${dateStr})?`}
-          confirmText="Cancel Request"
+          confirmText="Cancel request"
           variant="danger"
         />
       )}
@@ -1016,14 +1025,15 @@ function AllStaffBalancesPanel({
       {/* Search + branch badge */}
       <div className="sticky top-0 z-10 px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-line/60 flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-          <input
+          <Search className="pointer-events-none absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+          <Input
+            size="sm"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search staff..."
             aria-label="Search staff"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-field bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary"
+            className="pl-7"
           />
         </div>
         {selectedLocation !== "All Locations" && (
@@ -1359,13 +1369,9 @@ export function LeaveQuickLink({ className }: { className?: string }) {
         )}
       >
         <Palmtree className="h-4 w-4" />
-        <span className="hidden xs:inline">Leave Record</span>
+        <span className="hidden xs:inline">Leave record</span>
         <span className="xs:hidden">Leave</span>
-        {badgeCount > 0 && (
-          <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
-            {badgeCount > 99 ? "99+" : badgeCount}
-          </span>
-        )}
+        <CountBadge count={badgeCount} tone="danger" />
         <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
       </button>
 
@@ -1385,30 +1391,16 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {showForm ? (
               <>
                 {/* Form header with toggle */}
-                {/* Form header with toggle */}
-                <div className="px-4 py-2.5 border-b border-line rounded-t-lg flex items-center gap-3">
-                  <button
-                    onClick={() => setShowForm("leave")}
-                    className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
-                      showForm === "leave"
-                        ? "text-accent-ink dark:text-[#cd853f]"
-                        : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    )}
-                  >
-                    <Palmtree className="h-3.5 w-3.5" />
-                    Leave
-                  </button>
-                  <button
-                    onClick={() => setShowForm("overtime")}
-                    className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
-                      showForm === "overtime"
-                        ? "text-indigo-600 dark:text-indigo-400"
-                        : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    )}
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                    Overtime
-                  </button>
+                <div className="px-3 py-2 border-b border-line rounded-t-lg flex items-center">
+                  <Segmented
+                    label="What to file"
+                    value={showForm}
+                    onChange={setShowForm}
+                    options={[
+                      { value: "leave", label: "Leave", icon: Palmtree, iconClassName: "text-accent-ink" },
+                      { value: "overtime", label: "Overtime", icon: Clock, iconClassName: "text-indigo-600 dark:text-indigo-400" },
+                    ]}
+                  />
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {showForm === "leave" ? (
@@ -1500,20 +1492,15 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 <>
                   {/* Filter toggle */}
                   <div className="flex items-center gap-1 px-3 pt-2 pb-1">
-                    {(["upcoming", "history"] as const).map(f => (
-                      <button
-                        key={f}
-                        onClick={() => setRequestFilter(f)}
-                        className={cn(
-                          "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
-                          requestFilter === f
-                            ? "bg-primary text-white"
-                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                        )}
-                      >
-                        {f === "upcoming" ? "Upcoming" : "History"}
-                      </button>
-                    ))}
+                    <Segmented
+                      label="Which requests"
+                      value={requestFilter}
+                      onChange={setRequestFilter}
+                      options={[
+                        { value: "upcoming", label: "Upcoming" },
+                        { value: "history", label: "History" },
+                      ]}
+                    />
                   </div>
                   {loadingRequests ? (
                     <div className="flex items-center justify-center py-8">
@@ -1582,19 +1569,21 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {/* Footer */}
             <div className="flex items-center gap-2 px-3 py-2.5 border-t border-line">
               {!isViewingOther && !isSupervisor && (
-                <button
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={Plus}
+                  className="flex-1"
                   onClick={() => setShowForm("leave")}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-primary hover:bg-[#8b5f3c] rounded-md transition-colors"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  New Request
-                </button>
+                  New request
+                </Button>
               )}
               <a
                 href="#"
                 onClick={handleOpenArk}
                 className={cn(
-                  "flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-accent-ink hover:bg-tint rounded-md transition-colors",
+                  buttonClasses({ variant: "quiet", size: "sm" }),
                   (isViewingOther || isSupervisor) && "flex-1"
                 )}
               >

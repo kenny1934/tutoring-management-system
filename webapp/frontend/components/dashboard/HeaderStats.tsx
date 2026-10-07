@@ -19,6 +19,7 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { IconButton, Input } from "@/components/controls";
 
 interface HeaderStatsProps {
   stats: DashboardStats;
@@ -140,29 +141,25 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                         Students with sessions in past/next 14 days
                       </span>
                     </div>
-                    <button
+                    <IconButton
+                      size="sm"
+                      icon={X}
+                      label="Close"
                       onClick={() => setIsStudentsOpen(false)}
-                      className="p-1 rounded hover:bg-white/50 dark:hover:bg-black/20 transition-colors"
-                    >
-                      <X className="h-4 w-4 text-gray-500" />
-                    </button>
+                    />
                   </div>
 
                   {/* Search */}
                   <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-                    <input
+                    <Search className="pointer-events-none absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+                    <Input
+                      size="sm"
                       type="text"
                       placeholder="Search students..."
+                      aria-label="Search students"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className={cn(
-                        "w-full pl-7 pr-3 py-1.5 text-sm rounded-md",
-                        "bg-white dark:bg-[#1a1a1a]",
-                        "border border-field",
-                        "focus:outline-none focus:ring-1 focus:ring-primary",
-                        "placeholder:text-gray-400"
-                      )}
+                      className="pl-7"
                     />
                   </div>
                 </div>

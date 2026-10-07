@@ -22,7 +22,6 @@ import {
   Users,
   AlertCircle,
   AlertTriangle,
-  Loader2,
   Trash2,
   MessageSquare,
   Calendar,
@@ -36,6 +35,7 @@ import {
   Save,
 } from "lucide-react";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { Button, IconButton, Input, Label, Select } from "@/components/controls";
 interface ProposalCardFullProps {
   proposal: MakeupProposal;
   currentTutorId: number;
@@ -251,13 +251,13 @@ function SlotItem({
               <SlotStatusBadge status={slot.slot_status} rejectionReason={slot.rejection_reason || undefined} />
               {/* Edit button - visible when canEdit and not currently editing */}
               {canEdit && !isEditing && (
-                <button
+                <IconButton
+                  size="sm"
+                  icon={Pencil}
+                  label="Edit slot"
+                  className="ml-auto"
                   onClick={() => onStartEdit(slot.id)}
-                  className="ml-auto p-1 text-gray-500 hover:text-accent-ink dark:hover:text-[#cd853f] rounded transition-colors"
-                  title="Edit slot"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
+                />
               )}
             </div>
 
@@ -266,69 +266,71 @@ function SlotItem({
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Date</label>
-                    <input
+                    <Label htmlFor={`proposal-slot-${slot.id}-date`}>Date</Label>
+                    <Input
+                      id={`proposal-slot-${slot.id}-date`}
                       type="date"
                       value={editDate}
                       onChange={(e) => setEditDate(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Time</label>
-                    <select
+                    <Label htmlFor={`proposal-slot-${slot.id}-time`}>Time</Label>
+                    <Select
+                      id={`proposal-slot-${slot.id}-time`}
                       value={editTime}
                       onChange={(e) => setEditTime(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
                       {ALL_TIME_SLOTS.map((ts) => (
                         <option key={ts} value={ts}>{ts}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tutor</label>
-                    <select
+                    <Label htmlFor={`proposal-slot-${slot.id}-tutor`}>Tutor</Label>
+                    <Select
+                      id={`proposal-slot-${slot.id}-tutor`}
                       value={editTutorId}
                       onChange={(e) => setEditTutorId(Number(e.target.value))}
-                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
                       {tutors.map((t) => (
                         <option key={t.id} value={t.id}>{t.tutor_name}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Location</label>
-                    <select
+                    <Label htmlFor={`proposal-slot-${slot.id}-location`}>Location</Label>
+                    <Select
+                      id={`proposal-slot-${slot.id}-location`}
                       value={editLocation}
                       onChange={(e) => setEditLocation(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
                       {locations.map((loc) => (
                         <option key={loc} value={loc}>{loc}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={Save}
+                    loading={isSaving}
                     onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors disabled:opacity-50"
                   >
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="quiet"
                     onClick={handleCancelEdit}
                     disabled={isSaving}
-                    className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -410,49 +412,52 @@ function SlotItem({
                   {actingAs === "admin" ? "Acting as Admin" : "Acting as Proposer"}
                 </span>
               )}
-              <button
+              <Button
+                variant="secondary"
+                icon={Check}
+                iconClassName="text-green-700 dark:text-green-400"
                 onClick={handleApprove}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm"
               >
-                <Check className="h-4 w-4" />
                 Approve
-              </button>
+              </Button>
               {showRejectInput ? (
                 <div className="flex flex-col gap-2 min-w-[180px]">
-                  <input
+                  <Input
                     type="text"
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     placeholder="Reason (optional)"
-                    className="w-full px-3 py-2 text-sm border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
+                    aria-label="Reason for rejecting"
                     autoFocus
                   />
                   <div className="flex gap-2">
-                    <button
+                    <Button
+                      variant="danger"
+                      className="flex-1"
                       onClick={handleRejectClick}
-                      className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                     >
                       Confirm
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="quiet"
                       onClick={() => {
                         setShowRejectInput(false);
                         setRejectionReason("");
                       }}
-                      className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
-                <button
+                <Button
+                  variant="secondary"
+                  icon={X}
+                  iconClassName="text-red-600 dark:text-red-400"
                   onClick={handleRejectClick}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 hover:text-white hover:bg-red-600 border border-red-300 dark:border-red-800 rounded-lg transition-colors"
                 >
-                  <X className="h-4 w-4" />
                   Reject
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -794,13 +799,13 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                   </div>
 
                   {/* View Session with popover */}
-                  <button
+                  <Button
+                    variant="quiet"
+                    icon={Eye}
                     onClick={handleViewSessionClick}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-accent-ink hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-lg transition-colors"
                   >
-                    <Eye className="h-4 w-4" />
-                    View Session
-                  </button>
+                    View session
+                  </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
@@ -892,20 +897,22 @@ export const ProposalCardFull = memo(function ProposalCardFull({
 
                   {isNeedsInputTarget && proposal.status === "pending" && (
                     <div className="flex gap-3">
-                      <button
+                      <Button
+                        variant="primary"
+                        icon={Calendar}
+                        className="flex-1"
                         onClick={onSelectSlot}
-                        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium text-white bg-primary hover:bg-[#8b5f3c] rounded-lg transition-colors shadow-sm"
                       >
-                        <Calendar className="h-5 w-5" />
                         Select make-up slot
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        icon={X}
+                        iconClassName="text-red-600 dark:text-red-400"
                         onClick={() => setShowRejectConfirm(true)}
-                        className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-red-600 hover:text-white hover:bg-red-600 border border-red-300 dark:border-red-800 rounded-lg transition-colors"
                       >
-                        <X className="h-5 w-5" />
                         Decline
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -915,18 +922,15 @@ export const ProposalCardFull = memo(function ProposalCardFull({
             {/* Footer actions */}
             {canCancel && (
               <div className="px-5 py-4 border-t border-line flex justify-end bg-gray-50/50 dark:bg-[#0d0d0d]">
-                <button
+                <Button
+                  variant="quiet"
+                  icon={Trash2}
+                  iconClassName="text-red-600 dark:text-red-400"
+                  loading={loadingAction === "cancel"}
                   onClick={() => setShowCancelConfirm(true)}
-                  disabled={loadingAction === "cancel"}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 >
-                  {loadingAction === "cancel" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                  Cancel Proposal
-                </button>
+                  Cancel proposal
+                </Button>
               </div>
             )}
           </>
@@ -938,9 +942,9 @@ export const ProposalCardFull = memo(function ProposalCardFull({
         isOpen={showCancelConfirm}
         onConfirm={handleCancel}
         onCancel={() => setShowCancelConfirm(false)}
-        title="Cancel Proposal"
+        title="Cancel proposal"
         message="Are you sure you want to cancel this proposal? This action cannot be undone."
-        confirmText="Cancel Proposal"
+        confirmText="Cancel proposal"
         variant="danger"
         loading={loadingAction === "cancel"}
       />
@@ -953,18 +957,20 @@ export const ProposalCardFull = memo(function ProposalCardFull({
           setShowRejectConfirm(false);
           setRejectReason("");
         }}
-        title="Decline Request"
+        title="Decline request"
         message={
           <div className="space-y-3">
             <p>Are you sure you want to decline this make-up request?</p>
             <div>
-              <label className="block text-sm font-medium mb-1">Reason (optional)</label>
-              <input
+              <Label htmlFor={`proposal-${proposal.id}-decline-reason`}>
+                Reason <span className="normal-case font-normal">(optional)</span>
+              </Label>
+              <Input
+                id={`proposal-${proposal.id}-decline-reason`}
                 type="text"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g., No available slots this week"
-                className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a]"
               />
             </div>
           </div>

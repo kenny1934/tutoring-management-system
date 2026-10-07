@@ -26,6 +26,7 @@ import DocContextMenu from "@/components/documents/DocContextMenu";
 import TagPopover from "@/components/documents/TagPopover";
 import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
+import { Button, IconButton, Input, Segmented } from "@/components/controls";
 import { useDndDocuments, useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Document, DocumentFolder } from "@/types";
@@ -718,9 +719,9 @@ export default function DocumentsPage() {
               </div>
               <div className="flex-1" />
               {(documents?.length ?? 0) > 0 && (
-                <button onClick={handleEmptyTrash} className="text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
-                  Empty Trash
-                </button>
+                <Button size="sm" icon={Trash2} iconClassName="text-red-600 dark:text-red-400" onClick={handleEmptyTrash}>
+                  Empty trash
+                </Button>
               )}
             </div>
           )}
@@ -850,19 +851,9 @@ export default function DocumentsPage() {
             {/* Load more */}
             {hasMore && !isLoading && (
               <div className="flex justify-center py-4">
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-line hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
-                >
-                  {loadingMore ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </span>
-                  ) : "Load more"}
-                </button>
+                <Button onClick={loadMore} loading={loadingMore}>
+                  Load more
+                </Button>
               </div>
             )}
             {documents && (
@@ -993,21 +984,23 @@ export default function DocumentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); setBulkTagMode("add"); }}>
           <div ref={bulkTagRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-line shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
             {/* Add / Remove tabs */}
-            <div className="flex gap-1 mb-3 p-0.5 rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60">
-              {(["add", "remove"] as const).map((mode) => (
-                <button key={mode} onClick={() => { setBulkTagMode(mode); setBulkTagValue(""); }}
-                  className={cn("flex-1 px-2 py-1 text-[11px] font-medium rounded transition-all capitalize",
-                    bulkTagMode === mode ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400"
-                  )}>{mode} tag</button>
-              ))}
-            </div>
+            <Segmented
+              label="Add or remove a tag"
+              className="mb-3"
+              value={bulkTagMode}
+              onChange={(mode) => { setBulkTagMode(mode); setBulkTagValue(""); }}
+              options={[
+                { value: "add", label: "Add tag" },
+                { value: "remove", label: "Remove tag" },
+              ]}
+            />
 
             {bulkTagMode === "add" ? (
               <>
-                <input autoFocus type="text" placeholder="Type a tag name..."
+                <Input autoFocus type="text" placeholder="Type a tag name..." aria-label="Tag name"
                   value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
-                  className="w-full px-3 py-2 rounded-lg border border-field bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="mb-2"
                 />
                 {tagNames.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -1054,9 +1047,7 @@ export default function DocumentsPage() {
           >
             <div className="flex justify-between items-center mb-3">
               <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Keyboard Shortcuts</span>
-              <button onClick={() => setShowShortcutHints(false)} className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
-                <XIcon className="h-4 w-4" />
-              </button>
+              <IconButton icon={XIcon} size="sm" label="Close shortcuts" onClick={() => setShowShortcutHints(false)} />
             </div>
             <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
               {[

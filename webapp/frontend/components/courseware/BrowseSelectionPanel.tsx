@@ -1,8 +1,8 @@
 "use client";
 
 import { X, CalendarPlus } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { type FileSelection } from "@/components/ui/folder-tree-modal";
+import { Button, IconButton, Input } from "@/components/controls";
 
 interface BrowseSelectionPanelProps {
   selections: Map<string, FileSelection>;
@@ -42,27 +42,24 @@ export function BrowseSelectionPanel({
               <span className="flex-1 truncate text-gray-700 dark:text-gray-300" title={sel.path}>
                 {sel.path.split("\\").pop()}
               </span>
-              <input
-                type="text"
+              <Input
+                size="sm"
                 value={sel.pages}
                 onChange={(e) => onUpdatePages(sel.path, e.target.value)}
                 placeholder={sel.pageCount ? `1-${sel.pageCount}` : "Pages"}
-                className={cn(
-                  "w-20 px-1.5 py-0.5 text-xs border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
-                  sel.error
-                    ? "border-red-400 focus:ring-red-400"
-                    : "border-field focus:ring-amber-400"
-                )}
+                aria-label={`Pages of ${sel.path.split("\\").pop()}`}
+                aria-invalid={sel.error ? true : undefined}
+                className="w-20"
               />
               {sel.pageCount && (
                 <span className="text-gray-500 shrink-0">/{sel.pageCount}</span>
               )}
-              <button
+              <IconButton
+                icon={X}
+                size="sm"
+                label={`Remove ${sel.path.split("\\").pop()}`}
                 onClick={() => onRemove(sel.path)}
-                className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-500 hover:text-gray-600"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              />
             </div>
             {sel.error && (
               <p className="text-[11px] text-red-600 pl-1">{sel.error}</p>
@@ -71,13 +68,9 @@ export function BrowseSelectionPanel({
         ))}
       </div>
       <div className="flex justify-end pt-1">
-        <button
-          onClick={onAssign}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
-        >
-          <CalendarPlus className="h-3.5 w-3.5" />
-          Assign to Sessions
-        </button>
+        <Button variant="primary" size="sm" icon={CalendarPlus} onClick={onAssign}>
+          Assign to sessions
+        </Button>
       </div>
     </div>
   );

@@ -37,9 +37,7 @@ import {
 } from "@/lib/retention-utils";
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionChaseRow, RetentionState } from "@/types";
-
-const selectClass =
-  "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+import { Input, Segmented, Select } from "@/components/controls";
 
 /** How the list is ordered. Whoever has been waiting longest goes first,
  *  because the point of the page is a queue. Same shape the admin board uses,
@@ -267,22 +265,13 @@ export default function CourseRenewalPage() {
                 about different people, but a tutor asks both in the same
                 sitting in August, and the sidebar item is seasonal enough
                 without splitting it in two. */}
-            <div className="flex items-center gap-1 mt-3 -mb-1">
-              {RENEWAL_VIEWS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setView(key)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
-                    view === key
-                      ? "bg-card border-border text-foreground shadow-sm"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="mt-3 -mb-1">
+              <Segmented<RenewalView>
+                label="Which list"
+                value={view}
+                onChange={setView}
+                options={RENEWAL_VIEWS.map(({ key, label }) => ({ value: key, label }))}
+              />
             </div>
           </div>
 
@@ -333,43 +322,47 @@ export default function CourseRenewalPage() {
               <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <div className="relative w-full sm:w-auto">
-                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                    <Input
                       type="search"
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Name, code or phone"
+                      aria-label="Search the list"
                       // Same width as the board's search, and for the same
                       // reason: the hint needs 146px and the icon takes 32 of
                       // the field, so w-48 cut it off at "Name, code or phon".
-                      className={cn(selectClass, "pl-8 w-full sm:w-56")}
+                      className="pl-8 w-full sm:w-56"
                     />
                   </div>
                   {grades.length > 1 && (
-                    <select
+                    <Select
                       value={grade}
                       onChange={(e) => setGrade(e.target.value)}
-                      className={selectClass}
+                      aria-label="Entering grade"
+                      className="w-auto"
                     >
                       <option value="">All grades</option>
                       {grades.map((g) => (
                         <option key={g} value={g}>Entering {g}</option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                   {/* Sorting lives in the column headers, and the cards a
                       phone gets have no headers, so that width gets the same
                       orders as a menu. */}
-                  <select
-                    value={formatChaseSort(sort)}
-                    onChange={(e) => setSort(parseChaseSort(e.target.value))}
-                    className={cn(selectClass, "md:hidden")}
-                    aria-label="Sort the list"
-                  >
-                    <option value="days_since_contact:desc">Longest waiting first</option>
-                    <option value="student_name:asc">By name</option>
-                    <option value="expected_grade:asc">By entering grade</option>
-                  </select>
+                  <div className="md:hidden">
+                    <Select
+                      value={formatChaseSort(sort)}
+                      onChange={(e) => setSort(parseChaseSort(e.target.value))}
+                      aria-label="Sort the list"
+                      className="w-auto"
+                    >
+                      <option value="days_since_contact:desc">Longest waiting first</option>
+                      <option value="student_name:asc">By name</option>
+                      <option value="expected_grade:asc">By entering grade</option>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">

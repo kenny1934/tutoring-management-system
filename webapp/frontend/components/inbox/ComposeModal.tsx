@@ -2,12 +2,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
-  X, Send, Loader2, Megaphone, Users, ChevronDown, Check,
+  X, Send, Megaphone, Users, ChevronDown, Check,
   FileText, Bell, HelpCircle, Calendar,
   MessageCircle, BookOpen, MessageSquarePlus, Clock, GripVertical,
 } from "lucide-react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Button, IconButton, Input, Label } from "@/components/controls";
 import { messagesAPI } from "@/lib/api";
 import { useFileUpload } from "@/lib/useFileUpload";
 import { useClickOutside } from "@/lib/hooks";
@@ -379,24 +380,19 @@ export default function ComposeModal({
           <h2 className="font-semibold text-gray-900 dark:text-white">
             {replyTo ? "Reply" : forwardFrom ? "Forward" : "New Message"}
           </h2>
-          <button
-            onClick={handleClose}
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <IconButton icon={X} label="Close" onClick={handleClose} />
         </div>
 
         {showDiscardConfirm && (
           <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800/40">
             <span className="text-sm text-amber-800 dark:text-amber-200">Discard unsaved changes?</span>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowDiscardConfirm(false)} className="px-3 py-1 text-xs font-medium rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              <Button size="sm" variant="secondary" onClick={() => setShowDiscardConfirm(false)}>
                 Keep editing
-              </button>
-              <button type="button" onClick={handleDiscard} className="px-3 py-1 text-xs font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors">
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDiscard}>
                 Discard
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -404,16 +400,12 @@ export default function ComposeModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* To */}
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-              To
-            </label>
+            <Label>To</Label>
             {replyTo ? (
               /* Reply mode: read-only display */
-              <div className={cn(
-                "w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white opacity-60 cursor-not-allowed"
-              )}>
+              <div className="w-full h-8 px-2.5 flex items-center text-sm border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 opacity-60 cursor-not-allowed">
                 {recipientMode === "all"
-                  ? "All Tutors (Broadcast)"
+                  ? "All tutors (broadcast)"
                   : selectedTutorIds.map(id => tutors.find(t => t.id === id)?.tutor_name || "Unknown").join(", ")
                 }
               </div>
@@ -423,14 +415,14 @@ export default function ComposeModal({
                 <button
                   type="button"
                   onClick={() => setRecipientDropdownOpen(!recipientDropdownOpen)}
-                  className={cn(
-                    "w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white text-left flex items-center gap-2"
-                  )}
+                  aria-label="Recipients"
+                  aria-expanded={recipientDropdownOpen}
+                  className="w-full h-8 px-2.5 text-sm border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 text-left flex items-center gap-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 >
                   {recipientMode === "all" ? (
                     <span className="flex items-center gap-2 flex-1">
                       <Megaphone className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                      All Tutors (Broadcast)
+                      All tutors (broadcast)
                     </span>
                   ) : selectedTutorIds.length === 0 ? (
                     <span className="text-gray-500 flex-1">Select recipients...</span>
@@ -463,6 +455,7 @@ export default function ComposeModal({
                               e.stopPropagation();
                               setSelectedTutorIds(prev => prev.filter(tid => tid !== id));
                             }}
+                            aria-label={`Remove ${tutor?.tutor_name || "recipient"}`}
                             className="hover:text-red-600"
                           >
                             <X className="h-3 w-3" />
@@ -490,7 +483,7 @@ export default function ComposeModal({
                       )}
                     >
                       <Megaphone className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                      <span>All Tutors (Broadcast)</span>
+                      <span>All tutors (broadcast)</span>
                       {recipientMode === "all" && <Check className="h-4 w-4 text-blue-600 ml-auto" />}
                     </button>
 
@@ -543,29 +536,27 @@ export default function ComposeModal({
 
           {/* Subject */}
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-              Subject
-            </label>
-            <input
+            <Label htmlFor="compose-subject">Subject</Label>
+            <Input
+              id="compose-subject"
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Optional subject..."
-              className="w-full px-3 py-2 border border-field rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
             />
           </div>
 
           {/* Category & Priority row */}
           <div className="grid grid-cols-5 gap-4">
             <div className="col-span-3">
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-                Category
-              </label>
+              <Label>Category</Label>
               <div ref={categoryDropdownRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white flex items-center justify-between"
+                  aria-label="Category"
+                  aria-expanded={categoryDropdownOpen}
+                  className={cn("w-full h-8 px-2.5 text-sm border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 text-left flex items-center gap-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25", "justify-between")}
                 >
                   <span className="flex items-center gap-2">
                     {CATEGORY_OPTIONS.find(c => c.value === category)?.icon}
@@ -594,14 +585,14 @@ export default function ComposeModal({
               </div>
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-                Priority
-              </label>
+              <Label>Priority</Label>
               <div ref={priorityDropdownRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setPriorityDropdownOpen(!priorityDropdownOpen)}
-                  className="w-full px-3 py-2 border border-line rounded-lg bg-white dark:bg-[#2a2a2a] flex items-center justify-between"
+                  aria-label="Priority"
+                  aria-expanded={priorityDropdownOpen}
+                  className={cn("w-full h-8 px-2.5 text-sm border border-field rounded bg-field-fill text-gray-900 dark:text-gray-100 text-left flex items-center gap-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25", "justify-between")}
                 >
                   <span className={PRIORITY_OPTIONS.find(p => p.value === priority)?.colorClass}>
                     {priority}
@@ -670,9 +661,7 @@ export default function ComposeModal({
               }
             }}
           >
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-              Message
-            </label>
+            <Label>Message</Label>
             <InboxRichEditor
               key={composeEditorKey}
               initialContent={message}
@@ -737,6 +726,7 @@ export default function ComposeModal({
                     <button
                       type="button"
                       onClick={() => setUploadedImages(prev => prev.filter((u) => u !== url))}
+                      aria-label="Remove image"
                       className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
@@ -763,6 +753,7 @@ export default function ComposeModal({
                     <button
                       type="button"
                       onClick={() => setUploadedFiles(prev => prev.filter((f) => f.url !== file.url))}
+                      aria-label={`Remove ${file.filename}`}
                       className="p-0.5 text-gray-500 hover:text-red-600 transition-colors flex-shrink-0"
                     >
                       <X className="h-3 w-3" />
@@ -775,31 +766,31 @@ export default function ComposeModal({
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
+            <Button variant="secondary" onClick={handleClose}>
               Cancel
-            </button>
+            </Button>
             <div className="relative flex">
-              <button
+              <Button
                 type="submit"
-                disabled={isSending || isUploading || !canSend}
-                className="px-4 py-2 bg-primary hover:bg-[#8b5f3c] text-white rounded-l-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
+                variant="primary"
+                icon={Send}
+                loading={isSending}
+                disabled={isUploading || !canSend}
+                className="rounded-r-none"
               >
-                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 disabled={isSending || isUploading || !canSend}
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
-                className="px-2 py-2 bg-primary hover:bg-[#8b5f3c] text-white rounded-r-lg border-l border-white/20 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                 title="Schedule send"
+                aria-label="Schedule send"
+                aria-expanded={showScheduleMenu}
+                className="rounded-l-none border-l border-white/20 px-2"
               >
-                <ChevronDown className="h-4 w-4" />
-              </button>
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              </Button>
               {showScheduleMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }} />
@@ -833,36 +824,29 @@ export default function ComposeModal({
                         </button>
                       ) : (
                         <div className="px-3 py-2 space-y-1.5">
-                          <input
+                          <Input
+                            size="sm"
                             type="date"
                             value={customScheduleDate}
                             onChange={(e) => setCustomScheduleDate(e.target.value)}
                             min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
+                            aria-label="Send on date"
                           />
-                          <input
+                          <Input
+                            size="sm"
                             type="time"
                             value={customScheduleTime}
                             onChange={(e) => setCustomScheduleTime(e.target.value)}
                             min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
-                            className="w-full px-2 py-1 text-xs border border-field rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-primary text-gray-700 dark:text-gray-200"
+                            aria-label="Send at time"
                           />
                           <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setShowCustomSchedule(false)}
-                              className="flex-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                            >
+                            <Button size="sm" variant="quiet" className="flex-1" onClick={() => setShowCustomSchedule(false)}>
                               Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleCustomScheduleSend}
-                              disabled={!customScheduleDate}
-                              className="flex-1 px-2 py-1 text-xs font-medium bg-primary text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
-                            >
+                            </Button>
+                            <Button size="sm" variant="primary" className="flex-1" onClick={handleCustomScheduleSend} disabled={!customScheduleDate}>
                               Set
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}

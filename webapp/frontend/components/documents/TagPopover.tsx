@@ -5,6 +5,7 @@ import { Search, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
 import type { Document } from "@/types";
+import { Input } from "@/components/controls";
 
 export interface TagPopoverProps {
   doc: Document;
@@ -32,9 +33,10 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
         <div className="px-3 pt-3 pb-2">
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">{doc.title}</p>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-            <input
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
+            <Input
               ref={inputRef}
+              aria-label="Search or create a tag"
               autoFocus
               type="text"
               placeholder="Search or create tag..."
@@ -48,7 +50,7 @@ export default function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onC
                 }
                 if (e.key === "Escape") onClose();
               }}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-field bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="pl-8"
             />
           </div>
         </div>
