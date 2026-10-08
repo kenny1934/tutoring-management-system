@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/brand/Logo";
+import { LOGO_TAGLINE } from "@/components/brand/logo-art";
 import { AlertCircle } from "lucide-react";
 import { GoogleIcon } from "@/components/login/GoogleIcon";
 import { LatestRelease } from "@/components/login/LatestRelease";
@@ -80,7 +81,11 @@ export function SignInPage({ onSignIn, error, problemId }: SignInPageProps) {
       {/* Stacked, the sign-in panel takes whatever height is left, so no gap opens under the board. */}
       <div className="grid min-h-full grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,1.45fr)_minmax(24rem,1fr)] lg:grid-rows-none">
         <section className="flex min-w-0 flex-col gap-5 px-4 pb-6 pt-5 sm:px-8 sm:pt-7 lg:px-12 lg:pb-8 lg:pt-9">
-          <Logo className="h-12 w-auto self-start sm:h-14" />
+          {/* The tagline spells out what CSM Pro stands for, the first place most people meet the name. */}
+          <div className="flex flex-col gap-1.5 self-start">
+            <Logo className="h-12 w-auto self-start sm:h-14" />
+            <p className="m-0 text-balance text-[11px] text-ink-subtle sm:text-[13px]">{LOGO_TAGLINE}</p>
+          </div>
           {/* The date and the board sit in the middle of the column, whatever size the board is that day. */}
           <div className="flex w-full max-w-[56rem] flex-col gap-5 lg:my-auto">
             <div>
