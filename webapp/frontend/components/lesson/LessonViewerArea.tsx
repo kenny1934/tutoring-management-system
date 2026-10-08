@@ -33,6 +33,12 @@ interface LessonViewerAreaProps {
   link?: ReactNode;
   /** The exercise on screen, or null before one is picked. */
   exercise: SessionExercise | null;
+  /**
+   * The worksheet has no lesson to keep ink with, as for a student not in
+   * CSM yet. It shows the way the answer key does, with no Pen Tray and no
+   * Draft beside it.
+   */
+  inkless?: boolean;
   /** The name the worksheet's viewer shows. The answer key's has "ANS:" in front. */
   exerciseLabel: string | undefined;
   pdf: ReturnType<typeof useExercisePdf>;
@@ -67,7 +73,7 @@ interface LessonViewerAreaProps {
  * between the views, such as the stamp and what printing does.
  */
 export function LessonViewerArea({
-  isMobile, top, link, exercise, exerciseLabel, pdf, answer, draft, ink,
+  isMobile, top, link, exercise, inkless = false, exerciseLabel, pdf, answer, draft, ink,
   stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef,
 }: LessonViewerAreaProps) {
   // Each exercise's zoom, scroll position, "Hide ink" and covers, so switching
@@ -77,6 +83,8 @@ export function LessonViewerArea({
   const [answerViewStates] = useState(() => new Map<number, PdfViewState>());
   const { showAnswerKey, answerPdfData, mobileActiveTab, setMobileActiveTab } = answer;
   const isPrinting = printing.id !== null;
+  // The Draft opens beside the worksheet only when the worksheet can keep ink.
+  const draftBeside = draft.draftOpen && !inkless;
 
   // The lesson's own Draft, while it's on screen in the worksheet's place.
   const lessonDraftShown = draft.lessonDraftOpen ? draft.lessonDraftId : null;
@@ -125,10 +133,10 @@ export function LessonViewerArea({
 
       <div className={cn(
         "flex flex-1 min-h-0 min-w-0",
-        draft.draftOpen && "group/viewers relative overflow-hidden @container/viewers",
+        draftBeside && "group/viewers relative overflow-hidden @container/viewers",
       )}>
         {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
-          <div className={cn("relative flex flex-1 min-h-0 min-w-0", draft.draftOpen && "@[1100px]/viewers:flex-[2]")}>
+          <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftBeside && "@[1100px]/viewers:flex-[2]")}>
             {/* The lesson's own Draft takes the worksheet's place, with a Pen Tray of its own */}
             {lessonDraftShown !== null ? (
               <DraftPane
@@ -162,22 +170,24 @@ export function LessonViewerArea({
                   exerciseLabel={exerciseLabel}
                   // Trying again can't find a file the exercise doesn't have.
                   onRetry={pdf.pdfError === NO_FILE_ERROR ? undefined : pdf.retry}
-                  annotations={ink.annotations}
-                  onPageStrokesChange={ink.onPageStrokesChange}
-                  onPagesStrokesChange={ink.onPagesStrokesChange}
-                  tools={ink.tools}
-                  onUndo={ink.onUndo}
-                  onRedo={ink.onRedo}
-                  onClearAll={ink.onClearAll}
-                  onClearPage={ink.onClearPage}
-                  hasAnnotations={ink.openHasInk}
-                  onSaveAnnotated={onSaveAnnotated}
+                  {...(inkless ? { coverButton: true } : {
+                    annotations: ink.annotations,
+                    onPageStrokesChange: ink.onPageStrokesChange,
+                    onPagesStrokesChange: ink.onPagesStrokesChange,
+                    tools: ink.tools,
+                    onUndo: ink.onUndo,
+                    onRedo: ink.onRedo,
+                    onClearAll: ink.onClearAll,
+                    onClearPage: ink.onClearPage,
+                    hasAnnotations: ink.openHasInk,
+                    onSaveAnnotated,
+                  })}
                   onAnswerKeyToggle={answer.toggleAnswerKey}
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answer.answerKeyFound}
                   answerKeySearching={answer.answerKeySearching}
-                  onDraftToggle={isMobile || !exercise ? undefined : draft.toggleDraft}
-                  showDraft={draft.draftOpen}
+                  onDraftToggle={isMobile || !exercise || inkless ? undefined : draft.toggleDraft}
+                  showDraft={draftBeside}
                   toolbarStart={toolbarStart}
                   onPrint={onPrint}
                   isPrinting={isPrinting}
@@ -191,7 +201,7 @@ export function LessonViewerArea({
             )}
 
             {/* The Draft, beside the worksheet, behind a border that drags to share the space */}
-            {draft.draftOpen && exercise && (
+            {draftBeside && exercise && (
               <DraftSplit>
                 <DraftPane
                   exerciseId={exercise.id}
@@ -208,13 +218,13 @@ export function LessonViewerArea({
             )}
 
             {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
-            {draft.draftOpen && <DraftTrayLane ref={draft.setTrayArea} />}
+            {draftBeside && <DraftTrayLane ref={draft.setTrayArea} />}
           </div>
         )}
 
         {/* The answer key is read-only. With the Draft open, it folds away when there isn't room for three columns. */}
         {showAnswerKey && lessonDraftShown === null && (!isMobile || mobileActiveTab === "answer") && (
-          draft.draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
+          draftBeside ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
             <>
               {!isMobile && viewerDivider}
               {answerViewer}

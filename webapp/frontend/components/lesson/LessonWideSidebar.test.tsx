@@ -108,3 +108,38 @@ describe("LessonWideSidebar folding", () => {
     expect(fileHeader).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+describe("LessonWideSidebar students not in CSM yet", () => {
+  const record = {
+    id: 7, student_id: 950, student_name: "Lee Ka Yan", school_student_id: "1300", grade: "F2", lang_stream: "E",
+    school: null, tutor_id: 5, tutor_name: "Tutor B", lesson_date: "2026-09-11", time_slot: "16:45", location: "MSA",
+    notes: null, performance_rating: null, status: "waiting", filled_session_id: null, filled_at: null,
+    dismissed_at: null, dismiss_reason: null, created_at: null, created_by: null,
+    exercises: [{ exercise_type: "CW", pdf_name: PDF, url: null, url_title: null, page_start: null, page_end: null,
+      remarks: null, answer_pdf_name: null, answer_page_start: null, answer_page_end: null, answer_remarks: null }],
+  } as const;
+
+  it("lists them under the students, and opens their worksheet", async () => {
+    const { unlistedLessonEntries } = await import("@/lib/unlisted-lesson-entries");
+    const entries = unlistedLessonEntries(record as never);
+    const onUnlistedEntryOpen = vi.fn();
+    renderSidebar("by-student", { unlisted: [{ lesson: record as never, entries }], onUnlistedEntryOpen });
+    expect(screen.getByText("Not in CSM yet")).toBeInTheDocument();
+    expect(screen.getByText("Lee Ka Yan")).toBeInTheDocument();
+    const section = screen.getByText("Lee Ka Yan").closest("div.rounded-lg") as HTMLElement;
+    fireEvent.click(within(section).getByRole("button", { name: /Linear equations 3/ }));
+    expect(onUnlistedEntryOpen).toHaveBeenCalledWith(entries[0]);
+  });
+
+  it("offers to change the record", () => {
+    const onUnlistedEdit = vi.fn();
+    renderSidebar("by-file", { unlisted: [{ lesson: record as never, entries: [] }], onUnlistedEdit });
+    fireEvent.click(screen.getByRole("button", { name: "Change what's recorded for Lee Ka Yan" }));
+    expect(onUnlistedEdit).toHaveBeenCalledWith(record);
+  });
+
+  it("hides the change button from a read-only viewer", () => {
+    renderSidebar("by-student", { unlisted: [{ lesson: record as never, entries: [] }], onUnlistedEdit: vi.fn(), isReadOnly: true });
+    expect(screen.queryByRole("button", { name: /Change what's recorded/ })).toBeNull();
+  });
+});

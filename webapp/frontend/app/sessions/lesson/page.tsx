@@ -3,13 +3,15 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useSessions, usePageTitle } from "@/lib/hooks";
+import { useSessions, usePageTitle, useUnlistedLessons } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { AlertTriangle, ArrowLeft, Users, UserPlus } from "lucide-react";
 import { useLocation } from "@/contexts/LocationContext";
 import { Button } from "@/components/controls";
-import type { Session } from "@/types";
+import type { Session, UnlistedLesson } from "@/types";
+
+const NO_UNLISTED_LESSONS: UnlistedLesson[] = [];
 
 const TaughtLessonModal = dynamic(
   () => import("@/components/sessions/TaughtLessonModal").then(mod => ({ default: mod.TaughtLessonModal })),
@@ -38,6 +40,15 @@ export default function LessonWidePage() {
     tutor_id: tutorId ? parseInt(tutorId, 10) : undefined,
     limit: 50,
   });
+
+  // Students taught in this slot whose lessons aren't in CSM yet
+  const { data: waitingThatDay = NO_UNLISTED_LESSONS, isLoading: waitingLoading, mutate: mutateWaiting } = useUnlistedLessons(
+    date && tutorId ? { status: "waiting", tutor_id: parseInt(tutorId, 10), from_date: date, to_date: date } : null
+  );
+  const unlistedLessons = useMemo(
+    () => waitingThatDay.filter((lesson) => lesson.time_slot === slot),
+    [waitingThatDay, slot],
+  );
 
   // Every lesson in the slot, whatever its status. The slot's own Draft is
   // kept with one of them, so a student marked absent part way through the
@@ -74,7 +85,7 @@ export default function LessonWidePage() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || waitingLoading) {
     return (
       <PageSurface fullHeight>
         <div className="flex-1 flex flex-col gap-2 p-2 overflow-hidden">
@@ -113,7 +124,7 @@ export default function LessonWidePage() {
     );
   }
 
-  if (sessions.length === 0) {
+  if (sessions.length === 0 && unlistedLessons.length === 0) {
     return (
       <PageSurface fullHeight>
         <div className="flex-1 flex items-center justify-center">
@@ -139,7 +150,7 @@ export default function LessonWidePage() {
               location: selectedLocation === "All Locations" ? null : selectedLocation,
               tutorId: parseInt(tutorId, 10),
             }}
-            onSaved={() => mutate()}
+            onSaved={() => { mutate(); mutateWaiting(); }}
           />
         )}
       </PageSurface>
@@ -154,8 +165,9 @@ export default function LessonWidePage() {
         date={date}
         slot={slot}
         tutorId={parseInt(tutorId, 10)}
-        onSessionDataChange={() => mutate()}
+        onSessionDataChange={() => { mutate(); mutateWaiting(); }}
         isReadOnly={isReadOnly}
+        unlistedLessons={unlistedLessons}
       />
     </PageSurface>
   );

@@ -53,7 +53,8 @@ import { WolframPanel } from "./WolframPanel";
 import { type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
-import type { Session, SessionExercise } from "@/types";
+import { unlistedLessonEntries } from "@/lib/unlisted-lesson-entries";
+import type { Session, SessionExercise, UnlistedLesson } from "@/types";
 
 // --- Data types for grouping ---
 
@@ -101,9 +102,12 @@ interface LessonWideModeProps {
   tutorId: number;
   onSessionDataChange: () => void;
   isReadOnly?: boolean;
+  /** Students taught in this slot whose lessons aren't in CSM yet. Their worksheets open without the Pen Tray. */
+  unlistedLessons?: UnlistedLesson[];
 }
 
 const SHORTCUTS = lessonShortcuts("multi-student");
+const NO_UNLISTED_LESSONS: UnlistedLesson[] = [];
 
 export function LessonWideMode({
   sessions,
@@ -113,22 +117,47 @@ export function LessonWideMode({
   tutorId,
   onSessionDataChange,
   isReadOnly,
+  unlistedLessons = NO_UNLISTED_LESSONS,
 }: LessonWideModeProps) {
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 
   // --- Sidebar mode ---
   const [addingUnlisted, setAddingUnlisted] = useState(false);
+  const [editingUnlisted, setEditingUnlisted] = useState<UnlistedLesson | null>(null);
   const [sidebarMode, setSidebarMode] = useState<"by-student" | "by-file">("by-student");
 
   // --- Selection state ---
   // selectedEntry tracks both which exercise AND which student
-  const [selectedEntry, setSelectedEntry] = useState<StudentExerciseEntry | null>(null);
-  const openExercise = selectedEntry?.exercise ?? null;
+  const [selectedEntry, setSelectedEntryState] = useState<StudentExerciseEntry | null>(null);
+  // A worksheet of a student who isn't in CSM yet, shown in the listed one's
+  // place. It has no lesson to keep ink with, so while it's on screen there is
+  // no open exercise for the ink and the Draft, and picking anything else puts
+  // it away again.
+  const [recordEntry, setRecordEntry] = useState<StudentExerciseEntry | null>(null);
+  const setSelectedEntry = useCallback((entry: StudentExerciseEntry | null) => {
+    setRecordEntry(null);
+    setSelectedEntryState(entry);
+  }, []);
+  const openExercise = recordEntry ? null : selectedEntry?.exercise ?? null;
+  const recordEntriesByLesson = useMemo(
+    () => unlistedLessons.map((lesson) => ({ lesson, entries: unlistedLessonEntries(lesson) })),
+    [unlistedLessons],
+  );
+
+  // A record that has been filled in, deleted or changed takes its worksheet off screen.
+  useEffect(() => {
+    if (recordEntry && !recordEntriesByLesson.some((r) => r.entries.some((e) => e.exercise.id === recordEntry.exercise.id && e.exercise.pdf_name === recordEntry.exercise.pdf_name))) {
+      setRecordEntry(null);
+    }
+  }, [recordEntry, recordEntriesByLesson]);
 
   // --- The open worksheet's file, loaded through the one cache everything in this view shares ---
   const pdfCache = usePdfCache();
-  const pdf = useExercisePdf(openExercise, pdfCache);
+  // What the worksheet's viewer shows: a listed student's exercise, or one of a student not in CSM yet.
+  const viewedExercise = recordEntry?.exercise ?? openExercise;
+  const viewedEntry = recordEntry ?? selectedEntry;
+  const pdf = useExercisePdf(viewedExercise, pdfCache);
   const { pdfData, pageNumbers } = pdf;
 
   // --- Mobile ---
@@ -215,7 +244,7 @@ export function LessonWideMode({
   } = ink;
 
   // --- The open worksheet's answer key ---
-  const answer = useAnswerKey(openExercise, pdfCache);
+  const answer = useAnswerKey(viewedExercise, pdfCache);
 
   // The worksheet's viewer, which + and - zoom
   const worksheetRef = useRef<PdfViewerHandle>(null);
@@ -262,8 +291,8 @@ export function LessonWideMode({
     );
   }, [sessions]);
 
-  // Tutor name from first session
-  const tutorName = sessions[0]?.tutor_name || "";
+  // Tutor name from first session, or from a record when the slot has no lessons in CSM
+  const tutorName = sessions[0]?.tutor_name || unlistedLessons[0]?.tutor_name || "";
 
   // --- Homework carried in from earlier lessons ---
   // One request covers the whole slot, so the sidebar can offer marking per
@@ -287,15 +316,15 @@ export function LessonWideMode({
   // Ephemeral previews (parallel versions) are class-wide, so no
   // per-student stamp.
   const stamp = useMemo(() => {
-    if (!selectedEntry || isPreviewExercise(selectedEntry.exercise)) return undefined;
+    if (recordEntry || !selectedEntry || isPreviewExercise(selectedEntry.exercise)) return undefined;
     return stampFor(selectedEntry.session);
-  }, [selectedEntry]);
+  }, [selectedEntry, recordEntry]);
 
   // Exercise label for PDF viewer
-  const exerciseLabel = selectedEntry?.exercise?.pdf_name
-    ? getDisplayName(selectedEntry.exercise.pdf_name)
-    : selectedEntry?.exercise?.url
-      ? getExerciseDisplayName(selectedEntry.exercise)
+  const exerciseLabel = viewedEntry?.exercise?.pdf_name
+    ? getDisplayName(viewedEntry.exercise.pdf_name)
+    : viewedEntry?.exercise?.url
+      ? getExerciseDisplayName(viewedEntry.exercise)
       : undefined;
 
   // --- Browser tab title ---
@@ -305,20 +334,25 @@ export function LessonWideMode({
   }, [slot, tutorName]);
 
   // --- Auto-select first entry ---
+  // A slot with no listed work opens on the first worksheet of a student not in CSM yet.
   useEffect(() => {
     if (allEntries.length > 0 && !selectedEntry) {
       setSelectedEntry(allEntries[0]);
+    } else if (allEntries.length === 0 && !recordEntry) {
+      const first = recordEntriesByLesson.find((r) => r.entries.length > 0)?.entries[0];
+      if (first) setRecordEntry(first);
     }
-  }, [allEntries, selectedEntry]);
+  }, [allEntries, selectedEntry, recordEntry, recordEntriesByLesson, setSelectedEntry]);
 
   // --- Printing ---
   // Each exercise prints with its own student's stamp.
   const { printing, printExercise, printGroups, printAll } = usePrintExercise();
 
+  // A student not in CSM yet has no lesson to stamp, so their worksheet prints without one.
   const handlePrint = useCallback((entry?: StudentExerciseEntry) => {
-    const target = entry ?? selectedEntry;
-    if (target) void printExercise(target.exercise, stampFor(target.session));
-  }, [selectedEntry, printExercise]);
+    const target = entry ?? recordEntry ?? selectedEntry;
+    if (target) void printExercise(target.exercise, target.session.id ? stampFor(target.session) : undefined);
+  }, [selectedEntry, recordEntry, printExercise]);
 
   const handleBulkPrint = useCallback((type: 'CW' | 'HW') => printAll(sessions, type), [printAll, sessions]);
 
@@ -529,7 +563,8 @@ export function LessonWideMode({
   // and Escape never closes it. While the slot's own Draft is on screen, the
   // key table holds back the keys that work on a worksheet, and c and h wait
   // too, because no student is on screen to edit.
-  const entryShown = lessonDraftOpen ? null : selectedEntry;
+  const entryShown = lessonDraftOpen || recordEntry ? null : selectedEntry;
+  const recordShown = lessonDraftOpen ? null : recordEntry;
   useLessonKeys(
     {
       blocked: !!editing || !!bulkAssignType || showExitConfirm,
@@ -564,13 +599,15 @@ export function LessonWideMode({
       editClasswork: entryShown ? () => handleEditExercises(entryShown.session, "CW") : undefined,
       editHomework: entryShown ? () => handleEditExercises(entryShown.session, "HW") : undefined,
       // Like the print buttons, p waits while another print is still being prepared.
-      print: selectedEntry?.exercise.pdf_name && printing.id === null ? () => handlePrint() : undefined,
+      print: viewedEntry?.exercise.pdf_name && printing.id === null ? () => handlePrint() : undefined,
       answerKey: answer.answerKeyFound ? answer.toggleAnswerKey : undefined,
       save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
     },
   );
 
   // --- Header ---
+  // Students not in CSM yet were taught here too, so they count.
+  const studentCount = sessions.length + unlistedLessons.length;
   const slotLocation = sessions[0]?.location;
   const headerDetails: HeaderDetail[] = [
     { icon: Calendar, text: formatShortDate(date) },
@@ -593,7 +630,7 @@ export function LessonWideMode({
             {tutorName ? `${tutorName} · ${slot}` : slot}
           </span>
           <span className="hidden sm:inline text-xs text-white/50">
-            ({sessions.length} student{sessions.length !== 1 ? "s" : ""})
+            ({studentCount} student{studentCount !== 1 ? "s" : ""})
           </span>
           {homeworkProgress.total > 0 && (
             <span
@@ -627,7 +664,7 @@ export function LessonWideMode({
   // In focus mode, the Students button and the way out sit at the two ends of
   // the student strip. With no worksheet on screen there's no strip, so they
   // go at the start of the worksheet's toolbar, or of the slot's Draft's bar.
-  const focusButtons = focusMode && !entryShown ? (
+  const focusButtons = focusMode && !entryShown && !recordShown ? (
     <>
       <FocusSidebarButton icon={Users} label="Students" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} />
       <LeaveFocusButton onLeave={exitFocusMode} />
@@ -677,6 +714,16 @@ export function LessonWideMode({
     onHomeworkMarked: handleHomeworkMarked,
     lessonDraft: lessonDraftRow,
     onAddUnlisted: () => setAddingUnlisted(true),
+    unlisted: recordEntriesByLesson,
+    shownUnlistedExerciseId: recordShown?.exercise.id ?? null,
+    onUnlistedEntryOpen: (entry: StudentExerciseEntry) => {
+      // There's no Pen Tray on this worksheet, so no pen is left picked out of sight.
+      tools.selectHand();
+      setRecordEntry(entry);
+      draft.closeLessonDraft();
+      if (focusMode) setHoverSidebar(false);
+    },
+    onUnlistedEdit: (lesson: UnlistedLesson) => setEditingUnlisted(lesson),
   };
 
   return (
@@ -707,7 +754,18 @@ export function LessonWideMode({
           isMobile={isMobile}
           // Whose worksheet this is, in large letters, with arrows to the next student.
           // The slot's own Draft is nobody's, so it has no strip.
-          top={entryShown && (
+          top={recordShown ? (
+            <StudentStrip
+              entry={recordShown}
+              position={null}
+              caption="Not in CSM yet"
+              selectedLocation={selectedLocation}
+              start={focusMode ? (
+                <FocusSidebarButton icon={Users} label="Students" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} labelClass={stripLabel} />
+              ) : undefined}
+              end={focusMode ? <LeaveFocusButton onLeave={exitFocusMode} labelClass={stripLabel} /> : undefined}
+            />
+          ) : entryShown && (
             <StudentStrip
               entry={entryShown}
               position={stepIndex >= 0 ? { index: stepIndex + 1, total: stepCount } : null}
@@ -720,15 +778,16 @@ export function LessonWideMode({
               end={focusMode ? <LeaveFocusButton onLeave={exitFocusMode} labelClass={stripLabel} /> : undefined}
             />
           )}
-          link={selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
+          link={viewedEntry?.exercise?.url && !viewedEntry?.exercise?.pdf_name ? (
             // Focus mode's way back is in the student strip above, so the link needs no bar of its own.
             <UrlExerciseView
-              url={selectedEntry.exercise.url}
-              title={getExerciseDisplayName(selectedEntry.exercise)}
+              url={viewedEntry.exercise.url}
+              title={getExerciseDisplayName(viewedEntry.exercise)}
               isMobile={isMobile}
             />
           ) : undefined}
-          exercise={openExercise}
+          exercise={viewedExercise}
+          inkless={!!recordShown}
           exerciseLabel={exerciseLabel}
           pdf={pdf}
           answer={answer}
@@ -736,9 +795,9 @@ export function LessonWideMode({
           ink={ink}
           stamp={stamp}
           onSaveAnnotated={handleSaveAnnotated}
-          onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
+          onPrint={viewedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
           printing={printing}
-          emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
+          emptyMessage={allEntries.length === 0 && !recordShown ? NO_EXERCISES_MESSAGE : undefined}
           toolbarStart={focusButtons}
           worksheetRef={worksheetRef}
         />
@@ -761,7 +820,7 @@ export function LessonWideMode({
           className={cn(
             "fixed right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#8f6240] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform",
             // Above the page bar and the Pen Tray's collapsed button, which sits in the same corner.
-            selectedEntry?.exercise?.pdf_name ? "bottom-36" : "bottom-4",
+            viewedEntry?.exercise?.pdf_name ? "bottom-36" : "bottom-4",
           )}
           aria-label="Exercise list"
         >
@@ -795,6 +854,14 @@ export function LessonWideMode({
           isOpen
           onClose={() => setAddingUnlisted(false)}
           prefill={{ date, timeSlot: slot, location: slotLocation ?? null, tutorId }}
+          onSaved={onSessionDataChange}
+        />
+      )}
+      {editingUnlisted && (
+        <TaughtLessonModal
+          isOpen
+          onClose={() => setEditingUnlisted(null)}
+          lesson={editingUnlisted}
           onSaved={onSessionDataChange}
         />
       )}
