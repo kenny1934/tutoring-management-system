@@ -257,7 +257,7 @@ export default function RevenuePage() {
         <div className="flex flex-col gap-3 p-2 sm:p-4 min-h-full">
           {/* The header is also the toolbar, stuck to the top. Its background is
               solid so the table doesn't show through as it scrolls. */}
-          <div className="sticky top-0 z-30 bg-canvas pt-1">
+          <div className="sticky top-0 z-30 surface-bar pt-1">
             <PageHeader
               icon={DollarSign}
               title="Revenue"

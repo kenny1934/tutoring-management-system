@@ -813,7 +813,7 @@ export default function CurriculumPage() {
       <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
         {/* Toolbar. Sticky from sm up only: on phones it wraps to two or
             three rows and would pin that much of the viewport. */}
-        <div className="surface z-30 sm:sticky sm:top-0">
+        <div className="surface-bar relative z-30 sm:sticky sm:top-0">
           <PageHeader icon={MapIcon} title="Curriculum" className="pb-2">
             <Segmented
               label="View"

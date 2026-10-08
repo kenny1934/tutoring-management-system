@@ -903,7 +903,21 @@ html {
  *
  * `--color-on-surface` is the colour of text drawn straight onto the
  * surface, like the page headings on Settings or Exams. It has to change
- * with the surface, since white reads on wood but not on a pale page. */
+ * with the surface, since white reads on wood but not on a pale page.
+ *
+ * The `--surface-header-*` variables say what goes behind a page's header.
+ * A pale surface needs nothing, so the header sits straight on the page as
+ * the "Ledger line". A busy one like the wood desk puts it on a strip of
+ * paper, because no text colour reads well on wood in every spot. The strip
+ * takes its colours from the palette, so it changes with the palette too:
+ *
+ * - `--surface-header-fill` is behind a page header that does not stick.
+ * - `--surface-bar-fill` is behind one that sticks, which has to hide the
+ *   page scrolling under it, so it is never transparent.
+ * - `--surface-header-edge`, `-radius` and `-outset` are the strip's
+ *   border, corners, and how far it reaches past the header on each side.
+ * - `--surface-header-rule` is the hairline under the header. On a strip
+ *   the strip's own edge does that job, so the hairline goes. */
 
 :root,
 [data-surface="plain"] {
@@ -913,6 +927,12 @@ html {
   --surface-lighting: none;
   --surface-vignette: none;
   --color-on-surface: var(--color-foreground);
+  --surface-header-fill: transparent;
+  --surface-bar-fill: var(--surface-background);
+  --surface-header-edge: transparent;
+  --surface-header-radius: 0px;
+  --surface-header-outset: 0px;
+  --surface-header-rule: var(--color-line);
 }
 
 .dark,
@@ -924,6 +944,12 @@ html {
   --surface-lighting: none;
   --surface-vignette: none;
   --color-on-surface: #ffffff;
+  --surface-header-fill: transparent;
+  --surface-bar-fill: var(--surface-background);
+  --surface-header-edge: transparent;
+  --surface-header-radius: 0px;
+  --surface-header-outset: 0px;
+  --surface-header-rule: var(--color-line);
 }
 
 /* The wood desk: wood grain under a desk lamp, with darkened edges. */
@@ -947,6 +973,12 @@ html {
     rgba(0, 0, 0, 0.15) 100%
   );
   --color-on-surface: #ffffff;
+  --surface-header-fill: var(--color-paper);
+  --surface-bar-fill: var(--color-paper);
+  --surface-header-edge: var(--color-line);
+  --surface-header-radius: var(--radius-lg);
+  --surface-header-outset: 0.5rem;
+  --surface-header-rule: transparent;
 }
 
 .dark[data-surface="wood"],
@@ -970,6 +1002,12 @@ html {
     rgba(0, 0, 0, 0.4) 100%
   );
   --color-on-surface: #ffffff;
+  --surface-header-fill: var(--color-paper);
+  --surface-bar-fill: var(--color-paper);
+  --surface-header-edge: var(--color-line);
+  --surface-header-radius: var(--radius-lg);
+  --surface-header-outset: 0.5rem;
+  --surface-header-rule: transparent;
 }
 
 .surface {
@@ -996,6 +1034,67 @@ html {
 
 .surface-vignette {
   background: var(--surface-vignette);
+}
+
+/* What goes behind a page's header, from the `--surface-header-*` variables
+ * above. `.surface-header` is on PageHeader itself. `.surface-bar` is on a
+ * header that sticks to the top while the page scrolls, around its
+ * PageHeader and any rows of controls under it, so the whole block is one
+ * strip and the PageHeader inside it does not draw a second one.
+ *
+ * The backing is drawn by ::before, so it can reach past the header without
+ * moving anything, and the header keeps exactly its spacing on every
+ * surface. Neither class sets a position, because that would beat a
+ * header's own sticky class, so a header that does not stick needs
+ * `relative` next to it. Isolation keeps the backing under the header's
+ * contents. Text inside is on paper, not on the surface, so it takes the
+ * ordinary text colour. */
+.surface-header,
+.surface-bar {
+  isolation: isolate;
+  --color-on-surface: var(--color-foreground);
+}
+
+.surface-header::before,
+.surface-bar::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--surface-header-outset));
+  z-index: -1;
+  border-radius: var(--surface-header-radius);
+  box-shadow: inset 0 0 0 1px var(--surface-header-edge);
+  pointer-events: none;
+}
+
+.surface-header::before {
+  /* A page header already has room under its text, so its strip stops at the
+   * header's edge and does not run into whatever comes next, like the Inbox's
+   * folder panel just under its header. */
+  bottom: 0;
+  background: var(--surface-header-fill);
+}
+
+.surface-bar::before {
+  background: var(--surface-bar-fill);
+}
+
+.surface-header {
+  border-bottom-color: var(--surface-header-rule);
+}
+
+.surface-bar .surface-header::before {
+  display: none;
+}
+
+/* A header that is already on a panel of its own, as on Tutors and most of
+ * the admin pages, is on paper already, so it needs no strip and keeps its
+ * hairline. The panels set these back for everything inside them. */
+.bg-paper,
+.bg-card {
+  --surface-header-fill: transparent;
+  --surface-header-edge: transparent;
+  --surface-header-outset: 0px;
+  --surface-header-rule: var(--color-line);
 }
 
 /* ===== CLASSIC SHAPE FOR THE PUBLIC PAGES =====

@@ -343,7 +343,7 @@ export default function UncheckedAttendancePage() {
           <div className="flex flex-col gap-3 p-2 sm:p-4">
             {/* The header and bulk bar stay stuck to the top. The background is
                 solid so rows don't show through as they scroll. */}
-            <div className="sticky top-0 z-30 flex flex-col gap-3 bg-canvas pt-1">
+            <div className="sticky top-0 z-30 flex flex-col gap-3 surface-bar pt-1">
             <PageHeader
               icon={ClipboardList}
               title="Unchecked attendance"

@@ -1791,7 +1791,7 @@ export default function TableBrowserPage() {
       <PageSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="flex-shrink-0 surface border-b border-[#6b5a4a]/30">
+          <div className="relative flex-shrink-0 surface-bar">
             {/* Priority accent bar */}
             <div className={cn("h-1", priorityAccentColor)} />
 

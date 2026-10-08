@@ -13,6 +13,13 @@
  *
  * Pages whose header is also their toolbar (Sessions, Courseware) pass their
  * controls as `children`, which sit on the same row straight after the name.
+ *
+ * What sits behind the header depends on the page's background. On the plain
+ * background there is nothing behind it. On a busy one like the wood desk it
+ * sits on a strip of paper so it stays readable. The surface decides, through
+ * `.surface-header` in globals.css. A header that sticks to the top of its
+ * page goes inside a `.surface-bar`, which draws the strip for the whole
+ * sticky block instead.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -51,7 +58,7 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <header className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3", className)}>
+    <header className={cn("surface-header relative flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3", className)}>
       <div className="flex min-w-[10rem] flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
         {(backHref || onBack) && (() => {
           const backClass =

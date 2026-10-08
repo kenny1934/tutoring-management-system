@@ -293,9 +293,10 @@ export default function StudentsPage() {
   // Calculate if there might be more pages
   const hasMorePages = students.length === STUDENTS_PER_PAGE;
 
-  // The header sticks to the top while the list scrolls under it, so it needs
-  // the page's own background behind it or the cards would show through.
-  const toolbarStickyClasses = "sticky top-0 z-30 bg-canvas pt-1";
+  // The header sticks to the top while the list scrolls under it, so
+  // surface-bar puts the page's colour behind it (or a strip of paper on the
+  // wood desk) or the cards would show through.
+  const toolbarStickyClasses = "sticky top-0 z-30 surface-bar pt-1";
 
   if (loading) {
     return (

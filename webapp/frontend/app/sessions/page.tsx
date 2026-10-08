@@ -2125,9 +2125,10 @@ function SessionsPageContent() {
 
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
-  // No box any more: the header draws its own hairline, and the solid page
-  // colour behind it keeps the list from showing through while it sticks.
-  const toolbarInnerClasses = "surface pt-1.5 sm:pt-2";
+  // No box any more: the header draws its own hairline, and surface-bar puts
+  // the page's colour behind it (or a strip of paper on the wood desk), which
+  // keeps the list from showing through while it sticks.
+  const toolbarInnerClasses = "surface-bar pt-1.5 sm:pt-2";
 
   // For list view: Use fullHeight to propagate height constraints for sticky positioning
   // For other views: Use PageTransition with animations
@@ -3153,7 +3154,7 @@ function SessionsPageContent() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.38, 1.21, 0.22, 1.00] }}
-          className={toolbarInnerClasses}
+          className={cn(toolbarInnerClasses, "relative")}
         >
           {toolbarContent}
         </motion.div>

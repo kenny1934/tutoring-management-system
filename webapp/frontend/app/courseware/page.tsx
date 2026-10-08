@@ -2887,7 +2887,7 @@ export default function CoursewarePage() {
   // responsibilities are split (matches the Sessions page). The header draws
   // its own hairline, so there is no box any more.
   const toolbarStickyClasses = "sticky top-0 z-30";
-  const toolbarInnerClasses = "surface pt-2";
+  const toolbarInnerClasses = "surface-bar pt-2";
 
   // Segmented button component for time range
   const TimeRangeToggle = () => (
