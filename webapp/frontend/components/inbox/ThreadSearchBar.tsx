@@ -61,7 +61,7 @@ export default function ThreadSearchBar({
   };
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-line/60 bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-line/60 bg-[#faf6f1]/50 dark:bg-[#29241e]/50">
       <Search className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
       <input
         ref={inputRef}

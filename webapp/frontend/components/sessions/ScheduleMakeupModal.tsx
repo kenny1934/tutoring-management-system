@@ -1835,7 +1835,7 @@ export function ScheduleMakeupModal({
                       className={cn(
                         "p-1 min-h-[50px] border-b border-line transition-colors cursor-pointer relative",
                         !isFirstCol && "border-l",
-                        !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
+                        !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#241f19] opacity-40",
                         dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10",
                         dayData.isHoliday && !isAdmin && "cursor-not-allowed",
                         !dayData.isHoliday && dayData.isPastLimitDay && "bg-red-50 dark:bg-red-900/20",
@@ -2236,7 +2236,7 @@ export function ScheduleMakeupModal({
               )}
 
               {/* Time Slots - Scrollable with more height */}
-              <div className="max-h-[350px] overflow-y-auto p-2 space-y-2 bg-gray-50 dark:bg-[#252525]">
+              <div className="max-h-[350px] overflow-y-auto p-2 space-y-2 bg-gray-50 dark:bg-[#2c2620]">
                   {filteredDayPickerSlots.length === 0 ? (
                     <div className="text-xs text-gray-500 text-center py-4">
                       {dayPickerSlots.length === 0
@@ -2247,7 +2247,7 @@ export function ScheduleMakeupModal({
                     filteredDayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
                       <div key={timeSlot} className="space-y-1.5">
                         {/* Time Slot Header */}
-                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[11px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-line pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
+                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[11px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-line pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#2c2620] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#2c2620]">
                           {timeSlot}
                           {dayPickerDate && (
                             <CopySlotButton date={dayPickerDate} timeSlot={timeSlot} className="-my-1" />

@@ -149,23 +149,27 @@
 /* ===== DARK MODE COLOR OVERRIDES ===== */
 /* Applied when .dark class is present on HTML element (next-themes) */
 .dark {
-  --color-background: #0a0a0a;
-  --color-surface: #111111;
+  /* Dark mode is a warm brown-black scale, so the page, the cards on it and
+   * the menus on those step up in that order: #1f1b16, then #29241e, then
+   * #352e26. The page used to be near-black and the cards a neutral grey, which
+   * looked too black, and a lighter page needed the cards to rise with it. */
+  --color-background: #1f1b16;
+  --color-surface: #29241e;
   --color-foreground: #FFFFFF;
 
-  --color-card: #1a1a1a;
+  --color-card: #29241e;
   --color-card-foreground: #FFFFFF;
 
-  --color-secondary: #2a2a2a;
+  --color-secondary: #352e26;
   --color-secondary-foreground: #FFFFFF;
-  --color-muted: #2a2a2a;
+  --color-muted: #352e26;
   --color-muted-foreground: #9CA3AF;
-  --color-accent: #2a2a2a;
+  --color-accent: #352e26;
   --color-accent-foreground: #FFFFFF;
 
-  --color-border: #2a2a2a;
+  --color-border: #3d352b;
   --color-border-subtle: #333333;
-  --color-input: #2a2a2a;
+  --color-input: #3d352b;
 
   /* Role tokens in dark mode */
   --color-line: #6b5a4a;
@@ -176,12 +180,12 @@
   --color-accent-ink-hover: #dda15e;
   --color-ink-subtle: #a09080;
   --color-ink-strong: #d4a574;
-  --color-canvas: #13110e;
+  --color-canvas: #1f1b16;
   --color-field: #857160;
-  --color-field-fill: #1a1a1a;
+  --color-field-fill: #29241e;
   --color-wash: #2d2618;
-  --color-raised: #1a1a1a;
-  --color-raised-2: #2a2a2a;
+  --color-raised: #29241e;
+  --color-raised-2: #352e26;
   --color-ink-heading: #e8d4b8;
 }
 
@@ -677,7 +681,7 @@ tr:hover .table-row-name-hover {
 }
 
 .dark .paper-white {
-  background-color: #1a1a1a;
+  background-color: #29241e;
 }
 
 .paper-shadow-md {
@@ -1902,7 +1906,7 @@ html {
 .resize-handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
 
 .dark .resize-handle {
-  border-color: #1a1a1a;
+  border-color: #29241e;
 }
 
 /* Wrapped (floated) nodes — the NodeViewWrapper div must also float */
@@ -2189,7 +2193,7 @@ html {
   display: block;
 }
 .dark .answer-float-content {
-  background: #1a1a1a;
+  background: #29241e;
   border-color: #cd853f;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
@@ -2552,7 +2556,7 @@ body.student-print .print-answer-key {
 /* Answer section */
 .dark-paper .answer-toggle { background: #2d2618; border-color: #6b5a4a; color: #cd853f; }
 .dark-paper .answer-toggle:hover { background: #3d3020; }
-.dark-paper .answer-float-content { background: #1a1a1a; border-color: #cd853f; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
+.dark-paper .answer-float-content { background: #29241e; border-color: #cd853f; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
 
 /* Watermark */
 .dark-paper .document-watermark-image,

@@ -424,7 +424,7 @@ function Podium({
   return (
     <>
       <ConfettiBurst trigger={showConfetti} origin={confettiOrigin} onComplete={handleConfettiComplete} />
-      <div className="mb-4 p-4 bg-gradient-to-b from-paper to-white dark:to-[#1a1a1a] rounded-lg border-2 border-line-strong overflow-hidden">
+      <div className="mb-4 p-4 bg-gradient-to-b from-paper to-white dark:to-[#29241e] rounded-lg border-2 border-line-strong overflow-hidden">
         <div className="flex items-end justify-center gap-2 sm:gap-4">
           {podiumOrder.map((item, i) => {
             const rank = positions[i];

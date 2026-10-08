@@ -697,7 +697,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             {[false, true, false].map((isOther, i) => (
               <div key={i} className={cn("flex gap-2", isOther ? "mr-16" : "ml-16 justify-end")}>
                 {isOther && <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 skeleton-shimmer" />}
-                <div className={cn("rounded-2xl", isOther ? "bg-[#faf6f1] dark:bg-[#2a2a2a]" : "bg-[#ede0cf] dark:bg-[#3d3628]", "skeleton-shimmer")} style={{ width: `${40 + i * 15}%`, height: 40 }} />
+                <div className={cn("rounded-2xl", isOther ? "bg-[#faf6f1] dark:bg-[#352e26]" : "bg-[#ede0cf] dark:bg-[#3d3628]", "skeleton-shimmer")} style={{ width: `${40 + i * 15}%`, height: 40 }} />
               </div>
             ))}
           </div>
@@ -736,7 +736,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                       className="max-h-48 max-w-full rounded-lg border border-line" />
                   ) : (
                     <div key={file.url}
-                      className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+                      className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#29241e]/50">
                       <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                         {file.content_type?.startsWith("audio/")
                           ? <Mic className="h-5 w-5" />
@@ -789,7 +789,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           <button
             onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
             className={cn(
-              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-line text-gray-500 hover:text-accent-ink transition-all duration-200 -translate-y-full",
+              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#352e26] shadow-lg border border-line text-gray-500 hover:text-accent-ink transition-all duration-200 -translate-y-full",
               showScrollBottom ? "scale-100" : "scale-75"
             )}
             title="Scroll to bottom"

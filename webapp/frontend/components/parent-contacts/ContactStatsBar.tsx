@@ -15,7 +15,7 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
     return (
       <div className="flex flex-wrap gap-3">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-white dark:bg-[#1a1a1a]">
+          <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-white dark:bg-[#29241e]">
             <div className="w-4 h-4 rounded shimmer-sepia" />
             <div className="w-16 h-4 rounded shimmer-sepia" />
           </div>
@@ -43,7 +43,7 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
       {/* Coverage */}
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 rounded-lg border",
-        "border-line bg-white dark:bg-[#1a1a1a]"
+        "border-line bg-white dark:bg-[#29241e]"
       )}>
         <Users className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
         <div className="flex items-baseline gap-1.5">
@@ -67,7 +67,7 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
       {/* Weekly Activity */}
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 rounded-lg border",
-        "border-line bg-white dark:bg-[#1a1a1a]"
+        "border-line bg-white dark:bg-[#29241e]"
       )}>
         <Calendar className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -87,7 +87,7 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
       {totalTypeContacts > 0 && (
         <div className={cn(
           "flex items-center gap-2 px-3 py-1.5 rounded-lg border",
-          "border-line bg-white dark:bg-[#1a1a1a]"
+          "border-line bg-white dark:bg-[#29241e]"
         )}>
           <BarChart3 className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
           <div className="flex items-center gap-2 text-xs">
@@ -113,7 +113,7 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
       {stats.average_days_since_contact != null && (
         <div className={cn(
           "flex items-center gap-2 px-3 py-1.5 rounded-lg border",
-          "border-line bg-white dark:bg-[#1a1a1a]"
+          "border-line bg-white dark:bg-[#29241e]"
         )}>
           <span className={cn(
             "text-sm font-semibold",

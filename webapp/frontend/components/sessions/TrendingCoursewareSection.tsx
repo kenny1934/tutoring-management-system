@@ -103,7 +103,7 @@ export function TrendingCoursewareSection({
       {/* Trending Section - Loading Skeleton */}
       {trendingLoading && (
         <div className="border border-line rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]">
+          <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#29241e]">
             <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -120,8 +120,8 @@ export function TrendingCoursewareSection({
             onClick={() => setTrendingExpanded(!trendingExpanded)}
             className={cn(
               "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-              "bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]",
-              "hover:from-orange-100 hover:to-white dark:hover:from-orange-900/30 dark:hover:to-[#1a1a1a]"
+              "bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#29241e]",
+              "hover:from-orange-100 hover:to-white dark:hover:from-orange-900/30 dark:hover:to-[#29241e]"
             )}
           >
             <TrendingUp className="h-3.5 w-3.5 text-orange-700" />
@@ -207,7 +207,7 @@ export function TrendingCoursewareSection({
                     </div>
                     {/* Expandable usage details section */}
                     {isExpanded && (
-                      <div className="px-3 py-2 border-b border-line/30 bg-gray-50 dark:bg-[#1a1a1a]/50">
+                      <div className="px-3 py-2 border-b border-line/30 bg-gray-50 dark:bg-[#29241e]/50">
                         {usageDetailsLoading ? (
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <Loader2 className="h-3 w-3 animate-spin" />

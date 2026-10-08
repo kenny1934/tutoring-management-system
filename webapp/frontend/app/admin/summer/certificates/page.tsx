@@ -343,7 +343,7 @@ export default function SummerCertificatesPage() {
                         onClick={() => setSelectedAppId(row.application_id)}
                         className={cn(
                           "cursor-pointer hover:bg-primary/5",
-                          i % 2 === 1 && "bg-[#f5efe7]/30 dark:bg-[#222]"
+                          i % 2 === 1 && "bg-[#f5efe7]/30 dark:bg-[#2c2620]"
                         )}
                       >
                         <td className="px-3 py-2 font-medium text-foreground">{row.branch_code}</td>

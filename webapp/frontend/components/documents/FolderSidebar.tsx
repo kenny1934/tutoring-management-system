@@ -385,7 +385,7 @@ export default function FolderSidebar({
               !isHidden && "border-r border-line/40",
               !isCollapsed && !isHidden && "w-56 lg:w-60"
             ),
-        "flex-col shrink-0 bg-[#fef9f3]/95 dark:bg-[#1a1a1a]/60 overflow-hidden",
+        "flex-col shrink-0 bg-[#fef9f3]/95 dark:bg-[#29241e]/60 overflow-hidden",
         !isCollapsed && !isHidden && !mobile && "overflow-y-auto"
       )}
       style={!mobile ? (isHidden ? { width: 0 } : isCollapsed ? { width: 40 } : undefined) : undefined}
@@ -615,7 +615,7 @@ export default function FolderSidebar({
                     className={cn(
                       "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer",
                       activeTags.includes(tag)
-                        ? "ring-2 ring-primary/60 ring-offset-1 dark:ring-offset-[#1a1a1a] shadow-[0_0_0_3px_rgba(160,112,75,0.08)] scale-[1.04]"
+                        ? "ring-2 ring-primary/60 ring-offset-1 dark:ring-offset-[#29241e] shadow-[0_0_0_3px_rgba(160,112,75,0.08)] scale-[1.04]"
                         : "hover:scale-[1.03] hover:shadow-sm",
                       getTagColor(tag)
                     )}

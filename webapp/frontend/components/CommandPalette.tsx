@@ -1055,7 +1055,7 @@ export function CommandPalette() {
 
           {/* Preview panel - desktop only */}
           {(debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length && (
-            <div className="hidden sm:block w-[45%] p-4 overflow-y-auto bg-[#fef9f3]/50 dark:bg-[#1a1a1a]/50">
+            <div className="hidden sm:block w-[45%] p-4 overflow-y-auto bg-[#fef9f3]/50 dark:bg-[#29241e]/50">
               {helpPreview ? (
                 <HelpPreview topic={helpPreview} />
               ) : examPreview ? (

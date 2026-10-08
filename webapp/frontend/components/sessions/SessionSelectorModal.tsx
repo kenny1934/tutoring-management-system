@@ -582,7 +582,7 @@ export function SessionSelectorModal({
                         "p-1.5 min-h-[60px] border-b border-line transition-colors",
                         !isFirstCol && "border-l",
                         !dayData.isCurrentMonth &&
-                          "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
+                          "bg-gray-50 dark:bg-[#241f19] opacity-40",
                         dayData.isCurrentMonth &&
                           dayData.sessionCount > 0 &&
                           "cursor-pointer hover:bg-tint",

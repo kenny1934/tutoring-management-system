@@ -676,7 +676,7 @@ export function PaperlessSearchModal({
                     className={cn(
                       "flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap",
                       searchMode === option.value
-                        ? "bg-white dark:bg-[#2a2a2a] text-amber-700 dark:text-amber-400 shadow-sm"
+                        ? "bg-white dark:bg-[#352e26] text-amber-700 dark:text-amber-400 shadow-sm"
                         : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                     )}
                     disabled={isConfigured === false}
@@ -923,7 +923,7 @@ export function PaperlessSearchModal({
                               "flex items-center gap-2",
                               // Gradient background for top 3 (when not focused/checked)
                               !isFocused && !isChecked && index < 3
-                                ? "bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]"
+                                ? "bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#29241e]"
                                 : !isFocused && !isChecked ? "bg-raised dark:bg-raised" : "",
                               // Focus styling
                               isFocused && "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50",
@@ -997,7 +997,7 @@ export function PaperlessSearchModal({
 
                           {/* Expandable usage details section */}
                           {isExpanded && (
-                            <div className="px-3 py-2 border border-t-0 border-line rounded-b-lg bg-gray-50 dark:bg-[#1a1a1a]/50">
+                            <div className="px-3 py-2 border border-t-0 border-line rounded-b-lg bg-gray-50 dark:bg-[#29241e]/50">
                               {usageDetailsLoading ? (
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <Loader2 className="h-3 w-3 animate-spin" />

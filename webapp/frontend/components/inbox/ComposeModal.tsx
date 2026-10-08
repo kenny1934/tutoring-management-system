@@ -623,7 +623,7 @@ export default function ComposeModal({
 
           {/* Reply context */}
           {replyTo && (
-            <div className="p-3 bg-gray-50 dark:bg-[#2a2a2a] rounded-lg border-l-4 border-primary text-sm">
+            <div className="p-3 bg-gray-50 dark:bg-[#352e26] rounded-lg border-l-4 border-primary text-sm">
               <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {replyTo.from_tutor_name} wrote:
               </div>
@@ -743,7 +743,7 @@ export default function ComposeModal({
                     key={file.url}
                     value={file}
                     whileDrag={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
-                    className="flex items-center gap-2 p-2 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+                    className="flex items-center gap-2 p-2 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#29241e]/50"
                     style={{ cursor: uploadedFiles.length > 1 ? "grab" : undefined }}
                     as="div"
                   >

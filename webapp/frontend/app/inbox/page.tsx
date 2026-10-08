@@ -1522,7 +1522,7 @@ export default function InboxPage() {
               {/* Top scroll indicator */}
               <div className={cn(
                 "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200 rounded-t-lg",
-                "bg-gradient-to-b from-white to-transparent dark:from-[#1a1a1a] dark:to-transparent",
+                "bg-gradient-to-b from-white to-transparent dark:from-[#29241e] dark:to-transparent",
                 catCanScrollUp ? "opacity-100" : "opacity-0"
               )} />
               <div ref={catNavRef} className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide p-2">
@@ -1630,7 +1630,7 @@ export default function InboxPage() {
               {/* Bottom scroll indicator */}
               <div className={cn(
                 "absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200 rounded-b-lg",
-                "bg-gradient-to-t from-white to-transparent dark:from-[#1a1a1a] dark:to-transparent",
+                "bg-gradient-to-t from-white to-transparent dark:from-[#29241e] dark:to-transparent",
                 catCanScrollDown ? "opacity-100" : "opacity-0"
               )} />
             </div>
@@ -1933,7 +1933,7 @@ export default function InboxPage() {
                       <>
                         {pinnedInList.length > 0 && (
                           <div>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-line/30 flex items-center gap-1.5">
+                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#29241e]/80 sticky top-0 z-[5] border-b border-line/30 flex items-center gap-1.5">
                               <Pin className="h-3 w-3" />
                               Pinned
                             </div>
@@ -1942,7 +1942,7 @@ export default function InboxPage() {
                         )}
                         {groupThreadsByDate(unpinnedThreads).map((group) => (
                           <div key={group.label}>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-line/30">
+                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#29241e]/80 sticky top-0 z-[5] border-b border-line/30">
                               {group.label}
                             </div>
                             {group.threads.map((thread) => renderThread(thread))}
@@ -2098,7 +2098,7 @@ export default function InboxPage() {
                   ["?", "This help"],
                 ].map(([key, desc]) => (
                   <div key={key} className="contents">
-                    <kbd className="text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[11px] text-center">{key}</kbd>
+                    <kbd className="text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-[#29241e] px-1.5 py-0.5 rounded text-[11px] text-center">{key}</kbd>
                     <span className="text-gray-500 dark:text-gray-400 py-0.5">{desc}</span>
                   </div>
                 ))}

@@ -1110,8 +1110,8 @@ export function ExerciseModal({
               onClick={() => setRecapExpanded(!recapExpanded)}
               className={cn(
                 "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-                "bg-gradient-to-r from-purple-50 to-white dark:from-purple-900/20 dark:to-[#1a1a1a]",
-                "hover:from-purple-100 hover:to-white dark:hover:from-purple-900/30 dark:hover:to-[#1a1a1a]"
+                "bg-gradient-to-r from-purple-50 to-white dark:from-purple-900/20 dark:to-[#29241e]",
+                "hover:from-purple-100 hover:to-white dark:hover:from-purple-900/30 dark:hover:to-[#29241e]"
               )}
             >
               <History className="h-3.5 w-3.5 text-purple-600" />

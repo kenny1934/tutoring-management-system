@@ -230,7 +230,7 @@ export function ContactCalendar({
   return (
     <div className={cn(
       "flex flex-col h-full",
-      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
+      "bg-white dark:bg-[#29241e] rounded-lg border border-line",
       "overflow-hidden"
     )}>
       {/* Header */}
@@ -356,7 +356,7 @@ export function ContactCalendar({
             {expandedDay && eventsByDate[expandedDay] && (
               <div
                 ref={popoverRef}
-                className="fixed z-50 w-40 p-1.5 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] space-y-0.5"
+                className="fixed z-50 w-40 p-1.5 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-[#29241e] space-y-0.5"
                 style={{ top: popoverPos.top, left: popoverPos.left }}
               >
                 {eventsByDate[expandedDay].map(event => (

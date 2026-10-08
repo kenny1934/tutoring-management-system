@@ -2182,7 +2182,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? editor.commands.goToPreviousResult() : editor.commands.goToNextResult(); }
                 if (e.key === "Escape") { setShowFindReplace(false); setSearchTerm(""); editor.commands.clearSearch(); }
               }}
-              className="w-32 sm:w-48 px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-32 sm:w-48 px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#352e26] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
             <span className="text-[11px] text-gray-500 tabular-nums flex-shrink-0">
               {editor.storage.searchAndReplace.results > 0
@@ -2214,7 +2214,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 value={replaceTerm}
                 onChange={(e) => { setReplaceTerm(e.target.value); editor.commands.setReplaceTerm(e.target.value); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); editor.commands.replaceCurrent(); } }}
-                className="w-28 sm:w-40 px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-28 sm:w-40 px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#352e26] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
               <button onClick={() => editor.commands.replaceCurrent()} className="px-2 py-1 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700" title="Replace current">
                 Replace
