@@ -382,7 +382,7 @@ export default function SessionDetailPage() {
   if (loading) {
     return (
       <PageSurface>
-        <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
+        <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 md:pr-16 lg:pr-16">
         {/* Chalkboard skeleton - matches ChalkboardHeader structure */}
         <div
           className="relative w-full rounded-[20px] sm:rounded-[28px]"
@@ -492,7 +492,7 @@ export default function SessionDetailPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 md:pr-16 lg:pr-16">
         {/* Bookmark Tab for Previous Session (fixed position) */}
         <BookmarkTab
           previousSession={session.previous_session}
