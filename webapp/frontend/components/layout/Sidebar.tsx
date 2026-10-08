@@ -7,6 +7,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -283,13 +284,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {isMobile ? (
           // Mobile: Logo + Close button
           <>
-            <div className="flex items-center gap-3">
-              <Image src="/logo.png" alt="CSM Pro" width={36} height={36} className="h-9 w-auto" priority />
-              <div>
-                <span className="font-bold text-xl leading-tight block">CSM Pro</span>
-                <span className="mt-0.5 text-[10px] leading-[1.25] text-ink-subtle block">Class Session Manager for<br />Productive Resource Orchestration</span>
-              </div>
-            </div>
+            <Logo className="h-14 w-auto" />
             <button
               onClick={onMobileClose}
               className="p-2 rounded-lg hover:bg-foreground/10 transition-colors"
@@ -306,25 +301,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <div className="flex items-center gap-3 transition-all duration-350">
-              <Image
-                src="/logo.png"
-                alt="CSM Pro"
-                width={36}
-                height={36}
-                priority
-                className={cn(
-                  "transition-all duration-350 group-hover:scale-105",
-                  isCollapsed ? "h-8 w-auto" : "h-9 w-auto"
-                )}
-              />
-              {!isCollapsed && (
-                <div className="text-left">
-                  <span className="font-bold text-xl leading-tight group-hover:text-accent-ink transition-colors block">CSM Pro</span>
-                  <span className="mt-0.5 text-[10px] leading-[1.25] text-ink-subtle block">Class Session Manager for<br />Productive Resource Orchestration</span>
-                </div>
+            {/* Collapsed, the sidebar is too narrow for the whole logo, so it shows the C and its arrow. */}
+            <Logo
+              variant={isCollapsed ? "c" : "full"}
+              className={cn(
+                "w-auto transition-transform duration-350 group-hover:scale-105",
+                isCollapsed ? "h-9" : "h-14"
               )}
-            </div>
+            />
           </button>
         )}
       </div>
