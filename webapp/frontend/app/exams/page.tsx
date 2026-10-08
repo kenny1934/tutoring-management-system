@@ -702,7 +702,7 @@ export default function ExamsPage() {
           </div>
 
           {/* Date range row */}
-          <div className="px-4 pb-3 flex flex-col sm:flex-row gap-3 items-center border-t border-line/50 pt-3">
+          <div className="px-4 pb-3 flex flex-col sm:flex-row sm:flex-wrap gap-3 items-center border-t border-line/50 pt-3">
             {/* Date inputs */}
             <div className="flex items-center gap-2">
               <Input
