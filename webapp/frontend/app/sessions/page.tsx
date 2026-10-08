@@ -1898,10 +1898,7 @@ function SessionsPageContent() {
                   }}
                 >
                   {/* Time slot header skeleton */}
-                  <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 bg-paper rounded-lg border-l-4 border-accent-ink mb-2",
-                    !isMobile && "paper-texture"
-                  )}>
+                  <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-accent-ink/50 mb-2">
                     <div className="w-6 h-6 bg-accent-ink/20 rounded animate-pulse" />
                     <div className="flex-1 flex items-center sm:justify-center gap-2">
                       <div className="w-6 h-6 bg-accent-ink/30 rounded-full animate-pulse" />
@@ -2322,7 +2319,6 @@ function SessionsPageContent() {
                     overdue: {
                       label: 'Overdue (60+ days)',
                       icon: <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-l-purple-600 dark:border-l-purple-500',
                       bgColor: 'bg-purple-600 dark:bg-purple-500',
                       badgeBg: 'bg-purple-100 dark:bg-purple-900',
                       badgeText: 'text-purple-900 dark:text-purple-100',
@@ -2331,7 +2327,6 @@ function SessionsPageContent() {
                     critical: {
                       label: 'Critical (45-60 days)',
                       icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-l-red-500 dark:border-l-red-600',
                       bgColor: 'bg-red-500 dark:bg-red-600',
                       badgeBg: 'bg-red-100 dark:bg-red-900',
                       badgeText: 'text-red-900 dark:text-red-100',
@@ -2340,7 +2335,6 @@ function SessionsPageContent() {
                     warning: {
                       label: 'Warning (30-44 days)',
                       icon: <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-l-orange-500 dark:border-l-orange-600',
                       bgColor: 'bg-orange-500 dark:bg-orange-600',
                       badgeBg: 'bg-orange-100 dark:bg-orange-900',
                       badgeText: 'text-orange-900 dark:text-orange-100',
@@ -2349,7 +2343,6 @@ function SessionsPageContent() {
                     ok: {
                       label: 'OK (0-29 days)',
                       icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
-                      borderColor: 'border-l-gray-400 dark:border-l-gray-500',
                       bgColor: 'bg-gray-400 dark:bg-gray-500',
                       badgeBg: 'bg-gray-100 dark:bg-gray-800',
                       badgeText: 'text-gray-900 dark:text-gray-100',
@@ -2362,10 +2355,7 @@ function SessionsPageContent() {
                       <div className={cn(UNDER_BARS, "sticky z-20 mb-4")}>
                         <div
                           onClick={() => toggleSlot(tierKey)}
-                          className={cn(
-                            "bg-paper border border-line border-l-4 rounded-lg p-4 cursor-pointer hover:bg-tint transition-colors",
-                            tierConfig.borderColor
-                          )}
+                          className="surface-bar relative border-b-2 border-accent-ink/50 hover:border-accent-ink px-3 py-3 cursor-pointer transition-colors"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -2607,12 +2597,14 @@ function SessionsPageContent() {
                         scrollIntoView a no-op when jumping back up to it.
                         scrollMarginTop keeps anchored scrolls clear of the sticky toolbar. */}
                     <div id={`slot-${slotKey}`} className={cn(UNDER_BARS, "flex flex-col gap-2 sm:gap-3")}>
-                    {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
+                    {/* Time slot header, a ruled heading over its sessions (click to collapse).
+                        surface-bar gives it the page's own background, or a paper
+                        strip on the wood desk, so the cards scrolling under it stay hidden. */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
                     <div className={cn(UNDER_BARS, "sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")}>
                       <div
                         onClick={() => toggleSlot(slotKey)}
-                        className="bg-paper border border-line border-l-4 border-l-accent-ink rounded-lg px-3 py-2 cursor-pointer hover:bg-tint transition-colors"
+                        className="surface-bar relative border-b-2 border-accent-ink/50 hover:border-accent-ink px-3 py-2 cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           {/* Slot selection checkbox with dropdown */}
