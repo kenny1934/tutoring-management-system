@@ -140,3 +140,31 @@ def test_classwork_is_listed_before_homework(db_session: Session, lesson):
     db_session.expire_all()
 
     assert [ex.id for ex in db_session.get(SessionLog, 100).exercises] == [10, 11, 5, 20]
+
+
+def test_another_tutor_cannot_change_the_exercises(client: TestClient, db_session: Session, lesson, as_tutor):
+    """The lesson belongs to tutor 99. Every other change to a lesson already
+    refuses a tutor who doesn't own it, and saving its exercises now does too."""
+    as_tutor.id = 98
+    resp = client.put(URL, json={"exercise_type": "CW", "exercises": [_cw("C.pdf")]}, cookies=AUTH_COOKIE)
+
+    assert resp.status_code == 403
+    db_session.expire_all()
+    assert {ex.pdf_name for ex in db_session.query(SessionExercise).filter_by(exercise_type="CW")} == {"A.pdf", "B.pdf"}
+
+
+def test_another_tutor_cannot_rate_the_lesson(client: TestClient, db_session: Session, lesson, as_tutor):
+    as_tutor.id = 98
+    resp = client.patch("/api/sessions/100/rate", json={"performance_rating": "⭐⭐⭐", "notes": "x"}, cookies=AUTH_COOKIE)
+
+    assert resp.status_code == 403
+    db_session.expire_all()
+    assert db_session.get(SessionLog, 100).performance_rating is None
+
+
+def test_an_admin_can_change_another_tutors_exercises(client: TestClient, db_session: Session, lesson, as_tutor):
+    as_tutor.id = 98
+    as_tutor.role = "Admin"
+    shown = _save(client, "CW", [_cw("A.pdf", 10), _cw("B.pdf", 11), _cw("C.pdf")])
+
+    assert [name for _, name in shown] == ["A.pdf", "B.pdf", "C.pdf"]

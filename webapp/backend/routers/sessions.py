@@ -1765,6 +1765,8 @@ async def save_session_exercises(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
+    _verify_session_ownership(session, current_user, "change the exercises of")
+
     if request.append:
         rows, leftovers = [None] * len(request.exercises), []
     else:
@@ -1888,6 +1890,8 @@ async def rate_session(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    _verify_session_ownership(session, current_user, "rate")
 
     # Update rating and notes
     session.performance_rating = request.performance_rating
