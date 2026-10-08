@@ -14,7 +14,6 @@ import {
   XCircle,
   ChevronRight,
   Loader2,
-  RefreshCw,
   Filter,
   ArrowUpDown,
 } from "lucide-react";
@@ -55,7 +54,6 @@ export function ExtensionRequestsList({
     data: requests,
     error,
     isLoading,
-    isValidating,
     mutate,
   } = useSWR(
     ["extension-requests", statusFilter, selectedLocation],
@@ -165,8 +163,8 @@ export function ExtensionRequestsList({
 
   return (
     <div className="space-y-4">
-      {/* Counts and refresh. The page above already has the title, so this
-          row doesn't repeat it. */}
+      {/* Counts. The page above already has the title, so this row doesn't
+          repeat it. */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {pendingCount > 0 && (
@@ -179,18 +177,6 @@ export function ExtensionRequestsList({
               {displayedRequests.length} of {sortedRequests.length}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={RefreshCw}
-            iconClassName={isValidating ? "animate-spin" : undefined}
-            onClick={() => mutate()}
-            disabled={isValidating}
-          >
-            Refresh
-          </Button>
         </div>
       </div>
 

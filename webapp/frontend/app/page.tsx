@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -56,21 +56,6 @@ export default function DashboardPage() {
     error: studentsError,
     mutate: mutateStudents
   } = useAllStudents(selectedLocation);  // No tutorId - fetch all, filter client-side
-
-  // Refresh state tracking
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  // Handle manual refresh - refresh all dashboard data
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await mutateStudents();
-      setLastUpdated(new Date());
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [mutateStudents]);
 
   // Filter client-side based on view mode (instant, no API call)
   const filteredStudents = useMemo(() => {
@@ -150,9 +135,6 @@ export default function DashboardPage() {
             stats={stats}
             isStatsLoading={isLoading}
             tutorId={effectiveTutorId}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-            lastUpdated={lastUpdated}
           />
         </motion.div>
 

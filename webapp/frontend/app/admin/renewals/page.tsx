@@ -20,7 +20,6 @@ import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button, IconButton, Input, PageHeader } from "@/components/controls";
 
 // Status icon component - matches tab icons (memoized for performance)
@@ -374,10 +373,6 @@ export default function AdminRenewalsPage() {
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchRenewModalOpen, setBatchRenewModalOpen] = useState(false);
-
-  // Refresh state tracking
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -756,17 +751,11 @@ export default function AdminRenewalsPage() {
 
   const handleRefresh = async () => {
     // Refresh the renewals list and counts without closing modals
-    setIsRefreshing(true);
     feeMessageCache.current.clear(); // Invalidate pre-fetched messages
-    try {
-      await Promise.all([
-        mutate(['renewals', selectedLocation, showExpired]),
-        mutate(['renewal-counts', selectedLocation]),
-      ]);
-      setLastUpdated(new Date());
-    } finally {
-      setIsRefreshing(false);
-    }
+    await Promise.all([
+      mutate(['renewals', selectedLocation, showExpired]),
+      mutate(['renewal-counts', selectedLocation]),
+    ]);
   };
 
   const handleSuccess = () => {
@@ -916,11 +905,6 @@ export default function AdminRenewalsPage() {
           titleExtra={isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
           actions={
             <>
-              <RefreshButton
-                onRefresh={handleRefresh}
-                isRefreshing={isRefreshing}
-                lastUpdated={lastUpdated}
-              />
               <Button
                 variant="primary"
                 icon={Plus}

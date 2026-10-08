@@ -15,7 +15,6 @@ import { usefulTools } from "@/config/useful-tools";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
-import { RefreshButton } from "@/components/ui/RefreshButton";
 import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,9 +33,6 @@ interface DashboardHeaderProps {
   stats?: DashboardStats | null;
   tutorId?: number;
   isStatsLoading?: boolean;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
-  lastUpdated?: Date | null;
 }
 
 // Quick link definitions
@@ -51,7 +47,7 @@ const quickLinks = [
 ];
 
 
-export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false, onRefresh, isRefreshing, lastUpdated }: DashboardHeaderProps) {
+export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
   const { user, isAdmin, isGuest } = useAuth();
@@ -158,16 +154,6 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         ) : null}
         <div className="ml-auto px-4 sm:px-6 flex items-center gap-2">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
-          {onRefresh && (
-            <div className="hidden sm:flex">
-              <RefreshButton
-                onRefresh={onRefresh}
-                isRefreshing={isRefreshing}
-                lastUpdated={lastUpdated}
-                iconOnly
-              />
-            </div>
-          )}
         </div>
       </div>
 
