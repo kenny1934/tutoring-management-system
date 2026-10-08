@@ -23,6 +23,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
 import { studentsAPI } from "@/lib/api";
 import type { Session, Enrollment, CalendarEvent } from "@/types";
 import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
@@ -1177,6 +1178,7 @@ function StudentDetailPopover({
     };
   }, [clickPosition]);
 
+  const asSheet = useAsSheet();
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
     onOpenChange: (open) => {
@@ -1186,10 +1188,14 @@ function StudentDetailPopover({
       offset(8),
       flip({ fallbackAxisSideDirection: "end", padding: 16 }),
       shift({ padding: 16 }),
+      !asSheet && fitToScreen(16),
     ],
     whileElementsMounted: autoUpdate,
     placement: "bottom-start",
   });
+
+  // On a phone the popover is a sheet along the bottom of the screen.
+  const sheet = sheetParts(asSheet, floatingStyles);
 
   // Use setPositionReference for virtual references (not elements.reference)
   useEffect(() => {
@@ -1205,15 +1211,18 @@ function StudentDetailPopover({
 
   return (
     <FloatingPortal>
+      {sheet.backdrop}
       <div
         ref={refs.setFloating}
-        style={floatingStyles}
+        style={sheet.style}
         {...getFloatingProps()}
         className={cn(
-          "z-[9999] w-80 bg-paper border-2 border-line-strong rounded-lg shadow-xl",
-          !isMobile && "paper-texture"
+          "bg-paper border-2 border-line-strong shadow-xl",
+          sheet.asSheet ? sheet.sheetClass : "w-80 rounded-lg",
+          !sheet.asSheet && !isMobile && "paper-texture"
         )}
       >
+        {sheet.handle && <div className="pt-3">{sheet.handle}</div>}
         <RichPopoverContent
           student={student}
           isMobile={isMobile}

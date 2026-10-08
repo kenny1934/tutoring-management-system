@@ -12,6 +12,7 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 import { ChevronDown, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
@@ -58,6 +59,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
       offset(4),
       flip({ padding: 8 }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     whileElementsMounted: autoUpdate,
     placement: "bottom-start",

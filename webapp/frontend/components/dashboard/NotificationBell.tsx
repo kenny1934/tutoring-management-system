@@ -20,6 +20,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 
 interface NotificationBellProps {
   pendingPayments: number;
@@ -254,6 +255,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       offset(8),
       flip({ fallbackAxisSideDirection: "end" }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     placement: "bottom-end",
   });

@@ -12,6 +12,7 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 import { ChevronDown, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTutors } from "@/lib/hooks";
@@ -78,6 +79,7 @@ export function TutorSelector({
       offset(4),
       flip({ padding: 8 }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     whileElementsMounted: autoUpdate,
     placement: "bottom-start",

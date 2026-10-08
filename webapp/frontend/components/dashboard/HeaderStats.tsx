@@ -18,6 +18,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { IconButton, Input } from "@/components/controls";
 
@@ -68,6 +69,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
       offset(8),
       flip({ fallbackAxisSideDirection: "end" }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     placement: "bottom-start",
     whileElementsMounted: autoUpdate,

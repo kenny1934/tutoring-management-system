@@ -12,6 +12,7 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconButton, Input } from "@/components/controls";
@@ -43,6 +44,7 @@ export function DatePickerPopover({ selectedDate, onSelect }: DatePickerPopoverP
       offset(4),
       flip({ padding: 8 }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     whileElementsMounted: autoUpdate,
     placement: "bottom-start",

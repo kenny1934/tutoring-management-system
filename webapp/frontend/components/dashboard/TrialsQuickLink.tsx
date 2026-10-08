@@ -37,6 +37,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 
 interface TrialsQuickLinkProps {
   className?: string;
@@ -298,6 +299,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
       offset(8),
       flip({ fallbackAxisSideDirection: "end" }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     placement: "bottom-start",
   });
