@@ -203,6 +203,30 @@ def twist():
     lower = Arc((S_LOWER_X, BASE - S_RADIUS), S_RADIUS, 90, -90)
     return ("twist", outline([lower], W), circle3(*TWIST))
 
+def ribbon_centre():
+    """The ribbon's centre line from the C's foot, where the C on its own ends,
+    along the baseline, round the S and along its top, through the fold and
+    down the M's \\ to its end. The sidebar draws the logo along this line
+    when it opens, so it starts where the collapsed C leaves off."""
+    crease_top, crease_bottom = m_entry()
+    entry = ((crease_top[0] + crease_bottom[0]) / 2, (crease_top[1] + crease_bottom[1]) / 2)
+    # The middle of the \\'s slanted end: its bottom point and the corner above it.
+    back_corner = cross_back_end()
+    end = ((M_MIDDLE + back_corner[0]) / 2, (V_BOTTOM + back_corner[1]) / 2)
+    r, lx, ux = S_RADIUS, S_LOWER_X, S_UPPER_X
+    return (f"M124 {f(BASE)} L{f(lx)} {f(BASE)} "
+            f"A{f(r)} {f(r)} 0 0 0 {f(lx + r)} {f(BASE - r)} A{f(r)} {f(r)} 0 0 0 {f(lx)} {f(S_MIDDLE)} "
+            f"L{f(ux)} {f(S_MIDDLE)} "
+            f"A{f(r)} {f(r)} 0 0 1 {f(ux - r)} {f(S_MIDDLE - r)} A{f(r)} {f(r)} 0 0 1 {f(ux)} {f(TOP)} "
+            f"L{f(entry[0])} {f(entry[1])} L{f(end[0])} {f(end[1])}")
+
+def cross_back_end():
+    """The corner where the \\'s upper edge meets its slanted end."""
+    crease_top, crease_bottom = m_entry()
+    upper_slope = (V_BOTTOM - BLADE_END - crease_top[1]) / (M_MIDDLE - crease_top[0])
+    lower_slope = (V_BOTTOM - crease_bottom[1]) / (M_MIDDLE - crease_bottom[0])
+    return cross(line_through(crease_top, upper_slope), line_through((M_MIDDLE, V_BOTTOM), -lower_slope))
+
 def full():
     """The whole logo without PRO, in drawing order."""
     return m_pieces() + [("ink", c_and_baseline()), ("oak", s_and_top()), twist(), ("oak", arrow())]
