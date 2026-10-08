@@ -23,7 +23,7 @@ A full-stack web application for managing tutoring center operations — student
 - **Student Enrollment** — enrollment workflow with fee calculation, discounts, and payment tracking
 - **Inbox & Messaging** — chat-style threads with rich text (TipTap), math equations (KaTeX/MathLive), geometry diagrams (JSXGraph), code blocks, scheduled send, snooze, @mentions, voice messages, emoji reactions, and link previews
 - **Document Builder** — A4 document editor with math, geometry, and table support for creating worksheets and materials
-- **Attendance Tracking** — quick-attend mode, overdue payment alerts, unchecked attendance views
+- **Attendance Tracking** — overdue payment alerts, unchecked attendance views
 - **Calendar Integration** — Google Calendar sync for test/exam dates with revision planning
 - **Revenue & Reporting** — revenue dashboards, tutor workload tracking, and financial summaries
 - **Courseware** — structured teaching materials organized by subject and topic
