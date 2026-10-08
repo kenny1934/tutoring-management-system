@@ -111,6 +111,7 @@ from auth.dependencies import (
 from routers.students import find_duplicate_students, students_at
 from routers.primary_prospects import enrollment_backed_students
 from services.departure_guard import check_assignment
+from services.unlisted_lessons import fill_unlisted_lessons
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.grades import GRADE_ORDER, grade_blocks_prospect_link, next_grade
 from quarters import get_quarter_dates, get_quarter_for_date
@@ -3351,6 +3352,9 @@ def _publish_application_inner(
             last_modified_by=admin_email,
         ))
         sessions_created += 1
+
+    # Lessons the tutor taught before this enrolment existed fill themselves in.
+    fill_unlisted_lessons(db, [app.existing_student_id], admin_email)
 
     # Move app status to Enrolled (with audit), unless already there.
     if app.application_status != RegularApplicationStatus.ENROLLED.value:

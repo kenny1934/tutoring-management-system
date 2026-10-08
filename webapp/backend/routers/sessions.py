@@ -23,6 +23,8 @@ from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRev
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
+from services.attendance import mark_attended
+from services.unlisted_lessons import fill_unlisted_lessons
 from routers.homework import load_homework_to_check
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
 from utils.rate_limiter import check_user_rate_limit
@@ -830,27 +832,10 @@ async def mark_session_attended(
             detail=f"Cannot mark attended: current status is '{session.session_status}'"
         )
 
-    # Determine new status based on current status
-    status_mapping = {
-        "Scheduled": "Attended",
-        "Trial Class": "Attended",
-        "Make-up Class": "Attended (Make-up)"
-    }
-    new_status = status_mapping.get(session.session_status, session.session_status)
-
-    # Store previous status for undo functionality
-    session.previous_session_status = session.session_status
-
-    # Update session status
-    session.session_status = new_status
-
-    # Set attendance tracking fields
-    session.attendance_marked_by = current_user.user_email
-    session.attendance_mark_time = hk_now()
-
-    # Set audit columns
-    session.last_modified_by = current_user.user_email
-    session.last_modified_time = hk_now()
+    # The status, the status before it (for undo) and who marked it. Filling
+    # in a lesson that was taught before it was in CSM marks attendance the
+    # same way, through the same helper.
+    mark_attended(session, marked_by=current_user.user_email)
 
     db.commit()
     db.refresh(session)
@@ -1591,6 +1576,9 @@ async def schedule_makeup(
     original_session.last_modified_by = current_user.user_email
     original_session.last_modified_time = hk_now()
 
+    # A make-up taught before it was booked fills itself in from the tutor's record.
+    fill_unlisted_lessons(db, [makeup_session.student_id], current_user.user_email)
+
     try:
         db.commit()
     except IntegrityError as e:
@@ -2145,6 +2133,10 @@ async def update_session(
 
             if matching_slot:
                 session.exam_revision_slot_id = matching_slot.id
+
+    # A lesson moved onto the day a tutor recorded one fills itself in from that record.
+    if request.session_date is not None or request.time_slot is not None:
+        fill_unlisted_lessons(db, [session.student_id], current_user.user_email)
 
     db.commit()
     db.refresh(session)

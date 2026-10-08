@@ -157,11 +157,6 @@ NOT_YET_REVIEWED = {
     "students.py::update_student",
     "terminations.py::delete_termination_record",
     "terminations.py::update_termination_record",
-    "tutor_memos.py::create_memo",
-    "tutor_memos.py::delete_memo",
-    "tutor_memos.py::import_memo_to_session",
-    "tutor_memos.py::link_memo_to_session",
-    "tutor_memos.py::update_memo",
     "wecom.py::update_webhook",
 }
 

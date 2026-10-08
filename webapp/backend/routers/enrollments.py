@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
+from services.unlisted_lessons import fill_unlisted_lessons
 from constants import hk_now, CONFLICTING_SESSION_STATUSES, CANCELLED_OR_MAKEUP_BOOKED_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
-from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo, SummerApplication, SummerCourseConfig
+from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, SummerApplication, SummerCourseConfig
 from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
@@ -782,23 +783,8 @@ async def create_enrollment(
         db.add(session)
         sessions_created += 1
 
-    # Auto-match pending tutor memos to newly created sessions
-    db.flush()  # Ensure sessions have IDs
-    session_dates = [sp.session_date for sp in sessions if not sp.is_holiday]
-    if session_dates:
-        pending_memos = db.query(TutorMemo).filter(
-            TutorMemo.student_id == enrollment_data.student_id,
-            TutorMemo.status == "pending",
-            TutorMemo.linked_session_id.is_(None),
-            TutorMemo.memo_date.in_(session_dates),
-        ).all()
-        for memo in pending_memos:
-            matching_session = db.query(SessionLog).filter(
-                SessionLog.enrollment_id == enrollment.id,
-                SessionLog.session_date == memo.memo_date,
-            ).first()
-            if matching_session:
-                memo.linked_session_id = matching_session.id
+    # Lessons the tutor taught before this enrolment existed fill themselves in.
+    fill_unlisted_lessons(db, [enrollment_data.student_id], admin.user_email)
 
     db.commit()
 
@@ -2976,6 +2962,10 @@ async def apply_schedule_change(
 
             sessions_updated += 1
 
+    # A lesson moved onto the day a tutor recorded one fills itself in from that record.
+    if sessions_updated:
+        fill_unlisted_lessons(db, [enrollment.student_id], current_user.user_email)
+
     db.commit()
 
     # Recalculate effective end date
@@ -3435,6 +3425,7 @@ async def batch_renew(
 
     results = []
     created_count = 0
+    renewed_student_ids = []
     failed_count = 0
 
     # Load holidays once for bulk calculation
@@ -3571,6 +3562,10 @@ async def batch_renew(
             error=None
         ))
         created_count += 1
+        renewed_student_ids.append(enrollment.student_id)
+
+    # Lessons the tutors taught before these renewals existed fill themselves in.
+    fill_unlisted_lessons(db, renewed_student_ids, admin.user_email)
 
     db.commit()
 

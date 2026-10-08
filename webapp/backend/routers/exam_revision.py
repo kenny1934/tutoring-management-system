@@ -37,6 +37,7 @@ from utils.response_builders import build_session_response as _build_session_res
 from utils.makeup_validators import validate_makeup_constraints, assert_not_holiday
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES, hk_now
 from services.google_calendar_service import sync_calendar_events
+from services.unlisted_lessons import fill_unlisted_lessons
 from auth.dependencies import get_current_user, ADMIN_WRITE_ROLES
 
 router = APIRouter()
@@ -1061,6 +1062,9 @@ async def enroll_student(
 
         consume_session.last_modified_by = modified_by
         consume_session.last_modified_time = hk_now()
+
+        # A revision lesson taught before it was booked fills itself in from the tutor's record.
+        fill_unlisted_lessons(db, [revision_session.student_id], current_user.user_email)
 
         db.commit()
 
