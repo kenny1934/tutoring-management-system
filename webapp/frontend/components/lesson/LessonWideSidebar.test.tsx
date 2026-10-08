@@ -138,6 +138,21 @@ describe("LessonWideSidebar students not in CSM yet", () => {
     expect(onUnlistedEdit).toHaveBeenCalledWith(record);
   });
 
+  it("shows them in a slot with no lessons in CSM, without the lesson tools", async () => {
+    const { unlistedLessonEntries } = await import("@/lib/unlisted-lesson-entries");
+    const entries = unlistedLessonEntries(record as never);
+    renderSidebar("by-student", {
+      sessions: [], students: [], fileGroups: [], allEntries: [],
+      unlisted: [{ lesson: record as never, entries }],
+      onAddUnlisted: vi.fn(),
+    });
+    expect(screen.getByText("Lee Ka Yan")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Linear equations 3/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add a student who isn't listed/ })).toBeInTheDocument();
+    expect(screen.queryByText("No sessions in this slot")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Lesson draft/ })).toBeNull();
+  });
+
   it("hides the change button from a read-only viewer", () => {
     renderSidebar("by-student", { unlisted: [{ lesson: record as never, entries: [] }], onUnlistedEdit: vi.fn(), isReadOnly: true });
     expect(screen.queryByRole("button", { name: /Change what's recorded/ })).toBeNull();

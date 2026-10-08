@@ -604,6 +604,75 @@ export function LessonWideSidebar({
   // Every student's homework to check, in the order the students are listed.
   const slotHomework = useMemo(() => slotCheckItems(students, homeworkBySession), [students, homeworkBySession]);
 
+  // Students taught here whose lessons aren't in CSM yet, and the button to add
+  // one. A slot with only these students shows nothing else, because the
+  // draft and the Assign buttons need a real lesson to act on.
+  const notInCsmYet = (
+    <>
+      {/* Students taught here whose lessons aren't in CSM yet. Their worksheets show without the Pen Tray. */}
+      {unlisted.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 px-2">
+            <UserPlus className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
+            <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">Not in CSM yet</span>
+          </div>
+          {unlisted.map(({ lesson, entries }) => (
+            <div key={lesson.id} className="rounded-lg border border-dashed border-line-strong p-1.5">
+              <div className="flex items-center gap-1.5 px-1 py-1">
+                <span className="flex-1 min-w-0 truncate text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  {lesson.student_name}
+                </span>
+                {!isReadOnly && onUnlistedEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onUnlistedEdit(lesson)}
+                    aria-label={`Change what's recorded for ${lesson.student_name}`}
+                    title="Change what's recorded"
+                    className="flex-none rounded p-1 text-ink-subtle hover:bg-[#faf3e8] hover:text-ink dark:hover:bg-[#2a2318]"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {entries.length > 0 ? (
+                <div className="flex flex-col gap-0.5">
+                  {entries.map((entry) => (
+                    <StudentExerciseItem
+                      key={entry.exercise.id}
+                      entry={entry}
+                      isSelected={shownUnlistedExerciseId === entry.exercise.id}
+                      onClick={() => onUnlistedEntryOpen?.(entry)}
+                      onPrint={onPrint}
+                      isPrinting={printing?.id === entry.exercise.id}
+                      printProgress={printing?.progress}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="px-1 pb-1 text-xs text-ink-subtle">No worksheets recorded to show yet.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {onAddUnlisted && !isReadOnly && (
+        <button
+          type="button"
+          onClick={onAddUnlisted}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong px-2 py-2 text-xs text-ink-subtle transition-colors hover:bg-paper hover:text-ink"
+        >
+          <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+          Add a student who isn't listed
+        </button>
+      )}
+    </>
+  );
+
+  if (sessions.length === 0 && unlisted.length > 0) {
+    return <div className="flex flex-col h-full overflow-y-auto p-2">{notInCsmYet}</div>;
+  }
+
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
@@ -797,63 +866,7 @@ export function LessonWideSidebar({
           </div>
         )}
 
-        {/* Students taught here whose lessons aren't in CSM yet. Their worksheets show without the Pen Tray. */}
-        {unlisted.length > 0 && (
-          <div className="mt-3 flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 px-2">
-              <UserPlus className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
-              <span className="text-xs font-semibold text-ink-subtle uppercase tracking-wider">Not in CSM yet</span>
-            </div>
-            {unlisted.map(({ lesson, entries }) => (
-              <div key={lesson.id} className="rounded-lg border border-dashed border-line-strong p-1.5">
-                <div className="flex items-center gap-1.5 px-1 py-1">
-                  <span className="flex-1 min-w-0 truncate text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    {lesson.student_name}
-                  </span>
-                  {!isReadOnly && onUnlistedEdit && (
-                    <button
-                      type="button"
-                      onClick={() => onUnlistedEdit(lesson)}
-                      aria-label={`Change what's recorded for ${lesson.student_name}`}
-                      title="Change what's recorded"
-                      className="flex-none rounded p-1 text-ink-subtle hover:bg-[#faf3e8] hover:text-ink dark:hover:bg-[#2a2318]"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                {entries.length > 0 ? (
-                  <div className="flex flex-col gap-0.5">
-                    {entries.map((entry) => (
-                      <StudentExerciseItem
-                        key={entry.exercise.id}
-                        entry={entry}
-                        isSelected={shownUnlistedExerciseId === entry.exercise.id}
-                        onClick={() => onUnlistedEntryOpen?.(entry)}
-                        onPrint={onPrint}
-                        isPrinting={printing?.id === entry.exercise.id}
-                        printProgress={printing?.progress}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="px-1 pb-1 text-xs text-ink-subtle">No worksheets recorded to show yet.</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {onAddUnlisted && !isReadOnly && (
-          <button
-            type="button"
-            onClick={onAddUnlisted}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong px-2 py-2 text-xs text-ink-subtle transition-colors hover:bg-paper hover:text-ink"
-          >
-            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-            Add a student who isn't listed
-          </button>
-        )}
+        {notInCsmYet}
       </div>
 
     </div>
