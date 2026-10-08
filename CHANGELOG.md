@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.1.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.0...v2.1.1) (2026-10-09)
+
+
+### New Features
+
+* **Taught but not in CSM yet**: when you teach a student whose lesson isn't in CSM yet, add them to the time slot with what they did, and it's filled in by itself once the lesson appears.
+* **Their worksheets in lesson mode**: students who aren't in CSM yet appear at the bottom of wide lesson mode, so you can open their worksheets on the board.
+* **Details on a phone**: on a phone, tapping a lesson, student or enrollment opens its details in a sheet along the bottom of the screen.
+* **A warmer dark mode**: dark mode has a slightly lighter background and warmer greys, so cards and fields match the rest of the page.
+
+
+### Bug Fixes
+
+* **Your own lessons**: only a lesson's own tutor or an admin can now change its classwork, homework or rating.
+* **Popovers stay on screen**: menus and popovers no longer run off the bottom of a short screen, and scroll inside instead.
+* **Side tabs on a lesson's page**: the Recap and Curriculum tabs no longer cover the edge of a lesson's page.
+* **Renewals on a phone**: the selected tab on Renewals now scrolls into view on a phone.
+
 ## [2.1.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.146...v2.1.0) (2026-10-08)
 
 
