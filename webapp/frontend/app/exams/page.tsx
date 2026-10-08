@@ -558,9 +558,9 @@ export default function ExamsPage() {
       {/* Single scroll container */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Single sticky container for header + toolbar */}
-        <div ref={stickyHeaderRef} className="sticky top-0 z-40 surface border-b border-[#6b5a4a]/30">
+        <div ref={stickyHeaderRef} className="sticky top-0 z-40 surface-bar">
           {/* Header */}
-          <div className="p-4 sm:px-6 sm:py-4 surface">
+          <div className="p-4 sm:px-6 sm:py-4">
             <PageHeader
               onBack={goBack}
               backLabel="Back"

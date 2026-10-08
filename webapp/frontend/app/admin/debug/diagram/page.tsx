@@ -267,7 +267,7 @@ export default function DiagramPage() {
       <PageSurface fullHeight>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex-shrink-0 surface border-b border-[#6b5a4a]/30">
+          <div className="relative flex-shrink-0 surface-bar">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">

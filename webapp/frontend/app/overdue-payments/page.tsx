@@ -461,7 +461,7 @@ export default function OverduePaymentsPage() {
           <div className="flex flex-col gap-3 p-2 sm:p-4">
             {/* Toolbar: the page header and search stay stuck to the top. The
                 background is solid so rows don't show through as they scroll. */}
-            <div className="sticky top-0 z-30 bg-canvas pt-1">
+            <div className="sticky top-0 z-30 surface-bar pt-1">
               <PageHeader
                 icon={AlertTriangle}
                 title="Overdue payments"

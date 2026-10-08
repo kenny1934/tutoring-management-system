@@ -350,7 +350,7 @@ export default function SqlExecutorPage() {
       <PageSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 z-40 surface border-b border-[#6b5a4a]/30">
+          <div className="sticky top-0 z-40 surface-bar">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
