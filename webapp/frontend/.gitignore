@@ -48,3 +48,8 @@ CHANGELOG.md
 /tests/visual/screenshots/*.png
 tests/visual/screenshots/
 playwright-report/
+
+# The logo generator fetches its fonts, and writes its icon list, as it runs.
+/scripts/logo/fonts/
+/scripts/logo/icons.json
+/scripts/logo/__pycache__/

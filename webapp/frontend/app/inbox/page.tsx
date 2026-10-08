@@ -856,7 +856,7 @@ export default function InboxPage() {
         // Browser notification (only if tab not visible)
         sendNotification('New Message', {
           body: `You have ${newCount} new message${newCount > 1 ? 's' : ''} in your inbox`,
-          icon: '/favicon.ico'
+          icon: '/brand/icon-192.png'
         });
         // Play notification sound
         playNotifSound();
@@ -893,7 +893,7 @@ export default function InboxPage() {
         body: data.from_tutor_name
           ? `${data.from_tutor_name}: ${plainPreview}`
           : plainPreview,
-        icon: "/favicon.ico",
+        icon: "/brand/icon-192.png",
       });
 
       // In-app banner for messages in other threads

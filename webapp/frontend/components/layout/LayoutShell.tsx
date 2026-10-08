@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import { Menu, Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
+import { Logo } from "@/components/brand/Logo";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
 import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
@@ -60,10 +60,8 @@ export function LayoutShell({ children }: LayoutShellProps) {
             >
               <Menu className="h-6 w-6" />
             </button>
-            <div className="flex items-center gap-2 ml-2">
-              <Image src="/logo.png" alt="CSM Pro" width={28} height={28} className="h-7 w-auto" priority />
-              <span className="font-bold text-lg">CSM Pro</span>
-            </div>
+            {/* The header is too small for PRO to be read, so it shows the logo without it. */}
+            <Logo variant="no-pro" className="ml-2 h-8 w-auto" />
           </div>
 
           {/* Right: Search button */}
