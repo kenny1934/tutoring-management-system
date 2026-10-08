@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { IconButton } from "@/components/controls";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { useSession, usePageTitle, useMemoForSession, preloadCurriculumSuggestions } from "@/lib/hooks";
+import { useSession, usePageTitle, useUnlistedForSession, preloadCurriculumSuggestions } from "@/lib/hooks";
 import { useBackNavigation } from "@/lib/ui-hooks";
 import { PageTransition, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
@@ -37,9 +37,7 @@ import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
 import { HandoverBanner } from "@/components/session/HandoverBanner";
-import { MemoBanner } from "@/components/sessions/MemoBanner";
-import { MemoModal } from "@/components/sessions/MemoModal";
-import { MemoImportModal } from "@/components/sessions/MemoImportModal";
+import { UnlistedLessonBanner } from "@/components/sessions/UnlistedLessonBanner";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { useAuth } from "@/contexts/AuthContext";
@@ -281,11 +279,8 @@ export default function SessionDetailPage() {
   usePageTitle(
     lessonMode ? undefined : (session ? `Session #${session.id} - ${session.student_name}` : "Loading...")
   );
-  const [memoViewOpen, setMemoViewOpen] = useState(false);
-  const [memoImportOpen, setMemoImportOpen] = useState(false);
-
-  // Check if a memo exists for this session
-  const { data: sessionMemo } = useMemoForSession(sessionId);
+  // Records of this student today made before the lesson was in CSM, still waiting
+  const { data: waitingLessons, mutate: mutateWaitingLessons } = useUnlistedForSession(sessionId);
 
   // Helper to check if session can be marked
   const canBeMarked = (s: Session) =>
@@ -545,13 +540,13 @@ export default function SessionDetailPage() {
         <TestAlertBanner tests={upcomingTests} />
       </div>
 
-      {/* Memo Banner - shown when a tutor memo exists for this session */}
-      {sessionMemo && (
+      {waitingLessons && waitingLessons.length > 0 && (
         <div className="pl-0 sm:pl-8 lg:pl-14">
-          <MemoBanner
-            memo={sessionMemo}
-            onView={() => setMemoViewOpen(true)}
-            onImport={() => setMemoImportOpen(true)}
+          <UnlistedLessonBanner
+            session={session}
+            lessons={waitingLessons}
+            readOnly={isReadOnly}
+            onFilled={() => { mutate(); mutateWaitingLessons(); }}
           />
         </div>
       )}
@@ -802,26 +797,6 @@ export default function SessionDetailPage() {
           exerciseType={exerciseModalType}
           isOpen={true}
           onClose={() => setExerciseModalType(null)}
-        />
-      )}
-
-      {/* Memo View Modal */}
-      {memoViewOpen && sessionMemo && (
-        <MemoModal
-          isOpen={true}
-          onClose={() => setMemoViewOpen(false)}
-          memo={sessionMemo}
-        />
-      )}
-
-      {/* Memo Import Modal */}
-      {memoImportOpen && sessionMemo && (
-        <MemoImportModal
-          isOpen={true}
-          onClose={() => setMemoImportOpen(false)}
-          memo={sessionMemo}
-          sessionId={sessionId}
-          onImported={() => mutate()}
         />
       )}
 

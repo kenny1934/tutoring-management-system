@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, type ComponentProps } from "react";
 import {
   PenTool, BookOpen, ChevronDown, Pencil, Plus, FileX,
-  Users, FileStack, User, ChevronsDownUp, ChevronsUpDown,
+  Users, FileStack, User, ChevronsDownUp, ChevronsUpDown, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
@@ -50,6 +50,8 @@ interface LessonWideSidebarProps {
   onHomeworkMarked?: (updated: HomeworkCompletion) => void;
   /** The slot's own Draft, for its row above the exercises. Leave it out where it can't open, such as on a phone. */
   lessonDraft?: LessonDraftEntry;
+  /** Records a student who came to this lesson but isn't on its list in CSM yet. */
+  onAddUnlisted?: () => void;
 }
 
 /** A file's block is the file and its type, because one file can be both classwork and homework. */
@@ -564,6 +566,7 @@ export function LessonWideSidebar({
   homeworkBySession,
   onHomeworkMarked,
   lessonDraft,
+  onAddUnlisted,
 }: LessonWideSidebarProps) {
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
@@ -716,6 +719,16 @@ export function LessonWideSidebar({
                   />
                 );
               })}
+              {onAddUnlisted && !isReadOnly && (
+                <button
+                  type="button"
+                  onClick={onAddUnlisted}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong px-2 py-2 text-xs text-ink-subtle transition-colors hover:bg-paper hover:text-ink"
+                >
+                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                  Add a student who isn't listed
+                </button>
+              )}
             </div>
           </CheckViewerProvider>
         ) : (

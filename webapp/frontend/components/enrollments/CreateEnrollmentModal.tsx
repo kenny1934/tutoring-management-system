@@ -11,8 +11,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  Search,
-  X,
   Circle,
   RefreshCw,
   ClipboardList,
@@ -33,10 +31,11 @@ import { useActiveTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount, findStaffReferralDiscount, findDiscountByValue } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { StudentSearch } from "@/components/ui/student-search";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
 import { isHomeBranch } from "@/lib/employment";
-import { Button, IconButton, Input, Select, Label, Segmented } from "@/components/controls";
+import { Button, Input, Select, Label, Segmented } from "@/components/controls";
 
 const ENROLLMENT_TYPES = ["Regular", "Trial", "One-Time"] as const;
 
@@ -47,105 +46,6 @@ const ENROLLMENT_TYPE_DOTS: Record<string, string> = {
   "Trial": "fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400",
   "One-Time": "fill-purple-600 text-purple-600 dark:fill-purple-400 dark:text-purple-400",
 };
-
-interface StudentSearchProps {
-  value: Student | null;
-  onChange: (student: Student | null) => void;
-  disabled?: boolean;
-  location?: string;
-}
-
-function StudentSearch({ value, onChange, disabled, location }: StudentSearchProps) {
-  const [search, setSearch] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-
-  const { data: students = [], isLoading } = useSWR(
-    search.length >= 2 ? ["students-search", search, location] : null,
-    () => studentsAPI.getAll({ search, location, limit: 10 })
-  );
-
-  return (
-    <div className="relative">
-      {value ? (
-        <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-          <div className="flex-1">
-            <StudentInfoBadges
-              student={{
-                student_id: value.id,
-                student_name: value.student_name,
-                school_student_id: value.school_student_id,
-                grade: value.grade,
-                lang_stream: value.lang_stream,
-                school: value.school,
-                home_location: value.home_location,
-              }}
-              showLocationPrefix={true}
-            />
-          </div>
-          {!disabled && (
-            <IconButton label="Clear student" icon={X} size="sm" onClick={() => onChange(null)} />
-          )}
-        </div>
-      ) : (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle pointer-events-none" aria-hidden="true" />
-          <Input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setIsOpen(e.target.value.length >= 2);
-            }}
-            onFocus={() => search.length >= 2 && setIsOpen(true)}
-            onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-            placeholder={location ? `Search ${location} students...` : "Search student by name or ID..."}
-            aria-label="Search students"
-            className="pl-10"
-            disabled={disabled}
-          />
-          {isOpen && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {isLoading ? (
-                <div className="p-3 text-center text-foreground/60">
-                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                  Searching...
-                </div>
-              ) : students.length === 0 ? (
-                <div className="p-3 text-center text-foreground/60">No students found</div>
-              ) : (
-                students.map((student) => (
-                  <button
-                    key={student.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(student);
-                      setSearch("");
-                      setIsOpen(false);
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <StudentInfoBadges
-                      student={{
-                        student_id: student.id,
-                        student_name: student.student_name,
-                        school_student_id: student.school_student_id,
-                        grade: student.grade,
-                        lang_stream: student.lang_stream,
-                        school: student.school,
-                        home_location: student.home_location,
-                      }}
-                      showLocationPrefix={true}
-                    />
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export interface CreateEnrollmentModalProps {
   isOpen: boolean;
@@ -162,6 +62,20 @@ export interface CreateEnrollmentModalProps {
   prefillStudent?: Student;
   /** Pre-fill tutor ID - used from student detail page to carry over from latest enrollment */
   prefillTutorId?: number | null;
+  /**
+   * Start from a lesson taught but not in CSM yet, from the Renewals page.
+   * The enrolment then begins on the day that lesson was taught, in its slot
+   * and branch, with the tutor who taught it, so creating it fills that lesson
+   * in. With renewFromId as well, these win over the renewal's suggestions,
+   * because the taught lesson is when the student actually came.
+   */
+  fromTaughtLesson?: {
+    student_id: number;
+    tutor_id: number;
+    lesson_date: string;
+    time_slot: string | null;
+    location: string | null;
+  } | null;
 }
 
 export function CreateEnrollmentModal({
@@ -174,6 +88,7 @@ export function CreateEnrollmentModal({
   convertFromTrial,
   prefillStudent,
   prefillTutorId,
+  fromTaughtLesson,
 }: CreateEnrollmentModalProps) {
   const { selectedLocation } = useLocation();
   const { showToast, showError } = useToast();
@@ -315,6 +230,21 @@ export function CreateEnrollmentModal({
       setTutorId(prefillTutorId);
     }
   }, [prefillTutorId, isOpen, convertFromTrial, renewFromId]);
+
+  // Pre-fill from a lesson taught but not in CSM yet. When this is also a
+  // renewal, it waits for the renewal data and then overrides it.
+  useEffect(() => {
+    if (!fromTaughtLesson || !isOpen) return;
+    if (renewFromId && !renewalData) return;
+    if (!renewFromId) {
+      studentsAPI.getById(fromTaughtLesson.student_id).then((s) => setStudent(s));
+    }
+    setTutorId(fromTaughtLesson.tutor_id);
+    setAssignedDay(DAY_NAMES[new Date(`${fromTaughtLesson.lesson_date}T00:00:00`).getDay()]);
+    if (fromTaughtLesson.time_slot) setAssignedTime(fromTaughtLesson.time_slot);
+    if (fromTaughtLesson.location) setLocation(fromTaughtLesson.location);
+    setFirstLessonDate(fromTaughtLesson.lesson_date);
+  }, [fromTaughtLesson, isOpen, renewFromId, renewalData]);
 
   // Pre-fill form when converting trial to regular
   useEffect(() => {
@@ -627,7 +557,7 @@ export function CreateEnrollmentModal({
           {/* Student */}
           <div className="md:col-span-2">
             <Label>Student <span className="text-red-600">*</span></Label>
-            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent} location={location} />
+            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent || !!fromTaughtLesson} location={location} />
           </div>
 
           {/* Tutor */}

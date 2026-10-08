@@ -135,10 +135,8 @@ import type {
   WecomSendResponse,
   WecomMessageLog,
   // Tutor memo types
-  TutorMemo,
-  TutorMemoCreate,
-  TutorMemoUpdate,
-  TutorMemoImportRequest,
+  UnlistedLesson,
+  UnlistedLessonInput,
   ExerciseHistoryResponse,
   SummerCourseFormConfig,
   SummerApplicationCreate,
@@ -2441,62 +2439,47 @@ export const arkLeaveAPI = {
     }),
 };
 
-export const memosAPI = {
-  getAll: (params?: {
-    student_id?: number;
+export const unlistedLessonsAPI = {
+  getAll: (params: {
+    status?: UnlistedLesson['status'];
     tutor_id?: number;
-    status?: 'pending' | 'linked';
+    student_id?: number;
+    location?: string;
     from_date?: string;
     to_date?: string;
-    limit?: number;
-    offset?: number;
-  }) => {
+  } = {}) => {
     const searchParams = new URLSearchParams();
-    if (params?.student_id) searchParams.append("student_id", String(params.student_id));
-    if (params?.tutor_id) searchParams.append("tutor_id", String(params.tutor_id));
-    if (params?.status) searchParams.append("status", params.status);
-    if (params?.from_date) searchParams.append("from_date", params.from_date);
-    if (params?.to_date) searchParams.append("to_date", params.to_date);
-    if (params?.limit) searchParams.append("limit", String(params.limit));
-    if (params?.offset) searchParams.append("offset", String(params.offset));
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== "") searchParams.append(key, String(value));
+    }
     const query = searchParams.toString();
-    return fetchAPI<TutorMemo[]>(`/tutor-memos${query ? `?${query}` : ""}`);
+    return fetchAPI<UnlistedLesson[]>(`/unlisted-lessons${query ? `?${query}` : ""}`);
   },
 
-  getById: (id: number) =>
-    fetchAPI<TutorMemo>(`/tutor-memos/${id}`),
+  getWaitingCount: (location?: string) =>
+    fetchAPI<CountResponse>(`/unlisted-lessons/waiting-count${location && location !== "All Locations" ? `?location=${encodeURIComponent(location)}` : ""}`),
 
-  getPendingCount: (tutorId?: number) => {
-    const query = tutorId ? `?tutor_id=${tutorId}` : "";
-    return fetchAPI<CountResponse>(`/tutor-memos/pending-count${query}`);
-  },
+  /** Each student's latest regular enrolment id, keyed by student id. */
+  getLatestEnrolments: (studentIds: number[]) =>
+    fetchAPI<Record<string, number>>(`/unlisted-lessons/latest-enrolments?${studentIds.map((id) => `student_ids=${id}`).join("&")}`),
 
-  create: (data: TutorMemoCreate) =>
-    fetchAPI<TutorMemo>("/tutor-memos", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  create: (data: UnlistedLessonInput) =>
+    fetchAPI<UnlistedLesson>("/unlisted-lessons", { method: "POST", body: JSON.stringify(data) }),
 
-  update: (id: number, data: TutorMemoUpdate) =>
-    fetchAPI<TutorMemo>(`/tutor-memos/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+  update: (id: number, data: Partial<UnlistedLessonInput>) =>
+    fetchAPI<UnlistedLesson>(`/unlisted-lessons/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 
   delete: (id: number) =>
-    fetchAPI<MessageResponse>(`/tutor-memos/${id}`, { method: "DELETE" }),
+    fetchAPI<MessageResponse>(`/unlisted-lessons/${id}`, { method: "DELETE" }),
 
-  getForSession: (sessionId: number) =>
-    fetchAPI<TutorMemo | null>(`/sessions/${sessionId}/memo`),
+  dismiss: (id: number, reason: 'mistake' | 'handled_elsewhere') =>
+    fetchAPI<UnlistedLesson>(`/unlisted-lessons/${id}/dismiss`, { method: "POST", body: JSON.stringify({ reason }) }),
 
-  linkToSession: (memoId: number, sessionId: number) =>
-    fetchAPI<TutorMemo>(`/tutor-memos/${memoId}/link/${sessionId}`, { method: "POST" }),
+  fillInto: (id: number, sessionId: number) =>
+    fetchAPI<UnlistedLesson>(`/unlisted-lessons/${id}/fill/${sessionId}`, { method: "POST" }),
 
-  importToSession: (memoId: number, sessionId: number, request: TutorMemoImportRequest) =>
-    fetchAPI<MessageResponse>(`/tutor-memos/${memoId}/import/${sessionId}`, {
-      method: "POST",
-      body: JSON.stringify(request),
-    }),
+  getWaitingForSession: (sessionId: number) =>
+    fetchAPI<UnlistedLesson[]>(`/sessions/${sessionId}/unlisted-lessons`),
 };
 
 // Summer Course API
@@ -3566,7 +3549,7 @@ export const api = {
   debug: debugAPI,
   discounts: discountsAPI,
   wecom: wecomAPI,
-  memos: memosAPI,
+  unlistedLessons: unlistedLessonsAPI,
   summer: summerAPI,
   regular: regularAPI,
   prospects: prospectsAPI,

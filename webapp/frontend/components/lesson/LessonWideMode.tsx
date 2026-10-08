@@ -22,6 +22,7 @@ import type { PdfViewerHandle } from "./PdfPageViewer";
 import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
+import { TaughtLessonModal } from "@/components/sessions/TaughtLessonModal";
 import { motion } from "framer-motion";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
@@ -117,6 +118,7 @@ export function LessonWideMode({
   const { showToast } = useToast();
 
   // --- Sidebar mode ---
+  const [addingUnlisted, setAddingUnlisted] = useState(false);
   const [sidebarMode, setSidebarMode] = useState<"by-student" | "by-file">("by-student");
 
   // --- Selection state ---
@@ -674,6 +676,7 @@ export function LessonWideMode({
     homeworkBySession,
     onHomeworkMarked: handleHomeworkMarked,
     lessonDraft: lessonDraftRow,
+    onAddUnlisted: () => setAddingUnlisted(true),
   };
 
   return (
@@ -785,6 +788,15 @@ export function LessonWideMode({
             }}
           />
         </MobileBottomSheet>
+      )}
+
+      {addingUnlisted && (
+        <TaughtLessonModal
+          isOpen
+          onClose={() => setAddingUnlisted(false)}
+          prefill={{ date, timeSlot: slot, location: slotLocation ?? null, tutorId }}
+          onSaved={onSessionDataChange}
+        />
       )}
 
       {/* Exercise modal (single student) */}

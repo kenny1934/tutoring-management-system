@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate, preload } from 'swr';
-import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, ApiError, type ParentCommunication } from './api';
+import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, unlistedLessonsAPI, summerAPI, regularAPI, prospectsAPI, api, ApiError, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
 import { isCurriculumEligible } from './curriculum-labels';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumGradeCheckResponse, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, SummerCourseFormConfig, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumGradeCheckResponse, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, UnlistedLesson, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, SummerCourseFormConfig, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -2052,7 +2052,8 @@ export function invalidateCaches(
 
   switch (type) {
     case 'sessions':
-      revalidateMatchingKeys(/^sessions|^session|^unchecked-attendance/);
+      // Lessons taught but not in CSM yet fill themselves in when a lesson moves onto their day.
+      revalidateMatchingKeys(/^sessions|^session|^unchecked-attendance|^unlisted-lessons/);
       // Also invalidate related enrollments and dashboard stats
       if (context?.enrollmentId) {
         mutate(['enrollment-sessions', context.enrollmentId]);
@@ -2066,7 +2067,8 @@ export function invalidateCaches(
       break;
 
     case 'enrollments':
-      revalidateMatchingKeys(/^enrollments|^enrollment|^my-students|^all-students|^renewal/);
+      // A new enrolment fills in the lessons its tutor taught before it existed.
+      revalidateMatchingKeys(/^enrollments|^enrollment|^my-students|^all-students|^renewal|^unlisted-lessons|^session/);
       if (context?.studentId) {
         mutate(['student', context.studentId]);
         mutate(['enrollments', context.studentId]);
@@ -2165,41 +2167,46 @@ export function useCacheInvalidation() {
 
 
 /**
- * Hook for fetching tutor memos with optional filters.
+ * Lessons taught but not in CSM yet. Pass null to fetch nothing. The Sessions
+ * list asks for its date range, so each one shows in its time slot, and the
+ * Renewals page asks for every waiting one in a branch.
  */
-export function useMemos(params?: {
-  student_id?: number;
-  tutor_id?: number;
-  status?: 'pending' | 'linked';
-  from_date?: string;
-  to_date?: string;
-}) {
-  const key = params ? ['tutor-memos', JSON.stringify(params)] : ['tutor-memos'];
-  return useSWR<TutorMemo[]>(key, () => memosAPI.getAll(params));
+export function useUnlistedLessons(params: Parameters<typeof unlistedLessonsAPI.getAll>[0] | null) {
+  return useSWR<UnlistedLesson[]>(
+    params ? ['unlisted-lessons', JSON.stringify(params)] : null,
+    () => unlistedLessonsAPI.getAll(params!),
+    { revalidateOnFocus: false }
+  );
 }
 
-/**
- * Hook for fetching memo associated with a specific session.
- *
- * Opts out of keepPreviousData for the same reason as useStudent: a memo is
- * written about one lesson, and the session page renders it without waiting
- * on a loading flag.
- */
-export function useMemoForSession(sessionId: number | null | undefined) {
-  return useSWR<TutorMemo | null>(
-    sessionId ? ['session-memo', sessionId] : null,
-    () => memosAPI.getForSession(sessionId!),
-    { keepPreviousData: false }
+/** For the bell: how many lessons are waiting for an enrolment. Admins only. */
+export function useUnlistedWaitingCount(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(60000);
+  return useSWR<CountResponse>(
+    isAdmin ? ['unlisted-lessons-waiting-count', location] : null,
+    () => unlistedLessonsAPI.getWaitingCount(location),
+    { refreshInterval, revalidateOnFocus: false }
   );
 }
 
 /**
- * Hook for fetching pending memo count (for notification badges).
+ * Waiting records of the same student on the same day as a lesson, for the
+ * lesson page's one-click fill. Opts out of keepPreviousData, like useStudent,
+ * because the records belong to one lesson and the page shows them without
+ * waiting on a loading flag.
  */
-export function usePendingMemoCount(tutorId?: number, enabled = true) {
-  return useSWR<CountResponse>(
-    enabled ? ['tutor-memos-pending-count', tutorId] : null,
-    () => memosAPI.getPendingCount(tutorId)
+export function useUnlistedForSession(sessionId: number | null | undefined) {
+  return useSWR<UnlistedLesson[]>(
+    sessionId ? ['session-unlisted-lessons', sessionId] : null,
+    () => unlistedLessonsAPI.getWaitingForSession(sessionId!),
+    { keepPreviousData: false }
+  );
+}
+
+/** Refreshes everything that shows lessons taught but not in CSM yet. */
+export function revalidateUnlistedLessons() {
+  return mutate(
+    (key) => Array.isArray(key) && typeof key[0] === "string" && key[0].includes("unlisted-lessons"),
   );
 }
 

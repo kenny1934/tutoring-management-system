@@ -45,12 +45,36 @@ export interface ExerciseFormItem extends ExerciseFormItemBase {
   id?: number;
 }
 
+/** One exercise in the shape the save sends, which is also what a collecting caller gets back. */
+export interface CollectedExercise {
+  id: number | null;
+  exercise_type: string;
+  pdf_name: string | null;
+  url: string | null;
+  url_title: string | null;
+  page_start: number | null;
+  page_end: number | null;
+  remarks: string | null;
+  answer_pdf_name: string | null;
+  answer_page_start: number | null;
+  answer_page_end: number | null;
+  answer_remarks: string | null;
+}
+
 interface ExerciseModalProps {
   session: Session;
   exerciseType: "CW" | "HW";
   isOpen: boolean;
   onClose: () => void;
   onSave?: (sessionId: number, exercises: ExerciseFormItem[]) => void;
+  /**
+   * Collect the exercises instead of saving them to a lesson. The window
+   * hands the list back and closes, and touches neither the server nor the
+   * session cache. Recording a lesson that isn't in CSM yet uses this, with
+   * a stand-in session whose id is 0: the recap, homework check and history
+   * sections need a real lesson, so they stay out of the way by themselves.
+   */
+  onCollect?: (exercises: CollectedExercise[]) => void;
   /** When true, disables save action (Supervisor mode) */
   readOnly?: boolean;
 }
@@ -80,6 +104,7 @@ export function ExerciseModal({
   isOpen,
   onClose,
   onSave,
+  onCollect,
   readOnly = false,
 }: ExerciseModalProps) {
   const { selectedLocation } = useLocation();
@@ -353,6 +378,13 @@ export function ExerciseModal({
       answer_remarks: combineExerciseRemarks(ex.answer_page_mode === 'custom' ? ex.answer_complex_pages : '', '') || null,
     }));
 
+    if (onCollect) {
+      setIsDirty(false);
+      onCollect(apiExercises);
+      onClose();
+      return;
+    }
+
     // Build optimistic session state
     // Keep exercises of OTHER type, replace exercises of THIS type
     const otherExercises = (session.exercises || []).filter((ex) => {
@@ -407,7 +439,7 @@ export function ExerciseModal({
       updateSessionInCache(originalSession);
       showToast("Failed to save exercises. Changes reverted.", "error");
     }
-  }, [session, exercises, exerciseType, onClose, onSave, showToast]);
+  }, [session, exercises, exerciseType, onClose, onSave, onCollect, showToast]);
 
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
@@ -1181,8 +1213,9 @@ export function ExerciseModal({
           onAdd={addSuggested}
         />
 
-        {/* School Progress - curriculum suggestions from the school timeline */}
-        {!readOnly && (
+        {/* School Progress - curriculum suggestions from the school timeline. It
+            records which lesson its suggestions were shown on, so it waits for a real one. */}
+        {!readOnly && !onCollect && (
           <CurriculumSuggestionSection session={session} onAdd={addSuggested} />
         )}
 

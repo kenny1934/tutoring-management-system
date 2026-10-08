@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount, useEmploymentOverrun } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount, useEmploymentOverrun, useUnlistedWaitingCount } from "@/lib/hooks";
 import { departureLabel } from "@/lib/employment";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { parentCommunicationsAPI, arkLeaveAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus, AlertTriangle, Calendar } from "lucide-react";
+import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus, AlertTriangle, Calendar, UserPlus } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -62,6 +62,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Fetch pending extension count (only for admins)
   const { data: pendingExtensions } = usePendingExtensionCount(showOverduePayments, location);
 
+  // Lessons taught before they were in CSM, waiting for an enrolment (admin only)
+  const { data: waitingTaught } = useUnlistedWaitingCount(showOverduePayments, location);
+
   // Fetch unchecked attendance count
   // For admins in center-view: show all tutors at location (no tutorId filter)
   // For tutors or my-view: show only own sessions (filter by tutorId)
@@ -99,6 +102,17 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         count: renewalCounts.total,
         severity: renewalCounts.expired > 0 ? "danger" : "warning",
         href: "/admin/renewals",
+      });
+    }
+
+    if (showOverduePayments && waitingTaught?.count && waitingTaught.count > 0) {
+      items.push({
+        id: "taught-not-in-csm",
+        icon: <UserPlus className="h-4 w-4" />,
+        label: "Taught but not in CSM yet",
+        count: waitingTaught.count,
+        severity: "warning",
+        href: "/admin/renewals#taught",
       });
     }
 
@@ -228,7 +242,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave, overrun]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, waitingTaught, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave, overrun]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 

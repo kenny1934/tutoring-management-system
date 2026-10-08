@@ -2,23 +2,23 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useNowMinutes, useEmploymentOverrun, preloadCurriculumSuggestions } from "@/lib/hooks";
+import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, useUnlistedLessons, useNowMinutes, useEmploymentOverrun, preloadCurriculumSuggestions } from "@/lib/hooks";
 import { pickableTutors, pickableWithLeavers, withCurrentTutor, worksAt, type DateWindow } from "@/lib/employment";
 import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
-import type { Session, Tutor, MakeupProposal } from "@/types";
+import type { Session, Tutor, MakeupProposal, UnlistedLesson } from "@/types";
 import Link from "next/link";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, Presentation, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserPlus } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Button, IconButton, Select, CountBadge, PageHeader } from "@/components/controls";
+import { Button, IconButton, Select, PageHeader } from "@/components/controls";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
@@ -72,12 +72,8 @@ const EditSessionModal = dynamic(
   () => import("@/components/sessions/EditSessionModal").then(m => m.EditSessionModal),
   { ssr: false }
 );
-const MemoModal = dynamic(
-  () => import("@/components/sessions/MemoModal").then(m => m.MemoModal),
-  { ssr: false }
-);
-const MemoListDrawer = dynamic(
-  () => import("@/components/sessions/MemoListDrawer").then(m => m.MemoListDrawer),
+const TaughtLessonModal = dynamic(
+  () => import("@/components/sessions/TaughtLessonModal").then(m => m.TaughtLessonModal),
   { ssr: false }
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -92,6 +88,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
+import { TaughtLessonRow } from "@/components/sessions/TaughtLessonRow";
+import type { TaughtLessonPrefill } from "@/components/sessions/TaughtLessonModal";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { HomeworkCountsProvider } from "@/components/homework/HomeworkCountsProvider";
@@ -130,6 +128,7 @@ const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 const EMPTY_PROPOSALS: MakeupProposal[] = [];
 const EMPTY_SESSIONS: Session[] = [];
 const EMPTY_PROPOSED_SESSIONS: ProposedSession[] = [];
+const EMPTY_WAITING_LESSONS: UnlistedLesson[] = [];
 const EMPTY_TUTORS: Tutor[] = [];
 
 // Number of session cards to show per tier before "Show more"
@@ -196,7 +195,7 @@ function SessionsPageContent() {
 
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
-  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isLoading: authLoading } = useAuth();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isReadOnly, isLoading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -438,8 +437,20 @@ function SessionsPageContent() {
     return user?.id ?? 0;
   }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
-  const isAdminRole = effectiveRole === "Admin" || effectiveRole === "Super Admin";
-  const { data: pendingMemoData } = usePendingMemoCount(isAdminRole ? undefined : currentTutorId || undefined, !isGuest);
+  // Lessons taught but not in CSM yet show faintly in their time slots, where
+  // the real lesson will appear, in the list view's dates.
+  const { data: waitingLessons = EMPTY_WAITING_LESSONS } = useUnlistedLessons(
+    viewMode === "list" && !isPendingMakeupsView && !isAfterLastDayView && shownDates.from && !isGuest
+      ? {
+          status: "waiting",
+          from_date: shownDates.from,
+          to_date: shownDates.until ?? shownDates.from,
+          tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
+          location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
+        }
+      : null
+  );
+  const [taughtLessonWindow, setTaughtLessonWindow] = useState<{ prefill?: TaughtLessonPrefill; lesson?: UnlistedLesson } | null>(null);
 
   // Fetch proposals for the current date range (for showing proposed sessions)
   const proposalDateRange = useMemo(() => {
@@ -518,8 +529,6 @@ function SessionsPageContent() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [bulkRateModalOpen, setBulkRateModalOpen] = useState(false);
-  const [memoModalOpen, setMemoModalOpen] = useState(false);
-  const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
   const [showSelectDropdown, setShowSelectDropdown] = useState(false);
   const [slotDropdownOpen, setSlotDropdownOpen] = useState<string | null>(null);
 
@@ -769,11 +778,17 @@ function SessionsPageContent() {
       groupByDate: listShowsDates,
       // Proposed make-up slots render as ghost rows, and a ghost whose slot
       // holds no real lessons still needs a group to appear in.
-      placeholderSlots: proposedSessions
-        .filter((ps) => ps.session_date === selectedDateString)
-        .map((ps) => ({ date: ps.session_date, timeSlot: ps.time_slot })),
+      placeholderSlots: [
+        ...proposedSessions
+          .filter((ps) => ps.session_date === selectedDateString)
+          .map((ps) => ({ date: ps.session_date, timeSlot: ps.time_slot })),
+        // So is a lesson taught but not in CSM yet, often the only one its slot has.
+        ...waitingLessons
+          .filter((lesson) => lesson.time_slot)
+          .map((lesson) => ({ date: lesson.lesson_date, timeSlot: lesson.time_slot! })),
+      ],
     });
-  }, [sessions, selectedDate, proposedSessions, listShowsDates]);
+  }, [sessions, selectedDate, proposedSessions, waitingLessons, listShowsDates]);
 
   // How many countable sessions sit on each date, for the day headings. One
   // pass here rather than a rescan of every group per heading.
@@ -2025,21 +2040,6 @@ function SessionsPageContent() {
         />
       )}
 
-      {/* Record Memo button — unrelated to chasing make-ups, so it stays out of
-          that view */}
-      {!isPendingMakeupsView && (
-        <Button
-          size="sm"
-          icon={StickyNoteIcon}
-          onClick={() => setMemoDrawerOpen(true)}
-          className="relative"
-          title="Record a session memo (for sessions not yet in system)"
-        >
-          <span className="hidden sm:inline">Memo</span>
-          <CountBadge count={pendingMemoData?.count ?? 0} className="absolute -top-1.5 -right-1.5" />
-        </Button>
-      )}
-
       <div className="flex-1" />
 
       {/* Select All checkbox with dropdown (list view only). Every attendance
@@ -2715,6 +2715,24 @@ function SessionsPageContent() {
                                 </Button>
                               </LessonNudge>
                             )}
+                            {!isReadOnly && (
+                              <IconButton
+                                label="Add a student who isn't listed"
+                                icon={UserPlus}
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTaughtLessonWindow({
+                                    prefill: {
+                                      date: groupDate,
+                                      timeSlot,
+                                      location: selectedLocation !== "All Locations" ? selectedLocation : sessionsInSlot[0]?.location ?? null,
+                                      tutorId: tutorFilter ? parseInt(tutorFilter) : null,
+                                    },
+                                  });
+                                }}
+                              />
+                            )}
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
                               {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
                             </div>
@@ -2923,6 +2941,17 @@ function SessionsPageContent() {
                                   onClick={() => setSelectedProposal(proposedSession.proposal)}
                                 />
                               ))}
+
+                            {/* Lessons taught but not in CSM yet, for this time slot */}
+                            {waitingLessons
+                              .filter((lesson) => lesson.time_slot === timeSlot && lesson.lesson_date === groupDate)
+                              .map((lesson) => (
+                                <TaughtLessonRow
+                                  key={`taught-${lesson.id}`}
+                                  lesson={lesson}
+                                  onClick={() => setTaughtLessonWindow({ lesson })}
+                                />
+                              ))}
                           </div>
                         </motion.div>
                       )}
@@ -3021,11 +3050,13 @@ function SessionsPageContent() {
           />
         )}
 
-        {/* Memo List Drawer */}
-        {memoDrawerOpen && (
-          <MemoListDrawer
-            isOpen={true}
-            onClose={() => setMemoDrawerOpen(false)}
+        {/* Recording or changing a lesson taught but not in CSM yet */}
+        {taughtLessonWindow && (
+          <TaughtLessonModal
+            isOpen
+            onClose={() => setTaughtLessonWindow(null)}
+            prefill={taughtLessonWindow.prefill}
+            lesson={taughtLessonWindow.lesson}
           />
         )}
 
@@ -3184,14 +3215,6 @@ function SessionsPageContent() {
         isOpen={!!selectedProposal}
         onClose={() => setSelectedProposal(null)}
       />
-
-      {/* Memo List Drawer */}
-      {memoDrawerOpen && (
-        <MemoListDrawer
-          isOpen={true}
-          onClose={() => setMemoDrawerOpen(false)}
-        />
-      )}
 
       </PageTransition>
     </PageSurface>
