@@ -2055,7 +2055,7 @@ export default function ProspectPage() {
                       {/* Expanded detail panel */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={11} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={11} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-t-2 border-b-2 border-border dark:border-gray-700">
                             <ProspectEditForm
                               values={row}
                               onChange={(field, value) => updateRow(row._key, field as keyof ParsedRow, value)}
@@ -2423,7 +2423,7 @@ export default function ProspectPage() {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-t-2 border-b-2 border-border dark:border-gray-700">
                             {inlineError?.id === p.id && <InlineErrorBanner message={inlineError.message} />}
                             {isEditing ? (
                               <ProspectEditForm
@@ -2452,7 +2452,7 @@ export default function ProspectPage() {
                                 {p.tutor_remark && (
                                   <>
                                     <SectionDivider label="Notes" />
-                                    <div className="col-span-full border-l-4 border-primary/20 pl-3 py-1 bg-primary/[0.03] dark:bg-primary/[0.06] rounded-r">
+                                    <div className="col-span-full px-3 py-1 bg-primary/[0.03] dark:bg-primary/[0.06] rounded">
                                       <span className="text-xs">{p.tutor_remark}</span>
                                     </div>
                                   </>

@@ -357,7 +357,7 @@ function SlotItem({
 
                 {/* Slot availability - students in this slot */}
                 {slot.slot_status === "pending" && (
-                  <div className="mt-3 p-2.5 bg-paper rounded border border-line border-l-2 border-l-[#a0704b]">
+                  <div className="mt-3 p-2.5 bg-paper rounded border border-line">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
                       <Users className="h-3.5 w-3.5" />
                       STUDENTS IN SLOT ({studentsInSlot.length}/{slotCapacity})

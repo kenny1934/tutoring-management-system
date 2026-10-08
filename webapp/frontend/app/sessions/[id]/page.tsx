@@ -436,7 +436,7 @@ export default function SessionDetailPage() {
                 <div className="h-5 w-24 bg-gray-400/30 rounded animate-pulse" />
                 <div className="space-y-3">
                   {[1,2,3].map(i => (
-                    <div key={i} className="h-12 bg-gray-400/20 rounded-md border-l-4 border-red-400/50 animate-pulse" />
+                    <div key={i} className="h-12 bg-gray-400/20 rounded-md animate-pulse" />
                   ))}
                 </div>
               </div>
@@ -664,9 +664,10 @@ export default function SessionDetailPage() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: 0.5 + index * 0.1, duration: 0.3 }}
-                              className="flex items-center gap-2 p-2 pl-4 rounded-md border-l-4 border-red-500 dark:border-red-400 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:shadow-sm"
+                              className="flex items-center gap-2 p-2 rounded-md transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:shadow-sm"
                               title={tooltip}
                             >
+                              <span className="mt-2 h-2 w-2 shrink-0 self-start rounded-full bg-red-500 dark:bg-red-400" aria-hidden="true" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{getExerciseDisplayName(exercise)}</p>
                                 {exercise.page_start && exercise.page_end ? (
@@ -710,9 +711,10 @@ export default function SessionDetailPage() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: baseDelay + index * 0.1, duration: 0.3 }}
-                              className="flex items-center gap-2 p-2 pl-4 rounded-md border-l-4 border-blue-500 dark:border-blue-400 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:shadow-sm"
+                              className="flex items-center gap-2 p-2 rounded-md transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:shadow-sm"
                               title={tooltip}
                             >
+                              <span className="mt-2 h-2 w-2 shrink-0 self-start rounded-full bg-blue-500 dark:bg-blue-400" aria-hidden="true" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{getExerciseDisplayName(exercise)}</p>
                                 {exercise.page_start && exercise.page_end ? (

@@ -623,7 +623,7 @@ export default function ComposeModal({
 
           {/* Reply context */}
           {replyTo && (
-            <div className="p-3 bg-gray-50 dark:bg-[#352e26] rounded-lg border-l-4 border-primary text-sm">
+            <div className="p-3 bg-gray-50 dark:bg-[#352e26] rounded-lg border border-line text-sm">
               <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {replyTo.from_tutor_name} wrote:
               </div>

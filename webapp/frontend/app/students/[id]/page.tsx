@@ -3300,7 +3300,7 @@ function CoursewareTab({
                     <div className="px-3 py-2 space-y-3">
                       {cwExercises.length > 0 && (
                         <div>
-                          <div className="flex items-center justify-between border-l-[3px] border-red-400 dark:border-red-500 pl-2 py-1 mb-1">
+                          <div className="flex items-center justify-between py-1 mb-1">
                             <button
                               onClick={() => openExerciseModal(sessionId, "CW")}
                               onPointerEnter={() => warmExerciseModal(sessionId)}
@@ -3346,7 +3346,7 @@ function CoursewareTab({
                       )}
                       {hwExercises.length > 0 && (
                         <div>
-                          <div className="flex items-center justify-between border-l-[3px] border-blue-400 dark:border-blue-500 pl-2 py-1 mb-1">
+                          <div className="flex items-center justify-between py-1 mb-1">
                             <button
                               onClick={() => openExerciseModal(sessionId, "HW")}
                               onPointerEnter={() => warmExerciseModal(sessionId)}
@@ -3747,7 +3747,7 @@ function RatingsTab({
               transition={{ delay: isMobile ? 0 : index * 0.05, duration: 0.2 }}
               onClick={(e) => onSessionClick?.(session, e)}
               className={cn(
-                "p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 cursor-pointer",
+                "p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 cursor-pointer",
                 "hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors",
                 !isMobile && "paper-texture"
               )}

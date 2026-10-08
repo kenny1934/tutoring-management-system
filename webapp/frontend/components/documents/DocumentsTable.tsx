@@ -197,11 +197,11 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 onDoubleClick={onDocOpen ? () => onDocOpen(doc.id) : undefined}
                 dataDocId={doc.id}
                 className={cn(
-                  "group border-l-2 border-b border-b-line/30 dark:border-b-line/30 cursor-pointer transition-colors",
+                  "group border-b border-b-line/30 dark:border-b-line/30 cursor-pointer transition-colors",
                   isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
-                  selected && "bg-primary/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
-                  isPreviewing && !selected && "bg-wash/50 dark:bg-wash/30 border-l-[#a0704b]",
-                  !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-paper dark:hover:bg-paper/40",
+                  selected && "bg-primary/5 dark:bg-[#a0704b]/10",
+                  isPreviewing && !selected && "bg-wash/50 dark:bg-wash/30",
+                  !selected && !isPreviewing && "hover:bg-paper dark:hover:bg-paper/40",
                   doc.is_archived && !isTrashTab && "opacity-40",
                 )}
               >

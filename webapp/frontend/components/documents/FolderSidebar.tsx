@@ -103,7 +103,7 @@ function FolderTreeItem({
           isOver
             ? "ring-2 ring-primary bg-wash"
             : isActive
-              ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+              ? "bg-wash text-accent-ink font-medium"
               : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
@@ -488,7 +488,7 @@ export default function FolderSidebar({
                 isOverAllDocs
                   ? "ring-2 ring-primary bg-wash"
                   : activeFolderId === null && activeTab !== "trash"
-                    ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    ? "bg-wash text-accent-ink font-medium"
                     : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
               )}
             >
@@ -508,7 +508,7 @@ export default function FolderSidebar({
                 className={cn(
                   "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
                   isStarredActive
-                    ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    ? "bg-wash text-accent-ink font-medium"
                     : "text-gray-700 dark:text-gray-300 hover:bg-paper dark:hover:bg-white/5"
                 )}
               >
@@ -667,7 +667,7 @@ export default function FolderSidebar({
             className={cn(
               "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
               activeTab === "trash"
-                ? "bg-gradient-to-r from-wash to-[#fef9f3] dark:to-[#1a1410] text-accent-ink font-medium shadow-[inset_2px_0_0_#a0704b]"
+                ? "bg-wash text-accent-ink font-medium"
                 : "text-gray-500 dark:text-gray-400 hover:bg-paper dark:hover:bg-white/5"
             )}
           >

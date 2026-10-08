@@ -235,7 +235,7 @@ export function ProspectDetailModal({
           </div>
 
           {prospect.tutor_remark && (
-            <div className="border-l-4 border-primary/30 bg-primary/5 rounded-r-xl p-4">
+            <div className="bg-primary/5 rounded-xl p-4">
               <div className="text-[10px] font-semibold text-primary/60 uppercase tracking-wider mb-1">Tutor Remark</div>
               <p className="text-sm text-foreground">{prospect.tutor_remark}</p>
             </div>

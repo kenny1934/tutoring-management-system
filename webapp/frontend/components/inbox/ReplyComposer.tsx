@@ -277,7 +277,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         </div>
       )}
       {replyTo && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-l-2 border-primary bg-[#faf6f1] dark:bg-[#2a2520] rounded-t-lg animate-in slide-in-from-bottom-2 fade-in duration-200">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#faf6f1] dark:bg-[#2a2520] rounded-t-lg animate-in slide-in-from-bottom-2 fade-in duration-200">
           <Reply className="h-3 w-3 text-accent-ink flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="text-xs font-semibold text-accent-ink">{replyTo.senderName}</span>
