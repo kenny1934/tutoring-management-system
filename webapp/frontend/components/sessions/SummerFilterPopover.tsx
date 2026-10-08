@@ -12,6 +12,7 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 import { ChevronDown, Sun, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -114,7 +115,7 @@ export function SummerFilterPopover({
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
     onOpenChange: setIsOpen,
-    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 }), fitToScreen()],
     whileElementsMounted: autoUpdate,
     placement: "bottom-start",
   });

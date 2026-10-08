@@ -27,6 +27,7 @@ import {
   useClientPoint,
   FloatingPortal,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 
 // Event type colors
 const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -144,6 +145,7 @@ function TestItemPopover({
       offset(12),
       flip({ fallbackAxisSideDirection: "end", padding: 8 }),
       shift({ padding: 8 }),
+      fitToScreen(),
     ],
     placement: "bottom-start",
   });

@@ -229,13 +229,13 @@ import {
   offset,
   flip,
   shift,
-  size,
   autoUpdate,
   useClick,
   useDismiss,
   useInteractions,
   Placement,
 } from "@floating-ui/react";
+import { fitToScreen } from "@/hooks/usePopoverSheet";
 
 /**
  * Hook for standard dropdown behavior with Floating UI.
@@ -259,14 +259,7 @@ export function useDropdown(
       offset(8),
       flip({ fallbackAxisSideDirection: "end", padding: 8 }),
       shift({ padding: 8 }),
-      size({
-        padding: 8,
-        apply({ availableHeight, elements }) {
-          Object.assign(elements.floating.style, {
-            maxHeight: `${availableHeight}px`,
-          });
-        },
-      }),
+      fitToScreen(),
     ],
     placement,
   });

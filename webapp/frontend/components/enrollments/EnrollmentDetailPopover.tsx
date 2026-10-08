@@ -15,6 +15,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
@@ -81,6 +82,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     };
   }, [clickPosition]);
 
+  const asSheet = useAsSheet();
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
     onOpenChange: (open) => {
@@ -95,10 +97,14 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
       shift({
         padding: 16,
       }),
+      !asSheet && fitToScreen(16),
     ],
     whileElementsMounted: autoUpdate,
     placement: "bottom-start",
   });
+
+  // On a phone the popover is a sheet along the bottom of the screen.
+  const sheet = sheetParts(asSheet, floatingStyles);
 
   // Use setPositionReference for virtual references
   useEffect(() => {
@@ -325,19 +331,17 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
   return (
     <FloatingPortal>
+      {sheet.backdrop}
       <div
         ref={refs.setFloating}
-        style={floatingStyles}
+        style={sheet.style}
         {...getFloatingProps()}
         className={cn(
-          "z-[9999]",
-          "bg-paper",
-          "border-2 border-line-strong",
-          "rounded-lg shadow-lg",
-          "p-4 w-[min(280px,90vw)]",
-          "paper-texture"
+          "bg-paper border-2 border-line-strong shadow-lg p-4",
+          sheet.asSheet ? sheet.sheetClass : "paper-texture rounded-lg w-[min(280px,90vw)]",
         )}
       >
+        {sheet.handle}
         {/* Close button */}
         <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
 

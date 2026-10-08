@@ -11,6 +11,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
 import { X, HandCoins, GraduationCap, Clock } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export function MoreSessionsPopover({
   const [sessionToShow, setSessionToShow] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
 
+  const asSheet = useAsSheet();
   const { refs, floatingStyles, context } = useFloating({
     open: true,
     onOpenChange: (open) => {
@@ -50,10 +52,14 @@ export function MoreSessionsPopover({
       shift({
         padding: 16,
       }),
+      !asSheet && fitToScreen(16, 400),
     ],
     whileElementsMounted: autoUpdate,
     placement: "bottom",
   });
+
+  // On a phone the list is a sheet along the bottom of the screen.
+  const sheet = sheetParts(asSheet, floatingStyles);
 
   // Set reference in useLayoutEffect - runs synchronously after DOM mutations, before paint
   useLayoutEffect(() => {
@@ -72,19 +78,19 @@ export function MoreSessionsPopover({
   return (
     <>
       <FloatingPortal>
+        {sheet.backdrop}
         <div
           ref={refs.setFloating}
-          style={floatingStyles}
+          style={sheet.style}
           {...getFloatingProps()}
           className={cn(
-            "z-[9999]",
-            "bg-paper",
-            "border-2 border-line-strong",
-            "rounded-lg shadow-lg",
-            "p-4 w-[280px] max-h-[400px]",
-            "paper-texture overflow-y-auto"
+            "bg-paper border-2 border-line-strong shadow-lg p-4",
+            sheet.asSheet
+              ? sheet.sheetClass
+              : "paper-texture rounded-lg w-[280px] max-h-[400px] overflow-y-auto",
           )}
         >
+          {sheet.handle}
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-bold text-gray-900 dark:text-gray-100">
               {sessions.filter(isCountableSession).length} Sessions
