@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/Logo";
+import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -82,9 +83,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     const done = setTimeout(() => setMoving(null), SLIDE_MS);
     return () => clearTimeout(done);
   }, [moving]);
+  // Whether the person has opened or closed the sidebar yet. The logo only animates after that.
+  const [toggled, setToggled] = useState(false);
   const toggleCollapsed = () => {
     setMoving(isCollapsed ? "opening" : "closing");
     setIsCollapsed(!isCollapsed);
+    setToggled(true);
   };
   // The menu is laid out for the narrow rail only once the sidebar has
   // finished closing. Until then the full menu stays, and the sidebar's edge
@@ -341,25 +345,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {/* Collapsed, the sidebar is too narrow for the whole logo, so it
-                shows the C and its arrow. The C is the same drawing, at the
-                same size and place, in both, so it stays still while the
-                sidebar moves and the rest of the logo fades in or out beside
-                it. The C sits under the whole logo only while it moves, since
-                drawing the C twice would darken its soft edges. */}
-            <span className="relative ml-2 block h-10 w-[99px] shrink-0">
-              <Logo
-                variant="c"
-                label=""
-                className={cn("absolute left-0 top-0 h-10 w-auto", !isCollapsed && !moving && "opacity-0")}
-              />
-              <Logo
-                label=""
-                className={cn(
-                  "absolute left-0 top-0 h-10 w-auto",
-                  isCollapsed && "opacity-0",
-                  moving && "transition-opacity duration-350 ease-out"
-                )}
-              />
+                shows the C and its arrow, and opening draws the rest of the
+                logo out of the C. */}
+            <span className="ml-2">
+              <SidebarLogo open={!isCollapsed} animate={toggled} />
             </span>
           </button>
         )}

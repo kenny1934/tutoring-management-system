@@ -1136,6 +1136,75 @@ html {
   }
 }
 
+/* The sidebar logo (components/brand/SidebarLogo.tsx). Opening, the ribbon is
+   drawn out of the C over --sidebar-logo-open, longer than the sidebar's own
+   350ms, so it's seen in a sidebar that's already nearly open. Closing, it
+   winds back over --sidebar-logo-close, quicker than the sidebar, so it's back
+   in the C before the sidebar's edge covers it. The M's pieces and PRO come in
+   at a share of the opening (--arrives) and leave at a share of the closing
+   (--leaves), so closing takes them away before the ribbon winds back. */
+.sidebar-logo {
+  --sidebar-logo-open: 550ms;
+  --sidebar-logo-close: 300ms;
+}
+.sidebar-logo-ribbon {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--sidebar-logo-close) cubic-bezier(0.45, 0, 0.2, 1);
+}
+.sidebar-logo[data-open] .sidebar-logo-ribbon {
+  stroke-dashoffset: 0;
+  transition-duration: var(--sidebar-logo-open);
+}
+.sidebar-logo-piece {
+  opacity: 0;
+  transition: opacity calc(var(--sidebar-logo-close) / 3) ease-out calc(var(--sidebar-logo-close) * var(--leaves));
+}
+.sidebar-logo[data-open] .sidebar-logo-piece {
+  opacity: 1;
+  transition: opacity calc(var(--sidebar-logo-open) * 0.3) ease-out calc(var(--sidebar-logo-open) * var(--arrives));
+}
+/* The C on its own is only drawn for the fade below. */
+.sidebar-logo-c {
+  display: none;
+}
+/* Until the sidebar is first opened or closed, nothing animates, so a sidebar restored as collapsed starts that way. */
+.sidebar-logo:not([data-animate]) * {
+  transition: none !important;
+}
+
+/* With less motion asked for, the rest of the logo fades in over the C
+   instead. The mask opens all at once as the fade in starts, and closes again
+   only once the fade out has finished, so it never shows mid-fade. The app
+   cuts every transition to 0.01ms when less motion is asked for (see "Respect
+   prefers-reduced-motion"), which would make the fade a jump too, so the fade
+   alone keeps its length. A fade isn't movement. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-logo-c {
+    display: inline;
+  }
+  .sidebar-logo[data-open] .sidebar-logo-c {
+    opacity: 0;
+    transition: opacity 0s 350ms;
+  }
+  .sidebar-logo-whole {
+    opacity: 0;
+    transition: opacity 350ms ease-out;
+    transition-duration: 350ms !important;
+  }
+  .sidebar-logo[data-open] .sidebar-logo-whole {
+    opacity: 1;
+  }
+  .sidebar-logo-ribbon,
+  .sidebar-logo-piece {
+    transition: stroke-dashoffset 0s 350ms, opacity 0s 350ms;
+  }
+  .sidebar-logo[data-open] .sidebar-logo-ribbon,
+  .sidebar-logo[data-open] .sidebar-logo-piece {
+    transition: none;
+  }
+}
+
 /* ===== SCROLLBAR UTILITIES ===== */
 
 /* Hide scrollbar while maintaining scroll functionality */

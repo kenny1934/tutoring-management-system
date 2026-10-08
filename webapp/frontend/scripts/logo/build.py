@@ -123,6 +123,7 @@ def art_module(full, the_pro, the_c):
                 out.append(f'  {{ tone: "{p[0]}", d: "{p[1]}" }},')
         return "\n".join(out)
     def view(v): return " ".join(f(n) for n in v)
+    m = logo.m_pieces()
     return f'''// Written by scripts/logo/build.py. Change the drawing there, not here.
 
 export type LogoPiece =
@@ -136,6 +137,12 @@ export const LOGO_PIECES: LogoPiece[] = [
 
 /** PRO, between the M's legs. */
 export const LOGO_PRO = "{the_pro}";
+
+/** The M's four pieces, which the sidebar brings in one by one as the ribbon reaches them. */
+export const LOGO_M = {{ back: "{m[0][1]}", fore: "{m[1][1]}", leftLeg: "{m[2][1]}", rightLeg: "{m[3][1]}" }};
+
+/** The ribbon's centre line, from the C's foot to the end of the M's \\, for drawing the logo along it. */
+export const LOGO_RIBBON = "{logo.ribbon_centre()}";
 
 /** The C and its arrow on their own. */
 export const LOGO_C_PIECES: LogoPiece[] = [
