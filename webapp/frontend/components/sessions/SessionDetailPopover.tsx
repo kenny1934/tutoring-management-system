@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, Presentation, StickyNote } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, StickyNote } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -460,6 +460,10 @@ export function SessionDetailPopover({
   // The P6 handover note starts folded to its heading, like the sections below.
   const [handoverExpanded, setHandoverExpanded] = useState(false);
   const [expandedTest, setExpandedTest] = useState<string | null>(null);
+  // Whether the Lesson mode menu in the footer is open. It closes again
+  // whenever the popover moves on to another session.
+  const [lessonChoiceOpen, setLessonChoiceOpen] = useState(false);
+  useEffect(() => setLessonChoiceOpen(false), [session?.id]);
 
   // Fetch upcoming tests with SWR caching
   const { data: upcomingTests = [], isLoading: isLoadingTests } = useSWR<UpcomingTestAlert[]>(
@@ -629,24 +633,44 @@ export function SessionDetailPopover({
     }
   }, [virtualReference, refs]);
 
+  // The Lesson mode menu floats above its button, outside the popover, so it
+  // opens without making the popover taller or wider. A click in it must not
+  // count as a click outside the popover, or the popover would close first.
+  const lessonMenu = useFloating({
+    open: lessonChoiceOpen,
+    onOpenChange: setLessonChoiceOpen,
+    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+    placement: "top-end",
+  });
+  const lessonMenuDismiss = useDismiss(lessonMenu.context, { escapeKey: false });
+  const lessonMenuInteractions = useInteractions([lessonMenuDismiss]);
+
   // Disable click-outside dismissal when any modal is open or anything else
   // sits above the popover. Escape is handled below instead of here.
   const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen || confirmDialogOpen;
-  const dismiss = useDismiss(context, { enabled: !anyModalOpen && isTopmost, escapeKey: false });
+  const dismiss = useDismiss(context, {
+    enabled: !anyModalOpen && isTopmost,
+    escapeKey: false,
+    outsidePress: (event) => !lessonMenu.refs.floating.current?.contains(event.target as Node),
+  });
   const { getFloatingProps } = useInteractions([dismiss]);
 
   // Escape is heard in the capture phase at the window. The exercise modal
   // catches every key there and stops it reaching the document, where
   // floating-ui listens, so a popover opened over that modal would never hear
-  // Escape otherwise. Only the topmost overlay answers it.
+  // Escape otherwise. Only the topmost overlay answers it. With the Lesson
+  // mode menu open, Escape closes just the menu.
   useEffect(() => {
     if (!isOpen || !isTopmost || anyModalOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      if (lessonChoiceOpen) setLessonChoiceOpen(false);
+      else onClose();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [isOpen, isTopmost, anyModalOpen, onClose]);
+  }, [isOpen, isTopmost, anyModalOpen, onClose, lessonChoiceOpen]);
 
   if (!isOpen) return null;
 
@@ -746,18 +770,6 @@ export function SessionDetailPopover({
               disabled={isReadOnly}
               onSave={saveLessonNumber}
             />
-            <Link
-              href={`/sessions/${session.id}?lesson=true`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate?.();
-                onClose();
-              }}
-              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-              title="Lesson Mode"
-            >
-              <Presentation className="h-2.5 w-2.5 text-gray-500 hover:text-green-700 dark:hover:text-green-400" />
-            </Link>
           </div>
           <Link
             href={`/students/${session.student_id}`}
@@ -1246,18 +1258,95 @@ export function SessionDetailPopover({
           className="mb-3 pt-3 border-t border-gray-200 dark:border-gray-700"
         />
 
-        {/* Action link - using Link for Ctrl+click / middle-click support */}
-        <Link
-          href={`/sessions/${session.id}`}
-          onClick={() => {
-            onNavigate?.();
-            onClose();
-          }}
-          className={cn(buttonClasses({ variant: "primary", size: "sm" }), "w-full")}
-        >
-          View details
-          <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
+        {/* The way out to the session's own page, and into lesson mode. Both
+            end in links, so Ctrl+click and middle-click open a new tab.
+            Lesson mode opens either for the whole class, which is every
+            student the tutor has in this time slot, or for this student only.
+            A cancelled session, or one waiting for or booked into a make-up,
+            has no lesson to teach, so it offers no lesson mode. */}
+        {(() => {
+          const canTeach = !(
+            session.session_status.includes("Pending Make-up") ||
+            session.session_status.includes("Make-up Booked") ||
+            session.session_status === "Cancelled"
+          );
+          const wholeClassHref = session.tutor_id != null
+            ? `/sessions/lesson?${new URLSearchParams({
+                date: session.session_date,
+                slot: session.time_slot,
+                tutor_id: String(session.tutor_id),
+              }).toString()}`
+            : null;
+          const menuItem = "block w-full whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-primary/10";
+          return (
+            <div className="flex gap-2">
+              <Link
+                href={`/sessions/${session.id}`}
+                onClick={() => {
+                  onNavigate?.();
+                  onClose();
+                }}
+                className={cn(buttonClasses({ variant: "primary", size: "sm" }), "min-w-0 flex-1")}
+              >
+                View details
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+              {canTeach && (
+                <button
+                  type="button"
+                  ref={lessonMenu.refs.setReference}
+                  {...lessonMenuInteractions.getReferenceProps({
+                    onClick: () => setLessonChoiceOpen((open) => !open),
+                  })}
+                  aria-haspopup="menu"
+                  aria-expanded={lessonChoiceOpen}
+                  className={cn(buttonClasses({ variant: "secondary", size: "sm" }), "shrink-0")}
+                >
+                  Lesson mode
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-ink-subtle transition-transform", lessonChoiceOpen && "rotate-180")} aria-hidden="true" />
+                </button>
+              )}
+              {canTeach && lessonChoiceOpen && (
+                <FloatingPortal>
+                  <div
+                    ref={lessonMenu.refs.setFloating}
+                    style={{ ...lessonMenu.floatingStyles, zIndex: zIndex + 1 }}
+                    {...lessonMenuInteractions.getFloatingProps()}
+                    role="menu"
+                    aria-label="Open lesson mode for"
+                    className="min-w-[10rem] rounded-lg border border-line bg-paper py-1 shadow-lg"
+                  >
+                    {wholeClassHref && (
+                      // A new tab, the same as the Lesson button on a time slot's header.
+                      <a
+                        href={wholeClassHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        role="menuitem"
+                        onClick={() => setLessonChoiceOpen(false)}
+                        className={menuItem}
+                      >
+                        Whole class
+                      </a>
+                    )}
+                    <Link
+                      href={`/sessions/${session.id}?lesson=true`}
+                      role="menuitem"
+                      onClick={() => {
+                        setLessonChoiceOpen(false);
+                        onNavigate?.();
+                        onClose();
+                      }}
+                      className={menuItem}
+                    >
+                      This student only
+                    </Link>
+                  </div>
+                </FloatingPortal>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Keyboard shortcut hint */}
         <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 dark:text-gray-400 text-center">
