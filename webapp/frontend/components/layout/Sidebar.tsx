@@ -50,6 +50,23 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
+/**
+ * An admin page's row. Its 16px icon sits centred on the main menu's 20px
+ * icons, 28px in from the nav's edge, and its label lines up with theirs.
+ * The row's height is fixed, because collapsed it holds only the icon, which
+ * is shorter than the label, and every row below would move up and down as
+ * the sidebar opened and closed.
+ */
+const ADMIN_ITEM = "flex h-8 items-center gap-[14px] whitespace-nowrap px-4 text-sm rounded-xl transition-colors";
+
+/**
+ * A badge on an icon's corner, shown while the sidebar is collapsed. It fades
+ * in once the sidebar has closed, after the open sidebar's badge at the end of
+ * the row has been covered by the sidebar's edge. Opening, it goes at once,
+ * because the label it would overlap is uncovered straight away.
+ */
+const CORNER_BADGE_FADE = "transition-opacity duration-200 [&.opacity-0]:duration-0";
+
 /** How long the sidebar takes to open or close, in milliseconds. */
 const SLIDE_MS = 350;
 
@@ -396,9 +413,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <div className="relative">
                   <item.icon className="h-5 w-5" />
 
-                  {/* Beta badge for collapsed Documents */}
-                  {!showExpanded && item.name === "Documents" && (
-                    <span className="absolute -top-2 -right-3 text-[11px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
+                  {/* Beta badge for collapsed Documents. It fades rather than
+                      appearing and disappearing, and the open sidebar's own
+                      badge at the end of the row is uncovered by the
+                      sidebar's edge, so the two cross over as it moves. */}
+                  {item.name === "Documents" && (
+                    <span
+                      aria-hidden={showExpanded || undefined}
+                      className={cn(CORNER_BADGE_FADE, showExpanded && "opacity-0", "absolute -top-2 -right-3 text-[11px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap")}
+                    >
                       Beta
                     </span>
                   )}
@@ -418,9 +441,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   )}
                 </div>
 
-                {/* Badge for collapsed Inbox */}
-                {!showExpanded && item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
-                  <span className={cn("absolute -top-1 -right-1 text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", TONES.danger.solid)}>
+                {/* Badge for collapsed Inbox, which fades like the Beta badge */}
+                {item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
+                  <span
+                    aria-hidden={showExpanded || undefined}
+                    className={cn(CORNER_BADGE_FADE, showExpanded && "opacity-0", "absolute -top-1 -right-1 text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", TONES.danger.solid)}
+                  >
                     {unreadCount.count > 99 ? "99+" : unreadCount.count}
                   </span>
                 )}
@@ -453,122 +479,97 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           const showExpanded = isMobile || !rail;
           return (
             <div className="mt-2 pt-2 border-t border-line">
-              {/* Admin Header - Clickable to expand/collapse */}
-              <button
-                onClick={() => setAdminExpanded(!adminExpanded)}
-                className={cn(
-                  "w-full flex items-center gap-3 whitespace-nowrap rounded-2xl px-[14px] py-2 text-sm font-medium transition-colors",
-                  "text-foreground/70 hover:bg-foreground/8"
-                )}
+              {/* Admin Header - Clickable to expand/collapse. Collapsed, the
+                  sidebar has no room for the word, so a small chevron beside
+                  the shield shows the pages can be shown or hidden, and the
+                  tooltip says which a click will do. */}
+              <div
+                className={cn("relative", !showExpanded && "tooltip-wrapper")}
+                data-tooltip={adminExpanded ? "Hide admin pages" : "Show admin pages"}
+                onMouseEnter={(e) => { if (!showExpanded) placeTooltip(e.currentTarget); }}
               >
-                <Shield className="h-5 w-5" />
-                {showExpanded && (
-                  <>
-                    <span className="flex-1 text-left">Admin</span>
-                    <ChevronDown className={cn(
-                      "h-4 w-4 transition-transform duration-200",
-                      adminExpanded && "rotate-180"
-                    )} />
-                  </>
-                )}
-              </button>
-
-              {/* Admin Submenu Items */}
-              {showExpanded && (
-              <div className={cn(
-                "grid transition-[grid-template-rows] duration-200",
-                adminExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-              )}>
-                <div className="overflow-hidden pl-3">
-                <div className="mt-1 space-y-1">
-                  {adminNavigation.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-                    const { count: badgeCount, color: badgeColor, showOpen } = adminBadgeFor(item.name);
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={handleNavClick}
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl transition-colors",
-                          isActive
-                            ? "bg-primary/10 text-accent-ink font-medium"
-                            : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
-                        )}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span className="flex-1">{item.name}</span>
-                        {showOpen && (
-                          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            Open
-                          </span>
-                        )}
-                        {(badgeCount ?? 0) > 0 && (
-                          <span className={cn("text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
-                            {badgeCount > 99 ? "99+" : badgeCount}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                  {/* Debug link - Super Admin only, hidden when impersonating */}
-                  {isSuperAdmin && !isImpersonating && (
-                    <Link
-                      href="/admin/debug"
-                      onClick={handleNavClick}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors",
-                        pathname.startsWith("/admin/debug")
-                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-medium"
-                          : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
-                      )}
-                    >
-                      <Database className="h-4 w-4" />
-                      <span>Debug</span>
-                    </Link>
+                <button
+                  onClick={() => setAdminExpanded(!adminExpanded)}
+                  aria-expanded={adminExpanded}
+                  aria-label={showExpanded ? undefined : "Admin pages"}
+                  className={cn(
+                    "relative w-full flex items-center gap-3 whitespace-nowrap rounded-2xl px-[14px] py-2 text-sm font-medium transition-colors",
+                    "text-foreground/70 hover:bg-foreground/8"
                   )}
-                </div>
-                </div>
+                >
+                  <Shield className="h-5 w-5" />
+                  {showExpanded && <span className="flex-1 text-left">Admin</span>}
+                  <ChevronDown className={cn(
+                    "transition-transform duration-200",
+                    showExpanded ? "h-4 w-4" : "absolute right-0 top-1/2 -mt-1.5 h-3 w-3 opacity-70",
+                    adminExpanded && "rotate-180"
+                  )} />
+                </button>
               </div>
-              )}
 
-              {/* Collapsed state flyout */}
-              {!showExpanded && (
+              {/* Admin Submenu Items. Their icons sit on the same column as
+                  the main menu's, open or closed, so nothing shifts sideways
+                  as the sidebar moves. The smaller icons and text under the
+                  Admin heading show they belong to it. */}
               <div className={cn(
                 "grid transition-[grid-template-rows] duration-200",
                 adminExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               )}>
-                <div className="overflow-hidden px-1">
-                <div className="mt-1 pt-0.5 space-y-1">
+                <div className="overflow-hidden">
+                <div className="mt-1 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     const { count: badgeCount, color: badgeColor, showOpen } = adminBadgeFor(item.name);
                     return (
                       <div
                         key={item.name}
-                        className="tooltip-wrapper relative"
+                        className={cn("relative", !showExpanded && "tooltip-wrapper")}
                         data-tooltip={item.name}
-                        onMouseEnter={(e) => placeTooltip(e.currentTarget)}
+                        onMouseEnter={(e) => { if (!showExpanded) placeTooltip(e.currentTarget); }}
                       >
                         <Link
                           href={item.href}
                           onClick={handleNavClick}
+                          aria-label={showExpanded ? undefined : item.name}
                           className={cn(
-                            "flex items-center justify-center p-2.5 rounded-xl transition-colors",
+                            ADMIN_ITEM,
                             isActive
-                              ? "bg-primary/10 text-accent-ink"
-                              : "text-foreground/60 hover:bg-foreground/5"
+                              ? "bg-primary/10 text-accent-ink font-medium"
+                              : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
                           )}
                         >
-                          <item.icon className="h-5 w-5" />
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          {showExpanded && (
+                            <>
+                              <span className="flex-1">{item.name}</span>
+                              {showOpen && (
+                                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                  Open
+                                </span>
+                              )}
+                              {(badgeCount ?? 0) > 0 && (
+                                <span className={cn("text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
+                                  {badgeCount! > 99 ? "99+" : badgeCount}
+                                </span>
+                              )}
+                            </>
+                          )}
                         </Link>
+                        {/* Collapsed, the count and the open dot sit on the icon's corner, and fade as the sidebar moves. They stay inside the row, because the list's box hides anything outside it so it can slide open and shut. */}
                         {(badgeCount ?? 0) > 0 && (
-                          <span className={cn("absolute -top-1 -right-1 text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
-                            {badgeCount > 99 ? "99+" : badgeCount}
+                          <span
+                            aria-hidden={showExpanded || undefined}
+                            className={cn(CORNER_BADGE_FADE, showExpanded && "opacity-0", "pointer-events-none absolute top-0 left-[26px] text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}
+                          >
+                            {badgeCount! > 99 ? "99+" : badgeCount}
                           </span>
                         )}
                         {showOpen && (
-                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" aria-label="Applications open" />
+                          <span
+                            aria-label={showExpanded ? undefined : "Applications open"}
+                            aria-hidden={showExpanded || undefined}
+                            className={cn(CORNER_BADGE_FADE, showExpanded && "opacity-0", "pointer-events-none absolute top-1 left-[29px] h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background")}
+                          />
                         )}
                       </div>
                     );
@@ -576,44 +577,39 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   {/* Debug link - Super Admin only, hidden when impersonating */}
                   {isSuperAdmin && !isImpersonating && (
                     <div
-                      className="tooltip-wrapper"
+                      className={cn("relative", !showExpanded && "tooltip-wrapper")}
                       data-tooltip="Debug"
-                      onMouseEnter={(e) => placeTooltip(e.currentTarget)}
+                      onMouseEnter={(e) => { if (!showExpanded) placeTooltip(e.currentTarget); }}
                     >
                       <Link
                         href="/admin/debug"
                         onClick={handleNavClick}
+                        aria-label={showExpanded ? undefined : "Debug"}
                         className={cn(
-                          "flex items-center justify-center p-2.5 rounded-xl transition-colors",
+                          ADMIN_ITEM,
                           pathname.startsWith("/admin/debug")
-                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                            : "text-foreground/60 hover:bg-foreground/5"
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-medium"
+                            : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
                         )}
                       >
-                        <Database className="h-5 w-5" />
+                        <Database className="h-4 w-4 shrink-0" />
+                        {showExpanded && <span>Debug</span>}
                       </Link>
                     </div>
                   )}
                 </div>
                 </div>
               </div>
-              )}
             </div>
           );
         })()}
 
         {/* Notification Bell - only when NOT on dashboard */}
         {!isOnDashboard && (
-          <div className={cn(
-            "pt-2 mt-2 border-t border-line",
-            (isMobile || !rail) ? "px-4" : "flex justify-center px-3"
-          )}>
-            <div className={cn(
-              "flex items-center rounded-2xl transition-colors",
-              (isMobile || !rail)
-                ? "gap-3 py-2 text-sm font-medium text-foreground/70"
-                : "justify-center p-1"
-            )}>
+          <div className="pt-2 mt-2 border-t border-line">
+            {/* The bell's button is 40px wide, so 4px in from the nav's edge
+                puts the bell on the menu's icon column, open or closed. */}
+            <div className="flex items-center gap-0.5 whitespace-nowrap pl-1 text-sm font-medium text-foreground/70">
               <NotificationBell pendingPayments={pendingPayments} location={selectedLocation} tutorId={currentTutorId} showOverduePayments={isAdmin} />
               {(isMobile || !rail) && (
                 <span>Notifications</span>
@@ -684,72 +680,50 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             : user?.picture;
           const displayPicture = rawPicture?.startsWith("http") ? rawPicture : undefined;
 
-          return !isMobile && rail ? (
-            /* Collapsed state: Avatar only */
+          const collapsed = !isMobile && rail;
+          // One layout open or closed: the picture is the same size and in the
+          // same place, centred on the menu's icon column, so it holds still
+          // while the sidebar moves, and the name is uncovered beside it.
+          return (
             <div className="relative">
               <button
                 onClick={() => setIsUserMenuOpen(true)}
                 className={cn(
-                  "w-full flex items-center justify-center rounded-md p-2 transition-colors hover:bg-tint",
+                  "w-full flex items-center gap-3 whitespace-nowrap rounded-md px-2 py-2 transition-colors hover:bg-tint",
                   // Impersonating keeps an amber ring, because it has to be
                   // obvious whose account is showing.
                   isImpersonating && "ring-1 ring-amber-400 dark:ring-amber-600"
                 )}
-                title="User settings"
-              >
-                {displayPicture ? (
-                  <Image
-                    src={displayPicture}
-                    alt={displayName}
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 rounded-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                    <span className="text-sm font-bold text-primary-foreground">{initials}</span>
-                  </div>
-                )}
-              </button>
-              {hasUnseenUpdates && (
-                <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-blue-500 border-2 border-paper" />
-              )}
-            </div>
-          ) : (
-            /* Expanded state: Avatar with name */
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(true)}
-                className={cn(
-                  "w-full flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-tint",
-                  isImpersonating && "ring-1 ring-amber-400 dark:ring-amber-600"
-                )}
+                title={collapsed ? "User settings" : undefined}
               >
                 <div className="relative flex-shrink-0">
                   {displayPicture ? (
                     <Image
                       src={displayPicture}
                       alt={displayName}
-                      width={44}
-                      height={44}
-                      className="h-11 w-11 rounded-full object-cover"
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center">
-                      <span className="text-base font-bold text-primary-foreground">{initials}</span>
+                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                      <span className="text-sm font-bold text-primary-foreground">{initials}</span>
                     </div>
                   )}
                   {hasUnseenUpdates && (
                     <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-blue-500 border-2 border-paper" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
-                  <p className="text-xs font-medium text-foreground/60">{displayRole}</p>
-                </div>
-                <Settings className="h-4 w-4 text-foreground/50" />
+                {!collapsed && (
+                  <>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                      <p className="text-xs font-medium text-foreground/60">{displayRole}</p>
+                    </div>
+                    <Settings className="h-4 w-4 text-foreground/50" />
+                  </>
+                )}
               </button>
             </div>
           );
