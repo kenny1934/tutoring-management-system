@@ -3,14 +3,14 @@
 import { useMemo, useState, useCallback, useEffect, useRef, memo } from "react";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
-import { useSessions, useProposalsInDateRange, usePendingMemoCount, useNowMinutes } from "@/lib/hooks";
+import { useSessions, useProposalsInDateRange, useNowMinutes } from "@/lib/hooks";
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, Presentation } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -27,14 +27,14 @@ import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownBu
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
-import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
+import { TaughtLessonModal } from "@/components/sessions/TaughtLessonModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { toDateString, getNowSlotPosition } from "@/lib/calendar-utils";
 import { LessonNudge } from "@/components/sessions/LessonNudge";
 import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { GradeBadge } from "@/components/ui/grade-label";
-import { Button, CountBadge } from "@/components/controls";
+import { Button, IconButton } from "@/components/controls";
 
 interface TodaySessionsCardProps {
   className?: string;
@@ -49,8 +49,8 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
-  const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
-  const { user, effectiveRole, isGuest, isImpersonating, impersonatedTutor } = useAuth();
+  const [taughtLessonOpen, setTaughtLessonOpen] = useState(false);
+  const { user, effectiveRole, isGuest, isReadOnly, isImpersonating, impersonatedTutor } = useAuth();
 
   // Fetch ALL sessions for today (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
@@ -78,8 +78,6 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     return user?.id ?? 0;
   }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
-  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
-  const { data: pendingMemoData } = usePendingMemoCount(isAdmin ? undefined : currentTutorId || undefined, !isGuest);
 
   // Convert proposals to proposed sessions
   const proposedSessions = useMemo(
@@ -274,22 +272,15 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today's sessions</h3>
           </div>
           <div className="flex items-center gap-1.5">
-            {/* Record Memo button */}
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={StickyNote}
-              onClick={() => setMemoDrawerOpen(true)}
-              className="relative"
-              title="Record a session memo"
-            >
-              <span className="hidden sm:inline">Memo</span>
-              <CountBadge
-                count={pendingMemoData?.count ?? 0}
-                tone="warning"
-                className="absolute -top-1.5 -right-1.5"
+            {/* A student taught today who has no lesson in CSM yet */}
+            {!isReadOnly && (
+              <IconButton
+                label="Add a student who isn't listed"
+                icon={UserPlus}
+                size="sm"
+                onClick={() => setTaughtLessonOpen(true)}
               />
-            </Button>
+            )}
             {/* Progress Ring */}
             {stats.total > 0 && (
               <ProgressRing
@@ -627,11 +618,15 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
         onClose={() => setSelectedProposal(null)}
       />
 
-      {/* Memo List Drawer */}
-      {memoDrawerOpen && (
-        <MemoListDrawer
+      {taughtLessonOpen && (
+        <TaughtLessonModal
           isOpen={true}
-          onClose={() => setMemoDrawerOpen(false)}
+          onClose={() => setTaughtLessonOpen(false)}
+          prefill={{
+            date: todayString,
+            location: selectedLocation === "All Locations" ? null : selectedLocation,
+            tutorId: tutorId ?? null,
+          }}
         />
       )}
     </div>

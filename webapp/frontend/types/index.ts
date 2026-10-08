@@ -2325,10 +2325,12 @@ export interface WecomMessageLog {
   created_at: string;
 }
 
-// Tutor Memo types
-export interface MemoExercise {
+// Taught but not in CSM yet: a lesson a tutor taught that CSM doesn't have yet
+export interface UnlistedLessonExercise {
   exercise_type: 'CW' | 'HW';
-  pdf_name: string;
+  pdf_name: string | null;
+  url: string | null;
+  url_title: string | null;
   page_start: number | null;
   page_end: number | null;
   remarks: string | null;
@@ -2338,52 +2340,42 @@ export interface MemoExercise {
   answer_remarks: string | null;
 }
 
-export interface TutorMemo {
+export interface UnlistedLesson {
   id: number;
   student_id: number;
   student_name: string;
   school_student_id: string | null;
   grade: string | null;
+  lang_stream: string | null;
   school: string | null;
   tutor_id: number;
   tutor_name: string;
-  memo_date: string;
+  lesson_date: string;
   time_slot: string | null;
   location: string | null;
   notes: string | null;
-  exercises: MemoExercise[] | null;
+  exercises: UnlistedLessonExercise[];
   performance_rating: string | null;
-  linked_session_id: number | null;
-  status: 'pending' | 'linked';
-  created_at: string;
-  updated_at: string | null;
+  /** waiting: no lesson in CSM yet. filled: went into a real lesson. dismissed: set aside by an admin. */
+  status: 'waiting' | 'filled' | 'dismissed';
+  filled_session_id: number | null;
+  filled_at: string | null;
+  dismissed_at: string | null;
+  dismiss_reason: 'mistake' | 'handled_elsewhere' | null;
+  created_at: string | null;
   created_by: string | null;
 }
 
-export interface TutorMemoCreate {
+export interface UnlistedLessonInput {
   student_id: number;
-  memo_date: string;
-  time_slot?: string;
-  location?: string;
-  notes?: string;
-  exercises?: MemoExercise[];
-  performance_rating?: string;
-}
-
-export interface TutorMemoUpdate {
-  student_id?: number;
-  memo_date?: string;
-  time_slot?: string;
-  location?: string;
-  notes?: string;
-  exercises?: MemoExercise[];
-  performance_rating?: string;
-}
-
-export interface TutorMemoImportRequest {
-  import_notes: boolean;
-  import_exercises: boolean;
-  import_rating: boolean;
+  lesson_date: string;
+  time_slot?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  exercises?: UnlistedLessonExercise[];
+  performance_rating?: string | null;
+  /** Admins only: record it for another tutor. */
+  tutor_id?: number;
 }
 
 // Document Builder types

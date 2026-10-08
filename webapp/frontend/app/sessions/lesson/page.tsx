@@ -1,13 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSessions, usePageTitle } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageSurface } from "@/components/layout/PageSurface";
-import { AlertTriangle, ArrowLeft, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Users, UserPlus } from "lucide-react";
+import { useLocation } from "@/contexts/LocationContext";
+import { Button } from "@/components/controls";
 import type { Session } from "@/types";
+
+const TaughtLessonModal = dynamic(
+  () => import("@/components/sessions/TaughtLessonModal").then(mod => ({ default: mod.TaughtLessonModal })),
+  { ssr: false }
+);
 
 const LessonWideMode = dynamic(
   () => import("@/components/lesson/LessonWideMode").then(mod => ({ default: mod.LessonWideMode })),
@@ -20,6 +27,8 @@ export default function LessonWidePage() {
   const slot = searchParams.get("slot");
   const tutorId = searchParams.get("tutor_id");
   const { isReadOnly } = useAuth();
+  const { selectedLocation } = useLocation();
+  const [addingUnlisted, setAddingUnlisted] = useState(false);
 
   usePageTitle(slot ? `Lesson ${slot}` : "Lesson Mode");
 
@@ -113,8 +122,26 @@ export default function LessonWidePage() {
             <p className="text-sm text-ink-subtle">
               No sessions found for this time slot.
             </p>
+            {!isReadOnly && (
+              <Button size="sm" variant="secondary" icon={UserPlus} onClick={() => setAddingUnlisted(true)}>
+                Add a student who isn't listed
+              </Button>
+            )}
           </div>
         </div>
+        {addingUnlisted && (
+          <TaughtLessonModal
+            isOpen
+            onClose={() => setAddingUnlisted(false)}
+            prefill={{
+              date,
+              timeSlot: slot,
+              location: selectedLocation === "All Locations" ? null : selectedLocation,
+              tutorId: parseInt(tutorId, 10),
+            }}
+            onSaved={() => mutate()}
+          />
+        )}
       </PageSurface>
     );
   }

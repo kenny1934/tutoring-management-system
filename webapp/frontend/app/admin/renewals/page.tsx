@@ -5,9 +5,9 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle } from "@/lib/hooks";
+import { usePageTitle, useUnlistedLessons, revalidateUnlistedLessons } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
-import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, CreditCard, Eye, Send, ArrowRight, X, Search } from "lucide-react";
+import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, CreditCard, Eye, Send, ArrowRight, X, Search, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
@@ -17,12 +17,16 @@ import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollment
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
 import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
+import { TaughtNotInCsmPanel, type TaughtStudent } from "@/components/enrollments/TaughtNotInCsmPanel";
+import type { UnlistedLesson } from "@/types";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button, IconButton, Input, PageHeader } from "@/components/controls";
 
 // Status icon component - matches tab icons (memoized for performance)
+const EMPTY_TAUGHT: UnlistedLesson[] = [];
+
 const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
   switch (status) {
     case 'not_renewed':
@@ -323,6 +327,8 @@ export default function AdminRenewalsPage() {
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [renewFromId, setRenewFromId] = useState<number | null>(null);
+  // The lesson a tutor taught before it was in CSM, when the enrolment is made from one
+  const [taughtLesson, setTaughtLesson] = useState<UnlistedLesson | null>(null);
 
   // Comparison mode state (original + renewal side-by-side)
   const [comparisonMode, setComparisonMode] = useState(false);
@@ -349,7 +355,11 @@ export default function AdminRenewalsPage() {
   const [isScrolledPastThreshold, setIsScrolledPastThreshold] = useState(false);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'not_renewed' | 'to_send' | 'awaiting_payment'>('not_renewed');
+  const [activeTab, setActiveTab] = useState<'not_renewed' | 'to_send' | 'awaiting_payment' | 'taught'>('not_renewed');
+  // The bell links straight to the fourth tab
+  useEffect(() => {
+    if (window.location.hash === '#taught') setActiveTab('taught');
+  }, []);
 
   // Collapsed urgency groups state (next_week and older_than_30_days collapsed by default)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['next_week', 'older_than_30_days']));
@@ -398,6 +408,14 @@ export default function AdminRenewalsPage() {
     { refreshInterval: 60000 }
   );
 
+  // Students taught before their lessons were in CSM, for the fourth tab
+  const { data: waitingTaught = EMPTY_TAUGHT } = useUnlistedLessons(
+    user && canViewAdminPages
+      ? { status: 'waiting', location: selectedLocation !== "All Locations" ? selectedLocation : undefined }
+      : null
+  );
+  const taughtStudentCount = useMemo(() => new Set(waitingTaught.map((l) => l.student_id)).size, [waitingTaught]);
+
   // Search filter helper
   const matchesSearch = useCallback((r: RenewalListItem) => {
     if (!debouncedSearch) return true;
@@ -430,6 +448,7 @@ export default function AdminRenewalsPage() {
       case 'not_renewed': return notRenewedList;
       case 'to_send': return toSendList;
       case 'awaiting_payment': return awaitingPaymentList;
+      case 'taught': return [];
     }
   }, [activeTab, notRenewedList, toSendList, awaitingPaymentList]);
 
@@ -736,6 +755,13 @@ export default function AdminRenewalsPage() {
   const handleCreateModalClose = () => {
     setCreateModalOpen(false);
     setRenewFromId(null);
+    setTaughtLesson(null);
+  };
+
+  const handleCreateFromTaught = (student: TaughtStudent) => {
+    setRenewFromId(student.latestEnrolmentId);
+    setTaughtLesson(student.lessons[0]);
+    setCreateModalOpen(true);
   };
 
   const handleCloseAll = () => {
@@ -743,6 +769,7 @@ export default function AdminRenewalsPage() {
     setSelectedEnrollmentId(null);
     setCreateModalOpen(false);
     setRenewFromId(null);
+    setTaughtLesson(null);
     // Also close comparison mode
     setComparisonMode(false);
     setComparisonOriginalId(null);
@@ -755,6 +782,7 @@ export default function AdminRenewalsPage() {
     await Promise.all([
       mutate(['renewals', selectedLocation, showExpired]),
       mutate(['renewal-counts', selectedLocation]),
+      revalidateUnlistedLessons(),
     ]);
   };
 
@@ -969,7 +997,7 @@ export default function AdminRenewalsPage() {
         </div>
 
         {/* Tab bar - only show when data is loaded */}
-        {!isLoading && !renewalsLoading && user && canViewAdminPages && renewals && renewals.length > 0 && (
+        {!isLoading && !renewalsLoading && user && canViewAdminPages && renewals && (renewals.length > 0 || waitingTaught.length > 0) && (
           <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide px-4 sm:px-6 -mx-4 sm:-mx-6">
             <button
               onClick={() => setActiveTab('not_renewed')}
@@ -1022,6 +1050,23 @@ export default function AdminRenewalsPage() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('taught')}
+              className={cn(
+                "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                activeTab === 'taught'
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-foreground/50 hover:text-foreground/70"
+              )}
+            >
+              <UserPlus className="hidden sm:block h-4 w-4" />
+              <span>Taught but not in CSM yet</span>
+              {taughtStudentCount > 0 && (
+                <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
+                  {taughtStudentCount}
+                </span>
+              )}
+            </button>
           </div>
         )}
         </div>
@@ -1048,6 +1093,12 @@ export default function AdminRenewalsPage() {
             <div className="text-center py-12">
               <p className="text-foreground/60">Admin access required</p>
             </div>
+          ) : activeTab === 'taught' ? (
+            <TaughtNotInCsmPanel
+              lessons={waitingTaught}
+              canAct={!isReadOnly}
+              onCreateEnrolment={handleCreateFromTaught}
+            />
           ) : renewals && renewals.length > 0 ? (
             <div className="space-y-4">
               {activeList.length > 0 ? (
@@ -1424,6 +1475,7 @@ export default function AdminRenewalsPage() {
           renewFromId={renewFromId}
           onSuccess={handleSuccess}
           standalone={true}
+          fromTaughtLesson={taughtLesson ?? undefined}
         />
       )}
 
