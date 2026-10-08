@@ -416,6 +416,24 @@ export default function AdminRenewalsPage() {
   );
   const taughtStudentCount = useMemo(() => new Set(waitingTaught.map((l) => l.student_id)).size, [waitingTaught]);
 
+  // On a phone the tab bar scrolls sideways, and the last tab starts off-screen.
+  // Opening the page on it from the bell would leave the selected tab out of
+  // sight, so slide the bar until the selected tab shows. Only the bar moves,
+  // never the page. It runs when the bar first appears and when the tab
+  // changes, not on every refresh, so it never undoes a scroll by hand.
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const renewalsReady = renewals !== undefined;
+  const hasTaught = waitingTaught.length > 0;
+  useEffect(() => {
+    const bar = tabBarRef.current;
+    const tab = bar?.querySelector<HTMLElement>("[data-active]");
+    if (!bar || !tab) return;
+    const barBox = bar.getBoundingClientRect();
+    const tabBox = tab.getBoundingClientRect();
+    if (tabBox.right > barBox.right) bar.scrollLeft += tabBox.right - barBox.right + 16;
+    else if (tabBox.left < barBox.left) bar.scrollLeft -= barBox.left - tabBox.left + 16;
+  }, [activeTab, isLoading, renewalsLoading, renewalsReady, hasTaught]);
+
   // Search filter helper
   const matchesSearch = useCallback((r: RenewalListItem) => {
     if (!debouncedSearch) return true;
@@ -998,9 +1016,10 @@ export default function AdminRenewalsPage() {
 
         {/* Tab bar - only show when data is loaded */}
         {!isLoading && !renewalsLoading && user && canViewAdminPages && renewals && (renewals.length > 0 || waitingTaught.length > 0) && (
-          <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide px-4 sm:px-6 -mx-4 sm:-mx-6">
+          <div ref={tabBarRef} className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide px-4 sm:px-6 -mx-4 sm:-mx-6">
             <button
               onClick={() => setActiveTab('not_renewed')}
+              data-active={activeTab === 'not_renewed' || undefined}
               className={cn(
                 "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'not_renewed'
@@ -1018,6 +1037,7 @@ export default function AdminRenewalsPage() {
             </button>
             <button
               onClick={() => setActiveTab('to_send')}
+              data-active={activeTab === 'to_send' || undefined}
               className={cn(
                 "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'to_send'
@@ -1035,6 +1055,7 @@ export default function AdminRenewalsPage() {
             </button>
             <button
               onClick={() => setActiveTab('awaiting_payment')}
+              data-active={activeTab === 'awaiting_payment' || undefined}
               className={cn(
                 "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'awaiting_payment'
@@ -1052,6 +1073,7 @@ export default function AdminRenewalsPage() {
             </button>
             <button
               onClick={() => setActiveTab('taught')}
+              data-active={activeTab === 'taught' || undefined}
               className={cn(
                 "flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                 activeTab === 'taught'
