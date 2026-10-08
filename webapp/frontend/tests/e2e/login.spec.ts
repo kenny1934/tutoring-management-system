@@ -4,8 +4,8 @@ test.describe('Login Page', () => {
   test('displays login page with Google sign-in button', async ({ page }) => {
     await page.goto('/login');
 
-    // Check page title/branding is visible
-    await expect(page.getByRole('heading', { name: 'CSM Pro' })).toBeVisible({ timeout: 10000 });
+    // The sign-in panel's heading
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible({ timeout: 10000 });
 
     // Check for Google sign-in button
     const googleButton = page.getByRole('button', { name: /sign in with google/i });
@@ -16,18 +16,14 @@ test.describe('Login Page', () => {
     await page.goto('/login?error=unauthorized');
 
     // Should display error message
-    await expect(
-      page.locator('text=not authorised')
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("isn't authorised")).toBeVisible({ timeout: 10000 });
   });
 
   test('shows error message for OAuth failures', async ({ page }) => {
     await page.goto('/login?error=oauth_failed');
 
     // Should display error message
-    await expect(
-      page.locator('text=Authentication failed')
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("didn't work")).toBeVisible({ timeout: 10000 });
   });
 
   test('login page has proper accessibility attributes', async ({ page }) => {
