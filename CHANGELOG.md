@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.1.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.146...v2.1.0) (2026-10-08)
+
+
+### New Features
+
+* **A new logo**: CSM Pro has a redrawn logo that stays sharp at every size, in the sidebar, on the sign-in page, in the phone header and as the icon in your browser tab and on your phone's home screen.
+* **The logo unrolls**: opening the sidebar draws the rest of the logo out of the C and closing it winds it back, or the logo simply fades if your device is set to reduce motion.
+* **What CSM Pro stands for**: the sign-in page now spells out the name under the logo.
+* **Lesson mode for the whole class**: the session popover has a Lesson mode button next to View details, which opens lesson mode for the whole class in that time slot or for just that student, from any calendar.
+* **Tidier session cards**: the small buttons for the session page and lesson mode are gone from each card on the Sessions list, since the session popover has both.
+* **Fewer refresh buttons**: the refresh buttons on the dashboard, extension requests and renewals are gone, because those pages already keep themselves up to date.
+* **Quick attend is retired**: the quick attend page and its buttons are gone, and Unchecked attendance still lets you mark several sessions at once.
+
+
+### Performance
+
+* **A smoother sidebar**: the sidebar now opens and closes smoothly on every page, including Sessions and Courseware, where it used to stutter.
+
+
+### Bug Fixes
+
+* **Sidebar items stay put**: icons, the admin items and your profile picture no longer jump or change size as the sidebar opens and closes.
+* **Hints are back**: pointing at an icon in the closed sidebar shows its name again.
+* **Admin items in the closed sidebar**: the Admin icon now shows an arrow, so you can tell it opens and closes the admin items under it.
+* **Headings on the wood desk**: with the wood desk chosen, every page heading now sits on the same strip of paper, so it is easy to read and looks the same on every page.
+
 ## [2.0.146](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.145...v2.0.146) (2026-10-07)
 
 
