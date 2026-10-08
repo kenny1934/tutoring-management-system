@@ -88,6 +88,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
+import { hasSomethingToShow } from "@/lib/unlisted-lesson-entries";
 import { TaughtLessonRow } from "@/components/sessions/TaughtLessonRow";
 import type { TaughtLessonPrefill } from "@/components/sessions/TaughtLessonModal";
 import { TutorLink } from "@/components/tutors/TutorLink";
@@ -2690,7 +2691,10 @@ function SessionsPageContent() {
 
                           {/* Right: lesson button + counts */}
                           <div className="flex items-center gap-2">
-                            {tutorFilter && (
+                            {/* Lesson mode needs a lesson in CSM, or a worksheet of a student who isn't in CSM yet, to show */}
+                            {tutorFilter && (sessionsInSlot.length > 0 || waitingLessons.some((lesson) =>
+                              lesson.time_slot === timeSlot && lesson.lesson_date === groupDate && hasSomethingToShow(lesson)
+                            )) && (
                               <LessonNudge
                                 active={tutorFilter === effectiveUserId && isCurrentSlot && sessionsInSlot.some(isCountableSession)}
                                 date={groupDate}

@@ -148,6 +148,17 @@ describe("LessonViewerArea", () => {
     expect(draft.closeDraft).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a worksheet with no lesson to keep ink the way the answer key is shown, without the Pen Tray or a Draft", () => {
+    renderArea({ inkless: true, draft: draftState(true) });
+    const worksheet = viewerProps.get("Linear equations 3")!;
+    expect(worksheet.tools).toBeUndefined();
+    expect(worksheet.onPageStrokesChange).toBeUndefined();
+    expect(worksheet.coverButton).toBe(true);
+    expect(worksheet.onDraftToggle).toBeUndefined();
+    expect(screen.queryByRole("region", { name: "Draft" })).toBeNull();
+    expect(screen.queryByTestId("tray-lane")).toBeNull();
+  });
+
   it("shows no Draft while it's shut", () => {
     renderArea();
     expect(screen.queryByRole("region", { name: "Draft" })).toBeNull();

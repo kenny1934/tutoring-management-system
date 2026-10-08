@@ -21,6 +21,8 @@ interface StudentStripProps {
   start?: ReactNode;
   /** Shown after the Next arrow. In focus mode, that's the way out of it. */
   end?: ReactNode;
+  /** Said under the name in place of the count, such as for a student not in CSM yet. */
+  caption?: string;
 }
 
 /**
@@ -42,7 +44,7 @@ const arrowClass =
  * appears. In focus mode, where the header is hidden, it's the top bar, so it
  * also holds the Students button and the way out of focus mode.
  */
-export function StudentStrip({ entry, position, onPrevious, onNext, selectedLocation, start, end }: StudentStripProps) {
+export function StudentStrip({ entry, position, onPrevious, onNext, selectedLocation, start, end, caption }: StudentStripProps) {
   const preview = isPreviewExercise(entry.exercise);
   const studentId = preview ? null : getStudentIdDisplay(entry.session, selectedLocation);
 
@@ -82,7 +84,7 @@ export function StudentStrip({ entry, position, onPrevious, onNext, selectedLoca
         </WithSchoolIfItFits>
         {/* The count keeps its line even when it's empty, so the strip's height never changes. */}
         <span className="text-xs text-ink-subtle dark:text-[#8a7a60] tabular-nums min-h-4">
-          {position ? `${position.index} of ${position.total}` : ""}
+          {position ? `${position.index} of ${position.total}` : caption ?? ""}
         </span>
       </div>
 
