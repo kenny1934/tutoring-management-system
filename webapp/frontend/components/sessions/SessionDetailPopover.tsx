@@ -15,6 +15,7 @@ import {
 import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, StickyNote } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -443,6 +444,16 @@ export function SessionDetailPopover({
   // opened from, where a fixed z-index could land it underneath.
   const { isTopmost, zIndex } = useOverlayLayer(isOpen);
 
+  // On a phone the popover becomes a sheet along the bottom of the screen. A
+  // popover pinned to the tap could run past the top or bottom of a short
+  // screen, while the sheet always has most of the screen to scroll in and
+  // keeps the buttons near the thumb. The width is read straight from the
+  // window, because the popover only renders once someone has tapped a
+  // lesson, and the hook's first answer is always "not a phone". The hook is
+  // still there so turning the phone or resizing the window redraws it.
+  const isMobile = useIsMobile();
+  const asSheet = typeof window !== "undefined" ? window.innerWidth < 768 : isMobile;
+
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
@@ -674,23 +685,40 @@ export function SessionDetailPopover({
 
   if (!isOpen) return null;
 
+  // The popover's own box, or the sheet's. Both keep the floating ref, so a
+  // tap outside still closes them, and the sheet's backdrop counts as outside.
+  // The sheet sets its position inline, like the popover does, because the
+  // paper texture class sets position: relative and would beat a class.
+  const shellStyle = asSheet
+    ? { position: "fixed" as const, left: 0, right: 0, bottom: 0, zIndex }
+    : { ...floatingStyles, zIndex };
+  const shellClass = cn(
+    "bg-paper border-2 border-line-strong shadow-lg p-4",
+    asSheet
+      ? "w-full rounded-t-2xl border-x-0 border-b-0 max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))] animate-drawer-in"
+      : "paper-texture rounded-lg w-[280px]",
+  );
+  const sheetBackdrop = asSheet && (
+    <div className="fixed inset-0 bg-black/40 animate-backdrop-in" style={{ zIndex }} aria-hidden="true" />
+  );
+  const sheetHandle = asSheet && (
+    <div className="-mt-1 mb-2 flex justify-center" aria-hidden="true">
+      <div className="h-1 w-10 rounded-full bg-ink-subtle/40" />
+    </div>
+  );
+
   // Loading skeleton
   if (isLoading || !session) {
     return (
       <FloatingPortal>
+        {sheetBackdrop}
         <div
           ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex }}
+          style={shellStyle}
           {...getFloatingProps()}
-          className={cn(
-            "bg-paper",
-            "border-2 border-line-strong",
-            "rounded-lg shadow-lg",
-            "p-4",
-            "paper-texture",
-            "w-[280px]"
-          )}
+          className={shellClass}
         >
+          {sheetHandle}
           <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
           <div className="animate-pulse space-y-3">
             <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded" />
@@ -739,20 +767,14 @@ export function SessionDetailPopover({
 
   return (
     <FloatingPortal>
+      {sheetBackdrop}
       <div
         ref={refs.setFloating}
-        style={{ ...floatingStyles, zIndex }}
+        style={shellStyle}
         {...getFloatingProps()}
-        className={cn(
-          "bg-paper",
-          "border-2 border-line-strong",
-          "rounded-lg shadow-lg",
-          "p-4",
-          "max-h-[80vh] overflow-y-auto",
-          "paper-texture",
-          "w-[280px]"
-        )}
+        className={cn(shellClass, !asSheet && "max-h-[80vh] overflow-y-auto")}
       >
+        {sheetHandle}
         {/* Close button */}
         <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
 
@@ -1348,10 +1370,10 @@ export function SessionDetailPopover({
           );
         })()}
 
-        {/* Keyboard shortcut hint */}
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 dark:text-gray-400 text-center">
+        {/* Keyboard shortcut hint, left off the sheet because a phone has no keyboard */}
+        {!asSheet && <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 dark:text-gray-400 text-center">
           <span className="font-mono">A</span>=Attended <span className="font-mono">N</span>=No Show <span className="font-mono">C</span>=CW <span className="font-mono">H</span>=HW <span className="font-mono">R</span>=Rate <span className="font-mono">E</span>=Edit
-        </div>
+        </div>}
       </div>
 
       {/* Modals triggered by keyboard shortcuts */}
