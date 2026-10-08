@@ -238,7 +238,7 @@ export function RecordContactModal({
           ref={refs.setFloating}
           {...getFloatingProps()}
           className={cn(
-            "w-full sm:w-[448px] bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl",
+            "w-full sm:w-[448px] bg-white dark:bg-[#29241e] rounded-lg shadow-xl",
             "border border-line",
             "max-h-[90vh] flex flex-col"
           )}
@@ -308,7 +308,7 @@ export function RecordContactModal({
                 {showStudentDropdown && !selectedStudent && (
                   <div className={cn(
                     "absolute z-10 w-full mt-1 max-h-48 overflow-y-auto",
-                    "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg"
+                    "bg-white dark:bg-[#29241e] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg"
                   )}>
                     {loadingStudents ? (
                       <div className="p-3 text-center">

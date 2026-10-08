@@ -74,7 +74,7 @@ function SinglePreview({ url }: { url: string }) {
   // Not loaded yet — subtle skeleton
   if (!loaded) {
     return (
-      <div className="mt-2 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 p-3 animate-pulse">
+      <div className="mt-2 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#29241e]/50 p-3 animate-pulse">
         <div className="h-3 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
         <div className="h-2.5 w-full bg-gray-200 dark:bg-gray-700 rounded mt-2" />
       </div>
@@ -91,7 +91,7 @@ function SinglePreview({ url }: { url: string }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 flex gap-3 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 p-2.5 hover:bg-[#f5ede3]/80 dark:hover:bg-[#2a2a2a]/80 transition-colors no-underline group overflow-hidden"
+      className="mt-2 flex gap-3 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#29241e]/50 p-2.5 hover:bg-[#f5ede3]/80 dark:hover:bg-[#352e26]/80 transition-colors no-underline group overflow-hidden"
     >
       {data.image && !imgError && (
         <img

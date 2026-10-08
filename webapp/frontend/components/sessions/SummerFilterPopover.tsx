@@ -189,7 +189,7 @@ export function SummerFilterPopover({
             {...getFloatingProps()}
             className={cn(
               "z-[9999] w-[268px] rounded-md border border-[#d4a574] bg-white py-1.5 shadow-lg",
-              "dark:border-[#6b5a4a] dark:bg-[#1a1a1a]",
+              "dark:border-[#6b5a4a] dark:bg-[#29241e]",
             )}
           >
             <Facet

@@ -833,28 +833,28 @@ export default function SessionDetailPage() {
             </div>
             <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">A/N</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#29241e] rounded border text-xs font-mono">A/N</kbd>
                 <span>Attended / No Show</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">C/H</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#29241e] rounded border text-xs font-mono">C/H</kbd>
                 <span>CW / HW</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">E</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#29241e] rounded border text-xs font-mono">E</kbd>
                 <span>Edit session</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">L</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#29241e] rounded border text-xs font-mono">L</kbd>
                 <span>Lesson Mode</span>
               </div>
               <div className="flex justify-between gap-4">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#29241e] rounded border text-xs font-mono">Esc</kbd>
                 <span>Go back</span>
               </div>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
-              Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border font-mono">?</kbd> to toggle
+              Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#29241e] rounded border font-mono">?</kbd> to toggle
             </div>
           </motion.div>
         )}

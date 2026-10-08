@@ -116,7 +116,7 @@ export function ProspectDashboard({
           </thead>
           <tbody className="divide-y divide-line/30">
             {stats.map((s, i) => (
-              <tr key={s.branch} className={`cursor-pointer hover:bg-primary/5 ${i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}`} onClick={() => onJumpToList({ branch: s.branch })}>
+              <tr key={s.branch} className={`cursor-pointer hover:bg-primary/5 ${i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#2c2620]" : ""}`} onClick={() => onJumpToList({ branch: s.branch })}>
                 <td className="px-3 py-2 font-semibold text-foreground">
                   <span className="inline-flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${BRANCH_INFO[s.branch]?.dot || "bg-gray-400"}`} />

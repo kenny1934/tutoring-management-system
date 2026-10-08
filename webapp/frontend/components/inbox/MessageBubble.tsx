@@ -413,7 +413,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
               "hover:scale-110 hover:shadow-md active:scale-95",
               isMine
                 ? "bg-primary/10 border border-primary/60 dark:border-[#a0704b]/60"
-                : "bg-white dark:bg-[#2a2a2a] border border-line/60"
+                : "bg-white dark:bg-[#352e26] border border-line/60"
             )}
             title={g.tutors.join(", ")}
           >
@@ -586,7 +586,7 @@ const MessageBubble = React.memo(function MessageBubble({
             : "flex-1 min-w-0",
           !isOwn && isBroadcast && "bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30",
           !isOwn && isGroup && !isBroadcast && "bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30",
-          !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-line/50 dark:border-line"
+          !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#352e26] border border-line/50 dark:border-line"
         )}
       >
         {/* Sender name (others only, first in group) */}
@@ -728,7 +728,7 @@ const MessageBubble = React.memo(function MessageBubble({
                   href={file.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-wash transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#29241e]/50 hover:bg-wash transition-colors group"
                 >
                   <div className="p-2 rounded-lg bg-tint text-accent-ink flex-shrink-0">
                     <FileText className="h-5 w-5" />

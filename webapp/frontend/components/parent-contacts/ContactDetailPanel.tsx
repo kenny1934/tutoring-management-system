@@ -65,7 +65,7 @@ export function ContactDetailPanel({
     return (
       <div className={cn(
         "flex flex-col h-full",
-        "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
+        "bg-white dark:bg-[#29241e] rounded-lg border border-line",
         "overflow-hidden"
       )}>
         {/* Header */}
@@ -190,7 +190,7 @@ export function ContactDetailPanel({
     return (
       <div className={cn(
         "flex flex-col h-full",
-        "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
+        "bg-white dark:bg-[#29241e] rounded-lg border border-line",
         "overflow-hidden"
       )}>
         {/* Header */}
@@ -236,7 +236,7 @@ export function ContactDetailPanel({
   return (
     <div className={cn(
       "flex flex-col h-full",
-      "bg-white dark:bg-[#1a1a1a] rounded-lg border border-line",
+      "bg-white dark:bg-[#29241e] rounded-lg border border-line",
       "overflow-hidden"
     )}>
       {/* Header */}

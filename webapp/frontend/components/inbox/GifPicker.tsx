@@ -147,7 +147,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
                   key={gif.id}
                   type="button"
                   onClick={() => handleSelect(gif)}
-                  className="relative overflow-hidden rounded-md hover:ring-2 hover:ring-primary transition-all bg-gray-100 dark:bg-[#1a1a1a]"
+                  className="relative overflow-hidden rounded-md hover:ring-2 hover:ring-primary transition-all bg-gray-100 dark:bg-[#29241e]"
                   style={{ aspectRatio: `${gif.width} / ${gif.height}`, maxHeight: "150px" }}
                 >
                   <img

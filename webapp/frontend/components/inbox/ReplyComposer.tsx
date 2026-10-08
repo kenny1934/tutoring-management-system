@@ -326,7 +326,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
               key={file.url}
               value={file}
               whileDrag={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
-              className="flex items-center gap-2 px-2 py-1 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+              className="flex items-center gap-2 px-2 py-1 rounded-lg border border-line bg-[#faf6f1]/50 dark:bg-[#29241e]/50"
               style={{ cursor: replyFiles.length > 1 ? "grab" : undefined }}
               as="div"
             >

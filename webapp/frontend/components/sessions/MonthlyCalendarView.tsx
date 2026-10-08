@@ -354,7 +354,7 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
       className={cn(
         "flex flex-col p-1 sm:p-1.5 border-b border-line transition-colors overflow-hidden",
         !isFirstCol && "border-l",
-        !isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-50",
+        !isCurrentMonth && "bg-gray-50 dark:bg-[#241f19] opacity-50",
         isCurrentMonth && getLoadIntensity(totalSessions),
         isWeekend && isCurrentMonth && !hasContent && "bg-paper/50 dark:bg-paper/30",
         isPast && isCurrentMonth && "opacity-70",

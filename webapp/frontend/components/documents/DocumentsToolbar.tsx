@@ -129,7 +129,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       </div>
 
       {/* Row 2: Search + filters + view controls */}
-      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line/40 bg-[#fef9f3]/60 dark:bg-[#29241e]/20">
         <div className="relative flex-1 min-w-0 sm:max-w-[14rem]">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
           <Input
