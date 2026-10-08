@@ -10,7 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, Presentation } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -34,7 +34,7 @@ import { toDateString, getNowSlotPosition } from "@/lib/calendar-utils";
 import { LessonNudge } from "@/components/sessions/LessonNudge";
 import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { GradeBadge } from "@/components/ui/grade-label";
-import { Button, CountBadge, buttonClasses } from "@/components/controls";
+import { Button, CountBadge } from "@/components/controls";
 
 interface TodaySessionsCardProps {
   className?: string;
@@ -274,17 +274,6 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today's sessions</h3>
           </div>
           <div className="flex items-center gap-1.5">
-            {/* Quick Attend shortcut - only when there are markable sessions */}
-            {markableIds.length > 0 && (
-              <Link
-                href="/quick-attend"
-                className={buttonClasses({ variant: "secondary", size: "sm" })}
-                title="Quick attendance marking"
-              >
-                <ClipboardCheck className="h-3.5 w-3.5 text-ink-subtle" aria-hidden="true" />
-                <span className="hidden sm:inline">Quick</span>
-              </Link>
-            )}
             {/* Record Memo button */}
             <Button
               size="sm"
