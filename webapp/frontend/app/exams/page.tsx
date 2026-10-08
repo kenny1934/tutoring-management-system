@@ -586,15 +586,16 @@ export default function ExamsPage() {
           {/* Toolbar */}
           <div
             className={cn(
-              "mx-4 sm:mx-6 mb-4",
+              "@container/examtools mx-4 sm:mx-6 mb-4",
               "bg-raised rounded-xl border border-line",
               "paper-texture"
             )}
           >
           {/* Top row: Search, School, Grade, View Toggle */}
           <div className="px-4 py-3 flex flex-wrap gap-2 sm:gap-3 items-center">
-            {/* Search - full width on mobile */}
-            <div className="relative w-full sm:w-auto sm:flex-1">
+            {/* Search - a line of its own until the toolbar is wide enough for
+                it and every filter, so it never gets squeezed beside them */}
+            <div className="relative w-full @3xl/examtools:w-auto @3xl/examtools:flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
               <Input
                 type="text"
