@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { PageSurface } from "@/components/layout/PageSurface";
@@ -2850,32 +2850,6 @@ function SessionsPageContent() {
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">
                                           Cancelled
                                         </span>
-                                      )}
-                                      {!(session.session_status.includes('Pending Make-up') || session.session_status.includes('Make-up Booked') || session.session_status === 'Cancelled') && (
-                                        <>
-                                          <Link
-                                            href={`/sessions/${session.id}`}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              saveScrollPosition();
-                                            }}
-                                            className="flex items-center gap-1 text-xs px-2 py-1 ml-3 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink font-medium whitespace-nowrap transition-colors flex-shrink-0"
-                                            title="View Session"
-                                          >
-                                            <ExternalLink className="h-3.5 w-3.5" />
-                                          </Link>
-                                          <Link
-                                            href={`/sessions/${session.id}?lesson=true`}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              saveScrollPosition();
-                                            }}
-                                            className="flex items-center text-xs px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-accent-ink/10 hover:bg-accent-ink/20 text-accent-ink transition-colors flex-shrink-0"
-                                            title="Lesson Mode"
-                                          >
-                                            <Presentation className="h-3.5 w-3.5" />
-                                          </Link>
-                                        </>
                                       )}
                                     </div>
                                   </div>
