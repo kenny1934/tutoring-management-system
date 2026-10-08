@@ -95,6 +95,7 @@ from schemas import (
 )
 from auth.dependencies import get_current_user, require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
+from services.unlisted_lessons import fill_unlisted_lessons
 from services.google_sheets_service import (
     SheetsConfigError,
     upsert_snapshot_row,
@@ -3794,6 +3795,9 @@ def _publish_application_inner(
             lesson_number=_effective_lesson_number(p),
             last_modified_by=admin_email,
         ))
+
+    # Lessons the tutor taught before this enrolment existed fill themselves in.
+    fill_unlisted_lessons(db, [student_id], admin_email)
 
     # Move app status to Enrolled (with audit), unless already there.
     if app.application_status != SummerApplicationStatus.ENROLLED.value:

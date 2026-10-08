@@ -1109,10 +1109,13 @@ class WecomMessageLog(Base):
 
 class TutorMemo(Base):
     """
-    Tutor session memos for sessions that don't yet exist in the system.
-    Created when a student shows up but their session hasn't been generated
-    (e.g., admin forgot to renew enrollment). Auto-matched to sessions when
-    enrollments are created.
+    A lesson a tutor taught that CSM doesn't have yet, shown in the app as
+    "Taught but not in CSM yet". It usually happens because an enrolment
+    wasn't renewed in time. The tutor records attendance (implied),
+    classwork, homework, notes and a rating here. Admins see the waiting
+    ones on the Renewals page. When the real lesson appears, by any route
+    that creates or moves lessons, services/unlisted_lessons.py fills it in
+    and the row becomes filled. The table keeps its old memo name.
     """
     __tablename__ = "tutor_memos"
     __table_args__ = (
@@ -1132,11 +1135,16 @@ class TutorMemo(Base):
     performance_rating = Column(String(10), comment='Star emoji rating like sessions')
     linked_session_id = Column(Integer, ForeignKey("session_log.id", ondelete="SET NULL"), nullable=True,
                                comment='Set when auto-matched or manually linked to a session')
-    status = Column(String(20), nullable=False, default='pending',
-                    comment='pending = awaiting session, linked = imported into session')
+    status = Column(String(20), nullable=False, default='waiting',
+                    comment='waiting = no lesson in CSM yet, filled = went into a real lesson, dismissed = set aside by an admin')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_by = Column(String(255), comment='Tutor email who created the memo')
+    filled_at = Column(DateTime, nullable=True, comment='When the lesson was filled into a real session, HK time')
+    filled_by = Column(String(255), nullable=True, comment='Email of the user whose action filled it in')
+    dismissed_at = Column(DateTime, nullable=True, comment='When an admin set it aside, HK time')
+    dismissed_by = Column(String(255), nullable=True, comment='Email of the admin who set it aside')
+    dismiss_reason = Column(String(30), nullable=True, comment='mistake or handled_elsewhere')
 
     # Relationships
     student = relationship("Student", foreign_keys=[student_id])

@@ -2119,74 +2119,65 @@ class WecomMessageLogResponse(BaseModel):
 
 
 # ============================================
-# Tutor Memo Schemas
+# Taught but not in CSM yet (unlisted lessons, stored as tutor memos)
 # ============================================
 
-class MemoExerciseItem(BaseModel):
-    """Single exercise entry within a tutor memo"""
-    exercise_type: str = Field(..., pattern="^(CW|HW)$")
-    pdf_name: str = Field(..., min_length=1, max_length=500)
-    page_start: Optional[int] = Field(None, gt=0)
-    page_end: Optional[int] = Field(None, gt=0)
-    remarks: Optional[str] = Field(None, max_length=1000)
-    answer_pdf_name: Optional[str] = Field(None, max_length=500)
-    answer_page_start: Optional[int] = Field(None, gt=0)
-    answer_page_end: Optional[int] = Field(None, gt=0)
-    answer_remarks: Optional[str] = Field(None, max_length=1000)
+UNLISTED_DISMISS_REASONS = ("mistake", "handled_elsewhere")
 
 
-class TutorMemoCreate(BaseModel):
-    """Request schema for creating a tutor memo"""
+class UnlistedLessonCreate(BaseModel):
+    """A lesson a tutor taught that CSM doesn't have yet. The exercises use
+    the same shape as saving a lesson's exercises, links included."""
     student_id: int = Field(..., gt=0)
-    memo_date: date
+    lesson_date: date
     time_slot: Optional[str] = Field(None, max_length=50)
     location: Optional[str] = Field(None, max_length=50)
-    notes: Optional[str] = None
-    exercises: Optional[List[MemoExerciseItem]] = None
+    notes: Optional[str] = Field(None, max_length=2000)
+    exercises: List[ExerciseCreateRequest] = []
+    performance_rating: Optional[str] = Field(None, max_length=10)
+    # Only an admin may record a lesson for another tutor. Everyone else
+    # records their own, and the field is ignored.
+    tutor_id: Optional[int] = Field(None, gt=0)
+
+
+class UnlistedLessonUpdate(BaseModel):
+    """Changes to a lesson that is still waiting. Only the fields sent change."""
+    student_id: Optional[int] = Field(None, gt=0)
+    lesson_date: Optional[date] = None
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = Field(None, max_length=2000)
+    exercises: Optional[List[ExerciseCreateRequest]] = None
     performance_rating: Optional[str] = Field(None, max_length=10)
 
 
-class TutorMemoUpdate(BaseModel):
-    """Request schema for updating a tutor memo"""
-    student_id: Optional[int] = None
-    memo_date: Optional[date] = None
-    time_slot: Optional[str] = Field(None, max_length=50)
-    location: Optional[str] = Field(None, max_length=50)
-    notes: Optional[str] = None
-    exercises: Optional[List[MemoExerciseItem]] = None
-    performance_rating: Optional[str] = Field(None, max_length=10)
+class UnlistedLessonDismiss(BaseModel):
+    reason: str = Field(..., pattern="^(mistake|handled_elsewhere)$")
 
 
-class TutorMemoResponse(BaseModel):
-    """Response schema for a tutor memo"""
+class UnlistedLessonResponse(BaseModel):
     id: int
     student_id: int
     student_name: str
     school_student_id: Optional[str] = None
     grade: Optional[str] = None
+    lang_stream: Optional[str] = None
     school: Optional[str] = None
     tutor_id: int
     tutor_name: str
-    memo_date: date
+    lesson_date: date
     time_slot: Optional[str] = None
     location: Optional[str] = None
     notes: Optional[str] = None
-    exercises: Optional[List[MemoExerciseItem]] = None
+    exercises: List[dict] = []
     performance_rating: Optional[str] = None
-    linked_session_id: Optional[int] = None
     status: str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+    filled_session_id: Optional[int] = None
+    filled_at: Optional[datetime] = None
+    dismissed_at: Optional[datetime] = None
+    dismiss_reason: Optional[str] = None
+    created_at: Optional[datetime] = None
     created_by: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TutorMemoImportRequest(BaseModel):
-    """Request for importing memo data into a session"""
-    import_notes: bool = True
-    import_exercises: bool = True
-    import_rating: bool = True
 
 
 # ============================================

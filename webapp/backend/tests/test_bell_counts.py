@@ -32,7 +32,7 @@ from routers import (
     parent_communications,
     sessions,
     terminations,
-    tutor_memos,
+    unlisted_lessons,
 )
 from tests.conftest import test_engine
 from tests.helpers import make_auth_token
@@ -217,7 +217,7 @@ BELL_COUNT_HANDLERS = {
     "/api/extension-requests/pending-count": extension_requests.get_pending_count,
     "/api/enrollments/renewal-counts": enrollments.get_renewal_counts,
     "/api/parent-communications/contact-needed-count": parent_communications.get_contact_needed_count,
-    "/api/tutor-memos/pending-count": tutor_memos.get_pending_count,
+    "/api/unlisted-lessons/waiting-count": unlisted_lessons.get_waiting_count,
 }
 
 

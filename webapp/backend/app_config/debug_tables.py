@@ -122,7 +122,7 @@ DEBUG_TABLE_CONFIG = {
         "allow_hard_delete": True,
     },
     "tutor_memos": {
-        "display_name": "Tutor Memos",
+        "display_name": "Taught but not in CSM yet",
         "primary_key": "id",
         "priority": 25,
         "readonly_columns": ["id", "created_at", "updated_at"],

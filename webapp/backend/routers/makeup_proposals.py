@@ -11,6 +11,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime, date
 from constants import hk_now
+from services.unlisted_lessons import fill_unlisted_lessons
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
@@ -786,6 +787,9 @@ View proposal: /proposals?id={proposal.id}"""
             )
             db.add(other_message)
             notified_tutor_ids.add(other_tutor_id)
+
+    # A make-up taught before it was approved fills itself in from the tutor's record.
+    fill_unlisted_lessons(db, [makeup_session.student_id], current_user.user_email)
 
     try:
         db.commit()
