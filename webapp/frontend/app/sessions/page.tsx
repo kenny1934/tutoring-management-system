@@ -172,6 +172,14 @@ function byTutorName(a: Tutor, b: Tutor): number {
 }
 
 /**
+ * Classes for what sticks under the toolbar: the bulk action bar sits under
+ * the toolbar, and the time slot headers under both. The page writes their
+ * offsets into a small stylesheet of its own (see writeStickyOffsets).
+ */
+const UNDER_TOOLBAR = "sessions-under-toolbar";
+const UNDER_BARS = "sessions-under-bars";
+
+/**
  * One provider above the view-mode branch, so homework badges get their counts
  * whichever view renders them.
  */
@@ -553,14 +561,16 @@ function SessionsPageContent() {
     });
   };
 
-  // Toolbar height tracking for dynamic sticky offset
+  // The toolbar's height, and the bulk action bar's, set the sticky offset of
+  // everything below them. They aren't kept in state: the toolbar wraps onto
+  // a second row when the page narrows, as it does while the sidebar opens,
+  // and re-rendering this whole page each time froze it for about a third of
+  // a second. A CSS variable on the page restyled all 9,000 or so elements
+  // under it instead, at about 40ms a time. So the offsets go into rules for
+  // the two classes above, and only the elements that carry them restyle.
   // Use callback ref (setState) so effect re-runs when element mounts
   const [toolbarElement, setToolbarElement] = useState<HTMLDivElement | null>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(52);
-
-  // Bulk action bar height tracking
   const [bulkActionBarElement, setBulkActionBarElement] = useState<HTMLDivElement | null>(null);
-  const [bulkActionBarHeight, setBulkActionBarHeight] = useState(0);
 
   // Scroll container ref for position restoration
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -590,13 +600,33 @@ function SessionsPageContent() {
   const showShortcutHintsRef = useRef(showShortcutHints);
   showShortcutHintsRef.current = showShortcutHints;
 
+  const stickyOffsets = useRef({ toolbar: 52, bulkBar: 0 });
+  const stickyStyle = useRef<HTMLStyleElement | null>(null);
+  const writeStickyOffsets = useCallback(() => {
+    const { toolbar, bulkBar } = stickyOffsets.current;
+    const text = `.${UNDER_TOOLBAR}{top:${toolbar}px}.${UNDER_BARS}{top:${toolbar + bulkBar}px;scroll-margin-top:${toolbar + bulkBar}px}`;
+    // Rewriting a stylesheet restyles whatever its rules match, so only write when an offset has changed.
+    if (stickyStyle.current && stickyStyle.current.textContent !== text) stickyStyle.current.textContent = text;
+  }, []);
+  useLayoutEffect(() => {
+    const style = document.createElement("style");
+    document.head.append(style);
+    stickyStyle.current = style;
+    writeStickyOffsets();
+    return () => {
+      style.remove();
+      stickyStyle.current = null;
+    };
+  }, [writeStickyOffsets]);
+
   // Track toolbar height changes (for responsive wrapping)
   useLayoutEffect(() => {
     // Only track when in list view and element is mounted
     if (viewMode !== "list" || !toolbarElement) return;
 
     const updateHeight = () => {
-      setToolbarHeight(toolbarElement.getBoundingClientRect().height);
+      stickyOffsets.current.toolbar = toolbarElement.getBoundingClientRect().height;
+      writeStickyOffsets();
     };
 
     // Initial measurement
@@ -615,17 +645,16 @@ function SessionsPageContent() {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateHeight);
     };
-  }, [viewMode, toolbarElement]);
+  }, [viewMode, toolbarElement, writeStickyOffsets]);
 
   // Track bulk action bar height changes
   useLayoutEffect(() => {
-    if (!bulkActionBarElement) {
-      setBulkActionBarHeight(0);
-      return;
-    }
+    if (!bulkActionBarElement) return;
 
+    // The bar is only there while sessions are selected, so with none selected its offset is nothing.
     const updateHeight = () => {
-      setBulkActionBarHeight(bulkActionBarElement.getBoundingClientRect().height);
+      stickyOffsets.current.bulkBar = bulkActionBarElement.getBoundingClientRect().height;
+      writeStickyOffsets();
     };
 
     updateHeight();
@@ -633,8 +662,12 @@ function SessionsPageContent() {
     const resizeObserver = new ResizeObserver(updateHeight);
     resizeObserver.observe(bulkActionBarElement);
 
-    return () => resizeObserver.disconnect();
-  }, [bulkActionBarElement]);
+    return () => {
+      resizeObserver.disconnect();
+      stickyOffsets.current.bulkBar = 0;
+      writeStickyOffsets();
+    };
+  }, [bulkActionBarElement, writeStickyOffsets]);
 
   // Detect mobile device for performance optimization
   useEffect(() => {
@@ -1340,8 +1373,6 @@ function SessionsPageContent() {
   const isAllSelected = getGlobalSelectionState === 'all';
   const hasSelection = selectedIds.size > 0;
 
-  // Calculate sticky top for time slot headers (accounts for bulk action bar when visible)
-  const timeSlotStickyTop = toolbarHeight + (hasSelection ? bulkActionBarHeight : 0);
 
   // Clear selection when filters change. specialFilter is in here so rows
   // selected in the normal list do not survive a jump to the pending make-ups
@@ -2146,7 +2177,7 @@ function SessionsPageContent() {
 
             {/* Bulk Action Bar - appears when selections exist */}
             {hasSelection && (
-              <div ref={setBulkActionBarElement} className="sticky z-25 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2" style={{ top: toolbarHeight }}>
+              <div ref={setBulkActionBarElement} className={cn(UNDER_TOOLBAR, "sticky z-25 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                     {selectedIds.size} selected
@@ -2328,7 +2359,7 @@ function SessionsPageContent() {
                   return (
                     <React.Fragment key={tierKey}>
                       {/* Tier Header */}
-                      <div className="sticky z-20 mb-4" style={{ top: timeSlotStickyTop }}>
+                      <div className={cn(UNDER_BARS, "sticky z-20 mb-4")}>
                         <div
                           onClick={() => toggleSlot(tierKey)}
                           className={cn(
@@ -2575,10 +2606,10 @@ function SessionsPageContent() {
                         own rect already sits at the scroll target, which made
                         scrollIntoView a no-op when jumping back up to it.
                         scrollMarginTop keeps anchored scrolls clear of the sticky toolbar. */}
-                    <div id={`slot-${slotKey}`} className="flex flex-col gap-2 sm:gap-3" style={{ scrollMarginTop: timeSlotStickyTop }}>
+                    <div id={`slot-${slotKey}`} className={cn(UNDER_BARS, "flex flex-col gap-2 sm:gap-3")}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div className={cn("sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
+                    <div className={cn(UNDER_BARS, "sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")}>
                       <div
                         onClick={() => toggleSlot(slotKey)}
                         className="bg-paper border border-line border-l-4 border-l-accent-ink rounded-lg px-3 py-2 cursor-pointer hover:bg-tint transition-colors"

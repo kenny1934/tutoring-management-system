@@ -49,12 +49,47 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
+/** How long the sidebar takes to open or close, in milliseconds. */
+const SLIDE_MS = 350;
+
+/**
+ * Puts a collapsed item's name beside it, just past the sidebar's edge. The
+ * name is fixed to the window, so it's placed from where the item and the
+ * sidebar are on screen. It used to be placed as a share of the sidebar's
+ * width, which only worked while the sidebar's frosted background happened
+ * to make the sidebar the box fixed things are measured from.
+ */
+function placeTooltip(item: HTMLElement) {
+  const sidebar = item.closest("[data-sidebar-panel]")?.getBoundingClientRect();
+  if (!sidebar) return;
+  const rect = item.getBoundingClientRect();
+  item.style.setProperty("--tooltip-top", `${rect.top + rect.height / 2}px`);
+  item.style.setProperty("--tooltip-left", `${sidebar.right}px`);
+}
+
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, isAdmin, isSuperAdmin, isSupervisor, isGuest, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // Which way the sidebar is moving, for the SLIDE_MS it takes. Only a move
+  // the person asked for animates, so a sidebar restored as collapsed when a
+  // page loads starts out that way.
+  const [moving, setMoving] = useState<"opening" | "closing" | null>(null);
+  useEffect(() => {
+    if (!moving) return;
+    const done = setTimeout(() => setMoving(null), SLIDE_MS);
+    return () => clearTimeout(done);
+  }, [moving]);
+  const toggleCollapsed = () => {
+    setMoving(isCollapsed ? "opening" : "closing");
+    setIsCollapsed(!isCollapsed);
+  };
+  // The menu is laid out for the narrow rail only once the sidebar has
+  // finished closing. Until then the full menu stays, and the sidebar's edge
+  // covers it as it moves.
+  const rail = isCollapsed && moving !== "closing";
   const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [adminExpanded, setAdminExpanded] = useState(true);
@@ -181,12 +216,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     }
   }, [mounted]);
 
-  // Save collapsed state to localStorage + set CSS variable for modal positioning
+  // Save collapsed state to localStorage + set CSS variable for modal positioning.
+  // The variable waits until the sidebar has stopped moving: writing it on the
+  // page's root restyles every element on the page, which on a long page cost
+  // a frame of about 40ms at the start of every move.
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem('sidebar-collapsed', String(isCollapsed));
+    if (moving) return;
     document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '72px' : '256px');
-  }, [isCollapsed, mounted]);
+  }, [isCollapsed, mounted, moving]);
 
   // Fetch locations on mount (only on client-side)
   useEffect(() => {
@@ -267,7 +306,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       nav.removeEventListener('scroll', checkScrollPosition);
       resizeObserver.disconnect();
     };
-  }, [mounted, isCollapsed, adminExpanded]);
+  }, [mounted, rail, adminExpanded]);
 
   // Close mobile menu on navigation
   const handleNavClick = () => {
@@ -284,7 +323,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {isMobile ? (
           // Mobile: Logo + Close button
           <>
-            <Logo className="h-14 w-auto" />
+            <Logo className="h-10 w-auto" />
             <button
               onClick={onMobileClose}
               className="p-2 rounded-lg hover:bg-foreground/10 transition-colors"
@@ -296,19 +335,32 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         ) : (
           // Desktop: Clickable toggle
           <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center justify-center w-full hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer group"
+            onClick={toggleCollapsed}
+            className="flex w-full items-center rounded-md hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {/* Collapsed, the sidebar is too narrow for the whole logo, so it shows the C and its arrow. */}
-            <Logo
-              variant={isCollapsed ? "c" : "full"}
-              className={cn(
-                "w-auto transition-transform duration-350 group-hover:scale-105",
-                isCollapsed ? "h-9" : "h-14"
-              )}
-            />
+            {/* Collapsed, the sidebar is too narrow for the whole logo, so it
+                shows the C and its arrow. The C is the same drawing, at the
+                same size and place, in both, so it stays still while the
+                sidebar moves and the rest of the logo fades in or out beside
+                it. The C sits under the whole logo only while it moves, since
+                drawing the C twice would darken its soft edges. */}
+            <span className="relative ml-2 block h-10 w-[99px] shrink-0">
+              <Logo
+                variant="c"
+                label=""
+                className={cn("absolute left-0 top-0 h-10 w-auto", !isCollapsed && !moving && "opacity-0")}
+              />
+              <Logo
+                label=""
+                className={cn(
+                  "absolute left-0 top-0 h-10 w-auto",
+                  isCollapsed && "opacity-0",
+                  moving && "transition-opacity duration-350 ease-out"
+                )}
+              />
+            </span>
           </button>
         )}
       </div>
@@ -325,21 +377,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           .filter((item) => !(item.name === "Inbox" && isGuest))
           .map((item) => {
           const isActive = pathname === item.href;
-          const showExpanded = isMobile || !isCollapsed;
+          const showExpanded = isMobile || !rail;
           return (
             <div
               key={item.name}
               className={cn("relative", !showExpanded && "tooltip-wrapper")}
               data-tooltip={item.name}
               onMouseEnter={(e) => {
-                if (!showExpanded) {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const sidebarRect = e.currentTarget.closest('[data-sidebar-panel]')?.getBoundingClientRect();
-                  if (sidebarRect) {
-                    const top = rect.top - sidebarRect.top + rect.height / 2;
-                    e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
-                  }
-                }
+                if (!showExpanded) placeTooltip(e.currentTarget);
               }}
             >
               <Link
@@ -347,11 +392,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 prefetch={true}
                 onClick={handleNavClick}
                 style={{
-                  transition: `all ${isActive ? '350ms' : '200ms'} var(--ease-out)`
+                  transition: `background-color ${isActive ? '350ms' : '200ms'} var(--ease-out), color ${isActive ? '350ms' : '200ms'} var(--ease-out)`
                 }}
                 className={cn(
-                  "group relative flex items-center rounded-2xl text-sm font-medium",
-                  showExpanded ? "gap-3 px-4 py-2" : "justify-center p-2.5",
+                  // The icon sits in the same place whether the sidebar is open
+                  // or closed, so it holds still while the sidebar moves.
+                  "group relative flex items-center gap-3 whitespace-nowrap rounded-2xl px-[14px] py-2 text-sm font-medium",
                   isActive
                     ? "bg-primary/10 text-accent-ink"
                     : "text-foreground/70 hover:bg-foreground/8"
@@ -359,7 +405,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               >
                 {/* Icon */}
                 <div className="relative">
-                  <item.icon className={showExpanded ? "h-5 w-5" : "h-6 w-6"} />
+                  <item.icon className="h-5 w-5" />
 
                   {/* Beta badge for collapsed Documents */}
                   {!showExpanded && item.name === "Documents" && (
@@ -415,15 +461,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Admin Section - Only visible to Admin/Super Admin */}
         {isAdminOrAbove && (() => {
-          const showExpanded = isMobile || !isCollapsed;
+          const showExpanded = isMobile || !rail;
           return (
             <div className="mt-2 pt-2 border-t border-line">
               {/* Admin Header - Clickable to expand/collapse */}
               <button
                 onClick={() => setAdminExpanded(!adminExpanded)}
                 className={cn(
-                  "w-full flex items-center rounded-2xl text-sm font-medium transition-colors",
-                  showExpanded ? "gap-3 px-4 py-2" : "justify-center p-2.5",
+                  "w-full flex items-center gap-3 whitespace-nowrap rounded-2xl px-[14px] py-2 text-sm font-medium transition-colors",
                   "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
@@ -514,14 +559,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         key={item.name}
                         className="tooltip-wrapper relative"
                         data-tooltip={item.name}
-                        onMouseEnter={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const sidebarRect = e.currentTarget.closest('[data-sidebar-panel]')?.getBoundingClientRect();
-                          if (sidebarRect) {
-                            const top = rect.top - sidebarRect.top + rect.height / 2;
-                            e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
-                          }
-                        }}
+                        onMouseEnter={(e) => placeTooltip(e.currentTarget)}
                       >
                         <Link
                           href={item.href}
@@ -551,14 +589,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     <div
                       className="tooltip-wrapper"
                       data-tooltip="Debug"
-                      onMouseEnter={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const sidebarRect = e.currentTarget.closest('[data-sidebar-panel]')?.getBoundingClientRect();
-                        if (sidebarRect) {
-                          const top = rect.top - sidebarRect.top + rect.height / 2;
-                          e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
-                        }
-                      }}
+                      onMouseEnter={(e) => placeTooltip(e.currentTarget)}
                     >
                       <Link
                         href="/admin/debug"
@@ -586,16 +617,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {!isOnDashboard && (
           <div className={cn(
             "pt-2 mt-2 border-t border-line",
-            (isMobile || !isCollapsed) ? "px-4" : "flex justify-center px-3"
+            (isMobile || !rail) ? "px-4" : "flex justify-center px-3"
           )}>
             <div className={cn(
               "flex items-center rounded-2xl transition-colors",
-              (isMobile || !isCollapsed)
+              (isMobile || !rail)
                 ? "gap-3 py-2 text-sm font-medium text-foreground/70"
                 : "justify-center p-1"
             )}>
               <NotificationBell pendingPayments={pendingPayments} location={selectedLocation} tutorId={currentTutorId} showOverduePayments={isAdmin} />
-              {(isMobile || !isCollapsed) && (
+              {(isMobile || !rail) && (
                 <span>Notifications</span>
               )}
             </div>
@@ -605,12 +636,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {/* The mini calendar and the Center / My view switch scroll with the
             nav. Pinned to the bottom they took about 270px, which pushed the
             last admin links out of sight on a 900px-tall screen. */}
-        {(isMobile || !isCollapsed) && (
+        {(isMobile || !rail) && (
           <div className="border-t border-line p-3">
             <WeeklyMiniCalendar />
           </div>
         )}
-        {(isMobile || !isCollapsed) && (
+        {(isMobile || !rail) && (
           <div className="border-t border-line px-3 py-2">
             <div role="group" aria-label="Whose sessions to show" className="flex gap-0.5 rounded-md border border-line bg-tint p-0.5">
               {([["center-view", "Center"], ["my-view", "My view"]] as const).map(([mode, label]) => (
@@ -664,7 +695,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             : user?.picture;
           const displayPicture = rawPicture?.startsWith("http") ? rawPicture : undefined;
 
-          return !isMobile && isCollapsed ? (
+          return !isMobile && rail ? (
             /* Collapsed state: Avatar only */
             <div className="relative">
               <button
@@ -895,18 +926,23 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop Sidebar - hidden on mobile */}
+      {/* Desktop Sidebar - hidden on mobile. The page beside it widens and
+          narrows with it. Inside, the menu is laid out once at its full or its
+          rail width and the sidebar's edge uncovers it, so the menu itself
+          isn't laid out again on every frame. */}
       <div
         data-sidebar-panel
         className={cn(
-          "hidden md:flex h-screen flex-col border-r border-line bg-paper z-50",
+          "hidden md:flex h-screen shrink-0 overflow-hidden border-r border-line bg-paper z-50",
           isCollapsed ? "w-[72px]" : "w-64"
         )}
         style={{
-          transition: 'width 350ms var(--ease-out)',
+          transition: moving ? `width ${SLIDE_MS}ms var(--ease-out)` : undefined,
         }}
       >
-        {sidebarContent(false, navRef)}
+        <div className={cn("flex h-full shrink-0 flex-col", rail ? "w-[71px]" : "w-[255px]")}>
+          {sidebarContent(false, navRef)}
+        </div>
       </div>
 
       {/* Mobile Drawer - hidden on desktop */}
