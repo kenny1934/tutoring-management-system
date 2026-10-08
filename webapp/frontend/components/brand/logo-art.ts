@@ -31,5 +31,8 @@ export const LOGO_C_PIECES: LogoPiece[] = [
   { tone: "oak", d: "M20 221 A92.12 92.12 0 0 1 122.5 157 L121 150 L153 174.5 L127 201 L125 188 A107.45 107.45 0 0 0 20 221 Z" },
 ];
 
+/** What CSM Pro stands for, as words, for where it is set as text next to the logo. */
+export const LOGO_TAGLINE = "Class Session Manager for Productive Resource Orchestration";
+
 export const LOGO_VIEW = "19 149 427.5 173";
 export const LOGO_C_VIEW = "19 149 135 173";

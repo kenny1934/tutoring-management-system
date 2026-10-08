@@ -149,6 +149,9 @@ export const LOGO_C_PIECES: LogoPiece[] = [
 {pieces(the_c)}
 ];
 
+/** What CSM Pro stands for, as words, for where it is set as text next to the logo. */
+export const LOGO_TAGLINE = "{TAGLINE}";
+
 export const LOGO_VIEW = "{view(VIEWS["logo"])}";
 export const LOGO_C_VIEW = "{view(VIEWS["c"])}";
 '''
