@@ -15,30 +15,17 @@ import { useToast } from "@/contexts/ToastContext";
 import { formatTimeAgo, formatDaysAgo } from "@/lib/formatters";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
-import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
+import { FeeMessagePanel, renewalLessons } from "@/components/enrollments/FeeMessagePanel";
 import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
 import { TaughtNotInCsmPanel, type TaughtStudent } from "@/components/enrollments/TaughtNotInCsmPanel";
 import type { UnlistedLesson } from "@/types";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button, IconButton, Input, PageHeader } from "@/components/controls";
 
-// Status icon component - matches tab icons (memoized for performance)
 const EMPTY_TAUGHT: UnlistedLesson[] = [];
-
-const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
-  switch (status) {
-    case 'not_renewed':
-      return <RefreshCcw className="h-3.5 w-3.5 text-gray-500" />;
-    case 'pending_message':
-      return <Send className="h-3.5 w-3.5 text-blue-600" />;
-    case 'message_sent':
-      return <CreditCard className="h-3.5 w-3.5 text-orange-700" />;
-    default:
-      return null;
-  }
-});
 
 interface RenewalCardProps {
   renewal: RenewalListItem;
@@ -60,7 +47,6 @@ interface RenewalCardProps {
   readOnly?: boolean;
 }
 
-// Memoized RenewalCard to prevent unnecessary re-renders
 // formatDaysAgo starts "Today" and "Yesterday" with a capital, because they
 // usually stand alone. After "Expired" they sit mid-sentence, so they drop it.
 // Dates and "3d ago" come back unchanged.
@@ -120,23 +106,24 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
         className="p-3 sm:p-4 cursor-pointer group"
       >
         <div className="flex items-start justify-between gap-2 sm:gap-4">
-          {/* Checkbox for batch selection - visible on hover or when in batch mode */}
+          {/* Checkbox for batch selection */}
           <div
             onClick={handleCheckboxClick}
             className={cn(
-              "items-center justify-center pt-0.5 transition-opacity",
-              // Until something is ticked, the box only appears on hover. A
-              // touch screen has no hover, so there it takes no space at all
-              // rather than leaving a blank gutter on every card.
-              showCheckbox
-                ? "flex opacity-100"
-                : "hidden [@media(hover:hover)]:flex opacity-0 group-hover:opacity-100"
+              "flex items-center justify-center transition-opacity",
+              // With a mouse, the box waits for hover until something is
+              // ticked. A phone or tablet has no hover, so there it always
+              // shows, or nothing could ever be ticked to start a batch. The
+              // padding gives a finger more than the 16px box to aim at.
+              "-m-2 p-2 pt-2.5 [@media(pointer:coarse)]:-m-3 [@media(pointer:coarse)]:p-3 [@media(pointer:coarse)]:pt-3.5",
+              !showCheckbox && "[@media(hover:hover)]:opacity-0 group-hover:opacity-100"
             )}
           >
             <input
               type="checkbox"
               checked={isChecked}
               onChange={() => {}}
+              aria-label={`Select ${renewal.student_name}`}
               className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer"
             />
           </div>
@@ -154,7 +141,6 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                   home_location: renewal.location,
                 }}
                 showLocationPrefix={selectedLocation === "All Locations"}
-                trailing={<StatusIcon status={renewal.renewal_status} />}
               />
             </div>
 
@@ -182,9 +168,9 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                   <span>
                     Expires {new Date(renewal.effective_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     {renewal.days_until_expiry === 0
-                      ? " (today!)"
+                      ? " (today)"
                       : renewal.days_until_expiry === 1
-                      ? " (tomorrow!)"
+                      ? " (tomorrow)"
                       : ` (${renewal.days_until_expiry} days)`
                     }
                   </span>
@@ -220,12 +206,13 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
             )}
           </div>
 
-          {/* Quick action buttons - always visible on mobile, hover on desktop */}
+          {/* Quick action buttons. With a mouse on a wider screen they wait for
+              hover, and the status mark stands in for them until then. Without
+              hover, on a phone or tablet, they always show. */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Quick action buttons */}
             <div className={cn(
               "flex items-center gap-1 sm:gap-1.5 transition-opacity",
-              "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+              "sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100"
             )}>
               {showRenewalInfo ? (
                 <Button
@@ -268,9 +255,9 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               )}
             </div>
 
-            {/* Status indicator - hidden on mobile (buttons visible), hidden on hover on desktop */}
+            {/* Status mark, shown only where the buttons wait for hover */}
             <div className={cn(
-              "hidden sm:flex items-center justify-center h-8 w-8 rounded-full transition-all",
+              "hidden sm:[@media(hover:hover)]:flex items-center justify-center h-8 w-8 rounded-full transition-all",
               "sm:group-hover:opacity-0 sm:group-hover:w-0 sm:group-hover:h-0 overflow-hidden",
               showRenewalInfo
                 ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
@@ -376,13 +363,25 @@ export default function AdminRenewalsPage() {
   // Keyboard navigation state
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-  // Fee message pre-fetch cache (keyed by enrollment ID, default params: zh, 6 lessons)
+  // Fee message pre-fetch cache, keyed by renewal enrolment ID. Each message is
+  // in Chinese and for the number of lessons that renewal was created with.
   const feeMessageCache = useRef<Map<number, string>>(new Map());
 
   // Batch selection state
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchRenewModalOpen, setBatchRenewModalOpen] = useState(false);
+  // The batch window checks the students it was opened with. It gets its own
+  // copy of the selection, taken when it opens, because an array rebuilt on
+  // every redraw made it check again whenever the list refreshed, and that
+  // replaced the "renewals created" screen with a fresh check.
+  const [batchRenewIds, setBatchRenewIds] = useState<number[]>([]);
+  const openBatchRenew = () => {
+    setBatchRenewIds(Array.from(checkedIds));
+    setBatchRenewModalOpen(true);
+  };
+  // The enrollment window can't set a paid enrollment back to unpaid, so this asks first
+  const [confirmPaidOpen, setConfirmPaidOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -521,7 +520,7 @@ export default function AdminRenewalsPage() {
       if (!item.renewal_enrollment_id) return;
       const enrollmentId = item.renewal_enrollment_id;
       if (!feeMessageCache.current.has(enrollmentId)) {
-        enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', 6)
+        enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', renewalLessons(item))
           .then(response => {
             if (!cancelled) {
               feeMessageCache.current.set(enrollmentId, response.message);
@@ -559,6 +558,10 @@ export default function AdminRenewalsPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // The batch window and the payment confirmation handle their own keys.
+      // Without this, Enter on their buttons also opened the selected card, Space
+      // ticked cards behind them, and Esc wiped the whole selection.
+      if (batchRenewModalOpen || confirmPaidOpen) return;
       // Skip navigation if modal is open (only allow Escape)
       if (detailModalOpen || createModalOpen || comparisonMode) {
         if (e.key === 'Escape') handleCloseAll();
@@ -598,12 +601,11 @@ export default function AdminRenewalsPage() {
             setExpandedFeePanel(prev => prev === id ? null : id);
           }
           break;
-        case 'm':
+        case 'm': {
           // Quick copy fee message for selected renewal (uses pre-fetched cache)
-          if (selectedIndex !== null && navigableItems[selectedIndex] &&
-              navigableItems[selectedIndex].renewal_enrollment_id) {
-            const item = navigableItems[selectedIndex];
-            const enrollmentId = item.renewal_enrollment_id;
+          const item = selectedIndex !== null ? navigableItems[selectedIndex] : undefined;
+          const enrollmentId = item?.renewal_enrollment_id;
+          if (item && enrollmentId) {
             const cached = feeMessageCache.current.get(enrollmentId);
 
             if (cached) {
@@ -613,7 +615,7 @@ export default function AdminRenewalsPage() {
                 .catch(() => showToast("Failed to copy to clipboard", "error"));
             } else {
               // Fallback to API call if not yet cached
-              enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', 6)
+              enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', renewalLessons(item))
                 .then(response => {
                   feeMessageCache.current.set(enrollmentId, response.message);
                   navigator.clipboard.writeText(response.message)
@@ -624,6 +626,7 @@ export default function AdminRenewalsPage() {
             }
           }
           break;
+        }
         case ' ':  // Spacebar to toggle checkbox
           e.preventDefault();
           if (selectedIndex !== null && navigableItems[selectedIndex]) {
@@ -631,14 +634,13 @@ export default function AdminRenewalsPage() {
           }
           break;
         case 'Escape':
-          if (showShortcutHints) {
-            setShowShortcutHints(false);
-            break;
-          }
-          setExpandedFeePanel(null);
-          setSelectedIndex(null);
-          clearChecked();
-          setSearchQuery("");
+          // Each press undoes one thing, the most recent kind first, so closing
+          // a fee panel never costs a long selection as well.
+          if (showShortcutHints) setShowShortcutHints(false);
+          else if (expandedFeePanel !== null) setExpandedFeePanel(null);
+          else if (selectedIndex !== null) setSelectedIndex(null);
+          else if (searchQuery) setSearchQuery("");
+          else clearChecked();
           break;
         case '?':
           e.preventDefault();
@@ -653,7 +655,8 @@ export default function AdminRenewalsPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, navigableItems, detailModalOpen, createModalOpen, comparisonMode, showToast, showShortcutHints]);
+  }, [selectedIndex, navigableItems, detailModalOpen, createModalOpen, comparisonMode, showToast, showShortcutHints,
+      batchRenewModalOpen, confirmPaidOpen, expandedFeePanel, searchQuery]);
 
   // Reset selection when switching tabs or toggling collapse
   useEffect(() => {
@@ -1168,7 +1171,7 @@ export default function AdminRenewalsPage() {
                   {thisWeekItems.length > 0 && (
                     <CollapsibleSection
                       id="this_week"
-                      label="This Week"
+                      label="This week"
                       count={thisWeekItems.length}
                       colorTheme="orange"
                       isCollapsed={collapsedGroups.has('this_week')}
@@ -1207,7 +1210,7 @@ export default function AdminRenewalsPage() {
                   {nextWeekItems.length > 0 && (
                     <CollapsibleSection
                       id="next_week"
-                      label="Next Week"
+                      label="Next week"
                       count={nextWeekItems.length}
                       colorTheme="purple"
                       isCollapsed={collapsedGroups.has('next_week')}
@@ -1246,7 +1249,7 @@ export default function AdminRenewalsPage() {
                   {olderExpiredItems.length > 0 && (
                     <CollapsibleSection
                       id="older_than_30_days"
-                      label="Older Than 30 Days"
+                      label="Older than 30 days"
                       count={olderExpiredItems.length}
                       colorTheme="gray"
                       isCollapsed={collapsedGroups.has('older_than_30_days')}
@@ -1283,9 +1286,13 @@ export default function AdminRenewalsPage() {
                 </>
               ) : (
                 <div className="text-center py-8 text-foreground/50">
-                  {activeTab === 'not_renewed' && "All enrollments have been renewed"}
-                  {activeTab === 'to_send' && "No fee messages pending"}
-                  {activeTab === 'awaiting_payment' && "No payments pending"}
+                  {debouncedSearch
+                    ? `No student on this tab matches "${debouncedSearch}".`
+                    : activeTab === 'not_renewed'
+                    ? "All enrollments have been renewed"
+                    : activeTab === 'to_send'
+                    ? "No fee messages pending"
+                    : "No payments pending"}
                 </div>
               )}
             </div>
@@ -1329,7 +1336,7 @@ export default function AdminRenewalsPage() {
                 <Button
                   variant="primary"
                   icon={RefreshCcw}
-                  onClick={() => setBatchRenewModalOpen(true)}
+                  onClick={openBatchRenew}
                   disabled={batchLoading || isReadOnly}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
@@ -1357,7 +1364,7 @@ export default function AdminRenewalsPage() {
                   icon={CreditCard}
                   iconClassName="text-green-600 dark:text-green-400"
                   loading={batchLoading}
-                  onClick={handleBatchMarkPaid}
+                  onClick={() => setConfirmPaidOpen(true)}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
@@ -1604,26 +1611,41 @@ export default function AdminRenewalsPage() {
         )}
       </AnimatePresence>
 
+      <ConfirmDialog
+        isOpen={confirmPaidOpen}
+        onCancel={() => setConfirmPaidOpen(false)}
+        onConfirm={() => {
+          setConfirmPaidOpen(false);
+          handleBatchMarkPaid();
+        }}
+        title="Confirm payment"
+        message={`Mark ${checkedIds.size === 1 ? "this renewal" : `these ${checkedIds.size} renewals`} as paid? ${checkedIds.size === 1 ? "It leaves" : "They leave"} the renewals list straight away.`}
+        confirmText="Confirm payment"
+      />
+
       {/* Batch Renew Modal */}
       <BatchRenewModal
         isOpen={batchRenewModalOpen}
         onClose={() => setBatchRenewModalOpen(false)}
-        enrollmentIds={Array.from(checkedIds)}
+        enrollmentIds={batchRenewIds}
         onSuccess={() => {
           clearChecked();
           handleRefresh();
         }}
       />
 
-      {/* Keyboard shortcut hint button (shows when panel is hidden) */}
+      {/* Keyboard shortcut hint button (shows when panel is hidden). A phone or
+          tablet has no keyboard to use them with, and there the button sat on
+          top of the last card's Renew button and the selection bar. */}
       {!showShortcutHints && (
         <button
           onClick={() => setShowShortcutHints(true)}
           className={cn(
             "fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
+            "hidden [@media(hover:hover)]:flex",
             "bg-paper border border-line-strong",
             "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
-            "shadow-md flex items-center justify-center",
+            "shadow-md items-center justify-center",
             isScrolledPastThreshold ? "bottom-20" : "bottom-4"
           )}
           title="Keyboard shortcuts (?)"
@@ -1646,7 +1668,7 @@ export default function AdminRenewalsPage() {
           >
             <div className="flex justify-between items-center mb-3">
               <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
-                Keyboard Shortcuts
+                Keyboard shortcuts
               </span>
               <IconButton icon={X} size="sm" label="Close shortcuts" onClick={() => setShowShortcutHints(false)} />
             </div>

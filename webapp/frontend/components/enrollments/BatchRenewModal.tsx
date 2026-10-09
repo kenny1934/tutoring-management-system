@@ -58,10 +58,11 @@ interface BatchRenewModalProps {
 type ModalStep = "checking" | "results" | "creating" | "done";
 
 const REASON_LABELS: Record<string, string> = {
-  pending_makeups: "Pending Makeups",
-  conflicts: "Schedule Conflicts",
-  extension_pending: "Pending Extension",
-  invalid_data: "Invalid Data",
+  pending_makeups: "Pending make-ups",
+  conflicts: "Schedule conflicts",
+  extension_pending: "Pending extension",
+  invalid_data: "Invalid data",
+  summer_not_renewable: "Summer course",
 };
 
 const REASON_COLORS: Record<string, string> = {
@@ -303,7 +304,7 @@ export function BatchRenewModal({
       title={
         <div className="flex items-center gap-2">
           <RefreshCcw className="h-5 w-5 text-accent-ink" />
-          <span>Batch Renewal</span>
+          <span>Batch renewal</span>
         </div>
       }
       size="lg"
@@ -338,7 +339,7 @@ export function BatchRenewModal({
                     animate={{ scale: 1 }}
                     className="text-sm font-medium text-green-700 dark:text-green-300"
                   >
-                    {finalEligible.length} Ready to Renew
+                    {finalEligible.length} ready to renew
                   </motion.span>
                 </div>
               </motion.div>
@@ -354,7 +355,7 @@ export function BatchRenewModal({
                     animate={{ scale: 1 }}
                     className="text-sm font-medium text-amber-700 dark:text-amber-300"
                   >
-                    {finalIneligible.length} Need Attention
+                    {finalIneligible.length} need attention
                   </motion.span>
                 </div>
               </motion.div>
@@ -371,7 +372,7 @@ export function BatchRenewModal({
                   exit={{ opacity: 0, height: 0 }}
                 >
                   <h4 className="text-sm font-medium text-foreground/80">
-                    Cannot auto-renew:
+                    Can&apos;t renew automatically
                   </h4>
                   <div ref={ineligibleListRef} className="max-h-36 sm:max-h-48 overflow-y-auto space-y-1.5">
                     <AnimatePresence mode="popLayout">
@@ -433,7 +434,7 @@ export function BatchRenewModal({
                   </div>
                   {finalIneligible.some(i => i.overridable) && (
                     <p className="text-xs text-foreground/50 italic">
-                      Check the box to override and include in renewal
+                      Tick a student to renew them anyway.
                     </p>
                   )}
                 </motion.div>
@@ -451,7 +452,7 @@ export function BatchRenewModal({
                   exit={{ opacity: 0, height: 0 }}
                 >
                   <h4 className="text-sm font-medium text-foreground/80">
-                    Ready to renew:
+                    Ready to renew
                   </h4>
                   <div ref={eligibleListRef} className="max-h-36 sm:max-h-48 overflow-y-auto space-y-1.5">
                     <AnimatePresence mode="popLayout">
@@ -509,6 +510,11 @@ export function BatchRenewModal({
                                   </motion.span>
                                 )}
                               </div>
+                              {/* Keep the reason in view after the override, so
+                                  the admin can still see what they are renewing past */}
+                              {isOverridden && item.details && (
+                                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">{item.details}</p>
+                              )}
                               <ScheduleInfo item={item} />
                             </div>
                           </motion.div>
@@ -583,7 +589,7 @@ export function BatchRenewModal({
                 <CheckCircle2 className="h-12 w-12 text-green-700" />
                 <div className="text-center">
                   <p className="text-lg font-medium">
-                    {createdCount} Renewal{createdCount > 1 ? "s" : ""} Created
+                    {createdCount} renewal{createdCount > 1 ? "s" : ""} created
                   </p>
                   {/* Show successful student names */}
                   <div className="mt-2 text-sm text-foreground/60">
@@ -613,7 +619,7 @@ export function BatchRenewModal({
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                   <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                    {failedCount} Failed
+                    {failedCount} failed
                   </span>
                 </div>
                 <div className="space-y-1.5 max-h-32 overflow-y-auto">
@@ -627,7 +633,7 @@ export function BatchRenewModal({
                             {item?.student_name || `Enrollment #${r.original_enrollment_id}`}
                           </span>
                           {r.error && (
-                            <span className="text-foreground/50"> — {r.error}</span>
+                            <span className="text-foreground/50">: {r.error}</span>
                           )}
                         </div>
                       );

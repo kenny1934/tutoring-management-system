@@ -14,6 +14,13 @@ interface FeeMessagePanelProps {
   onMarkSent?: () => void;
 }
 
+// The fee message bills for however many lessons it is asked about, so it has to
+// be asked about the lessons this renewal was actually created with. Six is the
+// usual term, used only when there is no renewal yet to read the count from.
+export function renewalLessons(item: RenewalListItem): number {
+  return item.renewal_lessons_paid || 6;
+}
+
 export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessagePanelProps) {
   const { showToast } = useToast();
   const { effectiveRole, isReadOnly } = useAuth();
@@ -23,7 +30,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
   const [message, setMessage] = useState('');
   const [originalMessage, setOriginalMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [lessonsPaid, setLessonsPaid] = useState(6);
+  const [lessonsPaid, setLessonsPaid] = useState(() => renewalLessons(enrollment));
   const [copied, setCopied] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
 

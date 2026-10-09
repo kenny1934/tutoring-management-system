@@ -3290,7 +3290,10 @@ async def batch_renew_check(
                 eligible=False,
                 reason="pending_makeups",
                 student_name=student_name,
-                details=f"{len(pending_sessions)} pending makeup(s)",
+                details=(
+                    "1 make-up still to be booked" if len(pending_sessions) == 1
+                    else f"{len(pending_sessions)} make-ups still to be booked"
+                ),
                 overridable=True,
                 **student_info,
                 **schedule_info
@@ -3315,7 +3318,10 @@ async def batch_renew_check(
                     eligible=False,
                     reason="extension_pending",
                     student_name=student_name,
-                    details=f"{pending_extensions} pending extension request(s)",
+                    details=(
+                        "1 extension request waiting for a decision" if pending_extensions == 1
+                        else f"{pending_extensions} extension requests waiting for a decision"
+                    ),
                     overridable=True,
                     **student_info,
                     **schedule_info
@@ -3573,4 +3579,4 @@ async def batch_renew(
         results=results,
         created_count=created_count,
         failed_count=failed_count
-    )
+    )
