@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.1...v2.1.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* **Batch renewal with make-ups waiting**: batch renewal now goes through when you include a student who still has make-ups to book, instead of sending you back to the list each time.
+* **Fee messages quote the right lessons**: a renewal's fee message now charges for the number of lessons the renewal was made for, instead of always six.
+* **Renewals on a phone or tablet**: every renewal now shows its tick box and its buttons on a phone or tablet, so you can renew, mark sent or confirm payment for several at once there too.
+* **Old renewals show their year**: a renewal that expired in an earlier year now shows the year and how long ago it was, and the counts on Renewals leave out ones that expired more than a month ago.
+* **Confirm payment asks first**: confirming payment for several renewals now asks you before marking them all paid.
+* **Esc on Renewals**: pressing Esc on Renewals now undoes one thing at a time, so closing a fee message no longer clears the students you have ticked.
+
 ## [2.1.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.0...v2.1.1) (2026-10-09)
 
 
