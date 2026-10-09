@@ -324,6 +324,11 @@ class TestTheRegistryStaysHonest:
     # a tutor serving notice can still be covering the other branch next week.
     CAPABILITY_COLUMNS = {
         ("tutor_branch_coverage", "tutor_id"),
+        # An assistant who has left can no longer sign in, and a lead tutor
+        # who has left only has lessons that are already over, and tidying
+        # their classwork afterwards is harmless.
+        ("tutor_assistants", "assistant_tutor_id"),
+        ("tutor_assistants", "lead_tutor_id"),
     }
 
     def test_every_tutor_foreign_key_is_guarded_or_named_as_authorship(self):

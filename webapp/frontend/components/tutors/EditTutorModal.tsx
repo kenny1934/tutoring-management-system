@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { mutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { Button, Field, Input, Label, LABEL_CLASS, Select } from "@/components/controls";
-import { useLocations } from "@/lib/hooks";
+import { useLocations, useTutors } from "@/lib/hooks";
 import { tutorsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import {
   coverageDraftsFromRows,
   coverageRowsFromDrafts,
   normaliseLocation,
+  pickableTutors,
   type CoverageDraft,
 } from "@/lib/employment";
 import type { Tutor, TutorUpdate } from "@/types";
@@ -30,6 +31,7 @@ interface EditTutorModalProps {
 
 export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorModalProps) {
   const { data: locations } = useLocations();
+  const { data: allTutors } = useTutors();
   const { showToast } = useToast();
 
   const [nickname, setNickname] = useState("");
@@ -40,6 +42,8 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
   // Keyed by branch code. A branch with no entry is not covered at all, which
   // is the same thing the checkbox says.
   const [coverage, setCoverage] = useState<Record<string, CoverageDraft>>({});
+  // The tutors this one assists, each with its last day ("" for none).
+  const [assisting, setAssisting] = useState<{ leadId: number; until: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Teaching staff are the ones ARK keeps records for, so their leaving date
@@ -61,7 +65,18 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
     setIsActiveTutor(tutor.is_active_tutor ?? true);
     setDepartureOn(tutor.departure_effective_on ?? "");
     setCoverage(coverageDraftsFromRows(tutor.branch_coverage));
+    setAssisting(
+      (tutor.assisting ?? []).map((link) => ({ leadId: link.lead_tutor_id, until: link.effective_until ?? "" }))
+    );
   }, [isOpen, tutor]);
+
+  const tutorName = (id: number) =>
+    allTutors?.find((t) => t.id === id)?.tutor_name ?? `Tutor ${id}`;
+  // Anybody still teaching can be assisted, apart from this tutor and the
+  // ones already on the list.
+  const assistableTutors = pickableTutors(allTutors ?? []).filter(
+    (t) => t.id !== tutor.id && !assisting.some((link) => link.leadId === t.id)
+  );
 
   // Build the location options, making sure the tutor's current value is present
   // even if it isn't in the active-locations list.
@@ -156,6 +171,11 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
       // The whole list every time. The server replaces what it holds, so an
       // empty list is how a finished cover is cleared.
       branch_coverage: coverageRowsFromDrafts(coverage),
+      // Also the whole list every time, so removing a row is how it ends.
+      assisting: assisting.map((link) => ({
+        lead_tutor_id: link.leadId,
+        effective_until: link.until || null,
+      })),
     };
 
     setIsSaving(true);
@@ -324,6 +344,68 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
               under their own name and marked with their home branch. Leave both
               dates empty for an arrangement with no end, and untick the branch
               when the cover is over.
+            </p>
+          </div>
+        )}
+
+        {/* Assists. For a new tutor who sits in on another tutor's lessons
+            and adds the classwork for them. It only opens up the classwork and
+            homework of those lessons, so the hint says exactly that. */}
+        {isActiveTutor && (
+          <div>
+            <p className={cn(LABEL_CLASS, "mb-1")}>Assists</p>
+            {assisting.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {assisting.map((link) => (
+                  <div key={link.leadId} className="flex flex-wrap items-end gap-3">
+                    <span className="text-sm text-foreground/80 min-w-[8rem] pb-1.5">
+                      {tutorName(link.leadId)}
+                    </span>
+                    <label className="text-xs text-foreground/60">
+                      <span className="block mb-1">Last day</span>
+                      <Input
+                        size="sm"
+                        type="date"
+                        value={link.until}
+                        onChange={(e) =>
+                          setAssisting((links) =>
+                            links.map((l) => (l.leadId === link.leadId ? { ...l, until: e.target.value } : l))
+                          )
+                        }
+                        className="w-auto"
+                      />
+                    </label>
+                    <Button
+                      size="sm"
+                      onClick={() => setAssisting((links) => links.filter((l) => l.leadId !== link.leadId))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {assistableTutors.length > 0 && (
+              <Select
+                aria-label="Add a tutor they assist"
+                value=""
+                onChange={(e) => {
+                  const leadId = Number(e.target.value);
+                  if (leadId) setAssisting((links) => [...links, { leadId, until: "" }]);
+                }}
+              >
+                <option value="">Add a tutor they assist…</option>
+                {assistableTutors.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.tutor_name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            <p className="mt-1 text-xs text-foreground/50">
+              They can change the classwork and homework of that tutor&rsquo;s
+              lessons, and nothing else about them. Set a last day so it ends by
+              itself, or remove the tutor when the arrangement is over.
             </p>
           </div>
         )}

@@ -39,6 +39,7 @@ import { TrendingCoursewareSection } from "./TrendingCoursewareSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { useCanChangeLessonExercises } from "@/lib/lesson-exercise-access";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -75,7 +76,11 @@ interface ExerciseModalProps {
    * sections need a real lesson, so they stay out of the way by themselves.
    */
   onCollect?: (exercises: CollectedExercise[]) => void;
-  /** When true, disables save action (Supervisor mode) */
+  /**
+   * When true, disables save action (Supervisor mode). The window also opens
+   * read-only by itself on a lesson the viewer can't change, so callers only
+   * pass the viewer's role here.
+   */
   readOnly?: boolean;
 }
 
@@ -105,8 +110,15 @@ export function ExerciseModal({
   onClose,
   onSave,
   onCollect,
-  readOnly = false,
+  readOnly: roleReadOnly = false,
 }: ExerciseModalProps) {
+  // Only the lesson's own tutor, an admin, or a tutor who assists the lesson's
+  // tutor can change its exercises. Everybody else can still open the window
+  // to see clearly what is assigned, so for them it opens read-only. A lesson
+  // being recorded before it is in CSM (onCollect) is the recorder's own.
+  const canChangeLesson = useCanChangeLessonExercises(session.tutor_id);
+  const lessonLocked = !onCollect && !canChangeLesson;
+  const readOnly = roleReadOnly || lessonLocked;
   const { selectedLocation } = useLocation();
   // The modal's place in the overlay stack, taken here rather than inside
   // Modal because the keyboard shortcuts below need to know when something
@@ -333,6 +345,8 @@ export function ExerciseModal({
 
 
   const handleSave = useCallback(async () => {
+    // The Save button is disabled when read-only, but Ctrl+S still lands here.
+    if (readOnly) return;
     // Filter out empty exercises (no PDF name or URL)
     const validExercises = exercises.filter(hasExerciseSource);
     if (validExercises.length < exercises.length) {
@@ -439,7 +453,7 @@ export function ExerciseModal({
       updateSessionInCache(originalSession);
       showToast("Failed to save exercises. Changes reverted.", "error");
     }
-  }, [session, exercises, exerciseType, onClose, onSave, onCollect, showToast]);
+  }, [readOnly, session, exercises, exerciseType, onClose, onSave, onCollect, showToast]);
 
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
@@ -634,7 +648,7 @@ export function ExerciseModal({
       if ((e.metaKey || e.ctrlKey) && e.key === 'v' && !e.shiftKey && !e.altKey) {
         const active = document.activeElement;
         const isInputFocused = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
-        if (!isInputFocused && getExerciseClipboard()) {
+        if (!isInputFocused && !readOnly && getExerciseClipboard()) {
           e.preventDefault();
           handlePasteRequest();
           return;
@@ -673,14 +687,16 @@ export function ExerciseModal({
       // Alt/Option+N - Add new exercise
       if (e.altKey && e.key === 'n') {
         e.preventDefault();
-        addExercise();
+        if (!readOnly) addExercise();
         return;
       }
 
       // Alt/Option+Backspace - Delete selected exercises or focused row
       if (e.altKey && e.key === 'Backspace') {
         e.preventDefault();
-        if (selectedIndices.size > 0) {
+        if (readOnly) {
+          // Nothing to delete in a window that can't save.
+        } else if (selectedIndices.size > 0) {
           // Bulk delete selected exercises
           handleBulkDeleteRequest();
         } else if (focusedRowIndex !== null) {
@@ -713,7 +729,7 @@ export function ExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, overlayLayer.isTopmost, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, handleBulkDeleteRequest, handleBulkDeleteConfirm, showBulkDeleteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
+  }, [isOpen, overlayLayer.isTopmost, readOnly, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, handleBulkDeleteRequest, handleBulkDeleteConfirm, showBulkDeleteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
 
   const updateExercise = (
     index: number,
@@ -1062,7 +1078,18 @@ export function ExerciseModal({
             <Button onClick={handleCloseAttempt}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSave} disabled={readOnly} title={readOnly ? "Read-only access" : undefined}>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              disabled={readOnly}
+              title={
+                roleReadOnly
+                  ? "Read-only access"
+                  : lessonLocked
+                    ? "This is another tutor's lesson, so you can view its exercises but not change them."
+                    : undefined
+              }
+            >
               Save changes
             </Button>
           </div>
@@ -1193,7 +1220,7 @@ export function ExerciseModal({
                     <HomeworkCheckList
                       items={detailedSession.homework_completion}
                       sessionId={session.id}
-                      readOnly={readOnly}
+                      readOnly={roleReadOnly}
                       onMarked={handleHomeworkMarked}
                       className="divide-y divide-gray-100 dark:divide-gray-800"
                     />

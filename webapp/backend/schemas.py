@@ -147,6 +147,15 @@ class TutorBranchCoverage(BaseModel):
         return self
 
 
+class TutorAssisting(BaseModel):
+    """A tutor this one assists, which lets them change the classwork and
+    homework of that tutor's lessons. See migration 184."""
+    lead_tutor_id: int = Field(..., gt=0)
+    effective_until: Optional[date] = Field(None, description="Last day it holds. Null means until removed.")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TutorBase(BaseModel):
     """Base tutor schema"""
     user_email: str = Field(..., min_length=3, max_length=255)
@@ -163,6 +172,10 @@ class TutorBase(BaseModel):
     branch_coverage: List[TutorBranchCoverage] = Field(
         default_factory=list,
         description="Branches this tutor covers besides their own. Usually empty.",
+    )
+    assisting: List[TutorAssisting] = Field(
+        default_factory=list,
+        description="Tutors whose lessons this tutor assists on. Usually empty.",
     )
 
 
@@ -189,6 +202,10 @@ class TutorResponsePublic(BaseModel):
     branch_coverage: List[TutorBranchCoverage] = Field(
         default_factory=list,
         description="Branches this tutor covers besides their own. Usually empty.",
+    )
+    assisting: List[TutorAssisting] = Field(
+        default_factory=list,
+        description="Tutors whose lessons this tutor assists on. Usually empty.",
     )
 
     model_config = ConfigDict(from_attributes=True)
@@ -217,6 +234,13 @@ class TutorUpdate(BaseModel):
         description=(
             "Replaces the whole coverage list. Omit to leave it alone, send an "
             "empty list to clear it."
+        ),
+    )
+    assisting: Optional[List[TutorAssisting]] = Field(
+        None,
+        description=(
+            "Replaces the whole list of tutors this one assists. Omit to leave "
+            "it alone, send an empty list to clear it."
         ),
     )
 

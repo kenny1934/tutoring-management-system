@@ -14,7 +14,8 @@ import { plural } from "@/lib/formatters";
 import { coverageLabel, departureLabel, hasDeparted, isLeaving } from "@/lib/employment";
 import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
-import { Users, Search, MapPin, RefreshCw, Repeat } from "lucide-react";
+import { Users, Search, MapPin, RefreshCw, Repeat, UserPlus } from "lucide-react";
+import { assistingLabel } from "@/lib/lesson-exercise-access";
 import { Button, Input, PageHeader, Segmented } from "@/components/controls";
 import type { Tutor, TutorRole } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -108,7 +109,7 @@ function rawPicture(t: Tutor): string | undefined {
   return t.profile_picture?.startsWith("http") ? t.profile_picture : undefined;
 }
 
-function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
+function TutorCard({ tutor, names, onOpen }: { tutor: Tutor; names: Map<number, string>; onOpen: () => void }) {
   const picture = rawPicture(tutor);
   return (
     <button
@@ -190,6 +191,16 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
             </span>
           </div>
         )}
+        {/* Assisting another tutor is temporary in the same way, so it shows
+            here too. */}
+        {(tutor.assisting?.length ?? 0) > 0 && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+            <UserPlus className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">
+              {tutor.assisting!.map((link) => assistingLabel(link, names)).join(", ")}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -199,6 +210,10 @@ function TutorsPageInner() {
   usePageTitle("Tutors");
   const router = useRouter();
   const { data: tutors, isLoading, mutate } = useTutors();
+  const tutorNames = useMemo(
+    () => new Map((tutors ?? []).map((t) => [t.id, t.tutor_name])),
+    [tutors]
+  );
   const { isAdmin } = useAuth();
   const { showToast } = useToast();
   const [query, setQuery] = useState("");
@@ -322,6 +337,7 @@ function TutorsPageInner() {
                     <TutorCard
                       key={tutor.id}
                       tutor={tutor}
+                      names={tutorNames}
                       onOpen={() => router.push(`/admin/tutors/${tutor.id}`)}
                     />
                   ))}
