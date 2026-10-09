@@ -5,8 +5,19 @@ const changelogData = [
     "date": "2026-10-09",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Assistant tutors**: an admin can set a tutor to assist another tutor from the tutor's Edit window, so they can add classwork and homework to that tutor's lessons until a last day you choose."
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
+          {
+            "description": "**Another tutor's classwork**: opening the classwork or homework of a lesson you can't change now shows it for viewing only, instead of letting you edit it and then refusing to save."
+          },
           {
             "description": "**Batch renewal with make-ups waiting**: batch renewal now goes through when you include a student who still has make-ups to book, instead of sending you back to the list each time."
           },
