@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from typing import List, Union
 
 from database import get_db
-from models import Tutor, TutorBranchCoverage
+from models import Tutor, TutorAssistant, TutorBranchCoverage
 from schemas import TutorResponse, TutorResponsePublic, TutorUpdate
 from utils.employment import normalise_location
 from auth.dependencies import (
@@ -69,6 +69,52 @@ def _replace_coverage(tutor: Tutor, requested, admin_email: str) -> None:
     ]
 
 
+def _describe_assisting(rows, names: dict[int, str]) -> list[str]:
+    """Assistant links as short readable strings, for the audit trail, in the
+    same way as _describe_coverage. "Assists Miss Bella until 2026-12-31"."""
+    described = []
+    for row in rows or []:
+        text = f"Assists {names.get(row.lead_tutor_id, row.lead_tutor_id)}"
+        if row.effective_until:
+            text += f" until {row.effective_until}"
+        described.append(text)
+    return sorted(described)
+
+
+def _replace_assisting(db: Session, tutor: Tutor, requested, admin_email: str) -> None:
+    """Swap the list of tutors this one assists for the one that was sent.
+
+    The whole list arrives each time, for the same reason as coverage. A link
+    to the tutor themselves is dropped, since their own lessons are theirs
+    already, and so is a second link to the same lead tutor, which the unique
+    key would refuse anyway. A lead tutor who doesn't exist is refused, so a
+    stale editor can't save a link that points nowhere.
+    """
+    wanted = {}
+    for row in requested:
+        if row.lead_tutor_id != tutor.id and row.lead_tutor_id not in wanted:
+            wanted[row.lead_tutor_id] = row
+    if wanted:
+        found = {tid for (tid,) in db.query(Tutor.id).filter(Tutor.id.in_(wanted)).all()}
+        missing = sorted(set(wanted) - found)
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Unknown tutor: {missing}")
+    # The old rows are removed and flushed before the new ones go in. In a
+    # single flush SQLAlchemy inserts before it deletes, so saving a link that
+    # already exists, with a new end date say, would trip the unique key on
+    # the pair.
+    tutor.assisting = []
+    db.flush()
+    tutor.assisting = [
+        TutorAssistant(
+            lead_tutor_id=lead_id,
+            effective_until=row.effective_until,
+            created_by=admin_email,
+        )
+        for lead_id, row in wanted.items()
+    ]
+
+
 def _serialize_tutor(tutor: Tutor, effective_role: str):
     """Pick the response shape for a tutor based on the viewer's role.
 
@@ -106,7 +152,7 @@ def get_tutors(
     # be serialised with it. Left to itself it would be one query per tutor.
     tutors = (
         db.query(Tutor)
-        .options(selectinload(Tutor.branch_coverage))
+        .options(selectinload(Tutor.branch_coverage), selectinload(Tutor.assisting))
         .order_by(Tutor.tutor_name)
         .limit(100)
         .all()
@@ -169,6 +215,8 @@ def update_tutor(
     # handled on its own and kept out of the plain setattr loop below.
     coverage_sent = "branch_coverage" in update_data
     update_data.pop("branch_coverage", None)
+    assisting_sent = "assisting" in update_data
+    update_data.pop("assisting", None)
 
     # Capture only the fields being changed, for a focused audit record.
     before_state = {field: getattr(tutor, field) for field in update_data}
@@ -183,6 +231,12 @@ def update_tutor(
         # that decides which coverage rows are now redundant.
         _replace_coverage(tutor, tutor_update.branch_coverage or [], admin.user_email)
         update_data["branch_coverage"] = _describe_coverage(tutor.branch_coverage)
+
+    if assisting_sent:
+        names = dict(db.query(Tutor.id, Tutor.tutor_name).all())
+        before_state["assisting"] = _describe_assisting(tutor.assisting, names)
+        _replace_assisting(db, tutor, tutor_update.assisting or [], admin.user_email)
+        update_data["assisting"] = _describe_assisting(tutor.assisting, names)
 
     log_operation(
         db=db,

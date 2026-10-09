@@ -45,6 +45,40 @@ class Tutor(Base):
         back_populates="tutor",
         cascade="all, delete-orphan",
     )
+    # The tutors this one assists, which lets them change the classwork and
+    # homework of those tutors' lessons. Loaded on access for the same reason
+    # as branch_coverage.
+    assisting = relationship(
+        "TutorAssistant",
+        back_populates="assistant",
+        foreign_keys="[TutorAssistant.assistant_tutor_id]",
+        cascade="all, delete-orphan",
+    )
+
+
+class TutorAssistant(Base):
+    """One tutor assisting another, usually a new tutor sitting in on an
+    experienced tutor's lessons.
+
+    While the row is active the assistant can change the classwork and
+    homework of the lead tutor's lessons. Nothing else about those lessons
+    opens up to them. See ``can_change_lesson_exercises`` in the sessions
+    router, and migration 184 for why this exists.
+    """
+    __tablename__ = "tutor_assistants"
+    __table_args__ = (
+        UniqueConstraint('assistant_tutor_id', 'lead_tutor_id', name='uq_assistant_lead'),
+        Index('idx_assistant_lead_tutor', 'lead_tutor_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    assistant_tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    lead_tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    effective_until = Column(Date, nullable=True, comment='Last day the arrangement holds. NULL means until removed.')
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(String(255), nullable=True)
+
+    assistant = relationship("Tutor", back_populates="assisting", foreign_keys=[assistant_tutor_id])
 
 
 class TutorBranchCoverage(Base):

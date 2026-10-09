@@ -19,10 +19,10 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
+from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession, TutorAssistant
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
-from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
+from constants import hk_now, today_hk, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
 from services.attendance import mark_attended
 from services.unlisted_lessons import fill_unlisted_lessons
 from routers.homework import load_homework_to_check
@@ -48,6 +48,48 @@ def _verify_session_ownership(session: SessionLog, current_user: Tutor, action: 
     is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail=f"You can only {action} your own sessions")
+
+
+def _lead_tutors_assisted_by(db: Session, tutor_id: int) -> set[int]:
+    """The tutors whose lessons this tutor assists on today.
+
+    A link without an end date lasts until an admin removes it. One with an
+    end date still counts on that last day, so it lapses the day after.
+    """
+    today = today_hk()
+    rows = db.query(TutorAssistant.lead_tutor_id).filter(
+        TutorAssistant.assistant_tutor_id == tutor_id,
+        or_(TutorAssistant.effective_until.is_(None), TutorAssistant.effective_until >= today),
+    ).all()
+    return {lead_id for (lead_id,) in rows}
+
+
+def _verify_can_change_exercises(db: Session, sessions: list, current_user: Tutor):
+    """Raise 403 unless the user may change the classwork and homework of
+    every one of these lessons.
+
+    That is the lesson's own tutor, an admin, or a tutor who assists the
+    lesson's tutor. The last group exists for new tutors who sit in on another
+    tutor's lessons and add the classwork for them. It reaches the exercises
+    only, so rating, attendance and every other change keep using
+    _verify_session_ownership.
+
+    The lessons are checked together, so a bulk assign either goes through
+    for all of them or for none.
+    """
+    if current_user.role in ADMIN_WRITE_ROLES:
+        return
+    others = [s for s in sessions if s.tutor_id != current_user.id]
+    if not others:
+        return
+    assisted = _lead_tutors_assisted_by(db, current_user.id)
+    refused = sorted(s.id for s in others if s.tutor_id not in assisted)
+    if refused:
+        if len(sessions) == 1:
+            detail = "You can only change the exercises of your own sessions"
+        else:
+            detail = f"You can only change the exercises of your own sessions. Not yours: {refused}"
+        raise HTTPException(status_code=403, detail=detail)
 
 
 # Fields a PATCH may carry and still count as a lesson-number-only edit.
@@ -1753,7 +1795,7 @@ async def save_session_exercises(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-    _verify_session_ownership(session, current_user, "change the exercises of")
+    _verify_can_change_exercises(db, [session], current_user)
 
     if request.append:
         rows, leftovers = [None] * len(request.exercises), []
@@ -1805,7 +1847,8 @@ async def bulk_assign_exercises(
 
     Creates the same exercise (CW or HW) for each specified session.
     Useful for assigning the same courseware to multiple sessions in bulk.
-    Requires authentication. Tutors can only assign to their own sessions.
+    Requires authentication. Tutors can only assign to their own sessions and
+    those of a tutor they assist, and one session that isn't refuses them all.
 
     - **session_ids**: List of session IDs to assign the exercise to
     - **exercise_type**: Type of exercise ("CW" or "HW")
@@ -1829,6 +1872,8 @@ async def bulk_assign_exercises(
             status_code=404,
             detail=f"Sessions not found: {sorted(missing_ids)}"
         )
+
+    _verify_can_change_exercises(db, sessions, current_user)
 
     # Create exercises for each session
     created_count = 0

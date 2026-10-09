@@ -10,7 +10,8 @@ import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useTutor, useDepartureLoad } from "@/lib/hooks";
+import { usePageTitle, useTutor, useTutors, useDepartureLoad } from "@/lib/hooks";
+import { assistingLabel } from "@/lib/lesson-exercise-access";
 import { coverageLabel, departureDateLabel, departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
@@ -29,6 +30,7 @@ import {
   Mail,
   MapPin,
   Users,
+  UserPlus,
   CalendarDays,
   Wallet,
   BarChart3,
@@ -236,6 +238,11 @@ function TutorProfileInner() {
 
   const { data: tutor, isLoading: tutorLoading, mutate: mutateTutor } =
     useTutor(tutorId);
+  const { data: allTutors } = useTutors();
+  const tutorNames = useMemo(
+    () => new Map((allTutors ?? []).map((t) => [t.id, t.tutor_name])),
+    [allTutors]
+  );
 
   usePageTitle(tutor ? tutor.tutor_name : "Tutor");
 
@@ -491,6 +498,12 @@ function TutorProfileInner() {
                   <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-500">
                     <Repeat className="h-4 w-4" />
                     Also covers {tutor.branch_coverage!.map(coverageLabel).join(", ")}
+                  </span>
+                )}
+                {(tutor.assisting?.length ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-500">
+                    <UserPlus className="h-4 w-4" />
+                    {tutor.assisting!.map((link) => assistingLabel(link, tutorNames)).join(", ")}
                   </span>
                 )}
               </div>

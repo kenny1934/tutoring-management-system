@@ -19,6 +19,17 @@ export interface TutorBranchCoverage {
   note?: string | null;
 }
 
+/**
+ * A tutor this one assists. While it holds, they can change the classwork and
+ * homework of that tutor's lessons, and nothing else about them. See
+ * migration 184.
+ */
+export interface TutorAssisting {
+  lead_tutor_id: number;
+  /** Last day it holds. Null means until an admin removes it. */
+  effective_until?: string | null;
+}
+
 export interface Tutor {
   id: number;
   user_email?: string;
@@ -38,6 +49,8 @@ export interface Tutor {
   profile_picture?: string;
   /** Branches covered besides their own. Empty for almost everybody. */
   branch_coverage?: TutorBranchCoverage[];
+  /** Tutors whose lessons this one assists on. Empty for almost everybody. */
+  assisting?: TutorAssisting[];
 }
 
 // Fields an admin may edit via the tutor profile page. Excludes email + role
@@ -50,6 +63,8 @@ export interface TutorUpdate {
   departure_effective_on?: string | null;
   /** Replaces the whole list. Omit to leave it alone, send [] to clear it. */
   branch_coverage?: TutorBranchCoverage[];
+  /** Replaces the whole list. Omit to leave it alone, send [] to clear it. */
+  assisting?: TutorAssisting[];
 }
 
 /** Work still pointing at a leaver that somebody has to move. */
