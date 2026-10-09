@@ -3,8 +3,14 @@
 ## [2.1.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.1...v2.1.2) (2026-10-09)
 
 
+### New Features
+
+* **Assistant tutors**: an admin can set a tutor to assist another tutor from the tutor's Edit window, so they can add classwork and homework to that tutor's lessons until a last day you choose.
+
+
 ### Bug Fixes
 
+* **Another tutor's classwork**: opening the classwork or homework of a lesson you can't change now shows it for viewing only, instead of letting you edit it and then refusing to save.
 * **Batch renewal with make-ups waiting**: batch renewal now goes through when you include a student who still has make-ups to book, instead of sending you back to the list each time.
 * **Fee messages quote the right lessons**: a renewal's fee message now charges for the number of lessons the renewal was made for, instead of always six.
 * **Renewals on a phone or tablet**: every renewal now shows its tick box and its buttons on a phone or tablet, so you can renew, mark sent or confirm payment for several at once there too.
