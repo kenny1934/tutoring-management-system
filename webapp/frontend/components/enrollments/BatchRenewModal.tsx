@@ -227,8 +227,21 @@ export function BatchRenewModal({
 
       // Re-validate eligibility before creating to catch any changes since modal opened
       const freshCheck = await enrollmentsAPI.batchRenewCheck(eligibleIds);
+
+      // The re-check reports an overridden student as ineligible again, because
+      // their pending make-ups or extension are still there. That is not a change:
+      // the admin has already chosen to renew them anyway. A student only counts as
+      // newly ineligible if they were never overridden, or if the reason now differs
+      // from the one the admin overrode (a make-up that has become a conflict, say).
+      const overriddenReasons = new Map(
+        ineligible
+          .filter(item => overriddenIds.has(item.enrollment_id))
+          .map(item => [item.enrollment_id, item.reason])
+      );
+      const stillOverridden = (item: EligibilityResult) =>
+        item.overridable && overriddenReasons.get(item.enrollment_id) === item.reason;
       const newlyIneligible = freshCheck.ineligible.filter(
-        item => eligibleIds.includes(item.enrollment_id)
+        item => eligibleIds.includes(item.enrollment_id) && !stillOverridden(item)
       );
 
       if (newlyIneligible.length > 0) {
@@ -237,10 +250,13 @@ export function BatchRenewModal({
           `${newlyIneligible.length} enrollment${newlyIneligible.length > 1 ? "s" : ""} became ineligible. Please review.`,
           "info"
         );
-        // Refresh the eligibility lists
+        // Refresh the eligibility lists, keeping the overrides that still apply so
+        // the admin doesn't have to tick those students across again.
         setEligible(freshCheck.eligible);
         setIneligible(freshCheck.ineligible);
-        setOverriddenIds(new Set()); // Clear overrides since state changed
+        setOverriddenIds(new Set(
+          freshCheck.ineligible.filter(stillOverridden).map(item => item.enrollment_id)
+        ));
         setStep("results");
         return;
       }
