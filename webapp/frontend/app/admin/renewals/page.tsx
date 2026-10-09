@@ -47,11 +47,43 @@ interface RenewalCardProps {
   readOnly?: boolean;
 }
 
+// An enrolment that ended over 30 days ago has usually not been renewed because
+// the student stopped coming. Those stay on the page, in their own collapsed
+// group, but they are left out of the counts, as the sidebar badge leaves them out.
+const STALE_AFTER_DAYS = 30;
+function isStale(r: RenewalListItem): boolean {
+  return r.days_until_expiry < -STALE_AFTER_DAYS;
+}
+
+// The list reaches back more than a year, so a month and day alone can't say
+// which year is meant. A date carries its year whenever it isn't this year's.
+function cardDate(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  });
+}
+
+// How long ago, in the unit a person would use: days for the first fortnight,
+// then weeks, then months, then years.
+function howLongAgo(days: number): string {
+  if (days < 14) return `${days} days ago`;
+  if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+  if (days < 365) return `${Math.floor(days / 30)} months ago`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? "a year ago" : `${years} years ago`;
+}
+
+// In the first week, "Expired 3d ago" is all an admin needs. After that the
+// date itself matters, with how long ago so an old one can't pass for recent.
 // formatDaysAgo starts "Today" and "Yesterday" with a capital, because they
 // usually stand alone. After "Expired" they sit mid-sentence, so they drop it.
-// Dates and "3d ago" come back unchanged.
-function expiredAgo(dateStr: string): string {
-  const ago = formatDaysAgo(dateStr);
+function expiredLabel(renewal: RenewalListItem): string {
+  const daysAgo = -renewal.days_until_expiry;
+  if (daysAgo >= 7) return `${cardDate(renewal.effective_end_date)} (${howLongAgo(daysAgo)})`;
+  const ago = formatDaysAgo(renewal.effective_end_date);
   return ago === "Today" || ago === "Yesterday" ? ago.toLowerCase() : ago;
 }
 
@@ -155,7 +187,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               {isExpired ? (
                 <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  <span>Expired {expiredAgo(renewal.effective_end_date)}</span>
+                  <span>Expired {expiredLabel(renewal)}</span>
                 </div>
               ) : (
                 <div className={cn(
@@ -166,7 +198,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                 )}>
                   <Clock className="h-3.5 w-3.5" />
                   <span>
-                    Expires {new Date(renewal.effective_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    Expires {cardDate(renewal.effective_end_date)}
                     {renewal.days_until_expiry === 0
                       ? " (today)"
                       : renewal.days_until_expiry === 1
@@ -189,7 +221,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               <div className="mt-2 text-xs flex flex-wrap items-center gap-1 sm:gap-2">
                 <span className="text-blue-600 dark:text-blue-400 font-medium">Renewal:</span>
                 <span className="text-foreground/70">
-                  {new Date(renewal.renewal_first_lesson_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {cardDate(renewal.renewal_first_lesson_date)}
                 </span>
                 <span className="text-foreground/50 hidden sm:inline">|</span>
                 <span className="text-foreground/70">{renewal.renewal_lessons_paid} lessons</span>
@@ -459,6 +491,12 @@ export default function AdminRenewalsPage() {
       .sort((a, b) => a.days_until_expiry - b.days_until_expiry) || []
   , [renewals, matchesSearch]);
 
+  // Tab counts leave out the stale group, the way the headline and the sidebar
+  // badge do. The cards themselves still show under "Older than 30 days".
+  const notRenewedListCount = useMemo(() => notRenewedList.filter(r => !isStale(r)).length, [notRenewedList]);
+  const toSendListCount = useMemo(() => toSendList.filter(r => !isStale(r)).length, [toSendList]);
+  const awaitingPaymentListCount = useMemo(() => awaitingPaymentList.filter(r => !isStale(r)).length, [awaitingPaymentList]);
+
   // Active tab's list
   const activeList = useMemo(() => {
     switch (activeTab) {
@@ -479,7 +517,7 @@ export default function AdminRenewalsPage() {
     };
 
     for (const r of activeList) {
-      if (r.days_until_expiry < -30) {
+      if (isStale(r)) {
         groups.olderExpiredItems.push(r);
       } else if (r.days_until_expiry < 0) {
         groups.recentExpiredItems.push(r);
@@ -489,6 +527,11 @@ export default function AdminRenewalsPage() {
         groups.nextWeekItems.push(r);
       }
     }
+
+    // The lists run soonest expiry first, which in this group would put the
+    // oldest, from a year back, at the top. The most recent are the likeliest
+    // to still come back, so they lead instead.
+    groups.olderExpiredItems.reverse();
 
     return groups;
   }, [activeList]);
@@ -1010,7 +1053,7 @@ export default function AdminRenewalsPage() {
               <span className="text-xs sm:text-sm text-foreground/50">
                 {debouncedSearch
                   ? `${activeList.length} result${activeList.length !== 1 ? 's' : ''}`
-                  : `${renewals.length} needing attention`
+                  : `${renewals.filter(r => !isStale(r)).length} needing attention`
                 }
               </span>
             )}
@@ -1032,9 +1075,9 @@ export default function AdminRenewalsPage() {
             >
               <RefreshCcw className="hidden sm:block h-4 w-4" />
               <span>Not renewed</span>
-              {notRenewedList.length > 0 && (
+              {notRenewedListCount > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
-                  {notRenewedList.length}
+                  {notRenewedListCount}
                 </span>
               )}
             </button>
@@ -1050,9 +1093,9 @@ export default function AdminRenewalsPage() {
             >
               <Send className="hidden sm:block h-4 w-4" />
               <span>To send</span>
-              {toSendList.length > 0 && (
+              {toSendListCount > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                  {toSendList.length}
+                  {toSendListCount}
                 </span>
               )}
             </button>
@@ -1068,9 +1111,9 @@ export default function AdminRenewalsPage() {
             >
               <CreditCard className="hidden sm:block h-4 w-4" />
               <span>Awaiting payment</span>
-              {awaitingPaymentList.length > 0 && (
+              {awaitingPaymentListCount > 0 && (
                 <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
-                  {awaitingPaymentList.length}
+                  {awaitingPaymentListCount}
                 </span>
               )}
             </button>
