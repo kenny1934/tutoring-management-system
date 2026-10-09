@@ -18,6 +18,9 @@ const changelogData = [
           },
           {
             "description": "**A warmer dark mode**: dark mode has a slightly lighter background and warmer greys, so cards and fields match the rest of the page."
+          },
+          {
+            "description": "**Fewer coloured bars**: time slot headers on Sessions, selected documents, quoted messages and other boxes no longer have a coloured bar down their left edge, and classwork and homework on a lesson's page are marked with a red or blue dot."
           }
         ]
       },
@@ -35,6 +38,9 @@ const changelogData = [
           },
           {
             "description": "**Renewals on a phone**: the selected tab on Renewals now scrolls into view on a phone."
+          },
+          {
+            "description": "**Exams on a folding phone**: the date range buttons and the search box on Exam revision classes no longer run off the edge or get squeezed on a folding phone or a tablet."
           }
         ]
       }
