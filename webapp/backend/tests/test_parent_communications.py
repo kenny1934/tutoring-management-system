@@ -18,6 +18,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from constants import hk_now
 from models import Enrollment, ParentCommunication, Student, Tutor
 from routers.parent_communications import (
     calculate_contact_status,
@@ -178,7 +179,11 @@ class TestTypeDistribution:
 
     def _world(self, db_session, types):
         """One active student per contact type, each with one contact logged
-        today, since the statistics only count students who are enrolled."""
+        today, since the statistics only count students who are enrolled.
+
+        Today in Hong Kong, as the statistics see it. The test machine's own
+        clock runs on UTC, which is still Sunday for the first eight hours of a
+        Hong Kong Monday, and contacts logged then landed in last week."""
         tutor = Tutor(user_email="stats@test.com", tutor_name="Ms Ho", role="Tutor",
                       is_active_tutor=True)
         db_session.add(tutor)
@@ -190,13 +195,13 @@ class TestTypeDistribution:
             db_session.commit()
             db_session.add(Enrollment(
                 student_id=student.id, tutor_id=tutor.id, location="MSA",
-                enrollment_type="Regular", first_lesson_date=date.today() - timedelta(days=7),
+                enrollment_type="Regular", first_lesson_date=hk_now().date() - timedelta(days=7),
                 lessons_paid=20, payment_status="Paid",
                 assigned_day="Wednesday", assigned_time="16:45 - 18:15",
             ))
             db_session.add(ParentCommunication(
                 student_id=student.id, tutor_id=tutor.id,
-                contact_date=datetime.now(), contact_method="Phone",
+                contact_date=hk_now(), contact_method="Phone",
                 contact_type=contact_type,
             ))
         db_session.commit()
