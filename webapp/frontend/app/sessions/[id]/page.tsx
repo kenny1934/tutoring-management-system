@@ -806,7 +806,7 @@ export default function SessionDetailPage() {
       {!showShortcutHints && (
         <button
           onClick={() => setShowShortcutHints(true)}
-          className="hidden sm:flex fixed bottom-4 right-4 z-40 w-8 h-8 rounded-full
+          className="hidden md:flex fixed bottom-4 right-4 z-40 w-8 h-8 rounded-full
             bg-paper border border-[#d4a574] dark:border-[#8b6f47]
             text-[#5c4033] dark:text-[#d4a574] font-mono text-sm
             items-center justify-center hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]

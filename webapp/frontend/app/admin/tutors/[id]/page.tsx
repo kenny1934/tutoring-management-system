@@ -369,7 +369,7 @@ function TutorProfileInner() {
 
   if (tutorLoading) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="flex h-full items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" />
         </div>
@@ -379,7 +379,7 @@ function TutorProfileInner() {
 
   if (!tutor) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground/60">
           <p>Tutor not found.</p>
           <Link
@@ -402,8 +402,10 @@ function TutorProfileInner() {
   const basicPay = Number(tutor.basic_salary ?? 0);
 
   return (
-    <PageSurface fullHeight>
-      <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6 animate-fadeIn">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* On a phone the whole page scrolls, heading and all. From md up the
+          heading stays put and the columns below it scroll. */}
+      <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6 animate-fadeIn max-md:h-auto max-md:overflow-visible">
         {/* Back link — chip so it stays legible on the desk texture */}
         <Link
           href="/admin/tutors"
@@ -569,7 +571,7 @@ function TutorProfileInner() {
         {/* Two-column body — fills the remaining viewport height; on desktop it's
             a flex row whose columns are height-bounded, so each scrolls on its
             own and the page itself never grows */}
-        <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto max-md:overflow-visible lg:flex-row lg:overflow-hidden">
           {/* Left rail — fixed third of the row; scrolls on its own if it overflows */}
           <div className="space-y-4 lg:w-1/3 lg:flex-shrink-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
             <Card

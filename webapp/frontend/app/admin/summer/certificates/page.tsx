@@ -222,9 +222,11 @@ export default function SummerCertificatesPage() {
   }
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* Held to the screen from md up. On a phone the card grows with its
+          table and the whole page scrolls. */}
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
+        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           <PageHeader
             icon={Award}
             title="Certificates"

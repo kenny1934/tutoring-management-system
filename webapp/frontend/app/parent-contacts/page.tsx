@@ -327,7 +327,7 @@ export default function ParentContactsPage() {
   // Toolbar classes
   if (isGuest) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
           <Phone className="h-12 w-12 text-red-500/50" />
           <p>Access denied — Guest role cannot view parent contacts</p>
@@ -337,9 +337,12 @@ export default function ParentContactsPage() {
   }
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* On a phone the whole page scrolls, so the student list runs at its
+          full length below the heading and figures. From md up the page
+          keeps its fixed frame and each panel scrolls by itself. */}
+      <PageTransition className="flex-1 overflow-hidden flex flex-col max-md:flex-none max-md:overflow-visible">
+        <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden max-md:h-auto max-md:overflow-visible">
           <PageHeader
             icon={Phone}
             title="Parent contacts"
@@ -453,14 +456,14 @@ export default function ParentContactsPage() {
           {/* Main Content - 3 Panel Layout (Desktop) / Tabbed (Mobile) */}
           {!isLoading && !statusError && (
             <div className={cn(
-              "flex-1 overflow-hidden",
+              "flex-1 overflow-hidden max-md:flex-none max-md:overflow-visible",
               isMobile ? "flex flex-col" : "grid grid-cols-[280px_1fr_320px] gap-4"
             )}>
               {/* Left Panel: Student List */}
               {(!isMobile || mobileTab === 'list') && (
                 <div className={cn(
-                  "overflow-hidden flex flex-col",
-                  isMobile ? "flex-1" : ""
+                  "overflow-hidden flex flex-col max-md:overflow-visible",
+                  isMobile ? "flex-1 max-md:flex-none" : ""
                 )}>
                   <StudentContactList
                     students={studentStatuses}
@@ -478,8 +481,8 @@ export default function ParentContactsPage() {
               {/* Center Panel: Calendar */}
               {(!isMobile || mobileTab === 'calendar') && (
                 <div className={cn(
-                  "overflow-hidden flex flex-col",
-                  isMobile ? "flex-1" : ""
+                  "overflow-hidden flex flex-col max-md:overflow-visible",
+                  isMobile ? "flex-1 max-md:flex-none" : ""
                 )}>
                   <ContactCalendar
                     events={filteredCalendarEvents}
@@ -501,8 +504,8 @@ export default function ParentContactsPage() {
               {/* Right Panel: Details */}
               {(!isMobile || mobileTab === 'details') && (
                 <div className={cn(
-                  "overflow-hidden flex flex-col",
-                  isMobile ? "flex-1" : ""
+                  "overflow-hidden flex flex-col max-md:overflow-visible",
+                  isMobile ? "flex-1 max-md:flex-none" : ""
                 )}>
                   <ContactDetailPanel
                     contact={selectedContact}

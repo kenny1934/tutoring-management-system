@@ -984,9 +984,11 @@ export default function AdminRenewalsPage() {
   const showCheckboxes = checkedIds.size > 0;
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* Held to the screen from md up. On a phone the card grows with its
+          list and the whole page scrolls. */}
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
+        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
         {/* Sticky Header Section */}
         <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-paper dark:bg-raised">
         <PageHeader
@@ -1364,7 +1366,7 @@ export default function AdminRenewalsPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"
+            className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] sm:bottom-[calc(1.5rem+var(--app-bottom-inset))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"
           >
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
               <span className="text-sm font-medium text-foreground">

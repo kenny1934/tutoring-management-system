@@ -558,7 +558,7 @@ export default function AdminProspectsPage() {
   }
 
   return (
-    <PageSurface fullHeight>
+    <PageSurface fullHeight scrollOnPhone>
       <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
         <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
           <HeaderBar
@@ -1623,7 +1623,7 @@ function BulkActionBar({
   onBulkStatus: (status: ProspectStatus) => void;
 }) {
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up max-w-[95vw] sm:max-w-[680px]">
+    <div className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up max-w-[95vw] sm:max-w-[680px]">
       <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 space-y-2">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">{count} selected</span>

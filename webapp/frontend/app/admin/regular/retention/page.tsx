@@ -234,7 +234,7 @@ function OutsideTable({
   }[];
 }) {
   return (
-    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-line/50">
+    <div className="mt-1.5 max-h-40 overflow-y-auto max-md:max-h-none rounded-lg border border-line/50">
       <table className="w-full text-[11px] table-fixed">
         <colgroup>
           <col className="w-24" />
@@ -424,7 +424,7 @@ export default function RegularRetentionPage() {
 
   if (!canViewAdminPages) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           You do not have access to this page.
         </div>
@@ -433,9 +433,12 @@ export default function RegularRetentionPage() {
   }
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* On a phone the whole page scrolls, so the heading and tabs scroll
+          away above the content. From md up the card fills the screen and
+          the body scrolls inside it. */}
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
+        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           <PageHeader
             icon={Users}
             title="Retention"
@@ -549,10 +552,10 @@ export default function RegularRetentionPage() {
           ) : (
             <div
               className={cn(
-                "flex-1 min-h-0 p-4 sm:p-6",
+                "flex-1 min-h-0 p-4 sm:p-6 max-md:flex-none",
                 // The chase tab sizes its table to the space and scrolls inside
                 // it; the other tabs scroll the body as one page.
-                tab === "chase" ? "flex flex-col overflow-hidden" : "overflow-auto space-y-6"
+                tab === "chase" ? "flex flex-col overflow-hidden max-md:overflow-visible" : "overflow-auto max-md:overflow-visible space-y-6"
               )}
             >
               {tab === "overview" && (

@@ -180,7 +180,7 @@ export const StudentContactList = memo(function StudentContactList({
 
   return (
     <div className={cn(
-      "flex flex-col h-full",
+      "flex flex-col h-full max-md:h-auto",
       "bg-white dark:bg-[#29241e] rounded-lg border border-line",
       "overflow-hidden"
     )}>
@@ -237,7 +237,8 @@ export const StudentContactList = memo(function StudentContactList({
       </div>
 
       {/* Student List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* On a phone the page scrolls, so the list runs at its full length. */}
+      <div className="flex-1 overflow-y-auto max-md:flex-none max-md:overflow-visible">
         {groupedStudents.length === 0 ? (
           <div className="p-4 text-center text-gray-500 dark:text-gray-400">
             <p className="text-sm">No students found</p>

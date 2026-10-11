@@ -233,7 +233,7 @@ export default function CourseRenewalPage() {
 
   if (isGuest) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           You do not have access to this page.
         </div>
@@ -242,7 +242,7 @@ export default function CourseRenewalPage() {
   }
 
   return (
-    <PageSurface fullHeight>
+    <PageSurface fullHeight scrollOnPhone>
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           {/* Two tabs rather than two pages. They are different questions

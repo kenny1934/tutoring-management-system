@@ -617,7 +617,7 @@ export default function DocumentsPage() {
     : "";
 
   return (
-    <PageSurface fullHeight>
+    <PageSurface fullHeight scrollOnPhone>
       <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
         {/* The page had no name of its own before. The tabs, search and create
             buttons stay in the toolbar inside the card, so this is only the name. */}

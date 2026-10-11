@@ -359,7 +359,7 @@ export default function RegularApplicationsPage() {
 
   if (!canViewAdminPages) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           Access denied
         </div>
@@ -368,9 +368,12 @@ export default function RegularApplicationsPage() {
   }
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* On a phone the whole page scrolls, so the list takes its full length
+          and the heading and filters scroll away above it. From md up the
+          card fills the screen and the list scrolls inside it. */}
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
+        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
           <PageHeader
             icon={ClipboardList}
             title="Regular applications"
@@ -733,7 +736,7 @@ export default function RegularApplicationsPage() {
           </div>
 
           {/* List */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-3">
+          <div className="flex-1 min-h-0 overflow-y-auto max-md:flex-none max-md:overflow-visible px-4 sm:px-6 py-3">
             {isLoading ? (
               <div className="flex items-center justify-center h-32 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />

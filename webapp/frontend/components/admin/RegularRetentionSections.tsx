@@ -1931,7 +1931,7 @@ export function RegularRetentionChaseList({
   };
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
+    <div className="flex flex-col min-h-0 flex-1 max-md:flex-none">
       {/* Which of the six lists is on screen. Its own row, because it is the
           question the page is answering rather than one more way to narrow. */}
       <StateButtons

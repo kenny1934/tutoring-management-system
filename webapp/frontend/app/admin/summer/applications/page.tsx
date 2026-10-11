@@ -42,6 +42,7 @@ import { displayLocation, CODE_TO_LOCATION, MIN_GROUP_SIZE, isPlaced, EXIT_STATU
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
 import type { SummerApplication, SummerPublishResult } from "@/types";
+import { MAIN_CONTENT_ID } from "@/lib/scroll";
 
 // Resolve the branch an application belongs to, in priority order:
 // confirmed link first (secondary student, then primary prospect), then the
@@ -912,19 +913,30 @@ export default function SummerApplicationsPage() {
   }, [selectedIndex, listRef]);
 
   // Measure list container height so react-window can size its viewport.
+  // On a phone the container grows with the list, so it can't be measured.
+  // There the long list keeps its own scrolling box, about as tall as the
+  // page's area: once the heading has scrolled away the list fills the
+  // screen, and a swipe past either end of it carries on into the page. The
+  // 32px is the padding and border below the list, which would otherwise
+  // push the list's top off the screen when the page is scrolled to the end.
   useEffect(() => {
     const el = scrollContainerRef.current;
+    const main = document.getElementById(MAIN_CONTENT_ID);
     if (!el) return;
-    const update = () => setListHeight(Math.max(200, el.clientHeight));
+    const update = () => {
+      const onPhone = window.innerWidth < 768;
+      setListHeight(Math.max(200, onPhone ? (main?.clientHeight ?? 632) - 32 : el.clientHeight));
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
+    if (main) ro.observe(main);
     return () => ro.disconnect();
   }, []);
 
   if (!canViewAdminPages) {
     return (
-      <PageSurface fullHeight>
+      <PageSurface fullHeight scrollOnPhone>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           Access denied
         </div>
@@ -933,10 +945,13 @@ export default function SummerApplicationsPage() {
   }
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* On a phone the whole page scrolls, so the heading and filters scroll
+          away above the list. From md up the card fills the screen and the
+          list scrolls inside it. */}
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
         {/* Paper card */}
-        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
             <PageHeader
               icon={ClipboardList}
               title="Summer applications"
@@ -1357,7 +1372,7 @@ export default function SummerApplicationsPage() {
             </div>
 
             {/* Application list */}
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto max-md:flex-none max-md:overflow-visible px-4 sm:px-6 py-3">
               {appsLoading || !applications ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -1608,7 +1623,7 @@ export default function SummerApplicationsPage() {
           {!showShortcutHints && (
             <button
               onClick={() => setShowShortcutHints(true)}
-              className="fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-paper border border-line-strong text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md flex items-center justify-center"
+              className="hidden md:flex fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-paper border border-line-strong text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md items-center justify-center"
               title="Keyboard shortcuts (?)"
             >
               <span className="text-sm font-mono">?</span>

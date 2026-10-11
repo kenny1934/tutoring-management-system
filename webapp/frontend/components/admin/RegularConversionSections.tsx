@@ -230,7 +230,7 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
   return (
     <Section title="Feeder schools" subtitle="Which schools the prospects come from, and how far each school converts.">
       <div className={wrap}>
-        <div className={cn(scroll, "max-h-72 overflow-y-auto")}>
+        <div className={cn(scroll, "max-h-72 overflow-y-auto max-md:max-h-none")}>
           <table className="w-full text-xs min-w-[420px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
@@ -264,7 +264,7 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
   return (
     <Section title="By submitting tutor" subtitle="Which P6 tutors bring in prospects that go on to apply and enrol.">
       <div className={wrap}>
-        <div className={cn(scroll, "max-h-72 overflow-y-auto")}>
+        <div className={cn(scroll, "max-h-72 overflow-y-auto max-md:max-h-none")}>
           <table className="w-full text-xs min-w-[460px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
@@ -483,7 +483,7 @@ export function RegularConversionChaseList({
     <Section
       title={`Still to chase (${data.lost_prospects.length})`}
       subtitle="Prospects with no regular application yet. Click one to record outreach without leaving this page."
-      className="flex-1 min-h-0 flex flex-col"
+      className="flex-1 min-h-0 flex flex-col max-md:flex-none"
     >
       <div className="flex flex-wrap items-center gap-2 mb-2">
         {/* Looking one family up is the thing done constantly, so it leads the
@@ -553,8 +553,9 @@ export function RegularConversionChaseList({
           </>
         )}
       </div>
-      <div className={cn(wrap, "flex-1 min-h-0 flex flex-col")}>
-        <div className={cn(scroll, "flex-1 min-h-0 overflow-y-auto")}>
+      {/* On a phone the page scrolls, so the table takes its full length. */}
+      <div className={cn(wrap, "flex-1 min-h-0 flex flex-col max-md:flex-none")}>
+        <div className={cn(scroll, "flex-1 min-h-0 overflow-y-auto max-md:flex-none")}>
           <table className="w-full text-xs min-w-[720px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>

@@ -445,8 +445,10 @@ export default function AdminWaitlistPage() {
   const activeCount = entries?.length ?? 0;
 
   return (
-    <PageSurface fullHeight>
-      <PageTransition className="h-full p-4 sm:p-6 flex flex-col">
+    <PageSurface fullHeight scrollOnPhone>
+      {/* Held to the screen from md up. On a phone the card grows with its
+          list and the whole page scrolls. */}
+      <PageTransition className="md:h-full p-4 sm:p-6 flex flex-col">
         <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
           <PageHeader
             className="mb-6"
