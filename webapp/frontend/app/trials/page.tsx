@@ -17,6 +17,8 @@ import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetail
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { Button, Input, PageHeader, Select } from "@/components/controls";
+import { useAsSheet } from "@/hooks/usePopoverSheet";
+import { useScrollFade } from "@/hooks/useScrollFade";
 
 // Column configuration
 const COLUMNS = [
@@ -192,6 +194,8 @@ interface ColumnProps {
   showLocationPrefix?: boolean;
   isAdmin?: boolean;
   showContactButton?: boolean | ((trial: TrialListItem) => boolean);
+  /** On a phone the one column shown takes the full width and grows to fit. */
+  fullWidth?: boolean;
 }
 
 // Unified Column Component - merged KanbanColumn and DynamicColumn to reduce duplication
@@ -207,6 +211,7 @@ const TrialColumn = React.memo(function TrialColumn({
   showLocationPrefix,
   isAdmin,
   showContactButton,
+  fullWidth,
 }: ColumnProps) {
   const headerColorClass = color
     ? COLUMN_COLOR_CLASSES[color]
@@ -215,7 +220,7 @@ const TrialColumn = React.memo(function TrialColumn({
   return (
     // 240px lets all four status columns fit side by side at 1440 with the
     // sidebar open. Narrower screens still scroll the board sideways.
-    <div className="flex-1 min-w-[240px] max-w-[400px] flex flex-col h-full">
+    <div className={cn("flex flex-col", fullWidth ? "w-full" : "flex-1 min-w-[240px] max-w-[400px] h-full")}>
       {/* Column Header */}
       <div className={cn("px-3 py-2 rounded-t-lg border-b-2", headerColorClass)}>
         <div className="flex items-center justify-between">
@@ -232,7 +237,8 @@ const TrialColumn = React.memo(function TrialColumn({
 
       {/* Column Content */}
       <div className={cn(
-        "p-2 rounded-b-lg flex-1 min-h-0 overflow-y-auto",
+        "p-2 rounded-b-lg",
+        !fullWidth && "flex-1 min-h-0 overflow-y-auto",
         "bg-gray-50/50 dark:bg-gray-900/20 border border-t-0",
         "border-gray-200 dark:border-gray-700"
       )}>
@@ -312,6 +318,11 @@ export default function TrialsPage() {
   const [timeRange, setTimeRange] = useState<"30" | "90" | "academic" | "all">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [groupBy, setGroupBy] = useState<"status" | "school" | "grade">("status");
+  // On a phone the board shows one column at a time, picked from a row of
+  // chips, and the page scrolls as a whole.
+  const onPhone = useAsSheet();
+  const [phoneColumnKey, setPhoneColumnKey] = useState<string | null>(null);
+  const chipsFade = useScrollFade<HTMLDivElement>();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Debounce search
@@ -455,6 +466,39 @@ export default function TrialsPage() {
     }
   }, [trials, debouncedSearch, timeRange, sortOrder, groupBy]);
 
+  // The board's columns, whichever way the trials are grouped.
+  const boardColumns = useMemo(() => {
+    const byKey = groupedTrials as Record<string, TrialListItem[]>;
+    if (groupBy === "status") {
+      return COLUMNS.map((column) => ({
+        key: column.id as string,
+        label: column.label as string,
+        description: column.description as string | undefined,
+        color: column.color as ColumnProps["color"],
+        Icon: column.Icon as LucideIcon | undefined,
+        trials: byKey[column.id] || [],
+        showContactButton: (column.id === "pending" || column.id === "lost") as ColumnProps["showContactButton"],
+      }));
+    }
+    const showContact = (trial: TrialListItem) => trial.trial_status !== "converted" && trial.trial_status !== "scheduled";
+    return dynamicColumns.map((key) => ({
+      key,
+      label: key,
+      description: undefined,
+      color: undefined,
+      Icon: undefined,
+      trials: byKey[key] || [],
+      showContactButton: showContact as ColumnProps["showContactButton"],
+    }));
+  }, [groupBy, groupedTrials, dynamicColumns]);
+
+  // The column a phone shows: the one picked, or else the first with trials
+  // in it, so the board doesn't open on an empty column.
+  const phoneColumn =
+    boardColumns.find((column) => column.key === phoneColumnKey) ??
+    boardColumns.find((column) => column.trials.length > 0) ??
+    boardColumns[0];
+
   // Memoized handlers to prevent unnecessary re-renders of memoized children
   const handleViewDetails = useCallback((trial: TrialListItem) => {
     // For converted trials, open comparison mode to show trial + subsequent enrollment
@@ -517,8 +561,8 @@ export default function TrialsPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 overflow-hidden">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 h-full flex flex-col">
+      <PageTransition className="md:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 md:overflow-hidden">
+        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 md:h-full flex flex-col">
           <PageHeader
             icon={FlaskConical}
             title="Trials"
@@ -610,42 +654,73 @@ export default function TrialsPage() {
           )}
 
           {/* Kanban Board */}
-          {!isLoading && (
+          {!isLoading && onPhone && phoneColumn && (
+            <>
+              <div
+                ref={chipsFade.ref}
+                style={chipsFade.style}
+                role="tablist"
+                aria-label="Trial columns"
+                className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 scrollbar-hide"
+              >
+                {boardColumns.map((column) => {
+                  const on = column.key === phoneColumn.key;
+                  const Icon = column.Icon;
+                  return (
+                    <button
+                      key={column.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      onClick={() => setPhoneColumnKey(column.key)}
+                      className={cn(
+                        "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors",
+                        on
+                          ? column.color ? COLUMN_COLOR_CLASSES[column.color] : "border-line-strong bg-tint text-foreground"
+                          : "border-line text-ink-subtle active:bg-tint",
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
+                      {column.label}
+                      <span className="text-xs opacity-75">{column.trials.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <TrialColumn
+                label={phoneColumn.label}
+                description={phoneColumn.description}
+                color={phoneColumn.color}
+                Icon={phoneColumn.Icon}
+                trials={phoneColumn.trials}
+                onConvert={handleConvert}
+                onViewDetails={handleViewDetails}
+                onRecordContact={handleRecordContact}
+                showLocationPrefix={selectedLocation === "All Locations"}
+                isAdmin={isAdmin}
+                showContactButton={phoneColumn.showContactButton}
+                fullWidth
+              />
+            </>
+          )}
+          {!isLoading && !onPhone && (
             <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
-              {groupBy === "status" ? (
-                // Status-based columns (fixed 4 columns)
-                COLUMNS.map((column) => (
-                  <TrialColumn
-                    key={column.id}
-                    label={column.label}
-                    description={column.description}
-                    color={column.color}
-                    Icon={column.Icon}
-                    trials={(groupedTrials as Record<ColumnId, TrialListItem[]>)[column.id] || []}
-                    onConvert={handleConvert}
-                    onViewDetails={handleViewDetails}
-                    onRecordContact={handleRecordContact}
-                    showLocationPrefix={selectedLocation === "All Locations"}
-                    isAdmin={isAdmin}
-                    showContactButton={column.id === 'pending' || column.id === 'lost'}
-                  />
-                ))
-              ) : (
-                // Dynamic columns (school or grade)
-                dynamicColumns.map((columnKey) => (
-                  <TrialColumn
-                    key={columnKey}
-                    label={columnKey}
-                    trials={(groupedTrials as Record<string, TrialListItem[]>)[columnKey] || []}
-                    onConvert={handleConvert}
-                    onViewDetails={handleViewDetails}
-                    onRecordContact={handleRecordContact}
-                    showLocationPrefix={selectedLocation === "All Locations"}
-                    isAdmin={isAdmin}
-                    showContactButton={(trial) => trial.trial_status !== 'converted' && trial.trial_status !== 'scheduled'}
-                  />
-                ))
-              )}
+              {boardColumns.map((column) => (
+                <TrialColumn
+                  key={column.key}
+                  label={column.label}
+                  description={column.description}
+                  color={column.color}
+                  Icon={column.Icon}
+                  trials={column.trials}
+                  onConvert={handleConvert}
+                  onViewDetails={handleViewDetails}
+                  onRecordContact={handleRecordContact}
+                  showLocationPrefix={selectedLocation === "All Locations"}
+                  isAdmin={isAdmin}
+                  showContactButton={column.showContactButton}
+                />
+              ))}
             </div>
           )}
 

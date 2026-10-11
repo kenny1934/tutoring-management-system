@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 // How far in from each edge the fade reaches.
 const FADE = 32;
@@ -11,14 +11,15 @@ const FADE = 32;
  * left once it has been scrolled. Each fade goes when that end is reached, and
  * a row that fits without scrolling gets none.
  *
- * @returns the ref for the row, and the style that draws the fades.
+ * @returns the ref for the row, and the style that draws the fades. The ref
+ * is a callback, so a row that appears after the first render, once its data
+ * has loaded, still gets its fades.
  */
 export function useScrollFade<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  const [el, ref] = useState<T | null>(null);
   const [edges, setEdges] = useState({ start: false, end: false });
 
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const update = () => {
       const max = el.scrollWidth - el.clientWidth;
@@ -34,7 +35,7 @@ export function useScrollFade<T extends HTMLElement>() {
       el.removeEventListener("scroll", update);
       resize.disconnect();
     };
-  }, []);
+  }, [el]);
 
   let style: CSSProperties | undefined;
   if (edges.start || edges.end) {
