@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Calendar, Home, Inbox, LayoutGrid, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigation } from "./useNavigation";
+import { scrollPageToTop } from "@/lib/scroll";
 
 /** The pages the bar holds. The More sheet lists every other page. */
 export const TAB_HREFS = ["/", "/students", "/sessions", "/inbox"];
@@ -49,6 +50,7 @@ export function BottomTabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: 
           label={tab.name}
           icon={tab.icon}
           active={isOnTab(pathname, tab.href)}
+          atRoot={pathname === tab.href}
           badge={tab.href === "/inbox" && unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : undefined}
         />
       ))}
@@ -71,6 +73,7 @@ function TabItem({
   label,
   icon: Icon,
   active,
+  atRoot,
   badge,
   dot,
   expanded,
@@ -80,6 +83,8 @@ function TabItem({
   label: string;
   icon: LucideIcon;
   active: boolean;
+  /** On the tab's own page, so tapping it again goes back to the top. */
+  atRoot?: boolean;
   badge?: string;
   dot?: boolean;
   expanded?: boolean;
@@ -117,6 +122,12 @@ function TabItem({
         aria-current={active ? "page" : undefined}
         aria-label={badge ? `${label}, ${badge} unread` : undefined}
         className={className}
+        // Tapping the tab for the page you are on takes you back to its top,
+        // as in a phone's own apps. From a page further in, such as one
+        // student's page, it goes back to the tab's own page as usual.
+        onClick={(e) => {
+          if (atRoot && scrollPageToTop()) e.preventDefault();
+        }}
       >
         {content}
       </Link>
