@@ -66,3 +66,27 @@ export function TearOffCalendar({ className }: TearOffCalendarProps) {
     </div>
   );
 }
+
+/**
+ * The same date and weather as one line of small text, for a phone. There the
+ * tear-off calendar took a row of its own above the greeting, so this sits at
+ * the end of the greeting's line instead: "Mon 12 Oct · 26°".
+ */
+export function CompactDate({ className }: TearOffCalendarProps) {
+  const today = new Date();
+  const label = today.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  const { data: weather } = useWeather();
+  const WeatherIcon = weather ? getWeatherLucideIcon(weather.weatherCode, weather.isDay) : null;
+  return (
+    <span className={cn("inline-flex shrink-0 items-center gap-1 text-xs text-ink-subtle", className)}>
+      {label}
+      {weather && WeatherIcon && (
+        <>
+          <span aria-hidden="true">·</span>
+          <WeatherIcon className="h-3.5 w-3.5" aria-label={getWeatherDescription(weather.weatherCode)} />
+          {weather.temperature}°
+        </>
+      )}
+    </span>
+  );
+}

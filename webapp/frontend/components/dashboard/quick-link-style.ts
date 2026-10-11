@@ -5,15 +5,17 @@
  *
  * From 640px up a quick link is a pill, and the links wrap along a line. On a
  * phone a pill per link wrapped into four rows and pushed today's lessons off
- * the first screen, so there each link becomes a tile instead, four to a row
- * as the More sheet's are: the icon over a short label, any count in the
- * tile's corner, and no arrow, since every tile opens something when tapped.
- * Each link keeps its own background colour.
+ * the first screen, so there each link becomes a small tile instead: the icon
+ * over a short label, any count in the tile's corner, and no arrow, since
+ * every tile opens something when tapped. The tiles sit in one row that
+ * scrolls sideways, the four used most first, with the fifth peeking in at
+ * the edge so it's clear there are more. Each link keeps its own background
+ * colour.
  */
 export const QUICK_LINK =
   "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all " +
   "border border-line-strong text-accent-ink hover:bg-tint hover:shadow-sm " +
-  "max-sm:relative max-sm:h-[60px] max-sm:w-full max-sm:flex-col max-sm:justify-center max-sm:gap-1 " +
+  "max-sm:relative max-sm:h-14 max-sm:w-full max-sm:flex-col max-sm:justify-center max-sm:gap-1 " +
   "max-sm:rounded-xl max-sm:px-1 max-sm:py-0 max-sm:text-[11px] max-sm:font-semibold max-sm:leading-tight " +
   "max-sm:active:scale-[0.97] max-sm:[&>svg:first-child]:h-5 max-sm:[&>svg:first-child]:w-5";
 
@@ -23,5 +25,24 @@ export const QUICK_LINK_BADGE = "max-sm:absolute max-sm:right-1 max-sm:top-1";
 /** The arrow on a link that opens a menu. A tile does without it. */
 export const QUICK_LINK_CHEVRON = "max-sm:hidden";
 
-/** The links' container: a row of pills that wraps, or a grid of tiles on a phone. */
-export const QUICK_LINKS_ROW = "grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:gap-3";
+/**
+ * The links' container: a row of pills that wraps, or on a phone a row of
+ * tiles that scrolls sideways. There it reaches the card's edges, so a tile
+ * scrolls out of view under the edge rather than stopping short of it.
+ */
+export const QUICK_LINKS_ROW =
+  "flex gap-2 max-sm:-mx-4 max-sm:px-4 max-sm:overflow-x-auto max-sm:snap-x max-sm:scroll-px-4 scrollbar-hide sm:flex-wrap sm:gap-3";
+
+/** What holds each link: on a phone a tile 70px wide, so four fit with about 30px of the fifth peeking in. */
+export const QUICK_LINK_CELL = "max-sm:w-[70px] max-sm:shrink-0 max-sm:snap-start";
+
+/** Where each link sits in the phone's row, the ones used most first. Wider screens keep the page's order. */
+export const PHONE_ORDER: Record<string, string> = {
+  proposals: "max-sm:order-1",
+  parents: "max-sm:order-2",
+  trials: "max-sm:order-3",
+  leave: "max-sm:order-4",
+  tools: "max-sm:order-5",
+  revenue: "max-sm:order-6",
+  terminated: "max-sm:order-7",
+};

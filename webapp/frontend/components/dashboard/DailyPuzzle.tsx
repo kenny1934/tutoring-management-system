@@ -5,7 +5,7 @@ import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
 import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { cn } from "@/lib/utils";
-import { Lightbulb, Check, X, Loader2 } from "lucide-react";
+import { Lightbulb, Check, X, Loader2, ChevronRight } from "lucide-react";
 
 // An answer longer than this won't share a phone's line with three others.
 const LONG_ANSWER = 12;
@@ -25,6 +25,8 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
   } = useDailyPuzzle();
   const onPhone = useAsSheet();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // On a phone the puzzle starts folded to one line, see below.
+  const [unfolded, setUnfolded] = useState(false);
 
   // Loading state
   if (isLoading) {
@@ -48,6 +50,40 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
   // stack of rows that pushed today's lessons down. There the card shows a
   // button instead, and the answers open in a sheet, one full-width row each.
   const sheetAnswers = onPhone && question.allAnswers.some((answer) => answer.length > LONG_ANSWER);
+
+  // On a phone the puzzle is folded to a single line until it's tapped. It's
+  // a pleasure rather than a task, and open it took more of the first screen
+  // than today's lessons got.
+  if (onPhone && !unfolded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setUnfolded(true)}
+        className={cn("flex w-full items-center gap-2 py-2 px-4 text-left active:bg-tint", className)}
+        aria-label={`Today's puzzle: ${question.question}`}
+      >
+        <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-700" />
+        <span className="min-w-0 flex-1 truncate text-xs text-gray-800 dark:text-gray-200">
+          <span className="font-semibold text-gray-600 dark:text-gray-400">Today&apos;s puzzle: </span>
+          {question.question}
+        </span>
+        {userAnswer !== null ? (
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+              isCorrect
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+            )}
+          >
+            {isCorrect ? "Correct" : "Not today"}
+          </span>
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-ink-subtle" />
+        )}
+      </button>
+    );
+  }
 
   // The colours an answer takes before and after the day's guess.
   const answerTone = (answer: string) => {

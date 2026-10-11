@@ -15,7 +15,7 @@ import { usefulTools } from "@/config/useful-tools";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
-import { TearOffCalendar } from "./TearOffCalendar";
+import { CompactDate, TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTerminationReviewCount, useGreetingLine } from "@/lib/hooks";
@@ -23,7 +23,7 @@ import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
-import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CHEVRON, QUICK_LINKS_ROW } from "./quick-link-style";
+import { PHONE_ORDER, QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CELL, QUICK_LINK_CHEVRON, QUICK_LINKS_ROW } from "./quick-link-style";
 
 
 interface DashboardHeaderProps {
@@ -83,22 +83,24 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
       <div className="px-4 sm:px-6 py-2 border-b border-line bg-tint">
-        {/* On a phone the date strip goes above the greeting, the full width
-            of the card, so the greeting and the day's line underneath it have
-            the whole width too instead of wrapping beside it. */}
-        <div className="flex max-sm:flex-col-reverse max-sm:items-stretch sm:items-center justify-between gap-2 sm:gap-3">
-          {/* Welcome message, and the day's line under it */}
-          <div className="min-w-0">
-            <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
-              Welcome back, {getTutorFirstName(userName)}
-            </p>
+        <div className="flex items-center justify-between gap-3">
+          {/* Welcome message, and the day's line under it. On a phone the date
+              and weather end the greeting's line as small text, in place of
+              the tear-off calendar, which took a row of its own there. */}
+          <div className="min-w-0 max-sm:flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
+                Welcome back, {getTutorFirstName(userName)}
+              </p>
+              <CompactDate className="sm:hidden" />
+            </div>
             {greetingLine && (
               <p className="text-xs sm:text-sm text-ink-subtle">{greetingLine}</p>
             )}
           </div>
 
-          {/* Right side: Search + Date/Weather + Location */}
-          <div className="flex items-center gap-2 @[500px]/header:gap-3">
+          {/* Right side: Search + Date/Weather + Location, from 640px up */}
+          <div className="flex items-center gap-2 @[500px]/header:gap-3 max-sm:hidden">
             {/* Search Button - hidden on mobile, responsive via container queries */}
             <button
               onClick={openCommandPalette}
@@ -175,7 +177,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             // Special handling for Useful Tools (dropdown)
             if (link.id === 'tools') {
               return (
-                <div key={link.id} className="relative">
+                <div key={link.id} className={cn("relative", QUICK_LINK_CELL, PHONE_ORDER.tools)}>
                   <button
                     ref={refs.setReference}
                     {...getReferenceProps()}
@@ -269,8 +271,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               // Show placeholder while loading, then full component
               if (!currentTutorId) {
                 return (
+                  <div key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER.proposals)}>
                   <button
-                    key={link.id}
                     disabled
                     className={cn(
                       QUICK_LINK,
@@ -281,25 +283,26 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     <span>Make-up</span>
                     <ChevronDown className={cn("h-3.5 w-3.5", QUICK_LINK_CHEVRON)} />
                   </button>
+                  </div>
                 );
               }
-              return <ProposalQuickLink key={link.id} tutorId={currentTutorId} />;
+              return <ProposalQuickLink key={link.id} tutorId={currentTutorId} className={cn(QUICK_LINK_CELL, PHONE_ORDER.proposals)} />;
             }
 
             // Special handling for Trials
             if (link.id === 'trials') {
-              return <TrialsQuickLink key={link.id} />;
+              return <TrialsQuickLink key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER.trials)} />;
             }
 
             // Leave Record — dropdown with ARK leave data
             if (link.id === 'leave') {
-              return <LeaveQuickLink key={link.id} />;
+              return <LeaveQuickLink key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER.leave)} />;
             }
 
             // Regular link pills
             return (
+              <div key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER[link.id])}>
               <Link
-                key={link.id}
                 href={link.href || '#'}
                 className={cn(
                   QUICK_LINK,
@@ -332,6 +335,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   </span>
                 )}
               </Link>
+              </div>
             );
           })}
         </div>
