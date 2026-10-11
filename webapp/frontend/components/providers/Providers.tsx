@@ -8,6 +8,7 @@ import { SurfaceAttribute } from "./SurfaceAttribute";
 import { ThemeColorSync } from "./ThemeColorSync";
 import { RefreshOnReturn } from "./RefreshOnReturn";
 import { SearchKeyClosesKeyboard } from "./SearchKeyClosesKeyboard";
+import { ServiceWorkerRegistration } from "./ServiceWorkerRegistration";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth";
 import { LocationProvider } from "@/contexts/LocationContext";
@@ -65,6 +66,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <ThemeColorSync />
         <RefreshOnReturn />
         <SearchKeyClosesKeyboard />
+        <ServiceWorkerRegistration />
         <AuthProvider>
           <AuthGuard>
             <LocationProvider>

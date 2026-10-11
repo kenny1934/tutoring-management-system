@@ -21,7 +21,7 @@ const PUBLIC_ROUTES =
  * Wrap your app content with this to protect all routes.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, waitingForConnection } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -41,8 +41,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
   // Show loading state while checking auth - use theme-aware background
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" />
+        {waitingForConnection && (
+          <p role="status" className="px-6 text-center text-sm text-ink-subtle">
+            CSM can&apos;t reach the internet. It will carry on as soon as you&apos;re connected.
+          </p>
+        )}
       </div>
     );
   }

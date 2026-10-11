@@ -58,6 +58,8 @@ export interface ImpersonatedTutor {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  /** The sign-in check can't reach the server, so the app is waiting for a connection. */
+  waitingForConnection: boolean;
   isAuthenticated: boolean;
   /** Can perform write operations (Admin, Super Admin) */
   isAdmin: boolean;
@@ -99,6 +101,8 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // The sign-in check couldn't reach the server, see fetchUser.
+  const [authUnreachable, setAuthUnreachable] = useState(false);
   const [impersonatedRole, setImpersonatedRoleState] = useState<Role | null>(null);
   const [impersonatedTutor, setImpersonatedTutorState] = useState<ImpersonatedTutor | null>(null);
 
@@ -159,16 +163,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
         sessionStorage.removeItem(IMPERSONATION_KEY);
         sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
       }
-    } catch (error) {
-      setUser(null);
-    } finally {
+      setAuthUnreachable(false);
       setIsLoading(false);
+    } catch (error) {
+      // The request never reached the server: no signal, or a network that
+      // dropped it. That says nothing about whether the person is signed in,
+      // and since the app can now open from the phone's cache without a
+      // connection, treating it as signed out would send them to the sign-in
+      // page. They stay on the loading screen instead, and the effect below
+      // asks again.
+      setAuthUnreachable(true);
     }
   }, []);
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  // Asks again as soon as the phone says it is back online, and every few
+  // seconds in case it never says so (a weak signal can look online). The
+  // flag stays set until an answer arrives, so the message under the spinner
+  // doesn't flicker between attempts.
+  useEffect(() => {
+    if (!authUnreachable) return;
+    const retry = () => fetchUser();
+    const timer = setInterval(retry, 5000);
+    window.addEventListener("online", retry);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", retry);
+    };
+  }, [authUnreachable, fetchUser]);
 
   const login = useCallback(() => {
     // Redirect to backend OAuth endpoint, passing current origin so we redirect back to the right domain
@@ -252,6 +277,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const contextValue = useMemo(() => ({
     user,
     isLoading,
+    waitingForConnection: authUnreachable,
     isAuthenticated,
     isAdmin,
     isSuperAdmin,
@@ -267,7 +293,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refetch: fetchUser,
-  }), [user, isLoading, isAuthenticated, isAdmin, isSuperAdmin, isSupervisor,
+  }), [user, isLoading, authUnreachable, isAuthenticated, isAdmin, isSuperAdmin, isSupervisor,
        isGuest, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating,
        impersonatedTutor, setImpersonatedRole, setImpersonatedTutor,
        login, logout, fetchUser]);
