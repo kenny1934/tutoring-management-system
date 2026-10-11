@@ -147,9 +147,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const fetchUser = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        credentials: "include", // Include cookies
-      });
+      const askWhoIsSignedIn = () =>
+        fetch(`${API_BASE_URL}/auth/me`, {
+          credentials: "include", // Include cookies
+        });
+      let response = await askWhoIsSignedIn();
+
+      // The 4-hour token has run out (opening CSM in the morning after using
+      // it the evening before, say). The 30-day session cookie can still buy
+      // a new one, so renew once and ask again before treating the person as
+      // signed out.
+      if (response.status === 401) {
+        const renewed = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (renewed.ok) response = await askWhoIsSignedIn();
+      }
 
       if (response.ok) {
         const userData = await response.json();

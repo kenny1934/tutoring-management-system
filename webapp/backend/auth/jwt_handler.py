@@ -24,6 +24,17 @@ ACCESS_TOKEN_EXPIRE_HOURS = 4  # Reduced from 24 for security
 REFRESH_THRESHOLD_MINUTES = 30  # Frontend proactive refresh threshold (refresh before this)
 REFRESH_GRACE_PERIOD_MINUTES = 15  # Backend grace period for expired tokens
 
+# How long someone stays signed in without opening CSM. Every renewal starts
+# the 30 days again, so a tutor who opens the app at least once a month never
+# sees the sign-in page. The 4-hour token above still carries every request;
+# this longer one only ever buys a new 4-hour token.
+SESSION_EXPIRE_DAYS = 30
+# Session tokens are signed with their own key. A session token in the
+# access_token cookie then fails verify_token like any forgery, so the
+# long-lived token can only ever be traded in at /auth/refresh, where the
+# tutor is looked up and a departed one refused.
+_SESSION_KEY = SECRET_KEY + ":session"
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
@@ -191,4 +202,35 @@ def create_refreshed_token(old_token: str) -> Optional[str]:
         # Create new token with fresh expiry
         return create_access_token(payload)
     except JWTError:
+        return None
+
+def create_session_token(tutor_id: int) -> str:
+    """
+    Create the 30-day token that keeps someone signed in between visits.
+
+    It holds only the tutor's id. The name, role and picture in the 4-hour
+    token it is traded for come from the database at that moment, so a role
+    change or a departure made in the meantime takes effect.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(tutor_id),
+        "type": "session",
+        "exp": now + timedelta(days=SESSION_EXPIRE_DAYS),
+        "iat": now,
+    }
+    return jwt.encode(payload, _SESSION_KEY, algorithm=ALGORITHM)
+
+
+def verify_session_token(token: str) -> Optional[int]:
+    """Return the tutor id in a valid, unexpired session token, or None."""
+    try:
+        payload = jwt.decode(token, _SESSION_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("type") != "session":
+        return None
+    try:
+        return int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
         return None

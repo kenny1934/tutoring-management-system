@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { SignInPage } from "@/components/login/SignInPage";
 import { usePageTitle } from "@/lib/hooks";
+import { takeReturnPath } from "@/lib/return-after-sign-in";
 
 /** What shows while the app finds out whether someone is already signed in: the page's own colour and a quiet spinner. */
 function Waiting() {
@@ -25,10 +26,11 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, login } = useAuth();
 
-  // Someone who's already signed in goes straight on to the app.
+  // Someone who's already signed in goes straight on to the app, to the page
+  // they were sent here from if there is one.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push("/");
+      router.push(takeReturnPath() ?? "/");
     }
   }, [isLoading, isAuthenticated, router]);
 

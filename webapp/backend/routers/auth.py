@@ -6,14 +6,18 @@ import logging
 import os
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from database import get_db
 from models import Tutor
 from auth.oauth import get_google_auth_url, exchange_code_for_user_info
-from auth.jwt_handler import create_access_token, create_refreshed_token, create_handoff_token, get_token_time_remaining, verify_token, ACCESS_TOKEN_EXPIRE_HOURS
+from auth.jwt_handler import (
+    create_access_token, create_refreshed_token, create_handoff_token, create_session_token,
+    get_token_time_remaining, verify_token, verify_session_token,
+    ACCESS_TOKEN_EXPIRE_HOURS, REFRESH_GRACE_PERIOD_MINUTES, SESSION_EXPIRE_DAYS,
+)
 from auth.dependencies import get_current_user
 from utils.employment import has_departed
 from utils.rate_limiter import check_ip_rate_limit
@@ -28,6 +32,56 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 # Allowed origins for validating redirect targets (prevent open redirects)
 _allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_str.split(",") if o.strip()]
+
+
+# The 30-day cookie that keeps someone signed in between visits. Its path
+# means the browser sends it to the renewal endpoint and nowhere else, so it
+# never travels with an ordinary request.
+SESSION_COOKIE = "session_token"
+SESSION_COOKIE_PATH = "/api/auth/refresh"
+
+
+def _access_claims(tutor: Tutor, picture: Optional[str] = None) -> dict:
+    """What the 4-hour token says about the person (sub must be a string per JWT spec)."""
+    return {
+        "sub": str(tutor.id),
+        "email": tutor.user_email,
+        "name": tutor.tutor_name,
+        "role": tutor.role,
+        "picture": picture if picture is not None else tutor.profile_picture,
+    }
+
+
+def _set_access_cookie(response: Response, token: str) -> None:
+    # The cookie outlives its token by the grace period. When the two ran out
+    # together, the browser had already dropped the cookie by the time a
+    # request was refused, so the 15 minutes /auth/refresh allows after expiry
+    # could never be used.
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600 + REFRESH_GRACE_PERIOD_MINUTES * 60,
+    )
+
+
+def _set_session_cookie(response: Response, tutor_id: int) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=create_session_token(tutor_id),
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path=SESSION_COOKIE_PATH,
+        max_age=SESSION_EXPIRE_DAYS * 24 * 3600,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="lax")
+    response.delete_cookie(key=SESSION_COOKIE, path=SESSION_COOKIE_PATH, httponly=True, secure=True, samesite="lax")
 
 
 def _get_redirect_base(state: Optional[str] = None) -> str:
@@ -150,14 +204,7 @@ async def google_callback(
                 logger.error("Failed to update profile picture for %s: %s", google_email, pic_err, exc_info=True)
                 db.rollback()
 
-        # Create JWT token (sub must be a string per JWT spec)
-        token = create_access_token({
-            "sub": str(tutor.id),
-            "email": tutor.user_email,
-            "name": tutor.tutor_name,
-            "role": tutor.role,
-            "picture": google_picture,
-        })
+        token = create_access_token(_access_claims(tutor, picture=google_picture))
 
         # Create redirect response with cookie
         response = RedirectResponse(
@@ -165,15 +212,10 @@ async def google_callback(
             status_code=status.HTTP_302_FOUND,
         )
 
-        # Set HTTP-only cookie (same-origin via Cloudflare Worker proxy)
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Match token expiry
-        )
+        # HTTP-only cookies (same-origin via Cloudflare Worker proxy): the
+        # 4-hour token every request carries, and the 30-day one that renews it.
+        _set_access_cookie(response, token)
+        _set_session_cookie(response, tutor.id)
 
         logger.info("Login successful for %s", tutor.tutor_name)
         return response
@@ -217,14 +259,9 @@ async def get_current_user_info(
 @router.post("/auth/logout")
 async def logout(response: Response):
     """
-    Log out the current user by clearing the auth cookie.
+    Log out the current user by clearing both auth cookies.
     """
-    response.delete_cookie(
-        key="access_token",
-        httponly=True,
-        secure=True,
-        samesite="lax",
-    )
+    _clear_auth_cookies(response)
     return {"message": "Logged out successfully"}
 
 
@@ -238,57 +275,64 @@ class TokenRefreshResponse(BaseModel):
 @router.post("/auth/refresh", response_model=TokenRefreshResponse)
 async def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
     """
-    Refresh the authentication token.
+    Renew the 4-hour token so the person stays signed in.
 
-    Extends the token expiry if the current token is still valid,
-    or expired within the 15-minute grace period
-    (REFRESH_GRACE_PERIOD_MINUTES in auth/jwt_handler.py).
+    Either cookie can do it. The 4-hour token renews itself until 15 minutes
+    after it expires, keeping its claims
+    (REFRESH_GRACE_PERIOD_MINUTES in auth/jwt_handler.py). After that the
+    browser has dropped it, and the 30-day session token takes over: the
+    tutor is looked up and a new 4-hour token is made from their record.
+    Whichever was used, the session token is renewed as well, so the 30 days
+    start again from now.
 
-    Returns a new token as an HTTP-only cookie.
+    Returns the new token as an HTTP-only cookie.
     """
     token = request.cookies.get("access_token")
+    session = request.cookies.get(SESSION_COOKIE)
 
-    if not token:
+    if not token and not session:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No token provided"
         )
 
-    # The third way to get a token, and it has to know about departures like
-    # the other two. Without this, somebody whose last day passes while their
-    # tab is open renews their cookie indefinitely: every call 401s, the client
-    # refreshes successfully, and the retry 401s again.
-    payload = verify_token(token) or {}
-    tutor_id = payload.get("sub")
-    if tutor_id:
-        tutor = db.query(Tutor).filter(Tutor.id == int(tutor_id)).first()
-        if tutor and has_departed(tutor):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="This account is no longer active",
-            )
+    new_token = create_refreshed_token(token) if token else None
+    if new_token:
+        sub = (verify_token(new_token) or {}).get("sub")
+        tutor_id = int(sub) if sub and str(sub).isdigit() else None
+    else:
+        tutor_id = verify_session_token(session) if session else None
+    tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first() if tutor_id else None
 
-    # Try to create a refreshed token
-    new_token = create_refreshed_token(token)
+    # Renewal has to know about departures as well as sign-in and every
+    # request. Without this, somebody whose last day passes while their tab is
+    # open renews their cookie indefinitely: every call 401s, the client
+    # refreshes successfully, and the retry 401s again. Their cookies are
+    # cleared too, so the 30-day one doesn't linger on the device.
+    if tutor and has_departed(tutor):
+        refused = JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": "This account is no longer active"},
+        )
+        _clear_auth_cookies(refused)
+        return refused
 
     if not new_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token cannot be refreshed. Please log in again."
-        )
+        if not tutor:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token cannot be refreshed. Please log in again."
+            )
+        new_token = create_access_token(_access_claims(tutor))
 
     # Get the new token's expiry time
     expires_in = get_token_time_remaining(new_token) or (ACCESS_TOKEN_EXPIRE_HOURS * 3600)
 
-    # Set new token as HTTP-only cookie
-    response.set_cookie(
-        key="access_token",
-        value=new_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Cookie max age in seconds
-    )
+    _set_access_cookie(response, new_token)
+    # Someone signed in before session tokens existed gets one here, on their
+    # first renewal, without having to sign in again.
+    if tutor:
+        _set_session_cookie(response, tutor.id)
 
     return TokenRefreshResponse(
         success=True,

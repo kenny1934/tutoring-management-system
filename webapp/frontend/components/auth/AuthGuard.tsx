@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
+import { hasReturnPath, rememberReturnPath, takeReturnPath } from "@/lib/return-after-sign-in";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -32,11 +33,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // Don't redirect while loading or on public routes
     if (isLoading || isPublicRoute) return;
 
-    // Redirect to login if not authenticated
+    // Redirect to login if not authenticated, noting the page so signing in
+    // comes back to it rather than to the home page.
     if (!isAuthenticated) {
+      rememberReturnPath(window.location.pathname + window.location.search);
       router.push("/login");
     }
   }, [isAuthenticated, isLoading, isPublicRoute, router]);
+
+  // Back from signing in: Google returns everyone to the home page, so go on
+  // to the page they were on before.
+  const returning = !isLoading && isAuthenticated && pathname === "/" && hasReturnPath();
+  useEffect(() => {
+    if (!returning) return;
+    const path = takeReturnPath();
+    if (path) router.replace(path);
+  }, [returning, router]);
 
   // Show loading state while checking auth - use theme-aware background
   if (isLoading) {
@@ -48,6 +60,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
             CSM can&apos;t reach the internet. It will carry on as soon as you&apos;re connected.
           </p>
         )}
+      </div>
+    );
+  }
+
+  // A moment of spinner while going on to the page they were on, so the home
+  // page doesn't flash past first.
+  if (returning) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" />
       </div>
     );
   }

@@ -523,3 +523,112 @@ class TestEffectiveRole:
         from auth.dependencies import require_admin_view
         boss = Tutor(id=1, role="Super Admin")
         assert require_admin_view(self._request(**{"X-Effective-Role": "Supervisor"}), boss) is boss
+
+
+# ============================================================================
+# The 30-day session that keeps someone signed in between visits
+# ============================================================================
+
+from datetime import date
+from auth.jwt_handler import create_session_token, verify_session_token, SESSION_EXPIRE_DAYS
+
+
+def _add_tutor(db_session, **extra):
+    tutor = Tutor(id=7, user_email="bella@example.com", tutor_name="Ms Bella Chang", role="Tutor", **extra)
+    db_session.add(tutor)
+    db_session.commit()
+    return tutor
+
+
+def _set_cookie_headers(response):
+    return response.headers.get_list("set-cookie")
+
+
+class TestSessionToken:
+    def test_round_trips_the_tutor_id(self):
+        assert verify_session_token(create_session_token(7)) == 7
+
+    def test_an_access_token_is_not_a_session_token(self):
+        assert verify_session_token(create_access_token({"sub": "7"})) is None
+
+    def test_a_session_token_is_not_an_access_token(self):
+        # Signed with its own key, so it can't stand in for the 4-hour token.
+        assert verify_token(create_session_token(7)) is None
+
+    def test_a_session_token_in_the_access_cookie_is_refused(self, client, db_session):
+        _add_tutor(db_session)
+        client.cookies.set("access_token", create_session_token(7))
+        assert client.get("/api/auth/me").status_code == 401
+
+
+class TestRefreshWithSession:
+    def test_signs_back_in_when_the_4_hour_cookie_has_gone(self, client, db_session):
+        _add_tutor(db_session)
+        client.cookies.set("session_token", create_session_token(7))
+
+        response = client.post("/api/auth/refresh")
+        assert response.status_code == 200
+
+        cookies = _set_cookie_headers(response)
+        access = next(c for c in cookies if c.startswith("access_token="))
+        token = access.split(";")[0].split("=", 1)[1]
+        payload = verify_token(token)
+        assert payload["sub"] == "7"
+        assert payload["name"] == "Ms Bella Chang"
+        assert payload["role"] == "Tutor"
+
+    def test_starts_the_30_days_again(self, client, db_session):
+        _add_tutor(db_session)
+        client.cookies.set("session_token", create_session_token(7))
+
+        cookies = _set_cookie_headers(client.post("/api/auth/refresh"))
+        session = next(c for c in cookies if c.startswith("session_token="))
+        assert f"Max-Age={SESSION_EXPIRE_DAYS * 24 * 3600}" in session
+        assert "Path=/api/auth/refresh" in session
+        assert "HttpOnly" in session
+
+    def test_gives_someone_signed_in_before_sessions_existed_a_session(self, client, db_session):
+        _add_tutor(db_session)
+        client.cookies.set("access_token", create_access_token({"sub": "7", "name": "Ms Bella Chang"}))
+
+        cookies = _set_cookie_headers(client.post("/api/auth/refresh"))
+        assert any(c.startswith("session_token=") for c in cookies)
+
+    def test_the_access_cookie_outlives_its_token_by_the_grace_period(self, client, db_session):
+        _add_tutor(db_session)
+        client.cookies.set("session_token", create_session_token(7))
+
+        cookies = _set_cookie_headers(client.post("/api/auth/refresh"))
+        access = next(c for c in cookies if c.startswith("access_token="))
+        expected = ACCESS_TOKEN_EXPIRE_HOURS * 3600 + REFRESH_GRACE_PERIOD_MINUTES * 60
+        assert f"Max-Age={expected}" in access
+
+    def test_refuses_a_tutor_who_no_longer_exists(self, client, db_session):
+        client.cookies.set("session_token", create_session_token(7))
+        response = client.post("/api/auth/refresh")
+        assert response.status_code == 401
+        assert "Please log in again" in response.json()["detail"]
+
+    def test_refuses_a_departed_tutor_and_clears_both_cookies(self, client, db_session):
+        _add_tutor(db_session, departure_effective_on=date(2020, 1, 31))
+        client.cookies.set("session_token", create_session_token(7))
+
+        response = client.post("/api/auth/refresh")
+        assert response.status_code == 401
+        assert response.json()["detail"] == "This account is no longer active"
+        cookies = _set_cookie_headers(response)
+        assert any(c.startswith('access_token=""') or c.startswith("access_token=;") for c in cookies)
+        assert any(c.startswith("session_token=") and "Max-Age=0" in c for c in cookies)
+
+    def test_refuses_a_forged_session_token(self, client, db_session):
+        _add_tutor(db_session)
+        client.cookies.set("session_token", "not-a-token")
+        assert client.post("/api/auth/refresh").status_code == 401
+
+
+class TestLogoutClearsSession:
+    def test_logout_clears_the_session_cookie_on_its_path(self, client):
+        cookies = _set_cookie_headers(client.post("/api/auth/logout"))
+        session = next(c for c in cookies if c.startswith("session_token="))
+        assert "Max-Age=0" in session
+        assert "Path=/api/auth/refresh" in session
