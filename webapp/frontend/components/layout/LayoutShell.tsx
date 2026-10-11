@@ -15,6 +15,7 @@ import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useBottomBarHidden } from "@/lib/app-chrome";
+import { ScrollMemory } from "./ScrollMemory";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
 import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
 import { applyShape } from "@/lib/shape";
@@ -87,6 +88,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
 
         {/* Main Content */}
         <PullToRefresh enabled={offersPullToRefresh(pathname)} />
+        <ScrollMemory />
         {/* overscroll-y-none stops the page bouncing past its top and bottom
             on a phone, which would fight the pull-to-refresh ring. */}
         <main id={MAIN_CONTENT_ID} className="flex-1 overflow-auto overscroll-y-none bg-background" tabIndex={-1}>
