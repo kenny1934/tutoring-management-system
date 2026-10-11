@@ -13,7 +13,18 @@ function heading(description: string): string | null {
   return match ? match[1] : null;
 }
 
-const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+/**
+ * A heading as it reads in the middle of the sentence: "A bar along the
+ * bottom" becomes "a bar along the bottom". A heading that opens with a name
+ * keeps its capitals, because lowering them turned "CSM as an app" into
+ * "cSM as an app". A name is a first word with a capital inside it (CSM,
+ * WhatsApp, PDF), or two capitalised words in a row ("Vasco Center").
+ */
+export function lowerFirst(text: string): string {
+  const [first = "", second = ""] = text.split(" ");
+  const isName = /[A-Z]/.test(first.slice(1)) || /^[A-Z]/.test(second);
+  return isName ? text : text.charAt(0).toLowerCase() + text.slice(1);
+}
 
 /** What this line reads of a release. The changelog's own type is every entry spelt out word for word. */
 interface Release {
