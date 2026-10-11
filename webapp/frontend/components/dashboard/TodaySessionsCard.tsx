@@ -10,7 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -133,6 +133,25 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     clearSelection,
     hasSelection,
   } = useBulkSelection(allSessionIds);
+
+  // On a phone the list runs at its full length, so the page is the only
+  // thing that scrolls and a swipe on the card moves the page. The time slots
+  // that have already ended fold into one row at the top instead. That keeps
+  // the card opening at what is happening now, which is the job the inner
+  // scroll does on a wider screen. Once the day is over, every slot folds.
+  const onPhone = useAsSheet();
+  const [showEarlier, setShowEarlier] = useState(false);
+  const firstCurrentSlot = nowPosition
+    ? groupedSessions.findIndex((g) => g.timeSlot === nowPosition.timeSlot)
+    : groupedSessions.length;
+  const earlierGroups = onPhone ? groupedSessions.slice(0, Math.max(firstCurrentSlot, 0)) : [];
+  // Counted the way each slot's header counts, so cancelled lessons don't add up.
+  const earlierCount = earlierGroups.reduce((n, g) => n + g.sessions.filter(isCountableSession).length, 0);
+  const earlierRows = earlierGroups.reduce((n, g) => n + g.sessions.length + g.proposedSessions.length, 0);
+  const earlierUnmarked = earlierGroups.reduce((n, g) => n + g.sessions.filter(canBeMarked).length, 0);
+  const visibleGroups = earlierGroups.length > 0 && !showEarlier
+    ? groupedSessions.slice(earlierGroups.length)
+    : groupedSessions;
 
   // Markable sessions (can have attendance marked)
   const markableSessions = useMemo(() => sessions.filter(canBeMarked), [sessions]);
@@ -261,7 +280,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   return (
     <HomeworkCountsProvider>
     <div className={cn(
-      "bg-paper rounded-xl border border-line overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
+      "bg-paper rounded-xl border border-line overflow-hidden flex flex-col md:max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
@@ -345,7 +364,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
       </div>
 
       {/* Sessions List */}
-      <div ref={listScrollRef} className="flex-1 overflow-y-auto min-h-0">
+      <div ref={listScrollRef} className="flex-1 overflow-y-auto max-md:overflow-visible min-h-0">
         {groupedSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
             <NoSessionsToday className="mb-2 opacity-80" />
@@ -354,7 +373,29 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
           </div>
         ) : (
           <div className="divide-y divide-line">
-            {groupedSessions.map((group) => {
+            {earlierRows > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowEarlier((open) => !open)}
+                aria-expanded={showEarlier}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs text-ink-subtle active:bg-tint"
+              >
+                {showEarlier ? <ChevronUp className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {showEarlier
+                    ? "Fold the earlier lessons away"
+                    : earlierCount > 0
+                      ? `${earlierCount} earlier ${earlierCount === 1 ? "lesson" : "lessons"}`
+                      : "Earlier cancelled lessons"}
+                </span>
+                {!showEarlier && earlierUnmarked > 0 && (
+                  <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    {earlierUnmarked} not marked yet
+                  </span>
+                )}
+              </button>
+            )}
+            {visibleGroups.map((group) => {
               const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === group.timeSlot;
               return (
               <div key={group.timeSlot} data-slot={group.timeSlot}>

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { TONES } from "@/lib/tones";
 import { Button, IconButton } from "@/components/controls";
 import { toDateString } from "@/lib/calendar-utils";
-import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, PencilLine, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, PencilLine, Trash2 } from "lucide-react";
 import { CalendarEventModal } from "./CalendarEventModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
@@ -27,7 +27,7 @@ import {
   useClientPoint,
   FloatingPortal,
 } from "@floating-ui/react";
-import { fitToScreen } from "@/hooks/usePopoverSheet";
+import { fitToScreen, useAsSheet } from "@/hooks/usePopoverSheet";
 
 // Event type colors
 const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -309,6 +309,9 @@ function TestItemPopover({
   );
 }
 
+// How many upcoming tests a phone lists before the "Show all" row.
+const UPCOMING_ON_PHONE = 5;
+
 interface TestCalendarProps {
   className?: string;
   isMobile?: boolean;
@@ -317,6 +320,10 @@ interface TestCalendarProps {
 export function TestCalendar({ className, isMobile = false }: TestCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // On a phone the upcoming list runs at its full length, so the page is the
+  // only thing that scrolls. It shows the nearest few until asked for the rest.
+  const onPhone = useAsSheet();
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   // Modal state for CRUD
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -753,7 +760,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Bottom section - toggles between upcoming and selected date events */}
-      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] max-md:order-1 max-md:flex-none max-md:max-h-72 max-md:border-t-0 max-md:border-b-2 max-md:shadow-none">
+      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] max-md:order-1 max-md:flex-none max-md:border-t-0 max-md:border-b-2 max-md:shadow-none">
         {/* Tab header */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line">
           <button
@@ -778,7 +785,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
 
         {/* Content - either upcoming or selected date events */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto max-md:overflow-visible min-h-0">
           {selectedDate && (selectedDateEvents.length > 0 || selectedDateHoliday) ? (
             /* Show selected date events and/or holiday */
             <div className="p-2 space-y-1.5">
@@ -837,7 +844,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           ) : (
             /* Show upcoming list */
             <div className="divide-y divide-line/50">
-              {eventsWithDaysUntil.map((event) => (
+              {(onPhone && !showAllUpcoming ? eventsWithDaysUntil.slice(0, UPCOMING_ON_PHONE) : eventsWithDaysUntil).map((event) => (
                 <TestItemPopover
                   key={event.id}
                   event={event}
@@ -847,6 +854,17 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                   onEdit={handleOpenEdit}
                 />
               ))}
+              {onPhone && eventsWithDaysUntil.length > UPCOMING_ON_PHONE && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllUpcoming((all) => !all)}
+                  aria-expanded={showAllUpcoming}
+                  className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium text-accent-ink active:bg-tint"
+                >
+                  {showAllUpcoming ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {showAllUpcoming ? "Show fewer" : `Show all ${eventsWithDaysUntil.length}`}
+                </button>
+              )}
             </div>
           )}
         </div>
