@@ -15,6 +15,11 @@
  * no hover, so without that a tap shows nothing until whatever it does
  * happens.
  *
+ * On a touch screen a button also answers taps 6px beyond its edge, through
+ * an invisible ::after, so the 28px and 32px sizes catch a finger across 40px
+ * and 44px, near what Apple and Google ask for, without the toolbars they sit
+ * in growing.
+ *
  * The public summer and regular pages import `components/ui/button`, which
  * keeps its own look. These are separate on purpose.
  */
@@ -25,7 +30,12 @@ import { cn } from "@/lib/utils";
 export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger";
 export type ButtonSize = "sm" | "md";
 
+// A button placed absolutely by its caller keeps that, because the caller's
+// class comes later and replaces relative.
+const TOUCH_AREA = "relative pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 pointer-coarse:after:content-['']";
+
 const BASE =
+  TOUCH_AREA + " " +
   "inline-flex items-center justify-center whitespace-nowrap rounded font-medium transition-[color,background-color,border-color,transform] active:scale-[0.97] " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-paper " +
   "disabled:pointer-events-none disabled:opacity-50";
@@ -123,6 +133,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
       aria-label={label}
       title={title ?? label}
       className={cn(
+        TOUCH_AREA,
         "inline-flex flex-shrink-0 items-center justify-center rounded text-ink-subtle transition-[color,background-color,transform] active:scale-95",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
         "disabled:pointer-events-none disabled:opacity-50",
