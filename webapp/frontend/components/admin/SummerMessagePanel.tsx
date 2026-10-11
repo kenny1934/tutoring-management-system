@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, Check, X, Undo2 } from "lucide-react";
+import { Copy, Share, Check, X, Undo2 } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
@@ -45,6 +46,7 @@ export function SummerMessagePanel({
   const [lang, setLang] = useState<SummerMessageLang>("zh");
   const [isEditable, setIsEditable] = useState(false);
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
   const [marking, setMarking] = useState(false);
 
   const generated = useMemo(() => {
@@ -63,7 +65,7 @@ export function SummerMessagePanel({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message);
+      if ((await shareOrCopy(message)) !== "copied") return;
       setCopied(true);
       showToast(mode === "fee" ? "Fee message copied!" : "Schedule copied!");
       setTimeout(() => setCopied(false), 500);
@@ -182,9 +184,9 @@ export function SummerMessagePanel({
           <Button
             variant="primary"
             onClick={handleCopy}
-            icon={copied ? Check : Copy}
+            icon={copied ? Check : canShare ? Share : Copy}
           >
-            {copied ? "Copied!" : "Copy"}
+            {copied ? "Copied!" : canShare ? "Share" : "Copy"}
           </Button>
         </div>
       </div>

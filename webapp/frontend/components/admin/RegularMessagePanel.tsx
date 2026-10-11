@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Copy, Check, X, Undo2, Loader2, AlertTriangle, type LucideIcon } from "lucide-react";
+import { Copy, Share, Check, X, Undo2, Loader2, AlertTriangle, type LucideIcon } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { useToast } from "@/contexts/ToastContext";
@@ -48,6 +49,7 @@ export function RegularMessagePanel({
   const [lang, setLang] = useState<MessageLang>("zh");
   const [isEditable, setIsEditable] = useState(false);
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
   const [marking, setMarking] = useState(false);
 
   // The messages are generated server-side from the same schedule, discount
@@ -77,7 +79,7 @@ export function RegularMessagePanel({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message);
+      if ((await shareOrCopy(message)) !== "copied") return;
       setCopied(true);
       showToast(mode === "fee" ? "Fee message copied!" : "Schedule copied!");
       setTimeout(() => setCopied(false), 500);
@@ -232,9 +234,9 @@ export function RegularMessagePanel({
             variant="primary"
             onClick={handleCopy}
             disabled={!message}
-            icon={copied ? Check : Copy}
+            icon={copied ? Check : canShare ? Share : Copy}
           >
-            {copied ? "Copied!" : "Copy"}
+            {copied ? "Copied!" : canShare ? "Share" : "Copy"}
           </Button>
         </div>
       </div>

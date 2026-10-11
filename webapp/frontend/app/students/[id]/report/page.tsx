@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft, Share2, Check, Copy, BookmarkPlus } from "lucide-react";
+import { Printer, ArrowLeft, Share2, Check, Copy, Share, BookmarkPlus } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { useStudent } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { studentsAPI, reportSharesAPI, savedReportsAPI } from "@/lib/api";
@@ -166,6 +167,7 @@ function StudentReportPageInner() {
   const [shareToken, setShareToken] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
   const [shareError, setShareError] = useState("");
 
   const handleShare = useCallback(async () => {
@@ -197,7 +199,7 @@ function StudentReportPageInner() {
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      if ((await shareOrCopy(shareUrl, { url: true })) !== "copied") return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -291,7 +293,7 @@ function StudentReportPageInner() {
             onClick={handleCopy}
             className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors flex-shrink-0"
           >
-            {copied ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+            {copied ? <><Check className="w-3 h-3" /> Copied</> : canShare ? <><Share className="w-3 h-3" /> Share</> : <><Copy className="w-3 h-3" /> Copy</>}
           </button>
           <button
             onClick={async () => {

@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Copy, Check, X } from "lucide-react";
+import { Copy, Share, Check, X } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Segmented, Textarea } from "@/components/controls";
 import { formatMakeupMessage } from "@/lib/makeup-message";
@@ -23,6 +24,7 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
   const [message, setMessage] = useState(originalMessage);
   const [isEditable, setIsEditable] = useState(false);
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
 
   // Reset message when language changes
   const handleLangChange = (newLang: 'zh' | 'en') => {
@@ -36,7 +38,7 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message);
+      if ((await shareOrCopy(message)) !== "copied") return;
       setCopied(true);
       showToast("Message copied!");
       setTimeout(() => setCopied(false), 500);
@@ -127,11 +129,11 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
           <Button
             variant="primary"
             size={compact ? "sm" : "md"}
-            icon={copied ? Check : Copy}
+            icon={copied ? Check : canShare ? Share : Copy}
             onClick={handleCopy}
             className="shrink-0 ml-auto"
           >
-            {copied ? "Copied!" : "Copy"}
+            {copied ? "Copied!" : canShare ? "Share" : "Copy"}
           </Button>
         </div>
       </div>

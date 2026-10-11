@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Copy, Check, X, Undo2 } from "lucide-react";
+import { Loader2, Copy, Share, Check, X, Undo2 } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Input, Segmented, Textarea } from "@/components/controls";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
@@ -32,6 +33,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
   const [loading, setLoading] = useState(true);
   const [lessonsPaid, setLessonsPaid] = useState(() => renewalLessons(enrollment));
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
   const [markingSent, setMarkingSent] = useState(false);
 
   // Fetch fee message when enrollment or language changes
@@ -62,7 +64,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message);
+      if ((await shareOrCopy(message)) !== "copied") return;
       setCopied(true);
       showToast("Fee message copied!");
       setTimeout(() => {
@@ -217,8 +219,8 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
               Unmark sent
             </Button>
           )}
-          <Button variant="primary" onClick={handleCopy} disabled={loading} icon={copied ? Check : Copy}>
-            {copied ? "Copied!" : "Copy"}
+          <Button variant="primary" onClick={handleCopy} disabled={loading} icon={copied ? Check : canShare ? Share : Copy}>
+            {copied ? "Copied!" : canShare ? "Share" : "Copy"}
           </Button>
         </div>
       </div>

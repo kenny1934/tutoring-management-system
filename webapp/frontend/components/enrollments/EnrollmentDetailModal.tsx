@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
+import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Share, Check, Send, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
@@ -84,6 +85,7 @@ export function EnrollmentDetailModal({
   const [markingPaid, setMarkingPaid] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
 
   // Confirmation dialog states
   const [confirmPayment, setConfirmPayment] = useState(false);
@@ -153,7 +155,7 @@ export function EnrollmentDetailModal({
         detail.enrollment_type === 'Summer' && detail.summer_application_id
           ? await fetchSummerFeeMessage(detail.summer_application_id)
           : (await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid)).message;
-      await navigator.clipboard.writeText(message);
+      if ((await shareOrCopy(message)) !== 'copied') return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -561,8 +563,8 @@ export function EnrollmentDetailModal({
                     enrollments, which have no fee to ask for. */}
                 {detail.payment_status !== 'Waived' && (
                   <IconButton
-                    label="Copy fee message"
-                    icon={copied ? Check : Copy}
+                    label={canShare ? "Share fee message" : "Copy fee message"}
+                    icon={copied ? Check : canShare ? Share : Copy}
                     iconClassName={cn(copied && "text-green-700 dark:text-green-400")}
                     onClick={handleCopyFee}
                   />

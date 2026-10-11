@@ -12,8 +12,9 @@ import { mutate } from "swr";
 import {
   ArrowLeft, User, BookOpen, Calendar, MapPin, Clock, CreditCard,
   ExternalLink, X, CheckCircle2, HandCoins, Pencil, CalendarClock, History,
-  MessageSquare, Copy, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp, Sun
+  MessageSquare, Copy, Share, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp, Sun
 } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { SummerMessagePanel } from "@/components/admin/SummerMessagePanel";
 import { resolveEffectiveDiscount, activeMemberCount } from "@/lib/summer-discounts";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
@@ -85,6 +86,7 @@ export default function EnrollmentDetailPage() {
   const [feeMessageLoading, setFeeMessageLoading] = useState(false);
   const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [copied, setCopied] = useState(false);
+  const canShare = useCanShare();
 
   // Action states
   const [markingSent, setMarkingSent] = useState(false);
@@ -218,7 +220,7 @@ export default function EnrollmentDetailPage() {
   // Fee message and action handlers
   const handleCopyFee = async () => {
     try {
-      await navigator.clipboard.writeText(feeMessage);
+      if ((await shareOrCopy(feeMessage)) !== "copied") return;
       setCopied(true);
       showToast("Fee message copied!");
       setTimeout(() => setCopied(false), 2000);
@@ -1426,12 +1428,12 @@ export default function EnrollmentDetailPage() {
                           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2">
                             {/* Copy Fee */}
                             <Button
-                              icon={copied ? Check : Copy}
+                              icon={copied ? Check : canShare ? Share : Copy}
                               iconClassName={copied ? "text-green-700 dark:text-green-400" : undefined}
                               onClick={handleCopyFee}
                               disabled={feeMessageLoading}
                             >
-                              {copied ? "Copied!" : "Copy fee"}
+                              {copied ? "Copied!" : canShare ? "Share fee" : "Copy fee"}
                             </Button>
 
                             {/* Mark Sent / Unmark Sent - Admin only */}

@@ -16,7 +16,8 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { useAsSheet, usePopoverSheet, PopoverShell, fitToScreen } from "@/hooks/usePopoverSheet";
-import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
+import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy, Share } from "lucide-react";
+import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn, formatError } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { useToast } from "@/contexts/ToastContext";
@@ -153,6 +154,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   // Copy fee message states
   const [isCopying, setIsCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const canShare = useCanShare();
   const { showToast } = useToast();
 
   // Filter tutors by selected location. Only people who can still be given work
@@ -319,7 +321,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
         enrollment.enrollment_type === 'Summer' && enrollment.summer_application_id
           ? await fetchSummerFeeMessage(enrollment.summer_application_id)
           : (await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid)).message;
-      await navigator.clipboard.writeText(message);
+      if ((await shareOrCopy(message)) !== 'copied') return;
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (error) {
@@ -803,11 +805,11 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               handleCopyFeeMessage();
             }}
             loading={isCopying}
-            icon={copySuccess ? Check : Copy}
+            icon={copySuccess ? Check : canShare ? Share : Copy}
             iconClassName={cn(copySuccess && "text-green-700 dark:text-green-400")}
             className="w-full"
           >
-            {isCopying ? 'Copying...' : copySuccess ? 'Copied!' : 'Copy fee message'}
+            {isCopying ? 'Getting the message...' : copySuccess ? 'Copied!' : canShare ? 'Share fee message' : 'Copy fee message'}
           </Button>
           )}
 

@@ -20,6 +20,7 @@ import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { MakeupMessageModal } from "@/components/sessions/MakeupMessageModal";
 import { formatMakeupMessage } from "@/lib/makeup-message";
+import { shareOrCopy } from "@/lib/share";
 
 // Size configurations for buttons
 const sizeClasses = {
@@ -260,10 +261,12 @@ export function SessionActionButtons({
       const isMobileScreen = window.innerWidth < 640;
       if (isMobileScreen) {
         haptic.trigger("light");
-        // Direct copy on mobile — skip modal to avoid stacking context issues
+        // On a phone the message goes straight to the share sheet (or is
+        // copied where there isn't one), skipping the modal, which had
+        // stacking context issues there.
         try {
           const msg = formatMakeupMessage(session, 'zh');
-          await navigator.clipboard.writeText(msg);
+          if ((await shareOrCopy(msg)) !== "copied") return;
           showToast("Message copied!");
           setCopiedMakeupMsg(true);
           setTimeout(() => setCopiedMakeupMsg(false), 1000);
