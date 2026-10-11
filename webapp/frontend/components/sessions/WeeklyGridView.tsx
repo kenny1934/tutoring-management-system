@@ -64,9 +64,23 @@ export const WeeklyGridView = memo(function WeeklyGridView({
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const today = getToday();
+
+  // On a phone only about three days fit across, so the grid opens scrolled to
+  // the selected day (today, unless the user picked another), placing it just
+  // after the pinned time column. On a wide screen nothing overflows and this
+  // does nothing.
+  const selectedDayIndex = weekDates.findIndex((date) => isSameDay(date, selectedDate));
+  const weekStart = weekDates[0]?.getTime();
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || selectedDayIndex < 1) return;
+    const column = scroller.querySelector<HTMLElement>(`[data-day="${selectedDayIndex}"]`);
+    if (column) scroller.scrollLeft = column.offsetLeft - 60;
+  }, [selectedDayIndex, weekStart]);
 
   // Measure available height when fillHeight is enabled
   useEffect(() => {
@@ -276,11 +290,11 @@ export const WeeklyGridView = memo(function WeeklyGridView({
         "bg-raised border-2 border-line rounded-lg overflow-hidden",
         fillHeight && "flex-1 flex flex-col min-h-0"
       )}>
-        <div className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-raised" : "overflow-x-auto")}>
+        <div ref={scrollerRef} className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-raised" : "overflow-x-auto")}>
           <div className={cn(fillHeight ? "flex-1 flex flex-col bg-raised" : "min-w-[800px]")} style={fillHeight ? { minWidth: `${minGridWidth}px` } : undefined}>
             {/* Day Headers */}
             <div className="grid border-b-2 border-line sticky top-0 bg-raised z-10" style={{ gridTemplateColumns: gridColumns }}>
-              <div className="p-1.5 bg-paper border-r border-line flex items-center">
+              <div className="sticky left-0 z-10 p-1.5 bg-paper border-r border-line flex items-center">
                 <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {weekDates.map((date, index) => {
@@ -290,6 +304,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                 return (
                   <div
                     key={index}
+                    data-day={index}
                     onClick={hasNoSessions ? () => toggleDayExpand(index) : undefined}
                     className={cn(
                       "border-r last:border-r-0 border-line transition-all",
@@ -342,8 +357,8 @@ export const WeeklyGridView = memo(function WeeklyGridView({
               className="grid bg-raised"
               style={{ height: `${totalHeight}px`, gridTemplateColumns: gridColumns }}
             >
-              {/* Time Labels Column */}
-              <div className="relative h-full bg-paper border-r border-line">
+              {/* Time Labels Column, pinned so the hours stay in view while the days scroll sideways */}
+              <div className="sticky left-0 z-30 h-full bg-paper border-r border-line">
                 {hours.map((hour) => (
                   <div
                     key={hour}
