@@ -36,6 +36,7 @@ import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { useScrollFade } from "@/hooks/useScrollFade";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
 
 // Muted dusty chalk palette (top-down view colors)
@@ -117,7 +118,7 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
     >
       {/* Chalk stub - top-down view (pill shape lying flat) */}
       <div
-        className={cn("relative w-9 h-4 sm:w-11 sm:h-5", loading && "animate-pulse")}
+        className={cn("relative w-11 h-6 sm:h-5", loading && "animate-pulse")}
         style={{
           borderRadius: "8px",
           background: `linear-gradient(
@@ -147,7 +148,7 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
         {/* Icon embossed on chalk surface - dark for visibility, or colored for CW/HW */}
         <div className="absolute inset-0 flex items-center justify-center">
           <Icon
-            className="h-3 w-3 sm:h-4 sm:w-4"
+            className="h-4 w-4"
             style={{
               color: iconColor || 'rgba(0,0,0,0.55)',
               filter: iconColor
@@ -163,7 +164,7 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 + index * 0.03 }}
-        className="mt-0.5 text-[8px] sm:text-[9px] font-medium whitespace-nowrap select-none"
+        className="mt-0.5 text-[11px] sm:text-[9px] font-medium whitespace-nowrap select-none"
         style={{
           color: 'rgba(255,255,255,0.55)',
           textShadow: '0 0 6px rgba(255,255,255,0.25)',
@@ -190,6 +191,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
   const { data: tutors } = useTutors();
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
   const [showMobileStatus, setShowMobileStatus] = useState(false);
+  const trayFade = useScrollFade<HTMLDivElement>();
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
@@ -549,7 +551,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
 
       {/* Chalkboard Surface - Inner (stops before ledge) */}
       <div
-        className="absolute left-2 right-2 top-2 sm:left-3 sm:right-3 sm:top-3 bg-[#2d4739] dark:bg-[#1a2821] rounded-[14px] sm:rounded-[20px] transition-colors duration-350 bottom-[56px] sm:bottom-[64px]"
+        className="absolute left-2 right-2 top-2 sm:left-3 sm:right-3 sm:top-3 bg-[#2d4739] dark:bg-[#1a2821] rounded-[14px] sm:rounded-[20px] transition-colors duration-350 bottom-[72px] sm:bottom-[64px]"
       >
         {/* Chalk dust texture overlay */}
         <div className="absolute inset-0 rounded-[14px] sm:rounded-[20px] opacity-30 transition-opacity duration-350 group-hover:opacity-40" style={{
@@ -564,7 +566,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
 
       {/* Wooden Ledge/Tray - contains chalk buttons */}
       <div
-        className="absolute left-2 right-2 sm:left-3 sm:right-3 bottom-2 sm:bottom-3 h-11 sm:h-12 z-10"
+        className="absolute left-2 right-2 sm:left-3 sm:right-3 bottom-2 sm:bottom-3 h-[60px] sm:h-12 z-10"
         style={{
           background: 'linear-gradient(180deg, #9a7b5a 0%, #8b6f47 30%, #7a6040 70%, #6b5a3a 100%)',
           boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2), inset 0 -1px 2px rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.2)',
@@ -587,8 +589,9 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
           }}
         />
 
-        {/* Chalk stubs container */}
-        <div className="relative h-full flex items-center justify-start gap-0.5 sm:gap-2 px-2 sm:px-3 overflow-x-auto scrollbar-hide">
+        {/* Chalk stubs container. On a phone the stubs run past the edge, and
+            the fade at that edge shows there are more to scroll to. */}
+        <div ref={trayFade.ref} style={trayFade.style} className="relative h-full flex items-center justify-start gap-1 sm:gap-2 px-2 sm:px-3 overflow-x-auto scrollbar-hide">
           {/* All actions from sessionActions (including edit at the end) */}
           {visibleActions.map((action, index) => {
             const isExercise = action.id === 'cw' || action.id === 'hw';
@@ -665,7 +668,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
       {/* Main Content Area */}
       <div className="relative flex flex-col">
         {/* Chalkboard Content */}
-        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-16 sm:pb-18">
+        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-20 sm:pb-18">
           {/* Left side - Student ID, Name, and Metadata */}
           <div className="flex-1 min-w-0 relative">
             <motion.div

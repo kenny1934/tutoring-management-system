@@ -24,7 +24,7 @@ import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
 import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CELL, QUICK_LINK_CHEVRON, QUICK_LINKS_ROW } from "./quick-link-style";
-import { useScrollFade } from "./useScrollFade";
+import { useScrollFade } from "@/hooks/useScrollFade";
 
 
 interface DashboardHeaderProps {
