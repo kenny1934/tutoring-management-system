@@ -457,7 +457,7 @@ export default function OverduePaymentsPage() {
     <PageSurface>
       <AdminPageGuard accessDeniedMessage="Admin access required to view overdue payments">
       <PageTransition>
-        <div className="min-h-screen">
+        <div className="min-h-full">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
             {/* Toolbar: the page header and search stay stuck to the top. The
                 background is solid so rows don't show through as they scroll. */}

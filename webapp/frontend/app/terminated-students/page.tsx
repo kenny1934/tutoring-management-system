@@ -702,7 +702,7 @@ export default function TerminatedStudentsPage() {
   return (
     <PageSurface>
       <PageTransition>
-        <div className="min-h-screen">
+        <div className="min-h-full">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
             {/* The header sticks while the page scrolls, on the page's own
                 background so the cards below don't show through it. */}
