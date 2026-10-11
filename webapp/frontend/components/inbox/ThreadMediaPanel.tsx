@@ -388,7 +388,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
                           )}
                           {onJumpToMessage && (
                             <div
-                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute top-1 right-1 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={(e) => { e.stopPropagation(); handleJump(item.messageId); }}
                             >
                               <div className="p-1 rounded bg-black/50 text-white hover:bg-black/70 cursor-pointer">

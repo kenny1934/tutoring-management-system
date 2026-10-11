@@ -2503,7 +2503,7 @@ function SessionsPageContent() {
                                               {urgency.daysRemaining <= 0 ? 'Overdue' : `${urgency.daysRemaining}d left`}
                                             </span>
                                             {session.extension_request_id && (
-                                              <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" /></span>
+                                              <span title={`Extension ${session.extension_request_status}`} role="img" aria-label={`Extension ${session.extension_request_status?.toLowerCase()}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" /></span>
                                             )}
                                           </div>
 
@@ -2877,10 +2877,10 @@ function SessionsPageContent() {
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                                       )}
                                       {session.exam_revision_slot_id && (
-                                        <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-600 flex-shrink-0 hidden sm:inline" /></span>
+                                        <span title="Exam Revision" role="img" aria-label="Exam revision"><GraduationCap className="h-3.5 w-3.5 text-purple-600 flex-shrink-0" /></span>
                                       )}
                                       {session.extension_request_id && (
-                                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0 hidden sm:inline" /></span>
+                                        <span title={`Extension ${session.extension_request_status}`} role="img" aria-label={`Extension ${session.extension_request_status?.toLowerCase()}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" /></span>
                                       )}
                                       {session.enrollment_payment_status === 'Cancelled' && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">

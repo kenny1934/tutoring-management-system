@@ -119,7 +119,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                       onClick={() => { if (window.confirm("Delete this template?")) onDelete(t.id); }}
                       title="Delete template"
                       aria-label={`Delete the ${t.title} template`}
-                      className="p-1.5 mr-1 text-gray-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1.5 mr-1 text-gray-300 hover:text-red-600 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 transition-all"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>

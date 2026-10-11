@@ -796,7 +796,7 @@ export default function DocumentsPage() {
                             onChange={() => handleToggleSelect(doc.id)}
                             className={cn(
                               "w-3.5 h-3.5 rounded border-line accent-primary transition-opacity",
-                              selectedIds.has(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                              selectedIds.has(doc.id) ? "opacity-100" : "[@media(hover:hover)]:opacity-0 group-hover:opacity-100"
                             )}
                           />
                         </div>

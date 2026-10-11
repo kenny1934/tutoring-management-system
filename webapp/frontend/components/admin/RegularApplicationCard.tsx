@@ -431,7 +431,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               {app.reference_code}
               <button
                 onClick={handleCopyRef}
-                className="p-0.5 hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                className="p-0.5 hover:text-foreground [@media(hover:hover)]:opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Copy reference code"
               >
                 {refCopied ? <Check className="h-3 w-3 text-green-700" /> : <Copy className="h-3 w-3" />}

@@ -882,7 +882,7 @@ function OverdueRow({
       <td className="px-2 py-3">
         <div className={cn(
           "flex items-center justify-center transition-opacity",
-          showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          showCheckbox ? "opacity-100" : "[@media(hover:hover)]:opacity-0 group-hover:opacity-100"
         )}>
           <input
             type="checkbox"

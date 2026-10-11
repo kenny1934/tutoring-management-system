@@ -318,7 +318,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 </td>
 
                 {/* Actions */}
-                <td className="py-2.5 pr-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150" onClick={(e) => e.stopPropagation()}>
+                <td className="py-2.5 pr-2 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150" onClick={(e) => e.stopPropagation()}>
                   {!isReadOnly && (
                     <DocContextMenu
                       doc={doc}
