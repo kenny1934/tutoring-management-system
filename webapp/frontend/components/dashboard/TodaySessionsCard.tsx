@@ -449,8 +449,8 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                     const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
                     // A slot's rows come grouped by tutor, so in center view
                     // each tutor's group opens with their name and how many
-                    // lessons they have in the slot. The rows then leave the
-                    // name out, which on a phone they had no room for anyway.
+                    // lessons they have in the slot. The rows never name the
+                    // tutor: here the heading does, and my view is one tutor's.
                     const opensTutorGroup = !tutorId && !!session.tutor_name && (idx === 0 || isNewTutor);
                     const tutorLessons = opensTutorGroup
                       ? group.sessions.filter((s) => s.tutor_name === session.tutor_name && isCountableSession(s)).length
@@ -473,7 +473,6 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                           session={session}
                           isAlternate={idx % 2 === 1}
                           isSelected={selectedIds.has(session.id)}
-                          showTutor={!!tutorId}
                           onToggleSelect={() => toggleSelect(session.id)}
                           onRowClick={(e) => {
                             setClickPosition({ x: e.clientX, y: e.clientY });
@@ -695,8 +694,6 @@ interface SessionRowProps {
   session: Session;
   isAlternate: boolean;
   isSelected: boolean;
-  /** Center view names the tutor once above their group, so its rows don't. */
-  showTutor: boolean;
   onToggleSelect: () => void;
   onRowClick: (e: React.MouseEvent) => void;
   isLoading?: boolean;
@@ -704,7 +701,7 @@ interface SessionRowProps {
   onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
 }
 
-const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, showTutor, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
+const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
   const { selectedLocation } = useLocation();
   const onPhone = useAsSheet();
   const displayStatus = getDisplayStatus(session);
@@ -792,7 +789,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           )}
         </div>
 
-        {/* Right: Homework + Status + Tutor */}
+        {/* Right: Homework + Status */}
         <div className="flex-shrink-0 flex items-center gap-2">
           <HomeworkCheckBadge sessionId={session.id} />
           {/* Status badge */}
@@ -800,13 +797,6 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
             <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
           ) : (
             <SessionStatusTag status={displayStatus} iconOnly size="sm" />
-          )}
-
-          {/* Tutor */}
-          {showTutor && session.tutor_name && (
-            <span className="hidden sm:inline text-[11px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
-              <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
-            </span>
           )}
         </div>
       </div>
