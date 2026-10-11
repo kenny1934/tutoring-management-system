@@ -27,12 +27,15 @@ import { LazySection } from "@/components/ui/lazy-section";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Segmented } from "@/components/controls";
 
 export default function DashboardPage() {
   const { user, impersonatedTutor, isGuest, canViewAdminPages } = useAuth();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const [isMobile, setIsMobile] = useState(false);
+  // On a phone the two charts share one card, and this picks which it shows.
+  const [phoneChart, setPhoneChart] = useState<"grade" | "school">("grade");
 
   // Determine effective tutor ID based on view mode and impersonation
   // When impersonating a specific tutor, use their ID
@@ -177,7 +180,23 @@ export default function DashboardPage() {
             />
           </div>
         )}
+        {/* On a phone each chart needs the full width, and two of them came to
+            about 500px of glancing material between today's tests and the
+            recent activity. There they take turns in one card instead. */}
+        {isMobile && (
+          <Segmented
+            label="Which chart to show"
+            value={phoneChart}
+            onChange={setPhoneChart}
+            options={[
+              { value: "grade", label: "By grade" },
+              { value: "school", label: "By school" },
+            ]}
+            className="self-end -mb-2"
+          />
+        )}
         <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Student analytics">
+          {(!isMobile || phoneChart === "grade") && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -199,6 +218,8 @@ export default function DashboardPage() {
               </CompactErrorBoundary>
             </LazySection>
           </motion.div>
+          )}
+          {(!isMobile || phoneChart === "school") && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -220,6 +241,7 @@ export default function DashboardPage() {
               </CompactErrorBoundary>
             </LazySection>
           </motion.div>
+          )}
         </div>
 
         {/* Activity Feed (hidden for guests — endpoint is guest-blocked) */}

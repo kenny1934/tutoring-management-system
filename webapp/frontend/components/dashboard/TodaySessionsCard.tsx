@@ -16,6 +16,7 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { HomeworkCountsProvider } from "@/components/homework/HomeworkCountsProvider";
 import { HomeworkCheckBadge } from "@/components/homework/HomeworkCheckBadge";
@@ -648,6 +649,7 @@ interface SessionRowProps {
 
 const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
   const { selectedLocation } = useLocation();
+  const onPhone = useAsSheet();
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
   const isUnpaid = isSessionUnpaid(session);
@@ -765,6 +767,12 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
         }
         onLoadingChange={onLoadingChange}
         loadingActionId={loadingActionId}
+        // On a phone each lesson's eight or nine labelled buttons took two
+        // rows, about three lessons to a screen. Here they keep one row, the
+        // first four and More, which opens the lesson's details with all of
+        // them. The Sessions page still shows the full set.
+        maxVisible={onPhone ? 4 : undefined}
+        onMore={onRowClick}
         className="mt-1.5 ml-6"
       />
     </div>

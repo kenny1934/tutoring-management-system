@@ -565,7 +565,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
   return (
     <div className={cn(
-      "bg-paper rounded-xl border border-line overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
+      "bg-paper rounded-xl border border-line overflow-hidden flex flex-col max-h-[70vh] max-md:max-h-none md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
@@ -649,14 +649,18 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
       </div>
 
+      {/* On a phone the Upcoming list comes before the month (the order
+          classes below), since the tests coming up are what a tutor opens
+          this for and the month grid alone filled the first screen. Tapping a
+          date still fills the list, which then sits just above the grid. */}
       {/* Month label */}
-      <div className="flex-shrink-0 text-center py-1 text-sm font-semibold text-gray-800 dark:text-gray-200">
+      <div className="flex-shrink-0 text-center py-1 text-sm font-semibold text-gray-800 dark:text-gray-200 max-md:order-2">
         {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </div>
 
       {/* Out of sync range warning with load button */}
       {!isMonthInSyncRange && (
-        <div className="flex-shrink-0 mx-3 mb-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+        <div className="flex-shrink-0 mx-3 mb-2 max-md:order-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
           <span>Events may not be loaded.</span>
           <button
             onClick={() => handleLoadOlderMonth(currentMonth)}
@@ -669,7 +673,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       )}
 
       {/* Calendar Grid */}
-      <div className="flex-shrink-0 px-3 pb-2" role="grid" aria-label="Calendar">
+      <div className="flex-shrink-0 px-3 pb-2 max-md:order-2" role="grid" aria-label="Calendar">
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-1" role="row">
           {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, i) => (
@@ -749,7 +753,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Bottom section - toggles between upcoming and selected date events */}
-      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
+      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] max-md:order-1 max-md:flex-none max-md:max-h-72 max-md:border-t-0 max-md:border-b-2 max-md:shadow-none">
         {/* Tab header */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line">
           <button

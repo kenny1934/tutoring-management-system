@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -149,6 +150,14 @@ interface SessionActionButtonsProps {
   loadingActionId?: string | null;  // External loading state from parent (keyboard shortcuts)
   disablePushRight?: boolean;  // Disable right-alignment of pushRight actions (for popovers/mobile)
   hideActions?: string[];  // Action IDs to hide (e.g. hide CW/HW/Rate on resolved session cards)
+  /**
+   * Show only this many buttons, then a More button that calls onMore, where
+   * the rest can be found (the lesson's details, say). Leave it out to show
+   * every button. When only one button would be left over, it's shown rather
+   * than swapped for More.
+   */
+  maxVisible?: number;
+  onMore?: (e: React.MouseEvent) => void;
   className?: string;
 }
 
@@ -163,6 +172,8 @@ export function SessionActionButtons({
   loadingActionId,
   disablePushRight,
   hideActions,
+  maxVisible,
+  onMore,
   className,
 }: SessionActionButtonsProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -470,8 +481,10 @@ export function SessionActionButtons({
     <>
       <div className={cn("flex flex-wrap gap-1.5", className)} onClick={(e) => e.stopPropagation()}>
         {(() => {
-          const firstPushRightIdx = disablePushRight ? -1 : visibleActions.findIndex(a => a.pushRight);
-          return visibleActions.map((action, idx) => {
+          const trimmed = maxVisible !== undefined && onMore !== undefined && visibleActions.length > maxVisible + 1;
+          const shownActions = trimmed ? visibleActions.slice(0, maxVisible) : visibleActions;
+          const firstPushRightIdx = disablePushRight ? -1 : shownActions.findIndex(a => a.pushRight);
+          return [...shownActions.map((action, idx) => {
           const Icon = action.icon;
           // Edit, CW, HW, Rate, Schedule-makeup, Request-extension, Cancel-makeup actions are always enabled (open modals/dialogs)
           const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "request-extension", "cancel-makeup", "copy-makeup-msg", "undo"].includes(action.id) || action.api.enabled;
@@ -526,7 +539,18 @@ export function SessionActionButtons({
               ) : button}
             </React.Fragment>
           );
-          });
+          }), trimmed && (
+            <button
+              key="more"
+              type="button"
+              onClick={onMore}
+              className={cn(ACTION_BASE, sizeClasses[size], showLabels && size === "md" && PHONE_LABELLED, "hover:bg-tint")}
+              aria-label="More actions for this lesson"
+            >
+              <MoreHorizontal className={cn(iconSizeClasses[size], "text-ink-subtle")} />
+              {showLabels && <span className={size === "md" ? LABEL : "hidden sm:inline"}>More</span>}
+            </button>
+          )];
         })()}
       </div>
 

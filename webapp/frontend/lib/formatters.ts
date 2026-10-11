@@ -283,24 +283,13 @@ export function formatProposalDate(dateStr: string): string {
 }
 
 /**
- * Format time for activity feed — shows just time for today, date+time otherwise
- * Example: "10:30 AM" (today) or "Jan 15, 10:30 AM" (other days)
+ * The time of an activity, such as "10:30 AM". Both activity lists group
+ * their rows under a day heading (Today, Yesterday or the date), so the date
+ * here only repeated it, and on a phone the wider stamp cut short the
+ * student's name beside it. The full date and time are in the row's title.
  */
 export function formatActivityTime(date: Date): string {
-  const today = new Date();
-  const isToday = date.toDateString() === today.toDateString();
-
-  if (isToday) {
-    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-  } else {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true
-    });
-  }
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 /**

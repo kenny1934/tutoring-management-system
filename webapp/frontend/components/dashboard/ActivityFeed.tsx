@@ -217,10 +217,15 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
 
       {/* Journal entries with ruled lines */}
       <div className="relative">
-        {/* Red margin line */}
-        <div className="absolute left-10 top-0 bottom-0 w-px bg-red-300/50 dark:bg-red-700/30" />
+        {/* Red margin line and ruled lines, on a wide screen only. There each
+            entry is one line and sits on the 36px ruling. On a phone the
+            entries wrap onto a second line and fell out of step with it, so
+            the lines ran through the text. */}
+        {!isMobile && (
+          <div className="absolute left-10 top-0 bottom-0 w-px bg-red-300/50 dark:bg-red-700/30" />
+        )}
 
-        <div className="p-4 pl-2 ruled-lines">
+        <div className={cn("p-4 pl-2", !isMobile && "ruled-lines")}>
           {Object.entries(groupedEvents).map(([dateLabel, dateEvents]) => (
             <div key={dateLabel} className="mb-4">
               {/* Date header */}

@@ -27,6 +27,11 @@ interface HeaderStatsProps {
   tutorId?: number;
 }
 
+// A number and what it counts. Side by side on a wide screen. On a phone the
+// three would not fit on one line with their words, and without the words
+// "656" and "638" said nothing, so there the word goes under the number.
+const STACKED = "flex items-baseline gap-1.5 max-sm:flex-col max-sm:items-start max-sm:gap-0 max-sm:leading-tight";
+
 export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
   const { selectedLocation } = useLocation();
   const [isStudentsOpen, setIsStudentsOpen] = useState(false);
@@ -96,7 +101,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
 
   return (
     <div className="px-4 sm:px-6 py-2.5">
-      <div className="flex items-center justify-between sm:justify-start sm:gap-8">
+      <div className="flex items-center gap-2 justify-between sm:justify-start sm:gap-8">
         {/* Students stat with popover */}
         <div className="relative">
           <button
@@ -110,11 +115,13 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
             )}
           >
             <Users className="h-4 w-4 text-ink-subtle" />
-            <span className="font-bold text-accent-ink">
-              {stats.active_students}
-            </span>
-            <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
-              Students
+            <span className={STACKED}>
+              <span className="font-bold text-accent-ink">
+                {stats.active_students}
+              </span>
+              <span className="max-sm:text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                Students
+              </span>
             </span>
           </button>
 
@@ -231,11 +238,13 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           )}
         >
           <Calendar className="h-4 w-4 text-ink-subtle" />
-          <span className="font-bold text-accent-ink">
-            {stats.sessions_this_week}
-          </span>
-          <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
-            This week
+          <span className={STACKED}>
+            <span className="font-bold text-accent-ink">
+              {stats.sessions_this_week}
+            </span>
+            <span className="max-sm:text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+              This week
+            </span>
           </span>
         </Link>
 
@@ -243,6 +252,8 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
         <div className="flex items-center gap-1.5 text-sm">
           <DollarSign className="h-4 w-4 text-ink-subtle" />
 
+          <span className={STACKED}>
+          <span className="flex items-center gap-1.5">
           {isRevenueVisible ? (
             // Revenue visible state
             <>
@@ -295,9 +306,11 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
               </button>
             </>
           )}
+          </span>
 
-          <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
+          <span className="max-sm:text-[11px] text-gray-500 dark:text-gray-400 font-medium">
             This month
+          </span>
           </span>
         </div>
       </div>
