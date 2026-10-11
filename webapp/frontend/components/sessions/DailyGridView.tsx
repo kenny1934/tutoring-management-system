@@ -25,6 +25,7 @@ import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { MAIN_CONTENT_ID } from "@/lib/scroll";
 
 interface DailyGridViewProps {
   sessions: Session[];
@@ -171,9 +172,12 @@ export const DailyGridView = memo(function DailyGridView({
       const container = containerRef.current;
       if (!container) return;
 
-      // Get viewport height minus the container's top position minus some padding
+      // The grid fills down to the bottom of the page's own area, less some
+      // padding. That area ends above the bottom bar on a phone, so measuring
+      // to the bottom of the window put the grid's last row behind the bar.
       const rect = container.getBoundingClientRect();
-      const availableHeight = window.innerHeight - rect.top - 16; // 16px bottom padding
+      const areaBottom = document.getElementById(MAIN_CONTENT_ID)?.getBoundingClientRect().bottom ?? window.innerHeight;
+      const availableHeight = areaBottom - rect.top - 16; // 16px bottom padding
       setContainerHeight(Math.max(300, availableHeight)); // Minimum 300px
     };
 
