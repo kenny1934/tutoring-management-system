@@ -60,11 +60,11 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
         type="button"
         onClick={() => setUnfolded(true)}
         className={cn("flex w-full items-center gap-2 py-2 px-4 text-left active:bg-tint", className)}
-        aria-label={`Today's puzzle: ${question.question}`}
+        aria-label={`Daily puzzle: ${question.question}`}
       >
         <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-700" />
         <span className="min-w-0 flex-1 truncate text-xs text-gray-800 dark:text-gray-200">
-          <span className="font-semibold text-gray-600 dark:text-gray-400">Today&apos;s puzzle: </span>
+          <span className="font-semibold text-gray-600 dark:text-gray-400">Daily puzzle: </span>
           {question.question}
         </span>
         {userAnswer !== null ? (
