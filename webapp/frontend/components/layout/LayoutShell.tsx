@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { PullToRefresh } from "./PullToRefresh";
 import { BottomTabBar } from "./BottomTabBar";
 import { MoreSheet } from "./MoreSheet";
+import { AppBadge } from "./AppBadge";
 import { useNavigation } from "./useNavigation";
 import { Logo } from "@/components/brand/Logo";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -92,6 +93,8 @@ export function LayoutShell({ children }: LayoutShellProps) {
           {children}
         </main>
         {!isLoginPage && <PhoneNav />}
+        {/* On the sign-in page too, so signing out clears the icon. */}
+        <AppBadge />
       </div>
     </div>
   );
