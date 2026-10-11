@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { LayoutShell } from "@/components/layout/LayoutShell";
@@ -12,6 +12,33 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "CSM Pro",
   description: "Professional tutoring management and scheduling platform",
+  applicationName: "CSM Pro",
+  // Installed on an iPhone's home screen, CSM opens full screen under this
+  // name. The status bar keeps its default look, dark text on a light bar,
+  // because the translucent style always draws white text, which would vanish
+  // against the cream header.
+  appleWebApp: { capable: true, title: "CSM", statusBarStyle: "default" },
+  // Student IDs and lesson numbers are not phone numbers, so iOS shouldn't
+  // turn them into links.
+  formatDetection: { telephone: false },
+};
+
+/**
+ * viewport-fit=cover lets the app draw to the edges of a phone with a notch or
+ * a home bar, and is what makes env(safe-area-inset-*) report real sizes; the
+ * parts that sit at the edges pad themselves by those sizes. The theme colour
+ * is the header's, so the browser's bar and an installed app's status bar
+ * blend into it. ThemeColorSync keeps it right when someone picks a theme
+ * that differs from their phone's.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fef9f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#2d2618" },
+  ],
 };
 
 export default function RootLayout({

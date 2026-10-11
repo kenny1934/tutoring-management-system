@@ -122,7 +122,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             // Above any depth of stacked overlay: a confirm dialog's scrim
             // would otherwise cover the toast reporting what it just did.
             style={{ zIndex: ABOVE_OVERLAYS_Z }}
-            className="fixed bottom-4 right-4 flex flex-col gap-2 pointer-events-none"
+            className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] right-4 flex flex-col gap-2 pointer-events-none"
             aria-label="Notifications"
           >
             <AnimatePresence mode="popLayout">

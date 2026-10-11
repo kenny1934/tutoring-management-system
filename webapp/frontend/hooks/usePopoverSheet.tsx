@@ -20,6 +20,7 @@ import {
   type PanInfo,
 } from "framer-motion";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useBackToClose } from "@/hooks/useBackToClose";
 import { cn } from "@/lib/utils";
 
 /**
@@ -215,6 +216,9 @@ function Sheet({
   // to show there is more above.
   const [scrolled, setScrolled] = useState(false);
   const closing = useRef(false);
+  // The same as closing, as state, so the back gesture stops counting the
+  // sheet as open the moment it starts to slide away.
+  const [leaving, setLeaving] = useState(false);
   // A pull that ends over a link or button in the strip must not count as a
   // tap on it, so the click that follows the pull is swallowed.
   const dragged = useRef(false);
@@ -226,6 +230,7 @@ function Sheet({
   const close = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
+    setLeaving(true);
     if (reduceMotion) {
       onClose();
       return;
@@ -233,6 +238,9 @@ function Sheet({
     const height = shellRef.current?.offsetHeight || window.innerHeight;
     animate(y, height, FALL).then(onClose);
   }, [onClose, reduceMotion, y]);
+
+  // Back closes the sheet too, sliding it away like the close button.
+  useBackToClose(!leaving, close);
 
   useEffect(() => {
     sheet.controls.current = { close };

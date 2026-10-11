@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import { ThemeProvider } from "next-themes";
 import { SurfaceAttribute } from "./SurfaceAttribute";
+import { ThemeColorSync } from "./ThemeColorSync";
+import { RefreshOnReturn } from "./RefreshOnReturn";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth";
 import { LocationProvider } from "@/contexts/LocationContext";
@@ -59,6 +61,8 @@ export function Providers({ children }: { children: ReactNode }) {
     <SWRConfig value={SWR_CONFIG}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <SurfaceAttribute />
+        <ThemeColorSync />
+        <RefreshOnReturn />
         <AuthProvider>
           <AuthGuard>
             <LocationProvider>

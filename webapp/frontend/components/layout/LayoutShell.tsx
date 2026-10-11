@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
+import { PullToRefresh } from "./PullToRefresh";
 import { Logo } from "@/components/brand/Logo";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
@@ -12,6 +13,19 @@ import { applyShape } from "@/lib/shape";
 
 interface LayoutShellProps {
   children: React.ReactNode;
+}
+
+// The pages that offer pull-to-refresh: the lists a tutor checks through the
+// day, and a student's page. A lesson's page is left out, because lesson mode
+// opens inside it, and a pull down on the board is someone drawing.
+function offersPullToRefresh(pathname: string | null) {
+  if (!pathname) return false;
+  return (
+    pathname === "/" ||
+    pathname === "/sessions" ||
+    pathname === "/students" ||
+    /^\/students\/\d+$/.test(pathname)
+  );
 }
 
 export function LayoutShell({ children }: LayoutShellProps) {
@@ -39,7 +53,9 @@ export function LayoutShell({ children }: LayoutShellProps) {
   return (
     // h-dvh (not h-screen): static 100vh is taller than the visible area on
     // phones while the browser URL bar shows, hiding the app's bottom edge.
-    <div className="flex h-dvh overflow-hidden">
+    // The side padding keeps the app clear of a notch when a phone is turned
+    // sideways. It is 0 everywhere else.
+    <div className="flex h-dvh overflow-hidden pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {!isLoginPage && (
         <Sidebar
           isMobileOpen={isMobileMenuOpen}
@@ -47,7 +63,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         />
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="relative flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header with Hamburger - only visible on mobile, hidden on login */}
         {!isLoginPage && (
         <header className="flex md:hidden items-center justify-between h-14 px-4 border-b border-line bg-paper">
@@ -76,7 +92,10 @@ export function LayoutShell({ children }: LayoutShellProps) {
         )}
 
         {/* Main Content */}
-        <main id={MAIN_CONTENT_ID} className="flex-1 overflow-auto bg-background" tabIndex={-1}>
+        <PullToRefresh enabled={offersPullToRefresh(pathname)} />
+        {/* overscroll-y-none stops the page bouncing past its top and bottom
+            on a phone, which would fight the pull-to-refresh ring. */}
+        <main id={MAIN_CONTENT_ID} className="flex-1 overflow-auto overscroll-y-none bg-background" tabIndex={-1}>
           {children}
         </main>
       </div>

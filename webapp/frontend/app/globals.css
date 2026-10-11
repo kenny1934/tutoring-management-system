@@ -741,6 +741,39 @@ body {
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+  /* Phones flash a grey box over whatever is tapped. The app's own hover and
+     pressed styles show the tap instead. */
+  -webkit-tap-highlight-color: transparent;
+  /* Stops iOS enlarging text on its own when the phone turns sideways. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* How much of the bottom of the screen the app's own chrome and the phone's
+   home bar take up. Toasts and floating buttons sit this far up, so neither
+   covers them. On a phone without a home bar, and on a computer, it is 0. */
+:root {
+  --app-bottom-inset: env(safe-area-inset-bottom, 0px);
+}
+
+/* manipulation turns off double-tap to zoom on controls, which is what makes
+   a browser wait a moment after a tap to see whether a second one follows.
+   Pinch zoom still works. */
+a, button, input, select, textarea, label, summary, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* An iPhone zooms the page into any field whose text is smaller than 16px
+   when it is tapped, and leaves it zoomed. On a touch screen every field is
+   at least 16px, so it doesn't. This sits outside Tailwind's layers on
+   purpose, so it wins over text-sm and text-xs on a field. A size set inline,
+   as the text box in lesson mode sets one, still wins over this. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }
 
 /* Selection styling */

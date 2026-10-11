@@ -236,7 +236,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Open School Progress"
-        className="md:hidden fixed bottom-4 right-4 z-40 w-12 h-12 bg-teal-600 dark:bg-teal-700 rounded-full shadow-lg flex items-center justify-center border-2 border-teal-700 dark:border-teal-800"
+        className="md:hidden fixed bottom-[calc(1rem+var(--app-bottom-inset))] right-4 z-40 w-12 h-12 bg-teal-600 dark:bg-teal-700 rounded-full shadow-lg flex items-center justify-center border-2 border-teal-700 dark:border-teal-800"
         style={{
           background: 'linear-gradient(135deg, #0d9488, #0f766e)',
         }}

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useOverlayLayer, type OverlayLayer } from "@/hooks/useOverlayLayer";
+import { useBackToClose } from "@/hooks/useBackToClose";
 import { cn } from "@/lib/utils";
 
 const sizeClasses = {
@@ -67,6 +68,13 @@ export function Modal({
   // still open.
   const ownLayer = useOverlayLayer(isOpen && !layer, { lockScroll: true });
   const { isTopmost, zIndex } = layer ?? ownLayer;
+
+  // On a phone, back closes the modal, unless it is holding itself open for
+  // work in flight, as it does for Escape. A modal drawn inside a page, with
+  // no backdrop, is part of the page and isn't closed by back.
+  useBackToClose(isOpen && standalone, () => {
+    if (!persistent) onClose();
+  });
 
   // Escape belongs to the topmost modal alone.
   const handleEscape = useCallback(

@@ -343,7 +343,7 @@ export function BookmarkTab({
       {/* Mobile FAB Button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="md:hidden fixed bottom-20 right-4 z-40 w-12 h-12 bg-line-strong rounded-full shadow-lg flex items-center justify-center border-2 border-[#a67c52] dark:border-[#6b5537]"
+        className="md:hidden fixed bottom-[calc(5rem+var(--app-bottom-inset))] right-4 z-40 w-12 h-12 bg-line-strong rounded-full shadow-lg flex items-center justify-center border-2 border-[#a67c52] dark:border-[#6b5537]"
         style={{
           background: 'linear-gradient(135deg, #d4a574, #c9985f)',
         }}

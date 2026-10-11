@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import Fuse from "fuse.js";
 import useSWR from "swr";
 import { createPortal } from "react-dom";
+import { useBackToClose } from "@/hooks/useBackToClose";
 import {
   Search,
   User,
@@ -68,6 +69,8 @@ import { useHaptic } from "@/lib/useHaptic";
 export function CommandPalette() {
   const router = useRouter();
   const { isOpen, close } = useCommandPalette();
+  // On a phone, back closes the search before it leaves the page.
+  useBackToClose(isOpen, close);
   const { isAdmin, isSuperAdmin } = useAuth();
   const { theme, setTheme } = useTheme();
   const { viewMode, setViewMode } = useRole();

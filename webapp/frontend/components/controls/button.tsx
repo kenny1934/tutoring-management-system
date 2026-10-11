@@ -11,6 +11,10 @@
  * Buttons are 32px tall, the same as a text field, so a row of fields and
  * buttons lines up. The small size is 28px, for toolbars and bulk bars.
  *
+ * Every button darkens and shrinks slightly while it is pressed. A phone has
+ * no hover, so without that a tap shows nothing until whatever it does
+ * happens.
+ *
  * The public summer and regular pages import `components/ui/button`, which
  * keeps its own look. These are separate on purpose.
  */
@@ -22,7 +26,7 @@ export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger";
 export type ButtonSize = "sm" | "md";
 
 const BASE =
-  "inline-flex items-center justify-center whitespace-nowrap rounded font-medium transition-colors " +
+  "inline-flex items-center justify-center whitespace-nowrap rounded font-medium transition-[color,background-color,border-color,transform] active:scale-[0.97] " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-paper " +
   "disabled:pointer-events-none disabled:opacity-50";
 
@@ -32,10 +36,10 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:bg-primary-hover",
-  secondary: "border border-line-strong bg-field-fill text-gray-800 dark:text-gray-200 hover:bg-tint",
-  quiet: "text-gray-700 dark:text-gray-300 hover:bg-tint",
-  danger: "bg-red-600 text-white hover:bg-red-700",
+  primary: "bg-primary text-white hover:bg-primary-hover active:bg-primary-hover",
+  secondary: "border border-line-strong bg-field-fill text-gray-800 dark:text-gray-200 hover:bg-tint active:bg-tint",
+  quiet: "text-gray-700 dark:text-gray-300 hover:bg-tint active:bg-tint",
+  danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-700",
 };
 
 // On a plain button the icon is the quiet part, so the label leads. On a
@@ -104,8 +108,8 @@ export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLBut
 
 const ICON_BUTTON_SIZES: Record<ButtonSize, string> = { md: "h-8 w-8", sm: "h-7 w-7" };
 const ICON_BUTTON_TONES = {
-  default: "hover:bg-tint hover:text-gray-900 dark:hover:text-gray-100",
-  danger: "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400",
+  default: "hover:bg-tint hover:text-gray-900 dark:hover:text-gray-100 active:bg-tint active:text-gray-900 dark:active:text-gray-100",
+  danger: "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400 active:bg-red-50 active:text-red-700 dark:active:bg-red-900/30 dark:active:text-red-400",
 };
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
@@ -119,7 +123,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
       aria-label={label}
       title={title ?? label}
       className={cn(
-        "inline-flex flex-shrink-0 items-center justify-center rounded text-ink-subtle transition-colors",
+        "inline-flex flex-shrink-0 items-center justify-center rounded text-ink-subtle transition-[color,background-color,transform] active:scale-95",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
         "disabled:pointer-events-none disabled:opacity-50",
         ICON_BUTTON_SIZES[size],
