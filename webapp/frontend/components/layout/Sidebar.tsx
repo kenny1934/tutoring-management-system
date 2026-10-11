@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map } from "lucide-react";
+import { X, Settings, ChevronDown, Shield, LogOut, Database, Megaphone, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/brand/Logo";
 import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -22,33 +21,8 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge, useRegularIntakeOpen } from "@/lib/hooks";
-
-const navigation = [
-  { name: "Dashboard", href: "/", icon: Home },
-  { name: "Students", href: "/students", icon: Users },
-  { name: "Sessions", href: "/sessions", icon: Calendar },
-  { name: "Courseware", href: "/courseware", icon: BookOpen },
-  { name: "Curriculum", href: "/curriculum", icon: Map },
-  { name: "Documents", href: "/documents", icon: FileText },
-  { name: "Inbox", href: "/inbox", icon: Inbox },
-];
-
-// Admin navigation items - only visible to Admin and Super Admin
-const adminNavigation = [
-  { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
-  { name: "Overdue payments", href: "/overdue-payments", icon: CreditCard },
-  { name: "Extensions", href: "/admin/extensions", icon: Clock },
-  { name: "Waitlist", href: "/admin/waitlist", icon: ClipboardList },
-  { name: "Tutors", href: "/admin/tutors", icon: GraduationCap },
-  { name: "Summer course", href: "/admin/summer", icon: Sun },
-  { name: "Regular intake", href: "/admin/regular", icon: CalendarCheck },
-];
-
-interface SidebarProps {
-  isMobileOpen?: boolean;
-  onMobileClose?: () => void;
-}
+import { useUnreadMessageCount, useFaviconBadge } from "@/lib/hooks";
+import { useNavigation, ADMIN_NAV } from "./useNavigation";
 
 /**
  * An admin page's row. Its 16px icon sits centred on the main menu's 20px
@@ -85,9 +59,15 @@ function placeTooltip(item: HTMLElement) {
   item.style.setProperty("--tooltip-left", `${sidebar.right}px`);
 }
 
-export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
+/**
+ * The menu down the left of the page, from tablet width up. On a phone the
+ * bottom bar and its More sheet take its place, but the sidebar stays mounted
+ * there, hidden, because it also keeps the location and the inbox's toasts
+ * and favicon count up to date for every page.
+ */
+export function Sidebar() {
   const pathname = usePathname();
-  const { user, isAdmin, isSuperAdmin, isSupervisor, isGuest, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isSupervisor, isGuest, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -111,81 +91,19 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   // finished closing. Until then the full menu stays, and the sidebar's edge
   // covers it as it moves.
   const rail = isCollapsed && moving !== "closing";
-  const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [adminExpanded, setAdminExpanded] = useState(true);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
-  // Get effective tutor ID (respects impersonation)
-  const currentTutorId = (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id)
-    ? impersonatedTutor.id
-    : user?.id;
+  const { currentTutorId, isAdminOrAbove, hasUnseenUpdates, pendingPayments, mainNavigation, adminBadgeFor } = useNavigation();
 
-  // Check if user can view admin pages (Admin, Super Admin, or Supervisor)
-  const isAdminOrAbove = canViewAdminPages;
-
-  // Fetch unread message count for Inbox badge (skip for Guest/Supervisor who can't access Inbox)
+  // The same count the bottom bar shows, from the same cache.
   const { data: unreadCount } = useUnreadMessageCount(isGuest || isSupervisor ? undefined : currentTutorId);
 
   // App-wide favicon badge with unread count (pathname triggers re-apply after navigation)
   useFaviconBadge(unreadCount?.count || 0, pathname);
-
-  // Check for unseen app updates
-  const hasUnseenUpdates = useUnseenUpdates();
-
-  // Fetch admin badge counts (renewal, extension)
-  const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove, selectedLocation);
-  const { data: extensionCount } = usePendingExtensionCount(isAdminOrAbove, selectedLocation);
-  const { isOpen: summerIsOpen, actionableCount: summerActionable } = useSummerSidebarBadge(
-    isAdminOrAbove,
-    selectedLocation,
-  );
-  const { isOpen: regularIsOpen, actionableCount: regularActionable } = useRegularSidebarBadge(
-    isAdminOrAbove,
-    selectedLocation,
-  );
-
-  // Course Renewal is a seasonal surface: it only means anything while the
-  // September intake is taking applications, so it appears for the window and
-  // then goes away rather than sitting empty for ten months. The dates come
-  // from the intake config, so moving the window in the config editor moves
-  // this too.
-  const intakeOpen = useRegularIntakeOpen(!isGuest);
-  // It goes in above Inbox rather than at the end. For the weeks it is here it
-  // is a job somebody has to finish, and the end of the list is where an item
-  // goes to be missed.
-  const mainNavigation = useMemo(() => {
-    if (!intakeOpen) return navigation;
-    const renewal = { name: "Course renewal", href: "/course-renewal", icon: CalendarCheck };
-    const inboxAt = navigation.findIndex((item) => item.name === "Inbox");
-    if (inboxAt === -1) return [...navigation, renewal];
-    return [...navigation.slice(0, inboxAt), renewal, ...navigation.slice(inboxAt)];
-  }, [intakeOpen]);
-
-  // Per-item badge state for the admin nav. Renewals turns red when any
-  // enrollment has expired; Overdue Payments is always red. Summer Course and
-  // Regular Intake show an "Open" pill (or a dot when collapsed) during their
-  // application window when there's nothing to triage.
-  const adminBadgeFor = (name: string) => {
-    const count =
-      name === "Renewals" ? renewalCounts?.total
-      : name === "Overdue payments" ? pendingPayments
-      : name === "Extensions" ? extensionCount?.count
-      : name === "Summer course" ? summerActionable
-      : name === "Regular intake" ? regularActionable
-      : 0;
-    const color =
-      name === "Overdue payments" ? TONES.danger.solid
-      : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? TONES.danger.solid
-      : TONES.warning.solid;
-    const isIntakeOpen =
-      (name === "Summer course" && summerIsOpen) ||
-      (name === "Regular intake" && regularIsOpen);
-    const showOpen = isIntakeOpen && (count ?? 0) <= 0;
-    return { count, color, showOpen };
-  };
 
   // App-wide new message notification toast
   const router = useRouter();
@@ -266,20 +184,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     fetchLocations();
   }, [mounted, setLocations]);
 
-  // Fetch stats for notification bell (when not on dashboard)
-  useEffect(() => {
-    if (!mounted) return;
-
-    async function fetchStats() {
-      try {
-        const stats = await api.stats.getDashboard(selectedLocation);
-        setPendingPayments(stats.pending_payment_enrollments);
-      } catch (error) {
-        // Failed to fetch stats silently
-      }
-    }
-    fetchStats();
-  }, [mounted, isOnDashboard, selectedLocation]);
 
   // Set user's default location on mount
   // - Super Admin: defaults to "All Locations"
@@ -329,46 +233,23 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     };
   }, [mounted, rail, adminExpanded]);
 
-  // Close mobile menu on navigation
-  const handleNavClick = () => {
-    if (onMobileClose) {
-      onMobileClose();
-    }
-  };
-
-  // Sidebar content - shared between desktop and mobile
-  const sidebarContent = (isMobile: boolean, desktopNavRef?: React.RefObject<HTMLElement | null>) => (
+  const sidebarContent = (desktopNavRef?: React.RefObject<HTMLElement | null>) => (
     <>
       {/* Logo Header */}
       <div className="flex-shrink-0 flex min-h-16 items-center justify-between px-3 py-2 border-b border-line">
-        {isMobile ? (
-          // Mobile: Logo + Close button
-          <>
-            <Logo className="h-10 w-auto" />
-            <button
-              onClick={onMobileClose}
-              className="p-2 rounded-lg hover:bg-foreground/10 transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </>
-        ) : (
-          // Desktop: Clickable toggle
-          <button
-            onClick={toggleCollapsed}
-            className="flex w-full items-center rounded-md hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {/* Collapsed, the sidebar is too narrow for the whole logo, so it
-                shows the C and its arrow, and opening draws the rest of the
-                logo out of the C. */}
-            <span className="ml-2">
-              <SidebarLogo open={!isCollapsed} animate={toggled} />
-            </span>
-          </button>
-        )}
+        <button
+          onClick={toggleCollapsed}
+          className="flex w-full items-center rounded-md hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {/* Collapsed, the sidebar is too narrow for the whole logo, so it
+              shows the C and its arrow, and opening draws the rest of the
+              logo out of the C. */}
+          <span className="ml-2">
+            <SidebarLogo open={!isCollapsed} animate={toggled} />
+          </span>
+        </button>
       </div>
 
       {/* Navigation */}
@@ -378,12 +259,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           className="h-full overflow-y-auto scrollbar-hide"
         >
         <nav className="space-y-1 px-3 py-3">
-        {mainNavigation
-          // Filter out Inbox for Guest (read-only role; Supervisors get broadcast-only view)
-          .filter((item) => !(item.name === "Inbox" && isGuest))
-          .map((item) => {
+        {mainNavigation.map((item) => {
           const isActive = pathname === item.href;
-          const showExpanded = isMobile || !rail;
+          const showExpanded = !rail;
           return (
             <div
               key={item.name}
@@ -396,7 +274,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <Link
                 href={item.href}
                 prefetch={true}
-                onClick={handleNavClick}
                 style={{
                   transition: `background-color ${isActive ? '350ms' : '200ms'} var(--ease-out), color ${isActive ? '350ms' : '200ms'} var(--ease-out)`
                 }}
@@ -476,7 +353,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Admin Section - Only visible to Admin/Super Admin */}
         {isAdminOrAbove && (() => {
-          const showExpanded = isMobile || !rail;
+          const showExpanded = !rail;
           return (
             <div className="mt-2 pt-2 border-t border-line">
               {/* Admin Header - Clickable to expand/collapse. Collapsed, the
@@ -517,7 +394,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               )}>
                 <div className="overflow-hidden">
                 <div className="mt-1 space-y-1">
-                  {adminNavigation.map((item) => {
+                  {ADMIN_NAV.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     const { count: badgeCount, color: badgeColor, showOpen } = adminBadgeFor(item.name);
                     return (
@@ -529,7 +406,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       >
                         <Link
                           href={item.href}
-                          onClick={handleNavClick}
                           aria-label={showExpanded ? undefined : item.name}
                           className={cn(
                             ADMIN_ITEM,
@@ -583,7 +459,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     >
                       <Link
                         href="/admin/debug"
-                        onClick={handleNavClick}
                         aria-label={showExpanded ? undefined : "Debug"}
                         className={cn(
                           ADMIN_ITEM,
@@ -611,7 +486,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 puts the bell on the menu's icon column, open or closed. */}
             <div className="flex items-center gap-0.5 whitespace-nowrap pl-1 text-sm font-medium text-foreground/70">
               <NotificationBell pendingPayments={pendingPayments} location={selectedLocation} tutorId={currentTutorId} showOverduePayments={isAdmin} />
-              {(isMobile || !rail) && (
+              {!rail && (
                 <span>Notifications</span>
               )}
             </div>
@@ -621,12 +496,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {/* The mini calendar and the Center / My view switch scroll with the
             nav. Pinned to the bottom they took about 270px, which pushed the
             last admin links out of sight on a 900px-tall screen. */}
-        {(isMobile || !rail) && (
+        {!rail && (
           <div className="border-t border-line p-3">
             <WeeklyMiniCalendar />
           </div>
         )}
-        {(isMobile || !rail) && (
+        {!rail && (
           <div className="border-t border-line px-3 py-2">
             <div role="group" aria-label="Whose sessions to show" className="flex gap-0.5 rounded-md border border-line bg-tint p-0.5">
               {([["center-view", "Center"], ["my-view", "My view"]] as const).map(([mode, label]) => (
@@ -680,7 +555,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             : user?.picture;
           const displayPicture = rawPicture?.startsWith("http") ? rawPicture : undefined;
 
-          const collapsed = !isMobile && rail;
+          const collapsed = rail;
           // One layout open or closed: the picture is the same size and in the
           // same place, centred on the menu's icon column, so it holds still
           // while the sidebar moves, and the name is uncovered beside it.
@@ -823,7 +698,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               href="/settings"
               onClick={() => {
                 setIsUserMenuOpen(false);
-                if (onMobileClose) onMobileClose();
               }}
               className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
             >
@@ -836,7 +710,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               href="/whats-new"
               onClick={() => {
                 setIsUserMenuOpen(false);
-                if (onMobileClose) onMobileClose();
               }}
               className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
             >
@@ -851,7 +724,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             <button
               onClick={() => {
                 setIsUserMenuOpen(false);
-                if (onMobileClose) onMobileClose();
                 window.dispatchEvent(new CustomEvent("open-feedback"));
               }}
               className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1 w-full"
@@ -904,31 +776,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         }}
       >
         <div className={cn("flex h-full shrink-0 flex-col", rail ? "w-[71px]" : "w-[255px]")}>
-          {sidebarContent(false, navRef)}
+          {sidebarContent(navRef)}
         </div>
-      </div>
-
-      {/* Mobile Drawer - hidden on desktop */}
-      {/* Backdrop */}
-      <div
-        className={cn(
-          "fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300",
-          isMobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onMobileClose}
-        aria-hidden="true"
-      />
-
-      {/* Drawer */}
-      <div
-        data-sidebar-panel
-        className={cn(
-          "fixed inset-y-0 left-0 w-72 flex flex-col border-r border-line bg-paper z-50 md:hidden",
-          "transition-transform duration-300 ease-out",
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        {sidebarContent(true)}
       </div>
 
       {/* Feedback Panel (manages own open/close state) */}

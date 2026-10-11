@@ -2,11 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { PullToRefresh } from "./PullToRefresh";
+import { BottomTabBar } from "./BottomTabBar";
+import { MoreSheet } from "./MoreSheet";
+import { useNavigation } from "./useNavigation";
 import { Logo } from "@/components/brand/Logo";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "@/contexts/LocationContext";
+import { useBottomBarHidden } from "@/lib/app-chrome";
 import { MAIN_CONTENT_ID } from "@/lib/scroll";
 import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
 import { applyShape } from "@/lib/shape";
@@ -30,7 +37,6 @@ function offersPullToRefresh(pathname: string | null) {
 
 export function LayoutShell({ children }: LayoutShellProps) {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
   const isPublic = isPublicSubdomain() || isPublicPath(pathname);
 
@@ -56,38 +62,25 @@ export function LayoutShell({ children }: LayoutShellProps) {
     // The side padding keeps the app clear of a notch when a phone is turned
     // sideways. It is 0 everywhere else.
     <div className="flex h-dvh overflow-hidden pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
-      {!isLoginPage && (
-        <Sidebar
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      {!isLoginPage && <Sidebar />}
 
       <div className="relative flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header with Hamburger - only visible on mobile, hidden on login */}
+        {/* The phone's top bar: the logo, the bell and search. The pages
+            themselves are in the bottom bar. Hidden on the sign-in page. */}
         {!isLoginPage && (
-        <header className="flex md:hidden items-center justify-between h-14 px-4 border-b border-line bg-paper">
-          {/* Left: Hamburger + Logo */}
+        <header className="flex md:hidden items-center justify-between h-14 pl-4 pr-1 border-b border-line bg-paper">
+          {/* The header is too small for PRO to be read, so it shows the logo without it. */}
+          <Logo variant="no-pro" className="h-8 w-auto" />
           <div className="flex items-center">
+            <PhoneBell />
             <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 -ml-2 rounded-lg hover:bg-foreground/10 transition-colors"
-              aria-label="Open menu"
+              onClick={openCommandPalette}
+              className="flex h-11 w-11 items-center justify-center rounded-lg active:bg-foreground/10 transition-colors"
+              aria-label="Search"
             >
-              <Menu className="h-6 w-6" />
+              <Search className="h-5 w-5" />
             </button>
-            {/* The header is too small for PRO to be read, so it shows the logo without it. */}
-            <Logo variant="no-pro" className="ml-2 h-8 w-auto" />
           </div>
-
-          {/* Right: Search button */}
-          <button
-            onClick={openCommandPalette}
-            className="p-2 -mr-2 rounded-lg hover:bg-foreground/10 transition-colors"
-            aria-label="Search"
-          >
-            <Search className="h-5 w-5" />
-          </button>
         </header>
         )}
 
@@ -98,7 +91,56 @@ export function LayoutShell({ children }: LayoutShellProps) {
         <main id={MAIN_CONTENT_ID} className="flex-1 overflow-auto overscroll-y-none bg-background" tabIndex={-1}>
           {children}
         </main>
+        {!isLoginPage && <PhoneNav />}
       </div>
     </div>
+  );
+}
+
+// The bell, in the phone's top bar since the sidebar that holds it on a wider
+// screen is hidden there. Like the sidebar's, it steps aside on the dashboard,
+// which has a bell of its own.
+function PhoneBell() {
+  const pathname = usePathname();
+  const { isAdmin } = useAuth();
+  const { selectedLocation } = useLocation();
+  const { currentTutorId, pendingPayments } = useNavigation();
+  if (pathname === "/") return null;
+  return (
+    <NotificationBell
+      pendingPayments={pendingPayments}
+      location={selectedLocation}
+      tutorId={currentTutorId}
+      showOverduePayments={isAdmin}
+    />
+  );
+}
+
+// The bottom bar and the More sheet it opens. While the bar is up, toasts and
+// floating buttons are told to sit above it, through --app-bottom-inset.
+function PhoneNav() {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const hidden = useBottomBarHidden();
+  const pathname = usePathname();
+
+  // Moving to another page closes the sheet, whichever way the move happened.
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (hidden) return;
+    document.documentElement.dataset.bottomBar = "";
+    return () => {
+      delete document.documentElement.dataset.bottomBar;
+    };
+  }, [hidden]);
+
+  if (hidden) return null;
+  return (
+    <>
+      <BottomTabBar moreOpen={moreOpen} onMore={() => setMoreOpen(true)} />
+      <MoreSheet isOpen={moreOpen} onClose={() => setMoreOpen(false)} />
+    </>
   );
 }

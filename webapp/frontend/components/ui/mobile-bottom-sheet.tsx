@@ -10,6 +10,12 @@ interface MobileBottomSheetProps {
   onClose: () => void;
   children: ReactNode;
   title?: string;
+  /**
+   * A header of the sheet's own, in place of the title and close button,
+   * such as the More sheet's profile row. It sits in the strip that stays at
+   * the top and that pulls the sheet down, like the title does.
+   */
+  header?: (close: () => void) => ReactNode;
   className?: string;
 }
 
@@ -44,6 +50,7 @@ export function MobileBottomSheet({
   onClose,
   children,
   title,
+  header,
   className,
 }: MobileBottomSheetProps) {
   // Whether the sheet is on screen, which outlasts isOpen by the length of
@@ -82,7 +89,7 @@ export function MobileBottomSheet({
           className,
         )}
         header={
-          title && (
+          header ? header(sheet.close) : title && (
             <div className="flex items-center justify-between px-4 pb-3 border-b border-line">
               <h2 className="text-lg font-semibold">{title}</h2>
               <button

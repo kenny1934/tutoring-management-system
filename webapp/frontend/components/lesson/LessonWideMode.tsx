@@ -6,6 +6,7 @@ import {
   LayoutList, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHideBottomBar } from "@/lib/app-chrome";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, compareByStudentId, loopStep, stampFor, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
 import { prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
@@ -119,6 +120,8 @@ export function LessonWideMode({
   isReadOnly,
   unlistedLessons = NO_UNLISTED_LESSONS,
 }: LessonWideModeProps) {
+  // A lesson needs all of a phone's height, so the bottom bar steps aside.
+  useHideBottomBar();
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 

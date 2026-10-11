@@ -6,6 +6,7 @@ import {
   LayoutList, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHideBottomBar } from "@/lib/app-chrome";
 import { getDisplayName, getExerciseDisplayName } from "@/lib/exercise-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { getExercisePageNumbers, getStudentIdDisplay, stampFor, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
@@ -67,6 +68,8 @@ export function LessonMode({
   onSessionDataChange,
   isReadOnly,
 }: LessonModeProps) {
+  // A lesson needs all of a phone's height, so the bottom bar steps aside.
+  useHideBottomBar();
   const currentSession = session;
   const previousSession = session.previous_session ?? null;
   const { selectedLocation } = useLocation();

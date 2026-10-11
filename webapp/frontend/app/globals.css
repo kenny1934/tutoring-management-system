@@ -755,6 +755,13 @@ html {
 :root {
   --app-bottom-inset: env(safe-area-inset-bottom, 0px);
 }
+/* On a phone the bottom bar is 64px tall, above the home bar. Lesson mode puts
+   the bar away, and with it this attribute. */
+@media (max-width: 767px) {
+  :root[data-bottom-bar] {
+    --app-bottom-inset: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
 
 /* manipulation turns off double-tap to zoom on controls, which is what makes
    a browser wait a moment after a tap to see whether a second one follows.
