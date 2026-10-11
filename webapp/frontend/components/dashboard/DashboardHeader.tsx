@@ -23,6 +23,7 @@ import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
+import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CHEVRON, QUICK_LINKS_ROW } from "./quick-link-style";
 
 
 interface DashboardHeaderProps {
@@ -82,7 +83,10 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
       <div className="px-4 sm:px-6 py-2 border-b border-line bg-tint">
-        <div className="flex items-center justify-between gap-3">
+        {/* On a phone the date strip goes above the greeting, the full width
+            of the card, so the greeting and the day's line underneath it have
+            the whole width too instead of wrapping beside it. */}
+        <div className="flex max-sm:flex-col-reverse max-sm:items-stretch sm:items-center justify-between gap-2 sm:gap-3">
           {/* Welcome message, and the day's line under it */}
           <div className="min-w-0">
             <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
@@ -163,7 +167,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       {/* Bottom section: Quick Links (hidden for Guest role) */}
       {!isGuest && <div className="px-4 sm:px-6 py-3">
         {/* Quick Links */}
-        <div className="flex flex-wrap gap-2 sm:gap-3">
+        <div className={QUICK_LINKS_ROW}>
           {quickLinks.map((link) => {
             const Icon = link.icon;
 
@@ -175,10 +179,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     ref={refs.setReference}
                     {...getReferenceProps()}
                     className={cn(
-                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                      "bg-card border border-line-strong",
-                      "text-accent-ink",
-                      "hover:bg-tint hover:shadow-sm",
+                      QUICK_LINK,
+                      "bg-card",
                       toolsOpen && "bg-tint dark:bg-tint shadow-sm"
                     )}
                   >
@@ -186,6 +188,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     <span title={link.label}>Tools</span>
                     <ChevronDown className={cn(
                       "h-3.5 w-3.5 transition-transform",
+                      QUICK_LINK_CHEVRON,
                       toolsOpen && "rotate-180"
                     )} />
                   </button>
@@ -269,14 +272,13 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     key={link.id}
                     disabled
                     className={cn(
-                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium",
-                      "bg-card border border-line-strong",
-                      "text-accent-ink/50 cursor-wait"
+                      QUICK_LINK,
+                      "bg-card text-accent-ink/50 cursor-wait"
                     )}
                   >
                     <CalendarClock className="h-4 w-4" />
                     <span>Make-up</span>
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <ChevronDown className={cn("h-3.5 w-3.5", QUICK_LINK_CHEVRON)} />
                   </button>
                 );
               }
@@ -299,10 +301,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 key={link.id}
                 href={link.href || '#'}
                 className={cn(
-                  "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                  "bg-card border border-line-strong",
-                  "text-accent-ink",
-                  "hover:bg-tint dark:hover:bg-tint hover:shadow-sm",
+                  QUICK_LINK,
+                  "bg-card dark:hover:bg-tint",
                   link.href === '#' && "opacity-70 cursor-not-allowed"
                 )}
                 onClick={(e) => {
@@ -321,12 +321,12 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   {link.id === 'terminated' && 'Termed'}
                 </span>
                 {link.id === 'parents' && contactNeeded?.count != null && contactNeeded.count > 0 && (
-                  <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid)}>
+                  <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid, QUICK_LINK_BADGE)}>
                     {contactNeeded.count > 99 ? "99+" : contactNeeded.count}
                   </span>
                 )}
                 {link.id === 'terminated' && reviewCount?.in_review_period && reviewCount.count > 0 && (
-                  <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid)}>
+                  <span className={cn("flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full", TONES.warning.solid, QUICK_LINK_BADGE)}>
                     {reviewCount.count > 99 ? "99+" : reviewCount.count}
                   </span>
                 )}

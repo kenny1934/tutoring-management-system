@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CHEVRON } from "./quick-link-style";
 import { formatDateCompact } from "@/lib/formatters";
 import { arkLeaveAPI, authAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1362,18 +1363,16 @@ export function LeaveQuickLink({ className }: { className?: string }) {
         ref={refs.setReference}
         {...getReferenceProps()}
         className={cn(
-          "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-          "bg-field-fill dark:bg-field-fill border border-line-strong",
-          "text-accent-ink",
-          "hover:bg-tint hover:shadow-sm",
+          QUICK_LINK,
+          "bg-field-fill dark:bg-field-fill",
           isOpen && "bg-tint dark:bg-tint shadow-sm"
         )}
       >
         <Palmtree className="h-4 w-4" />
         <span className="hidden xs:inline">Leave record</span>
         <span className="xs:hidden">Leave</span>
-        <CountBadge count={badgeCount} tone="danger" />
-        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
+        <CountBadge count={badgeCount} tone="danger" className={QUICK_LINK_BADGE} />
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", QUICK_LINK_CHEVRON, isOpen && "rotate-180")} />
       </button>
 
       {isOpen && (
