@@ -24,7 +24,10 @@ export function Tooltip({ content, children, align = "center", side = "bottom", 
           "px-3 py-1.5 text-xs font-normal text-left leading-relaxed",
           "bg-[#3d3628] dark:bg-[#fef9f3] text-white dark:text-[#3d3628]",
           "rounded-md shadow-lg whitespace-normal w-max max-w-[220px]",
-          "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
+          // Shrunk to nothing while hidden as well as transparent. An invisible
+          // box still counts towards the page's width, and near the right edge
+          // it let a phone's page slide sideways under the thumb.
+          "opacity-0 scale-0 group-hover:opacity-100 group-hover:scale-100 transition-opacity duration-150",
           "z-[100]",
           className
         )}
