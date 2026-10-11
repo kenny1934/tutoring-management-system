@@ -807,6 +807,22 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   }
 }
 
+/* Holding a finger on a button, a tab, or a link in the app's own bars opens
+   the browser's link menu or selects the label, which a phone's own apps
+   never do. On a touch screen neither happens there. Links and text in the
+   page itself keep both, so a name or a message can still be copied. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  [role="tab"],
+  nav a,
+  header a {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* Selection styling */
 ::selection {
   background-color: var(--color-primary);
