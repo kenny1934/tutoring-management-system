@@ -53,7 +53,7 @@ TEXT_CONTENT = {
 BANNER_IMAGE_URL = "/summer/summer-banner.jpg"
 
 LOCATION_IMAGES = {
-    "Jardim de Vasco Center": "/summer/vasco-center.jpg",
+    "Vasco Center": "/summer/vasco-center.jpg",
     "Flora Garden Center": "/summer/flora-center.jpg",
 }
 
@@ -61,7 +61,7 @@ LOCATION_IMAGES = {
 DEFAULT_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"]
 
 LOCATION_OPEN_DAYS = {
-    "Jardim de Vasco Center": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    "Vasco Center": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     "Flora Garden Center": ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
 }
 

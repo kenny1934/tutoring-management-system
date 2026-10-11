@@ -12,7 +12,7 @@ export type BranchContact = { phone: string; wechat: string };
  *  being deactivated and the next one being activated. Same caveat as above:
  *  promote this to a config field if more branches arrive. */
 export const FALLBACK_BRANCHES: Array<{ name: string; name_en: string }> = [
-  { name: "華士古分校", name_en: "Jardim de Vasco Center" },
+  { name: "華士古分校", name_en: "Vasco Center" },
   { name: "二龍喉分校", name_en: "Flora Garden Center" },
 ];
 

@@ -41,7 +41,7 @@ function makeConfig(
     total_lessons: 8,
     pricing_config: { base_fee: 3200 },
     locations: [
-      { name: "華士古分校", name_en: "Jardim de Vasco Center", address: "", open_days: [] },
+      { name: "華士古分校", name_en: "Vasco Center", address: "", open_days: [] },
       { name: "二龍喉分校", name_en: "Flora Garden Center", address: "", open_days: [] },
     ],
     available_grades: [],

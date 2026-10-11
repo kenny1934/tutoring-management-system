@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS summer_course_configs (
 
 **locations JSON example:**
 ```json
-[{"name":"華士古分校","name_en":"Jardim de Vasco Center","address":"澳門若翰亞美打街10號東輝閣地下B座","address_en":"Rua de João de Almeida No 10","open_days":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]}]
+[{"name":"華士古分校","name_en":"Vasco Center","address":"澳門若翰亞美打街10號東輝閣地下B座","address_en":"Rua de João de Almeida No 10","open_days":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]}]
 ```
 
 ### `summer_buddy_groups`
