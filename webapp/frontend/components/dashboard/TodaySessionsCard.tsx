@@ -816,9 +816,10 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
         loadingActionId={loadingActionId}
         // On a phone each lesson's eight or nine labelled buttons took two
         // rows, about three lessons to a screen. Here they keep one row, the
-        // first four and More, which opens the lesson's details with all of
-        // them. The Sessions page still shows the full set.
-        maxVisible={onPhone ? 4 : undefined}
+        // first three and More, which opens the lesson's details with all of
+        // them. The Sessions list shows the same three, so the buttons sit in
+        // the same places on both.
+        maxVisible={onPhone ? 3 : undefined}
         onMore={onRowClick}
         className="mt-1.5 ml-6"
       />
