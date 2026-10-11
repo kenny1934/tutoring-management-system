@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.2.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.2...v2.2.0) (2026-10-12)
+
+
+### New Features
+
+* **CSM as an app on your phone**: you can add CSM to your phone's home screen, and it then opens full screen like any other app.
+* **A bar along the bottom**: on a phone, Home, Sessions, Students and Inbox sit in a bar along the bottom of the screen, and every other page is under More.
+* **Sheets you can pull down**: on a phone, details and windows rise from the bottom of the screen, and you can close them by pulling them down, tapping outside them or going back.
+* **Pull to refresh**: pulling down at the top of Home, Sessions, Students or a student's page on a phone fetches the latest, and CSM also refreshes by itself when you come back to it after a few minutes away.
+* **Swipe between days**: on Sessions on a phone, swiping across the lessons moves to the day before or after, and the arrows beside the date do the same.
+* **Share to WhatsApp**: on a phone, fee messages, make-up messages, schedules and report links open your phone's share sheet, so you can send them straight to a parent.
+* **The right keyboard**: number boxes bring up the number pad, and search boxes no longer autocorrect names and close the keyboard when you press Search.
+* **Opens on a weak signal**: CSM keeps its own files on your phone so it opens quickly on a weak signal, and without a connection it waits for one instead of asking you to sign in.
+* **Unread count on the icon**: once CSM is on your home screen, its icon shows how many unread messages you have.
+* **Signed in for 30 days**: you now stay signed in for 30 days from the last time you opened CSM, and if you do have to sign in, you come back to the page you were on.
+
+
+### Bug Fixes
+
+* **Lessons on a phone**: the time slot bar on Sessions fits on a phone, and the buttons on each lesson are labelled with what they do.
+* **Easier to tap**: small buttons are easier to hit with a finger.
+* **Buttons that waited for a mouse**: buttons that only appeared under a mouse pointer, such as delete and copy, now show on a phone or tablet.
+* **The week on a phone**: the week view on a phone opens at the day you chose, and the hours stay in view as you scroll across the days.
+* **Tutor names on a phone**: the tutor filter on Sessions shows the whole name on a phone.
+* **Quicker pages on a phone**: pages appear more quickly on a phone, and a student's, lesson's or enrollment's page shows its outline at once while it loads.
+* **Signed out mid-lesson**: CSM no longer signs you out after four hours of continuous use.
+* **Vasco Center**: the summer form now calls 華士古 "Vasco Center" in English, as the regular form does.
+
 ## [2.1.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.1...v2.1.2) (2026-10-09)
 
 
