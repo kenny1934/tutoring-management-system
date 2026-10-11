@@ -21,7 +21,7 @@ const ROW = "flex min-h-12 w-full items-center gap-3 px-4 text-[15px] font-mediu
 
 /**
  * Everything on a phone that isn't one of the bottom bar's tabs: the other
- * pages, the admin pages for those who have them, and what the sidebar's
+ * pages, then the admin pages for those who have them, in the sidebar's order, and what the sidebar's
  * account menu holds on a wider screen. It opens from the bar's More tab as a
  * sheet, so it closes the way every sheet does: a pull down, a tap outside,
  * the close button or back.
@@ -108,6 +108,23 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           </div>
         </div>
 
+        {pages.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h3 className={SECTION_LABEL}>Pages</h3>
+            <div className="grid grid-cols-4 gap-2">
+              {pages.map((item) => (
+                <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={onClose}>
+                  {item.name === "Documents" && (
+                    <span className="absolute right-1 top-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                      Beta
+                    </span>
+                  )}
+                </Tile>
+              ))}
+            </div>
+          </section>
+        )}
+
         {isAdminOrAbove && (
           <section className="flex flex-col gap-2">
             <h3 className={SECTION_LABEL}>Admin</h3>
@@ -132,23 +149,6 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               {isSuperAdmin && !isImpersonating && (
                 <Tile item={{ name: "Debug", href: "/admin/debug", icon: Database }} active={pathname?.startsWith("/admin/debug")} onNavigate={onClose} />
               )}
-            </div>
-          </section>
-        )}
-
-        {pages.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h3 className={SECTION_LABEL}>Pages</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {pages.map((item) => (
-                <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={onClose}>
-                  {item.name === "Documents" && (
-                    <span className="absolute right-1 top-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                      Beta
-                    </span>
-                  )}
-                </Tile>
-              ))}
             </div>
           </section>
         )}
