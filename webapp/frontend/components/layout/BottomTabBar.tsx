@@ -7,12 +7,15 @@ import { cn } from "@/lib/utils";
 import { useNavigation } from "./useNavigation";
 
 /** The pages the bar holds. The More sheet lists every other page. */
-export const TAB_HREFS = ["/", "/sessions", "/students", "/inbox"];
+export const TAB_HREFS = ["/", "/students", "/sessions", "/inbox"];
 
+// Sessions sits in the middle of the five, the easiest place for a thumb to
+// reach with either hand, because it is what tutors open most. Home keeps the
+// first place, where people expect it in every app.
 const TABS: { name: string; href: string; icon: LucideIcon }[] = [
   { name: "Home", href: "/", icon: Home },
-  { name: "Sessions", href: "/sessions", icon: Calendar },
   { name: "Students", href: "/students", icon: Users },
+  { name: "Sessions", href: "/sessions", icon: Calendar },
   { name: "Inbox", href: "/inbox", icon: Inbox },
 ];
 
