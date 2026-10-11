@@ -11,7 +11,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
+import { useAsSheet, usePopoverSheet, PopoverShell, fitToScreen } from "@/hooks/usePopoverSheet";
 import { X, HandCoins, GraduationCap, Clock } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,7 @@ export function MoreSessionsPopover({
   });
 
   // On a phone the list is a sheet along the bottom of the screen.
-  const sheet = sheetParts(asSheet, floatingStyles);
+  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose);
 
   // Set reference in useLayoutEffect - runs synchronously after DOM mutations, before paint
   useLayoutEffect(() => {
@@ -68,8 +68,9 @@ export function MoreSessionsPopover({
     }
   }, [triggerRef.current, refs]);
 
+  // A sheet leaves taps outside it to its own backdrop.
   const dismiss = useDismiss(context, {
-    outsidePress: sessionToShow === null, // Disable when child popover is open
+    outsidePress: !asSheet && sessionToShow === null, // Disable when child popover is open
   });
   const { getFloatingProps } = useInteractions([dismiss]);
 
@@ -78,25 +79,25 @@ export function MoreSessionsPopover({
   return (
     <>
       <FloatingPortal>
-        {sheet.backdrop}
-        <div
-          ref={refs.setFloating}
-          style={sheet.style}
-          {...getFloatingProps()}
+        <PopoverShell
+          sheet={sheet}
+          floatingRef={refs.setFloating}
+          floatingProps={getFloatingProps()}
           className={cn(
             "bg-paper border-2 border-line-strong shadow-lg p-4",
             sheet.asSheet
               ? sheet.sheetClass
               : "paper-texture rounded-lg w-[280px] max-h-[400px] overflow-y-auto",
           )}
+          header={
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">
+                {sessions.filter(isCountableSession).length} Sessions
+              </h3>
+              <IconButton label="Close" icon={X} size="sm" onClick={sheet.close} />
+            </div>
+          }
         >
-          {sheet.handle}
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100">
-              {sessions.filter(isCountableSession).length} Sessions
-            </h3>
-            <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
-          </div>
 
           <div className="space-y-1.5">
             {sessions.map((session) => {
@@ -168,7 +169,7 @@ export function MoreSessionsPopover({
               );
             })}
           </div>
-        </div>
+        </PopoverShell>
       </FloatingPortal>
 
       {sessionToShow && (

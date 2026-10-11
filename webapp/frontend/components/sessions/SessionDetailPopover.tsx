@@ -15,7 +15,7 @@ import {
 import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, StickyNote } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
-import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
+import { useAsSheet, usePopoverSheet, PopoverShell, fitToScreen } from "@/hooks/usePopoverSheet";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -630,7 +630,7 @@ export function SessionDetailPopover({
   });
 
   // On a phone the popover is a sheet along the bottom of the screen.
-  const { style: shellStyle, sheetClass, backdrop: sheetBackdrop, handle: sheetHandle } = sheetParts(asSheet, floatingStyles, zIndex);
+  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose, zIndex);
 
   // Use setPositionReference for virtual references (not elements.reference)
   useEffect(() => {
@@ -653,12 +653,13 @@ export function SessionDetailPopover({
   const lessonMenuInteractions = useInteractions([lessonMenuDismiss]);
 
   // Disable click-outside dismissal when any modal is open or anything else
-  // sits above the popover. Escape is handled below instead of here.
+  // sits above the popover. Escape is handled below instead of here. A sheet
+  // leaves taps outside it to its own backdrop.
   const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen || confirmDialogOpen;
   const dismiss = useDismiss(context, {
     enabled: !anyModalOpen && isTopmost,
     escapeKey: false,
-    outsidePress: (event) => !lessonMenu.refs.floating.current?.contains(event.target as Node),
+    outsidePress: asSheet ? false : (event) => !lessonMenu.refs.floating.current?.contains(event.target as Node),
   });
   const { getFloatingProps } = useInteractions([dismiss]);
 
@@ -682,22 +683,20 @@ export function SessionDetailPopover({
 
   const shellClass = cn(
     "bg-paper border-2 border-line-strong shadow-lg p-4",
-    asSheet ? sheetClass : "paper-texture rounded-lg w-[280px]",
+    asSheet ? sheet.sheetClass : "paper-texture rounded-lg w-[280px]",
   );
 
   // Loading skeleton
   if (isLoading || !session) {
     return (
       <FloatingPortal>
-        {sheetBackdrop}
-        <div
-          ref={refs.setFloating}
-          style={shellStyle}
-          {...getFloatingProps()}
+        <PopoverShell
+          sheet={sheet}
+          floatingRef={refs.setFloating}
+          floatingProps={getFloatingProps()}
           className={shellClass}
+          header={<IconButton label="Close" icon={X} size="sm" onClick={sheet.close} className="absolute top-2 right-2" />}
         >
-          {sheetHandle}
-          <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
           <div className="animate-pulse space-y-3">
             <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded" />
             <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded" />
@@ -725,7 +724,7 @@ export function SessionDetailPopover({
             </div>
             <div className="h-8 w-full bg-gray-200 dark:bg-gray-700 rounded mt-4" />
           </div>
-        </div>
+        </PopoverShell>
       </FloatingPortal>
     );
   }
@@ -745,45 +744,46 @@ export function SessionDetailPopover({
 
   return (
     <FloatingPortal>
-      {sheetBackdrop}
-      <div
-        ref={refs.setFloating}
-        style={shellStyle}
-        {...getFloatingProps()}
+      <PopoverShell
+        sheet={sheet}
+        floatingRef={refs.setFloating}
+        floatingProps={getFloatingProps()}
         className={shellClass}
+        header={
+          <>
+            {/* Close button */}
+            <IconButton label="Close" icon={X} size="sm" onClick={sheet.close} className="absolute top-2 right-2" />
+
+            {/* Header */}
+            <div className="mb-3 pr-6">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
+                  {session.school_student_id || "N/A"}
+                </p>
+                <span className="text-[11px] text-gray-500 font-mono">#{session.id}</span>
+                <EditableLessonNumberBadge
+                  lessonNumber={session.lesson_number}
+                  movedLessonNumber={session.moved_lesson_number}
+                  size="sm"
+                  disabled={isReadOnly}
+                  onSave={saveLessonNumber}
+                />
+              </div>
+              <Link
+                href={`/students/${session.student_id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate?.();
+                  onClose();
+                }}
+                className="text-lg font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+              >
+                {session.student_name || "Unknown Student"}
+              </Link>
+            </div>
+          </>
+        }
       >
-        {sheetHandle}
-        {/* Close button */}
-        <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
-
-        {/* Header */}
-        <div className="mb-3 pr-6">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
-              {session.school_student_id || "N/A"}
-            </p>
-            <span className="text-[11px] text-gray-500 font-mono">#{session.id}</span>
-            <EditableLessonNumberBadge
-              lessonNumber={session.lesson_number}
-              movedLessonNumber={session.moved_lesson_number}
-              size="sm"
-              disabled={isReadOnly}
-              onSave={saveLessonNumber}
-            />
-          </div>
-          <Link
-            href={`/students/${session.student_id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onNavigate?.();
-              onClose();
-            }}
-            className="text-lg font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
-          >
-            {session.student_name || "Unknown Student"}
-          </Link>
-        </div>
-
         {detailedSession?.show_handover_first_lesson && detailedSession?.handover_prospect && (
           <div className="mb-3 px-3 py-2.5 rounded-lg border-2 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700">
             <button
@@ -1352,7 +1352,7 @@ export function SessionDetailPopover({
         {!asSheet && <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 dark:text-gray-400 text-center">
           <span className="font-mono">A</span>=Attended <span className="font-mono">N</span>=No Show <span className="font-mono">C</span>=CW <span className="font-mono">H</span>=HW <span className="font-mono">R</span>=Rate <span className="font-mono">E</span>=Edit
         </div>}
-      </div>
+      </PopoverShell>
 
       {/* Modals triggered by keyboard shortcuts */}
       {exerciseModalType && session && (

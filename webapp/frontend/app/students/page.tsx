@@ -23,7 +23,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
+import { useAsSheet, usePopoverSheet, PopoverShell, fitToScreen } from "@/hooks/usePopoverSheet";
 import { studentsAPI } from "@/lib/api";
 import type { Session, Enrollment, CalendarEvent } from "@/types";
 import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
@@ -751,16 +751,45 @@ export default function StudentsPage() {
 }
 
 // Rich popover content component
+// The header sits apart from the rest, because on a phone the sheet keeps it
+// at the top as the handle that pulls the sheet down.
+function RichPopoverHeader({ student, onClose }: { student: Student; onClose: () => void }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/30">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+          <Users className="h-4 w-4 text-accent-ink" />
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
+            {student.student_name}
+          </h3>
+          <p className="text-xs text-gray-500 font-mono">
+            {student.school_student_id || `#${student.id}`}
+          </p>
+        </div>
+      </div>
+      <IconButton
+        label="Close"
+        icon={X}
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      />
+    </div>
+  );
+}
+
 function RichPopoverContent({
   student,
   isMobile,
   saveScrollPosition,
-  onClose,
 }: {
   student: Student;
   isMobile: boolean;
   saveScrollPosition: () => void;
-  onClose: () => void;
 }) {
   // Use SWR hooks for caching (data persists between popover opens)
   const { data: studentDetail, isLoading: loadingDetail } = useStudent(student.id);
@@ -802,32 +831,6 @@ function RichPopoverContent({
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/30">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <Users className="h-4 w-4 text-accent-ink" />
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
-              {student.student_name}
-            </h3>
-            <p className="text-xs text-gray-500 font-mono">
-              {student.school_student_id || `#${student.id}`}
-            </p>
-          </div>
-        </div>
-        <IconButton
-          label="Close"
-          icon={X}
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-        />
-      </div>
-
       {/* Content */}
       <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
         {/* School & Grade Badges */}
@@ -1195,7 +1198,7 @@ function StudentDetailPopover({
   });
 
   // On a phone the popover is a sheet along the bottom of the screen.
-  const sheet = sheetParts(asSheet, floatingStyles);
+  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose);
 
   // Use setPositionReference for virtual references (not elements.reference)
   useEffect(() => {
@@ -1204,32 +1207,32 @@ function StudentDetailPopover({
     }
   }, [virtualReference, refs]);
 
-  const dismiss = useDismiss(context);
+  // A sheet leaves taps outside it to its own backdrop.
+  const dismiss = useDismiss(context, { outsidePress: !asSheet });
   const { getFloatingProps } = useInteractions([dismiss]);
 
   if (!isOpen) return null;
 
   return (
     <FloatingPortal>
-      {sheet.backdrop}
-      <div
-        ref={refs.setFloating}
-        style={sheet.style}
-        {...getFloatingProps()}
+      <PopoverShell
+        sheet={sheet}
+        floatingRef={refs.setFloating}
+        floatingProps={getFloatingProps()}
+        inset={false}
         className={cn(
           "bg-paper border-2 border-line-strong shadow-xl",
           sheet.asSheet ? sheet.sheetClass : "w-80 rounded-lg",
           !sheet.asSheet && !isMobile && "paper-texture"
         )}
+        header={<RichPopoverHeader student={student} onClose={sheet.close} />}
       >
-        {sheet.handle && <div className="pt-3">{sheet.handle}</div>}
         <RichPopoverContent
           student={student}
           isMobile={isMobile}
           saveScrollPosition={saveScrollPosition}
-          onClose={onClose}
         />
-      </div>
+      </PopoverShell>
     </FloatingPortal>
   );
 }

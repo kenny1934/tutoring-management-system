@@ -11,7 +11,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
+import { useAsSheet, usePopoverSheet, PopoverShell, fitToScreen } from "@/hooks/usePopoverSheet";
 import { X, HandCoins, AlertTriangle } from "lucide-react";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { cn } from "@/lib/utils";
@@ -70,7 +70,7 @@ export function MoreEnrollmentsPopover({
   });
 
   // On a phone the list is a sheet along the bottom of the screen.
-  const sheet = sheetParts(asSheet, floatingStyles);
+  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose);
 
   // Set reference in useLayoutEffect - runs synchronously after DOM mutations, before paint
   useLayoutEffect(() => {
@@ -79,8 +79,9 @@ export function MoreEnrollmentsPopover({
     }
   }, [triggerRef.current, refs]);
 
+  // A sheet leaves taps outside it to its own backdrop.
   const dismiss = useDismiss(context, {
-    outsidePress: enrollmentToShow === null, // Disable when child popover is open
+    outsidePress: !asSheet && enrollmentToShow === null, // Disable when child popover is open
   });
   const { getFloatingProps } = useInteractions([dismiss]);
 
@@ -134,25 +135,25 @@ export function MoreEnrollmentsPopover({
   return (
     <>
       <FloatingPortal>
-        {sheet.backdrop}
-        <div
-          ref={refs.setFloating}
-          style={sheet.style}
-          {...getFloatingProps()}
+        <PopoverShell
+          sheet={sheet}
+          floatingRef={refs.setFloating}
+          floatingProps={getFloatingProps()}
           className={cn(
             "bg-paper border-2 border-line-strong shadow-lg p-4",
             sheet.asSheet
               ? sheet.sheetClass
               : "paper-texture rounded-lg w-[min(280px,90vw)] max-h-[400px] overflow-y-auto",
           )}
+          header={
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">
+                {enrollments.length} Students
+              </h3>
+              <IconButton label="Close" icon={X} size="sm" onClick={sheet.close} />
+            </div>
+          }
         >
-          {sheet.handle}
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100">
-              {enrollments.length} Students
-            </h3>
-            <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
-          </div>
 
           <div className="space-y-1">
             {Array.from(groupedEnrollments.entries()).map(([groupKey, groupEnrollments]) => (
@@ -235,7 +236,7 @@ export function MoreEnrollmentsPopover({
               </div>
             ))}
           </div>
-        </div>
+        </PopoverShell>
       </FloatingPortal>
 
       {enrollmentToShow && (

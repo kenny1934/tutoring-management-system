@@ -15,7 +15,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { useAsSheet, sheetParts, fitToScreen } from "@/hooks/usePopoverSheet";
+import { useAsSheet, usePopoverSheet, PopoverShell, fitToScreen } from "@/hooks/usePopoverSheet";
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
@@ -104,7 +104,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   });
 
   // On a phone the popover is a sheet along the bottom of the screen.
-  const sheet = sheetParts(asSheet, floatingStyles);
+  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose);
 
   // Use setPositionReference for virtual references
   useEffect(() => {
@@ -113,7 +113,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     }
   }, [virtualReference, refs]);
 
-  const dismiss = useDismiss(context);
+  // A sheet leaves taps outside it to its own backdrop.
+  const dismiss = useDismiss(context, { outsidePress: !asSheet });
   const { getFloatingProps } = useInteractions([dismiss]);
 
   // Fetch locations and tutors for editing
@@ -331,38 +332,40 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
   return (
     <FloatingPortal>
-      {sheet.backdrop}
-      <div
-        ref={refs.setFloating}
-        style={sheet.style}
-        {...getFloatingProps()}
+      <PopoverShell
+        sheet={sheet}
+        floatingRef={refs.setFloating}
+        floatingProps={getFloatingProps()}
         className={cn(
           "bg-paper border-2 border-line-strong shadow-lg p-4",
           sheet.asSheet ? sheet.sheetClass : "paper-texture rounded-lg w-[min(280px,90vw)]",
         )}
-      >
-        {sheet.handle}
-        {/* Close button */}
-        <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="absolute top-2 right-2" />
+        header={
+          <>
+            {/* Close button */}
+            <IconButton label="Close" icon={X} size="sm" onClick={sheet.close} className="absolute top-2 right-2" />
 
-        {/* Header */}
-        <div className="mb-3 pr-6">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">{enrollment.school_student_id || "N/A"}</span>
-            <span className="text-[11px] text-gray-500 font-mono">#{enrollment.id}</span>
-          </div>
-          <Link
-            href={`/students/${enrollment.student_id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onNavigate?.();
-              onClose();
-            }}
-            className="text-lg font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
-          >
-            {enrollment.student_name || "Unknown Student"}
-          </Link>
-        </div>
+            {/* Header */}
+            <div className="mb-3 pr-6">
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium">{enrollment.school_student_id || "N/A"}</span>
+                <span className="text-[11px] text-gray-500 font-mono">#{enrollment.id}</span>
+              </div>
+              <Link
+                href={`/students/${enrollment.student_id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate?.();
+                  onClose();
+                }}
+                className="text-lg font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+              >
+                {enrollment.student_name || "Unknown Student"}
+              </Link>
+            </div>
+          </>
+        }
+      >
 
         {/* Details */}
         <div className="space-y-2 text-sm mb-4">
@@ -876,7 +879,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
           }}
           onSuccess={handleScheduleChangeSuccess}
         />
-      </div>
+      </PopoverShell>
     </FloatingPortal>
   );
 });
