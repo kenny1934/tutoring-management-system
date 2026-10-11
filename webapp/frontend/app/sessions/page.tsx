@@ -2927,6 +2927,12 @@ function SessionsPageContent() {
                                   size="md"
                                   showLabels
                                   disablePushRight={isMobile}
+                                  // On a phone, three actions and More, which opens
+                                  // the lesson's quick view where the rest are. The
+                                  // checkbox and the status strip leave these cards
+                                  // too narrow for the dashboard's four in one row.
+                                  maxVisible={isMobile ? 3 : undefined}
+                                  onMore={(e) => handleCardClick(session, e)}
                                   hideActions={
                                     (session.session_status.includes('Pending Make-up') || session.session_status.includes('Make-up Booked') || session.session_status === 'Cancelled')
                                       ? ['cw', 'hw', 'rate']
