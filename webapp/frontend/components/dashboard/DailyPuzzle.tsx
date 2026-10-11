@@ -64,7 +64,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
       >
         <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-700" />
         <span className="min-w-0 flex-1 truncate text-xs text-gray-800 dark:text-gray-200">
-          <span className="font-semibold text-gray-600 dark:text-gray-400">Daily puzzle: </span>
+          <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Daily puzzle</span>
           {question.question}
         </span>
         {userAnswer !== null ? (
