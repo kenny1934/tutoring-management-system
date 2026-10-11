@@ -744,7 +744,7 @@ export default function OverduePaymentsPage() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"
+              className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] sm:bottom-[calc(1.5rem+var(--app-bottom-inset))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"
             >
               <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
                 <span className="text-sm font-medium text-foreground">

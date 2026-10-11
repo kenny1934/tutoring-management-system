@@ -994,7 +994,7 @@ export default function RegularArrangementPage() {
               {/* Mobile placing pill, sits above the panel FAB. */}
               {pendingPlacementName !== null && (
                 <div
-                  className="md:hidden fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-4 pr-2 py-2 shadow-lg text-sm max-w-[16rem]"
+                  className="md:hidden fixed bottom-[calc(5rem+var(--app-bottom-inset))] right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-4 pr-2 py-2 shadow-lg text-sm max-w-[16rem]"
                   role="status"
                   aria-live="polite"
                 >
@@ -1015,7 +1015,7 @@ export default function RegularArrangementPage() {
 
               {/* Mobile: floating toggle button */}
               <button
-                className="md:hidden fixed bottom-4 right-4 z-40 rounded-full bg-primary text-primary-foreground p-3 shadow-lg"
+                className="md:hidden fixed bottom-[calc(1rem+var(--app-bottom-inset))] right-4 z-40 rounded-full bg-primary text-primary-foreground p-3 shadow-lg"
                 onClick={() => setMobilePanelOpen(true)}
                 aria-label="Open unassigned applications panel"
               >

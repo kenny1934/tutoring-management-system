@@ -41,7 +41,7 @@ export function ExerciseClipboardWidget() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.95 }}
         transition={{ duration: 0.2 }}
-        className="fixed bottom-4 right-4 z-[10000]"
+        className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] right-4 z-[10000]"
       >
         <div className="bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 rounded-lg shadow-lg backdrop-blur-sm overflow-hidden w-fit min-w-[200px] max-w-xs">
           {/* Collapsed header - always visible */}
