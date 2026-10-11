@@ -8,9 +8,10 @@
  * the first screen, so there each link becomes a small tile instead: the icon
  * over a short label, any count in the tile's corner, and no arrow, since
  * every tile opens something when tapped. The tiles sit in one row that
- * scrolls sideways, the four used most first, with the fifth peeking in at
- * the edge so it's clear there are more. Each link keeps its own background
- * colour.
+ * scrolls sideways, in the same order as on a wider screen so they're where
+ * people's thumbs expect them, with the fifth peeking in under a fade at the
+ * edge (see useScrollFade) so it's clear there are more. Each link keeps its
+ * own background colour.
  */
 export const QUICK_LINK =
   "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all " +
@@ -35,14 +36,3 @@ export const QUICK_LINKS_ROW =
 
 /** What holds each link: on a phone a tile 70px wide, so four fit with about 30px of the fifth peeking in. */
 export const QUICK_LINK_CELL = "max-sm:w-[70px] max-sm:shrink-0 max-sm:snap-start";
-
-/** Where each link sits in the phone's row, the ones used most first. Wider screens keep the page's order. */
-export const PHONE_ORDER: Record<string, string> = {
-  proposals: "max-sm:order-1",
-  parents: "max-sm:order-2",
-  trials: "max-sm:order-3",
-  leave: "max-sm:order-4",
-  tools: "max-sm:order-5",
-  revenue: "max-sm:order-6",
-  terminated: "max-sm:order-7",
-};

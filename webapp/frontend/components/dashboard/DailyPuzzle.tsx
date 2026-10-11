@@ -5,7 +5,7 @@ import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
 import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { cn } from "@/lib/utils";
-import { Lightbulb, Check, X, Loader2, ChevronRight } from "lucide-react";
+import { Lightbulb, Check, X, Loader2, ChevronRight, ChevronUp } from "lucide-react";
 
 // An answer longer than this won't share a phone's line with three others.
 const LONG_ANSWER = 12;
@@ -130,6 +130,20 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
               </span>
             )}
           </span>
+        )}
+        {/* On a phone, folds the puzzle back to its one line. */}
+        {onPhone && (
+          <button
+            type="button"
+            onClick={() => setUnfolded(false)}
+            aria-label="Fold the puzzle away"
+            className={cn(
+              "-my-1 -mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-subtle active:bg-tint",
+              userAnswer === null && "ml-auto",
+            )}
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
         )}
       </div>
 

@@ -23,7 +23,8 @@ import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
-import { PHONE_ORDER, QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CELL, QUICK_LINK_CHEVRON, QUICK_LINKS_ROW } from "./quick-link-style";
+import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CELL, QUICK_LINK_CHEVRON, QUICK_LINKS_ROW } from "./quick-link-style";
+import { useScrollFade } from "./useScrollFade";
 
 
 interface DashboardHeaderProps {
@@ -72,6 +73,9 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
 
   // Floating UI dropdowns
   const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(toolsOpen, setToolsOpen);
+
+  // The quick links' row scrolls sideways on a phone, and its edges fade while there's more.
+  const linksFade = useScrollFade<HTMLDivElement>();
 
   return (
     <div className={cn(
@@ -170,14 +174,14 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       {/* Bottom section: Quick Links (hidden for Guest role) */}
       {!isGuest && <div className="px-4 sm:px-6 py-3">
         {/* Quick Links */}
-        <div className={QUICK_LINKS_ROW}>
+        <div ref={linksFade.ref} style={linksFade.style} className={QUICK_LINKS_ROW}>
           {quickLinks.map((link) => {
             const Icon = link.icon;
 
             // Special handling for Useful Tools (dropdown)
             if (link.id === 'tools') {
               return (
-                <div key={link.id} className={cn("relative", QUICK_LINK_CELL, PHONE_ORDER.tools)}>
+                <div key={link.id} className={cn("relative", QUICK_LINK_CELL)}>
                   <button
                     ref={refs.setReference}
                     {...getReferenceProps()}
@@ -271,7 +275,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               // Show placeholder while loading, then full component
               if (!currentTutorId) {
                 return (
-                  <div key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER.proposals)}>
+                  <div key={link.id} className={QUICK_LINK_CELL}>
                   <button
                     disabled
                     className={cn(
@@ -286,22 +290,22 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   </div>
                 );
               }
-              return <ProposalQuickLink key={link.id} tutorId={currentTutorId} className={cn(QUICK_LINK_CELL, PHONE_ORDER.proposals)} />;
+              return <ProposalQuickLink key={link.id} tutorId={currentTutorId} className={QUICK_LINK_CELL} />;
             }
 
             // Special handling for Trials
             if (link.id === 'trials') {
-              return <TrialsQuickLink key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER.trials)} />;
+              return <TrialsQuickLink key={link.id} className={QUICK_LINK_CELL} />;
             }
 
             // Leave Record — dropdown with ARK leave data
             if (link.id === 'leave') {
-              return <LeaveQuickLink key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER.leave)} />;
+              return <LeaveQuickLink key={link.id} className={QUICK_LINK_CELL} />;
             }
 
             // Regular link pills
             return (
-              <div key={link.id} className={cn(QUICK_LINK_CELL, PHONE_ORDER[link.id])}>
+              <div key={link.id} className={QUICK_LINK_CELL}>
               <Link
                 href={link.href || '#'}
                 className={cn(
