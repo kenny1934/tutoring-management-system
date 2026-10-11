@@ -25,16 +25,26 @@ interface LayoutShellProps {
 }
 
 // The pages that offer pull-to-refresh: the lists a tutor checks through the
-// day, and a student's page. A lesson's page is left out, because lesson mode
-// opens inside it, and a pull down on the board is someone drawing.
+// day, the inbox, and a student's or an enrolment's page. A lesson's page is
+// left out, because lesson mode opens inside it, and a pull down on the board
+// is someone drawing. Documents is left out because its cards can be dragged
+// into folders, and a pull that starts on a card would fight the drag.
+const PULL_TO_REFRESH_PAGES = new Set([
+  "/",
+  "/sessions",
+  "/students",
+  "/inbox",
+  "/parent-contacts",
+  "/trials",
+  "/proposals",
+  "/unchecked-attendance",
+  "/overdue-payments",
+  "/course-renewal",
+]);
+
 function offersPullToRefresh(pathname: string | null) {
   if (!pathname) return false;
-  return (
-    pathname === "/" ||
-    pathname === "/sessions" ||
-    pathname === "/students" ||
-    /^\/students\/\d+$/.test(pathname)
-  );
+  return PULL_TO_REFRESH_PAGES.has(pathname) || /^\/(students|enrollments)\/\d+$/.test(pathname);
 }
 
 export function LayoutShell({ children }: LayoutShellProps) {
