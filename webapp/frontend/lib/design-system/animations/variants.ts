@@ -30,3 +30,14 @@ export const pageVariants: Variants = {
     },
   },
 };
+
+/** The same entrance as pageVariants, in the time a phone user expects. */
+export const quickPageVariants: Variants = {
+  initial: pageVariants.initial,
+  enter: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.15, ease: "easeOut" },
+  },
+  exit: pageVariants.exit,
+};
