@@ -447,10 +447,23 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   {flattenSummerClusters(group.sessions).map(({ session, classHeader }, idx, flatRows) => {
                     const prevSession = idx > 0 ? flatRows[idx - 1].session : null;
                     const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
+                    // A slot's rows come grouped by tutor, so in center view
+                    // each tutor's group opens with their name and how many
+                    // lessons they have in the slot. The rows then leave the
+                    // name out, which on a phone they had no room for anyway.
+                    const opensTutorGroup = !tutorId && !!session.tutor_name && (idx === 0 || isNewTutor);
+                    const tutorLessons = opensTutorGroup
+                      ? group.sessions.filter((s) => s.tutor_name === session.tutor_name && isCountableSession(s)).length
+                      : 0;
 
                     return (
                       <div key={session.id}>
-                        {isNewTutor && (
+                        {opensTutorGroup ? (
+                          <div className={cn("flex items-center gap-1 px-3 pt-2 pb-1 text-xs text-ink-subtle", idx > 0 && "border-t-2 border-line")}>
+                            <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} className="font-semibold text-gray-700 dark:text-gray-300" />
+                            {tutorLessons > 0 && <span>· {tutorLessons}</span>}
+                          </div>
+                        ) : isNewTutor && (
                           <div className="border-t-2 border-dashed border-line-strong my-1" />
                         )}
                         {classHeader && (
@@ -460,6 +473,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                           session={session}
                           isAlternate={idx % 2 === 1}
                           isSelected={selectedIds.has(session.id)}
+                          showTutor={!!tutorId}
                           onToggleSelect={() => toggleSelect(session.id)}
                           onRowClick={(e) => {
                             setClickPosition({ x: e.clientX, y: e.clientY });
@@ -681,6 +695,8 @@ interface SessionRowProps {
   session: Session;
   isAlternate: boolean;
   isSelected: boolean;
+  /** Center view names the tutor once above their group, so its rows don't. */
+  showTutor: boolean;
   onToggleSelect: () => void;
   onRowClick: (e: React.MouseEvent) => void;
   isLoading?: boolean;
@@ -688,7 +704,7 @@ interface SessionRowProps {
   onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
 }
 
-const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
+const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, showTutor, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
   const { selectedLocation } = useLocation();
   const onPhone = useAsSheet();
   const displayStatus = getDisplayStatus(session);
@@ -787,7 +803,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           )}
 
           {/* Tutor */}
-          {session.tutor_name && (
+          {showTutor && session.tutor_name && (
             <span className="hidden sm:inline text-[11px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
               <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
             </span>
