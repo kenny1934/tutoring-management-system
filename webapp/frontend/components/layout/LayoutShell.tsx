@@ -101,14 +101,13 @@ export function LayoutShell({ children }: LayoutShellProps) {
 }
 
 // The bell, in the phone's top bar since the sidebar that holds it on a wider
-// screen is hidden there. Like the sidebar's, it steps aside on the dashboard,
-// which has a bell of its own.
+// screen is hidden there. It stays put on the dashboard too, so the bell is in
+// the same place on every page, and the dashboard card's own bell is the one
+// that steps aside on a phone.
 function PhoneBell() {
-  const pathname = usePathname();
   const { isAdmin } = useAuth();
   const { selectedLocation } = useLocation();
   const { currentTutorId, pendingPayments } = useNavigation();
-  if (pathname === "/") return null;
   return (
     <NotificationBell
       pendingPayments={pendingPayments}

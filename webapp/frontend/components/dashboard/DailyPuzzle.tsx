@@ -1,8 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
+import { useAsSheet } from "@/hooks/usePopoverSheet";
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { cn } from "@/lib/utils";
 import { Lightbulb, Check, X, Loader2 } from "lucide-react";
+
+// An answer longer than this won't share a phone's line with three others.
+const LONG_ANSWER = 12;
 
 interface DailyPuzzleProps {
   className?: string;
@@ -17,6 +23,8 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
     isCorrect,
     submitAnswer,
   } = useDailyPuzzle();
+  const onPhone = useAsSheet();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Loading state
   if (isLoading) {
@@ -34,6 +42,30 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
   if (error || !question) {
     return null;
   }
+
+  // Four short answers sit on one line as pills. About a fifth of the puzzles
+  // have answers a sentence long, though, and on a phone those wrapped into a
+  // stack of rows that pushed today's lessons down. There the card shows a
+  // button instead, and the answers open in a sheet, one full-width row each.
+  const sheetAnswers = onPhone && question.allAnswers.some((answer) => answer.length > LONG_ANSWER);
+
+  // The colours an answer takes before and after the day's guess.
+  const answerTone = (answer: string) => {
+    const showAsCorrect = userAnswer !== null && answer === question.correctAnswer;
+    const showAsIncorrect = userAnswer === answer && !isCorrect;
+    return cn(
+      "transition-all",
+      // Base state (unanswered)
+      userAnswer === null && "bg-field-fill border-line-strong text-accent-ink hover:bg-tint cursor-pointer",
+      // Correct answer (after answering)
+      showAsCorrect && "bg-green-100 dark:bg-green-900/40 border-green-500 dark:border-green-600 text-green-700 dark:text-green-300 ring-2 ring-green-500/30",
+      // Wrong selection
+      showAsIncorrect && "bg-red-100 dark:bg-red-900/40 border-red-500 dark:border-red-600 text-red-700 dark:text-red-300 ring-2 ring-red-500/30",
+      // Disabled non-selected options
+      userAnswer !== null && !showAsCorrect && !showAsIncorrect &&
+        "opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400",
+    );
+  };
 
   return (
     <div className={cn("py-1.5 px-4 sm:px-6", className)}>
@@ -70,53 +102,42 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
         {question.question}
       </p>
 
-      {/* Answer Buttons */}
-      <div className="flex flex-wrap gap-1.5">
-        {question.allAnswers.map((answer) => {
-          const isSelected = userAnswer === answer;
-          const isCorrectAnswer = answer === question.correctAnswer;
-          const showAsCorrect = userAnswer !== null && isCorrectAnswer;
-          const showAsIncorrect = isSelected && !isCorrect;
-
-          return (
+      {sheetAnswers ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="px-3 py-1 text-xs font-medium rounded-full border border-line-strong bg-field-fill text-accent-ink active:bg-tint"
+          >
+            {userAnswer === null ? "Choose an answer" : "See the answers"}
+          </button>
+          <MobileBottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title="Daily puzzle">
+            <div className="flex flex-col gap-2 px-4 pt-3 pb-4">
+              <p className="text-sm text-foreground leading-relaxed mb-1">{question.question}</p>
+              {question.allAnswers.map((answer) => (
+                <button
+                  key={answer}
+                  onClick={() => submitAnswer(answer)}
+                  disabled={userAnswer !== null}
+                  className={cn("w-full px-4 py-3 text-sm text-left font-medium rounded-xl border", answerTone(answer))}
+                >
+                  {answer}
+                </button>
+              ))}
+            </div>
+          </MobileBottomSheet>
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {question.allAnswers.map((answer) => (
             <button
               key={answer}
               onClick={() => submitAnswer(answer)}
               disabled={userAnswer !== null}
               className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-full border transition-all",
-                // Base state (unanswered)
-                userAnswer === null && [
-                  "bg-field-fill dark:bg-field-fill",
-                  "border-line-strong dark:border-line-strong",
-                  "text-accent-ink dark:text-accent-ink",
-                  "hover:bg-tint",
-                  "hover:scale-[1.02] active:scale-[0.98]",
-                  "cursor-pointer",
-                ],
-                // Correct answer (after answering)
-                showAsCorrect && [
-                  "bg-green-100 dark:bg-green-900/40",
-                  "border-green-500 dark:border-green-600",
-                  "text-green-700 dark:text-green-300",
-                  "ring-2 ring-green-500/30",
-                ],
-                // Wrong selection
-                showAsIncorrect && [
-                  "bg-red-100 dark:bg-red-900/40",
-                  "border-red-500 dark:border-red-600",
-                  "text-red-700 dark:text-red-300",
-                  "ring-2 ring-red-500/30",
-                ],
-                // Disabled non-selected options
-                userAnswer !== null &&
-                  !showAsCorrect &&
-                  !showAsIncorrect && [
-                    "opacity-50 cursor-not-allowed",
-                    "bg-gray-50 dark:bg-gray-800",
-                    "border-gray-300 dark:border-gray-600",
-                    "text-gray-500 dark:text-gray-400",
-                  ]
+                "px-2.5 py-1 text-xs font-medium rounded-full border",
+                answerTone(answer),
+                userAnswer === null && "hover:scale-[1.02] active:scale-[0.98]",
               )}
               style={{
                 transition: "all 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00)",
@@ -124,9 +145,9 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
             >
               {answer}
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

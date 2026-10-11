@@ -156,7 +156,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         ) : stats ? (
           <HeaderStats stats={stats} tutorId={tutorId} />
         ) : null}
-        <div className="ml-auto px-4 sm:px-6 flex items-center gap-2">
+        {/* Below 768px the bell is in the app's top bar, as on every page. */}
+        <div className="ml-auto px-4 sm:px-6 flex items-center gap-2 max-md:hidden">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
         </div>
       </div>
