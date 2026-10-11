@@ -2,10 +2,11 @@
 
 import { useEffect, useCallback, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { useOverlayLayer, type OverlayLayer } from "@/hooks/useOverlayLayer";
 import { useBackToClose } from "@/hooks/useBackToClose";
+import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { cn } from "@/lib/utils";
 
 const sizeClasses = {
@@ -105,6 +106,29 @@ export function Modal({
   // id their aria-labelledby points at.
   const titleId = useId();
 
+  // On a phone a standalone modal is a sheet that rises from the bottom, as
+  // the detail popovers are, with a handle along its top. Pulling the header
+  // or the handle down closes it, unless it is holding itself open.
+  const asSheet = useAsSheet() && standalone;
+  const dragControls = useDragControls();
+  const [held, setHeld] = useState(false);
+  const canPull = asSheet && !persistent;
+  const grab = (event: React.PointerEvent) => {
+    if (!canPull) return;
+    setHeld(true);
+    const release = () => {
+      setHeld(false);
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    dragControls.start(event);
+  };
+  const onDragEnd = (_: unknown, info: PanInfo) => {
+    if (info.offset.y > 120 || info.velocity.y > 500) onClose();
+  };
+
   // Don't render on server or before mount
   if (!mounted) return null;
 
@@ -113,29 +137,54 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
+      initial={asSheet ? { y: "100%" } : { opacity: 0, scale: 0.95, y: 20 }}
+      animate={asSheet ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+      exit={asSheet ? { y: "100%" } : { opacity: 0, scale: 0.95, y: 20 }}
+      transition={asSheet ? { type: "spring", damping: 35, stiffness: 300 } : { duration: 0.2, ease: "easeOut" }}
+      drag={canPull ? "y" : false}
+      dragControls={dragControls}
+      dragListener={false}
+      dragConstraints={{ top: 0, bottom: 0 }}
+      dragElastic={{ top: 0, bottom: 1 }}
+      dragTransition={{ bounceStiffness: 400, bounceDamping: 40 }}
+      onDragEnd={onDragEnd}
       style={{
         width: "100%",
-        maxWidth: size === "sm" ? "28rem" : size === "md" ? "32rem" : size === "lg" ? "42rem" : size === "xl" ? "56rem" : size === "2xl" ? "80rem" : "56rem",
+        maxWidth: asSheet ? undefined : size === "sm" ? "28rem" : size === "md" ? "32rem" : size === "lg" ? "42rem" : size === "xl" ? "56rem" : size === "2xl" ? "80rem" : "56rem",
       }}
       className={cn(
         "relative",
         "bg-paper",
         "border-2 border-line-strong",
-        "rounded-lg shadow-2xl",
-        "paper-texture",
-        // In standalone mode, use max-h; in side-by-side, fill parent height
-        standalone ? "max-h-[90vh]" : "h-full",
+        asSheet ? "rounded-t-2xl rounded-b-none border-x-0 border-b-0 shadow-2xl" : "rounded-lg shadow-2xl paper-texture",
+        // In standalone mode, use max-h; in side-by-side, fill parent height.
+        // dvh, not vh, so a phone's browser bar doesn't hide the bottom.
+        standalone ? (asSheet ? "max-h-[92dvh]" : "max-h-[90dvh]") : "h-full",
         "flex flex-col",
         className
       )}
       onClick={(e) => e.stopPropagation()}
     >
+      {asSheet && (
+        <div
+          aria-hidden="true"
+          className={cn("flex justify-center pt-3 pb-1 transition-colors", held && "bg-ink-strong/10", "rounded-t-2xl")}
+          style={{ touchAction: canPull ? "none" : undefined }}
+          onPointerDown={grab}
+        >
+          <div className={cn("h-1 rounded-full transition-all duration-150", held ? "w-14 bg-ink-subtle" : "w-10 bg-ink-subtle/40")} />
+        </div>
+      )}
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line">
+      <div
+        className={cn(
+          "flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-line transition-colors",
+          asSheet && "pt-1",
+          held && "bg-ink-strong/10",
+        )}
+        style={{ touchAction: canPull ? "none" : undefined }}
+        onPointerDown={grab}
+      >
         <h2 id={titleId} className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate min-w-0">
           {title}
         </h2>
@@ -148,12 +197,13 @@ export function Modal({
         </button>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">{children}</div>
+      {/* Body. overscroll-contain keeps a scroll that reaches the end from
+          carrying on into the page behind. */}
+      <div className={cn("flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6 sm:py-4", asSheet && !footer && "pb-[calc(0.75rem+env(safe-area-inset-bottom))]")}>{children}</div>
 
       {/* Footer */}
       {footer && (
-        <div className="flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-wash rounded-b-lg overflow-hidden">
+        <div className={cn("flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-wash overflow-hidden", asSheet ? "pb-[calc(0.5rem+env(safe-area-inset-bottom))]" : "rounded-b-lg")}>
           <div className="w-full">{footer}</div>
         </div>
       )}
@@ -175,7 +225,10 @@ export function Modal({
       {isOpen && (
         <div
           style={{ zIndex }}
-          className="fixed inset-0 md:left-[var(--sidebar-width,72px)] flex items-center justify-center p-4 transition-[left] duration-350"
+          className={cn(
+            "fixed inset-0 md:left-[var(--sidebar-width,72px)] flex justify-center transition-[left] duration-350",
+            asSheet ? "items-end" : "items-center p-4",
+          )}
         >
           {/* Backdrop */}
           <motion.div
@@ -184,6 +237,8 @@ export function Modal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            // Dragging on the dim area mustn't scroll or bounce the page behind.
+            style={{ touchAction: "none" }}
             onClick={handleBackdropClick}
           />
 
