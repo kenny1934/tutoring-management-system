@@ -2037,7 +2037,7 @@ function SessionsPageContent() {
         value={tutorFilter}
         onChange={(e) => setTutorFilter(e.target.value)}
         aria-label="Tutor"
-        className="font-medium max-w-[100px] sm:max-w-none truncate"
+        className="font-medium max-w-[min(16rem,60vw)] sm:max-w-none truncate"
       >
         <option value="">Tutor</option>
         <TutorOptions tutors={tutorOptions} location={selectedLocation} />
