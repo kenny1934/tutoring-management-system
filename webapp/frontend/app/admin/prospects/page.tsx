@@ -655,6 +655,7 @@ export default function AdminProspectsPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search prospects"
                 className="pl-8"
               />
@@ -679,6 +680,7 @@ export default function AdminProspectsPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search prospects"
                 className="pl-8 w-52"
               />

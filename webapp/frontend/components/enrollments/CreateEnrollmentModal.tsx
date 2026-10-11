@@ -707,7 +707,7 @@ export function CreateEnrollmentModal({
             <Label htmlFor="create-enrollment-lessons">Number of lessons</Label>
             <Input
               id="create-enrollment-lessons"
-              type="number"
+              type="number" inputMode="numeric"
               min={1}
               max={52}
               value={lessonsPaid}

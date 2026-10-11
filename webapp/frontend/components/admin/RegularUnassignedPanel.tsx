@@ -362,6 +362,7 @@ export function RegularUnassignedPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, ref code, school..."
+              enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               aria-label="Search applications"
               className="pl-7"
             />

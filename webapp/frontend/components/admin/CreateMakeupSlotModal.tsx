@@ -203,7 +203,7 @@ export function CreateMakeupSlotModal({
                   <Label htmlFor="makeup-slot-max">Max students</Label>
                   <Input
                     id="makeup-slot-max"
-                    type="number"
+                    type="number" inputMode="numeric"
                     min={1}
                     max={20}
                     value={maxStudents}

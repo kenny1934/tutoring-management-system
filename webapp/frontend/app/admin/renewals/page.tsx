@@ -1022,6 +1022,7 @@ export default function AdminRenewalsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name or ID..."
+              enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               aria-label="Search renewals"
               className="pl-9 pr-8 sm:w-64"
             />

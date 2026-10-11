@@ -659,6 +659,7 @@ export default function AdminWaitlistPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, school, phone..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search waitlist"
                 className="pl-9 pr-8"
               />

@@ -977,6 +977,7 @@ export function SummerAutoSuggestModal({
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Search student..."
+                      enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                       aria-label="Search students"
                       className="pl-7"
                     />

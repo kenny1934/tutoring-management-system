@@ -74,7 +74,7 @@ export function ExercisePageRangeInput({
       {isSimple ? (
         <>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             value={pageStart}
             onChange={(e) => onPageStartChange(e.target.value)}
             onFocus={onFocus}
@@ -89,7 +89,7 @@ export function ExercisePageRangeInput({
           />
           <span className="text-xs text-gray-500">–</span>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             value={pageEnd}
             onChange={(e) => onPageEndChange(e.target.value)}
             onFocus={onFocus}

@@ -305,6 +305,7 @@ function TutorsPageInner() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search tutors…"
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search tutors"
                 className="w-full sm:w-64 pl-8"
               />

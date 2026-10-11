@@ -3171,6 +3171,7 @@ function CoursewareTab({
           <Input
             type="text"
             placeholder="Search exercises..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search exercises"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

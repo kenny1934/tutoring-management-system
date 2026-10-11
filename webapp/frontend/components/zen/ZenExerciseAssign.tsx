@@ -1405,6 +1405,7 @@ export function ZenExerciseAssign({
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setFocusArea("search")}
           placeholder="Search Shelv..."
+          enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
           style={{
             flex: 1,
             backgroundColor: "var(--zen-bg)",

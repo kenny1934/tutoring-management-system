@@ -528,6 +528,7 @@ export function MyStudentsList({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search name, ID, school, grade..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search students"
             className="pl-7 pr-2"
           />

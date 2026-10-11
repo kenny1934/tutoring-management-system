@@ -495,6 +495,7 @@ export function RegularConversionChaseList({
           <Input
             size="sm"
             type="search"
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             value={filters.q}
             onChange={(e) => set("q", e.target.value)}
             placeholder="Name, code, phone or school"

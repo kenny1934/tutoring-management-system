@@ -347,7 +347,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
         ) : editingMax ? (
           <input
             ref={maxRef}
-            type="number"
+            type="number" inputMode="numeric"
             defaultValue={slot.max_students}
             min={1}
             max={20}

@@ -830,6 +830,7 @@ export default function TerminatedStudentsPage() {
                     size="sm"
                     type="text"
                     placeholder="Search students..."
+                    enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     aria-label="Search students"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -1412,6 +1413,7 @@ function StatDetailContent({
           size="sm"
           type="text"
           placeholder="Search by name or ID..."
+          enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
           aria-label="Search by name or ID"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}

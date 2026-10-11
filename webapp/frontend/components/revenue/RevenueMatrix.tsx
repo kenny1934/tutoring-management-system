@@ -225,6 +225,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                   <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500 dark:text-gray-400" />
                   <input
                     type="search"
+                    enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     onClick={(e) => e.stopPropagation()}

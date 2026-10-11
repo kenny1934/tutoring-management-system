@@ -1762,7 +1762,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                       <div className="flex items-center gap-1">
                         <input
                           name="customSize"
-                          type="number"
+                          type="number" inputMode="numeric"
                           min={8}
                           max={96}
                           placeholder="px"
@@ -1946,7 +1946,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <div className="absolute top-full left-0 mt-1 z-20 bg-raised border border-line rounded-lg shadow-lg p-2 min-w-[10rem]">
                     <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">Start number</label>
                     <input
-                      type="number"
+                      type="number" inputMode="numeric"
                       min={1}
                       defaultValue={editor.getAttributes("orderedList").start ?? 1}
                       className="w-full px-2 py-1 text-xs border border-field rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
@@ -2684,7 +2684,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             <div className="px-3 py-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5 block">Start at</label>
               <input
-                type="number"
+                type="number" inputMode="numeric"
                 min={1}
                 defaultValue={editor.getAttributes("orderedList").start ?? 1}
                 className="w-full px-2 py-0.5 text-xs border border-field rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"

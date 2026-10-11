@@ -1736,7 +1736,7 @@ export default function GeometryEditorModal({
               Degrees:
             </span>
             <input
-              type="number"
+              type="number" inputMode="numeric"
               min="1"
               max="359"
               value={textInput}

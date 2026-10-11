@@ -302,7 +302,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
         {canEditBadge && editingLesson ? (
           <input
             ref={lessonRef}
-            type="number"
+            type="number" inputMode="numeric"
             defaultValue={lesson.lesson_number || undefined}
             min={1}
             max={totalLessons}

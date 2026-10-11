@@ -1323,6 +1323,7 @@ export function SummerApplicationDetailModal({
                         onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                         className="pl-8"
                         placeholder="Search by name, ID, or phone..."
+                        enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                         aria-label="Search students"
                       />
                     </div>
@@ -2450,6 +2451,7 @@ export function SummerApplicationDetailModal({
                           value={buddySearchQuery}
                           onChange={(e) => setBuddySearchQuery(e.target.value)}
                           placeholder="Search by name, ref code, or phone..."
+                          enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                           aria-label="Search applications"
                         />
                         {buddySearchLoading && (

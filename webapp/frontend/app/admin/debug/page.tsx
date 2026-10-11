@@ -95,6 +95,7 @@ export default function DebugPanelPage() {
                 <input
                   type="text"
                   placeholder="Search tables..."
+                  enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-field-fill placeholder-gray-400"

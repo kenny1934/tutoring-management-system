@@ -652,7 +652,7 @@ export function RegularConfigEditor({
             <Label htmlFor="year">Year</Label>
             <input
               id="year"
-              type="number"
+              type="number" inputMode="numeric"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value) || 0)}
               onBlur={validateYear}
@@ -772,7 +772,7 @@ export function RegularConfigEditor({
             <Label htmlFor="pricingBaseFee">Base fee ($)</Label>
             <input
               id="pricingBaseFee"
-              type="number"
+              type="number" inputMode="decimal"
               min={1}
               value={pricingBaseFee}
               onChange={(e) => setPricingBaseFee(e.target.value)}
@@ -787,7 +787,7 @@ export function RegularConfigEditor({
             <Label htmlFor="pricingLessons">Lessons per block</Label>
             <input
               id="pricingLessons"
-              type="number"
+              type="number" inputMode="numeric"
               min={1}
               value={pricingLessons}
               onChange={(e) => setPricingLessons(e.target.value)}
@@ -801,7 +801,7 @@ export function RegularConfigEditor({
             <Label htmlFor="pricingRegFee">Materials fee ($)</Label>
             <input
               id="pricingRegFee"
-              type="number"
+              type="number" inputMode="decimal"
               min={1}
               value={pricingRegFee}
               onChange={(e) => setPricingRegFee(e.target.value)}

@@ -2176,6 +2176,7 @@ export default function ProspectPage() {
                 value={submittedSearchInput}
                 onChange={(e) => setSubmittedSearchInput(e.target.value)}
                 placeholder="Search..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 className={`${inputSmall} pl-8 w-40 sm:w-52`}
               />
             </div>

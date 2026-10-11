@@ -136,6 +136,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             size="sm"
             type="text"
             placeholder="Search by title or tag..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search documents"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}

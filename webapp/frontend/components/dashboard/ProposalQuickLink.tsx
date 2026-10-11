@@ -583,6 +583,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                     size="sm"
                     type="text"
                     placeholder="Search student..."
+                    enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     aria-label="Search student"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}

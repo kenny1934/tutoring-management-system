@@ -517,6 +517,7 @@ export default function OverduePaymentsPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by student, ID, tutor, or grade..."
+                  enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   aria-label="Search overdue enrollments"
                   className="pl-9 pr-8"
                 />

@@ -2351,6 +2351,7 @@ function CoursewareSearchTab() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search courseware in Shelv..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search courseware"
             className="pl-10 pr-10"
           />

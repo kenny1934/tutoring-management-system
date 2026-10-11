@@ -203,6 +203,7 @@ export function SummerUnassignedPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, ref code, student ID..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search applications"
             className="pl-7"
           />

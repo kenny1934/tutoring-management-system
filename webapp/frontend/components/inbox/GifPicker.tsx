@@ -114,6 +114,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search GIFs..."
+              enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               aria-label="Search GIFs"
               className="pl-7 pr-7"
             />

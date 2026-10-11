@@ -100,7 +100,7 @@ export function LessonNumberPromptModal({
                   aria-describedby="lesson-number-prompt-hint"
                   aria-invalid={!isValid || undefined}
                   ref={inputRef}
-                  type="number"
+                  type="number" inputMode="numeric"
                   value={value}
                   min={MIN_LESSON}
                   max={maxLesson}

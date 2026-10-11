@@ -363,6 +363,7 @@ export function WaitlistEntryModal({
                     }}
                     onFocus={() => setShowStudentSearch(true)}
                     placeholder="Search by name, ID, or phone..."
+                    enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     className="pl-9"
                   />
                 </div>

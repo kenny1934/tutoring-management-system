@@ -192,6 +192,7 @@ export default function ZenStudentsPage() {
             setPage(0);
           }}
           placeholder="Search name..."
+          enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
           style={{
             backgroundColor: "transparent",
             border: "1px solid var(--zen-border)",

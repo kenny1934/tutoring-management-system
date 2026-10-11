@@ -1909,6 +1909,7 @@ export default function TableBrowserPage() {
                       <input
                         type="text"
                         placeholder="Search columns..."
+                        enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                         value={columnSearchQuery}
                         onChange={(e) => setColumnSearchQuery(e.target.value)}
                         className="w-full px-2 py-1.5 text-sm rounded border border-field bg-field-fill focus:outline-none focus:ring-1 focus:ring-primary"
@@ -2654,7 +2655,7 @@ export default function TableBrowserPage() {
                 <div className="flex items-center gap-2">
                 <span>Page</span>
                 <input
-                  type="number"
+                  type="number" inputMode="numeric"
                   min={1}
                   max={totalPages}
                   value={page + 1}

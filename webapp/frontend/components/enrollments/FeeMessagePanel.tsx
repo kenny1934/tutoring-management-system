@@ -147,7 +147,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
           <div className="flex items-center gap-2">
             <span className="text-xs text-foreground/60">Lessons:</span>
             <Input
-              type="number"
+              type="number" inputMode="numeric"
               size="sm"
               min={1}
               max={52}

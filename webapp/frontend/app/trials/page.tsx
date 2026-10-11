@@ -542,6 +542,7 @@ export default function TrialsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search trials"
                 className="pl-9 pr-8 w-40 sm:w-48"
               />

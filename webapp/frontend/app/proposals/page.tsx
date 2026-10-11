@@ -324,6 +324,7 @@ export default function ProposalsPage() {
                 <Input
                   type="text"
                   placeholder="Search student or tutor..."
+                  enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   aria-label="Search student or tutor"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

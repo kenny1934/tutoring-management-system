@@ -421,7 +421,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             </span>
             <Input
               id="edit-tutor-salary"
-              type="number"
+              type="number" inputMode="decimal"
               min={0}
               step="0.01"
               value={basicSalary}

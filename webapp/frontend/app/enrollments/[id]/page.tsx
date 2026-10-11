@@ -1090,7 +1090,7 @@ export default function EnrollmentDetailPage() {
                       <Label htmlFor="edit-enrollment-lessons-paid" className="w-24 mb-0 flex-shrink-0">Lessons paid</Label>
                       <Input
                         id="edit-enrollment-lessons-paid"
-                        type="number"
+                        type="number" inputMode="numeric"
                         min="0"
                         value={editForm.lessons_paid || ""}
                         onChange={(e) => {

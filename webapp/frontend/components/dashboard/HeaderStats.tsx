@@ -158,6 +158,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                       size="sm"
                       type="text"
                       placeholder="Search students..."
+                      enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                       aria-label="Search students"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}

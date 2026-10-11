@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { SurfaceAttribute } from "./SurfaceAttribute";
 import { ThemeColorSync } from "./ThemeColorSync";
 import { RefreshOnReturn } from "./RefreshOnReturn";
+import { SearchKeyClosesKeyboard } from "./SearchKeyClosesKeyboard";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth";
 import { LocationProvider } from "@/contexts/LocationContext";
@@ -63,6 +64,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <SurfaceAttribute />
         <ThemeColorSync />
         <RefreshOnReturn />
+        <SearchKeyClosesKeyboard />
         <AuthProvider>
           <AuthGuard>
             <LocationProvider>

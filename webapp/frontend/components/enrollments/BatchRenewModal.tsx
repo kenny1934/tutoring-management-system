@@ -545,7 +545,7 @@ export function BatchRenewModal({
                   />
                   <Input
                     id="batch-renew-lessons"
-                    type="number"
+                    type="number" inputMode="numeric"
                     value={lessonsPaid}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);

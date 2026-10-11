@@ -574,7 +574,7 @@ export function PdfPreviewModal({
               {!useComplexRange && (
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
+                    type="number" inputMode="numeric"
                     min="1"
                     max={totalPages || undefined}
                     placeholder={totalPages ? `1` : "Start"}
@@ -592,7 +592,7 @@ export function PdfPreviewModal({
                   />
                   <span className="text-gray-500">to</span>
                   <input
-                    type="number"
+                    type="number" inputMode="numeric"
                     min="1"
                     max={totalPages || undefined}
                     placeholder={totalPages ? `${totalPages}` : "End"}

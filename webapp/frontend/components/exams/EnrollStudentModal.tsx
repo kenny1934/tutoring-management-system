@@ -238,6 +238,7 @@ export function EnrollStudentModal({
             <Input
               type="text"
               placeholder="Search students..."
+              enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search students"

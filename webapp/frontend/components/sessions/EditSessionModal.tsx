@@ -910,7 +910,7 @@ export function EditSessionModal({
                           <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
                           <Input
                             size="sm"
-                            type="number"
+                            type="number" inputMode="numeric"
                             value={exercise.page_start}
                             onChange={(e) => {
                               if (exercise.page_mode !== 'simple') {
@@ -927,7 +927,7 @@ export function EditSessionModal({
                           <span className="text-xs text-gray-500">–</span>
                           <Input
                             size="sm"
-                            type="number"
+                            type="number" inputMode="numeric"
                             value={exercise.page_end}
                             onChange={(e) => {
                               if (exercise.page_mode !== 'simple') {

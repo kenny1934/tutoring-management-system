@@ -1648,6 +1648,7 @@ export default function InboxPage() {
                       ref={searchInputRef}
                       type="text"
                       placeholder="Search..."
+                      enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                       aria-label="Search messages"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}

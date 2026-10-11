@@ -686,6 +686,7 @@ function TutorProfileInner() {
                         value={search}
                         onChange={(ev) => setSearch(ev.target.value)}
                         placeholder="Search name, school, ID…"
+                        enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                         aria-label="Search students"
                         className="pl-8"
                       />

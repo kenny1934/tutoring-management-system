@@ -715,6 +715,7 @@ export function CommandPalette() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search or type ? for help"
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             role="combobox"
             aria-expanded={allItems.length > 0}
             aria-controls="command-palette-listbox"

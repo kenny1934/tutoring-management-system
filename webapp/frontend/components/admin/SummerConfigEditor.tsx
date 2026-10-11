@@ -697,7 +697,7 @@ export function SummerConfigEditor({
             <Label htmlFor="year">Year</Label>
             <input
               id="year"
-              type="number"
+              type="number" inputMode="numeric"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value) || 0)}
               onBlur={validateYear}
@@ -834,7 +834,7 @@ export function SummerConfigEditor({
         <div className="max-w-xs">
           <Label>Total lessons</Label>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             value={totalLessons}
             onChange={(e) => setTotalLessons(parseInt(e.target.value) || 0)}
             className={inputClass}
@@ -850,7 +850,7 @@ export function SummerConfigEditor({
           <div>
             <Label>Base fee ($)</Label>
             <input
-              type="number"
+              type="number" inputMode="numeric"
               value={baseFee}
               onChange={(e) => setBaseFee(parseInt(e.target.value) || 0)}
               onBlur={validateBaseFee}
@@ -864,7 +864,7 @@ export function SummerConfigEditor({
           <div>
             <Label>Registration fee ($)</Label>
             <input
-              type="number"
+              type="number" inputMode="numeric"
               value={registrationFee}
               onChange={(e) => setRegistrationFee(parseInt(e.target.value) || 0)}
               className={inputClass}
@@ -897,7 +897,7 @@ export function SummerConfigEditor({
                 </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground">Amount ($)</span>
-                  <input type="number" value={d.amount} onChange={(e) => { const next = [...discounts]; next[i] = { ...d, amount: parseInt(e.target.value) || 0 }; setDiscounts(next); }} className={inputClass} disabled={isReadOnly} />
+                  <input type="number" inputMode="numeric" value={d.amount} onChange={(e) => { const next = [...discounts]; next[i] = { ...d, amount: parseInt(e.target.value) || 0 }; setDiscounts(next); }} className={inputClass} disabled={isReadOnly} />
                 </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground">Name (ZH)</span>
@@ -931,7 +931,7 @@ export function SummerConfigEditor({
                   <div>
                     <span className="text-[11px] text-muted-foreground">Min group size</span>
                     <input
-                      type="number"
+                      type="number" inputMode="numeric"
                       min={2}
                       value={(d.conditions?.min_group_size as number) || ""}
                       onChange={(e) => {

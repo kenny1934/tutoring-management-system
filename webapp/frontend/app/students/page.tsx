@@ -417,6 +417,7 @@ export default function StudentsPage() {
                 size="sm"
                 type="text"
                 placeholder="Search..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search students"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}

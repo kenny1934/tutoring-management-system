@@ -1375,6 +1375,7 @@ export default function BuddyTrackerPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, ID, phone, or code..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </div>

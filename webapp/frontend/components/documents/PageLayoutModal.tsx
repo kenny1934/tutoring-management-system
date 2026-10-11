@@ -172,7 +172,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <label key={side} className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground capitalize w-12">{side}</span>
                     <Input
-                      type="number"
+                      type="number" inputMode="decimal"
                       min={5}
                       max={50}
                       step={0.1}

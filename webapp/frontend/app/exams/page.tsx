@@ -600,6 +600,7 @@ export default function ExamsPage() {
               <Input
                 type="text"
                 placeholder="Search exams..."
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search exams"

@@ -80,6 +80,7 @@ export default function ThreadSearchBar({
           }
         }}
         placeholder="Search messages..."
+        enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
         aria-label="Search this conversation"
         className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none"
       />

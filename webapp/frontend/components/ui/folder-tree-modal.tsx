@@ -1730,7 +1730,7 @@ export function FolderTreeModal({
                   {previewPageMode === "simple" ? (
                     <div className="flex items-center gap-2">
                       <input
-                        type="number"
+                        type="number" inputMode="numeric"
                         min={1}
                         max={previewPageCount || undefined}
                         value={previewPageStart}
@@ -1753,7 +1753,7 @@ export function FolderTreeModal({
                       />
                       <span className="text-gray-500 text-sm">to</span>
                       <input
-                        type="number"
+                        type="number" inputMode="numeric"
                         min={1}
                         max={previewPageCount || undefined}
                         value={previewPageEnd}

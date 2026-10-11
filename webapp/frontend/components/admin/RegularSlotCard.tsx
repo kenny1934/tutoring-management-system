@@ -348,7 +348,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
         ) : editingMax ? (
           <input
             ref={maxRef}
-            type="number"
+            type="number" inputMode="numeric"
             defaultValue={slot.max_students}
             min={1}
             max={20}

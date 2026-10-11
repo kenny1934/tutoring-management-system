@@ -1586,6 +1586,7 @@ export function RegularApplicationDetailModal({
                           onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                           className="pl-8"
                           placeholder="Search by name, student ID or phone..."
+                          enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                         />
                       </div>
                     </div>
@@ -1925,7 +1926,7 @@ export function RegularApplicationDetailModal({
                     <div>
                       <Label htmlFor="app-lessons-paid">Lessons paid</Label>
                       <Input id="app-lessons-paid"
-                        type="number"
+                        type="number" inputMode="numeric"
                         min={1}
                         value={pubLessons}
                         onChange={(e) => setPubLessons(Math.max(1, parseInt(e.target.value, 10) || 1))}

@@ -294,6 +294,7 @@ export function RecordContactModal({
                       id="student-search"
                       type="text"
                       placeholder="Search students..."
+                      enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                       aria-label="Search for a student"
                       value={studentSearch}
                       onChange={(e) => {

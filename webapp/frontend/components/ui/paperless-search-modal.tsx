@@ -696,6 +696,7 @@ export function PaperlessSearchModal({
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Search for documents..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search documents"
             className={cn(
               "w-full pl-10 pr-4 py-2.5 rounded-lg border",

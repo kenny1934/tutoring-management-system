@@ -316,6 +316,7 @@ export default function CourseRenewalPage() {
                     <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
                       type="search"
+                      enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Name, code or phone"

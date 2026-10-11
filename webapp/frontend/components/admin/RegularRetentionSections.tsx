@@ -1969,6 +1969,7 @@ export function RegularRetentionChaseList({
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none" aria-hidden="true" />
               <Input
                 type="search"
+                enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 aria-label="Search the list"
                 value={filters.q}
                 onChange={(e) => set("q", e.target.value)}

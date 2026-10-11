@@ -368,7 +368,7 @@ function FileLeaveForm({
           <Label htmlFor="leave-days">Days</Label>
           <Input
             size="sm"
-            id="leave-days" type="number" step="0.01" min="0.01"
+            id="leave-days" type="number" inputMode="decimal" step="0.01" min="0.01"
             value={days}
             readOnly={!!hasTimeRange}
             onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
@@ -479,7 +479,7 @@ function FileOvertimeForm({
           <Label htmlFor="ot-days">Days</Label>
           <Input
             size="sm"
-            id="ot-days" type="number" step="0.01" min="0.01"
+            id="ot-days" type="number" inputMode="decimal" step="0.01" min="0.01"
             value={days} placeholder="e.g. 0.5"
             readOnly={!!hasTimeRange}
             onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
@@ -1032,6 +1032,7 @@ function AllStaffBalancesPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search staff..."
+            enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-label="Search staff"
             className="pl-7"
           />

@@ -298,7 +298,7 @@ export default function AdminRegularConfigPage() {
               Enter the target year for the cloned config. Dates will be shifted automatically.
             </p>
             <Input
-              type="number"
+              type="number" inputMode="numeric"
               aria-label="Year"
               value={cloneYear}
               onChange={(e) => { setCloneYear(e.target.value); setCloneDuplicateWarning(false); }}

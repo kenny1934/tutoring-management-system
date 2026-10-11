@@ -144,7 +144,7 @@ export function EditableLessonNumberBadge({
     return (
       <input
         ref={inputRef}
-        type="number"
+        type="number" inputMode="numeric"
         defaultValue={lessonNumber}
         min={MIN_LESSON}
         max={maxLesson}
