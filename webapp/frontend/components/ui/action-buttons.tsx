@@ -33,6 +33,13 @@ const sizeClasses = {
 const ACTION_BASE =
   "flex items-center gap-1 rounded border border-line-strong bg-field-fill font-medium text-gray-800 dark:text-gray-200 transition-colors";
 
+// On a phone a labelled button puts its label under the icon, in small type,
+// as a phone's own toolbars do. A tooltip says what an icon means on a
+// computer, but a phone never shows one, so without the label a tutor has to
+// learn the icons.
+const PHONE_LABELLED = "max-sm:min-w-11 max-sm:flex-col max-sm:justify-center max-sm:gap-0.5 max-sm:px-1.5 max-sm:py-1.5";
+const LABEL = "max-sm:text-[10px] max-sm:leading-none";
+
 const iconSizeClasses = {
   sm: "h-2.5 w-2.5",
   md: "h-4 w-4 sm:h-3 sm:w-3",
@@ -112,12 +119,13 @@ export function ActionButtons<T>({
             className={cn(
               ACTION_BASE,
               sizeClasses[size],
+              label && size === "md" && PHONE_LABELLED,
               isEnabled ? "hover:bg-tint" : "cursor-not-allowed opacity-50"
             )}
             title={isEnabled ? action.label : "Coming soon"}
           >
             <Icon className={cn(iconSizeClasses[size], action.iconColorClass ?? action.colorClass)} />
-            {label && <span className="hidden sm:inline">{label}</span>}
+            {label && <span className={size === "md" ? LABEL : "hidden sm:inline"}>{label}</span>}
           </button>
         );
       })}
@@ -487,6 +495,7 @@ export function SessionActionButtons({
               className={cn(
                 ACTION_BASE,
                 sizeClasses[size],
+                label && size === "md" && PHONE_LABELLED,
                 isDisabledByReadOnly
                   ? "cursor-not-allowed opacity-40"
                   : isEnabled && !isLoading
@@ -500,7 +509,7 @@ export function SessionActionButtons({
               aria-label={opensExerciseModal ? action.label : undefined}
             >
               <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", iconColor)} />
-              {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
+              {label && <span className={size === "md" ? LABEL : "hidden sm:inline"}>{isLoading ? "..." : label}</span>}
             </button>
           );
 

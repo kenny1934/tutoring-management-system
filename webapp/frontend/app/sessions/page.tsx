@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal, UnlistedLesson } from "@/types";
 import Link from "next/link";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, Presentation, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserPlus } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, Presentation, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserPlus } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { PageSurface } from "@/components/layout/PageSurface";
@@ -19,6 +19,7 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Select, PageHeader } from "@/components/controls";
+import { useDaySwipe } from "@/hooks/useDaySwipe";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
@@ -841,6 +842,17 @@ function SessionsPageContent() {
   const selectedDateString = toDateString(selectedDate);
   const isTodaySelected = selectedDateString === toDateString(new Date());
   const nowIndicatorLive = viewMode === "list" && !isDatelessView && isTodaySelected;
+
+  // The day before or after, for the arrows beside the date and for a swipe
+  // across the list on a phone.
+  const shiftDay = (days: number) =>
+    setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days));
+  const daySwipeArrow = useDaySwipe(scrollContainerRef, {
+    // The list only exists once the first load is done, so the swipe waits for it.
+    enabled: viewMode === "list" && !isDatelessView && !loading,
+    onPrevious: () => shiftDay(-1),
+    onNext: () => shiftDay(1),
+  });
   const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
   const nowPosition = useMemo(() => {
     if (!nowIndicatorLive) return null;
@@ -1987,7 +1999,11 @@ function SessionsPageContent() {
           The pending make-ups window is fixed at 120 days, so no date to pick. */}
       {viewMode === "list" && !isDatelessView && (
         <div className="flex items-center gap-2">
-          <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
+          <div className="flex items-center">
+            <IconButton label="The day before" icon={ChevronLeft} onClick={() => shiftDay(-1)} className="max-sm:h-10 max-sm:w-10" />
+            <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
+            <IconButton label="The day after" icon={ChevronRight} onClick={() => shiftDay(1)} className="max-sm:h-10 max-sm:w-10" />
+          </div>
           {/* Today button - only show when not on today */}
           {!isTodaySelected && (
             <Button size="sm" onClick={() => setSelectedDate(new Date())}>
@@ -2134,6 +2150,7 @@ function SessionsPageContent() {
     return (
       <>
       <PageSurface fullHeight>
+        {daySwipeArrow}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
@@ -2653,11 +2670,13 @@ function SessionsPageContent() {
                           </div>
 
                           {/* Center: time slot label */}
-                          <div className="flex-1 flex items-center sm:justify-center gap-2">
+                          <div className="flex-1 flex items-center sm:justify-center gap-1 sm:gap-2">
                             <div className="bg-accent-ink p-1 rounded-full">
                               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
+                            {/* The time never wraps. On a phone the buttons and counts to its right
+                                shrink to fit it, not the other way round. */}
+                            <h3 className="whitespace-nowrap text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
                               {listShowsDates ? `${formatWeekdayShort(groupDate)}, ${timeSlot}` : timeSlot}
                             </h3>
                             {isCurrentSlot && <NowChip />}
@@ -2682,7 +2701,7 @@ function SessionsPageContent() {
                           </div>
 
                           {/* Right: lesson button + counts */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             {/* Lesson mode needs a lesson in CSM, or a worksheet of a student who isn't in CSM yet, to show */}
                             {tutorFilter && (sessionsInSlot.length > 0 || waitingLessons.some((lesson) =>
                               lesson.time_slot === timeSlot && lesson.lesson_date === groupDate && hasSomethingToShow(lesson)
@@ -2706,8 +2725,10 @@ function SessionsPageContent() {
                                     window.open(`/sessions/lesson?${params.toString()}`, '_blank');
                                   }}
                                   title="Open lesson mode for this time slot"
+                                  aria-label="Lesson mode"
                                 >
-                                  Lesson
+                                  {/* On a phone the button is its icon, so the time beside it keeps one line. */}
+                                  <span className="max-sm:hidden">Lesson</span>
                                 </Button>
                               </LessonNudge>
                             )}
@@ -2729,8 +2750,10 @@ function SessionsPageContent() {
                                 }}
                               />
                             )}
-                            <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
-                              {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
+                            {/* On a phone the count is just the number; the word is still read out. */}
+                            <div className="whitespace-nowrap bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
+                              {sessionsInSlot.filter(isCountableSession).length}
+                              <span className="max-sm:sr-only"> session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}</span>
                             </div>
                             {(() => {
                               const proposedCount = proposedSessions.filter(
@@ -2740,7 +2763,8 @@ function SessionsPageContent() {
                                 return (
                                   <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full border border-dashed border-amber-400 dark:border-amber-600 text-xs font-medium flex items-center gap-1">
                                     <CalendarClock className="h-3 w-3" />
-                                    {proposedCount} proposed
+                                    {proposedCount}
+                                    <span className="max-sm:sr-only"> proposed</span>
                                   </div>
                                 );
                               }
