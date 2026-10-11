@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Calendar, Home, Inbox, LayoutGrid, Users, type LucideIcon } from "lucide-react";
@@ -37,6 +38,19 @@ export function BottomTabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: 
   const tabs = TABS.filter((tab) => hasInbox || tab.href !== "/inbox");
   const onSomeTab = tabs.some((tab) => isOnTab(pathname, tab.href));
 
+  // The tab under a finger lights up the moment it's touched, before the page
+  // it opens has loaded, so the bar answers at once the way a phone's own does.
+  // Once the page changes or the More sheet opens, the highlight follows that,
+  // and a touch that was cancelled or went nowhere lets it go back.
+  const [pressed, setPressed] = useState<string | null>(null);
+  useEffect(() => setPressed(null), [pathname, moreOpen]);
+  useEffect(() => {
+    if (!pressed) return;
+    const timer = setTimeout(() => setPressed(null), 3000);
+    return () => clearTimeout(timer);
+  }, [pressed]);
+  const lit = (key: string, otherwise: boolean) => (pressed ? pressed === key : otherwise);
+
   return (
     <nav
       aria-label="Main"
@@ -49,8 +63,11 @@ export function BottomTabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: 
           href={tab.href}
           label={tab.name}
           icon={tab.icon}
-          active={isOnTab(pathname, tab.href)}
+          active={lit(tab.href, isOnTab(pathname, tab.href))}
+          current={isOnTab(pathname, tab.href)}
           atRoot={pathname === tab.href}
+          onPress={() => setPressed(tab.href)}
+          onCancel={() => setPressed(null)}
           badge={tab.href === "/inbox" && unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : undefined}
         />
       ))}
@@ -59,7 +76,9 @@ export function BottomTabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: 
         icon={LayoutGrid}
         // More is lit while its sheet is open, or while the page shown is one
         // of the pages it lists.
-        active={moreOpen || !onSomeTab}
+        active={lit("more", moreOpen || !onSomeTab)}
+        onPress={() => setPressed("more")}
+        onCancel={() => setPressed(null)}
         dot={hasUnseenUpdates}
         expanded={moreOpen}
         onClick={onMore}
@@ -73,7 +92,10 @@ function TabItem({
   label,
   icon: Icon,
   active,
+  current,
   atRoot,
+  onPress,
+  onCancel,
   badge,
   dot,
   expanded,
@@ -82,9 +104,14 @@ function TabItem({
   href?: string;
   label: string;
   icon: LucideIcon;
+  /** Lit up: the page shown, or the tab a finger has just touched. */
   active: boolean;
+  /** The page shown is this tab's, which is what a screen reader is told. */
+  current?: boolean;
   /** On the tab's own page, so tapping it again goes back to the top. */
   atRoot?: boolean;
+  onPress?: () => void;
+  onCancel?: () => void;
   badge?: string;
   dot?: boolean;
   expanded?: boolean;
@@ -119,7 +146,9 @@ function TabItem({
     return (
       <Link
         href={href}
-        aria-current={active ? "page" : undefined}
+        aria-current={current ? "page" : undefined}
+        onPointerDown={onPress}
+        onPointerCancel={onCancel}
         aria-label={badge ? `${label}, ${badge} unread` : undefined}
         className={className}
         // Tapping the tab for the page you are on takes you back to its top,
@@ -134,7 +163,7 @@ function TabItem({
     );
   }
   return (
-    <button type="button" onClick={onClick} aria-expanded={expanded} aria-label={dot ? `${label}, something new` : undefined} className={className}>
+    <button type="button" onClick={onClick} onPointerDown={onPress} onPointerCancel={onCancel} aria-expanded={expanded} aria-label={dot ? `${label}, something new` : undefined} className={className}>
       {content}
     </button>
   );
