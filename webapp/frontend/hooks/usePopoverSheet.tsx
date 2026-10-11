@@ -327,10 +327,13 @@ function Sheet({
             padding, not at its outer edge. So a padded strip sticks at -1rem,
             or it would rest 1rem below the sheet's top edge: over the top of
             the body before any scrolling, and with content showing above it
-            after. */}
+            after.
+
+            The strip takes the sheet's own background colour, so content
+            scrolling under it is hidden whatever colour the sheet is. */}
         <div
           className={cn(
-            "sticky z-10 bg-paper transition-shadow duration-150",
+            "sticky z-10 bg-inherit transition-shadow duration-150",
             inset ? "-top-4 -mx-4 -mt-4 mb-3 px-4 border-b border-line" : "top-0",
             scrolled && "shadow-[0_6px_8px_-6px_rgb(0_0_0/0.25)]",
           )}

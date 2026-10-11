@@ -1,9 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PopoverShell, usePopoverSheet } from "@/hooks/usePopoverSheet";
 
 interface MobileBottomSheetProps {
   isOpen: boolean;
@@ -13,14 +13,24 @@ interface MobileBottomSheetProps {
   className?: string;
 }
 
+const NO_FLOATING_STYLES = {};
+const noFloatingRef = () => {};
+
 /**
- * MobileBottomSheet - A slide-up bottom sheet for mobile devices
+ * A sheet that slides up from the bottom of a phone's screen, for panels
+ * that open from a button, such as lesson mode's exercise list.
  *
- * Features:
- * - Slides up from bottom with smooth animation
- * - Backdrop overlay that closes on tap
- * - Drag handle for visual affordance
- * - Close button in header
+ * It is drawn by the same sheet as the detail popovers, so it behaves the
+ * same way. A full tap on the backdrop, the close button, or a pull down by
+ * the handle or the title closes it, and it slides down before it goes.
+ *
+ * It also slides down when the page closes it itself, as the exercise list
+ * does when you pick an exercise. So it stays on screen after isOpen turns
+ * false until the slide has finished. When you close it from inside, onClose
+ * is called once the slide ends, and not again when the page then sets
+ * isOpen to false.
+ *
+ * It hides itself from tablet width up, so a page can leave it mounted.
  *
  * @example
  * ```tsx
@@ -36,59 +46,58 @@ export function MobileBottomSheet({
   title,
   className,
 }: MobileBottomSheetProps) {
+  // Whether the sheet is on screen, which outlasts isOpen by the length of
+  // the slide down.
+  const [shown, setShown] = useState(isOpen);
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
+
+  const finish = useCallback(() => {
+    setShown(false);
+    // Only tell the page when the sheet was closed from inside it.
+    if (isOpenRef.current) onClose();
+  }, [onClose]);
+
+  const sheet = usePopoverSheet(true, NO_FLOATING_STYLES, finish, 101);
+
+  useEffect(() => {
+    if (isOpen) setShown(true);
+    else if (shown) sheet.close();
+    // Only a change in isOpen should start the sheet sliding in or out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  if (!isOpen && !shown) return null;
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 z-[100] md:hidden"
-            onClick={onClose}
-          />
-
-          {/* Sheet */}
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 35, stiffness: 300 }}
-            className={cn(
-              "fixed bottom-0 left-0 right-0 z-[101] md:hidden",
-              "bg-background rounded-t-2xl shadow-2xl",
-              "max-h-[85vh] overflow-hidden flex flex-col",
-              className
-            )}
-          >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+    <div className="md:hidden">
+      <PopoverShell
+        sheet={sheet}
+        floatingRef={noFloatingRef}
+        floatingProps={NO_FLOATING_STYLES}
+        inset={false}
+        className={cn(
+          "w-full bg-background rounded-t-2xl shadow-2xl",
+          "max-h-[85vh] overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]",
+          className,
+        )}
+        header={
+          title && (
+            <div className="flex items-center justify-between px-4 pb-3 border-b border-line">
+              <h2 className="text-lg font-semibold">{title}</h2>
+              <button
+                onClick={sheet.close}
+                className="min-w-[44px] min-h-[44px] p-2.5 -mr-2 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-
-            {/* Header */}
-            {title && (
-              <div className="flex items-center justify-between px-4 pb-3 border-b">
-                <h2 className="text-lg font-semibold">{title}</h2>
-                <button
-                  onClick={onClose}
-                  className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 -mr-2 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
-                  aria-label="Close"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto overscroll-contain">
-              {children}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+          )
+        }
+      >
+        {children}
+      </PopoverShell>
+    </div>
   );
 }
