@@ -43,6 +43,10 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
             onClick={() => onChange(option.value)}
             className={cn(
               "inline-flex h-[26px] items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-xs font-medium transition-colors",
+              // On a touch screen an option takes taps from 8px above and
+              // below it too, so the 26px row is easier to hit. The area
+              // grows only up and down, so neighbouring options never share it.
+              "relative pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-2 pointer-coarse:after:content-['']",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
               "disabled:pointer-events-none disabled:opacity-50",
               on

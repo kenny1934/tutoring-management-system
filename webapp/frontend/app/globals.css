@@ -794,6 +794,19 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   }
 }
 
+/* Checkboxes are 14 to 16px across, which suits a mouse and is hard to hit
+   with a finger. On a touch screen every one is 20px. Like the rule above it,
+   this sits outside Tailwind's layers so it wins over a w-3.5 or h-4 on the
+   box itself. */
+@media (pointer: coarse) {
+  input[type="checkbox"]:not(.sr-only),
+  input[type="radio"]:not(.sr-only) {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+}
+
 /* Selection styling */
 ::selection {
   background-color: var(--color-primary);
