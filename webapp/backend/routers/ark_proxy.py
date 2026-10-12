@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Tutor
 from auth.dependencies import get_current_user, require_admin
+from services import ark_demo
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,9 @@ def _ark_headers(user_email: str) -> dict:
 
 async def _ark_request(method: str, path: str, user_email: str, **kwargs):
     """Make a request to ARK and return the JSON response."""
+    if ark_demo.ENABLED:
+        # The demo answers from its own made-up staff and never calls ARK.
+        return ark_demo.handle(method, path, user_email, params=kwargs.get("params"), body=kwargs.get("json"))
     if not ARK_SERVICE_TOKEN:
         raise HTTPException(502, detail="ARK integration not configured")
 
