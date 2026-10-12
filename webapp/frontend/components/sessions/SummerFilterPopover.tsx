@@ -155,7 +155,10 @@ export function SummerFilterPopover({
           )}
         >
           <Sun className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
-          <span className="max-w-[110px] truncate sm:max-w-[150px]">
+          {/* On a phone the idle label goes, leaving the sun, so the tutor
+              filter beside it keeps room for its own label. A chosen filter
+              still shows what it is. */}
+          <span className={cn("max-w-[110px] truncate sm:max-w-[150px]", !isActive && "max-sm:sr-only")}>
             {summerFilterSummary(value)}
           </span>
           {selectedCount > 1 && (

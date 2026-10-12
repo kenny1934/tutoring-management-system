@@ -25,7 +25,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { formatCompactDateTimeSlot } from "@/lib/formatters";
+import { formatCompactDateTimeSlot, plural } from "@/lib/formatters";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 import type { ProposedSession } from "@/lib/proposal-utils";
@@ -92,6 +92,8 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [popoverTab, setPopoverTab] = useState<"list" | "grid">("list");
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
+  // The day tapped on a phone, whose summary shows under the grid
+  const [phoneDayDate, setPhoneDayDate] = useState<string | null>(null);
 
   const today = getToday();
 
@@ -200,8 +202,13 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
     onDateChange(today);
   };
 
-  // Handle day cell click
+  // Handle day cell click. On a phone a tap picks the day for the summary
+  // under the grid, and the summary's button opens the popover from there.
   const handleDayClick = (dayData: DayCellData) => {
+    if (isMobile) {
+      if (dayData.isCurrentMonth) setPhoneDayDate(dayData.dateString);
+      return;
+    }
     if (dayData.totalSessions > 0 || dayData.proposedCount > 0) {
       setSelectedDayDate(dayData.dateString);
       setPopoverTab("list");
@@ -213,6 +220,19 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
     if (!selectedDayDate) return null;
     return calendarData.find(d => d.dateString === selectedDayDate) || null;
   }, [selectedDayDate, calendarData]);
+
+  // The day summarised under the grid on a phone. It is the day you tapped
+  // while that day is still on screen, otherwise today if today is in this
+  // month, and nothing for another month until you tap a day in it.
+  const phoneDayData = useMemo(() => {
+    if (!isMobile) return null;
+    const inMonth = (d: DayCellData) => d.isCurrentMonth;
+    return (
+      calendarData.find(d => inMonth(d) && d.dateString === phoneDayDate) ??
+      calendarData.find(d => inMonth(d) && d.isToday) ??
+      null
+    );
+  }, [isMobile, calendarData, phoneDayDate]);
 
   // Handle opening full view
   const handleOpenFullView = (viewMode: "list" | "daily") => {
@@ -239,7 +259,9 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
   };
 
   return (
-    <div className="flex flex-col gap-1 h-full min-h-0">
+    // On a phone the grid keeps a fixed row height and the day summary sits
+    // under it, so the whole view scrolls. Elsewhere the grid fills the page.
+    <div className={cn("flex flex-col gap-1 h-full min-h-0", isMobile && "overflow-y-auto")}>
       {/* Month Navigation Header */}
       <div className={cn(
         "flex items-center justify-between gap-2 bg-paper border-2 border-line-strong rounded-lg px-3 py-1.5",
@@ -271,7 +293,10 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 min-h-0 bg-raised border-2 border-line rounded-lg overflow-hidden flex flex-col">
+      <div className={cn(
+        "bg-raised border-2 border-line rounded-lg overflow-hidden flex flex-col",
+        isMobile ? "flex-shrink-0" : "flex-1 min-h-0"
+      )}>
         {/* Weekday Headers */}
         <div className="grid grid-cols-7 border-b-2 border-line">
           {WEEKDAY_NAMES.map((day, index) => (
@@ -290,7 +315,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
         </div>
 
         {/* Calendar Days Grid */}
-        <div className="grid grid-cols-7 auto-rows-fr flex-1 min-h-0">
+        <div className={cn("grid grid-cols-7", isMobile ? "auto-rows-[3.25rem]" : "auto-rows-fr flex-1 min-h-0")}>
           {calendarData.map((dayData, index) => (
             <DayCell
               key={dayData.dateString}
@@ -298,12 +323,29 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
               index={index}
               maxSessions={maxSessions}
               isMobile={isMobile}
+              isSelected={phoneDayData?.dateString === dayData.dateString}
               onClick={() => handleDayClick(dayData)}
               getLoadIntensity={getLoadIntensity}
             />
           ))}
         </div>
       </div>
+
+      {isMobile && (
+        <PhoneDaySummary
+          dayData={phoneDayData}
+          onSeeSessions={() => {
+            if (!phoneDayData) return;
+            setSelectedDayDate(phoneDayData.dateString);
+            setPopoverTab("list");
+          }}
+          onOpenDay={() => {
+            if (!phoneDayData) return;
+            onDateChange(phoneDayData.date);
+            onViewModeChange?.("list");
+          }}
+        />
+      )}
 
       {/* Day Popover */}
       <AnimatePresence>
@@ -333,11 +375,13 @@ interface DayCellProps {
   index: number;
   maxSessions: number;
   isMobile: boolean;
+  /** The day summarised under the grid on a phone */
+  isSelected?: boolean;
   onClick: () => void;
   getLoadIntensity: (count: number) => string;
 }
 
-function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntensity }: DayCellProps) {
+function DayCell({ dayData, index, maxSessions, isMobile, isSelected = false, onClick, getLoadIntensity }: DayCellProps) {
   const { date, isCurrentMonth, isToday, isWeekend, isPast, tutorWorkloads, totalSessions, proposedCount } = dayData;
   const dayOfWeek = date.getDay();
   const isFirstCol = dayOfWeek === 0;
@@ -346,6 +390,52 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
   // Show max 3 tutors, then "+X more"
   const visibleTutors = tutorWorkloads.slice(0, isMobile ? 2 : 3);
   const remainingTutors = tutorWorkloads.length - visibleTutors.length;
+
+  // A phone's cell is about 46px wide, which used to squeeze the tutors and
+  // statuses down to single clipped letters. So on a phone the cell shows
+  // only the date and the day's total, with a dot for anything unpaid or
+  // proposed, and the tint still says how full the day is. The day you tap
+  // is spelt out in full under the grid.
+  if (isMobile) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!isCurrentMonth}
+        aria-pressed={isSelected}
+        aria-label={`${getDayName(date, false)} ${date.getDate()}, ${plural(totalSessions, "session")}`}
+        className={cn(
+          "flex flex-col p-1 border-b border-line text-left transition-colors",
+          !isFirstCol && "border-l",
+          !isCurrentMonth && "bg-gray-50 dark:bg-[#241f19] opacity-50",
+          isCurrentMonth && getLoadIntensity(totalSessions),
+          isPast && isCurrentMonth && "opacity-70",
+          isSelected && "ring-2 ring-inset ring-accent-ink opacity-100"
+        )}
+      >
+        <div className="flex items-center justify-between gap-0.5">
+          <span className={cn(
+            "inline-flex h-5 min-w-[20px] items-center justify-center rounded-full text-xs font-bold tabular-nums",
+            isToday && "bg-accent-ink px-1 text-white",
+            !isToday && isCurrentMonth && "text-ink-heading",
+            !isCurrentMonth && "text-gray-500 dark:text-gray-400",
+            isWeekend && isCurrentMonth && !isToday && "text-accent-ink/70"
+          )}>
+            {date.getDate()}
+          </span>
+          <span className="flex gap-0.5 pr-0.5" aria-hidden="true">
+            {dayData.unpaidCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-red-600 dark:bg-red-400" />}
+            {proposedCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />}
+          </span>
+        </div>
+        {totalSessions > 0 && (
+          <span className="mt-auto text-center text-sm font-semibold tabular-nums text-ink-heading">
+            {totalSessions}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <motion.div
@@ -455,6 +545,88 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
         </div>
       )}
     </motion.div>
+  );
+}
+
+// The tapped day on a phone, in full, under the month grid. The popover with
+// every session stays a tap away, because a busy day can run past a hundred
+// sessions, and a list that long reads better in its own window than under
+// the calendar.
+interface PhoneDaySummaryProps {
+  dayData: DayCellData | null;
+  onSeeSessions: () => void;
+  onOpenDay: () => void;
+}
+
+function PhoneDaySummary({ dayData, onSeeSessions, onOpenDay }: PhoneDaySummaryProps) {
+  if (!dayData) {
+    return (
+      <p className="flex-shrink-0 px-1 py-3 text-center text-sm text-ink-subtle">
+        Tap a day to see who is teaching and how its sessions stand.
+      </p>
+    );
+  }
+
+  const { date, totalSessions, proposedCount, unpaidCount, statusCounts, tutorWorkloads } = dayData;
+  const statuses = Array.from(statusCounts.entries()).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <section className="flex-shrink-0 rounded-lg border-2 border-line bg-paper p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-bold text-ink-heading">
+          {getDayName(date, false)}, {getMonthName(date)} {date.getDate()}
+        </h2>
+        <span className="text-sm tabular-nums text-ink-subtle">{plural(totalSessions, "session")}</span>
+      </div>
+
+      {totalSessions === 0 && proposedCount === 0 ? (
+        <p className="mt-2 text-sm text-ink-subtle">There are no sessions on this day.</p>
+      ) : (
+        <>
+          {(statuses.length > 0 || unpaidCount > 0 || proposedCount > 0) && (
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+              {statuses.map(([status, count]) => {
+                const { Icon, textClass } = getSessionStatusConfig(status);
+                return (
+                  <span key={status} className={cn("inline-flex items-center gap-1", textClass)}>
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {status} <span className="font-semibold tabular-nums">{count}</span>
+                  </span>
+                );
+              })}
+              {unpaidCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <HandCoins className="h-3.5 w-3.5" aria-hidden="true" />
+                  Unpaid <span className="font-semibold tabular-nums">{unpaidCount}</span>
+                </span>
+              )}
+              {proposedCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                  <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                  Proposed <span className="font-semibold tabular-nums">{proposedCount}</span>
+                </span>
+              )}
+            </div>
+          )}
+
+          {tutorWorkloads.length > 0 && (
+            <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-line pt-2 text-[13px]">
+              {tutorWorkloads.map(({ tutor, sessionCount }) => (
+                <li key={tutor.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-ink-heading">{tutor.tutor_name}</span>
+                  <span className="tabular-nums text-accent-ink">{sessionCount}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" icon={List} onClick={onSeeSessions}>See sessions</Button>
+            <Button size="sm" variant="quiet" icon={ExternalLink} onClick={onOpenDay}>Open in the list</Button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
