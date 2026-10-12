@@ -2024,6 +2024,14 @@ function SessionsPageContent() {
         </div>
       )}
 
+      {/* The filters and the select-all control wrap as one group. On their
+          own, the select-all control was the piece left over when a narrow
+          phone ran out of room, so it sat alone on a third row at the left
+          edge, and its menu (which opens leftward from the control's right
+          edge) ran off the screen. Kept together, the tutor dropdown narrows
+          to make room instead, and the control stays at the right end of the
+          row where its menu has space to open. */}
+      <div className="flex min-w-0 flex-auto items-center gap-x-2.5">
       {/* Compact Status Filter with color indicators. Hidden in the pending
           make-ups view, where the mode pins the status set and the dropdown
           would sit there inert. */}
@@ -2060,7 +2068,7 @@ function SessionsPageContent() {
           bulk action needs a Scheduled, Trial or Make-up Class row, which no
           pending make-up is, so the control has nothing to offer there. */}
       {viewMode === "list" && !isPendingMakeupsView && sessions.length > 0 && (
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <div className="flex items-center">
             <button
               onClick={toggleSelectAll}
@@ -2093,34 +2101,33 @@ function SessionsPageContent() {
                 onClick={() => { toggleSelectAll(); setShowSelectDropdown(false); }}
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
               >
-                Select All
+                Select all
               </button>
               <button
                 onClick={() => { selectMarkableOnly(); setShowSelectDropdown(false); }}
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
               >
-                Select Markable Only
+                Select markable only
               </button>
               <button
                 onClick={() => { selectAttendedOnly(); setShowSelectDropdown(false); }}
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
               >
-                Select Attended
+                Select attended
               </button>
               {hasSelection && (
                 <button
                   onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-red-600 dark:text-red-400"
                 >
-                  Clear Selection
+                  Clear selection
                 </button>
               )}
             </div>
           )}
         </div>
       )}
-
-
+      </div>
     </PageHeader>
   );
 
@@ -2651,19 +2658,19 @@ function SessionsPageContent() {
                                   onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                                 >
-                                  Select All in Slot
+                                  Select all in slot
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); selectMarkableInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                                 >
-                                  Select Markable Only
+                                  Select markable only
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); selectAttendedInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-gray-700 dark:text-gray-300"
                                 >
-                                  Select Attended in Slot
+                                  Select attended in slot
                                 </button>
                               </div>
                             )}
