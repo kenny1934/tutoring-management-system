@@ -75,9 +75,15 @@ SCHOOL_SHUFFLE_SHARE = 0.15
 # ── Connection and guards ───────────────────────────────────────────────────
 
 def connect():
+    # The nightly publish runs as a Cloud Run job, which reaches Cloud SQL
+    # through a socket Cloud Run mounts under /cloudsql. A laptop has no such
+    # socket (even though its .env names the instance too), so there the
+    # script uses the host and port in .env.
+    socket = Path("/cloudsql") / os.environ.get("INSTANCE_CONNECTION_NAME", "-")
+    where = ({"unix_socket": str(socket)} if socket.exists() else
+             {"host": os.environ.get("DB_HOST", "localhost"), "port": int(os.environ.get("DB_PORT", "3306"))})
     conn = pymysql.connect(
-        host=os.environ.get("DB_HOST", "localhost"),
-        port=int(os.environ.get("DB_PORT", "3306")),
+        **where,
         user=os.environ["DB_USER"],
         password=os.environ["DB_PASSWORD"],
         charset="utf8mb4",
