@@ -556,6 +556,12 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
     """
     from models import CalendarEvent
 
+    # Without a key there's nothing to sync from, so the events already saved
+    # are what gets shown. The demo copy of CSM runs this way on purpose.
+    if not API_KEY:
+        logger.info("Calendar sync skipped - GOOGLE_CALENDAR_API_KEY isn't set")
+        return {"synced": 0, "deleted": 0, "message": "No calendar key"}
+
     # Prevent concurrent sync operations
     if not _sync_lock.acquire(blocking=False):
         logger.info("Calendar sync skipped - another sync is already in progress")
