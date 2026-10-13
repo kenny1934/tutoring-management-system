@@ -20,6 +20,16 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
 
+  // Raw Cloud Run URLs bypass the staff guide's Cloudflare Worker. Send
+  // guide requests to the staff domain, where the usual login protects them.
+  const guidePath = pathname.match(/^\/(?:guide|overview)(?:\/(.*))?$/);
+  if (hostname.endsWith(".run.app") && guidePath) {
+    const destination = new URL("https://csm.mathconceptsecondary.academy/guide/");
+    destination.pathname += guidePath[1] || "";
+    destination.search = request.nextUrl.search;
+    return NextResponse.redirect(destination, 307);
+  }
+
   // skipTrailingSlashRedirect (next.config.ts) hands slash handling to
   // this file: Next's own strip-redirect ran BEFORE middleware and turned
   // the games.* /<slug>/ URLs into a redirect loop. Keep the exact old
