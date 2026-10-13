@@ -701,7 +701,12 @@ def real_identities(cur):
 def leak_scan(cur, visitors) -> int:
     names, phones, emails = real_identities(cur)
     # The visitors are real people on purpose: they sign in as themselves.
-    emails -= {v["email"].strip().lower() for v in visitors}
+    visitor_emails = {v["email"].strip().lower() for v in visitors}
+    emails -= visitor_emails
+    # A visitor's email often spells their name ("kenny.chiu@..."), so it's
+    # taken out of the text before the name check. Their name anywhere else
+    # still counts as a leak.
+    own_emails = re.compile("|".join(map(re.escape, visitor_emails)), re.IGNORECASE) if visitor_emails else None
     for v in visitors:
         if v.get("name"):
             names.discard(" ".join(LATIN_WORD.findall(v["name"].casefold().replace("mr ", "").replace("ms ", ""))))
@@ -715,6 +720,8 @@ def leak_scan(cur, visitors) -> int:
             for (value,) in cur.fetchall():
                 text = value.decode("utf-8", "replace") if isinstance(value, bytes) else str(value)
                 text = DATA_URI.sub("", text)
+                if own_emails:
+                    text = own_emails.sub(" ", text)
                 found = [e for e in EMAIL.findall(text) if e.lower() in emails] if "@" in text else []
                 found += [p for p in PHONE.findall(text) if p in phones]
                 words = LATIN_WORD.findall(text.casefold())
