@@ -216,3 +216,30 @@ describe("trailing-slash strip replication (skipTrailingSlashRedirect)", () => {
     expect(run(GAMES, "/zero-blast/").rewrite).toBe("/games/zero-blast/index.html");
   });
 });
+
+
+describe("staff guide from Cloud Run", () => {
+  const host = "staff-frontend-example.run.app";
+  it.each([
+    ["/guide", "/guide/"],
+    ["/guide/", "/guide/"],
+    ["/overview", "/guide/"],
+    ["/overview/zh-Hant.html", "/guide/zh-Hant.html"],
+    ["/guide/csm-overview.pdf?download=1", "/guide/csm-overview.pdf?download=1"],
+    ["/guide/img/t13-atlas.webp", "/guide/img/t13-atlas.webp"],
+  ])("redirects %s to the authenticated staff guide", (path, destination) => {
+    const req = new NextRequest(new URL(path, "https://" + host), { headers: { host } });
+    const response = middleware(req);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://csm.mathconceptsecondary.academy" + destination);
+  });
+  it("leaves unrelated Cloud Run paths and similar names alone", () => {
+    for (const path of ["/sessions", "/guidelines", "/overview-report"]) {
+      expect(run(host, path)).toEqual({ status: 200, rewrite: null, redirect: null });
+    }
+  });
+  it("respects the public forwarded host rather than the Cloud Run origin", () => {
+    expect(run(host, "/guide", "csm-pro.mathconceptsecondary.academy").redirect).toBeNull();
+    expect(run("localhost:8080", "/guide", host).redirect).toBe("/guide/");
+  });
+});
