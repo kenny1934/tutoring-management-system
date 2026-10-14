@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.1...v2.2.2) (2026-10-14)
+
+### Bug Fixes
+
+* **Coupon discounts on batch renewal**: renewing several enrolments now checks current coupon availability, so it applies available coupons and stops carrying used coupons into the next term.
+
 ## [2.2.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.0...v2.2.1) (2026-10-13)
 
 ### New Features

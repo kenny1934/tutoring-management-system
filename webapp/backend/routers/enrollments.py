@@ -3434,6 +3434,21 @@ async def batch_renew(
     renewed_student_ids = []
     failed_count = 0
 
+    # Resolve each student's current entitlement once for the batch. The old
+    # term's discount may have spent their last coupon or been a one-off offer.
+    coupons = db.query(StudentCoupon).join(
+        Enrollment, Enrollment.student_id == StudentCoupon.student_id
+    ).filter(Enrollment.id.in_(request.enrollment_ids)).all()
+    coupon_by_student = {coupon.student_id: coupon for coupon in coupons}
+    discounts = db.query(Discount).filter(
+        Discount.is_active.is_(True),
+        Discount.discount_type == 'Fixed Amount',
+        Discount.discount_value.in_((200, 300, 500)),
+    ).order_by(Discount.id).all()
+    discount_by_value = {}
+    for discount in discounts:
+        discount_by_value.setdefault(discount.discount_value, discount.id)
+
     # Load holidays once for bulk calculation
     today = hk_now().date()
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
@@ -3521,6 +3536,16 @@ async def batch_renew(
             failed_count += 1
             continue
 
+        # Match individual renewal: staff referral takes priority, otherwise
+        # apply an available coupon. Inventory is consumed only at mark-paid.
+        discount_id = None
+        if request.lessons_paid >= MIN_LESSONS_FOR_DISCOUNT:
+            if enrollment.student and enrollment.student.is_staff_referral:
+                discount_id = discount_by_value.get(500)
+            coupon = coupon_by_student.get(enrollment.student_id)
+            if discount_id is None and coupon and (coupon.available_coupons or 0) > 0:
+                discount_id = discount_by_value.get(coupon.coupon_value)
+
         # Create the new enrollment
         new_enrollment = Enrollment(
             student_id=enrollment.student_id,
@@ -3532,7 +3557,7 @@ async def batch_renew(
             lessons_paid=request.lessons_paid,
             enrollment_type='Regular',
             payment_status='Pending Payment',
-            discount_id=enrollment.discount_id,
+            discount_id=discount_id,
             renewed_from_enrollment_id=eid,
             last_modified_time=hk_now(),
             last_modified_by=admin.user_email
