@@ -706,13 +706,13 @@ export function Sidebar() {
             </Link>
 
             <a
-              href="/guide/"
+              href={isSuperAdmin && effectiveRole ? `/guide/?role=${encodeURIComponent(effectiveRole)}` : "/guide/"}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setIsUserMenuOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 text-sm text-foreground/80 hover:bg-wash rounded-lg transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
             >
-              <BookOpen className="h-4 w-4" />
+              <BookOpen className="h-4 w-4 text-foreground/60" />
               User guide
             </a>
 

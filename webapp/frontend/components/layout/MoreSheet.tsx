@@ -173,7 +173,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             <span className="flex-1">Settings</span>
             <ChevronRight className="h-4 w-4 text-ink-subtle" />
           </Link>
-          <a href="/guide/" target="_blank" rel="noopener noreferrer" onClick={onClose} className={ROW}>
+          <a href={isSuperAdmin && effectiveRole ? `/guide/?role=${encodeURIComponent(effectiveRole)}` : "/guide/"} target="_blank" rel="noopener noreferrer" onClick={onClose} className={ROW}>
             <BookOpen className="h-5 w-5 text-ink-subtle" />
             <span className="flex-1">User guide</span>
             <ChevronRight className="h-4 w-4 text-ink-subtle" />
