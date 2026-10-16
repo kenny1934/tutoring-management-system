@@ -94,7 +94,14 @@ def test_the_proxy_asks_the_stand_in_when_the_demo_is_on(monkeypatch):
     calls = []
     monkeypatch.setattr(ark_demo, "ENABLED", True)
     monkeypatch.setattr(ark_demo, "handle", lambda *a, **k: calls.append((a, k)) or ["answer"])
-    result = asyncio.run(ark_proxy._ark_request("GET", "/me/leave-types", "someone@example.com", params={"year": 2026}))
+    # Keep the test runner's current loop intact for the other async tests.
+    loop = asyncio.new_event_loop()
+    try:
+        result = loop.run_until_complete(
+            ark_proxy._ark_request("GET", "/me/leave-types", "someone@example.com", params={"year": 2026})
+        )
+    finally:
+        loop.close()
     assert result == ["answer"]
     assert calls[0][0] == ("GET", "/me/leave-types", "someone@example.com")
     assert calls[0][1]["params"] == {"year": 2026}
