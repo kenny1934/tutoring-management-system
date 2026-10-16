@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { X, Settings, ChevronDown, Shield, LogOut, Database, Megaphone, MessageSquarePlus } from "lucide-react";
+import { BookOpen, X, Settings, ChevronDown, Shield, LogOut, Database, Megaphone, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import { useAuth } from "@/contexts/AuthContext";
@@ -704,6 +704,17 @@ export function Sidebar() {
               <Settings className="h-4 w-4 text-foreground/60" />
               Settings
             </Link>
+
+            <a
+              href={isSuperAdmin && effectiveRole ? `/guide/?role=${encodeURIComponent(effectiveRole)}` : "/guide/"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsUserMenuOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
+            >
+              <BookOpen className="h-4 w-4 text-foreground/60" />
+              User guide
+            </a>
 
             {/* What's New Link */}
             <Link

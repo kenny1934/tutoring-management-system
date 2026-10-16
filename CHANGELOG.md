@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.2.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.1...v2.2.2) (2026-10-14)
+
+### Bug Fixes
+
+* **Coupon discounts on batch renewal**: renewing several enrolments now checks current coupon availability, so it applies available coupons and stops carrying used coupons into the next term.
+
+## [2.2.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.0...v2.2.1) (2026-10-13)
+
+### New Features
+
+* **User guide**: open the illustrated CSM Pro guide from your account menu or More, with English and Traditional Chinese versions, PDF downloads and light or dark mode.
+* **The month on a phone**: the Sessions calendar shows clear daily totals, and tapping a date shows its tutors and lesson statuses below the calendar.
+* **Trials on a phone**: choose a column to see its trials at full width, whether grouped by status, school or grade.
+* **Returning to a page**: going back restores your place, and tapping the bottom tab you are already on takes you to the top.
+* **More ways to refresh**: pull to refresh now works on Inbox and more daily lists, including Course Renewal, Parent Contacts and Unchecked Attendance.
+
+### Bug Fixes
+
+* **Home on a phone**: the summary takes less space, charts share a switchable card, and the notification bell stays in the top bar.
+* **Today's lessons**: centre view names each tutor above their lessons, while your own view avoids repeating your name on every row.
+* **Lesson actions on a phone**: lesson lists show three actions and a More button, and actions on a lesson's own page are easier to tap.
+* **The daily puzzle**: the puzzle folds away again, and long answers open in a sheet on a phone.
+* **Scrolling on a phone**: long lists scroll with the page, swiping over dashboard cards moves the page, and explanations no longer push pages sideways.
+* **Controls on a phone**: lesson grids and floating controls stay above the bottom bar, the select-all control stays on screen, and checkboxes and switchers are easier to tap.
+* **Bottom tabs and touch controls**: tabs respond as soon as you touch them, and holding a button or tab no longer opens the browser's link menu.
+* **Guide links**: the guide opens from either CSM address and from the direct app link, including links to its Chinese version and PDFs.
+
 ## [2.2.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.1.2...v2.2.0) (2026-10-12)
 
 

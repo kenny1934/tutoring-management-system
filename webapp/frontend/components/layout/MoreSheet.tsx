@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Database, LogOut, Megaphone, MessageSquarePlus, Settings, X } from "lucide-react";
+import { BookOpen, ChevronRight, Database, LogOut, Megaphone, MessageSquarePlus, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -173,6 +173,11 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             <span className="flex-1">Settings</span>
             <ChevronRight className="h-4 w-4 text-ink-subtle" />
           </Link>
+          <a href={isSuperAdmin && effectiveRole ? `/guide/?role=${encodeURIComponent(effectiveRole)}` : "/guide/"} target="_blank" rel="noopener noreferrer" onClick={onClose} className={ROW}>
+            <BookOpen className="h-5 w-5 text-ink-subtle" />
+            <span className="flex-1">User guide</span>
+            <ChevronRight className="h-4 w-4 text-ink-subtle" />
+          </a>
           <Link href="/whats-new" onClick={onClose} className={ROW}>
             <Megaphone className="h-5 w-5 text-ink-subtle" />
             <span className="flex-1">What&apos;s new</span>
