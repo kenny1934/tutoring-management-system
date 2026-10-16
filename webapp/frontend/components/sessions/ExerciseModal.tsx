@@ -1308,11 +1308,11 @@ export function ExerciseModal({
           </Button>
         </div>
 
-        {/* Copy/Paste Controls Row */}
-        {((exercises.length > 0 && !readOnly) || (clipboardData && !readOnly)) && (
+        {/* Copying is available even when the lesson cannot be changed. */}
+        {(exercises.length > 0 || (clipboardData && !readOnly)) && (
           <div className="flex items-center gap-1.5">
             {/* Select All toggle */}
-            {exercises.length > 0 && !readOnly && (
+            {exercises.length > 0 && (
               <Button
                 variant="quiet"
                 size="sm"
@@ -1326,7 +1326,7 @@ export function ExerciseModal({
             )}
 
             {/* Copy button */}
-            {exercises.length > 0 && !readOnly && (
+            {exercises.length > 0 && (
               <Button
                 size="sm"
                 icon={Copy}
@@ -1466,20 +1466,18 @@ export function ExerciseModal({
                           <GripVertical className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                         </div>
                       )}
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => toggleSelection(index)}
-                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                          title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
-                        >
-                          {selectedIndices.has(index) ? (
-                            <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                          ) : (
-                            <Square className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                          )}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => toggleSelection(index)}
+                        className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
+                      >
+                        {selectedIndices.has(index) ? (
+                          <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                        ) : (
+                          <Square className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        )}
+                      </button>
                     </div>
 
                     {/* Resource input (PDF path or URL) */}
