@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.3](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.2...v2.2.3) (2026-10-21)
+
+### Bug Fixes
+
+* **Coupon counts on batch payment**: marking several enrolments paid now deducts a coupon only for each enrolment that uses one, so another enrolment for the same student does not consume an extra coupon.
+
 ## [2.2.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.1...v2.2.2) (2026-10-14)
 
 ### Bug Fixes

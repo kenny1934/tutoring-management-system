@@ -3141,7 +3141,9 @@ async def batch_mark_paid(
         enrollment.last_modified_time = now
         enrollment.last_modified_by = current_user.user_email
         # Decrement student's available coupons if enrollment used a coupon discount
-        if enrollment.student_id in coupon_map:
+        if (enrollment.discount and enrollment.discount.discount_value
+            and int(enrollment.discount.discount_value) in (200, 300)
+            and enrollment.student_id in coupon_map):
             coupon = coupon_map[enrollment.student_id]
             if coupon.available_coupons and coupon.available_coupons > 0:
                 coupon.available_coupons -= 1
