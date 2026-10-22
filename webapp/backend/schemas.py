@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
+from makeup_schemas import MakeupEligibility
 
 from constants import WEEKDAY_NAMES, SummerApplicationStatus, RegularApplicationStatus
 
@@ -296,6 +297,10 @@ class EnrollmentBase(BaseModel):
 
 class EnrollmentResponse(EnrollmentBase):
     """Enrollment response with relationships"""
+    makeup_policy: Optional[Literal["academic_year"]] = None
+    billing_payment_id: Optional[str] = None
+    billing_payment_method: Optional[Literal["manual", "autopay"]] = None
+    billing_managed: bool = False
     id: int = Field(..., gt=0)
     student_name: Optional[str] = Field(None, max_length=200)
     tutor_name: Optional[str] = Field(None, max_length=200)
@@ -375,6 +380,13 @@ class DiscountOverrideRequest(BaseModel):
 
 class OverdueEnrollment(BaseModel):
     """Overdue enrollment with days overdue calculation"""
+    billing_payment_id: Optional[str] = None
+    billing_payment_total_fee: Optional[int] = None
+    billing_payment_lesson_count: Optional[int] = None
+    billing_payment_line_count: Optional[int] = None
+    billing_payment_due_date: Optional[date] = None
+    billing_payment_method: Optional[Literal["manual", "autopay"]] = None
+    billing_managed: bool = False
     id: int = Field(..., gt=0)
     student_id: int = Field(..., gt=0)
     student_name: str = Field(..., max_length=200)
@@ -431,8 +443,8 @@ class UncheckedAttendanceCount(BaseModel):
 
 class AgedPendingMakeupsCount(BaseModel):
     """Count of pending makeups aged past threshold"""
-    count: int = Field(0, ge=0, description="Pending makeups aged >= threshold_days")
-    critical: int = Field(0, ge=0, description="Pending makeups aged >= 45 days")
+    count: int = Field(0, ge=0, description="Pending makeups requiring follow-up")
+    critical: int = Field(0, ge=0, description="Pending makeups close to their applicable scheduling deadline")
 
 
 class EnrollmentCreate(BaseModel):
@@ -497,6 +509,10 @@ class EnrollmentPreviewResponse(BaseModel):
 
 class RenewalDataResponse(BaseModel):
     """Pre-filled data for enrollment renewal form"""
+    makeup_policy: Optional[Literal["academic_year"]] = None
+    billing_payment_id: Optional[str] = None
+    billing_payment_method: Optional[Literal["manual", "autopay"]] = None
+    billing_managed: bool = False
     student_id: int
     student_name: str
     school_student_id: Optional[str] = None
@@ -517,6 +533,10 @@ class RenewalDataResponse(BaseModel):
 
 class RenewalListItem(BaseModel):
     """Enrollment needing renewal for list view"""
+    billing_payment_id: Optional[str] = None
+    billing_payment_method: Optional[Literal["manual", "autopay"]] = None
+    renewal_billing_payment_id: Optional[str] = None
+    billing_managed: bool = False
     id: int = Field(..., gt=0)
     student_id: int = Field(..., gt=0)
     student_name: str
@@ -580,6 +600,7 @@ class TrialListItem(BaseModel):
 
 class PendingMakeupSession(BaseModel):
     """Pending makeup session with full info for display"""
+    makeup_eligibility: Optional[MakeupEligibility] = None
     id: int
     session_date: date
     time_slot: Optional[str] = None
@@ -592,6 +613,10 @@ class PendingMakeupSession(BaseModel):
 
 class EnrollmentDetailResponse(BaseModel):
     """Detailed enrollment info for review modal"""
+    makeup_policy: Optional[Literal["academic_year"]] = None
+    billing_payment_id: Optional[str] = None
+    billing_payment_method: Optional[Literal["manual", "autopay"]] = None
+    billing_managed: bool = False
     id: int
     student_id: int
     student_name: str
@@ -673,6 +698,7 @@ class LinkedSessionInfo(BaseModel):
 
 class SessionResponse(SessionBase):
     """Session response with student/tutor names and details"""
+    makeup_eligibility: Optional[MakeupEligibility] = None
     id: int = Field(..., gt=0)
     student_name: Optional[str] = Field(None, max_length=200)
     tutor_name: Optional[str] = Field(None, max_length=200)
@@ -1636,6 +1662,9 @@ class BatchOperationResponse(BaseModel):
 
 class EligibilityResult(BaseModel):
     """Result of eligibility check for batch renewal"""
+    billing_payment_id: Optional[str] = None
+    billing_payment_method: Optional[Literal["manual", "autopay"]] = None
+    billing_managed: bool = False
     enrollment_id: int
     eligible: bool
     reason: Optional[str] = None  # "pending_makeups", "conflicts", "extension_pending"
@@ -1701,6 +1730,7 @@ class MakeupProposalSlotCreate(MakeupProposalSlotBase):
 
 class MakeupProposalSlotResponse(MakeupProposalSlotBase):
     """Response schema for a proposal slot"""
+    makeup_eligibility: Optional[MakeupEligibility] = None
     id: int = Field(..., gt=0)
     proposal_id: int = Field(..., gt=0)
     slot_order: int = Field(..., ge=1, le=3)
@@ -1812,6 +1842,8 @@ class ExtensionRequestReject(BaseModel):
 
 class ExtensionRequestResponse(BaseModel):
     """Response schema for an extension request"""
+    action_required: bool = True
+    disposition: Optional[str] = None
     id: int = Field(..., gt=0)
     session_id: int = Field(..., gt=0)
     enrollment_id: int = Field(..., gt=0, description="Source enrollment (session belongs to this)")
@@ -1941,6 +1973,7 @@ class ExamRevisionSlotDetailResponse(ExamRevisionSlotResponse):
 
 class PendingSessionInfo(BaseModel):
     """Info about a pending session that can be consumed"""
+    makeup_eligibility: Optional[MakeupEligibility] = None
     id: int = Field(..., gt=0)
     session_date: date
     time_slot: Optional[str] = Field(None, max_length=50)

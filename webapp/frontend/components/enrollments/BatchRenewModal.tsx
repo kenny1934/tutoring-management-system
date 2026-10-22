@@ -1,5 +1,6 @@
 "use client";
 
+import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { Modal } from "@/components/ui/modal";
@@ -18,28 +19,9 @@ import {
 import { cn } from "@/lib/utils";
 import { Button, Input } from "@/components/controls";
 import { enrollmentsAPI } from "@/lib/api";
+import type { EligibilityResult } from "@/types";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { formatShortDate } from "@/lib/formatters";
-
-interface EligibilityResult {
-  enrollment_id: number;
-  eligible: boolean;
-  reason: string | null;
-  student_name: string;
-  details: string | null;
-  // Student info
-  student_id: number | null;
-  school_student_id: string | null;
-  grade: string | null;
-  lang_stream: string | null;
-  school: string | null;
-  // Schedule info
-  assigned_day: string | null;
-  assigned_time: string | null;
-  suggested_first_lesson_date: string | null;
-  // Override
-  overridable: boolean;
-}
 
 interface BatchRenewResult {
   original_enrollment_id: number;
@@ -58,6 +40,7 @@ interface BatchRenewModalProps {
 type ModalStep = "checking" | "results" | "creating" | "done";
 
 const REASON_LABELS: Record<string, string> = {
+  billing_workflow: "Review in Billing",
   pending_makeups: "Pending make-ups",
   conflicts: "Schedule conflicts",
   extension_pending: "Pending extension",
@@ -426,7 +409,7 @@ export function BatchRenewModal({
                             {item.details && (
                               <p className="text-xs text-foreground/50 mt-0.5">{item.details}</p>
                             )}
-                            <ScheduleInfo item={item} />
+                            {item.billing_managed && item.student_id ? <BillingWorkflowLink studentId={item.student_id} onClick={handleClose} /> : <ScheduleInfo item={item} />}
                           </div>
                         </motion.div>
                       ))}
@@ -515,7 +498,7 @@ export function BatchRenewModal({
                               {isOverridden && item.details && (
                                 <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">{item.details}</p>
                               )}
-                              <ScheduleInfo item={item} />
+                              {item.billing_managed && item.student_id ? <BillingWorkflowLink studentId={item.student_id} onClick={handleClose} /> : <ScheduleInfo item={item} />}
                             </div>
                           </motion.div>
                         );

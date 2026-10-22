@@ -11,6 +11,13 @@ from services.unlisted_lessons import fill_unlisted_lessons
 from constants import hk_now, CONFLICTING_SESSION_STATUSES, CANCELLED_OR_MAKEUP_BOOKED_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
+from services.makeup_entitlement import assert_makeup_entitlement, assert_extension_not_required, eligibility_for_sessions
+from billing import coupon_accounting, coupon_legacy
+from billing.guards import (
+    annotate_billing_response, assert_generic_regular_policy, assert_legacy_creation_allowed,
+    assert_legacy_enrollments_mutable, assert_legacy_fee_message_allowed,
+    billing_metadata, combine_overdue_payments, payment_line, workflow_enabled,
+)
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, SummerApplication, SummerCourseConfig
 from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
@@ -190,6 +197,9 @@ def enrollment_registration_fee(enrollment, db: Session) -> int:
     intake's config and so cannot affect an ordinary Regular enrollment: those
     carry no application link and never reach the lookup.
     """
+    line = payment_line(db, enrollment)
+    if line is not None:
+        return line.materials_fee
     is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type not in ('Trial', 'Summer')
     if not is_new:
         return 0
@@ -218,6 +228,9 @@ def compute_enrollment_total_fee(enrollment, db: Session) -> Optional[int]:
     config-driven generator (the generic fee message is blocked for them), so
     the flat ``400 × lessons`` formula would be wrong.
     """
+    line = payment_line(db, enrollment)
+    if line is not None:
+        return line.tuition_amount + line.materials_fee
     if enrollment.enrollment_type == 'Summer':
         return None
 
@@ -472,6 +485,9 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     Summer enrollments override this with the course config's end date.
     One-Time enrollments report their last actual scheduled session.
     """
+    line = payment_line(db, enrollment)
+    if line is not None:
+        return getattr(enrollment, '_billing_end_date', None) or enrollment.first_lesson_date
     if enrollment.enrollment_type == 'Summer':
         if not enrollment.summer_application_id:
             return enrollment.first_lesson_date
@@ -523,6 +539,8 @@ def calculate_effective_end_date_bulk(
     batches that may include Summer enrollments, also pre-load summer end
     dates via bulk_load_summer_end_dates() and pass the result.
     """
+    if getattr(enrollment, 'billing_payment_id', None) and workflow_enabled():
+        return getattr(enrollment, '_billing_end_date', None) or enrollment.first_lesson_date
     if enrollment.enrollment_type == 'Summer':
         if summer_end_dates is not None and enrollment.summer_application_id:
             return summer_end_dates.get(enrollment.summer_application_id) or enrollment.first_lesson_date
@@ -571,6 +589,10 @@ async def preview_enrollment(
     student = db.query(Student).filter(Student.id == enrollment_data.student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail=f"Student with ID {enrollment_data.student_id} not found")
+
+    assert_generic_regular_policy(
+        enrollment_data.student_id, enrollment_data.first_lesson_date, enrollment_data.enrollment_type
+    )
 
     # Validate tutor exists
     tutor = db.query(Tutor).filter(Tutor.id == enrollment_data.tutor_id).first()
@@ -668,10 +690,18 @@ async def create_enrollment(
     - Holidays are skipped, extending the enrollment span
     - Trial/One-Time enrollments generate exactly 1 session
     """
+    assert_legacy_creation_allowed(
+        db, enrollment_data.student_id, enrollment_data.first_lesson_date, enrollment_data.enrollment_type
+    )
+
     # Validate student exists
     student = db.query(Student).filter(Student.id == enrollment_data.student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail=f"Student with ID {enrollment_data.student_id} not found")
+
+    assert_generic_regular_policy(
+        enrollment_data.student_id, enrollment_data.first_lesson_date, enrollment_data.enrollment_type
+    )
 
     # Validate tutor exists
     tutor = db.query(Tutor).filter(Tutor.id == enrollment_data.tutor_id).first()
@@ -701,6 +731,12 @@ async def create_enrollment(
                 detail=f"Renewal source enrollment ID {enrollment_data.renewed_from_enrollment_id} not found"
             )
 
+        if renewed_from.student_id != enrollment_data.student_id:
+            raise HTTPException(status_code=400, detail="The renewal enrollment belongs to another student.")
+        assert_legacy_enrollments_mutable(
+            db, [renewed_from.id], structural=True, action="prepare the next enrollment"
+        )
+
     # Generate session dates for conflict checking
     sessions, skipped_holidays, effective_end_date = generate_session_dates(
         first_lesson_date=enrollment_data.first_lesson_date,
@@ -712,6 +748,10 @@ async def create_enrollment(
 
     # Check for conflicts (don't create if conflicts exist)
     non_holiday_dates = [s.session_date for s in sessions if not s.is_holiday]
+    assert_legacy_creation_allowed(
+        db, enrollment_data.student_id, enrollment_data.first_lesson_date, enrollment_data.enrollment_type,
+        lesson_dates=non_holiday_dates,
+    )
     conflicts = check_student_conflicts(
         db=db,
         student_id=enrollment_data.student_id,
@@ -740,6 +780,8 @@ async def create_enrollment(
         ).first()
         is_new_student = prior_non_trial is None
 
+    if discount and discount.discount_value and int(discount.discount_value) in (200, 300):
+        coupon_legacy.lock_student_ids(db, [enrollment_data.student_id])
     # Create the enrollment
     enrollment = Enrollment(
         student_id=enrollment_data.student_id,
@@ -759,6 +801,7 @@ async def create_enrollment(
     )
     db.add(enrollment)
     db.flush()  # Get enrollment ID
+    coupon_legacy.reserve(db, enrollment, admin, as_of=hk_now().date())
 
     # Snapshot per-session revenue for the revenue views (excludes reg fee).
     enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
@@ -859,6 +902,7 @@ def get_renewal_data(
         suggested_date += timedelta(days=1)
 
     return RenewalDataResponse(
+        **billing_metadata(db, [enrollment])[enrollment.id],
         student_id=enrollment.student_id,
         student_name=enrollment.student.student_name if enrollment.student else "",
         school_student_id=enrollment.student.school_student_id if enrollment.student else None,
@@ -920,6 +964,7 @@ def get_enrollments_needing_renewal(
         query = query.filter(Enrollment.tutor_id == tutor_id)
 
     enrollments = query.all()
+    billing_metadata(db, enrollments)
 
     # Load holidays once for bulk calculation (2 years should cover all enrollments)
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
@@ -1090,7 +1135,7 @@ def get_enrollments_needing_renewal(
     # Sort by days_until_expiry (most urgent first - negative values first for expired)
     result.sort(key=lambda x: x.days_until_expiry)
 
-    return result
+    return annotate_billing_response(db, result)
 
 
 @router.get("/enrollments/renewal-counts", response_model=RenewalCountsResponse)
@@ -1126,6 +1171,7 @@ def get_renewal_counts(
         query = query.filter(Enrollment.location == location)
 
     enrollments = query.all()
+    billing_metadata(db, enrollments)
 
     # Load holidays once for bulk calculation
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
@@ -1263,6 +1309,7 @@ def get_enrollments(
 
     # Apply pagination
     enrollments = query.offset(offset).limit(limit).all()
+    billing_metadata(db, enrollments)
 
     # Load holidays once for bulk calculation
     today = hk_now().date()
@@ -1289,7 +1336,7 @@ def get_enrollments(
         enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
-    return result
+    return annotate_billing_response(db, result)
 
 
 def get_active_enrollment_objects(db: Session, location: Optional[str] = None):
@@ -1338,6 +1385,7 @@ def get_active_enrollment_objects(db: Session, location: Optional[str] = None):
 
     # Fetch pre-filtered enrollments
     all_enrollments = query.all()
+    billing_metadata(db, all_enrollments)
 
     # Load holidays once for bulk calculation
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
@@ -1405,7 +1453,7 @@ def get_active_enrollments(
         enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
-    return result
+    return annotate_billing_response(db, result)
 
 
 @router.get("/enrollments/overdue", response_model=List[OverdueEnrollment])
@@ -1436,6 +1484,19 @@ def get_overdue_enrollments(
     # "effective deadline" driving urgency. Using OR rather than COALESCE
     # also keeps the list correct when the two get out of sync (e.g. a
     # first_lesson_date gets backdated after publish).
+    deadline_filter = or_(
+        Enrollment.payment_deadline <= week_from_now,
+        Enrollment.first_lesson_date <= week_from_now,
+    )
+    if workflow_enabled():
+        from billing.models import BillingPaymentLine
+        grouped_ids = select(BillingPaymentLine.enrollment_id)
+        deadline_filter = or_(
+            and_(Enrollment.id.in_(grouped_ids),
+                 func.coalesce(Enrollment.payment_deadline, Enrollment.first_lesson_date) <= week_from_now),
+            and_(Enrollment.id.notin_(grouped_ids), deadline_filter),
+        )
+
     query = (
         db.query(Enrollment)
         .options(
@@ -1446,10 +1507,7 @@ def get_overdue_enrollments(
         .filter(
             Enrollment.payment_status == "Pending Payment",
             Enrollment.first_lesson_date.isnot(None),
-            or_(
-                Enrollment.payment_deadline <= week_from_now,
-                Enrollment.first_lesson_date <= week_from_now,
-            ),
+            deadline_filter,
             Enrollment.student_id.isnot(None)
         )
     )
@@ -1460,6 +1518,7 @@ def get_overdue_enrollments(
         query = query.filter(Enrollment.tutor_id == tutor_id)
 
     overdue_enrollments = query.all()
+    billing_metadata(db, overdue_enrollments)
 
     # Live-recompute the tier for Summer rows without an override. The stored
     # snapshot is updated at publish + on paid_at/payment_date edits, but can
@@ -1567,7 +1626,7 @@ def get_overdue_enrollments(
 
     result.sort(key=lambda x: x.days_overdue, reverse=True)
 
-    return result
+    return combine_overdue_payments(db, annotate_billing_response(db, result), today)
 
 
 @router.get("/enrollments/my-students", response_model=List[EnrollmentResponse])
@@ -1618,6 +1677,7 @@ def get_my_students(
         query = query.filter(Enrollment.location == location)
 
     all_enrollments = query.all()
+    billing_metadata(db, all_enrollments)
 
     # Load holidays once for bulk calculation
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
@@ -1668,7 +1728,7 @@ def get_my_students(
         enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
-    return result
+    return annotate_billing_response(db, result)
 
 
 # ============================================
@@ -1864,7 +1924,7 @@ def get_enrollment_detail(
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
     enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
-    return enrollment_data
+    return annotate_billing_response(db, [enrollment_data])[0]
 
 
 @router.get("/enrollments/{enrollment_id}/detail", response_model=EnrollmentDetailResponse)
@@ -1938,8 +1998,10 @@ def get_enrollment_detail_for_modal(
         ).all()
         extension_requests = {er.session_id: er for er in ext_reqs}
 
+    makeup_eligibilities = eligibility_for_sessions(db, pending_session_ids)
     pending_makeups = [
         PendingMakeupSession(
+            makeup_eligibility=makeup_eligibilities.get(session.id),
             id=session.id,
             session_date=session.session_date,
             time_slot=session.time_slot,
@@ -1953,6 +2015,7 @@ def get_enrollment_detail_for_modal(
     ]
 
     return EnrollmentDetailResponse(
+        **billing_metadata(db, [enrollment])[enrollment.id],
         id=enrollment.id,
         student_id=enrollment.student_id,
         student_name=enrollment.student.student_name if enrollment.student else "",
@@ -2003,6 +2066,8 @@ def get_fee_message(
 
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    assert_legacy_fee_message_allowed(db, enrollment)
 
     # Summer enrollments use a separate fee message generator in the summer
     # detail modal — block this generic one to prevent accidental misuse.
@@ -2284,6 +2349,27 @@ async def update_enrollment(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     update_data = enrollment_update.model_dump(exclude_unset=True)
+    coupon_legacy.guard_edit(db, enrollment, update_data)
+    assert_legacy_enrollments_mutable(
+        db, [enrollment_id],
+        structural=bool(set(update_data) & {
+            "tutor_id", "assigned_day", "assigned_time", "location", "lessons_paid",
+            "first_lesson_date", "enrollment_type",
+        }),
+    )
+    if workflow_enabled() and (enrollment_update.enrollment_type or enrollment.enrollment_type) == "Regular" and (
+        set(update_data) & {"first_lesson_date", "enrollment_type", "lessons_paid", "assigned_day"}
+    ):
+        start = update_data.get("first_lesson_date", enrollment.first_lesson_date)
+        lessons = update_data.get("lessons_paid", enrollment.lessons_paid) or 0
+        if start:
+            projected, _, _ = generate_session_dates(
+                start, update_data.get("assigned_day", enrollment.assigned_day), lessons, "Regular", db
+            )
+            assert_legacy_creation_allowed(
+                db, enrollment.student_id, start, "Regular",
+                lesson_dates=[lesson.session_date for lesson in projected if not lesson.is_holiday],
+            )
     # Transient confirm flag — never a column, so pop before the setattr loop.
     acknowledge_discount_loss = bool(update_data.pop("acknowledge_discount_loss", False))
 
@@ -2362,6 +2448,13 @@ async def update_enrollment(
 
     for field, value in update_data.items():
         setattr(enrollment, field, value)
+    if "discount_id" in update_data:
+        db.flush()
+        db.expire(enrollment, ["discount"])
+        if enrollment.payment_status != "Paid":
+            coupon_legacy.reserve(db, enrollment, admin, as_of=hk_now().date())
+    if new_payment_status == "Cancelled":
+        coupon_legacy.cancel(db, enrollment)
 
     # If marking enrollment as paid, default the payment date to today — unless
     # the request supplied one explicitly (e.g. backdating to the real receipt
@@ -2374,11 +2467,12 @@ async def update_enrollment(
         if (enrollment.discount and
             enrollment.discount.discount_value and
             int(enrollment.discount.discount_value) in (200, 300)):
-            student_coupon = db.query(StudentCoupon).filter(
-                StudentCoupon.student_id == enrollment.student_id
-            ).first()
-            if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
-                student_coupon.available_coupons -= 1
+            if not coupon_legacy.paid(db, enrollment, admin, as_of=hk_now().date()):
+                student_coupon = db.query(StudentCoupon).filter(
+                    StudentCoupon.student_id == enrollment.student_id
+                ).first()
+                if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
+                    student_coupon.available_coupons -= 1
 
     # One cascade for every payment transition — the policy lives in
     # PAYMENT_STATUS_SESSION_CASCADE next to the pricing helpers.
@@ -2445,7 +2539,7 @@ async def update_enrollment(
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
     enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
-    return enrollment_data
+    return annotate_billing_response(db, [enrollment_data])[0]
 
 
 @router.patch("/enrollments/{enrollment_id}/extension", response_model=EnrollmentResponse)
@@ -2469,6 +2563,9 @@ async def update_enrollment_extension(
 
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    if enrollment.enrollment_type == 'Regular':
+        assert_extension_not_required(db, enrollment.student_id, enrollment.first_lesson_date)
 
     # Build audit entry
     now = hk_now()
@@ -2514,7 +2611,7 @@ async def update_enrollment_extension(
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
     enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
-    return enrollment_data
+    return annotate_billing_response(db, [enrollment_data])[0]
 
 
 # ============================================
@@ -2534,6 +2631,10 @@ async def set_discount_override(
     when a parent actually paid before the deadline but the admin only
     recorded it afterwards. Every override captures who/when/why for audit.
     """
+    assert_legacy_enrollments_mutable(
+        db, [enrollment_id], structural=False, action="change this payment"
+    )
+
     enrollment = db.query(Enrollment).options(
         *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
@@ -2588,7 +2689,7 @@ async def set_discount_override(
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
     enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
-    return enrollment_data
+    return annotate_billing_response(db, [enrollment_data])[0]
 
 
 @router.delete("/enrollments/{enrollment_id}/discount-override", response_model=EnrollmentResponse)
@@ -2598,6 +2699,10 @@ async def clear_discount_override(
     db: Session = Depends(get_db),
 ):
     """Clear a previous tier override, returning the enrollment to auto-computed tier."""
+    assert_legacy_enrollments_mutable(
+        db, [enrollment_id], structural=False, action="change this payment"
+    )
+
     enrollment = db.query(Enrollment).options(
         *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
@@ -2644,7 +2749,7 @@ async def clear_discount_override(
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
     enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
-    return enrollment_data
+    return annotate_billing_response(db, [enrollment_data])[0]
 
 
 # ============================================
@@ -2877,6 +2982,10 @@ async def apply_schedule_change(
     Apply a schedule change to an enrollment and optionally update future sessions.
     Admin only.
     """
+    assert_legacy_enrollments_mutable(
+        db, [enrollment_id], structural=True, action="review schedule changes"
+    )
+
     # Get enrollment
     enrollment = db.query(Enrollment).options(
         *enrollment_with_student_tutor()
@@ -2949,6 +3058,9 @@ async def apply_schedule_change(
             # Track this date as used
             used_dates.add(new_date)
 
+            if session.make_up_for_id or session.session_status == 'Make-up Class':
+                assert_makeup_entitlement(db, session, new_date)
+
             # Update session
             session.session_date = new_date
             # Handle time override
@@ -2961,6 +3073,12 @@ async def apply_schedule_change(
             session.last_modified_time = hk_now()
 
             sessions_updated += 1
+
+    if sessions_updated:
+        assert_legacy_creation_allowed(
+            db, enrollment.student_id, enrollment.first_lesson_date, enrollment.enrollment_type,
+            lesson_dates=[session.session_date for session in sessions if not session.make_up_for_id],
+        )
 
     # A lesson moved onto the day a tutor recorded one fills itself in from that record.
     if sessions_updated:
@@ -3001,6 +3119,10 @@ async def cancel_enrollment(
     Only allowed if no sessions have been attended (to preserve payment obligation).
     Sets payment_status to 'Cancelled' and cancels all remaining sessions.
     """
+    assert_legacy_enrollments_mutable(
+        db, [enrollment_id], structural=False, action="cancel this payment"
+    )
+
     enrollment = db.query(Enrollment).filter(Enrollment.id == enrollment_id).first()
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
@@ -3028,6 +3150,8 @@ async def cancel_enrollment(
             detail="Cannot cancel enrollment with attended sessions"
         )
 
+    coupon_legacy.guard_edit(db, enrollment, {"payment_status": "Cancelled"})
+    coupon_legacy.cancel(db, enrollment)
     # Update payment_status to Cancelled
     enrollment.payment_status = "Cancelled"
     enrollment.last_modified_time = hk_now()
@@ -3064,6 +3188,10 @@ async def batch_mark_paid(
     be stripped by paying today are skipped and returned in `early_bird_blocked`,
     unless the caller sets acknowledge_discount_loss. Admin only.
     """
+    assert_legacy_enrollments_mutable(
+        db, request.enrollment_ids, structural=False, action="record this payment"
+    )
+
     # Batch load all enrollments with discounts + students in one query
     enrollments = db.query(Enrollment).options(
         joinedload(Enrollment.discount),
@@ -3115,6 +3243,7 @@ async def batch_mark_paid(
                 continue
         payable.append((e, app))
 
+    coupon_legacy.lock_students(db, [e for e, _ in payable])
     eids = [e.id for e, _ in payable]
     if eids:
         db.query(SessionLog).filter(
@@ -3128,7 +3257,7 @@ async def batch_mark_paid(
             int(e.discount.discount_value) in (200, 300))
     ]
     coupon_map = {}
-    if coupon_student_ids:
+    if coupon_student_ids and not coupon_accounting.storage_enabled():
         coupons = db.query(StudentCoupon).filter(
             StudentCoupon.student_id.in_(coupon_student_ids)
         ).all()
@@ -3142,11 +3271,11 @@ async def batch_mark_paid(
         enrollment.last_modified_by = current_user.user_email
         # Decrement student's available coupons if enrollment used a coupon discount
         if (enrollment.discount and enrollment.discount.discount_value
-            and int(enrollment.discount.discount_value) in (200, 300)
-            and enrollment.student_id in coupon_map):
-            coupon = coupon_map[enrollment.student_id]
-            if coupon.available_coupons and coupon.available_coupons > 0:
-                coupon.available_coupons -= 1
+            and int(enrollment.discount.discount_value) in (200, 300)):
+            if not coupon_legacy.paid(db, enrollment, current_user, as_of=today):
+                coupon = coupon_map.get(enrollment.student_id)
+                if coupon and coupon.available_coupons and coupon.available_coupons > 0:
+                    coupon.available_coupons -= 1
         # Summer: sync paid_at to the payment date and resnap the locked tier.
         if app is not None:
             app.paid_at = datetime.combine(today, datetime.min.time())
@@ -3169,6 +3298,10 @@ async def batch_mark_sent(
     Mark fee message as sent for multiple enrollments.
     Admin only.
     """
+    assert_legacy_enrollments_mutable(
+        db, request.enrollment_ids, structural=False, action="mark the fee message sent"
+    )
+
     enrollments = db.query(Enrollment).filter(
         Enrollment.id.in_(request.enrollment_ids),
         Enrollment.fee_message_sent != True,
@@ -3203,6 +3336,9 @@ async def batch_renew_check(
     Admin only.
     """
     from models import ExtensionRequest
+
+    source_rows = db.query(Enrollment).filter(Enrollment.id.in_(request.enrollment_ids)).all()
+    managed = billing_metadata(db, source_rows)
 
     eligible = []
     ineligible = []
@@ -3279,6 +3415,16 @@ async def batch_renew_check(
             "assigned_time": enrollment.assigned_time,
             "suggested_first_lesson_date": suggested_date,
         }
+
+        metadata = managed.get(eid, {})
+        if metadata.get("billing_managed"):
+            ineligible.append(EligibilityResult(
+                enrollment_id=eid, eligible=False, reason="billing_workflow",
+                student_name=student_name,
+                details="Open this student's Billing page to prepare the next enrollment.",
+                overridable=False, **student_info, **schedule_info, **metadata,
+            ))
+            continue
 
         # Check 1: Pending makeups (overridable)
         pending_sessions = db.query(SessionLog).filter(
@@ -3420,6 +3566,10 @@ async def batch_renew(
 
     Admin only.
     """
+    assert_legacy_enrollments_mutable(
+        db, request.enrollment_ids, structural=True, action="prepare the next enrollment"
+    )
+
     # Day name to weekday mapping
     day_name_to_weekday = {
         'Monday': 0, 'Mon': 0,
@@ -3436,6 +3586,8 @@ async def batch_renew(
     renewed_student_ids = []
     failed_count = 0
 
+    source_students = db.query(Enrollment.student_id).filter(Enrollment.id.in_(request.enrollment_ids)).all()
+    coupon_legacy.lock_student_ids(db, [row.student_id for row in source_students])
     # Resolve each student's current entitlement once for the batch. The old
     # term's discount may have spent their last coupon or been a one-off offer.
     coupons = db.query(StudentCoupon).join(
@@ -3510,6 +3662,8 @@ async def batch_renew(
         while first_lesson_date.weekday() != assigned_weekday:
             first_lesson_date += timedelta(days=1)
 
+        assert_legacy_creation_allowed(db, enrollment.student_id, first_lesson_date)
+
         # Generate session dates
         sessions, _, _ = generate_session_dates(
             first_lesson_date=first_lesson_date,
@@ -3521,6 +3675,10 @@ async def batch_renew(
 
         # Check for conflicts
         non_holiday_dates = [s.session_date for s in sessions if not s.is_holiday]
+        assert_legacy_creation_allowed(
+            db, enrollment.student_id, first_lesson_date, "Regular",
+            lesson_dates=non_holiday_dates,
+        )
         conflicts = check_student_conflicts(
             db=db,
             student_id=enrollment.student_id,
@@ -3545,8 +3703,12 @@ async def batch_renew(
             if enrollment.student and enrollment.student.is_staff_referral:
                 discount_id = discount_by_value.get(500)
             coupon = coupon_by_student.get(enrollment.student_id)
-            if discount_id is None and coupon and (coupon.available_coupons or 0) > 0:
-                discount_id = discount_by_value.get(coupon.coupon_value)
+            if discount_id is None:
+                if coupon_accounting.storage_enabled():
+                    value = coupon_legacy.automatic_value(db, enrollment.student_id, as_of=hk_now().date())
+                    discount_id = discount_by_value.get(value)
+                elif coupon and (coupon.available_coupons or 0) > 0:
+                    discount_id = discount_by_value.get(coupon.coupon_value)
 
         # Create the new enrollment
         new_enrollment = Enrollment(
@@ -3566,6 +3728,7 @@ async def batch_renew(
         )
         db.add(new_enrollment)
         db.flush()  # Get enrollment ID
+        coupon_legacy.reserve(db, new_enrollment, admin, as_of=hk_now().date())
 
         # Snapshot per-session revenue for the revenue views (excludes reg fee).
         new_enrollment.revenue_total = compute_enrollment_revenue_total(new_enrollment, db)

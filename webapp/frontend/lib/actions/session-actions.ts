@@ -39,7 +39,7 @@ const isPendingMakeup = (s: Session): boolean =>
  * Sessions eligible for extension request (pending make-up without existing request).
  */
 const canRequestExtension = (s: Session): boolean =>
-  isPendingMakeup(s) && !s.extension_request_id;
+  isPendingMakeup(s) && !s.extension_request_id && !s.makeup_eligibility;
 
 /**
  * Sessions where CW/HW buttons should be hidden.
@@ -182,7 +182,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'Make-up',
     icon: CalendarPlus,
     colorClass: 'text-teal-600 dark:text-teal-400',
-    isVisible: isPendingMakeup,
+    isVisible: (s: Session) => isPendingMakeup(s) && (!s.makeup_eligibility || s.makeup_eligibility.can_book),
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,

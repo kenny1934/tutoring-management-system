@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
+import { trialBillingPreviewHref } from "@/lib/billing-preview";
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
-import { FlaskConical, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone, Clock, UserX, CheckCircle2, ClipboardList, LucideIcon } from "lucide-react";
+import { FlaskConical, Plus, Calendar, User, MapPin, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone, Clock, UserX, CheckCircle2, ClipboardList, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
@@ -19,6 +21,7 @@ import { TutorLink } from "@/components/tutors/TutorLink";
 import { Button, Input, PageHeader, Select } from "@/components/controls";
 import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { useScrollFade } from "@/hooks/useScrollFade";
+import { TrialConversionWorkspace, TrialWorkspaceOverlay } from "@/components/trials/TrialConversionWorkspace";
 
 // Column configuration
 const COLUMNS = [
@@ -139,6 +142,11 @@ const TrialCard = React.memo(function TrialCard({
       {/* Actions - Show for attended/lost trials */}
       {showContactButton && (
         <div className="mt-3 pt-2 border-t border-line space-y-2">
+          {trial.trial_status === "pending" && (
+            <Link href={trialBillingPreviewHref(trial)} onClick={e => e.stopPropagation()} className="block rounded border border-line px-3 py-1.5 text-center text-xs font-medium hover:bg-tint">
+              Preview enrollment fees
+            </Link>
+          )}
           {/* Record Contact - all users */}
           <Button
             size="sm"
@@ -303,14 +311,7 @@ export default function TrialsPage() {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactStudentId, setContactStudentId] = useState<number | null>(null);
 
-  // Track screen size for responsive modal layout
-  const [isLargeScreen, setIsLargeScreen] = useState(true);
-  useEffect(() => {
-    const checkScreenSize = () => setIsLargeScreen(window.innerWidth >= 1024);
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
+  const [conversionBusy, setConversionBusy] = useState(false);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -524,10 +525,8 @@ export default function TrialsPage() {
     setSelectedEnrollmentId(trial.enrollment_id);
     setDetailModalOpen(true);
     setCreateModalOpen(true);
-    if (!isLargeScreen) {
-      setModalTabView('create');
-    }
-  }, [isLargeScreen]);
+    setModalTabView('create');
+  }, []);
 
   const handleNewTrial = useCallback(() => {
     setConvertFromTrial(null);
@@ -543,16 +542,18 @@ export default function TrialsPage() {
   }, [mutate]);
 
   const handleConvertCloseAll = useCallback(() => {
+    if (conversionBusy) return;
     setDetailModalOpen(false);
     setSelectedEnrollmentId(null);
     setCreateModalOpen(false);
     setConvertFromTrial(null);
-  }, []);
+  }, [conversionBusy]);
 
   const handleConvertCreateClose = useCallback(() => {
+    if (conversionBusy) return;
     setCreateModalOpen(false);
     setConvertFromTrial(null);
-  }, []);
+  }, [conversionBusy]);
 
   const handleRecordContact = useCallback((studentId: number) => {
     setContactStudentId(studentId);
@@ -743,123 +744,24 @@ export default function TrialsPage() {
           )}
         </div>
 
-        {/* Unified modal container - morphs between centered detail and side-by-side for conversion */}
+        {/* Keep the original detail and conversion panes inside the available app width. */}
         <AnimatePresence mode="wait">
-          {detailModalOpen && (
-            <motion.div
-              key="detail-modal-container"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 overflow-hidden transition-[left] duration-350"
-            >
-              {/* Backdrop */}
-              <motion.div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={convertFromTrial ? handleConvertCloseAll : () => { setDetailModalOpen(false); setSelectedEnrollmentId(null); }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              />
-
-              {/* Modal Container - responsive: side-by-side on large, tabs on narrow */}
-              <div className={cn(
-                "relative flex flex-col",
-                isLargeScreen
-                  ? "h-[85vh] max-w-[60rem]"
-                  : "h-[90vh] max-w-[32rem] w-full"
-              )}>
-                {/* Tabs for narrow screens when both modals open (converting) */}
-                {!isLargeScreen && createModalOpen && convertFromTrial && (
-                  <div className="flex bg-paper rounded-t-lg border-b border-line">
-                    <button
-                      onClick={() => setModalTabView('detail')}
-                      className={cn(
-                        "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tl-lg",
-                        modalTabView === 'detail'
-                          ? "text-accent-ink border-b-2 border-primary bg-primary/5"
-                          : "text-foreground/60 hover:text-foreground/80"
-                      )}
-                    >
-                      Trial details
-                    </button>
-                    <button
-                      onClick={() => setModalTabView('create')}
-                      className={cn(
-                        "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tr-lg",
-                        modalTabView === 'create'
-                          ? "text-accent-ink border-b-2 border-primary bg-primary/5"
-                          : "text-foreground/60 hover:text-foreground/80"
-                      )}
-                    >
-                      Convert to Regular
-                    </button>
-                  </div>
-                )}
-
-                <LayoutGroup>
-                  <motion.div
-                    layout
-                    className={cn(
-                      "relative flex",
-                      isLargeScreen
-                        ? "items-stretch gap-4 h-full"
-                        : "flex-col flex-1 overflow-hidden",
-                      isLargeScreen && !(createModalOpen && convertFromTrial) && "justify-center"
-                    )}
-                  >
-                    {/* Detail Modal - always on large, conditional on narrow when create is open */}
-                    {(isLargeScreen || !(createModalOpen && convertFromTrial) || modalTabView === 'detail') && (
-                      <motion.div
-                        layoutId="enrollment-detail-modal"
-                        transition={{
-                          layout: { type: "spring", stiffness: 300, damping: 30 }
-                        }}
-                        className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
-                      >
-                        <EnrollmentDetailModal
-                          isOpen={true}
-                          onClose={convertFromTrial ? handleConvertCloseAll : () => { setDetailModalOpen(false); setSelectedEnrollmentId(null); }}
-                          enrollmentId={selectedEnrollmentId}
-                          compact={isLargeScreen && !!(createModalOpen && convertFromTrial)}
-                          standalone={false}
-                          headerLabel={convertFromTrial ? "Trial" : undefined}
-                        />
-                      </motion.div>
-                    )}
-
-                    {/* Create Form - slides in on large, tab-based on narrow */}
-                    <AnimatePresence mode="popLayout">
-                      {createModalOpen && convertFromTrial && (isLargeScreen || modalTabView === 'create') && (
-                        <motion.div
-                          key="create-form"
-                          initial={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
-                          animate={isLargeScreen ? { opacity: 1, x: 0, scale: 1 } : { opacity: 1 }}
-                          exit={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
-                          transition={{
-                            type: "spring",
-                            stiffness: 300,
-                            damping: 30,
-                            delay: isLargeScreen ? 0.05 : 0
-                          }}
-                          className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
-                        >
-                          <CreateEnrollmentModal
-                            isOpen={true}
-                            onClose={handleConvertCreateClose}
-                            onSuccess={handleCreateSuccess}
-                            convertFromTrial={convertFromTrial}
-                            standalone={false}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                </LayoutGroup>
-              </div>
-            </motion.div>
-          )}
+          {detailModalOpen && <TrialConversionWorkspace key="detail-modal-container"
+            converting={!!(createModalOpen && convertFromTrial)} tab={modalTabView} onTabChange={setModalTabView} busy={conversionBusy}
+            onClose={convertFromTrial ? handleConvertCloseAll : () => { setDetailModalOpen(false); setSelectedEnrollmentId(null); }}
+            detail={wide => <EnrollmentDetailModal
+              isOpen={true}
+              onClose={convertFromTrial ? handleConvertCloseAll : () => { setDetailModalOpen(false); setSelectedEnrollmentId(null); }}
+              enrollmentId={selectedEnrollmentId}
+              compact={wide && !!(createModalOpen && convertFromTrial)}
+              standalone={false}
+              headerLabel={convertFromTrial ? "Trial" : undefined}
+            />}
+            create={createModalOpen && convertFromTrial ? <CreateEnrollmentModal
+              isOpen={true} onClose={handleConvertCreateClose} onSuccess={handleCreateSuccess}
+              onBusyChange={setConversionBusy} convertFromTrial={convertFromTrial} standalone={false}
+            /> : undefined}
+          />}
         </AnimatePresence>
 
         {/* Standalone create modal (when opened from "New Trial" button without detail) */}
@@ -890,107 +792,26 @@ export default function TrialsPage() {
           currentUserRole={effectiveRole as 'Tutor' | 'Admin' | 'Super Admin'}
         />
 
-        {/* Comparison mode: Trial + Subsequent Enrollment side-by-side */}
+        {/* Comparison mode follows the same live app bounds as conversion. */}
         <AnimatePresence mode="wait">
-          {comparisonMode && (
-            <motion.div
-              key="comparison-container"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 overflow-hidden transition-[left] duration-350"
-            >
-              {/* Backdrop */}
-              <motion.div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={handleCloseComparison}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              />
-
-              {/* Modal container - responsive: side-by-side on large, stacked on narrow */}
-              <div className={cn(
-                "relative flex h-[85vh]",
-                isLargeScreen
-                  ? "items-center max-w-[60rem]"
-                  : "flex-col max-w-[22rem] w-full"
-              )}>
-                {/* Close button - floating top right */}
-                <button
-                  onClick={handleCloseComparison}
-                  aria-label="Close"
-                  className={cn(
-                    "absolute z-10 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
-                    isLargeScreen ? "-top-2 -right-2" : "top-2 right-2"
-                  )}
-                >
-                  <X className="h-5 w-5 text-foreground/60" />
-                </button>
-
-                {/* Side-by-side on large, stacked on narrow */}
-                <LayoutGroup>
-                  <motion.div
-                    layout
-                    className={cn(
-                      "flex",
-                      isLargeScreen
-                        ? "items-stretch"
-                        : "flex-col gap-4 flex-1 overflow-y-auto py-2"
-                    )}
-                  >
-                    {/* Trial Enrollment */}
-                    <motion.div
-                      layoutId="trial-enrollment"
-                      className={cn("w-[22rem] max-w-full", isLargeScreen && "opacity-75")}
-                      transition={{
-                        layout: { type: "spring", stiffness: 300, damping: 30 }
-                      }}
-                    >
-                      <EnrollmentDetailModal
-                        isOpen={true}
-                        onClose={handleCloseComparison}
-                        enrollmentId={comparisonTrialId}
-                        compact={true}
-                        standalone={false}
-                        hideCloseButton={true}
-                        headerLabel="Trial"
-                      />
-                    </motion.div>
-
-                    {/* Arrow between panels - only on large screens */}
-                    {isLargeScreen && (
-                      <div className="flex items-center px-3">
-                        <ArrowRight className="h-6 w-6 text-foreground/30" />
-                      </div>
-                    )}
-
-                    {/* Subsequent Enrollment */}
-                    <motion.div
-                      layoutId="subsequent-enrollment"
-                      className="w-[22rem] max-w-full ring-2 ring-green-400/50 dark:ring-green-500/50 rounded-lg"
-                      transition={{
-                        layout: { type: "spring", stiffness: 300, damping: 30 }
-                      }}
-                    >
-                      <EnrollmentDetailModal
-                        isOpen={true}
-                        onClose={handleCloseComparison}
-                        enrollmentId={comparisonSubsequentId}
-                        compact={true}
-                        standalone={false}
-                        hideCloseButton={true}
-                        headerLabel="Enrolled"
-                        showRenewalActions={true}
-                        onStatusChange={() => mutate()}
-                      />
-                    </motion.div>
-                  </motion.div>
-                </LayoutGroup>
+          {comparisonMode && <TrialWorkspaceOverlay key="comparison-container" kind="comparison" onClose={handleCloseComparison}>{wide => <div data-workspace-frame
+            className={cn("relative flex h-[85dvh] w-full min-w-0", wide ? "max-w-[60rem] items-center" : "max-w-[22rem] flex-col")}>
+            <button onClick={handleCloseComparison} aria-label="Close" className={cn(
+              "absolute z-10 rounded-full bg-white p-1.5 shadow-lg transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700",
+              wide ? "-right-2 -top-2" : "right-2 top-2"
+            )}><X className="h-5 w-5 text-foreground/60" /></button>
+            <div className={cn("flex w-full min-w-0", wide ? "items-stretch justify-center" : "min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2")}>
+              <div className={cn("w-[22rem] min-w-0 max-w-full", wide && "opacity-75")}>
+                <EnrollmentDetailModal isOpen={true} onClose={handleCloseComparison} enrollmentId={comparisonTrialId}
+                  compact={true} standalone={false} hideCloseButton={true} headerLabel="Trial" />
               </div>
-            </motion.div>
-          )}
+              {wide && <div className="flex shrink-0 items-center px-3"><ArrowRight className="h-6 w-6 text-foreground/30" /></div>}
+              <div className="w-[22rem] min-w-0 max-w-full rounded-lg ring-2 ring-green-400/50 dark:ring-green-500/50">
+                <EnrollmentDetailModal isOpen={true} onClose={handleCloseComparison} enrollmentId={comparisonSubsequentId}
+                  compact={true} standalone={false} hideCloseButton={true} headerLabel="Enrolled" showRenewalActions={true} onStatusChange={() => mutate()} />
+              </div>
+            </div>
+          </div>}</TrialWorkspaceOverlay>}
         </AnimatePresence>
       </PageTransition>
     </PageSurface>

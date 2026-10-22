@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 from constants import ATTENDABLE_STATUSES, COMPLETED_STATUSES, hk_now
 from models import SessionExercise, SessionLog, Tutor, TutorMemo, TutorMessage
 from services.attendance import mark_attended
+from billing.guards import lock_student_billing, workflow_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -127,19 +128,23 @@ def fill_unlisted_lessons(db: Session, student_ids: Iterable[int], actor_email: 
     student_ids = {sid for sid in student_ids if sid}
     if not student_ids:
         return []
+    with db.no_autoflush:
+        lock_student_billing(db, student_ids)
     db.flush()
 
-    waiting = (
+    waiting_query = (
         db.query(TutorMemo)
         .filter(TutorMemo.student_id.in_(student_ids), TutorMemo.status == WAITING)
         .order_by(TutorMemo.memo_date, TutorMemo.id)
-        .all()
     )
+    if workflow_enabled():
+        waiting_query = waiting_query.populate_existing().with_for_update()
+    waiting = waiting_query.all()
     if not waiting:
         return []
 
     dates = {lesson.memo_date for lesson in waiting}
-    sessions = (
+    session_query = (
         db.query(SessionLog)
         .filter(
             SessionLog.student_id.in_(student_ids),
@@ -147,8 +152,10 @@ def fill_unlisted_lessons(db: Session, student_ids: Iterable[int], actor_email: 
             SessionLog.session_status.in_(FILLABLE_STATUSES),
         )
         .order_by(SessionLog.id)
-        .all()
     )
+    if workflow_enabled():
+        session_query = session_query.populate_existing().with_for_update()
+    sessions = session_query.all()
     # A real lesson takes one unlisted lesson at most, including any filled
     # before today.
     taken = {

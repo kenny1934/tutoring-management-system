@@ -10,6 +10,7 @@ import { ZenSpinner } from "./ZenSpinner";
 import { ZenConfirmDialog } from "./ZenConfirmDialog";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { formatShortDate } from "@/lib/formatters";
+import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 
 interface ZenEnrollmentDetailProps {
   enrollmentId: number;
@@ -179,7 +180,7 @@ export function ZenEnrollmentDetail({
 
         case "p":
         case "P":
-          if (detail && detail.payment_status !== "Paid" && detail.payment_status !== "Cancelled") {
+          if (detail && !detail.billing_payment_id && detail.payment_status !== "Paid" && detail.payment_status !== "Cancelled") {
             e.preventDefault();
             e.stopImmediatePropagation();
             setConfirmAction({
@@ -192,7 +193,7 @@ export function ZenEnrollmentDetail({
 
         case "m":
         case "M":
-          if (detail) {
+          if (detail && !detail.billing_payment_id) {
             e.preventDefault();
             e.stopImmediatePropagation();
             handleToggleFeeSent();
@@ -201,7 +202,7 @@ export function ZenEnrollmentDetail({
 
         case "f":
         case "F":
-          if (detail) {
+          if (detail && !detail.billing_payment_id) {
             e.preventDefault();
             e.stopImmediatePropagation();
             handleCopyFeeMessage();
@@ -210,7 +211,7 @@ export function ZenEnrollmentDetail({
 
         case "x":
         case "X":
-          if (detail && detail.payment_status !== "Cancelled") {
+          if (detail && !detail.billing_payment_id && detail.payment_status !== "Cancelled") {
             e.preventDefault();
             e.stopImmediatePropagation();
             setConfirmAction({
@@ -399,12 +400,13 @@ export function ZenEnrollmentDetail({
               flexWrap: "wrap",
             }}
           >
-            {detail.payment_status !== "Paid" && detail.payment_status !== "Cancelled" && (
+            {detail.billing_payment_id && <BillingWorkflowLink studentId={detail.student_id} paymentId={detail.billing_payment_id} method={detail.billing_payment_method} onClick={onClose} />}
+            {!detail.billing_payment_id && detail.payment_status !== "Paid" && detail.payment_status !== "Cancelled" && (
               <span>[<span style={{ color: "var(--zen-accent)" }}>p</span>] Pay</span>
             )}
-            <span>[<span style={{ color: "var(--zen-accent)" }}>m</span>] {detail.fee_message_sent ? "Unmark" : "Mark"} Sent</span>
-            <span>[<span style={{ color: "var(--zen-accent)" }}>f</span>] Fee Msg</span>
-            {detail.payment_status !== "Cancelled" && (
+            {!detail.billing_payment_id && <span>[<span style={{ color: "var(--zen-accent)" }}>m</span>] {detail.fee_message_sent ? "Unmark" : "Mark"} Sent</span>}
+            {!detail.billing_payment_id && <span>[<span style={{ color: "var(--zen-accent)" }}>f</span>] Fee Msg</span>}
+            {!detail.billing_payment_id && detail.payment_status !== "Cancelled" && (
               <span>[<span style={{ color: "var(--zen-accent)" }}>x</span>] Cancel</span>
             )}
           </div>

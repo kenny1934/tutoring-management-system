@@ -6,6 +6,7 @@ import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHo
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
+import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import useSWR from "swr";
 import { tutorsAPI, enrollmentsAPI, discountsAPI, summerAPI } from "@/lib/api";
 import { mutate } from "swr";
@@ -543,7 +544,7 @@ export default function EnrollmentDetailPage() {
     if (!showFeePanel || !enrollment?.id) return;
     if (summerAppId) return;
     // A waived enrollment has no fee message — the panel shows a note instead.
-    if (enrollment.payment_status === 'Waived') return;
+    if (enrollment.payment_status === 'Waived' || enrollment.billing_payment_id) return;
 
     let cancelled = false;
     setFeeMessageLoading(true);
@@ -567,7 +568,7 @@ export default function EnrollmentDetailPage() {
       });
 
     return () => { cancelled = true; };
-  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student, enrollment?.payment_status]);
+  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student, enrollment?.payment_status, enrollment?.billing_payment_id, summerAppId]);
 
   // Calculate session stats
   const sessionStats = useMemo(() => {
@@ -635,7 +636,7 @@ export default function EnrollmentDetailPage() {
   // stays regular-only (the backend blocks cancelling Summer enrollments —
   // unpublish via the application instead), and Copy lives inside
   // SummerMessagePanel for Summer.
-  const markSentAction = !isTutor && (enrollment.fee_message_sent ? (
+  const markSentAction = !enrollment.billing_payment_id && !isTutor && (enrollment.fee_message_sent ? (
     <Button
       icon={Undo2}
       loading={markingSent}
@@ -658,7 +659,7 @@ export default function EnrollmentDetailPage() {
     </Button>
   ));
 
-  const confirmPaymentAction = !isTutor &&
+  const confirmPaymentAction = !enrollment.billing_payment_id && !isTutor &&
     (enrollment.payment_status === "Pending Payment" || enrollment.payment_status === "Overdue") && (
     <Button
       icon={CreditCard}
@@ -1059,12 +1060,13 @@ export default function EnrollmentDetailPage() {
                     icon={Pencil}
                     size="sm"
                     onClick={handleEditPayment}
-                    disabled={isReadOnly}
-                    title={isReadOnly ? "Read-only access" : "Edit payment"}
+                    disabled={isReadOnly || !!enrollment.billing_payment_id}
+                    title={enrollment.billing_payment_id ? "Open the linked payment to manage collection" : isReadOnly ? "Read-only access" : "Edit payment"}
                   />
                 )}
               </div>
               <div className="space-y-4">
+                {enrollment.billing_payment_id && <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} />}
                 {isEditingPayment ? (
                   // EDIT MODE
                   <>
@@ -1328,7 +1330,7 @@ export default function EnrollmentDetailPage() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        {enrollment.payment_status === 'Waived' ? (
+                        {enrollment.billing_payment_id ? <div className="pt-4"><BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} /></div> : enrollment.payment_status === 'Waived' ? (
                           <div className="pt-4">
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                               This enrollment is waived, so no fee is due and there is no fee message to send.
@@ -1467,7 +1469,7 @@ export default function EnrollmentDetailPage() {
           </div>
 
           {/* Deadline Extension Section - Admin/Supervisor viewable */}
-          {canViewAdminPages && (
+          {canViewAdminPages && !enrollment.makeup_policy && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

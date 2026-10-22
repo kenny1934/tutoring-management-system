@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Calendar, CalendarDays, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, Presentation, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserPlus } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
+import { MakeupEligibilityNotice } from "@/components/sessions/MakeupEligibilityNotice";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -326,6 +327,8 @@ function SessionsPageContent() {
   // branch for a few days belongs in the dropdown exactly when their work is
   // on the page. Deriving both from one value is what keeps them in step when
   // a new view is added.
+  const [includeMakeupHistory, setIncludeMakeupHistory] = useState(false);
+
   const shownDates = useMemo<DateWindow>(() => {
     // Back 120 days to catch overdue pending make-ups, with no end.
     if (isPendingMakeupsView) {
@@ -361,7 +364,8 @@ function SessionsPageContent() {
     // Both special views pin the status set or the cut-off as well as the
     // dates, which is the only reason they are named here again.
     if (isPendingMakeupsView) {
-      filters.from_date = shownDates.from ?? undefined;
+      filters.pending_makeups = true;
+      filters.include_history = includeMakeupHistory;
       filters.status = PENDING_MAKEUP_STATUSES.join(",");
       filters.limit = 2000;
     } else if (isAfterLastDayView) {
@@ -375,7 +379,7 @@ function SessionsPageContent() {
     }
 
     return filters;
-  }, [shownDates, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
+  }, [shownDates, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView, includeMakeupHistory]);
 
   // SWR hooks for data fetching with caching
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
@@ -938,10 +942,10 @@ function SessionsPageContent() {
     Object.values(tiers).forEach(arr => arr.sort(sortFn));
 
     const result: Array<[string, Session[]]> = [];
+    if (tiers.overdue.length > 0) result.push(['overdue', tiers.overdue]);
     if (tiers.critical.length > 0) result.push(['critical', tiers.critical]);
     if (tiers.warning.length > 0) result.push(['warning', tiers.warning]);
     if (tiers.ok.length > 0) result.push(['ok', tiers.ok]);
-    if (tiers.overdue.length > 0) result.push(['overdue', tiers.overdue]);
     return result;
   }, [sessions, isPendingMakeupsView, makeupSort, getSessionUrgency]);
 
@@ -2178,6 +2182,7 @@ function SessionsPageContent() {
                   <span className="text-amber-700 dark:text-amber-400">({sessions.length} total)</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={includeMakeupHistory} onChange={event => setIncludeMakeupHistory(event.target.checked)} />Earlier years</label>
                   {/* Sort toggle */}
                   <Button
                     size="sm"
@@ -2187,7 +2192,7 @@ function SessionsPageContent() {
                       setTierShowCount({});
                     }}
                   >
-                    {makeupSort === 'most' ? 'Most urgent' : 'Least urgent'}
+                    {makeupSort === 'most' ? 'Longest waiting' : 'Shortest waiting'}
                   </Button>
                   <Button variant="quiet" size="sm" icon={X} onClick={() => setSpecialFilter("")}>
                     Clear
@@ -2309,7 +2314,7 @@ function SessionsPageContent() {
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No sessions found</p>
                     {isPendingMakeupsView ? (
                       <p className="text-sm text-gray-700 dark:text-gray-300">
-                        No pending make-ups in the last 60 days
+                        No pending makeups match these filters.
                       </p>
                     ) : isAfterLastDayView ? (
                       <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -2341,7 +2346,7 @@ function SessionsPageContent() {
                   const isCollapsed = collapsedSlots.has(tierKey);
                   const tierConfig = {
                     overdue: {
-                      label: 'Overdue (60+ days)',
+                      label: 'Waiting 60+ days',
                       icon: <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
                       bgColor: 'bg-purple-600 dark:bg-purple-500',
                       badgeBg: 'bg-purple-100 dark:bg-purple-900',
@@ -2349,7 +2354,7 @@ function SessionsPageContent() {
                       badgeBorder: 'border-purple-600 dark:border-purple-500',
                     },
                     critical: {
-                      label: 'Critical (45-60 days)',
+                      label: 'Waiting 45-59 days',
                       icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
                       bgColor: 'bg-red-500 dark:bg-red-600',
                       badgeBg: 'bg-red-100 dark:bg-red-900',
@@ -2357,7 +2362,7 @@ function SessionsPageContent() {
                       badgeBorder: 'border-red-500 dark:border-red-600',
                     },
                     warning: {
-                      label: 'Warning (30-44 days)',
+                      label: 'Waiting 30-44 days',
                       icon: <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
                       bgColor: 'bg-orange-500 dark:bg-orange-600',
                       badgeBg: 'bg-orange-100 dark:bg-orange-900',
@@ -2365,7 +2370,7 @@ function SessionsPageContent() {
                       badgeBorder: 'border-orange-500 dark:border-orange-600',
                     },
                     ok: {
-                      label: 'OK (0-29 days)',
+                      label: 'Waiting 0-29 days',
                       icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
                       bgColor: 'bg-gray-400 dark:bg-gray-500',
                       badgeBg: 'bg-gray-100 dark:bg-gray-800',
@@ -2435,7 +2440,7 @@ function SessionsPageContent() {
                                 const urgency = getSessionUrgency(session);
                                 const isSuperAdmin = effectiveRole === "Super Admin";
                                 const isOverdue = urgency.daysOld > 60;
-                                const canScheduleMakeup = !isOverdue || isSuperAdmin;
+                                const canScheduleMakeup = session.makeup_eligibility ? session.makeup_eligibility.can_book : !isOverdue || isSuperAdmin || session.extension_request_status === 'Approved';
                                 const urgencyBadgeConfig = {
                                   overdue: { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
                                   critical: { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-700 dark:text-red-300', border: 'border-red-300 dark:border-red-700' },
@@ -2502,6 +2507,7 @@ function SessionsPageContent() {
                                             <span className={cn("text-[11px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0", urgencyBadgeConfig.bg, urgencyBadgeConfig.text, urgencyBadgeConfig.border)}>
                                               {urgency.daysOld}d old
                                             </span>
+                                            {session.makeup_eligibility ? <MakeupEligibilityNotice eligibility={session.makeup_eligibility} compact /> : <>
                                             <span className={cn("text-[11px] px-1.5 py-0.5 rounded flex-shrink-0",
                                               urgency.daysRemaining <= 0 ? "bg-red-200 dark:bg-red-900/60 text-red-800 dark:text-red-200 font-bold" :
                                               urgency.daysRemaining <= 15 ? "text-red-600 dark:text-red-400" :
@@ -2509,6 +2515,7 @@ function SessionsPageContent() {
                                             )}>
                                               {urgency.daysRemaining <= 0 ? 'Overdue' : `${urgency.daysRemaining}d left`}
                                             </span>
+                                            </>}
                                             {session.extension_request_id && (
                                               <span title={`Extension ${session.extension_request_status}`} role="img" aria-label={`Extension ${session.extension_request_status?.toLowerCase()}`}><Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" /></span>
                                             )}
@@ -2521,7 +2528,7 @@ function SessionsPageContent() {
                                               icon={CalendarPlus}
                                               onClick={() => canScheduleMakeup && setMakeupModalSession(session)}
                                               disabled={!canScheduleMakeup}
-                                              title={!canScheduleMakeup ? "Exceeds 60-day makeup limit" : "Schedule Make-up"}
+                                              title={!canScheduleMakeup ? session.makeup_eligibility?.reason || "Exceeds 60-day makeup limit" : "Schedule Make-up"}
                                             >
                                               <span className="hidden sm:inline">Make-up</span>
                                             </Button>

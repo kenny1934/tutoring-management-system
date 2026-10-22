@@ -42,10 +42,11 @@ export function ExtensionRequestReviewModal({
   onApproved,
   onRejected,
   adminTutorId,
-  readOnly = false,
+  readOnly: suppliedReadOnly = false,
   showLocationPrefix = false,
 }: ExtensionRequestReviewModalProps) {
   const { showToast } = useToast();
+  const readOnly = suppliedReadOnly || request.action_required === false;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Determine initial mode based on request status
@@ -144,6 +145,7 @@ export function ExtensionRequestReviewModal({
   };
 
   const handleApprove = async () => {
+    if (readOnly) return;
     setIsSubmitting(true);
 
     try {
@@ -183,6 +185,7 @@ export function ExtensionRequestReviewModal({
   };
 
   const handleReject = async () => {
+    if (readOnly) return;
     if (!rejectionReason.trim() || rejectionReason.length < 5) {
       showToast("Please provide a rejection reason", "error");
       return;
@@ -228,7 +231,7 @@ export function ExtensionRequestReviewModal({
       title="Review Extension Request"
       size="lg"
       footer={
-        mode === "review" ? (
+        readOnly ? <Button onClick={onClose}>Close</Button> : mode === "review" ? (
           <div className="flex justify-between w-full">
             <Button variant="secondary" onClick={onClose}>
               Close
@@ -303,9 +306,10 @@ export function ExtensionRequestReviewModal({
       }
     >
       <div className="space-y-5">
+        {request.action_required === false && <p className="rounded border border-line bg-wash p-3 text-sm">{request.disposition || "An extension is no longer required for this makeup."}</p>}
         {/* Admin Guidance Banner */}
         {/* Admin Guidance - only show for pending requests (review mode) */}
-        {mode === "review" && (
+        {mode === "review" && request.action_required !== false && (
           request._isLoading ? (
             <div className="h-9 rounded-lg animate-pulse bg-gray-200 dark:bg-gray-700" />
           ) : request.admin_guidance && (

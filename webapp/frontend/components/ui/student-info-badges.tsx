@@ -25,6 +25,8 @@ interface StudentInfoBadgesProps {
   /** Tooltip for the name element — e.g. to surface a self-filled original
    *  when the displayed name comes from a linked CSM student. */
   nameTitle?: string;
+  /** Link the name itself when no onNameClick handler is supplied. */
+  nameHref?: string;
   /** Optional click handler on the name. When set, the name renders as a
    *  button; otherwise it stays a plain span. */
   onNameClick?: () => void;
@@ -47,6 +49,7 @@ export function StudentInfoBadges({
   trailing,
   compact = false,
   nameTitle,
+  nameHref,
   onNameClick,
   gradeIsEntering = false,
 }: StudentInfoBadgesProps) {
@@ -70,7 +73,7 @@ export function StudentInfoBadges({
   const nameClass = cn(
     "font-semibold text-gray-900 dark:text-white",
     compact ? "text-[11px]" : "text-sm",
-    onNameClick && "cursor-pointer hover:text-accent-ink hover:underline text-left truncate",
+    (onNameClick || nameHref) && "cursor-pointer hover:text-accent-ink hover:underline text-left truncate",
   );
 
   return (
@@ -89,6 +92,10 @@ export function StudentInfoBadges({
         <button type="button" className={nameClass} onClick={onNameClick} title={nameTitle}>
           {student.student_name}
         </button>
+      ) : nameHref ? (
+        <Link href={nameHref} className={nameClass} title={nameTitle}>
+          {student.student_name}
+        </Link>
       ) : (
         <span className={nameClass} title={nameTitle}>
           {student.student_name}

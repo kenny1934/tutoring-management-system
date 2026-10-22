@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount, useEmploymentOverrun, useUnlistedWaitingCount } from "@/lib/hooks";
 import { departureLabel } from "@/lib/employment";
+import { useBillingQueueCounts } from "@/lib/hooks/useBillingQueueCounts";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { parentCommunicationsAPI, arkLeaveAPI } from "@/lib/api";
@@ -57,8 +58,16 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Fetch pending proposals count
   const { data: pendingProposals } = usePendingProposalCount(tutorId);
 
-  // Fetch renewal counts (only for admins - showOverduePayments indicates admin)
-  const { data: renewalCounts } = useRenewalCounts(showOverduePayments, location);
+  const queue = useBillingQueueCounts({ enabled: showOverduePayments, location });
+  const legacyReminders = queue.available === false;
+  const { data: renewalCounts } = useRenewalCounts(showOverduePayments && legacyReminders, location);
+  const renewalsToPrepare = queue.available
+    ? queue.data?.actionable ?? 0
+    : legacyReminders ? renewalCounts?.total ?? 0 : 0;
+  const overduePayments = queue.available
+    ? queue.data?.overdue ?? 0
+    : legacyReminders ? pendingPayments : 0;
+  const expiredRenewals = legacyReminders && (renewalCounts?.expired ?? 0) > 0;
 
   // Fetch pending extension count (only for admins)
   const { data: pendingExtensions } = usePendingExtensionCount(showOverduePayments, location);
@@ -95,13 +104,13 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     const items: NotificationItem[] = [];
 
     // Renewals needing attention (admin only)
-    if (showOverduePayments && renewalCounts?.total && renewalCounts.total > 0) {
+    if (showOverduePayments && renewalsToPrepare > 0) {
       items.push({
         id: "renewals",
         icon: <RefreshCcw className="h-4 w-4" />,
         label: "Renewals",
-        count: renewalCounts.total,
-        severity: renewalCounts.expired > 0 ? "danger" : "warning",
+        count: renewalsToPrepare,
+        severity: expiredRenewals ? "danger" : "warning",
         href: "/admin/renewals",
       });
     }
@@ -117,12 +126,12 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       });
     }
 
-    if (showOverduePayments && pendingPayments > 0) {
+    if (showOverduePayments && overduePayments > 0) {
       items.push({
         id: "payments",
         icon: <CreditCard className="h-4 w-4" />,
         label: "Overdue Payments",
-        count: pendingPayments,
+        count: overduePayments,
         severity: "danger",
         href: "/overdue-payments",
       });
@@ -169,7 +178,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       items.push({
         id: "aged-makeups",
         icon: <AlertTriangle className="h-4 w-4" />,
-        label: "Aged Pending Make-ups",
+        label: "Makeups awaiting follow-up",
         count: agedMakeups.count,
         severity: agedMakeups.critical > 0 ? "danger" : "warning",
         href: "/sessions?filter=pending-makeups",
@@ -243,7 +252,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, waitingTaught, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave, overrun]);
+  }, [showOverduePayments, overduePayments, renewalsToPrepare, expiredRenewals, contactNeeded, unreadMessages, pendingProposals, waitingTaught, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave, overrun]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 

@@ -75,6 +75,8 @@ export const CollapsibleSection = React.memo(function CollapsibleSection({
     <div>
       <button
         onClick={onToggle}
+        aria-expanded={!isCollapsed}
+        aria-controls={`${id}-content`}
         className={cn(
           "flex items-center gap-2 w-full py-2 px-1 text-left rounded-lg transition-colors",
           colors.hover
@@ -84,6 +86,7 @@ export const CollapsibleSection = React.memo(function CollapsibleSection({
           <input
             ref={checkboxRef}
             type="checkbox"
+            aria-label={`Select ${label}`}
             checked={isAllChecked}
             onChange={() => {}}
             onClick={onCheckboxClick}
@@ -106,7 +109,7 @@ export const CollapsibleSection = React.memo(function CollapsibleSection({
         )}
       </button>
       {!isCollapsed && (
-        <div className="space-y-2 mt-2">
+        <div id={`${id}-content`} className="space-y-2 mt-2">
           {children}
         </div>
       )}

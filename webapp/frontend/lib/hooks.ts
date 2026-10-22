@@ -5,6 +5,8 @@ import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
 import { isCurriculumEligible } from './curriculum-labels';
 import { isFileSystemAccessSupported } from './file-system';
+import { loadPendingMakeups } from "./pending-makeups";
+import { invalidateRenewalQueueCache } from './renewal-queue';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumGradeCheckResponse, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, UnlistedLesson, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, SummerCourseFormConfig, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
@@ -204,7 +206,7 @@ export function useSessions(filters?: SessionFilters) {
 
   return useSWR<Session[]>(
     key,
-    () => sessionsAPI.getAll(filters)
+    () => filters?.pending_makeups ? loadPendingMakeups(filters, sessionsAPI.getAll) : sessionsAPI.getAll(filters)
   );
 }
 
@@ -2052,8 +2054,9 @@ export function invalidateCaches(
 
   switch (type) {
     case 'sessions':
+      void invalidateRenewalQueueCache();
       // Lessons taught but not in CSM yet fill themselves in when a lesson moves onto their day.
-      revalidateMatchingKeys(/^sessions|^session|^unchecked-attendance|^unlisted-lessons/);
+      revalidateMatchingKeys(/^sessions|^session|^unchecked-attendance|^unlisted-lessons|^makeup-eligibility|^aged-pending-makeups|^eligible-students|^revision-slot/);
       // Also invalidate related enrollments and dashboard stats
       if (context?.enrollmentId) {
         mutate(['enrollment-sessions', context.enrollmentId]);
@@ -2067,8 +2070,9 @@ export function invalidateCaches(
       break;
 
     case 'enrollments':
+      void invalidateRenewalQueueCache();
       // A new enrolment fills in the lessons its tutor taught before it existed.
-      revalidateMatchingKeys(/^enrollments|^enrollment|^my-students|^all-students|^renewal|^unlisted-lessons|^session/);
+      revalidateMatchingKeys(/^enrollments|^enrollment|^my-students|^all-students|^renewal(?!-queue)|^unlisted-lessons|^session|^makeup-eligibility|^aged-pending-makeups|^eligible-students|^revision-slot/);
       if (context?.studentId) {
         mutate(['student', context.studentId]);
         mutate(['enrollments', context.studentId]);
@@ -2078,6 +2082,7 @@ export function invalidateCaches(
       break;
 
     case 'students':
+      void invalidateRenewalQueueCache();
       revalidateMatchingKeys(/^students|^student|^active-students/);
       // Dashboard stats might change (student counts)
       revalidateMatchingKeys(/^dashboard-stats/);

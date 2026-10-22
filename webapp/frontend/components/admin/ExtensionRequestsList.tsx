@@ -128,7 +128,7 @@ export function ExtensionRequestsList({
     }
   };
 
-  const pendingCount = requests?.filter((r) => r.request_status === "Pending").length || 0;
+  const pendingCount = requests?.filter((r) => r.request_status === "Pending" && r.action_required !== false).length || 0;
 
   // Sort requests
   const sortedRequests = useMemo(() => {
@@ -310,7 +310,7 @@ export function ExtensionRequestsList({
                           )}
                         >
                           {getStatusIcon(request.request_status)}
-                          {request.request_status}
+                          {request.action_required === false ? "No longer required" : request.request_status}
                         </span>
                       }
                     />

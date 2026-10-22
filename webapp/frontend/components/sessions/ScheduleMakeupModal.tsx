@@ -48,26 +48,29 @@ import {
   Clock,
   CalendarX,
 } from "lucide-react";
-import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } from "@/types";
+import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate, MakeupEligibility } from "@/types";
 import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
 import { sessionSummerYear } from "@/lib/summer-courseware-session";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
+import { MakeupEligibilityNotice } from "./MakeupEligibilityNotice";
+import { makeupBookingIssue } from "@/lib/makeup-eligibility";
+import { useMakeupEligibility } from "@/lib/hooks/useMakeupEligibility";
 import { GradeLabel, GradeBadge, useGradeColor } from "@/components/ui/grade-label";
 
 // Copy for the red scheduling-limit warnings. The boundary is 31 August of
 // the summer year for summer make-ups, 60 days from the root original
 // session otherwise; both the main component and SuggestionCard read from
 // this single table.
-const makeupLimitCopy = (isSummerMakeup?: boolean) =>
-  isSummerMakeup
+const makeupLimitCopy = (isSummerMakeup?: boolean, academic?: boolean): { short: string; label: string; noun: string; headline: string; overrideHeadline: string; explanation: (originalDate?: string | null) => string } =>
+  academic ? { short: "Past makeup deadline", label: "Past makeup deadline", noun: "makeup deadline", headline: "This date is past the makeup deadline", overrideHeadline: "Past the makeup deadline", explanation: () => "Makeups must be completed by 30 June." } : isSummerMakeup
     ? {
         short: "Past summer deadline",
         label: "Past summer deadline (31 Aug)",
         noun: "summer deadline",
         headline: "This date is past the summer make-up deadline",
         overrideHeadline: "Past the summer deadline",
-        explanation: (_originalDate?: string | null) =>
+        explanation: () =>
           "Summer make-ups must be scheduled by 31 August.",
       }
     : {
@@ -230,6 +233,9 @@ interface SuggestionCardProps {
   hasApprovedExtension?: boolean;
   onRequestExtension?: () => void;
   isSummerMakeup?: boolean;
+  academic?: boolean;
+  bookingBlocked?: boolean;
+  eligibility?: MakeupEligibility | null;
 }
 
 const SuggestionCard = React.memo(function SuggestionCard({
@@ -249,10 +255,14 @@ const SuggestionCard = React.memo(function SuggestionCard({
   hasApprovedExtension,
   onRequestExtension,
   isSummerMakeup,
+  academic,
+  bookingBlocked,
+  eligibility,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
+  const eligibilityIssue = makeupBookingIssue(eligibility, suggestion.session_date);
 
-  const limitCopy = makeupLimitCopy(isSummerMakeup);
+  const limitCopy = makeupLimitCopy(isSummerMakeup, academic);
 
   const majorityCount = breakdown.majority_lesson_count ?? 0;
   const matchingLessonCount = breakdown.matching_lesson_count ?? 0;
@@ -326,6 +336,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
       {/* Expanded Content - Students List */}
       {isExpanded && (
         <div className="px-3 pb-3 border-t border-line">
+          <MakeupEligibilityNotice eligibility={eligibility} targetDate={suggestion.session_date} compact />
           {/* Score Breakdown */}
           <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[11px] text-gray-600 dark:text-gray-400">
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
@@ -385,7 +396,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onAddToProposal?.();
                 }}
-                disabled={!canAddMore || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || isPastDeadline}
+                disabled={bookingBlocked || !canAddMore || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || isPastDeadline}
                 className="w-full"
               >
                 {isPastLimit && !canOverrideLimit && !hasApprovedExtension ? (
@@ -452,10 +463,10 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onBook();
                 }}
-                disabled={isPastDeadline || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)}
+                disabled={bookingBlocked || isPastDeadline || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)}
                 className="w-full"
               >
-                Book this slot
+                {eligibilityIssue ? "Unavailable" : "Book this slot"}
               </Button>
             </>
           )}
@@ -509,8 +520,12 @@ export function ScheduleMakeupModal({
   readOnly = false,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
-  const { effectiveRole, user, isAdmin } = useAuth();
+  const { effectiveRole, user, isAdmin, isReadOnly } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const entitlement = useMakeupEligibility(session, isOpen);
+  const eligibility = entitlement.eligibility;
+  const policyBlocked = readOnly || isReadOnly || (!!eligibility && !eligibility.can_book);
   const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
@@ -523,7 +538,7 @@ export function ScheduleMakeupModal({
   // 31 August is open to Admins and Super Admins, while the 60-day make-up
   // window stays with Super Admins alone. Every banner and every "book it
   // anyway" button on this screen reads this one flag.
-  const canOverrideLimit = isSummerMakeup ? isAdmin : isSuperAdmin;
+  const canOverrideLimit = eligibility ? false : isSummerMakeup ? isAdmin : isSuperAdmin;
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
   // This is needed for cross-enrollment makeups: when a session from old enrollment A needs
@@ -545,7 +560,7 @@ export function ScheduleMakeupModal({
   // Use current enrollment for deadline checks (cross-enrollment aware).
   // Summer make-ups ignore the Regular enrollment's deadline entirely (it has
   // usually ended by July); undefined disables every amber "past deadline" path.
-  const effectiveEndDate = isSummerMakeup ? undefined : currentEnrollment?.effective_end_date;
+  const effectiveEndDate = isSummerMakeup || eligibility ? undefined : currentEnrollment?.effective_end_date;
   const today = getToday();
 
   // Use root_original_session_date from API (computed on backend by tracing makeup chain)
@@ -555,22 +570,22 @@ export function ScheduleMakeupModal({
   // Last allowed make-up date: 31 August of the summer year for summer
   // make-ups, otherwise 60 days from the root original session
   const lastAllowedDate = useMemo(() => {
+    if (eligibility) return eligibility.valid_until;
     if (!rootOriginalDate) return null;
     // Anchor the summer year to session_date, matching the backend
     if (isSummerMakeup) return `${sessionSummerYear(session)}-08-31`;
     const d = new Date(rootOriginalDate + 'T00:00:00');
     d.setDate(d.getDate() + 60);
     return d.toISOString().split('T')[0];
-  }, [rootOriginalDate, isSummerMakeup, session]);
+  }, [rootOriginalDate, isSummerMakeup, session, eligibility]);
 
   // Approved extension bypasses the 60-day rule (matches backend logic).
   // It does not waive the summer 31 August cap.
-  const hasApprovedExtension = !isSummerMakeup && session.extension_request_status === 'Approved';
+  const hasApprovedExtension = !eligibility && !isSummerMakeup && session.extension_request_status === 'Approved';
 
-  const limitCopy = makeupLimitCopy(isSummerMakeup);
+  const limitCopy = makeupLimitCopy(isSummerMakeup, !!eligibility);
 
   // Form selection state
-  const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [makeupNotes, setMakeupNotes] = useState(viaExtensionRequest ? "Rescheduled via extension request" : "");
@@ -669,8 +684,8 @@ export function ScheduleMakeupModal({
     const dayName = getDayName(date);
     const pastDeadline = !!(effectiveEndDate && date > effectiveEndDate &&
       dayName === currentEnrollment?.assigned_day && slotTimeSlot === currentEnrollment?.assigned_time);
-    return { exceedsLimit, pastDeadline };
-  }, [lastAllowedDate, hasApprovedExtension, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
+    return { exceedsLimit, pastDeadline, eligibilityIssue: makeupBookingIssue(eligibility, date) };
+  }, [lastAllowedDate, hasApprovedExtension, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time, eligibility]);
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
 
@@ -844,14 +859,13 @@ export function ScheduleMakeupModal({
       setConfirmSuggestion(null);
       setConfirmManualBooking(false);
       setExpandedSlotStudents(null);
-      setShowAllSuggestions(false);
+      setVisibleSuggestionCount(5);
       // Reset propose mode state
       setMode("book");
       setProposalSlots([]);
       setIsProposing(false);
-      setSelectedProposerTutorId(proposerTutorId ?? null);
     }
-    // eslint-disable-next-line react-hooks-exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, session.tutor_id]);
 
   // Build sessions by date lookup (include all statuses for retrospective scheduling)
@@ -945,7 +959,7 @@ export function ScheduleMakeupModal({
         availableSpots,
       };
     });
-  }, [viewDate, sessionsByDate, today, holidayNamesByDate, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate]);
+  }, [viewDate, sessionsByDate, today, holidayNamesByDate, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate, hasApprovedExtension]);
 
   // Get the effective time slot
   const effectiveTimeSlot = useCustomTime
@@ -988,12 +1002,14 @@ export function ScheduleMakeupModal({
 
   // Validate form
   const validateForm = useCallback(() => {
+    const eligibilityIssue = makeupBookingIssue(eligibility, selectedDate);
+    if (eligibilityIssue) return eligibilityIssue;
     if (!selectedDate) return "Please select a date";
     if (!effectiveTimeSlot || effectiveTimeSlot === " - ") return "Please select a time slot";
     if (!selectedTutorId) return "Please select a tutor";
     if (holidayNamesByDate.has(selectedDate) && !isAdmin) return "Cannot schedule on a holiday";
     return null;
-  }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayNamesByDate, isAdmin]);
+  }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayNamesByDate, isAdmin, eligibility]);
 
   // Unified booking function
   const bookMakeup = async (params: {
@@ -1003,6 +1019,9 @@ export function ScheduleMakeupModal({
     location: string;
     notes?: string;
   }) => {
+    if (readOnly || isReadOnly) return;
+    const eligibilityIssue = makeupBookingIssue(eligibility, params.session_date);
+    if (eligibilityIssue) { setValidationError(eligibilityIssue); return; }
     setIsSaving(true);
     setValidationError(null);
 
@@ -1072,6 +1091,8 @@ export function ScheduleMakeupModal({
 
   // Add slot to proposal (up to 3)
   const addProposalSlot = useCallback((slot: ProposalSlotLocal) => {
+    const issue = makeupBookingIssue(eligibility, slot.date);
+    if (issue) { showToast(issue, "error"); return; }
     if (proposalSlots.length >= 3) {
       showToast("Maximum 3 slot options allowed", "info");
       return;
@@ -1086,7 +1107,7 @@ export function ScheduleMakeupModal({
     }
     setProposalSlots(prev => [...prev, slot]);
     showToast(`Added option ${proposalSlots.length + 1}`, "success");
-  }, [proposalSlots, showToast]);
+  }, [proposalSlots, showToast, eligibility]);
 
   // Remove slot from proposal
   const removeProposalSlot = useCallback((index: number) => {
@@ -1095,6 +1116,9 @@ export function ScheduleMakeupModal({
 
   // Submit proposal
   const submitProposal = async () => {
+    if (readOnly || isReadOnly) return;
+    const issue = proposalSlots.map(slot => makeupBookingIssue(eligibility, slot.date)).find(Boolean);
+    if (issue) { showToast(issue, "error"); return; }
     if (!selectedProposerTutorId) {
       showToast("Unable to determine current user", "error");
       return;
@@ -1349,7 +1373,7 @@ export function ScheduleMakeupModal({
               icon={Send}
               loading={isProposing}
               onClick={submitProposal}
-              disabled={readOnly || proposalSlots.length === 0 || !selectedProposerTutorId}
+              disabled={readOnly || policyBlocked || proposalSlots.length === 0 || !selectedProposerTutorId}
               title={readOnly ? "Read-only access" : undefined}
             >
               {isProposing
@@ -1359,7 +1383,7 @@ export function ScheduleMakeupModal({
                   : `Send proposal (${proposalSlots.length}/3)`}
             </Button>
           ) : (
-            <Button variant="primary" icon={Check} loading={isSaving} onClick={handleSchedule} disabled={readOnly || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
+            <Button variant="primary" icon={Check} loading={isSaving} onClick={handleSchedule} disabled={readOnly || policyBlocked || !!makeupBookingIssue(eligibility, selectedDate) || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
               {isSaving ? "Scheduling..." : "Schedule make-up"}
             </Button>
           )}
@@ -1367,6 +1391,8 @@ export function ScheduleMakeupModal({
       }
     >
       <div className="space-y-4">
+        <MakeupEligibilityNotice eligibility={eligibility} targetDate={selectedDate} />
+        {eligibility && entitlement.error && <Button size="sm" onClick={() => entitlement.retry()}>Retry makeup check</Button>}
         {/* Original Session Info - Compact sticky bar */}
         <div className={cn("sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-paper border-b-2 flex items-center gap-2 text-xs flex-wrap transition-colors", mode === "propose" ? "border-b-blue-400 dark:border-b-blue-600" : "border-b-green-400 dark:border-b-green-600")}>
           <User className="h-3.5 w-3.5 text-accent-ink flex-shrink-0" />
@@ -1693,7 +1719,7 @@ export function ScheduleMakeupModal({
                           location: suggestion.location,
                         })}
                         mode={mode}
-                        canAddMore={proposalSlots.length < 3}
+                        canAddMore={!policyBlocked && proposalSlots.length < 3}
                         weights={weights}
                         originalStudent={{ grade: session.grade, lang_stream: session.lang_stream, school: session.school }}
                         isSaving={isSaving}
@@ -1701,8 +1727,9 @@ export function ScheduleMakeupModal({
                         isPastLimit={isSuggestionPastLimit(suggestion)}
                         canOverrideLimit={canOverrideLimit}
                         hasApprovedExtension={hasApprovedExtension}
-                        onRequestExtension={() => setShowExtensionModal(true)}
+                        onRequestExtension={eligibility ? undefined : () => setShowExtensionModal(true)}
                         isSummerMakeup={isSummerMakeup}
+                        academic={!!eligibility} eligibility={eligibility} bookingBlocked={!!makeupBookingIssue(eligibility, suggestion.session_date)}
                       />
                     );
                   })}
@@ -2156,7 +2183,7 @@ export function ScheduleMakeupModal({
                     location,
                   });
                 }}
-                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || earlyDeadlineWarning}
+                disabled={policyBlocked || !!makeupBookingIssue(eligibility, selectedDate) || proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || earlyDeadlineWarning}
                 className="w-full"
                 variant="secondary"
                 icon={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !earlyDeadlineWarning ? Plus : undefined}
@@ -2259,7 +2286,7 @@ export function ScheduleMakeupModal({
                           const isSelected = selectedDayPickerSlot?.timeSlot === timeSlot && selectedDayPickerSlot?.tutorId === tutorId;
                           const isFull = studentCount >= 8;
                           // Compute block status for this slot
-                          const slotBlockStatus = dayPickerDate ? isSlotBlocked(dayPickerDate, timeSlot) : { exceedsLimit: false, pastDeadline: false };
+                          const slotBlockStatus = dayPickerDate ? isSlotBlocked(dayPickerDate, timeSlot) : { exceedsLimit: false, pastDeadline: false, eligibilityIssue: null };
 
                           return (
                             <div
@@ -2368,10 +2395,10 @@ export function ScheduleMakeupModal({
                                           location,
                                         });
                                       }}
-                                      disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
+                                      disabled={policyBlocked || proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline || !!slotBlockStatus.eligibilityIssue}
                                       className="w-full mt-2"
                                       variant="secondary"
-                                      icon={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !canOverrideLimit) && !slotBlockStatus.pastDeadline ? Plus : undefined}
+                                      icon={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !canOverrideLimit) && !slotBlockStatus.pastDeadline && !slotBlockStatus.eligibilityIssue ? Plus : undefined}
                                       iconClassName="text-blue-600 dark:text-blue-400"
                                     >
                                       {slotBlockStatus.exceedsLimit && !canOverrideLimit ? (
@@ -2397,10 +2424,10 @@ export function ScheduleMakeupModal({
                                         e.stopPropagation();
                                         setConfirmBooking({ timeSlot, tutorId, tutorName });
                                       }}
-                                      disabled={isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
+                                      disabled={policyBlocked || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline || !!slotBlockStatus.eligibilityIssue}
                                       className="w-full mt-2"
                                     >
-                                      {slotBlockStatus.exceedsLimit && !canOverrideLimit ? limitCopy.short : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is full" : "Book this slot"}
+                                      {slotBlockStatus.exceedsLimit && !canOverrideLimit ? limitCopy.short : slotBlockStatus.eligibilityIssue ? "Unavailable" : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is full" : "Book this slot"}
                                     </Button>
                                   )}
                                 </div>
@@ -2482,10 +2509,10 @@ export function ScheduleMakeupModal({
       />
 
       {/* Extension Request Modal */}
-      {(deadlineError || (currentEnrollment && effectiveEndDate)) && (proposerTutorId || session.tutor_id) && (
+      {!eligibility && (deadlineError || (currentEnrollment && effectiveEndDate)) && (proposerTutorId || session.tutor_id) && (
         <ExtensionRequestModal
           session={session}
-          enrollmentId={deadlineError?.enrollment_id ?? currentEnrollment?.id!}
+          enrollmentId={deadlineError?.enrollment_id ?? currentEnrollment!.id}
           effectiveEndDate={deadlineError?.effective_end_date ?? effectiveEndDate!}
           isOpen={showExtensionModal}
           onClose={() => setShowExtensionModal(false)}

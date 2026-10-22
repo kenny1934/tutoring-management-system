@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from models import SessionLog, Enrollment, Holiday, ExtensionRequest
+from services.makeup_entitlement import assert_makeup_entitlement
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ def validate_makeup_constraints(
     the summer override as well.
     """
     summer = is_summer_session(consume_session)
+    academic_policy = not summer and assert_makeup_entitlement(db, consume_session, target_date)
 
     # 1. Scheduling window: summer sessions must land on or before 31 August
     # (Admin / Super Admin can override); everything else gets the 60-day
@@ -140,7 +142,7 @@ def validate_makeup_constraints(
         assert_summer_reschedule_deadline(
             consume_session, target_date, can_override=can_override_summer_deadline
         )
-    else:
+    elif not academic_policy:
         root_original = find_root_original_session(consume_session, db)
         days_since_original = (target_date - root_original.session_date).days
 
@@ -176,7 +178,7 @@ def validate_makeup_constraints(
     # past the enrollment end date. Non-regular slots are allowed past deadline.
     # Check against student's CURRENT enrollment (latest by first_lesson_date).
     # Only Regular enrollments count - ignore One-Time and Trial.
-    if not summer:
+    if not summer and not academic_policy:
         current_enrollment = db.query(Enrollment).filter(
             Enrollment.student_id == student_id,
             Enrollment.enrollment_type == 'Regular',

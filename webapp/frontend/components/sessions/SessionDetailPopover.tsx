@@ -21,6 +21,8 @@ import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonClasses, IconButton, CountBadge } from "@/components/controls";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
+import { MakeupEligibilityNotice } from "./MakeupEligibilityNotice";
+import { showsMakeupEligibility } from "@/lib/makeup-eligibility";
 import { cn } from "@/lib/utils";
 import type { Session, UpcomingTestAlert, MakeupProposal, HomeworkCompletion } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
@@ -784,6 +786,7 @@ export function SessionDetailPopover({
           </>
         }
       >
+        {showsMakeupEligibility(detailedSession || session) && <MakeupEligibilityNotice eligibility={(detailedSession || session).makeup_eligibility} targetDate={session.make_up_for_id ? session.session_date : undefined} compact />}
         {detailedSession?.show_handover_first_lesson && detailedSession?.handover_prospect && (
           <div className="mb-3 px-3 py-2.5 rounded-lg border-2 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700">
             <button

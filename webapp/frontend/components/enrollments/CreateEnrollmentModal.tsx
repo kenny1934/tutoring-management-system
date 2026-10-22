@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
+import Link from "next/link";
+import { billingErrorHref, billingPaymentHref } from "@/lib/billing-workflow";
+import { billingAPI } from "@/lib/billing-api";
+import { BillingEnrollmentIntake } from "@/components/billing/BillingEnrollmentIntake";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -52,6 +56,7 @@ export interface CreateEnrollmentModalProps {
   onClose: () => void;
   renewFromId?: number | null;
   onSuccess?: () => void;
+  onBusyChange?: (busy: boolean) => void;
   /** If false, renders without backdrop (for side-by-side layouts). Default: true */
   standalone?: boolean;
   /** If true, pre-selects Trial type and locks lessons to 1 */
@@ -83,6 +88,7 @@ export function CreateEnrollmentModal({
   onClose,
   renewFromId,
   onSuccess,
+  onBusyChange,
   standalone = true,
   trialMode = false,
   convertFromTrial,
@@ -117,6 +123,7 @@ export function CreateEnrollmentModal({
   const [preview, setPreview] = useState<EnrollmentPreviewResponse | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [billingRedirect, setBillingRedirect] = useState<string | null>(null);
 
   // Renewal link state (for manual selection when not using Quick Renew)
   const [selectedRenewalLinkId, setSelectedRenewalLinkId] = useState<number | null>(null);
@@ -124,6 +131,14 @@ export function CreateEnrollmentModal({
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [intakeOpen, setIntakeOpen] = useState(false);
+  const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakeCreated, setIntakeCreated] = useState(false);
+  const working = isSubmitting || previewLoading || intakeBusy;
+  useEffect(() => { onBusyChange?.(working); return () => onBusyChange?.(false); }, [working, onBusyChange]);
+  const billingOptions = useSWR(isOpen && !trialMode ? 'billing-preview-options' : null, billingAPI.options);
+  const newPolicyRegular = enrollmentType === 'Regular' && !!firstLessonDate && !!billingOptions.data
+    && firstLessonDate >= billingOptions.data.first_payment_from;
 
   // Fetch tutors (only active teaching staff)
   const { data: tutors = [] } = useActiveTutors();
@@ -146,6 +161,9 @@ export function CreateEnrollmentModal({
     () => enrollmentsAPI.getRenewalData(renewFromId!),
     { keepPreviousData: false }
   );
+
+  const billingHref = renewalData?.billing_managed ? billingPaymentHref(renewalData.student_id) : billingRedirect;
+  useEffect(() => setBillingRedirect(null), [student?.id, isOpen]);
 
   // Type for day names from DAY_NAMES constant
   type DayName = typeof DAY_NAMES[number];
@@ -188,6 +206,8 @@ export function CreateEnrollmentModal({
       setSelectedRenewalLinkId(null);
       setIsNewStudent(null);
       setIsSuccess(false);
+      setIntakeOpen(false);
+      setIntakeCreated(false);
     } else if (trialMode && !convertFromTrial && !renewFromId) {
       // Initialize trial mode on open (when not converting or renewing)
       setEnrollmentType("Trial");
@@ -195,17 +215,12 @@ export function CreateEnrollmentModal({
     }
   }, [isOpen, selectedLocation, trialMode, convertFromTrial, renewFromId]);
 
-  // Reset time slot when day changes (if current slot not available)
-  useEffect(() => {
-    if (!useCustomTime && !(availableTimeSlots as readonly string[]).includes(assignedTime)) {
-      setAssignedTime(availableTimeSlots[0]);
-    }
-  }, [assignedDay, availableTimeSlots, assignedTime, useCustomTime]);
-
   // Pre-fill form from renewal data
   useEffect(() => {
     if (renewalData && isOpen) {
-      studentsAPI.getById(renewalData.student_id).then((s) => setStudent(s));
+      let active = true;
+      setStudent(null);
+      studentsAPI.getById(renewalData.student_id).then((s) => { if (active) setStudent(s); }).catch(() => { if (active) setPreviewError('Could not load the student. Open the enrollment again.'); });
       setTutorId(renewalData.tutor_id);
       setAssignedDay(renewalData.assigned_day);
       setAssignedTime(renewalData.assigned_time);
@@ -214,6 +229,7 @@ export function CreateEnrollmentModal({
       setLessonsPaid(renewalData.previous_lessons_paid);
       setEnrollmentType(renewalData.enrollment_type);
       // Note: discount is NOT prefilled from renewal - always check student coupons instead
+      return () => { active = false; };
     }
   }, [renewalData, isOpen]);
 
@@ -236,21 +252,26 @@ export function CreateEnrollmentModal({
   useEffect(() => {
     if (!fromTaughtLesson || !isOpen) return;
     if (renewFromId && !renewalData) return;
+    let active = true;
     if (!renewFromId) {
-      studentsAPI.getById(fromTaughtLesson.student_id).then((s) => setStudent(s));
+      setStudent(null);
+      studentsAPI.getById(fromTaughtLesson.student_id).then((s) => { if (active) setStudent(s); }).catch(() => { if (active) setPreviewError('Could not load the student. Open the enrollment again.'); });
     }
     setTutorId(fromTaughtLesson.tutor_id);
     setAssignedDay(DAY_NAMES[new Date(`${fromTaughtLesson.lesson_date}T00:00:00`).getDay()]);
     if (fromTaughtLesson.time_slot) setAssignedTime(fromTaughtLesson.time_slot);
     if (fromTaughtLesson.location) setLocation(fromTaughtLesson.location);
     setFirstLessonDate(fromTaughtLesson.lesson_date);
+    return () => { active = false; };
   }, [fromTaughtLesson, isOpen, renewFromId, renewalData]);
 
   // Pre-fill form when converting trial to regular
   useEffect(() => {
     if (convertFromTrial && isOpen) {
+      let active = true;
       // Fetch full student data
-      studentsAPI.getById(convertFromTrial.student_id).then((s) => setStudent(s));
+      setStudent(null);
+      studentsAPI.getById(convertFromTrial.student_id).then((s) => { if (active) setStudent(s); }).catch(() => { if (active) setPreviewError('Could not load the student. Open the trial again.'); });
       setTutorId(convertFromTrial.tutor_id);
       setLocation(convertFromTrial.location);
       // Parse day from session date
@@ -266,6 +287,7 @@ export function CreateEnrollmentModal({
       setLessonsPaid(6);
       // Link as renewal from the trial enrollment
       setSelectedRenewalLinkId(convertFromTrial.enrollment_id);
+      return () => { active = false; };
     }
   }, [convertFromTrial, isOpen]);
 
@@ -310,7 +332,9 @@ export function CreateEnrollmentModal({
     }
 
     // Priority 2: Check if student has available coupons
+    let active = true;
     studentsAPI.getCoupon(student.id).then((couponData) => {
+      if (!active) return;
       if (couponData.has_coupon && couponData.value) {
         // Find a discount matching the coupon value
         const matchingDiscount = findDiscountByValue(discounts, couponData.value);
@@ -321,7 +345,8 @@ export function CreateEnrollmentModal({
     }).catch(() => {
       // Silently fail if coupon check fails
     });
-  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts, lessonsCount]);
+    return () => { active = false; };
+  }, [student, isOpen, convertFromTrial, discounts, lessonsCount]);
 
   // Clear the selected discount only if the lesson count is below that
   // discount's own minimum (per-2-lessons promos apply from 2 lessons).
@@ -340,11 +365,15 @@ export function CreateEnrollmentModal({
       return;
     }
 
+    let active = true;
+    setIsNewStudent(null);
     enrollmentsAPI.getAll(student.id).then((enrollments) => {
+      if (!active) return;
       const hasNonTrialEnrollment = enrollments.some(e => e.enrollment_type !== 'Trial');
       setIsNewStudent(!hasNonTrialEnrollment);
     }).catch(() => {});
-  }, [student?.id, isOpen, enrollmentType]);
+    return () => { active = false; };
+  }, [student, isOpen, enrollmentType]);
 
   // Reset tutor when location changes if current tutor is not from new location
   useEffect(() => {
@@ -356,7 +385,7 @@ export function CreateEnrollmentModal({
         setTutorId(newLocationTutors.length > 0 ? newLocationTutors[0].id : null);
       }
     }
-  }, [location, tutors]);
+  }, [location, tutors, tutorId]);
 
   // Effective renewal link: prop takes priority, then manual selection
   const effectiveRenewalLinkId = renewFromId || selectedRenewalLinkId || undefined;
@@ -364,6 +393,8 @@ export function CreateEnrollmentModal({
   // Build enrollment data for preview/submit
   const enrollmentData: EnrollmentCreate | null = useMemo(() => {
     if (!student || !tutorId || !firstLessonDate) return null;
+    const fixedStudentId = convertFromTrial?.student_id ?? fromTaughtLesson?.student_id ?? prefillStudent?.id ?? renewalData?.student_id;
+    if (fixedStudentId !== undefined && student.id !== fixedStudentId) return null;
     if (useCustomTime && !isCustomTimeValid) return null;
     if (typeof lessonsPaid !== "number" || lessonsPaid < 1) return null;
     return {
@@ -379,7 +410,7 @@ export function CreateEnrollmentModal({
       discount_id: discountId || undefined,
       is_new_student: isNewStudent ?? undefined,
     };
-  }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, discountId, useCustomTime, isCustomTimeValid]);
+  }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, discountId, useCustomTime, isCustomTimeValid, isNewStudent, convertFromTrial?.student_id, fromTaughtLesson?.student_id, prefillStudent?.id, renewalData?.student_id]);
 
   // Check if first lesson date matches selected day of week
   const dayMismatchWarning = useMemo(() => {
@@ -394,7 +425,8 @@ export function CreateEnrollmentModal({
 
   // Preview sessions
   const handlePreview = async () => {
-    if (!enrollmentData) return;
+    if (!enrollmentData || billingHref) return;
+    if (newPolicyRegular) { setIntakeOpen(true); return; }
     setPreviewLoading(true);
     setPreviewError(null);
     try {
@@ -402,6 +434,7 @@ export function CreateEnrollmentModal({
       setPreview(result);
     } catch (error: unknown) {
       setPreviewError(formatError(error, "Failed to preview enrollment"));
+      setBillingRedirect(billingErrorHref(error));
       setPreview(null);
     } finally {
       setPreviewLoading(false);
@@ -410,7 +443,7 @@ export function CreateEnrollmentModal({
 
   // Create enrollment
   const handleSubmit = async () => {
-    if (!enrollmentData) return;
+    if (!enrollmentData || billingHref) return;
 
     if (preview?.conflicts && preview.conflicts.length > 0) {
       showToast("Cannot create enrollment: conflicts exist with existing sessions", "error");
@@ -429,6 +462,7 @@ export function CreateEnrollmentModal({
       setIsSuccess(true);  // Show success screen instead of closing
     } catch (error: unknown) {
       showError(error, "Failed to create enrollment");
+      setBillingRedirect(billingErrorHref(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -461,12 +495,15 @@ export function CreateEnrollmentModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={intakeBusy ? () => {} : onClose}
       title={title}
       size="xl"
       standalone={standalone}
       footer={
-        isSuccess ? (
+        billingHref ? <Button onClick={onClose}>Close</Button> : intakeOpen ? <div className="flex justify-end gap-3">
+          {!intakeCreated && <Button disabled={intakeBusy} onClick={() => setIntakeOpen(false)}>Back to enrollment details</Button>}
+          <Button variant={intakeCreated ? 'primary' : 'secondary'} disabled={intakeBusy} onClick={() => { if (intakeCreated) onSuccess?.(); onClose(); }}>{intakeCreated ? 'Done' : 'Close'}</Button>
+        </div> : isSuccess ? (
           <div className="flex justify-end">
             <Button variant="primary" onClick={() => { onSuccess?.(); onClose(); }}>
               Done
@@ -494,15 +531,19 @@ export function CreateEnrollmentModal({
               icon={Calendar}
               loading={previewLoading}
               onClick={handlePreview}
-              disabled={!enrollmentData}
+              disabled={!enrollmentData || (enrollmentType === 'Regular' && !billingOptions.data)}
             >
-              Preview sessions
+              {newPolicyRegular ? 'Preview fees' : 'Preview sessions'}
             </Button>
           </div>
         )
       }
     >
-      {isSuccess ? (
+      {billingHref ? <div className="space-y-3 py-4"><p className="text-sm">Review this student’s next enrollment in Billing.</p><Link className="text-sm font-medium text-accent-ink hover:underline" href={billingHref} onClick={onClose}>Open payment journey</Link></div> : intakeOpen && student && tutorId ? <BillingEnrollmentIntake
+        studentId={student.id} trialEnrollmentId={convertFromTrial?.enrollment_id} trialSessionId={convertFromTrial?.session_id}
+        initialFirstLessonDate={firstLessonDate} initialSlots={[{ weekday: assignedDay as import('@/types/billing').BillingWeekday, time_slot: effectiveTimeSlot, location }]}
+        initialIntakeSlots={[{ tutor_id: tutorId, renewed_from_enrollment_id: effectiveRenewalLinkId ?? null }]}
+        onBusyChange={setIntakeBusy} onCreated={() => { setIntakeCreated(true); invalidateAfterEnrollmentCreate({ studentId: student.id, location }); }} /> : isSuccess ? (
         /* Success Screen */
         <div className="flex flex-col items-center justify-center py-8 sm:py-12 gap-3 sm:gap-4">
           <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-700" />
@@ -546,6 +587,8 @@ export function CreateEnrollmentModal({
       ) : !preview ? (
         /* Form */
         <div className="grid gap-4 md:grid-cols-2">
+          {previewError && <p role="alert" className="md:col-span-2 text-sm text-red-700 dark:text-red-300">{previewError}</p>}
+          {enrollmentType === 'Regular' && billingOptions.error && <div role="alert" className="md:col-span-2 space-y-2 text-sm"><p>Could not load the fee policy.</p><Button size="sm" onClick={() => billingOptions.mutate()}>Retry fee policy</Button></div>}
           {/* Trial Mode Banner */}
           {trialMode && !convertFromTrial && (
             <div className="md:col-span-2 flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-blue-700 dark:text-blue-300 text-sm">
@@ -602,7 +645,12 @@ export function CreateEnrollmentModal({
               <Select
                 id="create-enrollment-day"
                 value={assignedDay}
-                onChange={(e) => setAssignedDay(e.target.value)}
+                onChange={(e) => {
+                  const day = e.target.value;
+                  setAssignedDay(day);
+                  const times: readonly string[] = day === 'Sat' || day === 'Sun' ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
+                  if (!useCustomTime && !times.includes(assignedTime)) setAssignedTime(times[0]);
+                }}
                 className="pl-10"
               >
                 {DAY_NAMES.map((day) => (
@@ -625,6 +673,7 @@ export function CreateEnrollmentModal({
                     onChange={(e) => setAssignedTime(e.target.value)}
                     className="pl-10"
                   >
+                    {assignedTime && !(availableTimeSlots as readonly string[]).includes(assignedTime) && <option value={assignedTime}>{assignedTime}</option>}
                     {availableTimeSlots.map((slot) => (
                       <option key={slot} value={slot}>{slot}</option>
                     ))}
@@ -703,7 +752,7 @@ export function CreateEnrollmentModal({
           </div>
 
           {/* Lessons Paid */}
-          <div>
+          {!newPolicyRegular && <div>
             <Label htmlFor="create-enrollment-lessons">Number of lessons</Label>
             <Input
               id="create-enrollment-lessons"
@@ -724,10 +773,10 @@ export function CreateEnrollmentModal({
                 if (lessonsPaid === "" || lessonsPaid < 1) setLessonsPaid(1);
               }}
             />
-          </div>
+          </div>}
 
           {/* Discount */}
-          <div>
+          {!newPolicyRegular && <div>
             <Label htmlFor="create-enrollment-discount">Discount</Label>
             <div className="relative">
               <Select
@@ -749,10 +798,10 @@ export function CreateEnrollmentModal({
                 Most discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
               </p>
             )}
-          </div>
+          </div>}
 
           {/* New Student - not applicable to Trial enrollments */}
-          {enrollmentType !== 'Trial' && (
+          {enrollmentType !== 'Trial' && !newPolicyRegular && (
             <div className="flex items-center">
               <label className="flex items-center gap-2 text-sm text-foreground/70 cursor-pointer pt-6">
                 <input

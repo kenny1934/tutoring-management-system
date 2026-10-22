@@ -169,7 +169,7 @@ def borrowed_lesson_number(session: SessionLog, successor: Optional[SessionLog])
     return successor.lesson_number
 
 
-def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None, summer_slots: Optional[dict] = None, linked_sessions: Optional[dict] = None) -> SessionResponse:
+def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None, summer_slots: Optional[dict] = None, linked_sessions: Optional[dict] = None, makeup_eligibilities: Optional[dict] = None) -> SessionResponse:
     """
     Build a SessionResponse from a SessionLog with student/tutor/exercise data.
 
@@ -183,6 +183,11 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None, ro
         SessionResponse with all fields populated
     """
     data = SessionResponse.model_validate(session)
+    if makeup_eligibilities is not None:
+        data.makeup_eligibility = makeup_eligibilities.get(session.id)
+    elif db is not None:
+        from services.makeup_entitlement import eligibility_for_sessions
+        data.makeup_eligibility = eligibility_for_sessions(db, [session.id]).get(session.id)
     data.student_name = session.student.student_name if session.student else None
     data.tutor_name = session.tutor.tutor_name if session.tutor else None
     data.tutor_nickname = session.tutor.nickname if session.tutor else None
