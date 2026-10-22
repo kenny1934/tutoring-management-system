@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.4](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.3...v2.2.4) (2026-10-22)
+
+### Bug Fixes
+
+* **Curriculum grade checks**: warnings now show the worksheet counts behind each flag, so several lower-grade worksheets covering the same topic no longer produce a misleading grade summary.
+
 ## [2.2.3](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.2...v2.2.3) (2026-10-21)
 
 ### Bug Fixes

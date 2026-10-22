@@ -23,10 +23,10 @@ worksheets to count as review, and the check itself ignores those weeks.
 
 The rebuild (database/curriculum/backfill_observations.py) feeds this and sets
 excluded_reason = 'grade_check' on the flagged students' assignment rows. The
-admin list of students to check reads those rows back.
+admin list reads the worksheet counts saved in the same rebuild.
 """
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 # The first weeks of a school year are warm-up. Tutors spend them reviewing
 # the grade a student has just finished, so for a while nearly everyone looks
@@ -109,24 +109,33 @@ def students_out_of_step(worksheets, norms):
     record. school and grade are what the worksheet is filed under. norms is
     what school_below_shares() returns for the schools' own plans.
     """
-    tally = defaultdict(lambda: [0, 0])
-    where = {}
+    return set(grade_check_evidence(worksheets, norms))
+
+
+def grade_check_evidence(worksheets, norms):
+    """Return flagged student-years with the exact worksheet counts used.
+
+    The input has already excluded revision and ambiguous-grade worksheets.
+    Keep repeated worksheets, even when they share a topic and week.
+    """
+    evidence = {}
     for student_id, year, week, school, grade, concept_grade in worksheets:
         if week <= WARM_UP_WEEKS:
             continue
         g, cg = grade_number(grade), grade_number(concept_grade)
         if g is None or cg is None:
             continue
-        key = (student_id, year)
-        tally[key][0] += cg < g
-        tally[key][1] += 1
-        where[key] = (school, grade)
+        entry = evidence.setdefault((student_id, year), {
+            "school": school, "grade": grade, "counts": Counter(),
+            "below": 0, "first_week": week, "last_week": week,
+        })
+        entry["school"], entry["grade"] = school, grade
+        entry["counts"][concept_grade] += 1
+        entry["below"] += cg < g
+        entry["first_week"] = min(entry["first_week"], week)
+        entry["last_week"] = max(entry["last_week"], week)
 
-    flagged = set()
-    for key, (below, total) in tally.items():
-        if total < MIN_WORKSHEETS or below / total < BELOW_SHARE:
-            continue
-        if norms.get(where[key], 0.0) >= SCHOOL_BELOW_SHARE:
-            continue
-        flagged.add(key)
-    return flagged
+    return {key: entry for key, entry in evidence.items()
+            if sum(entry["counts"].values()) >= MIN_WORKSHEETS
+            and entry["below"] / sum(entry["counts"].values()) >= BELOW_SHARE
+            and norms.get((entry["school"], entry["grade"]), 0.0) < SCHOOL_BELOW_SHARE}

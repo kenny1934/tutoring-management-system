@@ -986,6 +986,8 @@ export interface CurriculumGradeCheckStudent {
   grade: string;
   /** The grade most of their worksheets came from. */
   worksheet_grade: string | null;
+  worksheet_count: number;
+  total_worksheets: number;
   first_week: number;
   last_week: number;
 }

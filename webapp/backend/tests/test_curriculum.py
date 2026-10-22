@@ -23,6 +23,11 @@ ALIAS_C = "Center\\Courseware (Chi)\\new_math7-9EX"
 ALIAS_E = "Center\\Courseware (Eng)\\new_math7-9EX"
 
 RAW_TABLES = [
+    """CREATE TABLE curriculum_grade_check_evidence (
+        student_id INT, academic_year VARCHAR(20), school VARCHAR(255),
+        grade VARCHAR(50), worksheet_grade VARCHAR(50), worksheet_count INT,
+        first_week INT, last_week INT,
+        PRIMARY KEY (student_id, academic_year, worksheet_grade))""",
     """CREATE TABLE academic_weeks (
         id INTEGER PRIMARY KEY, academic_year VARCHAR(20), week_number INT,
         week_start_date DATE, week_end_date DATE)""",
@@ -1193,38 +1198,50 @@ def test_grade_check_is_admin_only(client: TestClient):
                       cookies=AUTH_COOKIE).status_code == 403
 
 
-def test_grade_check_lists_students_set_aside_this_year(client: TestClient, db_session):
+def _grade_evidence(db, student_id=1, year="2025-2026", lower_count=2):
+    db.execute(text("""
+        INSERT INTO curriculum_grade_check_evidence
+        (student_id, academic_year, school, grade, worksheet_grade,
+         worksheet_count, first_week, last_week)
+        VALUES (:student, :year, 'TIS', 'F2', 'F1', :lower, 5, 7),
+               (:student, :year, 'TIS', 'F2', 'F2', 1, 5, 7)
+    """), {"student": student_id, "year": year, "lower": lower_count})
+    db.commit()
+
+
+@pytest.mark.parametrize("lower_count", [2, 3])
+def test_grade_check_uses_worksheet_counts_not_deduplicated_topics(
+        client: TestClient, db_session, lower_count):
     _as_admin()
     _current_week(db_session)
-    db_session.execute(text(
-        "UPDATE curriculum_concepts SET grade = 'F1' WHERE id IN (1, 2)"))
-    db_session.execute(text(
-        "UPDATE students SET grade = 'F2' WHERE id = 1"))
+    db_session.execute(text("UPDATE students SET grade = 'F2' WHERE id = 1"))
+    db_session.execute(text("UPDATE curriculum_concepts SET grade = 'F2' WHERE id = 2"))
     db_session.commit()
-    for week, cid in ((1, 1), (2, 1), (2, 2)):
+    # One topic/week each used to tie and incorrectly display F2.
+    for week, cid in ((5, 2), (7, 1)):
         _assignment_obs(db_session, week=week, concept_id=cid, student_id=1,
                         grade="F2", excluded="grade_check")
-    # Last year's flags are not this year's business.
-    _assignment_obs(db_session, week=3, concept_id=1, student_id=4, grade="F2",
-                    year="2024-2025", excluded="grade_check")
+    _grade_evidence(db_session, lower_count=lower_count)
+    _grade_evidence(db_session, student_id=4, year="2024-2025")
 
     body = client.get("/api/curriculum/grade-check", cookies=AUTH_COOKIE).json()
     assert body["academic_year"] == "2025-2026"
     assert len(body["students"]) == 1
-    amy = body["students"][0]
-    assert amy["student_id"] == 1
-    assert amy["grade"] == "F2"
-    assert amy["worksheet_grade"] == "F1"
-    assert (amy["first_week"], amy["last_week"]) == (1, 2)
+    student = body["students"][0]
+    assert student["student_id"] == 1
+    assert student["grade"] == "F2"
+    assert student["worksheet_grade"] == "F1"
+    assert student["worksheet_count"] == lower_count
+    assert student["total_worksheets"] == lower_count + 1
+    assert (student["first_week"], student["last_week"]) == (5, 7)
 
 
 def test_grade_check_drops_a_student_once_their_grade_is_corrected(
         client: TestClient, db_session):
     _as_admin()
     _current_week(db_session)
-    _assignment_obs(db_session, week=1, concept_id=1, student_id=1,
-                    grade="F2", excluded="grade_check")
-    # The rows were filed under F2, but the record now says F1 again.
+    _grade_evidence(db_session)
+    # The snapshot was filed under F2, but the record now says F1 again.
     body = client.get("/api/curriculum/grade-check", cookies=AUTH_COOKIE).json()
     assert body["students"] == []
 

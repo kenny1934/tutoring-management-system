@@ -1,5 +1,6 @@
 """Tests for the grade check (curriculum/grade_check.py)."""
 from curriculum.grade_check import (
+    grade_check_evidence,
     grade_number,
     school_below_shares,
     students_out_of_step,
@@ -84,3 +85,14 @@ def test_warm_up_review_is_a_lower_grade_early_in_the_year():
 
 def test_warm_up_review_spares_schools_that_teach_below_our_filing():
     assert warm_up_review(1, "F3", "F2", 0.42) is False
+
+
+def test_evidence_preserves_repeated_worksheets_and_ignores_warm_up():
+    for lower_count in (2, 3):
+        worksheets = ([(1, YEAR, 1, "TEST", "F2", "F1")] * 10
+                      + [(1, YEAR, 5, "TEST", "F2", "F2")]
+                      + [(1, YEAR, 7, "TEST", "F2", "F1")] * lower_count)
+        evidence = grade_check_evidence(worksheets, {})[(1, YEAR)]
+        assert evidence["counts"] == {"F1": lower_count, "F2": 1}
+        assert evidence["below"] == lower_count
+        assert (evidence["first_week"], evidence["last_week"]) == (5, 7)
