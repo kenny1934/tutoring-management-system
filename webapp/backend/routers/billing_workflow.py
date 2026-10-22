@@ -13,7 +13,7 @@ from billing.models import BillingAccount, BillingPayment, BillingPaymentLine
 from billing.schemas import (
     BillingCancelRequest, BillingConfirmRequest, BillingPaidRequest, BillingPaymentDetail, BillingPreferences,
     BillingPreferenceUpdate, BillingReceiptRequest, BillingSentRequest,
-    BillingIntakeSource,
+    BillingIntakeSource, BillingManualPaidRequest,
 )
 from billing import workflow
 from routers.billing import POLICY, source_scope, today
@@ -152,12 +152,13 @@ def read_payment(payment_id: UUID, request: Request, tutor_id: int | None = None
     return translated(lambda: workflow.payment_detail(db, payment))
 
 
-def payment_action(db, payment_id, data, request, user, kind):
+def payment_action(db, payment_id, data, request, user, kind, *, manual_only=False):
     require_workflow()
     payment, student_id = find_payment(db, payment_id)
     authorise_payment(db, payment, student_id, request, user)
     return write_action(db, user, lambda actor: workflow.mutate_payment(
         db, student_id, str(payment_id), data, actor, kind=kind, as_of=today(), policy=POLICY,
+        manual_only=manual_only,
     ))
 
 
@@ -171,6 +172,12 @@ def mark_sent(payment_id: UUID, data: BillingSentRequest, request: Request,
 def record_payment(payment_id: UUID, data: BillingPaidRequest, request: Request,
                    user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
     return payment_action(db, payment_id, data, request, user, 'paid')
+
+
+@router.post('/billing/payments/{payment_id}/manual-paid', response_model=BillingPaymentDetail)
+def record_manual_payment(payment_id: UUID, data: BillingManualPaidRequest, request: Request,
+                          user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    return payment_action(db, payment_id, data, request, user, 'paid', manual_only=True)
 
 
 @router.post('/billing/payments/{payment_id}/receipt', response_model=BillingPaymentDetail)

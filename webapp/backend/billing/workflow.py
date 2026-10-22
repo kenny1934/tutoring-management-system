@@ -251,9 +251,10 @@ def payment_detail(db, payment, *, include_pending_event=None):
         review = BillingDraftReview.model_validate(payment.snapshot['review'])
     except (ValueError, TypeError, KeyError):
         raise DraftConflict('The saved payment needs review before it can be opened.') from None
-    owner = db.query(BillingAccount.student_id).filter_by(id=payment.account_id).scalar()
-    if owner is None or review.student.id != owner:
+    account = db.query(BillingAccount).filter_by(id=payment.account_id).first()
+    if account is None or review.student.id != account.student_id:
         raise DraftConflict('The saved payment needs review before it can be opened.')
+    owner = account.student_id
     rows = payment_rows(db, payment)
     if any(enrollment.student_id != owner for _, enrollment, _ in rows):
         raise DraftConflict('The saved payment needs review before it can be opened.')
@@ -277,6 +278,10 @@ def payment_detail(db, payment, *, include_pending_event=None):
     history = [BillingPaymentHistory(kind=row.kind, actor_name=row.actor_name, created_at=utc(row.created_at)) for row in events]
     if include_pending_event:
         history.append(BillingPaymentHistory(**include_pending_event))
+    from .bank_runs import claimed_payments
+    batch_issue = ('Open this earlier-year payment for review.' if account.academic_start != POLICY.academic_start else
+                   'This payment account is inactive. Review it first.' if not account.active else
+                   'Open this payment in the Autopay list.' if claimed_payments(db, [payment.id]) else None)
     return BillingPaymentDetail(
         id=payment.id, student_id=review.student.id, version=payment.version, status=payment.status,
         review=review, lines=[BillingPaymentLineDetail(
@@ -288,7 +293,7 @@ def payment_detail(db, payment, *, include_pending_event=None):
         paid_at=utc(payment.paid_at) if payment.paid_at else None, payment_date=payment.payment_date,
         received_method=payment.received_method, receipt_reference=payment.receipt_reference, note=payment.note,
         coupon_status=payment.coupon_status, can_copy=not message_issues and not review.message.blocked_reasons,
-        review_issues=issues, history=history,
+        review_issues=issues, batch_action_issue=batch_issue, history=history,
     )
 
 
@@ -422,10 +427,10 @@ def confirm_draft(db, student_id, draft_id, data, actor, *, as_of, policy=POLICY
     return finish_payment_operation(db, account, payment, data, payload_hash, 'confirmed', actor)
 
 
-def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, policy=POLICY):
-    if kind == 'receipt':
-        # Receipt follow-up survives academic-year rollover and never creates
-        # a new current-year account for an older payment.
+def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, policy=POLICY, manual_only=False):
+    if kind in {'receipt', 'sent'} or manual_only:
+        # Use the owning account for an existing payment. Receipt follow-up
+        # survives rollover; guarded batch actions explain earlier-year holds.
         db.query(Student.id).filter_by(id=student_id).with_for_update().first()
         account = db.query(BillingAccount).join(BillingPayment,
             BillingPayment.account_id == BillingAccount.id).filter(
@@ -435,7 +440,7 @@ def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, poli
             raise DraftNotFound('Payment not found.')
     else:
         account = lock_account(db, student_id, policy)
-    payload_hash = operation_key(kind, payment_id, data, actor)
+    payload_hash = operation_key('manual_paid' if manual_only else kind, payment_id, data, actor)
     replay = replay_operation(db, account, data, payload_hash)
     if replay:
         return BillingPaymentDetail.model_validate(replay.result)
@@ -448,6 +453,11 @@ def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, poli
     detail = payment_detail(db, payment)
     if detail.review_issues:
         raise DraftConflict(' '.join(detail.review_issues))
+    if (manual_only or kind == 'sent') and detail.batch_action_issue:
+        raise DraftConflict(detail.batch_action_issue)
+    if manual_only and (detail.review.period.collection.method != 'manual'
+                        or data.method not in {'cash', 'bank_transfer'}):
+        raise ValueError('Record this collection through the Autopay list.')
     rows = payment_rows(db, payment)
     if kind == 'sent':
         if not detail.can_copy:

@@ -425,6 +425,7 @@ export interface BillingPaymentDetail {
   note: string | null;
   can_copy: boolean;
   review_issues: string[];
+  batch_action_issue?: string | null;
   history: { kind: string; actor_name: string; created_at: string }[];
 }
 

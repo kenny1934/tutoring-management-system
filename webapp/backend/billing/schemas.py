@@ -573,6 +573,10 @@ class BillingPaidRequest(WorkflowAction):
     acknowledge_duplicate_receipt: bool | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
+class BillingManualPaidRequest(BillingPaidRequest):
+    method: Literal['cash', 'bank_transfer']
+
+
 class BillingReceiptRequest(WorkflowAction):
     expected_version: int = Field(ge=1)
     receipt_reference: str = Field(min_length=1, max_length=100)
@@ -622,4 +626,5 @@ class BillingPaymentDetail(BaseModel):
     coupon_status: Literal['none', 'reserved', 'awaiting_receipt', 'recorded_in_kms']
     can_copy: bool
     review_issues: list[str]
+    batch_action_issue: str | None = None
     history: list[BillingPaymentHistory]

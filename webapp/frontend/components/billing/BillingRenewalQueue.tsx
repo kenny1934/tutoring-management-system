@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { billingAPI } from '@/lib/billing-api';
 import { canBatchRenew } from '@/lib/billing-batch';
+import { paymentBatchTarget, queuePaymentBatchAction, type PaymentBatchAction, type PaymentBatchTarget } from '@/lib/billing-payment-batch';
 import type { BillingBatchItem } from '@/lib/billing-batch';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import { useDebouncedValue, usePageTitle, useUnlistedWaitingCount, useVisibilityAwareInterval } from '@/lib/hooks';
@@ -25,6 +26,7 @@ import { billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview
 import { BillingPaymentSettings } from './BillingPaymentSettings';
 import { BillingRenewalWorkspace } from './BillingRenewalWorkspace';
 import { BillingBatchRenewModal } from './BillingBatchRenewModal';
+import { BillingPaymentBatchModal } from './BillingPaymentBatchModal';
 import { BillingCardFeeMessage, cardFeeMessageTarget } from './BillingCardFeeMessage';
 import { BillingCouponImportButton } from './BillingCouponImport';
 import { BillingReceiptsQueue } from './BillingReceiptsQueue';
@@ -192,12 +194,15 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   const batchScope = JSON.stringify([scope, search.trim(), auth.isReadOnly]);
   const [selection, setSelection] = useState<{ scope: string; rows: BillingQueueRow[] }>({ scope: '', rows: [] });
   const [batchOpen, setBatchOpen] = useState<string | null>(null);
+  const [paymentBatch, setPaymentBatch] = useState<{ scope: string; action: PaymentBatchAction; targets: PaymentBatchTarget[] } | null>(null);
   const batchTrigger = useRef<HTMLButtonElement | null>(null);
   const selectedRows = selection.scope === batchScope ? selection.rows : [];
+  const selectionAction = selectedRows.length ? canBatchRenew(selectedRows[0]) ? 'renew' : queuePaymentBatchAction(selectedRows[0]) : null;
   const canSelect = auth.isAdmin && !auth.isReadOnly;
   useEffect(() => {
     setSelection(previous => previous.scope === batchScope ? previous : { scope: batchScope, rows: [] });
     setBatchOpen(previous => previous === batchScope ? previous : null);
+    setPaymentBatch(previous => previous?.scope === batchScope ? previous : null);
   }, [batchScope]);
   const { data: options } = useSWR(enabled ? 'billing-preview-options' : null, billingAPI.options);
   const [page, setPage] = useState({ scope: '', offset: 0 });
@@ -232,11 +237,15 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   }, [stage, countsReady, receiptCount.data?.count]);
 
   function selectStage(next: BillingQueueView) { setStage(next); }
+  function selectable(row: BillingQueueRow) {
+    const action = canBatchRenew(row) ? 'renew' : queuePaymentBatchAction(row);
+    return !!action && (!selectionAction || selectionAction === action);
+  }
   function toggleBatch(row: BillingQueueRow) {
     setSelection({ scope: batchScope, rows: selectedIds.has(row.student.id) ? selectedRows.filter(value => value.student.id !== row.student.id) : [...selectedRows, row] });
   }
   function toggleSection(rows: BillingQueueRow[]) {
-    const eligible = rows.filter(canBatchRenew);
+    const eligible = rows.filter(selectable);
     const sectionIds = new Set(eligible.map(row => row.student.id));
     const allChecked = eligible.every(row => selectedIds.has(row.student.id));
     setSelection({ scope: batchScope, rows: allChecked ? selectedRows.filter(row => !sectionIds.has(row.student.id))
@@ -306,17 +315,17 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
         {current.rows.length ? URGENCY_GROUPS.map(group => {
           const rows = current.rows.filter(row => (row.stage === 'no_payment' ? 'later' : row.urgency ?? 'check_dates') === group.value);
           if (!rows.length) return null;
-          const selectable = canSelect ? rows.filter(canBatchRenew) : [];
+          const selectableRows = canSelect ? rows.filter(selectable) : [];
           return <CollapsibleSection key={group.value} id={`${tabId}-urgency-${group.value}`} label={group.label} colorTheme={group.colour}
-            showCheckbox={selectedRows.length > 0 && selectable.length > 0} isAllChecked={selectable.length > 0 && selectable.every(row => selectedIds.has(row.student.id))}
-            isSomeChecked={selectable.some(row => selectedIds.has(row.student.id))} onCheckboxClick={event => { event.stopPropagation(); toggleSection(rows); }}
-            annotation={selectedRows.length > 0 && selectable.length > 0 && (current.urgency_counts?.[group.value] ?? rows.length) > rows.length ? `${rows.length} on this page` : undefined}
+            showCheckbox={selectedRows.length > 0 && selectableRows.length > 0} isAllChecked={selectableRows.length > 0 && selectableRows.every(row => selectedIds.has(row.student.id))}
+            isSomeChecked={selectableRows.some(row => selectedIds.has(row.student.id))} onCheckboxClick={event => { event.stopPropagation(); toggleSection(rows); }}
+            annotation={selectedRows.length > 0 && selectableRows.length > 0 && (current.urgency_counts?.[group.value] ?? rows.length) > rows.length ? `${rows.length} on this page` : undefined}
             count={current.urgency_counts?.[group.value] ?? rows.length} isCollapsed={collapsed.has(group.value)} onToggle={() => setCollapsed(previous => {
               const next = new Set(previous); if (next.has(group.value)) next.delete(group.value); else next.add(group.value); return next;
             })}>
             {rows.map(row => <QueueCard key={row.key} row={row} asOf={current.as_of} showLocation={selectedLocation === 'All Locations'} showStage={stage === 'all'} selected={selectedWorkspace?.row.key === row.key}
               workflowAvailable={!!options?.workflow_available} preferencesWritable={!!options?.preferences_writes_available} onSettingsSaved={() => { void mutate(); }}
-              batchSelected={selectedIds.has(row.student.id)} showCheckboxes={selectedRows.length > 0} onBatchToggle={canSelect && canBatchRenew(row) ? () => toggleBatch(row) : undefined}
+              batchSelected={selectedIds.has(row.student.id)} showCheckboxes={selectedRows.length > 0} onBatchToggle={canSelect && selectable(row) ? () => toggleBatch(row) : undefined}
               feeExpanded={feePanel?.scope === feeScope && feePanel.key === row.key} onToggleFee={() => setFeePanel(previous => previous?.scope === feeScope && previous.key === row.key ? null : { scope: feeScope, key: row.key })}
               onOpen={(value, trigger, action) => { workspaceTrigger.current = trigger; setWorkspace({ scope, row: value, action }); }} />)}
           </CollapsibleSection>;
@@ -332,11 +341,22 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
       <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
         <span className="text-sm font-medium text-foreground">{selectedRows.length} selected</span>
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
-        <Button ref={batchTrigger} variant="primary" icon={RefreshCw} disabled={!options || searchPending} onClick={() => { setWorkspace(null); setBatchOpen(batchScope); }}>Batch renew</Button>
+        <Button ref={batchTrigger} variant="primary" icon={selectionAction === 'sent' ? Send : selectionAction === 'paid' ? CreditCard : RefreshCw} disabled={!options || searchPending} onClick={() => {
+          setWorkspace(null);
+          if (selectionAction === 'renew') setBatchOpen(batchScope);
+          else if (selectionAction) setPaymentBatch({ scope: batchScope, action: selectionAction, targets: selectedRows.map(paymentBatchTarget) });
+        }}>{selectionAction === 'sent' ? 'Mark messages sent' : selectionAction === 'paid' ? 'Record payments' : 'Batch renew'}</Button>
         <IconButton icon={X} label="Clear selection" onClick={() => setSelection({ scope: batchScope, rows: [] })} />
       </div>
     </motion.div>}</AnimatePresence>
     {selectedWorkspace && <BillingRenewalWorkspace key={`${scope}:${selectedWorkspace.row.key}`} row={selectedWorkspace.row} initialAction={selectedWorkspace.action} trigger={workspaceTrigger} onClose={() => setWorkspace(null)} onChanged={() => { void mutate(); void invalidateRenewalQueueCache(); }} />}
+    {canSelect && paymentBatch?.scope === batchScope && <BillingPaymentBatchModal key={batchScope} targets={paymentBatch.targets} action={paymentBatch.action}
+      writesAvailable={!!options?.workflow_writes_available} trigger={batchTrigger} onChanged={() => { void mutate(); void invalidateRenewalQueueCache(); }} onClose={completedIds => {
+        setPaymentBatch(null);
+        const completed = new Set(completedIds);
+        setSelection({ scope: batchScope, rows: selectedRows.filter(row => !row.payment_id || !completed.has(row.payment_id)) });
+        requestAnimationFrame(() => (batchTrigger.current ?? listPanel.current)?.focus());
+      }} />}
     {canSelect && batchOpen === batchScope && options && <BillingBatchRenewModal key={batchScope} rows={selectedRows} options={options} trigger={batchTrigger}
       onClose={closeBatch} onChanged={() => { void mutate(); void invalidateRenewalQueueCache(); }} />}
   </div></PageSurface>;

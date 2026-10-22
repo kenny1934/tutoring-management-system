@@ -4,6 +4,11 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import Link from "next/link";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import { PaymentMethodBadge } from "@/components/payments/PaymentMethodBadge";
+import { BillingPaymentBatchModal } from "@/components/billing/BillingPaymentBatchModal";
+import { billingDraftAuthScope } from "@/components/billing/BillingDraftReview";
+import { billingAPI } from "@/lib/billing-api";
+import { overduePaymentFamily, overduePaymentTarget } from "@/lib/overdue-payment-selection";
+import type { PaymentBatchTarget } from "@/lib/billing-payment-batch";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -22,7 +27,7 @@ import {
 import { AlertTriangle, Loader2, DollarSign, Calendar, Eye, Check, Search, X, MessageSquareShare, CreditCard } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { mutate } from "swr";
+import useSWR, { mutate } from "swr";
 import type { OverdueEnrollment, Enrollment } from "@/types";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
@@ -116,7 +121,8 @@ export default function OverduePaymentsPage() {
 
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { isReadOnly, isAdmin } = useAuth();
+  const auth = useAuth();
+  const { isReadOnly, isAdmin } = auth;
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
@@ -134,7 +140,10 @@ export default function OverduePaymentsPage() {
   const [popoverEnrollment, setPopoverEnrollment] = useState<OverdueEnrollment | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [selectionFamily, setSelectionFamily] = useState<ReturnType<typeof overduePaymentFamily>>(null);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [paymentBatch, setPaymentBatch] = useState<{ scope: string; targets: PaymentBatchTarget[] } | null>(null);
+  const batchTrigger = useRef<HTMLButtonElement | null>(null);
   // Early-bird guard: recording a Summer payment after the deadline would strip
   // the discount. `deadlineBlock` drives the single-payment confirm, `batchBlocked`
   // the batch confirm (rows the batch skipped).
@@ -174,6 +183,19 @@ export default function OverduePaymentsPage() {
     effectiveLocation,
     effectiveTutorId
   );
+
+  const batchScope = JSON.stringify([billingDraftAuthScope(auth), isReadOnly, effectiveLocation, effectiveTutorId, searchQuery, urgencyFilter]);
+  const selectablePayment = useCallback((row: OverdueEnrollment) => {
+    const family = overduePaymentFamily(row);
+    return !!family && (!selectionFamily || family === selectionFamily);
+  }, [selectionFamily]);
+  const { data: billingOptions } = useSWR(isAdmin && overdueEnrollments.some(row => row.billing_payment_id) ? 'billing-preview-options' : null, billingAPI.options);
+  useEffect(() => { setCheckedIds(new Set()); setSelectionFamily(null); setPaymentBatch(null); }, [batchScope]);
+  useEffect(() => { if (!checkedIds.size) setSelectionFamily(null); }, [checkedIds.size]);
+  useEffect(() => {
+    const available = new Set(overdueEnrollments.filter(row => overduePaymentFamily(row) === selectionFamily).map(row => row.id));
+    setCheckedIds(previous => [...previous].some(id => !available.has(id)) ? new Set([...previous].filter(id => available.has(id))) : previous);
+  }, [overdueEnrollments, selectionFamily]);
 
   // Auto-select tutor for my-view mode
   useEffect(() => {
@@ -364,19 +386,22 @@ export default function OverduePaymentsPage() {
 
   // Batch selection helpers
   const toggleCheck = useCallback((id: number) => {
+    const row = overdueEnrollments.find(item => item.id === id);
+    if (!row || !selectablePayment(row) || isReadOnly || !isAdmin) return;
+    if (!checkedIds.size) setSelectionFamily(overduePaymentFamily(row));
     setCheckedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+  }, [overdueEnrollments, selectablePayment, isReadOnly, isAdmin, checkedIds.size]);
 
-  const clearChecked = useCallback(() => setCheckedIds(new Set()), []);
+  const clearChecked = useCallback(() => { setCheckedIds(new Set()); setSelectionFamily(null); }, []);
 
   const isAllSectionChecked = useCallback((items: OverdueEnrollment[]) =>
-    items.length > 0 && items.every(e => checkedIds.has(e.id)),
-  [checkedIds]);
+    items.filter(selectablePayment).length > 0 && items.filter(selectablePayment).every(e => checkedIds.has(e.id)),
+  [checkedIds, selectablePayment]);
 
   const isSomeSectionChecked = useCallback((items: OverdueEnrollment[]) =>
     items.some(e => checkedIds.has(e.id)),
@@ -385,26 +410,33 @@ export default function OverduePaymentsPage() {
   const toggleSectionCheck = useCallback((items: OverdueEnrollment[]) => {
     setCheckedIds(prev => {
       const next = new Set(prev);
-      items = items.filter(item => !item.billing_payment_id);
+      items = items.filter(selectablePayment);
       const allChecked = items.length > 0 && items.every(e => prev.has(e.id));
       if (allChecked) items.forEach(e => next.delete(e.id));
       else items.forEach(e => next.add(e.id));
       return next;
     });
-  }, []);
+  }, [selectablePayment]);
 
   const showCheckboxes = checkedIds.size > 0;
 
   // Batch confirm payment
   const handleBatchMarkPaid = useCallback(async () => {
-    if (checkedIds.size === 0) return;
+    if (checkedIds.size === 0 || !isAdmin || isReadOnly) return;
+    const selected = overdueEnrollments.filter(row => checkedIds.has(row.id));
+    if (selected.length !== checkedIds.size) { clearChecked(); return; }
+    if (selectionFamily === 'combined' && selected.every(row => overduePaymentFamily(row) === 'combined')) {
+      setPaymentBatch({ scope: batchScope, targets: selected.map(overduePaymentTarget) });
+      return;
+    }
+    if (selectionFamily !== 'legacy' || !selected.every(row => overduePaymentFamily(row) === 'legacy')) {
+      clearChecked(); void mutateOverdue();
+      showToast("These payments changed. Select them again.", "info");
+      return;
+    }
     setBatchLoading(true);
     try {
       const ids = Array.from(checkedIds);
-      if (overdueEnrollments.some(item => ids.includes(item.id) && item.billing_payment_id)) {
-        showToast("Open each linked payment to record the combined fee.", "info");
-        return;
-      }
       // Optimistic: remove from SWR cache immediately
       const swrKey = ['overdue-enrollments', effectiveLocation || 'all', effectiveTutorId || 'all'];
       const idsToRemove = new Set(checkedIds);
@@ -443,7 +475,7 @@ export default function OverduePaymentsPage() {
     } finally {
       setBatchLoading(false);
     }
-  }, [checkedIds, effectiveLocation, effectiveTutorId, clearChecked, mutateOverdue, showToast, overdueEnrollments]);
+  }, [checkedIds, effectiveLocation, effectiveTutorId, clearChecked, mutateOverdue, showToast, overdueEnrollments, isAdmin, isReadOnly, batchScope, selectionFamily]);
 
   // Confirm the early-bird loss for every batch-blocked row: mark paid today,
   // drop the discount. Re-sends with acknowledge so the backend proceeds.
@@ -644,6 +676,7 @@ export default function OverduePaymentsPage() {
                                     <input
                                       type="checkbox"
                                       checked={isAllSectionChecked(enrollments)}
+                                      disabled={!enrollments.some(selectablePayment) || isReadOnly}
                                       ref={el => { if (el) el.indeterminate = isSomeSectionChecked(enrollments) && !isAllSectionChecked(enrollments); }}
                                       onChange={() => toggleSectionCheck(enrollments)}
                                       aria-label={`Select every enrollment in ${config.sectionLabel}`}
@@ -675,6 +708,7 @@ export default function OverduePaymentsPage() {
                                   readOnly={isReadOnly}
                                   isChecked={checkedIds.has(enrollment.id)}
                                   onToggleCheck={toggleCheck}
+                                  selectionDisabled={!selectablePayment(enrollment)}
                                   showCheckbox={showCheckboxes}
                                   onView={handleView}
                                 />
@@ -763,6 +797,7 @@ export default function OverduePaymentsPage() {
                 </span>
                 <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
                 <Button
+                  ref={batchTrigger}
                   variant="primary"
                   icon={CreditCard}
                   onClick={handleBatchMarkPaid}
@@ -770,7 +805,7 @@ export default function OverduePaymentsPage() {
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only access" : undefined}
                 >
-                  Confirm payment
+                  {selectionFamily === 'combined' ? 'Record payments' : 'Confirm payment'}
                 </Button>
                 <IconButton icon={X} label="Clear selection" onClick={clearChecked} />
               </div>
@@ -778,6 +813,15 @@ export default function OverduePaymentsPage() {
           )}
         </AnimatePresence>
       </PageTransition>
+
+      {isAdmin && !isReadOnly && paymentBatch?.scope === batchScope && <BillingPaymentBatchModal key={batchScope}
+        targets={paymentBatch.targets} action="paid" writesAvailable={!!billingOptions?.workflow_writes_available} trigger={batchTrigger}
+        onChanged={() => { void mutateOverdue(); void mutate(['dashboard-stats']); }} onClose={completedIds => {
+          setPaymentBatch(null);
+          const completed = new Set(completedIds);
+          setCheckedIds(previous => new Set([...previous].filter(id => !paymentBatch.targets.some(target => completed.has(target.paymentId) && overdueEnrollments.some(row => row.id === id && row.billing_payment_id === target.paymentId)))));
+          requestAnimationFrame(() => (batchTrigger.current ?? searchInputRef.current)?.focus());
+        }} />}
 
       {/* WeCom Send Modal */}
       <SendToWecomModal
@@ -868,6 +912,7 @@ function OverdueRow({
   isChecked,
   onToggleCheck,
   showCheckbox,
+  selectionDisabled = false,
   onView,
 }: {
   enrollment: OverdueEnrollment;
@@ -879,6 +924,7 @@ function OverdueRow({
   isChecked: boolean;
   onToggleCheck: (id: number) => void;
   showCheckbox: boolean;
+  selectionDisabled?: boolean;
   onView: (enrollment: OverdueEnrollment, e: React.MouseEvent) => void;
 }) {
   const schedule = useMemo(() => {
@@ -899,7 +945,8 @@ function OverdueRow({
           <input
             type="checkbox"
             checked={isChecked}
-            disabled={!!enrollment.billing_payment_id}
+            disabled={readOnly || selectionDisabled || (!!enrollment.billing_payment_id && enrollment.billing_payment_method !== 'manual')}
+            title={enrollment.billing_payment_id && enrollment.billing_payment_method !== 'manual' ? "Record this collection through the Autopay list." : selectionDisabled ? "Clear selection to choose a different payment workflow." : undefined}
             onChange={() => onToggleCheck(enrollment.id)}
             aria-label={`Select ${enrollment.student_name}`}
             className="h-4 w-4 rounded border-gray-300 cursor-pointer"
