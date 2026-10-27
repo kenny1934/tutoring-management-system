@@ -81,8 +81,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     <div className={cn(
       "@container/header",
       "bg-[#fdf6eb] dark:bg-[#342d1f] rounded-xl border border-line overflow-hidden",
-      // Thin top border accent (cleaner than the original 4px)
-      "shadow-md border-t-2 border-t-[#a0704b] dark:border-t-[#8b6f47]",
+      "shadow-md",
       !isMobile && "paper-texture"
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}

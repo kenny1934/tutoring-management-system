@@ -1860,17 +1860,12 @@ def get_grade_check(
         return {"academic_year": None, "students": []}
     year = week_row[0]
     rows = db.execute(text("""
-        SELECT o.student_id, s.student_name, s.school_student_id, s.home_location,
-               o.school, o.grade, c.grade AS concept_grade,
-               COUNT(*) AS topic_weeks,
-               MIN(o.week_number) AS first_week, MAX(o.week_number) AS last_week
-        FROM school_topic_observations o
-        JOIN students s ON s.id = o.student_id
-        LEFT JOIN curriculum_concepts c ON c.id = o.concept_id
-        WHERE o.excluded_reason = 'grade_check' AND o.academic_year = :year
-          AND s.grade = o.grade
-        GROUP BY o.student_id, s.student_name, s.school_student_id, s.home_location,
-                 o.school, o.grade, c.grade
+        SELECT e.student_id, s.student_name, s.school_student_id, s.home_location,
+               e.school, e.grade, e.worksheet_grade AS concept_grade,
+               e.worksheet_count, e.first_week, e.last_week
+        FROM curriculum_grade_check_evidence e
+        JOIN students s ON s.id = e.student_id
+        WHERE e.academic_year = :year AND s.grade = e.grade
     """), {"year": year}).fetchall()
 
     students = {}
@@ -1887,17 +1882,18 @@ def get_grade_check(
             "last_week": r.last_week,
         })
         if r.concept_grade:
-            entry["worksheet_grades"][r.concept_grade] += r.topic_weeks
+            entry["worksheet_grades"][r.concept_grade] += r.worksheet_count
         entry["first_week"] = min(entry["first_week"], r.first_week)
         entry["last_week"] = max(entry["last_week"], r.last_week)
 
     out = []
     for entry in students.values():
         counts = entry.pop("worksheet_grades")
-        # The grade most of their worksheets came from, which is what admin
-        # compares with the record.
+        # These are individual worksheets, before topic/week deduplication.
         entry["worksheet_grade"] = (max(counts, key=lambda g: (counts[g], g))
                                     if counts else None)
+        entry["worksheet_count"] = counts.get(entry["worksheet_grade"], 0)
+        entry["total_worksheets"] = sum(counts.values())
         out.append(entry)
     out.sort(key=lambda e: (e["school"] or "", e["student_name"] or ""))
     return {"academic_year": year, "students": out}

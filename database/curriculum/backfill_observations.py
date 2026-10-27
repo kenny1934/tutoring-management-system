@@ -23,7 +23,7 @@ Idempotent by rebuild: deletes rows of these three sources and re-inserts.
 tutor_confirm rows (the flywheel) are NEVER touched.
 
 Usage (from repo root):
-    webapp/backend/venv/bin/python database/curriculum/backfill_observations.py [--dry-run]
+    webapp/backend/venv/bin/python database/curriculum/backfill_observations.py [--dry-run] [--grade-check-only]
 """
 import argparse
 import json
@@ -35,7 +35,7 @@ from datetime import date
 
 from _common import PRIV, canon_school, connect, norm  # noqa: E402  (sets sys.path + .env)
 from curriculum.grade_check import (  # noqa: E402
-    school_below_shares, students_out_of_step, warm_up_review,
+    school_below_shares, grade_check_evidence, warm_up_review,
 )
 from curriculum.parser import parse_pdf_name  # noqa: E402
 from curriculum.paths import basename_key, normalize  # noqa: E402
@@ -146,6 +146,8 @@ class ContentMap:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--grade-check-only", action="store_true",
+                    help="Refresh grade-check evidence without replacing timeline observations")
     args = ap.parse_args()
 
     conn = connect()
@@ -408,7 +410,8 @@ def main():
         keep_best(k._replace(is_rev=True), conf, ref)
         stats["assign:warm_up_review"] += 1
 
-    flagged = students_out_of_step(worksheets, norms)
+    evidence = grade_check_evidence(worksheets, norms)
+    flagged = set(evidence)
     stats["grade_check:students_flagged"] = len(flagged)
 
     rows = []
@@ -429,19 +432,35 @@ def main():
 
     if args.dry_run:
         print("Dry run — no writes.")
+        conn.close()
         return
 
     try:
-        cur.execute("DELETE FROM school_topic_observations "
-                    "WHERE source IN ('prep_folder','assignment','sheet')")
-        print(f"deleted {cur.rowcount} existing backfill rows")
-        cur.executemany(
-            "INSERT INTO school_topic_observations "
-            "(school, grade, lang_stream, academic_year, week_number, concept_id, "
-            " source, confidence, is_revision, source_ref, student_id, excluded_reason) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            rows,
-        )
+        # Publish the evidence in the same transaction as the excluded rows.
+        cur.execute("DELETE FROM curriculum_grade_check_evidence")
+        evidence_rows = [
+            (student, year, e["school"], e["grade"], worksheet_grade, count,
+             e["first_week"], e["last_week"])
+            for (student, year), e in evidence.items()
+            for worksheet_grade, count in e["counts"].items()
+        ]
+        if evidence_rows:
+            cur.executemany(
+                "INSERT INTO curriculum_grade_check_evidence "
+                "(student_id, academic_year, school, grade, worksheet_grade, "
+                " worksheet_count, first_week, last_week) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", evidence_rows)
+        if not args.grade_check_only:
+            cur.execute("DELETE FROM school_topic_observations "
+                        "WHERE source IN ('prep_folder','assignment','sheet')")
+            print(f"deleted {cur.rowcount} existing backfill rows")
+            cur.executemany(
+                "INSERT INTO school_topic_observations "
+                "(school, grade, lang_stream, academic_year, week_number, concept_id, "
+                " source, confidence, is_revision, source_ref, student_id, excluded_reason) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                rows,
+            )
         conn.commit()
         cur.execute("SELECT COUNT(*) FROM school_topic_observations")
         print(f"school_topic_observations now has {cur.fetchone()[0]} rows")
