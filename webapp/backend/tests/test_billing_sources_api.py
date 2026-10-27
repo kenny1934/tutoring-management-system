@@ -349,7 +349,12 @@ def test_malformed_session_ownership_is_refused_without_returning_other_student_
     response = context(client)
     assert response.status_code == 422
     assert 'PRIVATE OTHER STUDENT' not in response.text
-    assert roster(client).status_code == 422
+    listed = roster(client)
+    assert listed.status_code == 200
+    assert 'PRIVATE OTHER STUDENT' not in listed.text
+    row, = listed.json()['rows']
+    assert 'SOURCE_OWNERSHIP_REVIEW' in {issue['code'] for issue in row['issues']}
+    assert row['next_manual'] is None and row['next_autopay'] is None
 
 
 def test_missing_makeup_parent_is_flagged_and_cannot_supply_paid_coverage(client, source_staff, evidence, db_session):
