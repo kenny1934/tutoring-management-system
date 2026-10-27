@@ -13,7 +13,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { SurfacePicker } from "@/components/ui/SurfacePicker";
 import { RoleSwitcher } from "@/components/auth";
 import { getInitials } from "@/lib/avatar-utils";
-import { ADMIN_NAV, useNavigation, type NavItem } from "./useNavigation";
+import { useNavigation, type NavItem } from "./useNavigation";
 import { TAB_HREFS } from "./BottomTabBar";
 
 const SECTION_LABEL = "text-[11px] font-semibold uppercase tracking-wider text-ink-subtle";
@@ -31,7 +31,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   const { user, isSuperAdmin, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations } = useLocation();
   const { viewMode, setViewMode } = useRole();
-  const { isAdminOrAbove, hasUnseenUpdates, mainNavigation, adminBadgeFor } = useNavigation();
+  const { isAdminOrAbove, hasUnseenUpdates, mainNavigation, adminNavigation, adminBadgeFor } = useNavigation();
 
   const displayName = impersonatedTutor?.name || user?.name || "Guest";
   const rawPicture = isImpersonating && impersonatedTutor?.profile_picture ? impersonatedTutor.profile_picture : user?.picture;
@@ -129,7 +129,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           <section className="flex flex-col gap-2">
             <h3 className={SECTION_LABEL}>Admin</h3>
             <div className="grid grid-cols-4 gap-2">
-              {ADMIN_NAV.map((item) => {
+              {adminNavigation.map((item) => {
                 const { count, color, showOpen } = adminBadgeFor(item.name);
                 return (
                   <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={onClose}>

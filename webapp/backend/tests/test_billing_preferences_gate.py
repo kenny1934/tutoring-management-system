@@ -43,6 +43,7 @@ def test_preference_collection_does_not_activate_or_change_teaching(preferences_
     assert options['workflow_available']
     assert options['preferences_writes_available']
     assert not options['workflow_writes_available']
+    assert not options['queue_available']
     response = client.put('/api/billing/students/101/preferences', json=choice())
     assert response.status_code == 200, response.text
     assert response.json()['payment_method'] == 'autopay'
@@ -136,3 +137,23 @@ def test_absent_workflow_storage_never_touches_migration188(env, monkeypatch, pr
     finally:
         event.remove(session.bind, 'before_cursor_execute', no_workflow_tables)
     assert session.query(BillingAccount).count() == 0
+
+
+@pytest.mark.parametrize('drafts,storage,financial,queue_flag,expected', [
+    (True, False, False, False, False),
+    (True, True, False, False, False),
+    (False, True, False, False, False),
+    (False, False, False, True, False),
+    (True, False, False, True, True),
+    (False, True, False, True, True),
+    (False, False, True, False, True),
+])
+def test_renewals_cutover_is_separate_from_preference_storage(monkeypatch, drafts, storage, financial, queue_flag, expected):
+    from billing.queue import queue_available
+    for name, value in [('BILLING_DRAFT_STORAGE_ENABLED', drafts),
+                        ('BILLING_WORKFLOW_STORAGE_ENABLED', storage),
+                        ('BILLING_WORKFLOW_ENABLED', financial),
+                        ('BILLING_RENEWAL_QUEUE_ENABLED', queue_flag)]:
+        monkeypatch.setenv(name, str(value).lower())
+    monkeypatch.setenv('BILLING_PREFERENCES_ENABLED', 'true')
+    assert queue_available() is expected

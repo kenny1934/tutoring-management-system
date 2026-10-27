@@ -23,6 +23,7 @@ def reject_external_connections():
 @pytest.fixture
 def env(draft_env, monkeypatch):
     from routers import billing_queue, billing_workflow
+    monkeypatch.setenv('BILLING_RENEWAL_QUEUE_ENABLED', 'true')
     monkeypatch.delenv('BILLING_WORKFLOW_ENABLED', raising=False)
     monkeypatch.delenv('BILLING_WORKFLOW_STORAGE_ENABLED', raising=False)
     monkeypatch.setattr(billing_queue, 'today', lambda: date(2026, 10, 17))

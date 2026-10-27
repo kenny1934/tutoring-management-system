@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { Home, Users, Calendar, BookOpen, Inbox, RefreshCcw, CreditCard, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map, Clock, Landmark } from "lucide-react";
+import useSWR from "swr";
+import { billingAPI } from "@/lib/billing-api";
+import { Home, Users, Calendar, BookOpen, Inbox, RefreshCcw, CreditCard, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, CalendarRange, Map, Clock, Landmark } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { TONES } from "@/lib/tones";
@@ -38,6 +40,7 @@ export const MAIN_NAV = [
 // Only Admins, Super Admins and Supervisors see these.
 export const ADMIN_NAV = [
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
+  { name: "Payment plans", href: "/billing", icon: CalendarRange },
   { name: "Autopay", href: "/admin/autopay", icon: Landmark },
   { name: "Overdue payments", href: "/overdue-payments", icon: CreditCard },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
@@ -59,6 +62,13 @@ export function useNavigation() {
     : user?.id;
 
   const isAdminOrAbove = canViewAdminPages;
+  const billingScope = JSON.stringify([user?.id, effectiveRole, isImpersonating, impersonatedTutor?.id]);
+  const { data: billingOptions, error: billingOptionsError } = useSWR(
+    isAdminOrAbove ? ['billing-queue-options', billingScope] : null,
+    billingAPI.options,
+    { revalidateOnFocus: false, keepPreviousData: false },
+  );
+  const adminNavigation = ADMIN_NAV.filter(item => item.name !== "Autopay" || (!billingOptionsError && billingOptions?.queue_available));
   // Guests have no inbox, and Supervisors see only broadcasts, so neither has
   // an unread count.
   const hasInbox = !isGuest;
@@ -136,6 +146,7 @@ export function useNavigation() {
     hasUnseenUpdates,
     pendingPayments,
     mainNavigation,
+    adminNavigation,
     adminBadgeFor,
   };
 }

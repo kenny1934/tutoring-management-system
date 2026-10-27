@@ -6,6 +6,7 @@ revalidate them before enrollment creation or message copying.
 """
 from collections import defaultdict
 from datetime import date, timedelta
+import os
 from types import SimpleNamespace
 
 from sqlalchemy import and_, or_
@@ -20,7 +21,7 @@ from .schemas import (
     BillingDraftReview, BillingQueueCounts, BillingQueueEnrollment, BillingQueueRow, BillingSourceBlock,
     CollectionWindow, PreviewIssue, RecordedOriginalLesson,
 )
-from .workflow import workflow_storage_enabled
+from .workflow import workflow_enabled, workflow_storage_enabled
 
 URGENCY_ORDER = {'now': 0, 'week': 1, 'check_dates': 2, 'later': 3}
 
@@ -60,7 +61,10 @@ def apply_urgency(row, *, as_of):
 
 
 def queue_available():
-    return storage_enabled() or workflow_storage_enabled()
+    # Preference collection must not replace the existing renewal workflow.
+    # A reviewed queue may be enabled separately, including while writes pause.
+    enabled = workflow_enabled() or os.getenv('BILLING_RENEWAL_QUEUE_ENABLED', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    return enabled and (storage_enabled() or workflow_storage_enabled())
 
 
 def issue(code, message):

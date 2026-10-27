@@ -22,7 +22,7 @@ import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
 import { useUnreadMessageCount, useFaviconBadge } from "@/lib/hooks";
-import { useNavigation, ADMIN_NAV } from "./useNavigation";
+import { useNavigation } from "./useNavigation";
 
 /**
  * An admin page's row. Its 16px icon sits centred on the main menu's 20px
@@ -97,7 +97,7 @@ export function Sidebar() {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
-  const { currentTutorId, isAdminOrAbove, hasUnseenUpdates, pendingPayments, mainNavigation, adminBadgeFor } = useNavigation();
+  const { currentTutorId, isAdminOrAbove, hasUnseenUpdates, pendingPayments, mainNavigation, adminNavigation, adminBadgeFor } = useNavigation();
 
   // The same count the bottom bar shows, from the same cache.
   const { data: unreadCount } = useUnreadMessageCount(isGuest || isSupervisor ? undefined : currentTutorId);
@@ -394,7 +394,7 @@ export function Sidebar() {
               )}>
                 <div className="overflow-hidden">
                 <div className="mt-1 space-y-1">
-                  {ADMIN_NAV.map((item) => {
+                  {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     const { count: badgeCount, color: badgeColor, showOpen } = adminBadgeFor(item.name);
                     return (
