@@ -339,7 +339,14 @@ export class ApiError extends Error {
 }
 
 // Generic fetch wrapper with error handling and automatic token refresh
-async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
+export async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
+  const response = await fetchResponse(endpoint, options, isRetry);
+  if (response.status === 204) return undefined as T;
+  return await response.json();
+}
+
+/** Use the same authenticated request path for files and JSON responses. */
+export async function fetchResponse(endpoint: string, options?: RequestInit, isRetry = false): Promise<Response> {
   try {
     // Build headers with optional impersonation role. A multipart body has to
     // set its own Content-Type, boundary included, so leave it to the browser.
@@ -379,7 +386,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
       const refreshed = await refreshToken();
       if (refreshed) {
         // Retry the original request
-        return fetchAPI<T>(endpoint, options, true);
+        return fetchResponse(endpoint, options, true);
       }
       // Refresh failed, throw to trigger logout
       throw new Error("Session expired. Please log in again.");
@@ -398,8 +405,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
       );
     }
 
-    if (response.status === 204) return undefined as T;
-    return await response.json();
+    return response;
   } catch (error) {
     throw error;
   }
@@ -773,6 +779,8 @@ export const sessionsAPI = {
     // Sessions dated past their own tutor's last working day. The cut-off is
     // per tutor, so this cannot be expressed as a date range.
     if (filters?.after_last_day) params.append("after_last_day", "true");
+    if (filters?.pending_makeups) params.append("pending_makeups", "true");
+    if (filters?.include_history) params.append("include_history", "true");
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.offset) params.append("offset", filters.offset.toString());
 

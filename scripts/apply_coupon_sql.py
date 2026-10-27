@@ -34,6 +34,13 @@ STATEMENT_PATTERN = re.compile(
 )
 
 
+def require_legacy_import() -> None:
+    """Keep raw SQL away from coupon observations after accounting activation."""
+    if any(os.getenv(name, '').strip().lower() in {'1', 'true', 'yes', 'on'}
+           for name in ('BILLING_COUPON_STORAGE_ENABLED', 'BILLING_COUPON_ENABLED')):
+        raise RuntimeError('Coupon accounting is enabled. Upload the KMS list in Enrollment renewals and review it there.')
+
+
 def parse_desired_state(sql_text: str) -> list[tuple[str, str, int]]:
     """Extract (location, school_student_id, available_coupons) tuples from a generated SQL file."""
     return [
@@ -55,6 +62,7 @@ def split_statements(sql_text: str) -> list[str]:
 
 
 def dry_run(files: list[Path]) -> int:
+    require_legacy_import()
     desired: dict[tuple[str, str], int] = {}
     for f in files:
         for loc, sid, count in parse_desired_state(f.read_text()):
@@ -117,6 +125,7 @@ def dry_run(files: list[Path]) -> int:
 
 
 def apply(files: list[Path]) -> int:
+    require_legacy_import()
     statements_per_file: list[tuple[Path, list[str]]] = []
     total_statements = 0
     for f in files:
@@ -161,8 +170,19 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--dry-run", action="store_true")
     group.add_argument("--apply", action="store_true")
-    parser.add_argument("files", nargs="+", type=Path)
+    group.add_argument("--check-legacy", action="store_true", help="Check whether the old import path is available without connecting.")
+    parser.add_argument("files", nargs="*", type=Path)
     args = parser.parse_args()
+
+    try:
+        require_legacy_import()
+    except RuntimeError as error:
+        print(str(error), file=sys.stderr)
+        return 1
+    if args.check_legacy:
+        return 0
+    if not args.files:
+        parser.error('At least one SQL file is required.')
 
     for f in args.files:
         if not f.exists():

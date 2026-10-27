@@ -281,6 +281,10 @@ export interface EnrollmentCreate {
  * Used in: API responses, component props
  */
 export interface Enrollment {
+  makeup_policy?: 'academic_year' | null;
+  billing_payment_method?: 'manual' | 'autopay' | null;
+  billing_managed?: boolean;
+  billing_payment_id?: string | null;
   id: number;
   student_id: number;
   tutor_id?: number;
@@ -477,7 +481,21 @@ export interface SessionUpdate {
  * Session response - full session record from API
  * Used in: API responses, component props
  */
+export interface MakeupEligibility {
+  policy: 'academic_year';
+  status: 'available' | 'payment_required' | 'paused' | 'left' | 'expired' | 'needs_review';
+  can_book: boolean;
+  valid_until: string | null;
+  paid_through: string | null;
+  reason: string | null;
+  advance_booking: boolean;
+  participation_blocks?: { from_date: string; through_date: string; status: 'Paused' | 'Left' }[];
+  reason_code?: string | null;
+  root_session_id?: number | null;
+}
+
 export interface Session {
+  makeup_eligibility?: MakeupEligibility | null;
   id: number;
   enrollment_id: number;
   student_id: number;
@@ -579,6 +597,8 @@ export interface StudentFilters {
 }
 
 export interface SessionFilters {
+  pending_makeups?: boolean;
+  include_history?: boolean;
   date?: string;
   from_date?: string;
   to_date?: string;
@@ -1165,6 +1185,13 @@ export interface StatDetailStudent {
 
 // Overdue enrollment types
 export interface OverdueEnrollment {
+  billing_payment_total_fee?: number | null;
+  billing_payment_lesson_count?: number | null;
+  billing_payment_line_count?: number | null;
+  billing_payment_due_date?: string | null;
+  billing_payment_method?: 'manual' | 'autopay' | null;
+  billing_managed?: boolean;
+  billing_payment_id?: string | null;
   id: number;
   student_id: number;
   student_name: string;
@@ -1389,6 +1416,7 @@ export type ProposalStatus = 'pending' | 'approved' | 'rejected';
 export type SlotStatus = 'pending' | 'approved' | 'rejected';
 
 export interface MakeupProposalSlot {
+  makeup_eligibility?: MakeupEligibility | null;
   id: number;
   proposal_id: number;
   slot_order: number;
@@ -1445,6 +1473,8 @@ export interface PendingProposalCount {
 export type ExtensionRequestStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface ExtensionRequest {
+  action_required?: boolean;
+  disposition?: string | null;
   id: number;
   session_id: number;
   enrollment_id: number;  // Source enrollment (session belongs to this)
@@ -1554,6 +1584,7 @@ export interface ExamRevisionSlotDetail extends ExamRevisionSlot {
 }
 
 export interface PendingSessionInfo {
+  makeup_eligibility?: MakeupEligibility | null;
   id: number;
   session_date: string;
   time_slot?: string;
@@ -1631,6 +1662,8 @@ export interface SlotDefaults {
  * Eligibility result for a single enrollment in batch renewal check
  */
 export interface EligibilityResult {
+  billing_managed?: boolean;
+  billing_payment_id?: string | null;
   enrollment_id: number;
   eligible: boolean;
   reason: string | null;
@@ -1862,6 +1895,9 @@ export interface EnrollmentPreviewResponse {
 
 /** Response from renewal data endpoint */
 export interface RenewalDataResponse {
+  makeup_policy?: 'academic_year' | null;
+  billing_managed?: boolean;
+  billing_payment_id?: string | null;
   student_id: number;
   student_name: string;
   school_student_id?: string;
@@ -1882,6 +1918,9 @@ export interface RenewalDataResponse {
 
 /** Renewal list item for renewals page */
 export interface RenewalListItem {
+  renewal_billing_payment_id?: string | null;
+  billing_managed?: boolean;
+  billing_payment_id?: string | null;
   id: number;
   student_id: number;
   student_name: string;
@@ -1939,6 +1978,7 @@ export interface TrialListItem {
 
 /** Pending makeup session info */
 export interface PendingMakeupSession {
+  makeup_eligibility?: MakeupEligibility | null;
   id: number;
   session_date: string;
   time_slot?: string;
@@ -1951,6 +1991,10 @@ export interface PendingMakeupSession {
 
 /** Detailed enrollment response */
 export interface EnrollmentDetailResponse {
+  makeup_policy?: 'academic_year' | null;
+  billing_payment_method?: 'manual' | 'autopay' | null;
+  billing_managed?: boolean;
+  billing_payment_id?: string | null;
   id: number;
   student_id: number;
   student_name: string;

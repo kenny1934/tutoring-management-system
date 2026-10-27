@@ -19,15 +19,18 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
+from billing.guards import assert_legacy_creation_allowed, assert_legacy_enrollments_mutable, lock_billing_session
 from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession, TutorAssistant
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, today_hk, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
 from services.attendance import mark_attended
+from services.makeup_entitlement import assert_makeup_entitlement, eligibility_for_sessions, entitlement_enabled
 from services.unlisted_lessons import fill_unlisted_lessons
 from routers.homework import load_homework_to_check
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
 from utils.rate_limiter import check_user_rate_limit
+from utils.makeup_access import verify_makeup_access
 from utils.makeup_validators import (
     find_root_original_session as _find_root_original_session,
     validate_makeup_constraints,
@@ -119,6 +122,8 @@ def get_sessions(
     financial_status: Optional[str] = Query(None, description="Filter by financial status"),
     from_date: Optional[date] = Query(None, description="Filter by session_date >= this date"),
     to_date: Optional[date] = Query(None, description="Filter by session_date <= this date"),
+    pending_makeups: bool = Query(False, description="Load the pending-makeup worklist"),
+    include_history: bool = Query(False, description="Include earlier pending makeups"),
     after_last_day: bool = Query(False, description="Only sessions dated after their tutor's last working day"),
     limit: int = Query(100, ge=1, le=2000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
@@ -168,11 +173,19 @@ def get_sessions(
     if financial_status:
         query = query.filter(SessionLog.financial_status == financial_status)
 
-    if from_date:
-        query = query.filter(SessionLog.session_date >= from_date)
-
-    if to_date:
-        query = query.filter(SessionLog.session_date <= to_date)
+    if pending_makeups:
+        query = query.filter(SessionLog.session_status.in_(PENDING_MAKEUP_STATUSES))
+        if not include_history:
+            earliest = hk_now().date() - timedelta(days=120)
+            if entitlement_enabled():
+                from billing.calculator import BillingPolicy
+                earliest = min(earliest, BillingPolicy().academic_start)
+            query = query.filter(SessionLog.session_date >= earliest)
+    else:
+        if from_date:
+            query = query.filter(SessionLog.session_date >= from_date)
+        if to_date:
+            query = query.filter(SessionLog.session_date <= to_date)
 
     if after_last_day:
         # Lessons standing in the diary for somebody who will not be there.
@@ -211,10 +224,13 @@ def get_sessions(
     # Batch-resolve summer class identity for summer-published rows
     summer_slots = batch_load_summer_slots(sessions, db)
 
+    # Resolve eligibility once for the whole page rather than once per row.
+    makeup_eligibilities = eligibility_for_sessions(db, [row.id for row in sessions])
+
     # Build response with related data
     result = []
     for session in sessions:
-        session_data = _build_session_response(session, db, root_dates=root_dates, summer_slots=summer_slots, linked_sessions=linked_sessions)
+        session_data = _build_session_response(session, db, root_dates=root_dates, summer_slots=summer_slots, linked_sessions=linked_sessions, makeup_eligibilities=makeup_eligibilities)
 
         # Add linked session info
         if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
@@ -463,9 +479,21 @@ def get_aged_pending_makeups_count(
     # and count from their own date.
     root_dates = batch_find_root_original_session_dates(mine, db)
 
+    eligibility = eligibility_for_sessions(db, [row.id for row in mine])
     count = 0
     critical = 0
     for session in mine:
+        policy = eligibility.get(session.id)
+        if policy is not None:
+            if not policy.can_book:
+                continue
+            days_left = (policy.valid_until - today).days if policy.valid_until else None
+            days_old = (today - root_dates.get(session.id, session.session_date)).days
+            if days_old >= threshold_days or (days_left is not None and days_left <= 30):
+                count += 1
+            if days_left is not None and 0 <= days_left <= 14:
+                critical += 1
+            continue
         days_old = (today - root_dates.get(session.id, session.session_date)).days
         if days_old >= threshold_days:
             count += 1
@@ -708,6 +736,7 @@ async def get_session_detail(
 
     # Build basic session data
     session_data = DetailedSessionResponse.model_validate(session)
+    session_data.makeup_eligibility = eligibility_for_sessions(db, [session.id]).get(session.id)
     session_data.student_name = session.student.student_name if session.student else None
     session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
     session_data.school_student_id = session.student.school_student_id if session.student else None
@@ -856,6 +885,8 @@ async def mark_session_attended(
     Also sets attendance tracking fields and audit columns.
     Requires authentication. Tutors can only modify their own sessions.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
@@ -900,6 +931,8 @@ async def mark_session_no_show(
     Updates session status to 'No Show' from valid starting statuses.
     Requires authentication. Tutors can only modify their own sessions.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
@@ -947,6 +980,8 @@ async def mark_session_rescheduled(
     Updates session status to indicate it needs a make-up class scheduled.
     Requires authentication.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
@@ -991,6 +1026,8 @@ async def mark_session_sick_leave(
     Updates session status to indicate student was sick and needs make-up.
     Requires authentication.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
@@ -1035,6 +1072,8 @@ async def mark_session_weather_cancelled(
     Updates session status to indicate class was cancelled due to weather.
     Requires authentication.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
@@ -1086,6 +1125,8 @@ async def undo_session_status(
 
     Returns the session with `undone_from_status` field indicating what was undone.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
@@ -1106,6 +1147,15 @@ async def undo_session_status(
             status_code=400,
             detail="Cannot undo: a make-up session has been booked. Use 'Cancel Make-up' first."
         )
+
+    if not session.make_up_for_id and "Cancelled" in (session.session_status, session.previous_session_status) and session.enrollment_id:
+        assert_legacy_enrollments_mutable(
+            db, [session.enrollment_id], structural=True, action="review schedule changes"
+        )
+
+    if session.previous_session_status == "Make-up Class" and session.session_date >= hk_now().date():
+        verify_makeup_access(db, session, current_user)
+        assert_makeup_entitlement(db, session, session.session_date)
 
     # Store the status we're undoing from (for redo toast)
     undone_from_status = session.session_status
@@ -1146,12 +1196,23 @@ async def redo_session_status(
     Restores the session to the specified status and stores current as previous.
     Requires authentication.
     """
+    lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    if not session.make_up_for_id and "Cancelled" in (session.session_status, status) and session.enrollment_id:
+        assert_legacy_enrollments_mutable(
+            db, [session.enrollment_id], structural=True, action="review schedule changes"
+        )
+
+    if status == "Make-up Class" and session.session_date >= hk_now().date():
+        verify_makeup_access(db, session, current_user)
+        assert_makeup_entitlement(db, session, session.session_date)
 
     # Store current status as previous (for undo again if needed)
     session.previous_session_status = session.session_status
@@ -1505,6 +1566,8 @@ async def schedule_makeup(
     - Target date is not a holiday
     - Student doesn't have active session at that slot (unless it's also rescheduled)
     """
+    lock_billing_session(db, session_id)
+
     # Get the original session with row-level lock to prevent race conditions
     # (two concurrent requests could both see rescheduled_to_id=NULL without this)
     original_session = db.query(SessionLog).with_for_update().options(
@@ -1514,6 +1577,8 @@ async def schedule_makeup(
 
     if not original_session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    verify_makeup_access(db, original_session, current_user)
 
     # Validate status
     if "Pending Make-up" not in original_session.session_status:
@@ -1670,6 +1735,8 @@ async def cancel_makeup(
 
     Can only cancel make-up sessions that haven't been attended yet.
     """
+    lock_billing_session(db, makeup_session_id)
+
     # Get the makeup session
     makeup_session = db.query(SessionLog).filter(SessionLog.id == makeup_session_id).first()
 
@@ -1969,6 +2036,11 @@ async def update_session(
     - **performance_rating**: Rating as emoji stars
     - **notes**: Session notes/comments
     """
+    if any(getattr(request, name) is not None for name in (
+        "session_status", "session_date", "time_slot", "location", "tutor_id"
+    )):
+        lock_billing_session(db, session_id)
+
     session = db.query(SessionLog).options(
         *session_with_relations(),
         joinedload(SessionLog.enrollment),  # summer detection on date changes
@@ -1982,6 +2054,36 @@ async def update_session(
     if not _is_lesson_number_only_update(request):
         _verify_session_ownership(session, current_user)
 
+    # A confirmed payment owns its original teaching dates. Attendance,
+    # notes and make-up handling retain their existing workflows.
+    changes_original = not session.make_up_for_id and (
+        any(getattr(request, field) is not None and getattr(request, field) != getattr(session, field)
+            for field in ("session_date", "time_slot", "location", "tutor_id"))
+        or (request.session_status is not None and request.session_status != session.session_status
+            and "Cancelled" in (request.session_status, session.session_status))
+    )
+    if changes_original and session.enrollment_id:
+        assert_legacy_enrollments_mutable(
+            db, [session.enrollment_id], structural=True, action="review schedule changes"
+        )
+
+    if changes_original and request.session_date is not None and session.enrollment is not None:
+        assert_legacy_creation_allowed(
+            db, session.student_id, request.session_date, session.enrollment.enrollment_type
+        )
+
+    # Booking changes share the same eligibility rule, including same-date
+    # time changes and reactivation. Recording an actual taught lesson remains
+    # available even when its booking needs financial review.
+    makeup_booking = bool(session.make_up_for_id or session.session_status == "Make-up Class"
+                          or request.session_status == "Make-up Class")
+    changes_booking = any(getattr(request, field) is not None and getattr(request, field) != getattr(session, field)
+                          for field in ("session_date", "time_slot", "location", "tutor_id"))
+    reactivates = request.session_status == "Make-up Class" and request.session_status != session.session_status
+    academic_policy = False
+    if makeup_booking and (changes_booking or reactivates):
+        academic_policy = assert_makeup_entitlement(db, session, request.session_date or session.session_date)
+
     # Update fields that are provided (not None)
     if request.session_date is not None:
         # Validate enrollment deadline - ONLY when moving TO regular slot
@@ -1990,7 +2092,7 @@ async def update_session(
         # IMPORTANT: Check against student's CURRENT enrollment (latest by first_lesson_date),
         # not the session's enrollment, to handle cross-enrollment makeups correctly.
         # Only Regular enrollments count - ignore One-Time and Trial
-        if session.student_id and request.session_date != session.session_date:
+        if session.student_id and request.session_date != session.session_date and not academic_policy:
             if _is_summer_session(session):
                 # Summer sessions are not bound to the Regular enrollment's
                 # deadline (usually already past by July) nor the 60-day makeup

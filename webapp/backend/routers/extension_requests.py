@@ -22,8 +22,31 @@ from schemas import (
     PendingExtensionRequestCount,
 )
 from auth.dependencies import get_current_user, require_admin_write
+from services.makeup_entitlement import academic_policy_applies, assert_extension_not_required, entitlement_enabled
 
 router = APIRouter()
+
+
+def _retired(db, request):
+    return any(enrollment is not None and enrollment.enrollment_type == 'Regular'
+               and academic_policy_applies(db, request.student_id, enrollment.first_lesson_date)
+               for enrollment in (request.enrollment, request.target_enrollment))
+
+
+def _actionable(query):
+    if not entitlement_enabled():
+        return query
+    from billing.calculator import BillingPolicy
+    from billing.models import BillingAccount
+    policy = BillingPolicy()
+    retired = query.session.query(Enrollment.id).join(
+        BillingAccount, BillingAccount.student_id == Enrollment.student_id,
+    ).filter(BillingAccount.active.is_(True), BillingAccount.academic_start == policy.academic_start,
+             Enrollment.enrollment_type == 'Regular',
+             Enrollment.first_lesson_date >= policy.academic_start,
+             Enrollment.first_lesson_date <= policy.regular_end).scalar_subquery()
+    return query.filter(~ExtensionRequest.enrollment_id.in_(retired)).filter(
+        (ExtensionRequest.target_enrollment_id.is_(None)) | (~ExtensionRequest.target_enrollment_id.in_(retired)))
 
 
 def _build_extension_request_response(
@@ -41,6 +64,8 @@ def _build_extension_request_response(
 
     return ExtensionRequestResponse(
         id=request.id,
+        action_required=request.request_status == "Pending" and not _retired(db, request),
+        disposition="No longer required" if request.request_status == "Pending" and _retired(db, request) else None,
         session_id=request.session_id,
         enrollment_id=request.enrollment_id,
         target_enrollment_id=request.target_enrollment_id,
@@ -230,6 +255,9 @@ async def create_extension_request(
     if not session.enrollment_id:
         raise HTTPException(status_code=400, detail="Session has no associated enrollment")
 
+    if session.enrollment and session.enrollment.enrollment_type == "Regular":
+        assert_extension_not_required(db, session.student_id, session.enrollment.first_lesson_date)
+
     # Check for existing pending request for this session
     existing = db.query(ExtensionRequest).filter(
         ExtensionRequest.session_id == request.session_id,
@@ -261,6 +289,9 @@ async def create_extension_request(
                 status_code=400,
                 detail="Target enrollment not found or does not belong to this student"
             )
+
+        if target_enrollment.enrollment_type == "Regular":
+            assert_extension_not_required(db, session.student_id, target_enrollment.first_lesson_date)
 
         # Set target if different from source
         if target_enrollment.id != session.enrollment_id:
@@ -345,6 +376,9 @@ def get_extension_requests(
     if location:
         query = query.join(ExtensionRequest.enrollment).filter(Enrollment.location == location)
 
+    if not include_resolved:
+        query = _actionable(query)
+
     # Newest first so the row limit keeps recent requests; display order is client-side
     query = query.order_by(ExtensionRequest.requested_at.desc())
 
@@ -368,7 +402,7 @@ def get_pending_count(
     if location and location != "All Locations":
         query = query.join(ExtensionRequest.enrollment).filter(Enrollment.location == location)
 
-    count = query.scalar() or 0
+    count = _actionable(query).scalar() or 0
 
     return PendingExtensionRequestCount(count=count)
 
@@ -421,6 +455,9 @@ async def approve_extension_request(
 
     if not extension_request:
         raise HTTPException(status_code=404, detail=f"Extension request {request_id} not found")
+
+    if _retired(db, extension_request):
+        raise HTTPException(status_code=409, detail="This request is no longer required under the new makeup policy.")
 
     if extension_request.request_status != 'Pending':
         raise HTTPException(
@@ -491,6 +528,9 @@ async def reject_extension_request(
 
     if not extension_request:
         raise HTTPException(status_code=404, detail=f"Extension request {request_id} not found")
+
+    if _retired(db, extension_request):
+        raise HTTPException(status_code=409, detail="This request is no longer required under the new makeup policy.")
 
     if extension_request.request_status != 'Pending':
         raise HTTPException(

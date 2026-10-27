@@ -24,6 +24,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
+from billing.guards import (
+    assert_legacy_creation_allowed, assert_legacy_enrollments_mutable, lock_student_billing,
+)
 from models import (
     RegularCourseConfig,
     RegularApplication,
@@ -3128,6 +3131,8 @@ def _publish_application_inner(
             "application detail modal before publishing.",
         )
 
+    lock_student_billing(db, [app.existing_student_id])
+
     # Block: already published (also enforced by unique index, but pre-check
     # gives a friendlier error and reveals the existing enrollment id).
     existing = (
@@ -3234,6 +3239,8 @@ def _publish_application_inner(
             raise _publish_error("no_course_start", "Config has no course start date.")
         first_lesson_date = _first_weekday_on_or_after(course_start, assigned_day)
 
+    assert_legacy_creation_allowed(db, app.existing_student_id, first_lesson_date)
+
     # Generate the weekly cadence with holiday skipping (shared with the
     # native enrollment-creation flow). Local import mirrors summer_course's
     # pattern to avoid circular imports.
@@ -3251,6 +3258,9 @@ def _publish_application_inner(
         db=db,
     )
     non_holiday_dates = [s.session_date for s in sessions if not s.is_holiday]
+    assert_legacy_creation_allowed(
+        db, app.existing_student_id, first_lesson_date, lesson_dates=non_holiday_dates
+    )
 
     # Block: datetime collision with any existing active session.
     conflicts = check_student_conflicts(
@@ -3562,6 +3572,11 @@ def publish_applications_batch(
     published = 0
     failed = 0
 
+    student_ids = db.query(RegularApplication.existing_student_id).filter(
+        RegularApplication.id.in_([item.application_id for item in request.items])
+    ).all()
+    lock_student_billing(db, [student_id for (student_id,) in student_ids])
+
     for item in request.items:
         req = RegularPublishRequest(**item.model_dump(exclude={"application_id"}))
         try:
@@ -3651,6 +3666,10 @@ def unpublish_application(
             "not_published",
             "This application has not been published. Nothing to unpublish.",
         )
+
+    assert_legacy_enrollments_mutable(
+        db, [enrollment.id], structural=True, action="change this enrollment"
+    )
 
     # Block: any attended session locks the enrollment.
     locked = (

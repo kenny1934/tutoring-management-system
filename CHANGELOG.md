@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.5](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.4...v2.2.5) (2026-10-27)
+
+### New Features
+
+* **Payment plans**: record each family’s Manual or Autopay preference from the student list, with batch updates and filters to track outstanding responses. Compare the projected lesson dates and tuition before choosing a plan.
+* **Menu access**: Payment plans is available beside Renewals in the sidebar and the phone’s More menu. The existing renewal and payment workflow continues during preference collection.
+
+### Bug Fixes
+
+* **Phone navigation**: selecting a page from More now waits for that page to open before closing the menu, so slower navigation is no longer cancelled.
+
 ## [2.2.4](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.3...v2.2.4) (2026-10-22)
 
 ### Bug Fixes

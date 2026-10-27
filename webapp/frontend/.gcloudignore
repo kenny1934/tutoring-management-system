@@ -9,3 +9,5 @@ node_modules/
 tests/
 coverage/
 playwright-report/
+
+!CHANGELOG.md

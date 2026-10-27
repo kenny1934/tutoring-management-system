@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
+import { BillingTestBoundary } from "@/components/billing/BillingTestBoundary";
 import { Sidebar } from "./Sidebar";
 import { PullToRefresh } from "./PullToRefresh";
 import { BottomTabBar } from "./BottomTabBar";
@@ -102,7 +103,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         {/* overscroll-y-none stops the page bouncing past its top and bottom
             on a phone, which would fight the pull-to-refresh ring. */}
         <main id={MAIN_CONTENT_ID} className="flex-1 overflow-auto overscroll-y-none bg-background" tabIndex={-1}>
-          {children}
+          <BillingTestBoundary>{children}</BillingTestBoundary>
         </main>
         {!isLoginPage && <PhoneNav />}
         {/* On the sign-in page too, so signing out clears the icon. */}

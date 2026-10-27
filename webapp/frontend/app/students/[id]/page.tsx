@@ -1,5 +1,6 @@
 "use client";
 
+import { BillingCouponPanel } from '@/components/billing/BillingCouponPanel';
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentCoupon, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework, preloadCurriculumSuggestions } from "@/lib/hooks";
@@ -15,10 +16,9 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, CalendarX, Download, TrendingUp, StickyNote as StickyNoteIcon
+Copy, Check, Gift, Trash2, Loader2, Printer, XCircle, CalendarX, Download, TrendingUp, StickyNote as StickyNoteIcon
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { Tooltip } from "@/components/ui/tooltip";
 import { Button, IconButton, Field, Input, Select, Segmented } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -28,7 +28,7 @@ import { getSessionStatusConfig, getDisplayStatus, isSupersededSession } from "@
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { formatShortDate, formatCompactDateTimeSlot, formatDayFirstDate } from "@/lib/formatters";
+import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { getToday } from "@/lib/calendar-utils";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
@@ -49,6 +49,7 @@ import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBa
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { StudentProgressDrawer } from "@/components/students/StudentProgressTab";
+import { StudentParticipation } from "@/components/students/StudentParticipation";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
 import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
 import type { CheckItem } from "@/lib/homework-check";
@@ -523,6 +524,10 @@ export default function StudentDetailPage() {
               <span>{activeEnrollments.length} enrollment{activeEnrollments.length !== 1 ? 's' : ''}</span>
             </div>
 
+            <Link href={`/billing/students/${student.id}`} className="rounded border border-line px-2.5 py-1 text-sm hover:bg-tint">
+              Payment journey
+            </Link>
+
             {/* Progress drawer toggle */}
             <button
               onClick={() => setProgressOpen(prev => !prev)}
@@ -538,6 +543,8 @@ export default function StudentDetailPage() {
               <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", progressOpen && "rotate-180")} />
             </button>
           </motion.div>
+
+          <StudentParticipation studentId={student.id} />
 
           {/* Progress Drawer */}
           <AnimatePresence>
@@ -855,15 +862,6 @@ const ACADEMIC_STREAM_OPTIONS = [
   { value: "Commerce", label: "Commerce", icon: Briefcase, color: "#fbf2d0" },
 ];
 
-// Says when the coupon count was last imported and, when the filename could be
-// read, which branch's termination list and which month it came from.
-function couponSyncTooltip(couponInfo: StudentCouponResponse) {
-  if (!couponInfo.last_synced_at) return "No sync date available";
-  const updated = `Last updated on ${formatDayFirstDate(couponInfo.last_synced_at)}`;
-  if (!couponInfo.source_location || !couponInfo.source_list_date) return `${updated}.`;
-  return `${updated} from the ${couponInfo.source_location} termination list for ${formatDayFirstDate(couponInfo.source_list_date)}.`;
-}
-
 function ProfileTab({
   student,
   enrollments,
@@ -1132,28 +1130,11 @@ function ProfileTab({
             )}
           </div>
 
+          <div className="mb-3"><BillingCouponPanel studentId={student.id} branch={student.home_location} legacyCount={couponInfo?.available} /></div>
+
           {isEditingStaffReferral ? (
             // Edit mode
             <div className="space-y-3">
-              {/* Student Coupons - read only */}
-              {couponInfo?.has_coupon && (
-                <Tooltip content={couponSyncTooltip(couponInfo)}>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                    <Ticket className="h-5 w-5 text-amber-700 dark:text-amber-400" />
-                    <div>
-                      <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
-                      </span>
-                      {couponInfo.value && (
-                        <span className="text-xs text-amber-700 dark:text-amber-400 ml-1">
-                          (${couponInfo.value} each)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Tooltip>
-              )}
-
               {/* Staff Referral Checkbox */}
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -1195,24 +1176,6 @@ function ProfileTab({
             // View mode
             <>
               <div className="flex flex-wrap gap-4">
-                {/* Student Coupons */}
-                {couponInfo?.has_coupon && (
-                  <Tooltip content={couponSyncTooltip(couponInfo)}>
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                      <Ticket className="h-5 w-5 text-amber-700 dark:text-amber-400" />
-                      <div>
-                        <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                          {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
-                        </span>
-                        {couponInfo.value && (
-                          <span className="text-xs text-amber-700 dark:text-amber-400 ml-1">
-                            (${couponInfo.value} each)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Tooltip>
-                )}
                 {/* Staff Referral */}
                 {student.is_staff_referral && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
@@ -1226,21 +1189,6 @@ function ProfileTab({
                       </span>
                     </div>
                   </div>
-                )}
-                {/* Admins see where a student without coupons stands, so a
-                    count of 0 from the last list can be told apart from a
-                    student who has never been on one. */}
-                {!couponInfo?.has_coupon && isAdmin && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    {couponInfo?.synced ? (
-                      <Tooltip content={couponSyncTooltip(couponInfo)}>
-                        <span>No coupons available.</span>
-                      </Tooltip>
-                    ) : (
-                      <span>Not on the last synced termination list yet.</span>
-                    )}
-                    {!student.is_staff_referral && " Click Edit to add a staff referral."}
-                  </p>
                 )}
               </div>
               {/* Staff Referral Notes */}

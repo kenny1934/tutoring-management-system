@@ -3,6 +3,9 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { makeupBookingIssue } from "@/lib/makeup-eligibility";
+import { MakeupEligibilityNotice } from "@/components/sessions/MakeupEligibilityNotice";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CHEVRON } from "./quick-link-style";
 import { formatDateCompact } from "@/lib/formatters";
@@ -73,14 +76,16 @@ function CompactSlotItem({
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
+  const { isReadOnly } = useAuth();
+  const eligibilityIssue = makeupBookingIssue(slot.makeup_eligibility, slot.proposed_date);
   const isTargetTutor = slot.proposed_tutor_id === currentTutorId;
   // Expanded permissions: target tutor, proposer, or admin can act
-  const canAct = (isTargetTutor || isProposer || isAdmin) &&
+  const canAct = !isReadOnly && (isTargetTutor || isProposer || isAdmin) &&
     slot.slot_status === "pending" && proposalStatus === "pending";
 
   const handleApproveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowApproveConfirm(true);
+    if (!eligibilityIssue) setShowApproveConfirm(true);
   };
 
   const handleRejectClick = (e: React.MouseEvent) => {
@@ -100,6 +105,7 @@ function CompactSlotItem({
 
   return (
     <>
+      <MakeupEligibilityNotice eligibility={slot.makeup_eligibility} targetDate={slot.proposed_date} compact />
       <div
         className={cn(
           "flex items-center gap-2 px-2 py-1.5 rounded text-xs",
@@ -134,9 +140,10 @@ function CompactSlotItem({
               size="sm"
               icon={isLoading ? Loader2 : Check}
               label="Approve"
+              title={eligibilityIssue || undefined}
               iconClassName={cn("text-green-700 dark:text-green-400", isLoading && "animate-spin")}
               onClick={handleApproveClick}
-              disabled={isLoading}
+              disabled={isLoading || !!eligibilityIssue}
             />
             <IconButton
               size="sm"
@@ -200,6 +207,7 @@ function CompactProposalCard({
   onClose: () => void;
 }) {
   const { showToast } = useToast();
+  const { isReadOnly } = useAuth();
   const [loadingSlotId, setLoadingSlotId] = useState<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -214,19 +222,21 @@ function CompactProposalCard({
   };
 
   const handleApprove = async (slotId: number) => {
+    if (isReadOnly) return;
     setLoadingSlotId(slotId);
     try {
       await proposalsAPI.approveSlot(slotId, currentTutorId);
       showToast("Slot approved! Make-up booked.", "success");
       refreshProposals();
     } catch (error) {
-      showToast("Failed to approve slot", "error");
+      showToast(error instanceof Error ? error.message : "Failed to approve slot", "error");
     } finally {
       setLoadingSlotId(null);
     }
   };
 
   const handleReject = async (slotId: number) => {
+    if (isReadOnly) return;
     setLoadingSlotId(slotId);
     try {
       await proposalsAPI.rejectSlot(slotId, currentTutorId);

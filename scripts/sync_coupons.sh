@@ -51,6 +51,8 @@ if [ ! -x "$BACKEND_PY" ]; then
 fi
 
 # Resolve every input to an absolute path and check it exists, before doing any work.
+"$BACKEND_PY" "$APPLIER" --check-legacy
+
 INPUTS=()
 for f in "$@"; do
     if [ ! -f "$f" ]; then

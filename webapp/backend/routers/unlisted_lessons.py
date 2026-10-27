@@ -23,6 +23,7 @@ from auth.dependencies import (
 )
 from constants import hk_now
 from database import get_db
+from billing.guards import lock_billing_session
 from models import Enrollment, SessionLog, Student, Tutor, TutorMemo
 from schemas import (
     UnlistedLessonCreate,
@@ -289,6 +290,8 @@ def fill_into_session(
     """The one-click fill on a lesson's page, for when CSM couldn't tell which
     lesson a record belongs to. The lesson must be the same student's, on the
     same day, and one the student could have attended."""
+    lock_billing_session(db, session_id)
+
     lesson = _load(db, lesson_id)
     session = db.query(SessionLog).filter(SessionLog.id == session_id).first()
     if not session:

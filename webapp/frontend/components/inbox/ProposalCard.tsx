@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, memo } from "react";
+import { makeupBookingIssue } from "@/lib/makeup-eligibility";
+import { MakeupEligibilityNotice } from "@/components/sessions/MakeupEligibilityNotice";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { proposalsAPI } from "@/lib/api";
 import { formatProposalDate } from "@/lib/formatters";
@@ -83,8 +86,10 @@ function SlotItem({
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
 
+  const { isReadOnly } = useAuth();
+  const eligibilityIssue = makeupBookingIssue(slot.makeup_eligibility, slot.proposed_date);
   const isTargetTutor = slot.proposed_tutor_id === currentTutorId;
-  const canAct = isTargetTutor && slot.slot_status === "pending" && proposalStatus === "pending";
+  const canAct = !isReadOnly && isTargetTutor && slot.slot_status === "pending" && proposalStatus === "pending";
 
   const handleReject = () => {
     if (showRejectInput) {
@@ -108,6 +113,7 @@ function SlotItem({
           : "bg-raised-2 border-line dark:bg-raised-2 dark:border-line"
       )}
     >
+      <MakeupEligibilityNotice eligibility={slot.makeup_eligibility} targetDate={slot.proposed_date} compact />
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -147,7 +153,7 @@ function SlotItem({
         {/* Action buttons for target tutor */}
         {canAct && (
           <div className="flex flex-col gap-2">
-            <Button size="sm" variant="secondary" icon={Check} iconClassName="text-green-700 dark:text-green-400" onClick={() => onApprove(slot.id)}>
+            <Button size="sm" variant="secondary" icon={Check} iconClassName="text-green-700 dark:text-green-400" disabled={!!eligibilityIssue} title={eligibilityIssue || undefined} onClick={() => { if (!eligibilityIssue) onApprove(slot.id); }}>
               Approve
             </Button>
             {showRejectInput ? (
@@ -189,6 +195,7 @@ export const ProposalCard = memo(function ProposalCard({
   className,
 }: ProposalCardProps) {
   const { showToast } = useToast();
+  const { isReadOnly } = useAuth();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
@@ -197,8 +204,8 @@ export const ProposalCard = memo(function ProposalCard({
   const isProposer = proposal.proposed_by_tutor_id === currentTutorId;
   const isNeedsInputTarget = proposal.proposal_type === "needs_input" &&
     proposal.needs_input_tutor_id === currentTutorId;
-  const canCancel = isProposer && proposal.status === "pending";
-  const canRejectNeedsInput = isNeedsInputTarget && proposal.status === "pending";
+  const canCancel = !isReadOnly && isProposer && proposal.status === "pending";
+  const canRejectNeedsInput = !isReadOnly && isNeedsInputTarget && proposal.status === "pending";
 
   // Session info from the proposal
   const session = proposal.original_session;
@@ -214,19 +221,21 @@ export const ProposalCard = memo(function ProposalCard({
   };
 
   const handleApproveSlot = async (slotId: number) => {
+    if (isReadOnly) return;
     setLoadingAction(`approve-${slotId}`);
     try {
       await proposalsAPI.approveSlot(slotId, currentTutorId);
       showToast("Slot approved! Make-up session booked.", "success");
       refreshProposals();
     } catch (error) {
-      showToast("Failed to approve slot", "error");
+      showToast(error instanceof Error ? error.message : "Failed to approve slot", "error");
     } finally {
       setLoadingAction(null);
     }
   };
 
   const handleRejectSlot = async (slotId: number, reason?: string) => {
+    if (isReadOnly) return;
     setLoadingAction(`reject-${slotId}`);
     try {
       await proposalsAPI.rejectSlot(slotId, currentTutorId, reason);
@@ -240,6 +249,7 @@ export const ProposalCard = memo(function ProposalCard({
   };
 
   const handleCancel = async () => {
+    if (isReadOnly) return;
     setLoadingAction("cancel");
     try {
       await proposalsAPI.cancel(proposal.id, currentTutorId);

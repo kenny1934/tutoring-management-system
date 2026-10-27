@@ -11,6 +11,7 @@ from constants import hk_now, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 import time
 from database import get_db
+from billing.guards import billing_metadata
 from models import ParentCommunication, Student, Tutor, Enrollment, LocationSettings
 from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range
 from schemas import (
@@ -105,6 +106,7 @@ def get_active_student_ids(
         enrollment_query = enrollment_query.filter(Enrollment.location == location)
 
     all_enrollments = enrollment_query.all()
+    billing_metadata(db, all_enrollments)
 
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
 

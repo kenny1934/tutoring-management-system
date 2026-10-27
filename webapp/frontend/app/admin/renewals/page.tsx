@@ -1,5 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { billingPaymentHref } from "@/lib/billing-workflow";
+import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
+import { BillingRenewalQueueGate } from "@/components/billing/BillingRenewalQueueGate";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { PageSurface } from "@/components/layout/PageSurface";
@@ -96,7 +100,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onToggleCheck(renewal.id);
+    if (!renewal.renewal_billing_payment_id) onToggleCheck(renewal.id);
   };
 
   // Show renewal info when renewal exists and isn't paid yet
@@ -154,6 +158,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
             <input
               type="checkbox"
               checked={isChecked}
+              disabled={!!renewal.renewal_billing_payment_id}
               onChange={() => {}}
               aria-label={`Select ${renewal.student_name}`}
               className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer"
@@ -258,7 +263,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                 >
                   <span className="hidden sm:inline">View</span>
                 </Button>
-              ) : (
+              ) : renewal.billing_managed ? <BillingWorkflowLink studentId={renewal.student_id} /> : (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -271,7 +276,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                   <span className="hidden sm:inline">Renew</span>
                 </Button>
               )}
-              {renewal.renewal_enrollment_id && (
+              {renewal.renewal_billing_payment_id ? <BillingWorkflowLink studentId={renewal.student_id} paymentId={renewal.renewal_billing_payment_id} /> : renewal.renewal_enrollment_id && (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -335,9 +340,14 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
 });
 
 export default function AdminRenewalsPage() {
+  return <BillingRenewalQueueGate renderLegacy={(onBack, taught) => <LegacyRenewalsPage onBackToQueue={onBack} initialTaught={taught} />} />;
+}
+
+function LegacyRenewalsPage({ onBackToQueue, initialTaught }: { onBackToQueue?: () => void; initialTaught?: boolean }) {
   usePageTitle("Enrollment Renewals");
   const { user, isLoading, canViewAdminPages, isReadOnly } = useAuth();
   const { selectedLocation } = useLocation();
+  const router = useRouter();
   const { showToast } = useToast();
   const [showExpired, setShowExpired] = useState(true);
 
@@ -377,8 +387,8 @@ export default function AdminRenewalsPage() {
   const [activeTab, setActiveTab] = useState<'not_renewed' | 'to_send' | 'awaiting_payment' | 'taught'>('not_renewed');
   // The bell links straight to the fourth tab
   useEffect(() => {
-    if (window.location.hash === '#taught') setActiveTab('taught');
-  }, []);
+    if (initialTaught || window.location.hash === '#taught') setActiveTab('taught');
+  }, [initialTaught]);
 
   // Collapsed urgency groups state (next_week and older_than_30_days collapsed by default)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['next_week', 'older_than_30_days']));
@@ -779,6 +789,8 @@ export default function AdminRenewalsPage() {
 
   // Handler: Quick renew from list (without opening detail modal)
   const handleQuickRenew = (enrollmentId: number) => {
+    const item = renewals?.find(value => value.id === enrollmentId);
+    if (item?.billing_managed) { router.push(billingPaymentHref(item.student_id)); return; }
     setSelectedEnrollmentId(enrollmentId);
     setDetailModalOpen(true);
     setRenewFromId(enrollmentId);
@@ -878,6 +890,7 @@ export default function AdminRenewalsPage() {
     items.some(r => checkedIds.has(r.id));
 
   const toggleSectionCheck = (items: RenewalListItem[], e: React.MouseEvent) => {
+    items = items.filter(item => !item.renewal_billing_payment_id);
     e.stopPropagation();
     const allChecked = isAllSectionChecked(items);
     setCheckedIds(prev => {
@@ -900,6 +913,10 @@ export default function AdminRenewalsPage() {
   // Batch action handlers
   const handleBatchMarkPaid = async () => {
     if (checkedIds.size === 0) return;
+    if (renewals?.some(item => checkedIds.has(item.id) && item.renewal_billing_payment_id)) {
+      showToast("Open each linked payment to manage its combined fee.", "info");
+      return;
+    }
     setBatchLoading(true);
     try {
       // For "awaiting_payment" tab, we need to mark the RENEWAL enrollments as paid
@@ -942,6 +959,10 @@ export default function AdminRenewalsPage() {
 
   const handleBatchMarkSent = async () => {
     if (checkedIds.size === 0) return;
+    if (renewals?.some(item => checkedIds.has(item.id) && item.renewal_billing_payment_id)) {
+      showToast("Open each linked payment to manage its combined fee.", "info");
+      return;
+    }
     setBatchLoading(true);
     try {
       // For "to_send" tab, we need to mark the RENEWAL enrollments' fee_message_sent
@@ -994,7 +1015,9 @@ export default function AdminRenewalsPage() {
         <PageHeader
           className="mb-6"
           icon={RefreshCcw}
-          title="Enrollment renewals"
+          title={onBackToQueue ? "Earlier enrollments" : "Enrollment renewals"}
+          onBack={onBackToQueue}
+          backLabel="Back to enrollment renewals"
           subtitle="Enrollments expiring soon or already expired"
           titleExtra={isReadOnly && <span className="shrink-0 text-[11px] font-normal text-amber-700">(Read-only)</span>}
           actions={

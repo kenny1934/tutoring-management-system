@@ -5,6 +5,7 @@ import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
+import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import {
   useFloating,
   autoUpdate,
@@ -215,7 +216,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   if (!isOpen || !enrollment) return null;
 
   const isPending = enrollment.payment_status === 'Pending Payment';
-  const showMarkAsPaid = isPending && !markedAsPaid && !isTutor;
+  const showMarkAsPaid = isPending && !markedAsPaid && !isTutor && !enrollment.billing_payment_id;
 
   // Check if any sessions have been attended - cannot cancel if so
   const hasAttendedSessions = sessions.some(
@@ -761,6 +762,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
         {/* Actions */}
         <div className="pt-3 border-t border-line space-y-2">
+          {enrollment.billing_payment_id && <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} onClick={onClose} />}
           {/* Confirm Payment button - only shown for pending payments */}
           {showMarkAsPaid && (
             <Button
@@ -779,7 +781,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
           )}
 
           {/* Cancel Enrollment button - shown for pending/overdue without attended sessions */}
-          {showCancelButton && (
+          {showCancelButton && !enrollment.billing_payment_id && (
             <Button
               size="sm"
               onClick={(e) => {
@@ -797,7 +799,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
           {/* Copy Fee Message button — hidden for waived enrollments, which
               have no fee to ask for */}
-          {enrollment.payment_status !== 'Waived' && (
+          {enrollment.payment_status !== 'Waived' && !enrollment.billing_payment_id && (
           <Button
             size="sm"
             onClick={(e) => {

@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import date, datetime
 from database import get_db
+from billing.guards import lock_billing_session
 from models import (
     ExamRevisionSlot, CalendarEvent, SessionLog, Student, Tutor, Enrollment
 )
@@ -35,10 +36,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from utils.response_builders import build_session_response as _build_session_response, batch_find_root_original_session_dates
 from utils.makeup_validators import validate_makeup_constraints, assert_not_holiday
+from services.makeup_entitlement import eligibility_for_sessions, academic_policy_applies
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES, hk_now
 from services.google_calendar_service import sync_calendar_events
 from services.unlisted_lessons import fill_unlisted_lessons
-from auth.dependencies import get_current_user, ADMIN_WRITE_ROLES
+from auth.dependencies import get_current_user, ADMIN_WRITE_ROLES, reject_read_only
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -199,6 +201,8 @@ def _check_past_deadline(
     Check if the target date/time falls on the student's regular slot
     past their enrollment end date.
     """
+    if academic_policy_applies(db, student_id):
+        return False
     current_enrollment = db.query(Enrollment).filter(
         Enrollment.student_id == student_id,
         Enrollment.enrollment_type == 'Regular',
@@ -322,7 +326,7 @@ def get_revision_slots(
 @router.post("/exam-revision/slots", response_model=ExamRevisionSlotResponse)
 async def create_revision_slot(
     request: ExamRevisionSlotCreate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -518,7 +522,7 @@ async def update_revision_slot(
     slot_id: int,
     update: ExamRevisionSlotUpdate,
     db: Session = Depends(get_db),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
 ):
     """
     Update a revision slot's details.
@@ -648,7 +652,7 @@ async def delete_revision_slot(
     slot_id: int,
     force: bool = Query(False, description="Force delete: unenroll all students first"),
     db: Session = Depends(get_db),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
 ):
     """
     Delete a revision slot.
@@ -784,6 +788,7 @@ def get_eligible_students(
     # Batch resolve root original session dates for all sessions at once
     all_sessions = [s for sessions in student_sessions.values() for s in sessions]
     root_dates = batch_find_root_original_session_dates(all_sessions, db)
+    makeup_eligibilities = eligibility_for_sessions(db, [row.id for row in all_sessions], target_date=slot.session_date)
 
     # Second pass: build responses
     for student in students:
@@ -812,6 +817,7 @@ def get_eligible_students(
                     tutor_name=s.tutor.tutor_name if s.tutor else None,
                     location=s.location,
                     root_original_session_date=root_dates.get(s.id),
+                    makeup_eligibility=makeup_eligibilities.get(s.id),
                 )
                 for s in pending_sessions
             ]
@@ -903,6 +909,7 @@ def get_eligible_students_by_exam(
     # Batch resolve root original session dates for all sessions at once
     all_sessions = [s for sessions in student_sessions.values() for s in sessions]
     root_dates = batch_find_root_original_session_dates(all_sessions, db)
+    makeup_eligibilities = eligibility_for_sessions(db, [row.id for row in all_sessions])
 
     # Second pass: build responses
     for student in students:
@@ -929,6 +936,7 @@ def get_eligible_students_by_exam(
                     tutor_name=s.tutor.tutor_name if s.tutor else None,
                     location=s.location,
                     root_original_session_date=root_dates.get(s.id),
+                    makeup_eligibility=makeup_eligibilities.get(s.id),
                 )
                 for s in pending_sessions
             ]
@@ -944,7 +952,7 @@ def get_eligible_students_by_exam(
 async def enroll_student(
     slot_id: int,
     request: EnrollStudentRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -953,6 +961,8 @@ async def enroll_student(
     Creates a new session linked to both the revision slot and the consumed session.
     Updates the consumed session status from "Pending Make-up" to "Make-up Booked".
     """
+    lock_billing_session(db, request.consume_session_id)
+
     # Get the revision slot
     slot = db.query(ExamRevisionSlot).options(
         joinedload(ExamRevisionSlot.calendar_event),
@@ -1096,8 +1106,8 @@ async def enroll_student(
     ).filter(SessionLog.id == consume_session.id).first()
 
     return EnrollStudentResponse(
-        revision_session=_build_session_response(revision_session),
-        consumed_session=_build_session_response(consume_session),
+        revision_session=_build_session_response(revision_session, db),
+        consumed_session=_build_session_response(consume_session, db),
         warning=None
     )
 
@@ -1106,7 +1116,7 @@ async def enroll_student(
 async def remove_enrollment(
     slot_id: int,
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1115,6 +1125,8 @@ async def remove_enrollment(
     Deletes the revision session and reverts the consumed session's status
     back to "Pending Make-up".
     """
+    lock_billing_session(db, session_id)
+
     # Get the revision session
     revision_session = db.query(SessionLog).filter(
         SessionLog.id == session_id,

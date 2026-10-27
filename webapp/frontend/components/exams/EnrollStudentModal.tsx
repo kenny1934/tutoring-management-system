@@ -9,6 +9,8 @@ import { examRevisionAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { MakeupEligibilityNotice } from "@/components/sessions/MakeupEligibilityNotice";
+import { makeupBookingIssue } from "@/lib/makeup-eligibility";
 import { Button, IconButton, Input } from "@/components/controls";
 import type { ExamRevisionSlot, EligibleStudent, PendingSessionInfo } from "@/types";
 import {
@@ -42,7 +44,7 @@ export function EnrollStudentModal({
   showLocationPrefix,
 }: EnrollStudentModalProps) {
   const { showToast } = useToast();
-  const { user, effectiveRole } = useAuth();
+  const { user, effectiveRole, isReadOnly } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
   const { data: eligibleStudents = [], isLoading } = useEligibleStudents(
     isOpen ? slot.id : null
@@ -102,6 +104,7 @@ export function EnrollStudentModal({
 
   // Check if a session exceeds 60-day makeup window relative to the slot date
   const is60DayExceeded = useCallback((session: PendingSessionInfo) => {
+    if (session.makeup_eligibility) return false;
     const rootDate = session.root_original_session_date || session.session_date;
     const slotDate = new Date(slot.session_date + 'T00:00:00');
     const originalDate = new Date(rootDate + 'T00:00:00');
@@ -111,11 +114,19 @@ export function EnrollStudentModal({
 
   // Show confirmation dialog before enrolling
   const handleConfirmEnroll = (student: EligibleStudent, sessionId: number) => {
+    if (isReadOnly) return;
+    const source = student.pending_sessions.find(value => value.id === sessionId);
+    const issue = makeupBookingIssue(source?.makeup_eligibility, slot.session_date);
+    if (issue) { setError(issue); return; }
     setError(null);
     setConfirmData({ student, sessionId });
   };
 
   const handleEnroll = async (student: EligibleStudent, sessionId: number) => {
+    if (isReadOnly) return;
+    const source = student.pending_sessions.find(value => value.id === sessionId);
+    const issue = makeupBookingIssue(source?.makeup_eligibility, slot.session_date);
+    if (issue) { setError(issue); return; }
     setError(null);
     setSuccessMessage(null);
     setConfirmData(null);
@@ -320,7 +331,7 @@ export function EnrollStudentModal({
                       <div className="space-y-2">
                         {student.pending_sessions.map((session) => {
                           const exceeded = is60DayExceeded(session);
-                          const isBlocked = exceeded && !isSuperAdmin;
+                          const isBlocked = isReadOnly || !!makeupBookingIssue(session.makeup_eligibility, slot.session_date) || (exceeded && !isSuperAdmin);
 
                           return (
                             <button
@@ -337,6 +348,7 @@ export function EnrollStudentModal({
                                     : "border-line dark:border-line bg-field-fill dark:bg-field-fill hover:border-primary/50"
                               )}
                             >
+                              <MakeupEligibilityNotice eligibility={session.makeup_eligibility} targetDate={slot.session_date} compact />
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-3.5 w-3.5 text-gray-500" />

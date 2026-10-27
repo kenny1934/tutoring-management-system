@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { Home, Users, Calendar, BookOpen, Inbox, RefreshCcw, CreditCard, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map, Clock } from "lucide-react";
+import useSWR from "swr";
+import { billingAPI } from "@/lib/billing-api";
+import { Home, Users, Calendar, BookOpen, Inbox, RefreshCcw, CreditCard, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, CalendarRange, Map, Clock, Landmark } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { TONES } from "@/lib/tones";
+import { useBillingQueueCounts } from "@/lib/hooks/useBillingQueueCounts";
 import {
   useUnreadMessageCount,
   useRenewalCounts,
@@ -37,6 +40,8 @@ export const MAIN_NAV = [
 // Only Admins, Super Admins and Supervisors see these.
 export const ADMIN_NAV = [
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
+  { name: "Payment plans", href: "/billing", icon: CalendarRange },
+  { name: "Autopay", href: "/admin/autopay", icon: Landmark },
   { name: "Overdue payments", href: "/overdue-payments", icon: CreditCard },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
   { name: "Waitlist", href: "/admin/waitlist", icon: ClipboardList },
@@ -57,17 +62,30 @@ export function useNavigation() {
     : user?.id;
 
   const isAdminOrAbove = canViewAdminPages;
+  const billingScope = JSON.stringify([user?.id, effectiveRole, isImpersonating, impersonatedTutor?.id]);
+  const { data: billingOptions, error: billingOptionsError } = useSWR(
+    isAdminOrAbove ? ['billing-queue-options', billingScope] : null,
+    billingAPI.options,
+    { revalidateOnFocus: false, keepPreviousData: false },
+  );
+  const adminNavigation = ADMIN_NAV.filter(item => item.name !== "Autopay" || (!billingOptionsError && billingOptions?.queue_available));
   // Guests have no inbox, and Supervisors see only broadcasts, so neither has
   // an unread count.
   const hasInbox = !isGuest;
   const { data: unreadCount } = useUnreadMessageCount(isGuest || isSupervisor ? undefined : currentTutorId);
   const hasUnseenUpdates = useUnseenUpdates();
 
-  // The overdue count for the bell and the Overdue payments badge.
-  const { data: dashboardStats } = useDashboardStats(selectedLocation, undefined, mounted);
-  const pendingPayments = dashboardStats?.pending_payment_enrollments ?? 0;
-
-  const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove, selectedLocation);
+  const queue = useBillingQueueCounts({ enabled: isAdminOrAbove && mounted, location: selectedLocation });
+  const legacyReminders = queue.available === false;
+  const { data: dashboardStats } = useDashboardStats(selectedLocation, undefined, mounted && legacyReminders);
+  const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove && legacyReminders, selectedLocation);
+  // A combined payment is one task. Never add the older enrollment totals.
+  const pendingPayments = queue.available
+    ? queue.data?.overdue ?? 0
+    : legacyReminders ? dashboardStats?.pending_payment_enrollments ?? 0 : 0;
+  const renewalsToPrepare = queue.available
+    ? queue.data?.actionable
+    : legacyReminders ? renewalCounts?.total : undefined;
   const { data: extensionCount } = usePendingExtensionCount(isAdminOrAbove, selectedLocation);
   const { isOpen: summerIsOpen, actionableCount: summerActionable } = useSummerSidebarBadge(
     isAdminOrAbove,
@@ -102,7 +120,7 @@ export function useNavigation() {
   // application window when there's nothing to triage.
   const adminBadgeFor = (name: string) => {
     const count =
-      name === "Renewals" ? renewalCounts?.total
+      name === "Renewals" ? renewalsToPrepare
       : name === "Overdue payments" ? pendingPayments
       : name === "Extensions" ? extensionCount?.count
       : name === "Summer course" ? summerActionable
@@ -110,7 +128,7 @@ export function useNavigation() {
       : 0;
     const color =
       name === "Overdue payments" ? TONES.danger.solid
-      : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? TONES.danger.solid
+      : name === "Renewals" && legacyReminders && (renewalCounts?.expired ?? 0) > 0 ? TONES.danger.solid
       : TONES.warning.solid;
     const isIntakeOpen =
       (name === "Summer course" && summerIsOpen) ||
@@ -128,6 +146,7 @@ export function useNavigation() {
     hasUnseenUpdates,
     pendingPayments,
     mainNavigation,
+    adminNavigation,
     adminBadgeFor,
   };
 }

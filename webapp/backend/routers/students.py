@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select, or_, cast, Integer
 from typing import List, Optional
 from database import get_db
+from billing.guards import billing_metadata, annotate_billing_response
 from models import Student, Enrollment, Tutor, StudentCoupon
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse, HandoverProspectInfo
 from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
@@ -373,6 +374,8 @@ def get_student_detail(
     if not student:
         raise HTTPException(status_code=404, detail=f"Student with ID {student_id} not found")
 
+    billing_metadata(db, student.enrollments)
+
     # Build response with enrollment details including tutor names
     response = StudentDetailResponse.model_validate(student)
     for i, enrollment in enumerate(student.enrollments):
@@ -380,6 +383,8 @@ def get_student_detail(
         # These rows feed the enrollment detail popover, whose new-student
         # badge only claims the materials fee when it was actually charged.
         response.enrollments[i].registration_fee = enrollment_registration_fee(enrollment, db)
+
+    annotate_billing_response(db, response.enrollments)
 
     prospect = get_handover_prospect(db, student_id)
     if prospect:

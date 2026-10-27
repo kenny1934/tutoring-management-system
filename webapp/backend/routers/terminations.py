@@ -168,15 +168,14 @@ def get_available_quarters(
     Scans enrollments directly instead of using the terminated_students view,
     so that comeback students don't erase historical quarter data.
     """
-    # Every distinct end date there has ever been, which is what says which
-    # quarters exist. Two enrollments with the same start date, pack size and
-    # extension end on the same day, so the distinct combinations are asked
-    # first and the stored function runs once per combination rather than once
-    # per enrollment. Same answer, a fraction of the work.
+    # Legacy packs with the same inputs share an end date. Grouped packs need
+    # their own identity because their recorded lesson dates can differ.
+    from billing.guards import workflow_enabled
+    identity = "e.id, " if workflow_enabled() else ""
     query = text(f"""
         SELECT DISTINCT {effective_end_sql('packs')} as eff_end_date
         FROM (
-            SELECT DISTINCT e.first_lesson_date, e.lessons_paid,
+            SELECT DISTINCT {identity}e.first_lesson_date, e.lessons_paid,
                    e.deadline_extension_weeks
             FROM enrollments e
             JOIN students s ON e.student_id = s.id

@@ -12,17 +12,20 @@ from typing import List, Optional
 from datetime import datetime, date
 from constants import hk_now
 from services.unlisted_lessons import fill_unlisted_lessons
+from services.makeup_entitlement import assert_makeup_entitlement, eligibility_for_sessions, eligibility_for_targets, entitlement_enabled
 from database import get_db
+from billing.guards import lock_billing_session, workflow_enabled
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
     ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 )
+from utils.makeup_access import verify_makeup_access
 from utils.makeup_validators import (
     assert_not_holiday,
     assert_summer_reschedule_deadline,
     is_summer_session,
 )
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, reject_read_only
 
 logger = logging.getLogger(__name__)
 from schemas import (
@@ -80,10 +83,19 @@ def _build_slot_response(slot: MakeupProposalSlot) -> MakeupProposalSlotResponse
 def _build_proposal_response(
     proposal: MakeupProposal,
     include_session: bool = False,
-    db: Session = None
+    db: Session = None,
+    makeup_eligibilities: Optional[dict] = None,
 ) -> MakeupProposalResponse:
     """Build a MakeupProposalResponse from a proposal."""
+    if makeup_eligibilities is None and db is not None:
+        makeup_eligibilities = eligibility_for_targets(db, [
+            (proposal.original_session_id, None),
+            *[(proposal.original_session_id, slot.proposed_date) for slot in proposal.slots],
+        ])
+    makeup_eligibilities = makeup_eligibilities or {}
     slots = [_build_slot_response(slot) for slot in proposal.slots]
+    for slot, source in zip(slots, proposal.slots):
+        slot.makeup_eligibility = makeup_eligibilities.get((proposal.original_session_id, source.proposed_date))
 
     # Get original session if requested
     original_session = None
@@ -93,7 +105,7 @@ def _build_proposal_response(
             *session_with_relations()
         ).filter(SessionLog.id == proposal.original_session_id).first()
         if session:
-            original_session = build_session_response(session)
+            original_session = build_session_response(session, db, makeup_eligibilities={session.id: makeup_eligibilities.get((session.id, None))})
 
     return MakeupProposalResponse(
         id=proposal.id,
@@ -192,7 +204,10 @@ def get_proposals(
 
     proposals = query.order_by(MakeupProposal.created_at.desc()).offset(offset).limit(limit).all()
 
-    return [_build_proposal_response(p, include_session, db) for p in proposals]
+    targets = [(p.original_session_id, day) for p in proposals
+               for day in [None, *[slot.proposed_date for slot in p.slots]]]
+    makeup_eligibilities = eligibility_for_targets(db, targets)
+    return [_build_proposal_response(p, include_session, db, makeup_eligibilities) for p in proposals]
 
 
 @router.get("/makeup-proposals/pending-count", response_model=PendingProposalCount)
@@ -242,7 +257,7 @@ def get_proposal(
 @router.post("/makeup-proposals", response_model=MakeupProposalResponse)
 async def create_proposal(
     data: MakeupProposalCreate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -269,6 +284,14 @@ async def create_proposal(
             status_code=400,
             detail=f"Session must be in 'Pending Make-up' status, got '{original_session.session_status}'"
         )
+
+    verify_makeup_access(db, original_session, current_user)
+    lock_billing_session(db, original_session.id)
+    if data.proposal_type == "specific_slots":
+        for proposed in data.slots:
+            assert_makeup_entitlement(db, original_session, proposed.proposed_date)
+    else:
+        assert_makeup_entitlement(db, original_session, hk_now().date())
 
     # Check if there's already an active proposal for this session
     existing_proposal = db.query(MakeupProposal).filter(
@@ -438,7 +461,7 @@ View proposal: /proposals?id={proposal.id}""".strip()
 @router.post("/makeup-proposals/slots/{slot_id}/approve", response_model=MakeupProposalResponse)
 async def approve_slot(
     slot_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -451,6 +474,14 @@ async def approve_slot(
     - Uses pessimistic locking to prevent race conditions
     """
     tutor_id = current_user.id
+
+    grouped_payment = False
+    if workflow_enabled() or entitlement_enabled():
+        source_id = db.query(MakeupProposal.original_session_id).join(
+            MakeupProposalSlot, MakeupProposalSlot.proposal_id == MakeupProposal.id
+        ).filter(MakeupProposalSlot.id == slot_id).scalar()
+        if source_id is not None:
+            grouped_payment = lock_billing_session(db, source_id)
 
     # Acquire row-level lock on slot first to prevent concurrent approvals
     slot = db.query(MakeupProposalSlot).with_for_update().filter(
@@ -507,6 +538,11 @@ async def approve_slot(
     if not original_session:
         raise HTTPException(status_code=404, detail="Original session not found")
 
+    if grouped_payment and (
+        "Pending Make-up" not in original_session.session_status or original_session.rescheduled_to_id
+    ):
+        raise HTTPException(status_code=409, detail="This session is no longer waiting for a make-up.")
+
     # Validate: not a holiday (Admin / Super Admin can override — either the
     # approver or the admin who created the proposal can authorize a holiday slot)
     proposer_is_admin = bool(
@@ -515,6 +551,7 @@ async def approve_slot(
     )
     assert_not_holiday(db, slot.proposed_date, is_admin=(is_admin or proposer_is_admin))
 
+    academic_policy = assert_makeup_entitlement(db, original_session, slot.proposed_date)
     if is_summer_session(original_session):
         # Summer sessions swap the enrollment-deadline and 60-day checks for a
         # single rule: the make-up must land on or before 31 August. Admins and
@@ -526,7 +563,7 @@ async def approve_slot(
             original_session, slot.proposed_date,
             can_override=(is_admin or proposer_is_admin),
         )
-    else:
+    elif not academic_policy:
         # Validate: enrollment deadline - ONLY for regular slot
         # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
         # past the enrollment end date. Non-regular slots are allowed past deadline.
@@ -642,7 +679,7 @@ async def approve_slot(
         time_slot=slot.proposed_time_slot,
         location=slot.proposed_location,
         session_status="Make-up Class",
-        financial_status="Unpaid",
+        financial_status=original_session.financial_status if grouped_payment else "Unpaid",
         make_up_for_id=original_session.id,
         notes=f"Approved via proposal #{proposal.id}",
         last_modified_by=f"tutor_{tutor_id}@csmpro.app",
@@ -814,7 +851,7 @@ View proposal: /proposals?id={proposal.id}"""
 async def reject_slot(
     slot_id: int,
     request: SlotRejectRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -992,7 +1029,7 @@ View proposal: /proposals?id={proposal.id}"""
 async def update_slot(
     slot_id: int,
     slot_data: MakeupProposalSlotUpdate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1044,6 +1081,11 @@ async def update_slot(
     if slot_data.proposed_tutor_id is not None:
         _get_tutor(db, slot_data.proposed_tutor_id)
 
+    lock_billing_session(db, proposal.original_session_id)
+    original = db.query(SessionLog).filter(SessionLog.id == proposal.original_session_id).first()
+    if original:
+        assert_makeup_entitlement(db, original, slot_data.proposed_date or slot.proposed_date)
+
     # Update only provided fields
     if slot_data.proposed_date is not None:
         slot.proposed_date = slot_data.proposed_date
@@ -1068,7 +1110,7 @@ async def update_slot(
 async def reject_proposal(
     proposal_id: int,
     request: ProposalRejectRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1126,7 +1168,7 @@ async def reject_proposal(
 @router.delete("/makeup-proposals/{proposal_id}")
 async def cancel_proposal(
     proposal_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """

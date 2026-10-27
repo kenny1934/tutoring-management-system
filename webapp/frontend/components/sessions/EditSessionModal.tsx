@@ -21,6 +21,9 @@ import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { sessionSummerYear } from "@/lib/summer-courseware-session";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
+import { MakeupEligibilityNotice } from "./MakeupEligibilityNotice";
+import { changesMakeupBooking, makeupBookingIssue } from "@/lib/makeup-eligibility";
+import { useMakeupEligibility } from "@/lib/hooks/useMakeupEligibility";
 import { GradeBadge } from "@/components/ui/grade-label";
 
 // Interface for enrollment deadline exceeded error
@@ -94,8 +97,10 @@ export function EditSessionModal({
   const { data: allTutors = [] } = useTutors();
   const { data: locations } = useLocations();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
-  const { effectiveRole, isAdmin } = useAuth();
+  const { effectiveRole, isAdmin, isReadOnly } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
+  const entitlement = useMakeupEligibility(session, isOpen);
+  const eligibility = entitlement.eligibility;
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
   // This is needed for cross-enrollment makeups: when editing a session from old enrollment A,
@@ -115,7 +120,7 @@ export function EditSessionModal({
   }, [studentEnrollments]);
 
   // Use current enrollment for deadline checks (cross-enrollment aware)
-  const effectiveEndDate = currentEnrollment?.effective_end_date;
+  const effectiveEndDate = eligibility ? undefined : currentEnrollment?.effective_end_date;
 
   // 60-day makeup restriction (only applies to makeup sessions)
   // Use root_original_session_date from API (computed on backend by tracing makeup chain)
@@ -130,11 +135,11 @@ export function EditSessionModal({
 
   // Calculate the last allowed date (60 days from original)
   const lastAllowedDate60Day = useMemo(() => {
-    if (isSummerSession || !isMakeupSession || !rootOriginalDate) return null;
+    if (eligibility || isSummerSession || !isMakeupSession || !rootOriginalDate) return null;
     const d = new Date(rootOriginalDate + 'T00:00:00');
     d.setDate(d.getDate() + 60);
     return d.toISOString().split('T')[0];
-  }, [isSummerSession, isMakeupSession, rootOriginalDate]);
+  }, [isSummerSession, isMakeupSession, rootOriginalDate, eligibility]);
 
   const { showToast } = useToast();
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -258,6 +263,9 @@ export function EditSessionModal({
     ? `${form.time_slot_start} - ${form.time_slot_end}`
     : '';
 
+  const makeupBookingChanged = changesMakeupBooking(session, { session_date: form.session_date, time_slot: formTimeSlot, tutor_id: form.tutor_id, location: form.location, session_status: form.session_status });
+  const makeupIssue = makeupBookingChanged ? makeupBookingIssue(eligibility, form.session_date) : null;
+
   // Early deadline warning - ONLY for regular slot past deadline
   // Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
   // past the enrollment end date. Non-regular slots are allowed past deadline.
@@ -329,7 +337,9 @@ export function EditSessionModal({
   }, [isSuperAdmin, form.session_status, session.session_status, isPendingMakeup]);
 
   const handleSave = async () => {
+    if (isReadOnly) return;
     const sessionId = session.id;
+    if (makeupIssue) { showToast(makeupIssue, "error"); return; }
     const currentForm = { ...form };
 
     // Build updates object for session fields
@@ -511,13 +521,15 @@ export function EditSessionModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin) || (isSummerDeadlineExceeded && !isAdmin)}>
+          <Button variant="primary" onClick={handleSave} disabled={isReadOnly || isSaving || !!makeupIssue || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin) || (isSummerDeadlineExceeded && !isAdmin)}>
             Save changes
           </Button>
         </div>
       }
     >
       <div className="space-y-6">
+        {isMakeupSession && <MakeupEligibilityNotice eligibility={eligibility} targetDate={form.session_date} />}
+        {eligibility && entitlement.error && <Button size="sm" onClick={() => entitlement.retry()}>Retry makeup check</Button>}
         {/* Session Info Header */}
         <div className="flex items-center gap-2 flex-wrap bg-tint rounded-lg p-3">
           <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -1014,7 +1026,7 @@ export function EditSessionModal({
       </div>
 
       {/* Extension Request Modal */}
-      {deadlineError && session.tutor_id && (
+      {!eligibility && deadlineError && session.tutor_id && (
         <ExtensionRequestModal
           session={session}
           enrollmentId={deadlineError.enrollment_id}

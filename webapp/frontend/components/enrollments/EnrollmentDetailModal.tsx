@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
+import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import useSWR from "swr";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
@@ -26,6 +27,9 @@ interface EnrollmentDetailModalProps {
   onClose: () => void;
   enrollmentId: number | null;
   onCreateRenewal?: (enrollmentId: number) => void;
+  /** Keep new-scheme renewal and payment work in an owning workspace. */
+  onCreateBillingRenewal?: (enrollmentId: number) => void;
+  onOpenBillingPayment?: (paymentId: string) => void;
   /** When true, shows a narrower condensed view for side-by-side layout */
   compact?: boolean;
   /** When true (default), renders its own backdrop. Set to false when used in side-by-side container */
@@ -45,6 +49,8 @@ export function EnrollmentDetailModal({
   onClose,
   enrollmentId,
   onCreateRenewal,
+  onCreateBillingRenewal,
+  onOpenBillingPayment,
   compact = false,
   standalone = true,
   hideCloseButton = false,
@@ -98,7 +104,7 @@ export function EnrollmentDetailModal({
 
   // Calculate makeups needing extension
   const makeupsNeedingExtension = detail?.pending_makeups.filter(
-    m => !m.has_extension_request || m.extension_request_status === "Rejected"
+    m => !m.makeup_eligibility && (!m.has_extension_request || m.extension_request_status === "Rejected")
   ) || [];
 
   const handleCreateRenewal = () => {
@@ -108,7 +114,7 @@ export function EnrollmentDetailModal({
   };
 
   const handleMarkSent = async () => {
-    if (!enrollmentId) return;
+    if (!enrollmentId || detail?.billing_payment_id) return;
     haptic.trigger("medium");
     setMarkingSent(true);
     try {
@@ -121,7 +127,7 @@ export function EnrollmentDetailModal({
   };
 
   const handleUnmarkSent = async () => {
-    if (!enrollmentId) return;
+    if (!enrollmentId || detail?.billing_payment_id) return;
     haptic.trigger("medium");
     setMarkingSent(true);
     try {
@@ -134,7 +140,7 @@ export function EnrollmentDetailModal({
   };
 
   const handleMarkPaid = async () => {
-    if (!enrollmentId) return;
+    if (!enrollmentId || detail?.billing_payment_id) return;
     setMarkingPaid(true);
     try {
       await enrollmentsAPI.update(enrollmentId, { payment_status: "Paid" });
@@ -145,7 +151,7 @@ export function EnrollmentDetailModal({
   };
 
   const handleCopyFee = async () => {
-    if (!enrollmentId || !detail) return;
+    if (!enrollmentId || !detail || detail.billing_payment_id) return;
     haptic.trigger("light");
     try {
       // Published Summer enrollments price via the summer config, so the
@@ -164,7 +170,7 @@ export function EnrollmentDetailModal({
   };
 
   const handleCancelEnrollment = async () => {
-    if (!enrollmentId) return;
+    if (!enrollmentId || detail?.billing_payment_id) return;
 
     setIsCancelling(true);
     try {
@@ -557,7 +563,8 @@ export function EnrollmentDetailModal({
           {/* Right side actions - buttons expand on hover (desktop), wrap on mobile */}
           <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Renewal workflow actions */}
-            {showRenewalActions && (
+            {detail.billing_payment_id && (onOpenBillingPayment ? <Button size="sm" onClick={() => onOpenBillingPayment(detail.billing_payment_id!)}>Open payment</Button> : <BillingWorkflowLink studentId={detail.student_id} paymentId={detail.billing_payment_id} method={detail.billing_payment_method} onClick={onClose} />)}
+            {showRenewalActions && !detail.billing_payment_id && (
               <>
                 {/* Copy Fee - subtle icon button. Hidden for waived
                     enrollments, which have no fee to ask for. */}
@@ -638,7 +645,9 @@ export function EnrollmentDetailModal({
             )}
 
             {/* Create Renewal button */}
-            {onCreateRenewal && (
+            {onCreateBillingRenewal && <Button variant="primary" size="sm" icon={RefreshCcw} onClick={() => onCreateBillingRenewal(detail.id)}>Renew</Button>}
+            {!onCreateBillingRenewal && onCreateRenewal && detail.billing_managed && <BillingWorkflowLink studentId={detail.student_id} onClick={onClose} />}
+            {!onCreateBillingRenewal && onCreateRenewal && !detail.billing_managed && (
               <Button
                 variant="primary"
                 size="sm"
