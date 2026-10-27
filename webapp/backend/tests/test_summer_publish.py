@@ -7,6 +7,8 @@ unpublish (allowed and attended-block), batch publish, and downstream
 special-casing (effective_end_date, renewal exclusion, overdue inclusion,
 schedule-change block, cancel block, fee-message block).
 """
+import asyncio
+
 import pytest
 from datetime import date, datetime, timedelta
 from fastapi import HTTPException
@@ -22,6 +24,15 @@ from models import (
     Enrollment,
     SessionLog,
 )
+
+
+def _run_async(coroutine):
+    """Run a handler without relying on or changing the thread's default loop."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coroutine)
+    finally:
+        loop.close()
 
 
 # ---------------------------------------------------------------------------
@@ -580,7 +591,6 @@ class TestUnpublish:
     ):
         """Setting (and clearing) the override on the enrollment writes through to
         the linked application, keeping the two stores in sync."""
-        import asyncio
         from routers.summer_course import publish_application
         from routers.enrollments import set_discount_override, clear_discount_override
         from schemas import DiscountOverrideRequest
@@ -592,7 +602,7 @@ class TestUnpublish:
             Enrollment.summer_application_id == app_full.id
         ).first()
 
-        asyncio.get_event_loop().run_until_complete(
+        _run_async(
             set_discount_override(
                 enrollment_id=enrollment.id,
                 payload=DiscountOverrideRequest(code="EB3P", reason="on file"),
@@ -604,7 +614,7 @@ class TestUnpublish:
         assert app_full.discount_override_code == "EB3P"
         assert app_full.discount_override_reason == "on file"
 
-        asyncio.get_event_loop().run_until_complete(
+        _run_async(
             clear_discount_override(
                 enrollment_id=enrollment.id, admin=admin, db=db_session,
             )
@@ -721,9 +731,8 @@ class TestDownstreamSummerHandling:
         # Easier: call the cancel endpoint using the same auth dep override pattern
         # via TestClient when needed. Here we just verify the early raise by
         # invoking the function with asyncio.
-        import asyncio
         with pytest.raises(HTTPException) as exc:
-            asyncio.get_event_loop().run_until_complete(
+            _run_async(
                 preview_schedule_change(
                     enrollment_id=enrollment.id,
                     new_schedule=req,
@@ -738,9 +747,8 @@ class TestDownstreamSummerHandling:
         from routers.enrollments import cancel_enrollment
         enrollment = self._publish_one(db_session, admin, app_full, slot)
 
-        import asyncio
         with pytest.raises(HTTPException) as exc:
-            asyncio.get_event_loop().run_until_complete(
+            _run_async(
                 cancel_enrollment(
                     enrollment_id=enrollment.id,
                     db=db_session,
@@ -754,9 +762,8 @@ class TestDownstreamSummerHandling:
         from routers.enrollments import get_fee_message
         enrollment = self._publish_one(db_session, admin, app_full, slot)
 
-        import asyncio
         with pytest.raises(HTTPException) as exc:
-            asyncio.get_event_loop().run_until_complete(
+            _run_async(
                 get_fee_message(
                     enrollment_id=enrollment.id,
                     lang="zh",
@@ -830,15 +837,13 @@ class TestSummerRescheduleLinkage:
         """Drive the full reschedule → schedule-makeup flow and return the makeup row."""
         from routers.sessions import mark_session_rescheduled, schedule_makeup
         from schemas import ScheduleMakeupRequest
-        import asyncio
 
         # Super Admin bypasses the 60-day rule, keeping the test free of that concern.
         admin.role = "Super Admin"
         slot_tutor.default_location = "MSA"
         db_session.commit()
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(
+        _run_async(
             mark_session_rescheduled(session_id=session.id, current_user=admin, db=db_session)
         )
 
@@ -848,7 +853,7 @@ class TestSummerRescheduleLinkage:
             location="MSA",
             tutor_id=slot_tutor.id,
         )
-        loop.run_until_complete(
+        _run_async(
             schedule_makeup(
                 session_id=session.id, request=req,
                 current_user=admin, db=db_session,
@@ -886,7 +891,6 @@ class TestSummerRescheduleLinkage:
         self, db_session, admin, app_full, slot, slot_tutor
     ):
         from routers.sessions import cancel_makeup
-        import asyncio
 
         self._publish(db_session, admin, app_full, slot)
         session = self._active_summer_session(db_session, lesson_number=5)
@@ -898,7 +902,7 @@ class TestSummerRescheduleLinkage:
             db_session, admin, session, makeup_date, slot_tutor,
         )
 
-        asyncio.get_event_loop().run_until_complete(
+        _run_async(
             cancel_makeup(
                 makeup_session_id=makeup.id,
                 current_user=admin, db=db_session,
@@ -959,14 +963,12 @@ class TestArrangementReadsSessionLog:
     def _reschedule_active(self, db_session, admin, session, makeup_date, tutor, time_slot, location):
         from routers.sessions import mark_session_rescheduled, schedule_makeup
         from schemas import ScheduleMakeupRequest
-        import asyncio
 
         admin.role = "Super Admin"
         tutor.default_location = location
         db_session.commit()
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(
+        _run_async(
             mark_session_rescheduled(session_id=session.id, current_user=admin, db=db_session)
         )
         req = ScheduleMakeupRequest(
@@ -975,7 +977,7 @@ class TestArrangementReadsSessionLog:
             location=location,
             tutor_id=tutor.id,
         )
-        loop.run_until_complete(
+        _run_async(
             schedule_makeup(
                 session_id=session.id, request=req,
                 current_user=admin, db=db_session,
@@ -1223,7 +1225,6 @@ class TestArrangementReadsSessionLog:
         endpoint the same way Rescheduled - Pending Make-up does."""
         from routers.sessions import mark_session_sick_leave
         from routers.summer_course import get_student_lessons
-        import asyncio
 
         self._publish(db_session, admin, app_full, slot)
         session = db_session.query(SessionLog).filter(
@@ -1231,7 +1232,7 @@ class TestArrangementReadsSessionLog:
             SessionLog.summer_session_id.isnot(None),
         ).first()
 
-        asyncio.get_event_loop().run_until_complete(
+        _run_async(
             mark_session_sick_leave(session_id=session.id, current_user=admin, db=db_session)
         )
 

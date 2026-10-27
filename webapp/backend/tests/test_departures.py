@@ -283,6 +283,16 @@ class TestTheRegistryStaysHonest:
     # left, because a leaver cannot log in to act, and the message tables must
     # keep working for everybody on file.
     AUTHORSHIP_COLUMNS = {
+        # Billing and participation history records who acted, not who teaches.
+        ("billing_bank_run_operations", "actor_id"),
+        ("billing_bank_runs", "created_by"),
+        ("billing_coupon_operations", "actor_id"),
+        ("billing_coupon_verifications", "checked_by"),
+        ("billing_draft_revisions", "created_by"),
+        ("billing_drafts", "created_by"),
+        ("billing_operations", "actor_id"),
+        ("billing_payments", "created_by"),
+        ("makeup_participation_events", "actor_id"),
         ("debug_audit_logs", "admin_id"),
         ("document_folders", "created_by"),
         ("document_versions", "created_by"),
