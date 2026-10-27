@@ -5,7 +5,7 @@ import { CreateEnrollmentModal } from './CreateEnrollmentModal';
 
 const mocks = vi.hoisted(() => ({ student: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), renewal: vi.fn() }));
 const tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }];
-const options = { first_payment_from: '2026-10-30' };
+const options = { first_payment_from: '2026-10-30', workflow_writes_available: true };
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: () => ({ selectedLocation: 'MSA' }) }));
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: vi.fn(), showError: vi.fn() }) }));
 vi.mock('@/lib/hooks', () => ({ useActiveTutors: () => ({ data: tutors }), useCacheInvalidation: () => ({ invalidateAfterEnrollmentCreate: vi.fn() }) }));
@@ -21,11 +21,23 @@ vi.mock('@/components/billing/BillingEnrollmentIntake', () => ({ BillingEnrollme
 const student = { id: 4, student_name: 'Student Four', home_location: 'MSA', is_staff_referral: false } as Student;
 const trial = { enrollment_id: 70, session_id: 71, student_id: 4, student_name: 'Student Four', tutor_id: 9, tutor_name: 'Tutor Nine', session_date: '2026-10-23', time_slot: '16:45 - 18:15', location: 'MSA', session_status: 'Attended', trial_status: 'pending' } as TrialListItem;
 beforeEach(() => {
+  options.workflow_writes_available = true;
   vi.clearAllMocks(); mocks.student.mockReset().mockResolvedValue(student); mocks.renewal.mockReturnValue(undefined);
   mocks.preview.mockResolvedValue({ sessions: [], conflicts: [], warnings: [], potential_renewals: [] });
 });
 
 describe('existing enrollment form under the new fee scheme', () => {
+  it('keeps post-cutover trial conversion on the original six-session route while only collecting preferences', async () => {
+    options.workflow_writes_available = false;
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    expect(screen.getByLabelText('Number of lessons')).toHaveValue(6);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview sessions' }));
+    await screen.findByText('Session Preview');
+    expect(mocks.preview).toHaveBeenCalledWith(expect.objectContaining({ student_id: 4, first_lesson_date: '2026-10-30', lessons_paid: 6, renewed_from_enrollment_id: 70 }));
+    expect(mocks.intake).not.toHaveBeenCalled();
+  });
+
   it('keeps the familiar conversion form and forwards the actual selected date and tutor into reviewed intake', async () => {
     render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
     await screen.findByText('Student Four');

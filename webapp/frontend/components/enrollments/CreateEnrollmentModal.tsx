@@ -138,6 +138,7 @@ export function CreateEnrollmentModal({
   useEffect(() => { onBusyChange?.(working); return () => onBusyChange?.(false); }, [working, onBusyChange]);
   const billingOptions = useSWR(isOpen && !trialMode ? 'billing-preview-options' : null, billingAPI.options);
   const newPolicyRegular = enrollmentType === 'Regular' && !!firstLessonDate && !!billingOptions.data
+    && !!billingOptions.data.workflow_writes_available
     && firstLessonDate >= billingOptions.data.first_payment_from;
 
   // Fetch tutors (only active teaching staff)
