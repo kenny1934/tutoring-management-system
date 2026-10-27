@@ -6,10 +6,10 @@ import { BillingRenewalQueue } from './BillingRenewalQueue';
 import type { BillingQueueResponse, BillingQueueRow } from '@/types/billing';
 import type { PaymentBatchAction, PaymentBatchTarget } from '@/lib/billing-payment-batch';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), options: vi.fn(), receiptCount: vi.fn(), batch: vi.fn(), unmount: vi.fn(), invalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), queueCounts: vi.fn(), options: vi.fn(), receiptCount: vi.fn(), batch: vi.fn(), unmount: vi.fn(), invalidate: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: mocks.location }));
-vi.mock('@/lib/billing-api', () => ({ billingAPI: { queue: mocks.queue, options: mocks.options, receiptCount: mocks.receiptCount } }));
+vi.mock('@/lib/billing-api', () => ({ billingAPI: { queue: mocks.queue, queueCounts: mocks.queueCounts, options: mocks.options, receiptCount: mocks.receiptCount } }));
 vi.mock('@/lib/renewal-queue', () => ({ invalidateRenewalQueueCache: mocks.invalidate }));
 vi.mock('@/lib/hooks', async original => ({ ...await original<typeof import('@/lib/hooks')>(), usePageTitle: vi.fn(), useVisibilityAwareInterval: () => 0, useUnlistedWaitingCount: () => ({ data: { count: 0 } }) }));
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
@@ -60,6 +60,7 @@ beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, isAdmin: true, canViewAdminPages: true, effectiveRole: 'Admin', isLoading: false, isReadOnly: false });
   mocks.location.mockReturnValue({ selectedLocation: 'MSA' });
   mocks.queue.mockResolvedValue(response([row()]));
+  mocks.queueCounts.mockImplementation(async ({ collection_month }: { collection_month?: string } = {}) => ({ as_of: '2026-11-14', collection_month: collection_month || '2026-11', ...response([row()]).counts }));
   mocks.options.mockResolvedValue({ workflow_available: true, workflow_writes_available: true });
   mocks.receiptCount.mockResolvedValue({ storage_available: false, writes_available: false, count: 0 });
   mocks.invalidate.mockResolvedValue(undefined);

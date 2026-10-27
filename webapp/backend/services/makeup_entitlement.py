@@ -40,8 +40,8 @@ def storage_enabled():
 
 
 def _today():
-    from constants import hk_now
-    return hk_now().date()
+    from billing.clock import today
+    return today()
 
 
 def invalidate_makeup_entitlements(db):

@@ -13,6 +13,7 @@ import { StudentInfoBadges } from '@/components/ui/student-info-badges';
 import { Modal } from '@/components/ui/modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
+import { billingToday } from '@/lib/billing-clock';
 import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import { useDebouncedValue, usePageTitle, useVisibilityAwareInterval } from '@/lib/hooks';
@@ -61,8 +62,7 @@ const EMPTY: Record<BillingAutopayStage, string> = {
 
 function validMonth(value: string) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(value); }
 function localMonth() {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit' }).formatToParts(new Date());
-  return `${parts.find(part => part.type === 'year')!.value}-${parts.find(part => part.type === 'month')!.value}`;
+  return billingToday().slice(0, 7);
 }
 function monthLabel(value: string) { return new Date(`${value}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }); }
 function dates(from?: string | null, through?: string | null) {
@@ -94,7 +94,7 @@ function AutopayRow({ row, onOpen, onOpenRun }: { row: BillingAutopayRow; onOpen
     </div>
     <div className="min-w-0 text-xs"><span className="text-ink-subtle lg:hidden">Lessons: </span><span>{dates(row.coverage_from, row.coverage_through)}</span>{row.lesson_count != null && <p className="mt-1 text-ink-subtle">{plural(row.lesson_count, 'session')}</p>}</div>
     <div className="text-right text-sm font-semibold tabular-nums">{amountLabel(row)}{row.payment_status === 'Paid' ? <p className="mt-0.5 text-[11px] font-normal text-green-700 dark:text-green-400">Paid</p> : estimated && <p className="mt-0.5 text-[11px] font-normal text-ink-subtle">{row.origin === 'projection' ? 'Est. tuition' : 'Draft amount'}</p>}</div>
-    <div className="min-w-0 space-y-1 text-xs">{row.bank_run ? <><Badge tone={row.bank_run.follow_up === 'review' || row.bank_run.follow_up === 'rejected' ? 'warning' : row.bank_run.follow_up === 'recorded' ? 'success' : 'neutral'}>{BANK_FOLLOW_UP[row.bank_run.follow_up]}</Badge>{bankReason && bankReason !== BANK_FOLLOW_UP[row.bank_run.follow_up] && <p>{bankReason}</p>}{onOpenRun && <div><Button size="sm" variant="quiet" onClick={event => onOpenRun(event.currentTarget)} aria-label={`Open bank run for ${student.student_name}`}>Open run<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button></div>}</> : <p>{row.reasons[0]?.label || (row.stage === 'ready' ? 'Message sent' : 'Review details')}</p>}{row.reasons.length > 1 && <p className="text-ink-subtle">+{row.reasons.length - 1} {row.reasons.length === 2 ? 'check' : 'checks'}</p>}</div>
+    <div className="min-w-0 space-y-1 text-xs">{row.bank_run ? <><Badge tone={row.bank_run.follow_up === 'review' || row.bank_run.follow_up === 'rejected' ? 'warning' : row.bank_run.follow_up === 'recorded' ? 'success' : 'neutral'}>{BANK_FOLLOW_UP[row.bank_run.follow_up]}</Badge>{bankReason && bankReason !== BANK_FOLLOW_UP[row.bank_run.follow_up] && <p>{bankReason}</p>}{onOpenRun && <div><Button size="sm" variant="quiet" onClick={event => onOpenRun(event.currentTarget)} aria-label={`Bank file & results for ${student.student_name}`}>Bank file &amp; results<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button></div>}</> : <p>{row.reasons[0]?.label || (row.stage === 'ready' ? 'Message sent' : 'Review details')}</p>}{row.reasons.length > 1 && <p className="text-ink-subtle">+{row.reasons.length - 1} {row.reasons.length === 2 ? 'check' : 'checks'}</p>}</div>
     <div className="flex justify-end"><Button size="sm" variant="quiet" onClick={event => onOpen(event.currentTarget)} aria-label={`Details for ${student.student_name}`}>Details<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button></div>
   </article>;
 }

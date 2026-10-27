@@ -8,6 +8,7 @@ from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
 from services.unlisted_lessons import fill_unlisted_lessons
+from billing.clock import today as billing_today
 from constants import hk_now, CONFLICTING_SESSION_STATUSES, CANCELLED_OR_MAKEUP_BOOKED_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
@@ -270,7 +271,7 @@ def compute_summer_total_fee(enrollment, db: Session, today: Optional[date] = No
         return None
     group_apps, siblings = load_group_context(db, app)
     result = compute_best_discount(
-        app, group_apps, siblings, app.config, today=today or hk_now().date()
+        app, group_apps, siblings, app.config, today=today or billing_today(hk_now().date())
     )
     return effective_final_fee(enrollment, app, app.config, result)
 
@@ -801,7 +802,7 @@ async def create_enrollment(
     )
     db.add(enrollment)
     db.flush()  # Get enrollment ID
-    coupon_legacy.reserve(db, enrollment, admin, as_of=hk_now().date())
+    coupon_legacy.reserve(db, enrollment, admin, as_of=billing_today(hk_now().date()))
 
     # Snapshot per-session revenue for the revenue views (excludes reg fee).
     enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
@@ -939,7 +940,7 @@ def get_enrollments_needing_renewal(
 
     Only returns Regular enrollments that are not cancelled.
     """
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     two_weeks_ahead = today + timedelta(days=14)
 
     # Query active Regular enrollments
@@ -1152,7 +1153,7 @@ def get_renewal_counts(
     - expired: Already expired but not renewed
     - total: Sum of both
     """
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     two_weeks_ahead = today + timedelta(days=14)
 
     # Query active Regular enrollments
@@ -1312,7 +1313,7 @@ def get_enrollments(
     billing_metadata(db, enrollments)
 
     # Load holidays once for bulk calculation
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
     summer_end_dates = bulk_load_summer_end_dates(db, enrollments)
     summer_unavailability = bulk_load_summer_unavailability_notes(db, enrollments)
@@ -1353,7 +1354,7 @@ def get_active_enrollment_objects(db: Session, location: Optional[str] = None):
         per-enrollment effective_end_date for response shaping can reuse the
         bulk-loaded data instead of re-querying.
     """
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
 
     # Pre-filter at SQL level: exclude enrollments that are definitely expired
     # Most enrollments have lessons_paid <= 52 weeks + 8 week extension max
@@ -1476,7 +1477,7 @@ def get_overdue_enrollments(
     already past. Rows with an admin override stay visible (payment is still
     pending), but their tier stays locked at the override value.
     """
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     week_from_now = today + timedelta(days=7)
 
     # Surface a row if EITHER its tier deadline OR its first_lesson_date is
@@ -1647,7 +1648,7 @@ def get_my_students(
 
     effective_end_date = first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
     """
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
 
     # Pre-filter at SQL level: exclude enrollments that are definitely expired
     max_possible_weeks = 60  # Conservative upper bound
@@ -1752,7 +1753,7 @@ def get_trials(
     - converted: student has subsequent enrollment after trial
     - pending: attended but no subsequent enrollment yet
     """
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
 
     # Query trial enrollments with their sessions
     query = (
@@ -1954,7 +1955,7 @@ def get_enrollment_detail_for_modal(
 
     # Calculate effective end date
     effective_end = calculate_effective_end_date(enrollment, db)
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     days_until_expiry = (effective_end - today).days if effective_end else 0
 
     # Optimized: Use aggregation query for session counts instead of fetching all
@@ -2087,11 +2088,11 @@ def get_fee_message(
         # Calculate first lesson date for renewal (next occurrence of assigned_day after effective_end)
         day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
         assigned_day_num = day_map.get(enrollment.assigned_day[:3], 0)  # Handle "Monday" or "Mon"
-        current_day_num = effective_end.weekday() if effective_end else hk_now().date().weekday()
+        current_day_num = effective_end.weekday() if effective_end else billing_today(hk_now().date()).weekday()
         days_until_target = (assigned_day_num - current_day_num) % 7
         if days_until_target == 0:
             days_until_target = 7  # Move to next week if same day
-        first_lesson_date = (effective_end if effective_end else hk_now().date()) + timedelta(days=days_until_target)
+        first_lesson_date = (effective_end if effective_end else billing_today(hk_now().date())) + timedelta(days=days_until_target)
 
     # One-Time enrollments are off-cadence: their lessons are individual ad-hoc
     # sessions (often on different days/times), so list the real scheduled
@@ -2428,7 +2429,7 @@ async def update_enrollment(
         if "payment_date" in update_data:
             candidate_date = update_data["payment_date"]
         elif updating_to_paid:
-            candidate_date = hk_now().date()
+            candidate_date = billing_today(hk_now().date())
         else:
             candidate_date = prev_payment_date
         if candidate_date is not None and candidate_date != prev_payment_date:
@@ -2452,7 +2453,7 @@ async def update_enrollment(
         db.flush()
         db.expire(enrollment, ["discount"])
         if enrollment.payment_status != "Paid":
-            coupon_legacy.reserve(db, enrollment, admin, as_of=hk_now().date())
+            coupon_legacy.reserve(db, enrollment, admin, as_of=billing_today(hk_now().date()))
     if new_payment_status == "Cancelled":
         coupon_legacy.cancel(db, enrollment)
 
@@ -2461,13 +2462,13 @@ async def update_enrollment(
     # date to keep an early-bird tier), which the setattr loop already applied.
     if updating_to_paid:
         if "payment_date" not in update_data:
-            enrollment.payment_date = hk_now().date()
+            enrollment.payment_date = billing_today(hk_now().date())
 
         # Decrement student's available coupons if enrollment used a coupon discount ($200 or $300)
         if (enrollment.discount and
             enrollment.discount.discount_value and
             int(enrollment.discount.discount_value) in (200, 300)):
-            if not coupon_legacy.paid(db, enrollment, admin, as_of=hk_now().date()):
+            if not coupon_legacy.paid(db, enrollment, admin, as_of=billing_today(hk_now().date())):
                 student_coupon = db.query(StudentCoupon).filter(
                     StudentCoupon.student_id == enrollment.student_id
                 ).first()
@@ -2504,7 +2505,7 @@ async def update_enrollment(
                 if enrollment.payment_date
                 else None
             )
-            resnap_enrollment_tier(db, app, today=hk_now().date())
+            resnap_enrollment_tier(db, app, today=billing_today(hk_now().date()))
 
     # Re-snapshot per-session revenue after any price-input change (lessons,
     # discount, new-student flag, or the Summer tier resnap above). When the
@@ -2860,7 +2861,7 @@ async def preview_schedule_change(
     unchangeable_sessions = []
     updatable_sessions = []
     warnings = []
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
 
     # Load holidays for next year
     end_range = today + timedelta(weeks=52)
@@ -3023,7 +3024,7 @@ async def apply_schedule_change(
     sessions_updated = 0
 
     if changes.apply_to_sessions:
-        today = hk_now().date()
+        today = billing_today(hk_now().date())
 
         # Load holidays for next year
         end_range = today + timedelta(weeks=52)
@@ -3205,7 +3206,7 @@ async def batch_mark_paid(
         return BatchOperationResponse(updated=[], count=0)
 
     now = hk_now()
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
 
     # Load linked Summer applications (with config) to guard + resnap their tier.
     from utils.summer_discounts import early_bird_loss_on_paid_date, resnap_enrollment_tier
@@ -3362,7 +3363,7 @@ async def batch_renew_check(
     ]
 
     # Load holidays once for bulk calculation
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
 
     for eid in request.enrollment_ids:
@@ -3604,7 +3605,7 @@ async def batch_renew(
         discount_by_value.setdefault(discount.discount_value, discount.id)
 
     # Load holidays once for bulk calculation
-    today = hk_now().date()
+    today = billing_today(hk_now().date())
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
 
     for eid in request.enrollment_ids:
@@ -3705,7 +3706,7 @@ async def batch_renew(
             coupon = coupon_by_student.get(enrollment.student_id)
             if discount_id is None:
                 if coupon_accounting.storage_enabled():
-                    value = coupon_legacy.automatic_value(db, enrollment.student_id, as_of=hk_now().date())
+                    value = coupon_legacy.automatic_value(db, enrollment.student_id, as_of=billing_today(hk_now().date()))
                     discount_id = discount_by_value.get(value)
                 elif coupon and (coupon.available_coupons or 0) > 0:
                     discount_id = discount_by_value.get(coupon.coupon_value)
@@ -3728,7 +3729,7 @@ async def batch_renew(
         )
         db.add(new_enrollment)
         db.flush()  # Get enrollment ID
-        coupon_legacy.reserve(db, new_enrollment, admin, as_of=hk_now().date())
+        coupon_legacy.reserve(db, new_enrollment, admin, as_of=billing_today(hk_now().date()))
 
         # Snapshot per-session revenue for the revenue views (excludes reg fee).
         new_enrollment.revenue_total = compute_enrollment_revenue_total(new_enrollment, db)

@@ -341,7 +341,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   }
   const Surface = embedded ? 'div' : PageSurface;
   return <Surface><div className={embedded ? 'space-y-4' : 'mx-auto max-w-7xl space-y-5 p-4 sm:p-6'}>
-    {!embedded && <PageHeader title="Enrollment fee preview" icon={Calculator} titleExtra={<Badge>Preview</Badge>} backHref="/billing" backLabel="Back to payment journeys" />}
+    {!embedded && <PageHeader title="Enrollment fee preview" icon={Calculator} titleExtra={<Badge>Preview</Badge>} backHref="/billing" backLabel="Back to payment plans" />}
     {!editorOpen && policyError}
     {journey}
     <BillingEditorDialog open={editorOpen} onClose={() => setEditorOpen(false)} trigger={editorTrigger}

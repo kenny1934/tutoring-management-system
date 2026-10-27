@@ -52,14 +52,35 @@ describe('autopay collection review', () => {
     mocks.location.mockReturnValue({ selectedLocation: 'MSB', locations: ['All Locations', 'MSA', 'MSB', 'Various'], setSelectedLocation: mocks.setLocation });
     mocks.autopay.mockResolvedValue(response([row({ stage: 'attention', bank_run: { id: 'earlier-run', branch: 'MSA', collection_month: '2026-11', follow_up: 'awaiting_results', reason: 'Awaiting bank results' } })], { collection_month: '2026-12', ready_total: 0 }));
     show('2026-12'); const card = await screen.findByRole('article', { name: 'Synthetic Student autopay' }); expect(within(card).getByText('Awaiting bank results')).toBeInTheDocument(); expect(within(card).getByRole('button', { name: 'Details for Synthetic Student' })).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole('button', { name: 'Open bank run for Synthetic Student' })); const dialog = await screen.findByRole('dialog', { name: 'Bank file' });
+    expect(within(card).getByRole('button', { name: 'Bank file & results for Synthetic Student' })).toHaveTextContent('Bank file & results');
+    expect(within(card).queryByText('Open run')).not.toBeInTheDocument();
+    fireEvent.click(within(card).getByRole('button', { name: 'Bank file & results for Synthetic Student' })); const dialog = await screen.findByRole('dialog', { name: 'Bank file & results' });
     await within(dialog).findByText('Synthetic selected run.'); expect(within(dialog).getByLabelText('Profile branch')).toHaveValue('MSA'); expect(within(dialog).getByText('November 2026')).toBeInTheDocument();
     expect(mocks.bankRuns).toHaveBeenCalledWith({ collection_month: '2026-11', branch: 'MSA' }, expect.any(AbortSignal)); expect(mocks.bankRun).toHaveBeenCalledWith('earlier-run', expect.any(AbortSignal)); expect(mocks.autopay.mock.calls[0][0].location).toBe('MSB');
   });
 
+  it.each([
+    ['prepared', 'File saved'],
+    ['awaiting_results', 'Awaiting bank results'],
+    ['rejected', 'Not collected'],
+    ['review', 'Needs checking'],
+    ['record_payment', 'To record'],
+    ['recorded', 'Recorded'],
+  ] as const)('keeps the bank-file-and-results action and current progress visible for %s', async (followUp, label) => {
+    mocks.autopay.mockResolvedValue(response([row({ stage: 'attention', bank_run: {
+      id: 'run-one', branch: 'MSA', collection_month: '2026-11', follow_up: followUp, reason: label,
+    } })]));
+    show();
+    const card = await screen.findByRole('article', { name: 'Synthetic Student autopay' });
+    expect(within(card).getByText(label)).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Bank file & results for Synthetic Student' })).toHaveTextContent('Bank file & results');
+    expect(within(card).getByRole('button', { name: 'Details for Synthetic Student' })).toBeInTheDocument();
+    expect(within(card).queryByText('Open run')).not.toBeInTheDocument();
+  });
+
   it('shows follow-up metadata without exposing bank history actions to read-only staff', async () => {
     mocks.auth.mockReturnValue({ user: { id: 9 }, canViewAdminPages: true, isAdmin: false, isReadOnly: true, isLoading: false, effectiveRole: 'Supervisor' }); mocks.autopay.mockResolvedValue(response([row({ stage: 'attention', bank_run: { id: 'run-one', branch: 'MSA', collection_month: '2026-11', follow_up: 'review', reason: 'Check possible duplicate collection' } })]));
-    show(); const card = await screen.findByRole('article', { name: 'Synthetic Student autopay' }); expect(within(card).getByText('Check possible duplicate collection')).toBeInTheDocument(); expect(within(card).queryByRole('button', { name: /Open bank run/ })).not.toBeInTheDocument(); expect(within(card).getByRole('button', { name: 'Details for Synthetic Student' })).toBeInTheDocument();
+    show(); const card = await screen.findByRole('article', { name: 'Synthetic Student autopay' }); expect(within(card).getByText('Check possible duplicate collection')).toBeInTheDocument(); expect(within(card).queryByRole('button', { name: /Bank file & results/ })).not.toBeInTheDocument(); expect(within(card).getByRole('button', { name: 'Details for Synthetic Student' })).toBeInTheDocument();
   });
 
   it('keeps the original attention reason visible when a prepared file also exists', async () => {

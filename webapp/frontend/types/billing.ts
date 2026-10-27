@@ -30,6 +30,8 @@ export interface BillingPreviewRequest {
 }
 
 export interface BillingOptions {
+  as_of?: string;
+  test_date?: string | null;
   coupon_storage_available?: boolean;
   coupon_writes_available?: boolean;
   queue_available?: boolean;
@@ -294,6 +296,10 @@ export interface BillingRosterPeriod {
   collection: BillingPeriod['collection'];
 }
 export interface BillingRosterRow {
+  recorded_payment_method?: BillingMethod | null;
+  mandate_ready?: boolean | null;
+  preference_version?: number;
+  preference_updated_at?: string | null;
   student: BillingStudent;
   upcoming_original_count: number;
   pending_bill_count: number;
@@ -312,12 +318,23 @@ export interface BillingRosterRow {
   method_issues?: Partial<Record<BillingMethod, BillingPreviewResponse['issues']>>;
 }
 export interface BillingRosterResponse {
+  preferences_available?: boolean;
+  preference_counts?: BillingPreferenceCounts | null;
   as_of: string;
   basis: BillingContextBasis;
   total: number;
   offset: number;
   limit: number;
   rows: BillingRosterRow[];
+}
+
+export type BillingPreferenceFilter = 'all' | 'not_recorded' | 'manual' | 'autopay' | 'setup_pending';
+export interface BillingPreferenceCounts {
+  total: number;
+  not_recorded: number;
+  manual: number;
+  autopay: number;
+  setup_pending: number;
 }
 
 export type BillingQueueStage = 'prepare' | 'send' | 'awaiting_payment' | 'attention' | 'no_payment';

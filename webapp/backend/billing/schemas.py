@@ -316,6 +316,10 @@ class BillingRosterPeriod(BaseModel):
 
 
 class BillingRosterRow(BaseModel):
+    recorded_payment_method: PaymentMethod | None = None
+    mandate_ready: bool | None = None
+    preference_version: int = 0
+    preference_updated_at: datetime | None = None
     student: BillingStudent
     upcoming_original_count: int
     pending_bill_count: int
@@ -334,7 +338,17 @@ class BillingRosterRow(BaseModel):
     method_issues: dict[PaymentMethod, list[PreviewIssue]] = Field(default_factory=dict)
 
 
+class BillingPreferenceCounts(BaseModel):
+    total: int = 0
+    not_recorded: int = 0
+    manual: int = 0
+    autopay: int = 0
+    setup_pending: int = 0
+
+
 class BillingRosterResponse(BaseModel):
+    preferences_available: bool = False
+    preference_counts: BillingPreferenceCounts | None = None
     as_of: date
     basis: ContextBasis
     total: int

@@ -1,3 +1,4 @@
+import { billingToday } from './billing-clock';
 import { billingAPI } from './billing-api';
 import type { BillingPaymentDetail, BillingQueueRow, BillingStudent } from '@/types/billing';
 
@@ -30,8 +31,7 @@ export function paymentBatchTarget(row: BillingQueueRow): PaymentBatchTarget {
 }
 
 export function localPaymentDate() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return billingToday();
 }
 
 export function paymentBatchDateValid(value: string) {

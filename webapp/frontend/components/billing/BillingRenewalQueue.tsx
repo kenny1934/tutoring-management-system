@@ -20,7 +20,7 @@ import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import { useDebouncedValue, usePageTitle, useUnlistedWaitingCount, useVisibilityAwareInterval } from '@/lib/hooks';
 import { invalidateRenewalQueueCache } from '@/lib/renewal-queue';
 import { cn } from '@/lib/utils';
-import type { BillingQueueRow, BillingQueueStage, BillingQueueUrgency } from '@/types/billing';
+import type { BillingQueueCounts, BillingQueueRow, BillingQueueStage, BillingQueueUrgency } from '@/types/billing';
 import { BillingChecks } from './BillingChecks';
 import { billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
@@ -212,6 +212,13 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   useEffect(() => { setFeePanel(previous => previous?.scope === feeScope ? previous : null); }, [feeScope]);
   const limit = 25;
   const refreshInterval = useVisibilityAwareInterval(60000);
+  const countsScope = JSON.stringify([billingDraftAuthScope(auth), location, tutorId, month]);
+  const counts = useSWR<BillingQueueCounts>(
+    enabled ? ['renewal-queue-counts', countsScope] : null,
+    () => billingAPI.queueCounts({ collection_month: month || undefined, location, tutor_id: tutorId }),
+    { keepPreviousData: false, refreshInterval },
+  );
+  const stageCounts = !counts.error && counts.data && (!month || counts.data.collection_month === month) ? counts.data : undefined;
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     enabled && stage !== 'receipts' ? ['billing-renewal-queue', scope, offset] : null,
     () => billingAPI.queue({ collection_month: month || undefined, stage: stage === 'all' || stage === 'receipts' ? undefined : stage, search: debouncedSearch || undefined, location, tutor_id: tutorId, offset, limit }),
@@ -224,9 +231,10 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   const tabId = useId();
   const tabBar = useRef<HTMLDivElement>(null);
   const serverMonth = useRef('');
-  if (data?.collection_month) serverMonth.current = data.collection_month;
+  if (stageCounts?.collection_month) serverMonth.current = stageCounts.collection_month;
+  else if (data?.collection_month) serverMonth.current = data.collection_month;
   const title = VIEWS.find(item => item.value === stage)!.label;
-  const countsReady = stage === 'receipts' ? !!receiptCount.data : current !== undefined;
+  const countsReady = stage === 'receipts' ? !!receiptCount.data : stageCounts !== undefined;
   useEffect(() => {
     const bar = tabBar.current;
     const selected = bar?.querySelector<HTMLElement>('[aria-selected="true"]');
@@ -234,7 +242,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     const parent = bar.getBoundingClientRect(); const tab = selected.getBoundingClientRect();
     if (tab.right > parent.right) bar.scrollLeft += tab.right - parent.right + 12;
     else if (tab.left < parent.left) bar.scrollLeft -= parent.left - tab.left + 12;
-  }, [stage, countsReady, receiptCount.data?.count]);
+  }, [stage, countsReady, stageCounts, receiptCount.data?.count]);
 
   function selectStage(next: BillingQueueView) { setStage(next); }
   function selectable(row: BillingQueueRow) {
@@ -286,7 +294,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
         </Link>
         <Link href="/billing" className={buttonClasses({ size: 'sm', variant: 'secondary' })}>
           <CalendarRange className="h-3.5 w-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
-          Payment journeys
+          Payment plans
         </Link>
         <BillingCouponImportButton storageAvailable={!!options?.coupon_storage_available} writesAvailable={!!options?.coupon_writes_available} />
         <div className="flex items-center gap-2">
@@ -303,9 +311,10 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     </div>
     <div ref={tabBar} role="tablist" aria-label="Renewal stages" className="flex gap-4 overflow-x-auto border-b border-line">
       {VIEWS.map(item => <button key={item.value} type="button" role="tab" id={`${tabId}-${item.value}-tab`} aria-controls={`${tabId}-panel`} aria-selected={stage === item.value} tabIndex={stage === item.value ? 0 : -1} onKeyDown={keyDown} onClick={() => selectStage(item.value)} className={cn('flex shrink-0 items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', stage === item.value ? 'border-primary text-accent-ink' : 'border-transparent text-ink-subtle', item.value === 'no_payment' && 'ml-auto')}>
-        <item.icon className={cn('h-4 w-4', item.colour)} aria-hidden="true" />{item.label}{' '}{item.value === 'receipts' ? receiptCount.data?.storage_available && !receiptCount.error ? <Badge>{receiptCount.data.count}</Badge> : null : current && <Badge>{item.value === 'all' ? current.counts.total - current.counts.no_payment : current.counts[item.value]}</Badge>}
+        <item.icon className={cn('h-4 w-4', item.colour)} aria-hidden="true" />{item.label}{' '}{item.value === 'receipts' ? receiptCount.data?.storage_available && !receiptCount.error ? <Badge>{receiptCount.data.count}</Badge> : null : stageCounts && <Badge>{item.value === 'all' ? stageCounts.total - stageCounts.no_payment : stageCounts[item.value]}</Badge>}
       </button>)}
     </div>
+    {counts.error && <div role="status" className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle"><span>Tab counts unavailable.</span><Button size="sm" variant="quiet" onClick={() => { void counts.mutate(); }}>Retry counts</Button></div>}
     <section ref={listPanel} tabIndex={-1} role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${stage}-tab`} aria-busy={isValidating || searchPending} className="space-y-3 outline-none">
       {stage === 'receipts' && <BillingReceiptsQueue location={location} tutorId={tutorId} search={debouncedSearch} searchPending={searchPending} />}
       {stage !== 'receipts' && (isLoading || searchPending) && <p role="status" className="py-6 text-sm text-ink-subtle">Loading renewals…</p>}

@@ -1,15 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { SWRConfig } from 'swr';
+import { SWRConfig, useSWRConfig } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BillingRenewalQueue } from './BillingRenewalQueue';
-import type { BillingDraftDetail, BillingQueueResponse, BillingQueueRow } from '@/types/billing';
+import type { BillingDraftDetail, BillingQueueCounts, BillingQueueResponse, BillingQueueRow } from '@/types/billing';
 import { emptyBillingBatchItem, type BillingBatchItem } from '@/lib/billing-batch';
 import type { BillingCardMessageTarget } from './BillingCardFeeMessage';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), options: vi.fn(), workspace: vi.fn(), batch: vi.fn(), feePanel: vi.fn(), invalidate: vi.fn(), receiptCount: vi.fn(), receipts: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), queueCounts: vi.fn(), options: vi.fn(), workspace: vi.fn(), batch: vi.fn(), feePanel: vi.fn(), invalidate: vi.fn(), receiptCount: vi.fn(), receipts: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: mocks.location }));
-vi.mock('@/lib/billing-api', () => ({ billingAPI: { queue: mocks.queue, options: mocks.options, receiptCount: mocks.receiptCount, receipts: mocks.receipts } }));
+vi.mock('@/lib/billing-api', () => ({ billingAPI: { queue: mocks.queue, queueCounts: mocks.queueCounts, options: mocks.options, receiptCount: mocks.receiptCount, receipts: mocks.receipts } }));
 vi.mock('@/lib/renewal-queue', () => ({ invalidateRenewalQueueCache: mocks.invalidate }));
 vi.mock('@/lib/hooks', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/hooks')>(), usePageTitle: vi.fn(), useVisibilityAwareInterval: () => 0, useUnlistedWaitingCount: () => ({ data: { count: 3 } }) }));
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
@@ -34,15 +34,27 @@ function row(): BillingQueueRow {
 function response(rows: BillingQueueRow[] = [row()]): BillingQueueResponse {
   return { as_of: '2026-11-14', collection_month: '2026-11', counts: { prepare: 8, send: 4, awaiting_payment: 6, attention: 2, no_payment: 9, total: 29, actionable: 14, overdue: 1 }, total: rows.length, offset: 0, limit: 25, rows };
 }
+function counts(collectionMonth = '2026-11', values: Partial<BillingQueueCounts> = {}): BillingQueueCounts {
+  return { ...response().counts, as_of: '2026-11-14', collection_month: collectionMonth, ...values };
+}
 function Wrapper({ children }: { children: React.ReactNode }) { return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, revalidateOnFocus: false, shouldRetryOnError: false }}>{children}</SWRConfig>; }
 function show(props: Partial<Parameters<typeof BillingRenewalQueue>[0]> = {}) {
-  return render(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} {...props} />, { wrapper: Wrapper });
+  let refreshCounts: () => Promise<unknown> = async () => {};
+  function CaptureCountsRefresh() {
+    const { mutate } = useSWRConfig();
+    refreshCounts = () => mutate(key => Array.isArray(key) && key[0] === 'renewal-queue-counts');
+    return null;
+  }
+  function TestWrapper({ children }: { children: React.ReactNode }) { return <Wrapper><CaptureCountsRefresh />{children}</Wrapper>; }
+  return { ...render(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} {...props} />, { wrapper: TestWrapper }), refreshCounts: () => refreshCounts() };
 }
 beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, canViewAdminPages: true, isAdmin: true, effectiveRole: 'Admin', isLoading: false });
   mocks.location.mockReturnValue({ selectedLocation: 'MSA' });
   mocks.receiptCount.mockReset().mockResolvedValue({ storage_available: false, writes_available: false, count: 0 });
+  mocks.receipts.mockReset().mockResolvedValue({ as_of: '2026-11-14', storage_available: true, writes_available: true, total: 0, rows: [], offset: 0, limit: 25 });
   mocks.queue.mockReset().mockResolvedValue(response());
+  mocks.queueCounts.mockReset().mockImplementation(({ collection_month }: { collection_month?: string }) => Promise.resolve(counts(collection_month)));
   mocks.options.mockReset().mockResolvedValue({ draft_storage_available: true, workflow_available: false });
   mocks.workspace.mockReset();
   mocks.batch.mockReset();
@@ -55,6 +67,132 @@ describe('enrollment renewal queue', () => {
     mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 }); mocks.receipts.mockResolvedValue({ as_of: '2026-10-21', storage_available: true, writes_available: true, total: 0, rows: [], offset: 0, limit: 25 });
     show({ initialCollectionMonth: '2027-02' }); const receiptTab = await screen.findByRole('tab', { name: 'KMS receipts 9' }); const tabs = screen.getAllByRole('tab'); expect(tabs.indexOf(receiptTab)).toBe(tabs.findIndex(tab => tab.textContent?.includes('Awaiting payment')) + 1); fireEvent.click(receiptTab); await screen.findByText('All outstanding · 0 receipts · MSA'); expect(screen.queryByLabelText('Collection month')).not.toBeInTheDocument(); expect(mocks.receipts).toHaveBeenCalledWith({ location: 'MSA', tutor_id: undefined, search: undefined, offset: 0, limit: 25 }); expect(mocks.queue.mock.calls.every(([query]) => query.stage !== 'receipts')).toBe(true); fireEvent.click(screen.getByRole('tab', { name: /To prepare/ })); expect(await screen.findByLabelText('Collection month')).toHaveValue('2027-02');
   });
+  it('loads every renewal count on a direct KMS receipts entry without loading renewal rows', async () => {
+    mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 });
+    show({ initialStage: 'receipts', initialCollectionMonth: '2027-02' });
+    await screen.findByText('All outstanding · 0 receipts · MSA');
+    expect(await screen.findByRole('tab', { name: 'All tasks 20' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'To prepare 8' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'To send 4' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Awaiting payment 6' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Needs attention 2' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'No payment this run 9' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'KMS receipts 9' })).toHaveAttribute('aria-selected', 'true');
+    expect(mocks.queue).not.toHaveBeenCalled();
+    expect(mocks.queueCounts).toHaveBeenCalledWith({ collection_month: '2027-02', location: 'MSA', tutor_id: undefined });
+    expect(mocks.receiptCount).toHaveBeenCalledWith({ location: 'MSA', tutor_id: undefined });
+    expect(mocks.receipts.mock.lastCall![0]).not.toHaveProperty('collection_month');
+  });
+
+  it('keeps the same scoped count query through stage, page and search changes', async () => {
+    mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 });
+    mocks.queue.mockImplementation(({ offset }: { offset: number }) => Promise.resolve({ ...response(), total: 26, offset }));
+    show({ initialCollectionMonth: '2026-11' });
+    await screen.findByRole('article');
+    await screen.findByRole('tab', { name: 'To send 4' });
+    expect(mocks.queueCounts).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(mocks.queue.mock.lastCall![0].offset).toBe(25));
+    fireEvent.click(screen.getByRole('tab', { name: 'To send 4' }));
+    await waitFor(() => expect(mocks.queue.mock.lastCall![0].stage).toBe('send'));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Find a student' }), { target: { value: '004' } });
+    expect(screen.getByRole('tab', { name: 'To prepare 8' })).toBeInTheDocument();
+    await waitFor(() => expect(mocks.queue.mock.lastCall![0].search).toBe('004'));
+    fireEvent.click(screen.getByRole('tab', { name: 'KMS receipts 9' }));
+    await screen.findByText('All outstanding · 0 receipts · MSA');
+    expect(screen.getByRole('tab', { name: 'To send 4' })).toBeInTheDocument();
+    expect(mocks.queueCounts).toHaveBeenCalledOnce();
+    expect(mocks.queueCounts.mock.calls[0][0]).not.toHaveProperty('stage');
+    expect(mocks.queueCounts.mock.calls[0][0]).not.toHaveProperty('search');
+    expect(mocks.queueCounts.mock.calls[0][0]).not.toHaveProperty('offset');
+  });
+
+  it('refreshes renewal badges while staying on KMS receipts and keeps its own count separate', async () => {
+    mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 });
+    const view = show({ initialStage: 'receipts', initialCollectionMonth: '2026-11' });
+    await screen.findByRole('tab', { name: 'To send 4' });
+    // The app invalidates the same count family through its global cache.
+    // Bind that invalidation to this test's private provider.
+    mocks.invalidate.mockImplementation(() => view.refreshCounts());
+    mocks.queueCounts.mockResolvedValueOnce(counts('2026-11', { prepare: 6, send: 3, awaiting_payment: 7, total: 27 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh renewals' }));
+    expect(mocks.invalidate).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('tab', { name: 'To send 3' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'To prepare 6' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Awaiting payment 7' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'All tasks 18' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'KMS receipts 9' })).toHaveAttribute('aria-selected', 'true');
+    expect(mocks.queue).not.toHaveBeenCalled();
+    expect(mocks.queueCounts).toHaveBeenCalledTimes(2);
+  });
+
+  it('withholds the previous month badges immediately and rejects a late response from an old branch', async () => {
+    const view = show({ initialCollectionMonth: '2026-11' });
+    await screen.findByRole('tab', { name: 'To send 4' });
+    let finishOldBranch!: (value: BillingQueueCounts) => void;
+    mocks.queueCounts.mockImplementationOnce(() => new Promise(resolve => { finishOldBranch = resolve; }));
+    fireEvent.change(screen.getByLabelText('Collection month'), { target: { value: '2026-12' } });
+    expect(screen.getByRole('tab', { name: 'To send' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 4' })).not.toBeInTheDocument();
+    await waitFor(() => expect(mocks.queueCounts.mock.lastCall![0].collection_month).toBe('2026-12'));
+    mocks.queueCounts.mockResolvedValueOnce(counts('2026-12', { send: 11 }));
+    mocks.location.mockReturnValue({ selectedLocation: 'MSB' });
+    view.rerender(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} />);
+    expect(await screen.findByRole('tab', { name: 'To send 11' })).toBeInTheDocument();
+    await act(async () => finishOldBranch(counts('2026-12', { send: 91 })));
+    expect(screen.getByRole('tab', { name: 'To send 11' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 91' })).not.toBeInTheDocument();
+    expect(mocks.queueCounts.mock.lastCall![0]).toEqual({ collection_month: '2026-12', location: 'MSB', tutor_id: undefined });
+  });
+
+  it('does not show counts returned for a different explicit collection month', async () => {
+    mocks.queueCounts.mockResolvedValue(counts('2026-11', { send: 91 }));
+    show({ initialStage: 'receipts', initialCollectionMonth: '2027-02' });
+    await waitFor(() => expect(mocks.queueCounts).toHaveBeenCalledOnce());
+    await screen.findByText('All outstanding · 0 receipts · MSA');
+    expect(screen.getByRole('tab', { name: 'To send' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 91' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 0' })).not.toBeInTheDocument();
+  });
+
+  it('withholds retained count data after a failed refresh and offers its own retry on KMS receipts', async () => {
+    mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 });
+    const view = show({ initialStage: 'receipts', initialCollectionMonth: '2026-11' });
+    await screen.findByRole('tab', { name: 'To send 4' });
+    mocks.queueCounts.mockRejectedValueOnce(new Error('Count request failed.'));
+    await act(async () => { await view.refreshCounts().catch(() => {}); });
+    expect(await screen.findByText('Tab counts unavailable.')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'To send' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 4' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 0' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'KMS receipts 9' })).toBeInTheDocument();
+    mocks.queueCounts.mockResolvedValueOnce(counts('2026-11', { send: 2 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry counts' }));
+    expect(await screen.findByRole('tab', { name: 'To send 2' })).toBeInTheDocument();
+    expect(screen.queryByText('Tab counts unavailable.')).not.toBeInTheDocument();
+    expect(mocks.queue).not.toHaveBeenCalled();
+  });
+
+  it('isolates count data across an impersonation and effective-role change before a previous request resolves', async () => {
+    let finishOldScope!: (value: BillingQueueCounts) => void;
+    mocks.queueCounts.mockImplementationOnce(() => new Promise(resolve => { finishOldScope = resolve; }));
+    const view = show({ initialStage: 'receipts', initialCollectionMonth: '2026-11' });
+    await waitFor(() => expect(finishOldScope).toBeTypeOf('function'));
+    mocks.auth.mockReturnValue({ user: { id: 2 }, canViewAdminPages: true, isAdmin: false, isReadOnly: true, effectiveRole: 'Supervisor', isLoading: false, isImpersonating: true, impersonatedTutor: { id: 9 } });
+    mocks.queueCounts.mockResolvedValueOnce(counts('2026-11', { send: 7 }));
+    view.rerender(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} />);
+    expect(await screen.findByRole('tab', { name: 'To send 7' })).toBeInTheDocument();
+    await act(async () => finishOldScope(counts('2026-11', { send: 91 })));
+    expect(screen.getByRole('tab', { name: 'To send 7' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'To send 91' })).not.toBeInTheDocument();
+    expect(mocks.queueCounts).toHaveBeenCalledTimes(2);
+    mocks.auth.mockReturnValue({ user: null, canViewAdminPages: false, isLoading: false });
+    view.rerender(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} />);
+    expect(screen.getByText('Admin access is required to review enrollment renewals.')).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(mocks.queueCounts).toHaveBeenCalledTimes(2);
+  });
+
   it('shows a first-enrollment draft as individual preparation without renewal or batch labels', async () => {
     mocks.queue.mockResolvedValue(response([{ ...row(), enrollment_ids: [], action_kind: 'renewal', action_by: '2026-12-04' }]));
     show();
@@ -257,6 +395,7 @@ describe('enrollment renewal queue', () => {
   it('shows attention work on the default view even when nothing needs preparing', async () => {
     const data = response([{ ...row(), stage: 'attention' }]); data.counts.prepare = 0; data.counts.total = 21;
     mocks.queue.mockResolvedValue(data);
+    mocks.queueCounts.mockResolvedValue(counts('2026-11', data.counts));
     show();
     const card = await screen.findByRole('article');
     expect(screen.getByRole('tab', { name: 'All tasks 12' })).toHaveAttribute('aria-selected', 'true');

@@ -257,7 +257,8 @@ def balances_for_students(db, student_ids, *, as_of=None):
     if not storage_enabled() or not ids:
         return {}
     facts = _facts(db, ids)
-    return {sid: _balance(sid, facts, as_of=as_of or datetime.now(HK).date()) for sid in ids}
+    from .clock import today
+    return {sid: _balance(sid, facts, as_of=as_of or today()) for sid in ids}
 
 
 def balance_for_student(db, student_id, *, as_of=None):
@@ -284,7 +285,8 @@ def review_verification(db, student_id, data, *, as_of, current=False):
     if data.expected_version != (account.version if account else 0):
         errors.append(issue('COUPON_VERSION_CHANGED', 'The coupon records changed. Refresh before reviewing.'))
     checked_at = utc(data.checked_at)
-    if checked_at > datetime.now(timezone.utc) or checked_at.astimezone(HK).date() > as_of:
+    from .clock import logical_now
+    if checked_at > logical_now() or checked_at.astimezone(HK).date() > as_of:
         errors.append(issue('CHECK_DATE', 'The KMS check time cannot be in the future.'))
     if observed and checked_at.astimezone(HK).date() < observed.observed_on:
         errors.append(issue('CHECK_DATE', 'Check KMS on or after the observation date.'))

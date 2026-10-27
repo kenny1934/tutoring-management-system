@@ -6,6 +6,7 @@ import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import { PaymentMethodBadge } from "@/components/payments/PaymentMethodBadge";
 import { BillingPaymentBatchModal } from "@/components/billing/BillingPaymentBatchModal";
 import { billingDraftAuthScope } from "@/components/billing/BillingDraftReview";
+import { billingToday } from '@/lib/billing-clock';
 import { billingAPI } from "@/lib/billing-api";
 import { overduePaymentFamily, overduePaymentTarget } from "@/lib/overdue-payment-selection";
 import type { PaymentBatchTarget } from "@/lib/billing-payment-batch";
@@ -134,7 +135,7 @@ export default function OverduePaymentsPage() {
   const [markingPaidId, setMarkingPaidId] = useState<number | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedEnrollment, setSelectedEnrollment] = useState<OverdueEnrollment | null>(null);
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(() => billingToday());
   const [showWecom, setShowWecom] = useState(false);
   // Enrollment detail popover (opened from the row "View" button).
   const [popoverEnrollment, setPopoverEnrollment] = useState<OverdueEnrollment | null>(null);
@@ -286,7 +287,7 @@ export default function OverduePaymentsPage() {
   const handleMarkPaid = useCallback((enrollment: OverdueEnrollment) => {
     if (enrollment.billing_payment_id) return;
     setSelectedEnrollment(enrollment);
-    setPaymentDate(new Date().toISOString().split('T')[0]);
+    setPaymentDate(billingToday());
     setShowPaymentModal(true);
   }, []);
 

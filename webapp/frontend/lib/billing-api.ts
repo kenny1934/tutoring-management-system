@@ -64,6 +64,7 @@ export const billingAPI = {
   students: (params: {
     offset?: number; limit?: number; search?: string;
     basis?: BillingContextBasis; tutor_id?: number; location?: string;
+    preference_filter?: import('@/types/billing').BillingPreferenceFilter;
   } = {}) => fetchAPI<BillingRosterResponse>(`/billing/students?${queryString(params)}`),
   studentContext: (id: number, params: {
     basis?: BillingContextBasis; tutor_id?: number; selected_enrollment_ids?: number[];

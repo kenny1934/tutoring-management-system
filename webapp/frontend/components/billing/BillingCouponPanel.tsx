@@ -7,6 +7,7 @@ import { Button, Field, Input, Select, Textarea } from '@/components/controls';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Modal } from '@/components/ui/modal';
 import { useAuth } from '@/contexts/AuthContext';
+import { billingLocalDateTime } from '@/lib/billing-clock';
 import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import type { BillingCouponBalance, BillingCouponGroup, BillingCouponReview, BillingCouponVerification } from '@/types/billing';
@@ -54,7 +55,7 @@ export function BillingCouponPanel({ studentId, branch, legacyCount, onSelect, o
   </section>;
 }
 
-function localDateTime() { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+function localDateTime() { return billingLocalDateTime(); }
 function VerifyDialog({ balance, trigger, onClose, onSaved, onStale }: { balance: BillingCouponBalance; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void; onSaved: () => void; onStale: () => void }) {
   const [groups, setGroups] = useState(() => balance.groups.map(group => ({ kind: group.kind, value: String(group.value), expires_on: group.expires_on, quantity: String(group.quantity) })));
   const [checkedAt, setCheckedAt] = useState(localDateTime);
@@ -85,7 +86,7 @@ function VerifyDialog({ balance, trigger, onClose, onSaved, onStale }: { balance
     running.current = true; setBusy(true); setFailure(null);
     const abort = new AbortController(); operation.current = abort;
     try {
-      const body: BillingCouponVerification = reviewed?.body ?? { expected_version: balance.version, observation_id: balance.observation!.id, checked_at: new Date(checkedAt).toISOString(), groups: groups.map(group => ({ ...group, value: Number(group.value), quantity: Number(group.quantity) })), reconciliations: paidUses.map(use => ({ use_id: use.id, included_in_observation: matches[use.id] === 'yes' })), reason: reason.trim() };
+      const body: BillingCouponVerification = reviewed?.body ?? { expected_version: balance.version, observation_id: balance.observation!.id, checked_at: new Date(`${checkedAt}+08:00`).toISOString(), groups: groups.map(group => ({ ...group, value: Number(group.value), quantity: Number(group.quantity) })), reconciliations: paidUses.map(use => ({ use_id: use.id, included_in_observation: matches[use.id] === 'yes' })), reason: reason.trim() };
       if (save) {
         if (retry.current?.hash !== reviewed!.value.review_hash) retry.current = { hash: reviewed!.value.review_hash, key: crypto.randomUUID() };
         const result = await billingAPI.verifyCoupons(balance.student_id, { ...body, expected_review_hash: reviewed!.value.review_hash, idempotency_key: retry.current.key }, abort.signal);

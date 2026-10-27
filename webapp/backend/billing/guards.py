@@ -301,9 +301,11 @@ def combine_overdue_payments(db: Session, responses, today):
         total = totals.get(payment_id)
         payment = payments.get(payment_id)
         if total is not None:
-            row.billing_payment_total_fee = total.total_fee
-            row.billing_payment_lesson_count = total.lesson_count
-            row.billing_payment_line_count = total.line_count
+            # MySQL SUM(integer) returns Decimal. These response fields are
+            # assigned after validation, so keep their JSON values numeric.
+            row.billing_payment_total_fee = int(total.total_fee)
+            row.billing_payment_lesson_count = int(total.lesson_count)
+            row.billing_payment_line_count = int(total.line_count)
         collection = payment.snapshot.get("review", {}).get("period", {}).get("collection", {}) if payment else {}
         method = collection.get("method")
         row.billing_payment_method = method if method in ("manual", "autopay") else None

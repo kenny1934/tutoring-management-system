@@ -10,13 +10,14 @@ import { StudentInfoBadges } from '@/components/ui/student-info-badges';
 import { Modal } from '@/components/ui/modal';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import { useAuth } from '@/contexts/AuthContext';
+import { billingToday } from '@/lib/billing-clock';
 import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import type { BillingPaymentDetail, BillingReceiptMethod, BillingReceiptTask } from '@/types/billing';
 import { BillingCopyFeedbackNotice, BillingDraftFocus, BillingDraftMessage, BillingDraftSummaryContent, billingDraftAuthScope, billingDraftTutorId, type BillingCopyFeedback } from './BillingDraftReview';
 
 function localToday() {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Hong_Kong', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return billingToday();
 }
 
 export function BillingPayments({ studentId, refreshKey, initialPaymentId, onChanged, canWrite = false, inline = false, onOpenEnrollment, onBusyChange, sourceBlocked = false, mode = 'payment', receiptTask, receiptFooter, onReceiptSaved, onNextReceipt, nextReceiptDisabled = true, receiptQueueComplete = false }: { receiptQueueComplete?: boolean; mode?: 'payment' | 'receipt'; receiptTask?: BillingReceiptTask; receiptFooter?: HTMLElement | null; onReceiptSaved?: (detail: BillingPaymentDetail) => void; onNextReceipt?: () => void; nextReceiptDisabled?: boolean; sourceBlocked?: boolean; onBusyChange?: (busy: boolean) => void; onOpenEnrollment?: (id: number) => void; inline?: boolean; canWrite?: boolean; studentId: number; refreshKey?: number; initialPaymentId?: string | null; onChanged: () => void }) {

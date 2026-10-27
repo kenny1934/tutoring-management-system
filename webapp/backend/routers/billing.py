@@ -1,7 +1,6 @@
 """Authenticated billing scenarios. These endpoints never create records."""
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from zoneinfo import ZoneInfo
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
@@ -9,11 +8,12 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user, get_effective_role, resolve_viewed_tutor_id
 from billing.calculator import BillingPolicy, preview_billing, previous_month
+from billing.clock import today, test_date
 from billing.evidence import load_contexts, source_student_ids
 from billing.schemas import (
     BillingPreviewRequest, BillingPreviewResponse, BillingRosterPeriod,
     BillingRosterResponse, BillingRosterRow, ContextBasis, StudentBillingContext,
-    BillingIntakeContext,
+    BillingIntakeContext, BillingPreferenceCounts,
 )
 from database import get_db
 from models import Enrollment, Holiday, Student, Tutor
@@ -37,10 +37,6 @@ def source_scope(request: Request, user: Tutor, tutor_id: int | None):
     return None
 
 
-def today():
-    return datetime.now(ZoneInfo('Asia/Hong_Kong')).date()
-
-
 def holiday_dates(db: Session) -> set:
     return {row[0] for row in db.query(Holiday.holiday_date).filter(
         Holiday.holiday_date >= POLICY.academic_start,
@@ -57,6 +53,8 @@ def get_billing_options(request: Request, user: Tutor = Depends(get_current_user
 
     preview_role(request, user)
     return {
+        'as_of': today(),
+        'test_date': test_date(),
         'academic_start': POLICY.academic_start,
         'first_payment_from': POLICY.transition_from,
         'regular_end': POLICY.regular_end,
@@ -94,7 +92,7 @@ def get_billing_preview(
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
-def roster_row(context, holidays):
+def roster_row(context, holidays, preference=None):
     projections = {}
     method_issues = {}
     issues = list(context.issues)
@@ -114,6 +112,10 @@ def roster_row(context, holidays):
     paid = [c.last_paid_original_date for c in selected]
     uncovered = [c.first_uncovered_date for c in selected if c.first_uncovered_date]
     return BillingRosterRow(
+        recorded_payment_method=context.recorded_payment_method,
+        mandate_ready=context.mandate_ready,
+        preference_version=preference.version if preference else 0,
+        preference_updated_at=preference.updated_at if preference else None,
         student=context.student, upcoming_original_count=context.upcoming_original_count,
         pending_bill_count=context.pending_bill_count, sent_pending_bill_count=context.sent_pending_bill_count,
         pending_makeup_count=context.pending_makeup_count, slot_candidate_count=len(context.slot_candidates),
@@ -143,6 +145,7 @@ def get_billing_students(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     search: str = Query('', max_length=100),
+    preference_filter: Literal['all', 'not_recorded', 'manual', 'autopay', 'setup_pending'] = 'all',
     tutor_id: int | None = None,
     location: str | None = Query(None, max_length=100),
     user: Tutor = Depends(get_current_user),
@@ -163,15 +166,48 @@ def get_billing_students(
     # Sort only authorised student identifiers before paging. Python keeps numeric
     # IDs in numeric order without database-specific casts of nonnumeric IDs.
     students = sorted(query.all(), key=student_number_order)
+    from billing.workflow import workflow_storage_enabled
+    preferences_available = workflow_storage_enabled()
+    preferences = {}
+    counts = None
+    if preferences_available:
+        from billing.models import BillingAccount, BillingPreference
+        preferences = {sid: preference for preference, sid in db.query(BillingPreference, BillingAccount.student_id).join(
+            BillingAccount, BillingAccount.id == BillingPreference.account_id,
+        ).filter(BillingAccount.student_id.in_([student.id for student in students]),
+                 BillingAccount.academic_start == POLICY.academic_start).all()} if students else {}
+        counts = BillingPreferenceCounts(total=len(students))
+        for student in students:
+            preference = preferences.get(student.id)
+            method = preference.payment_method if preference else None
+            if method in ('manual', 'autopay'):
+                setattr(counts, method, getattr(counts, method) + 1)
+                if method == 'autopay' and not preference.mandate_ready:
+                    counts.setup_pending += 1
+            else:
+                counts.not_recorded += 1
+        if preference_filter != 'all':
+            def matches(student):
+                preference = preferences.get(student.id)
+                method = preference.payment_method if preference else None
+                if preference_filter == 'not_recorded':
+                    return method is None
+                if preference_filter == 'setup_pending':
+                    return method == 'autopay' and not preference.mandate_ready
+                return method == preference_filter
+            students = [student for student in students if matches(student)]
+    elif preference_filter != 'all':
+        raise HTTPException(status_code=503, detail='Payment preferences are not available yet.')
     total = len(students)
     ids = [row.id for row in students[offset:offset + limit]]
     holidays = holiday_dates(db)
     try:
-        contexts = load_contexts(db, ids, holidays, as_of=as_of, basis=basis, policy=POLICY)
-        rows = [roster_row(contexts[id_], holidays) for id_ in ids]
+        contexts = load_contexts(db, ids, holidays, as_of=as_of, basis=basis, policy=POLICY, isolate_invalid=True)
+        rows = [roster_row(contexts[id_], holidays, preferences.get(id_)) for id_ in ids]
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    return BillingRosterResponse(as_of=as_of, basis=basis, total=total, offset=offset, limit=limit, rows=rows)
+    return BillingRosterResponse(as_of=as_of, basis=basis, total=total, offset=offset, limit=limit, rows=rows,
+                                 preferences_available=preferences_available, preference_counts=counts)
 
 
 @router.get('/billing/students/{student_id}/context', response_model=StudentBillingContext)

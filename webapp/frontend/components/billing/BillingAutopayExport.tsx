@@ -42,7 +42,7 @@ export function BillingBankFileDialog({ collectionMonth, defaultBranch, trigger,
   const changeBusy = useCallback((value: boolean) => { busyNow.current = value; setBusy(value); }, []);
   const id = useId();
   const month = new Date(`${collectionMonth}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  return <BankRunFooterContext.Provider value={footerContext}><Modal isOpen title="Bank file" size="lg" className="[&>div:has([data-bank-run-footer])]:shrink-0" persistent={busy} footer={footerActive ? <div ref={setFooterTarget} data-bank-run-footer /> : undefined} onClose={() => { if (!busyNow.current) onClose(); }}>
+  return <BankRunFooterContext.Provider value={footerContext}><Modal isOpen title="Bank file & results" size="lg" className="[&>div:has([data-bank-run-footer])]:shrink-0" persistent={busy} footer={footerActive ? <div ref={setFooterTarget} data-bank-run-footer /> : undefined} onClose={() => { if (!busyNow.current) onClose(); }}>
     <BillingDraftFocus trigger={trigger}><div className="space-y-4">
       <div className="flex flex-wrap items-end gap-4"><Field label="Profile branch" id={`${id}-branch`} className="w-44"><Select value={branch} disabled={busy} onChange={event => { if (!busyNow.current) { setInitialRun(undefined); setBranch(event.target.value as BillingBankBranch | ''); } }}><option value="">Choose branch</option><option value="MSA">MSA</option><option value="MSB">MSB</option></Select></Field><p className="pb-1 text-sm">{month}</p></div>
       <p className="text-xs text-ink-subtle">The file includes all Ready payments for this profile branch. Search and list filters do not apply.</p>

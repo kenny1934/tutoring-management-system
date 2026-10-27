@@ -26,7 +26,7 @@ function review(overrides: Partial<BillingBankResultReview> = {}): BillingBankRe
 }
 function file(headers: Record<string, string> = {}) { const value = preview(); return new Response(new Uint8Array([80, 75, 3, 4]), { headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${value.filename}"`, 'X-CSM-Export-Total': '1600.00', 'X-CSM-Export-Count': '1', 'X-CSM-Export-Hash': value.content_hash, ...headers } }); }
 function show() { return render(<BillingAutopayExport collectionMonth="2026-11" defaultBranch="MSA" />); }
-async function open() { fireEvent.click(screen.getByRole('button', { name: 'Bank file' })); return screen.findByRole('dialog', { name: 'Bank file' }); }
+async function open() { fireEvent.click(screen.getByRole('button', { name: 'Bank file' })); return screen.findByRole('dialog', { name: 'Bank file & results' }); }
 async function ready() { await waitFor(() => expect(screen.getByRole('button', { name: 'Save and download' })).toBeEnabled()); }
 async function openHistory(value = run()) {
   mocks.bankRuns.mockResolvedValue({ storage_available: true, writes_available: true, runs: [value] }); mocks.bankRun.mockResolvedValue(value);
@@ -121,7 +121,7 @@ describe('saved bank file lifecycle', () => {
     await waitFor(() => expect(close).toHaveFocus()); expect(fireEvent.keyDown(close, { key: 'Tab' })).toBe(false); expect(close).toHaveFocus();
     expect(fireEvent.keyDown(close, { key: 'Tab', shiftKey: true })).toBe(false); expect(close).toHaveFocus();
     fireEvent.keyDown(document, { key: 'Escape' }); await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Payment' })).not.toBeInTheDocument());
-    expect(trigger).toHaveFocus(); expect(screen.getByRole('dialog', { name: 'Bank file' })).toBeInTheDocument();
+    expect(trigger).toHaveFocus(); expect(screen.getByRole('dialog', { name: 'Bank file & results' })).toBeInTheDocument();
   });
 
   it('keeps the review action in the dialog footer and opens payment details from the result row', async () => {
@@ -129,10 +129,10 @@ describe('saved bank file lifecycle', () => {
     const result = screen.getByRole('region', { name: 'Bank result review' });
     expect(screen.queryByText('Payments in this file')).not.toBeInTheDocument(); expect(screen.getByText('File details').closest('details')).not.toHaveAttribute('open');
     expect(screen.queryByLabelText('Bank result file')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Import another file' })).toBeInTheDocument();
-    const footer = await screen.findByRole('region', { name: 'Record reviewed payments' }); expect(result.contains(footer)).toBe(false); expect(screen.getByRole('dialog', { name: 'Bank file' }).contains(footer)).toBe(true);
+    const footer = await screen.findByRole('region', { name: 'Record reviewed payments' }); expect(result.contains(footer)).toBe(false); expect(screen.getByRole('dialog', { name: 'Bank file & results' }).contains(footer)).toBe(true);
     // The dialog body must absorb the height reduction on a narrow phone.
     // Its fixed review footer must not shrink and clip the confirmation button.
-    expect(screen.getByRole('dialog', { name: 'Bank file' })).toHaveClass('[&>div:has([data-bank-run-footer])]:shrink-0'); expect(footer.closest('[data-bank-run-footer]')).not.toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Bank file & results' })).toHaveClass('[&>div:has([data-bank-run-footer])]:shrink-0'); expect(footer.closest('[data-bank-run-footer]')).not.toBeNull();
     expect(within(footer).getByText('1 payment to record')).toBeInTheDocument(); expect(within(footer).getByText('MOP 1,600.00')).toBeInTheDocument();
     const trigger = within(result).getByRole('button', { name: 'Payment details' }); trigger.focus(); fireEvent.click(trigger); const popup = await screen.findByRole('dialog', { name: 'Payment' });
     expect(within(popup).getByText('Exact payment details')).toBeInTheDocument(); fireEvent.keyDown(document, { key: 'Escape' }); await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Payment' })).not.toBeInTheDocument()); expect(trigger).toHaveFocus();

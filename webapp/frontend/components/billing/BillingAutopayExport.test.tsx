@@ -21,7 +21,7 @@ function file(review = preview()) {
   return new Response(new Uint8Array([80, 75, 3, 4]), { headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${review.filename}"`, 'X-CSM-Export-Total': review.total_amount!, 'X-CSM-Export-Count': String(review.payment_count), 'X-CSM-Export-Hash': review.content_hash } });
 }
 function show(defaultBranch = 'MSA', collectionMonth = '2026-11') { return render(<BillingAutopayExport defaultBranch={defaultBranch} collectionMonth={collectionMonth} />); }
-async function open() { fireEvent.click(screen.getByRole('button', { name: 'Bank file' })); return screen.findByRole('dialog', { name: 'Bank file' }); }
+async function open() { fireEvent.click(screen.getByRole('button', { name: 'Bank file' })); return screen.findByRole('dialog', { name: 'Bank file & results' }); }
 async function ready() { await waitFor(() => expect(screen.getByRole('button', { name: 'Download Excel' })).toBeEnabled()); }
 beforeEach(() => {
   vi.clearAllMocks();
@@ -36,6 +36,7 @@ beforeEach(() => {
 describe('reviewed bank file', () => {
   it('requires an explicit profile branch from All Locations and exports every Ready payment in that scope', async () => {
     show('All Locations'); const dialog = await open();
+    expect(within(dialog).getByRole('heading', { name: 'Bank file & results' })).toBeInTheDocument();
     expect(mocks.preview).not.toHaveBeenCalled(); expect(screen.queryByRole('button', { name: 'Copy total' })).not.toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('Profile branch'), { target: { value: 'MSB' } }); await ready();
     expect(mocks.preview).toHaveBeenCalledWith({ collection_month: '2026-11', branch: 'MSB' }, expect.any(AbortSignal));
@@ -129,7 +130,7 @@ describe('reviewed bank file', () => {
     const closeWhileIdle = mocks.modal.mock.lastCall![0].onClose;
     fireEvent.click(screen.getByRole('button', { name: 'Download Excel' }));
     const signal = mocks.export.mock.calls[0][1] as AbortSignal;
-    expect(signal.aborted).toBe(false); expect(screen.getByRole('dialog', { name: 'Bank file' })).toBeInTheDocument();
+    expect(signal.aborted).toBe(false); expect(screen.getByRole('dialog', { name: 'Bank file & results' })).toBeInTheDocument();
     await act(async () => finish(file()));
     await screen.findByRole('region', { name: 'Downloaded bank file' }); expect(mocks.download).toHaveBeenCalledOnce();
     fireEvent.keyDown(document, { key: 'Escape' }); await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -147,7 +148,7 @@ describe('reviewed bank file', () => {
     await waitFor(() => expect(mocks.modal.mock.lastCall![0].persistent).toBe(false));
     const closeWhileIdle = mocks.modal.mock.lastCall![0].onClose;
     fireEvent.click(screen.getByRole('button', { name: 'Copy total' }));
-    expect(screen.getByRole('dialog', { name: 'Bank file' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Bank file & results' })).toBeInTheDocument();
     await act(async () => finish()); await screen.findByText('Total copied.');
   });
 

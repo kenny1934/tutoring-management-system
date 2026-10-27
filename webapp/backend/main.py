@@ -18,6 +18,9 @@ from dotenv import load_dotenv
 # has no .env file and sets everything in the environment, so this is a no-op there.
 load_dotenv()
 
+from billing.clock import test_date
+test_date()  # Refuse an unsafe test-clock configuration before serving requests.
+
 from auth.gate import AuthGateMiddleware
 from services.departure_guard import DepartedTutorAssignment, install as install_departure_guard
 

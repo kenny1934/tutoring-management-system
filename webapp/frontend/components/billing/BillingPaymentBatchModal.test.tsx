@@ -39,6 +39,11 @@ async function ready() {
 function row(id: number) { return screen.getByRole('article', { name: `Payment for Synthetic Student ${id}` }); }
 function acknowledge(action: PaymentBatchAction = 'paid') { fireEvent.click(screen.getByRole('checkbox', { name: action === 'paid' ? 'The full amounts shown have been received.' : 'The selected fee messages have been sent.' })); }
 function confirm(action: PaymentBatchAction = 'paid') { fireEvent.click(screen.getByRole('button', { name: action === 'paid' ? 'Confirm payments' : 'Mark sent' })); }
+function sharedDate() { return screen.getByLabelText('Payment date', { selector: '#batch-payment-date' }); }
+function sharedMethod() { return screen.getByLabelText('Received by', { selector: '#batch-payment-method' }); }
+function sharedLanguage() { return screen.getByLabelText('Message language', { selector: '#batch-message-language' }); }
+function selectStudent(id: number) { fireEvent.click(within(row(id)).getByRole('checkbox', { name: `Select Synthetic Student ${id}` })); }
+function openIndividualPayment(id: number) { fireEvent.click(within(row(id)).getByText(/^(Cash|Bank transfer) ·/)); }
 
 beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
@@ -74,17 +79,22 @@ describe('combined-payment batch review', () => {
     expect(submit).toBeDisabled(); expect(mocks.recordManualPayment).not.toHaveBeenCalled();
   });
 
-  it('applies defaults only to selected payments and retains individual date/method adjustments', async () => {
+  it('changes selected payments immediately and reflects preserved unselected values when reselected', async () => {
     show(); await ready();
-    fireEvent.click(within(row(2)).getByText(/^Cash ·/));
+    expect(screen.queryByRole('button', { name: 'Apply to selected' })).not.toBeInTheDocument();
+    openIndividualPayment(2);
     fireEvent.change(within(row(2)).getByLabelText('Payment date'), { target: { value: '2026-10-19' } });
-    fireEvent.click(within(row(2)).getByRole('checkbox', { name: 'Select Synthetic Student 2' }));
-    fireEvent.change(screen.getByLabelText('Payment date', { selector: '#batch-payment-date' }), { target: { value: '2026-10-20' } });
-    fireEvent.change(screen.getByLabelText('Received by', { selector: '#batch-payment-method' }), { target: { value: 'bank_transfer' } });
-    acknowledge(); fireEvent.click(screen.getByRole('button', { name: 'Apply to selected' }));
+    selectStudent(2);
+    fireEvent.change(sharedDate(), { target: { value: '2026-10-20' } });
+    acknowledge();
+    fireEvent.change(sharedMethod(), { target: { value: 'bank_transfer' } });
     expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
     expect(within(row(2)).getByLabelText('Payment date')).toHaveValue('2026-10-19'); expect(within(row(2)).getByLabelText('Received by')).toHaveValue('cash');
-    fireEvent.click(within(row(2)).getByRole('checkbox', { name: 'Select Synthetic Student 2' }));
+    expect(within(row(10)).getByText(/^Bank transfer ·/)).toBeVisible();
+    selectStudent(2);
+    expect(sharedMethod()).toHaveDisplayValue('Mixed');
+    expect(sharedDate()).toHaveValue('');
+    expect(screen.getByText('Dates vary')).toBeVisible();
     acknowledge(); confirm();
     await waitFor(() => expect(screen.getByText('2 completed')).toBeVisible());
     expect(mocks.recordManualPayment).toHaveBeenNthCalledWith(1, 'payment-2', expect.objectContaining({ amount: 2900, method: 'cash', payment_date: '2026-10-19' }), expect.any(AbortSignal));
@@ -94,6 +104,103 @@ describe('combined-payment batch review', () => {
     expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: /^Close$/ }));
     expect(mocks.close).toHaveBeenCalledWith(['payment-2', 'payment-10']);
+  });
+
+  it('records the changed shared method without an extra apply step and preserves individual dates', async () => {
+    show(); await ready();
+    const originalDate = (sharedDate() as HTMLInputElement).value;
+    openIndividualPayment(2);
+    fireEvent.change(within(row(2)).getByLabelText('Payment date'), { target: { value: '2026-10-19' } });
+    acknowledge();
+    fireEvent.change(sharedMethod(), { target: { value: 'bank_transfer' } });
+    expect(sharedMethod()).toHaveDisplayValue('Bank transfer');
+    expect(within(row(2)).getByLabelText('Payment date')).toHaveValue('2026-10-19');
+    expect(within(row(2)).getByLabelText('Received by')).toHaveValue('bank_transfer');
+    expect(within(row(10)).getByText(/^Bank transfer ·/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
+    acknowledge(); confirm();
+    await waitFor(() => expect(screen.getByText('2 completed')).toBeVisible());
+    expect(mocks.recordManualPayment).toHaveBeenNthCalledWith(1, 'payment-2', expect.objectContaining({ method: 'bank_transfer', payment_date: '2026-10-19' }), expect.any(AbortSignal));
+    expect(mocks.recordManualPayment).toHaveBeenNthCalledWith(2, 'payment-10', expect.objectContaining({ method: 'bank_transfer', payment_date: originalDate }), expect.any(AbortSignal));
+  });
+
+  it('updates only the shared date while preserving mixed individual methods', async () => {
+    show(); await ready();
+    openIndividualPayment(2);
+    fireEvent.change(within(row(2)).getByLabelText('Received by'), { target: { value: 'bank_transfer' } });
+    expect(sharedMethod()).toHaveDisplayValue('Mixed');
+    acknowledge();
+    fireEvent.change(sharedDate(), { target: { value: '2026-10-20' } });
+    expect(sharedDate()).toHaveValue('2026-10-20');
+    expect(sharedMethod()).toHaveDisplayValue('Mixed');
+    expect(screen.queryByText('Dates vary')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
+    acknowledge(); confirm();
+    await waitFor(() => expect(screen.getByText('2 completed')).toBeVisible());
+    expect(mocks.recordManualPayment).toHaveBeenNthCalledWith(1, 'payment-2', expect.objectContaining({ method: 'bank_transfer', payment_date: '2026-10-20' }), expect.any(AbortSignal));
+    expect(mocks.recordManualPayment).toHaveBeenNthCalledWith(2, 'payment-10', expect.objectContaining({ method: 'cash', payment_date: '2026-10-20' }), expect.any(AbortSignal));
+  });
+
+  it('derives shared fields from selected students and disables editing when none are selected', async () => {
+    show(); await ready();
+    const originalDate = (sharedDate() as HTMLInputElement).value;
+    openIndividualPayment(2);
+    fireEvent.change(within(row(2)).getByLabelText('Received by'), { target: { value: 'bank_transfer' } });
+    fireEvent.change(within(row(2)).getByLabelText('Payment date'), { target: { value: '2026-10-19' } });
+    expect(sharedMethod()).toHaveDisplayValue('Mixed');
+    expect(screen.getByText('Dates vary')).toBeVisible();
+    selectStudent(2);
+    expect(sharedMethod()).toHaveDisplayValue('Cash');
+    expect(sharedDate()).toHaveValue(originalDate);
+    expect(screen.queryByText('Dates vary')).not.toBeInTheDocument();
+    selectStudent(10);
+    expect(sharedMethod()).toBeDisabled(); expect(sharedDate()).toBeDisabled();
+    expect(screen.queryByRole('checkbox', { name: 'The full amounts shown have been received.' })).not.toBeInTheDocument();
+    selectStudent(2);
+    expect(sharedMethod()).toHaveDisplayValue('Bank transfer');
+    expect(sharedDate()).toHaveValue('2026-10-19');
+    expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
+    expect(mocks.recordManualPayment).not.toHaveBeenCalled();
+  });
+
+  it('holds confirmation for an empty common date without describing matching dates as mixed', async () => {
+    show(); await ready(); acknowledge();
+    fireEvent.change(sharedDate(), { target: { value: '' } });
+    expect(sharedDate()).toHaveValue('');
+    expect(screen.queryByText('Dates vary')).not.toBeInTheDocument();
+    for (const id of [2, 10]) expect(within(row(id)).getByLabelText('Payment date')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
+    acknowledge();
+    expect(screen.getByRole('button', { name: 'Confirm payments' })).toBeDisabled();
+    expect(mocks.recordManualPayment).not.toHaveBeenCalled();
+  });
+
+  it('updates the selected message languages immediately and shows mixed individual choices', async () => {
+    show('sent'); await ready();
+    expect(screen.queryByRole('button', { name: 'Apply to selected' })).not.toBeInTheDocument();
+    acknowledge('sent');
+    fireEvent.change(sharedLanguage(), { target: { value: 'en' } });
+    expect(screen.getByRole('button', { name: 'Mark sent' })).toBeDisabled();
+    for (const id of [2, 10]) expect(within(row(id)).getByLabelText(`Message language for Synthetic Student ${id}`)).toHaveValue('en');
+    fireEvent.change(within(row(2)).getByLabelText('Message language for Synthetic Student 2'), { target: { value: 'zh' } });
+    expect(sharedLanguage()).toHaveDisplayValue('Mixed');
+    selectStudent(2);
+    expect(sharedLanguage()).toHaveDisplayValue('English');
+    fireEvent.change(sharedLanguage(), { target: { value: 'zh' } });
+    expect(within(row(2)).getByLabelText('Message language for Synthetic Student 2')).toHaveValue('zh');
+    selectStudent(2);
+    expect(sharedLanguage()).toHaveDisplayValue('Chinese');
+    selectStudent(2);
+    fireEvent.change(sharedLanguage(), { target: { value: 'en' } });
+    expect(within(row(2)).getByLabelText('Message language for Synthetic Student 2')).toHaveValue('zh');
+    expect(within(row(10)).getByLabelText('Message language for Synthetic Student 10')).toHaveValue('en');
+    selectStudent(2);
+    expect(sharedLanguage()).toHaveDisplayValue('Mixed');
+    acknowledge('sent'); confirm('sent');
+    await waitFor(() => expect(screen.getByText('2 completed')).toBeVisible());
+    expect(mocks.markPaymentSent).toHaveBeenNthCalledWith(1, 'payment-2', expect.objectContaining({ language: 'zh' }), expect.any(AbortSignal));
+    expect(mocks.markPaymentSent).toHaveBeenNthCalledWith(2, 'payment-10', expect.objectContaining({ language: 'en' }), expect.any(AbortSignal));
+    expect(mocks.clipboard).not.toHaveBeenCalled();
   });
 
   it('requires sent acknowledgement and sends each chosen language without copying messages', async () => {
@@ -120,9 +227,11 @@ describe('combined-payment batch review', () => {
     expect(within(row(2)).queryByRole('checkbox')).not.toBeInTheDocument();
     expect(within(row(3)).queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.getByText('2 to check')).toBeVisible();
+    fireEvent.change(sharedMethod(), { target: { value: 'bank_transfer' } });
     acknowledge(); confirm();
     await waitFor(() => expect(screen.getByText('1 completed')).toBeVisible());
     expect(mocks.recordManualPayment).toHaveBeenCalledOnce(); expect(mocks.recordManualPayment.mock.calls[0][0]).toBe('payment-10');
+    expect(mocks.recordManualPayment.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'bank_transfer' }));
   });
 
   it('stops a changed latest payment and retains separate successful results for the other student', async () => {
@@ -160,6 +269,37 @@ describe('combined-payment batch review', () => {
     expect(mocks.recordManualPayment.mock.calls[2][1]).toBe(request);
     expect(mocks.payment).toHaveBeenCalledTimes(4);
     expect(within(row(10)).queryByRole('button', { name: 'Retry action' })).not.toBeInTheDocument();
+  });
+
+  it('keeps an uncertain cash request frozen when another ready payment changes to bank transfer', async () => {
+    mocks.recordManualPayment.mockImplementation(async (id: string, body: { payment_date: string; method: 'cash' | 'bank_transfer' }) => {
+      if (id === 'payment-2' && mocks.recordManualPayment.mock.calls.filter(call => call[0] === id).length === 1) throw new TypeError('Response lost.');
+      return { ...payment(studentId(id)), version: 4, status: 'Paid', payment_date: body.payment_date, received_method: body.method };
+    });
+    show('paid', [target(2), target(3), target(10)]); await ready();
+    mocks.payment.mockImplementation(async (id: string) => { const value = payment(studentId(id)); if (id === 'payment-3') value.version = 3; return value; });
+    acknowledge(); confirm();
+    await waitFor(() => expect(screen.getByText('1 completed')).toBeVisible());
+    const originalRequest = mocks.recordManualPayment.mock.calls[0][1];
+    expect(originalRequest).toEqual(expect.objectContaining({ method: 'cash' }));
+    expect(within(row(2)).getByRole('button', { name: 'Retry action' })).toBeVisible();
+    fireEvent.click(within(row(3)).getByRole('button', { name: 'Recheck' }));
+    await waitFor(() => expect(within(row(3)).getByRole('checkbox', { name: 'Select Synthetic Student 3' })).toBeChecked());
+    fireEvent.change(sharedMethod(), { target: { value: 'bank_transfer' } });
+    fireEvent.change(sharedDate(), { target: { value: '2026-10-20' } });
+    expect(within(row(3)).getByText(/^Bank transfer ·/)).toBeVisible();
+    expect(within(row(2)).queryByLabelText('Received by')).not.toBeInTheDocument();
+    expect(within(row(10)).queryByLabelText('Received by')).not.toBeInTheDocument();
+    fireEvent.click(within(row(2)).getByRole('button', { name: 'Retry action' }));
+    await waitFor(() => expect(screen.getByText('2 completed')).toBeVisible());
+    expect(mocks.recordManualPayment.mock.calls[2][0]).toBe('payment-2');
+    expect(mocks.recordManualPayment.mock.calls[2][1]).toBe(originalRequest);
+    expect(sharedMethod()).toHaveDisplayValue('Bank transfer');
+    expect(sharedDate()).toHaveValue('2026-10-20');
+    acknowledge(); confirm();
+    await waitFor(() => expect(screen.getByText('3 completed')).toBeVisible());
+    expect(mocks.recordManualPayment.mock.calls.map(call => call[0])).toEqual(['payment-2', 'payment-10', 'payment-2', 'payment-3']);
+    expect(mocks.recordManualPayment.mock.calls[3][1]).toEqual(expect.objectContaining({ method: 'bank_transfer', payment_date: '2026-10-20' }));
   });
 
   it('shows a missing language as a review issue and never marks that message sent', async () => {

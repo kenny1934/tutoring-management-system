@@ -138,8 +138,8 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   }
 
   const sourceControls = context && <section className="space-y-4" aria-label="Existing enrollment settings">
-    <Field label="Start sessions after" id="journey-basis" className="max-w-sm"><Select value={basis} onChange={event => { setBasis(event.target.value as BillingContextBasis); setSelection(null); }}>
-      <option value="paid_only">Paid enrollments</option><option value="include_pending">Paid + unpaid enrollments</option>
+    <Field label="Count existing enrollments" id="journey-basis" className="max-w-sm"><Select title="The next enrollment starts after the enrollments counted here." value={basis} onChange={event => { setBasis(event.target.value as BillingContextBasis); setSelection(null); }}>
+      <option value="include_pending">Paid and unpaid</option><option value="paid_only">Paid only</option>
     </Select></Field>
     <fieldset className="space-y-2"><legend className="mb-2 text-sm font-semibold">Continuing timetable</legend>
       <p className="text-xs text-ink-subtle">Choose up to two weekly sessions for this preview. This does not change the student’s enrollments.</p>
@@ -159,7 +159,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
 
   if (intakeRevision) return <IntakeDraftJourney studentId={studentId} draftId={intakeRevision} onBack={() => setIntakeRevision(null)} />;
   return <PageSurface><div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
-    <PageHeader title="Payment journey" icon={CalendarRange} titleExtra={!workflowAvailable ? <Badge>Preview</Badge> : undefined} backHref="/billing" backLabel="Back to payment journeys" actions={
+    <PageHeader title="Payment journey" icon={CalendarRange} titleExtra={!workflowAvailable ? <Badge>Preview</Badge> : undefined} backHref="/billing" backLabel="Back to payment plans" actions={
       <Button size="sm" aria-label="Refresh records" disabled={isValidating} onClick={() => { void mutate(); if (storageAvailable) void refreshDrafts(); }}><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden sm:inline">Refresh records</span></Button>
     } />
     {(isLoading || isValidating) && <p role="status" className="py-6 text-sm text-ink-subtle">Loading student records…</p>}
@@ -222,7 +222,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
 export function StudentBillingJourney({ studentId }: { studentId: number }) {
   usePageTitle('Student payment journey');
   const params = useSearchParams();
-  const initialBasis = params.get('basis') === 'include_pending' ? 'include_pending' : 'paid_only';
+  const initialBasis = params.get('basis') === 'paid_only' ? 'paid_only' : 'include_pending';
   const { user, isLoading, isGuest, effectiveRole, isImpersonating, impersonatedTutor } = useAuth();
   const tutorId = effectiveRole === 'Tutor' ? (isImpersonating && impersonatedTutor?.id ? impersonatedTutor.id : user?.id) : undefined;
   if (isLoading) return <p className="p-6">Loading staff access…</p>;

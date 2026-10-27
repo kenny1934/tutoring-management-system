@@ -170,7 +170,7 @@ describe('billing source review', () => {
   it('binds payment review to the displayed student source without showing unavailable storage', async () => {
     show(<StudentBillingJourney studentId={12} />);
     await screen.findByText('Synthetic Student');
-    expect(mocks.previewProps.mock.lastCall?.[0].draftContext).toEqual({ studentId: 12, basis: 'paid_only', selectedEnrollmentIds: [101], sourceFingerprint: 'source-v1' });
+    expect(mocks.previewProps.mock.lastCall?.[0].draftContext).toEqual({ studentId: 12, basis: 'include_pending', selectedEnrollmentIds: [101], sourceFingerprint: 'source-v1' });
     expect(screen.queryByRole('tab', { name: /^Saved drafts\b/ })).not.toBeInTheDocument();
   });
 
@@ -212,9 +212,9 @@ describe('billing source review', () => {
     expect(screen.getByText('8 sessions')).toBeInTheDocument();
     expect(screen.getByText('1 unpaid')).toBeInTheDocument();
     expect(screen.getByText('1 message sent')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Synthetic Student: open payment journey' })).toHaveAttribute('href', '/billing/students/12');
-    expect(screen.getByText(/Tuition excludes discounts and materials/)).toBeInTheDocument();
-    expect(mocks.students).toHaveBeenCalledWith(expect.objectContaining({ basis: 'paid_only', location: 'MSA' }));
+    expect(screen.getByRole('link', { name: 'Synthetic Student: open payment journey' })).toHaveAttribute('href', '/billing/students/12?basis=include_pending');
+    expect(screen.getByText('Tuition before discounts and materials')).toBeInTheDocument();
+    expect(mocks.students).toHaveBeenCalledWith(expect.objectContaining({ basis: 'include_pending', location: 'MSA' }));
   });
 
   it('shows all teaching-year students without an upcoming-session filter', async () => {
@@ -227,18 +227,21 @@ describe('billing source review', () => {
   it('keeps the selected unpaid-enrollment option when opening a student journey', async () => {
     const view = show(<BillingRoster />);
     await screen.findByText('Synthetic Student');
-    fireEvent.change(screen.getByLabelText('Start sessions after'), { target: { value: 'include_pending' } });
+    fireEvent.change(screen.getByLabelText('Count existing enrollments'), { target: { value: 'include_pending' } });
     await waitFor(() => expect(mocks.students).toHaveBeenLastCalledWith(expect.objectContaining({ basis: 'include_pending' })));
     await screen.findByText('Synthetic Student');
     for (const link of screen.getAllByRole('link', { name: /open payment journey|Open journey/ })) {
       expect(link).toHaveAttribute('href', '/billing/students/12?basis=include_pending');
     }
+    fireEvent.change(screen.getByLabelText('Count existing enrollments'), { target: { value: 'paid_only' } });
+    await waitFor(() => expect(mocks.students).toHaveBeenLastCalledWith(expect.objectContaining({ basis: 'paid_only' })));
+    expect(await screen.findByRole('link', { name: 'Synthetic Student: open payment journey' })).toHaveAttribute('href', '/billing/students/12?basis=paid_only');
     view.unmount();
     mocks.params.mockReturnValue(new URLSearchParams('basis=include_pending'));
     show(<StudentBillingJourney studentId={12} />);
     await screen.findByText('Synthetic Student');
     fireEvent.click(screen.getByRole('button', { name: 'Edit preview' }));
-    expect(screen.getByLabelText('Start sessions after')).toHaveValue('include_pending');
+    expect(screen.getByLabelText('Count existing enrollments')).toHaveValue('include_pending');
     expect(mocks.context).toHaveBeenLastCalledWith(12, expect.objectContaining({ basis: 'include_pending' }));
     expect(screen.getByText('Existing unpaid enrollments still need payment.')).toBeVisible();
   });
@@ -258,10 +261,10 @@ describe('billing source review', () => {
     show(<BillingRoster />);
     await screen.findByText('Synthetic Student');
     mocks.students.mockReturnValue(new Promise(() => {}));
-    fireEvent.change(screen.getByLabelText('Start sessions after'), { target: { value: 'include_pending' } });
+    fireEvent.change(screen.getByLabelText('Count existing enrollments'), { target: { value: 'paid_only' } });
     await waitFor(() => expect(screen.queryByText('Synthetic Student')).not.toBeInTheDocument());
     expect(screen.getByRole('status')).toHaveTextContent('Loading students');
-    expect(screen.getByText(/Existing unpaid enrollments still need payment/)).toBeInTheDocument();
+    expect(screen.queryByText(/Existing unpaid enrollments still need payment/)).not.toBeInTheDocument();
   });
 
   it('starts at the first roster page when the effective tutor scope changes', async () => {
@@ -322,19 +325,19 @@ describe('billing source review', () => {
     fireEvent.change(screen.getByLabelText('Mock discount'), { target: { value: 'coupon' } });
     let finish!: (value: StudentBillingContext) => void;
     mocks.context.mockReturnValue(new Promise(resolve => { finish = resolve; }));
-    fireEvent.change(screen.getByLabelText('Start sessions after'), { target: { value: 'include_pending' } });
-    await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(12, expect.objectContaining({ basis: 'include_pending' })));
-    expect(screen.getByLabelText('Start sessions after')).toHaveValue('include_pending');
+    fireEvent.change(screen.getByLabelText('Count existing enrollments'), { target: { value: 'paid_only' } });
+    await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(12, expect.objectContaining({ basis: 'paid_only' })));
+    expect(screen.getByLabelText('Count existing enrollments')).toHaveValue('paid_only');
     expect(screen.getByLabelText('Mock preview editor')).toBeVisible();
     expect(screen.queryByLabelText('Scenario start')).not.toBeInTheDocument();
     const updated = context();
-    updated.basis = 'include_pending';
+    updated.basis = 'paid_only';
     updated.source_fingerprint = 'source-after-pending';
     updated.suggested_request = { ...updated.suggested_request!, first_lesson_date: '2026-12-01' };
     await act(async () => finish(updated));
     expect(await screen.findByLabelText('Scenario start')).toHaveValue('2026-12-01');
     expect(screen.getByLabelText('Mock discount')).toHaveValue('coupon');
-    expect(screen.getByLabelText('Start sessions after')).toBeVisible();
+    expect(screen.getByLabelText('Count existing enrollments')).toBeVisible();
   });
 
   it('preserves editor choices while hiding failed source refreshes and allowing retries', async () => {
@@ -410,7 +413,7 @@ describe('billing source review', () => {
     expect(preview).toHaveAttribute('data-source-checks', '1');
     expect(preview).toHaveAttribute('data-coupon-count', '2');
     expect(screen.queryByLabelText('Coupon records')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Start sessions after')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Count existing enrollments')).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Payment journey' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.change(preview, { target: { value: '2026-12-01' } });
     fireEvent.click(screen.getByRole('tab', { name: /Existing enrollments/ }));
@@ -476,7 +479,7 @@ describe('billing source review', () => {
     view.rerender(<SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, errorRetryCount: 0 }}><StudentBillingJourney studentId={13} /></SWRConfig>);
     expect(screen.queryByLabelText('Scenario start')).not.toBeInTheDocument();
     expect(screen.queryByText('Synthetic Student')).not.toBeInTheDocument();
-    await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(13, expect.objectContaining({ basis: 'paid_only' })));
+    await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(13, expect.objectContaining({ basis: 'include_pending' })));
   });
 
   it('shows record checks without inventing a zero-fee journey when no forecast is available', async () => {
@@ -490,7 +493,7 @@ describe('billing source review', () => {
     expect(screen.getAllByText('Check session records')[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Edit preview' }));
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Edit preview' })).toBeVisible());
-    expect(screen.getByLabelText('Start sessions after')).toBeVisible();
+    expect(screen.getByLabelText('Count existing enrollments')).toBeVisible();
     expect(screen.getByRole('checkbox', { name: /Use Tue/ })).toBeVisible();
   });
 
@@ -504,15 +507,15 @@ describe('billing source review', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Edit preview' });
     let fail!: (reason: Error) => void;
     mocks.context.mockReturnValueOnce(new Promise((_, reject) => { fail = reject; }));
-    fireEvent.change(within(dialog).getByLabelText('Start sessions after'), { target: { value: 'include_pending' } });
+    fireEvent.change(within(dialog).getByLabelText('Count existing enrollments'), { target: { value: 'paid_only' } });
     expect(await within(dialog).findByRole('status')).toHaveTextContent('Updating enrollment records');
     await act(async () => fail(new Error('Coverage unavailable.')));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Coverage unavailable.');
     expect(within(dialog).queryByRole('status')).not.toBeInTheDocument();
-    mocks.context.mockResolvedValue({ ...records, basis: 'include_pending' });
+    mocks.context.mockResolvedValue({ ...records, basis: 'paid_only' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument());
-    expect(within(dialog).getByLabelText('Start sessions after')).toHaveValue('include_pending');
+    expect(within(dialog).getByLabelText('Count existing enrollments')).toHaveValue('paid_only');
   });
 
   it('does not fetch source records for a guest', () => {

@@ -462,7 +462,8 @@ def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, poli
     if kind == 'sent':
         if not detail.can_copy:
             raise DraftConflict('This fee message is not ready to send. Review the payment first.')
-        payment.sent_at, payment.sent_language = utc_now(), data.language
+        from .clock import event_time
+        payment.sent_at, payment.sent_language = event_time(), data.language
         for _, enrollment, _ in rows:
             enrollment.fee_message_sent = True
     elif kind == 'paid':

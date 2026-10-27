@@ -37,7 +37,6 @@ function PaymentBatchContent({ targets, action, writesAvailable, trigger, onClos
     (a.student.school_student_id ?? '').localeCompare(b.student.school_student_id ?? '', undefined, { numeric: true }) || a.student.id - b.student.id));
   const [items, setItems] = useState<PaymentBatchItem[]>(() => initial.map(target => ({ target, payment: null, issues: [] })));
   const itemsRef = useRef(items); itemsRef.current = items;
-  const [defaults, setDefaults] = useState<PaymentBatchInput>(() => ({ language: 'zh', paymentDate: localPaymentDate(), method: 'cash' }));
   const [inputs, setInputs] = useState<Record<string, PaymentBatchInput>>(() => Object.fromEntries(initial.map(target => [target.paymentId, { language: 'zh', paymentDate: localPaymentDate(), method: 'cash' }])));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [checking, setChecking] = useState(true);
@@ -85,6 +84,14 @@ function PaymentBatchContent({ targets, action, writesAvailable, trigger, onClos
   const total = chosen.reduce((sum, item) => sum + (item.payment!.review.period.total_fee ?? 0), 0);
   const completed = items.filter(item => item.outcome?.kind === 'done');
   const reviewCount = items.filter(item => item.issues.length || item.outcome?.kind === 'error').length;
+  function sharedValue(field: keyof PaymentBatchInput) {
+    const value = chosen.length ? inputs[chosen[0].target.paymentId][field] : '';
+    return chosen.every(item => inputs[item.target.paymentId][field] === value) ? value : '';
+  }
+  const sharedDate = sharedValue('paymentDate');
+  const datesVary = chosen.some(item => inputs[item.target.paymentId].paymentDate !== inputs[chosen[0].target.paymentId].paymentDate);
+  const sharedMethod = sharedValue('method');
+  const sharedLanguage = sharedValue('language');
 
   function changeInput(id: string, value: Partial<PaymentBatchInput>) {
     setInputs(previous => ({ ...previous, [id]: { ...previous[id], ...value } }));
@@ -94,12 +101,12 @@ function PaymentBatchContent({ targets, action, writesAvailable, trigger, onClos
     setSelected(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
     setAcknowledged(false);
   }
-  function updateDefaults(value: Partial<PaymentBatchInput>) {
-    setDefaults(previous => ({ ...previous, ...value }));
-    setAcknowledged(false);
-  }
-  function applyDefaults() {
-    setInputs(previous => ({ ...previous, ...Object.fromEntries(chosen.map(item => [item.target.paymentId, { ...defaults }])) }));
+  function updateSelected(value: Partial<PaymentBatchInput>) {
+    if (busy || running.current || !writable || !chosen.length) return;
+    setInputs(previous => ({ ...previous, ...Object.fromEntries(chosen.map(item => {
+      const id = item.target.paymentId;
+      return [id, { ...previous[id], ...value }];
+    })) }));
     setAcknowledged(false);
   }
 
@@ -154,13 +161,13 @@ function PaymentBatchContent({ targets, action, writesAvailable, trigger, onClos
     </div>}>
     <BillingDraftFocus trigger={trigger}><div className="space-y-4">
       {!writable && <p role="status" className="text-sm text-amber-800 dark:text-amber-300">{auth.isReadOnly || !auth.isAdmin ? 'Read-only access.' : 'Payment recording is not enabled yet.'}</p>}
-      <div className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-wash p-3">
-        {action === 'sent' ? <Field label="Message language" id="batch-message-language"><Select id="batch-message-language" value={defaults.language} disabled={busy} onChange={event => updateDefaults({ language: event.target.value as 'zh' | 'en' })}><option value="zh">Chinese</option><option value="en">English</option></Select></Field> : <>
-          <Field label="Payment date" id="batch-payment-date"><Input id="batch-payment-date" type="date" max={localPaymentDate()} value={defaults.paymentDate} disabled={busy} onChange={event => updateDefaults({ paymentDate: event.target.value })} /></Field>
-          <Field label="Received by" id="batch-payment-method"><Select id="batch-payment-method" value={defaults.method} disabled={busy} onChange={event => updateDefaults({ method: event.target.value as PaymentBatchInput['method'] })}><option value="cash">Cash</option><option value="bank_transfer">Bank transfer</option></Select></Field>
+      <fieldset disabled={busy || !writable || !chosen.length} className="flex min-w-0 flex-wrap items-start gap-3 rounded-md border border-line bg-wash p-3">
+        <legend className="px-1 text-xs font-medium text-ink-subtle">Selected payments</legend>
+        {action === 'sent' ? <Field label="Message language" id="batch-message-language"><Select id="batch-message-language" value={sharedLanguage} disabled={busy || !writable || !chosen.length} onChange={event => updateSelected({ language: event.target.value as 'zh' | 'en' })}><option value="" disabled>{chosen.length ? 'Mixed' : 'Select payments'}</option><option value="zh">Chinese</option><option value="en">English</option></Select></Field> : <>
+          <Field label="Payment date" id="batch-payment-date" hint={datesVary ? 'Dates vary' : undefined}><Input id="batch-payment-date" type="date" max={localPaymentDate()} value={sharedDate} disabled={busy || !writable || !chosen.length} onChange={event => updateSelected({ paymentDate: event.target.value })} /></Field>
+          <Field label="Received by" id="batch-payment-method"><Select id="batch-payment-method" value={sharedMethod} disabled={busy || !writable || !chosen.length} onChange={event => updateSelected({ method: event.target.value as PaymentBatchInput['method'] })}><option value="" disabled>{chosen.length ? 'Mixed' : 'Select payments'}</option><option value="cash">Cash</option><option value="bank_transfer">Bank transfer</option></Select></Field>
         </>}
-        <Button size="sm" disabled={busy || !chosen.length} onClick={applyDefaults}>Apply to selected</Button>
-      </div>
+      </fieldset>
       {checking && <p role="status" className="flex items-center gap-2 text-sm text-ink-subtle"><Loader2 className="h-4 w-4 animate-spin" />Checking payments…</p>}
       {failure && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{failure}</p>}
       <h3 ref={resultHeading} tabIndex={-1} className="text-sm font-semibold outline-none">{plural(initial.length, 'payment')}{completed.length > 0 && <span className="ml-3 text-green-700 dark:text-green-300">{completed.length} completed</span>}{reviewCount > 0 && <span className="ml-3 text-amber-800 dark:text-amber-300">{reviewCount} to check</span>}</h3>
