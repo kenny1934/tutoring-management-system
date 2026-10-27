@@ -497,6 +497,7 @@ def test_final_june_payment_includes_july_tail_without_a_second_debit(records, p
 
 
 def test_187_only_operation_does_not_query_missing_financial_or_participation_tables(records, monkeypatch):
+    monkeypatch.setenv('BILLING_RENEWAL_QUEUE_ENABLED', 'true')
     client, db, _ = records
     monkeypatch.setenv('BILLING_WORKFLOW_ENABLED', 'false')
     monkeypatch.setenv('BILLING_WORKFLOW_STORAGE_ENABLED', 'false')

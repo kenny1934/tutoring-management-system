@@ -170,6 +170,7 @@ def test_preference_projection_is_never_approved_money(env):
 
 
 def test_187_only_does_not_read_188_tables_and_preserves_saved_autopay_draft(env, monkeypatch):
+    monkeypatch.setenv('BILLING_RENEWAL_QUEUE_ENABLED', 'true')
     client, session, _ = env
     payload = review_request(client)
     payload['scenario']['payment_method'] = 'autopay'

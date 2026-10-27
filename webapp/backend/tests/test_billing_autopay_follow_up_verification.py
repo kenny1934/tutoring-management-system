@@ -243,6 +243,7 @@ def test_later_collection_view_keeps_the_actual_earlier_saved_run_scope(run_env)
 
 @pytest.mark.parametrize('workflow_storage,run_storage', [(True, False), (False, True)])
 def test_feature_off_list_does_not_query_absent_190_or_188_tables(run_env, monkeypatch, workflow_storage, run_storage):
+    monkeypatch.setenv('BILLING_RENEWAL_QUEUE_ENABLED', 'true')
     client, db, _actor, _clock = run_env
     monkeypatch.setenv('BILLING_WORKFLOW_ENABLED', 'false')
     monkeypatch.setenv('BILLING_WORKFLOW_STORAGE_ENABLED', str(workflow_storage).lower())
@@ -262,6 +263,7 @@ def test_feature_off_list_does_not_query_absent_190_or_188_tables(run_env, monke
 
 
 def test_writes_disabled_preserves_read_only_follow_up(run_env, monkeypatch):
+    monkeypatch.setenv('BILLING_RENEWAL_QUEUE_ENABLED', 'true')
     client, _db, _actor, _clock = run_env
     value = payment(client)
     saved, _ = prepare(client)

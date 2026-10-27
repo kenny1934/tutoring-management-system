@@ -37,6 +37,9 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   const rawPicture = isImpersonating && impersonatedTutor?.profile_picture ? impersonatedTutor.profile_picture : user?.picture;
   const picture = rawPicture?.startsWith("http") ? rawPicture : undefined;
   const pages = mainNavigation.filter((item) => !TAB_HREFS.includes(item.href));
+  // PhoneNav closes the sheet after a new pathname commits. Closing earlier
+  // can pop the overlay's history entry while Next is still navigating.
+  const closeIfCurrent = (href: string) => { if (href === pathname) onClose(); };
 
   return (
     <MobileBottomSheet
@@ -113,7 +116,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             <h3 className={SECTION_LABEL}>Pages</h3>
             <div className="grid grid-cols-4 gap-2">
               {pages.map((item) => (
-                <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={onClose}>
+                <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={() => closeIfCurrent(item.href)}>
                   {item.name === "Documents" && (
                     <span className="absolute right-1 top-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                       Beta
@@ -132,7 +135,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               {adminNavigation.map((item) => {
                 const { count, color, showOpen } = adminBadgeFor(item.name);
                 return (
-                  <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={onClose}>
+                  <Tile key={item.href} item={item} active={pathname?.startsWith(item.href)} onNavigate={() => closeIfCurrent(item.href)}>
                     {showOpen && (
                       <span className="absolute right-1 top-1 rounded-full bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                         Open
@@ -147,7 +150,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 );
               })}
               {isSuperAdmin && !isImpersonating && (
-                <Tile item={{ name: "Debug", href: "/admin/debug", icon: Database }} active={pathname?.startsWith("/admin/debug")} onNavigate={onClose} />
+                <Tile item={{ name: "Debug", href: "/admin/debug", icon: Database }} active={pathname?.startsWith("/admin/debug")} onNavigate={() => closeIfCurrent("/admin/debug")} />
               )}
             </div>
           </section>
@@ -168,7 +171,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         </section>
 
         <div className="overflow-hidden rounded-xl border border-line bg-field-fill divide-y divide-line">
-          <Link href="/settings" onClick={onClose} className={ROW}>
+          <Link href="/settings" onClick={() => closeIfCurrent("/settings")} className={ROW}>
             <Settings className="h-5 w-5 text-ink-subtle" />
             <span className="flex-1">Settings</span>
             <ChevronRight className="h-4 w-4 text-ink-subtle" />
@@ -178,7 +181,7 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             <span className="flex-1">User guide</span>
             <ChevronRight className="h-4 w-4 text-ink-subtle" />
           </a>
-          <Link href="/whats-new" onClick={onClose} className={ROW}>
+          <Link href="/whats-new" onClick={() => closeIfCurrent("/whats-new")} className={ROW}>
             <Megaphone className="h-5 w-5 text-ink-subtle" />
             <span className="flex-1">What&apos;s new</span>
             {hasUnseenUpdates && <span aria-label="New" className="h-2 w-2 rounded-full bg-blue-500" />}
