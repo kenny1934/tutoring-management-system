@@ -1,59 +1,14 @@
-import type { Tutor, TutorAssisting } from "@/types";
-import { useAuth } from "@/contexts/AuthContext";
-import { useTutors } from "@/lib/hooks";
-import { hkTodayIso } from "@/lib/summer-utils";
+import type { TutorAssisting } from "@/types";
 import { formatDayFirstDate } from "@/lib/formatters";
 
-/**
- * Whether an assistant link still holds on the given day. A link without an
- * end date lasts until an admin removes it, and one with an end date still
- * counts on that last day. The backend applies the same rule when it saves.
- */
-export function assistingHolds(link: TutorAssisting, todayIso: string): boolean {
-  return !link.effective_until || link.effective_until >= todayIso;
-}
-
-/**
- * Whether the viewer may change the classwork and homework of a lesson
- * taught by `lessonTutorId`. That is the lesson's own tutor, an admin, or a
- * tutor with an active link saying they assist the lesson's tutor. Everybody
- * else can still open the exercise window, but only to look.
- *
- * `viewer` is null while the tutor list is still loading. Only the assistant
- * case needs it, so an owner or an admin gets their answer straight away.
- */
-export function canChangeLessonExercises(args: {
+/** Tutors see a warning when preparing exercises for another tutor's session. */
+export function hasExerciseTutorMismatch(args: {
   lessonTutorId: number | null | undefined;
   viewerId: number | null | undefined;
-  isAdmin: boolean;
-  viewer: Pick<Tutor, "assisting"> | null | undefined;
-  todayIso: string;
+  effectiveRole: string | null;
 }): boolean {
-  const { lessonTutorId, viewerId, isAdmin, viewer, todayIso } = args;
-  if (isAdmin) return true;
-  if (viewerId == null || lessonTutorId == null) return false;
-  if (lessonTutorId === viewerId) return true;
-  return (viewer?.assisting ?? []).some(
-    (link) => link.lead_tutor_id === lessonTutorId && assistingHolds(link, todayIso),
-  );
-}
-
-/**
- * The hook form of canChangeLessonExercises for the signed-in viewer. It
- * follows impersonation, so an admin viewing as a tutor sees what that tutor
- * would see.
- */
-export function useCanChangeLessonExercises(lessonTutorId: number | null | undefined): boolean {
-  const { user, isAdmin, impersonatedTutor } = useAuth();
-  const { data: tutors } = useTutors();
-  const viewerId = impersonatedTutor?.id ?? user?.id;
-  return canChangeLessonExercises({
-    lessonTutorId,
-    viewerId,
-    isAdmin,
-    viewer: tutors?.find((t) => t.id === viewerId),
-    todayIso: hkTodayIso(),
-  });
+  return args.effectiveRole === "Tutor" && args.viewerId != null &&
+    args.lessonTutorId != null && args.lessonTutorId !== args.viewerId;
 }
 
 /**

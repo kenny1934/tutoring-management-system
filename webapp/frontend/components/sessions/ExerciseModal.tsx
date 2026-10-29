@@ -39,7 +39,8 @@ import { TrendingCoursewareSection } from "./TrendingCoursewareSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
-import { useCanChangeLessonExercises } from "@/lib/lesson-exercise-access";
+import { useAuth } from "@/contexts/AuthContext";
+import { ExerciseTutorWarning } from "./ExerciseTutorWarning";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -77,9 +78,8 @@ interface ExerciseModalProps {
    */
   onCollect?: (exercises: CollectedExercise[]) => void;
   /**
-   * When true, disables save action (Supervisor mode). The window also opens
-   * read-only by itself on a lesson the viewer can't change, so callers only
-   * pass the viewer's role here.
+   * When true, disables saving. Read-only roles are also enforced by the
+   * window itself.
    */
   readOnly?: boolean;
 }
@@ -112,13 +112,8 @@ export function ExerciseModal({
   onCollect,
   readOnly: roleReadOnly = false,
 }: ExerciseModalProps) {
-  // Only the lesson's own tutor, an admin, or a tutor who assists the lesson's
-  // tutor can change its exercises. Everybody else can still open the window
-  // to see clearly what is assigned, so for them it opens read-only. A lesson
-  // being recorded before it is in CSM (onCollect) is the recorder's own.
-  const canChangeLesson = useCanChangeLessonExercises(session.tutor_id);
-  const lessonLocked = !onCollect && !canChangeLesson;
-  const readOnly = roleReadOnly || lessonLocked;
+  const { isReadOnly } = useAuth();
+  const readOnly = roleReadOnly || isReadOnly;
   const { selectedLocation } = useLocation();
   // The modal's place in the overlay stack, taken here rather than inside
   // Modal because the keyboard shortcuts below need to know when something
@@ -1082,13 +1077,7 @@ export function ExerciseModal({
               variant="primary"
               onClick={handleSave}
               disabled={readOnly}
-              title={
-                roleReadOnly
-                  ? "Read-only access"
-                  : lessonLocked
-                    ? "This is another tutor's lesson, so you can view its exercises but not change them."
-                    : undefined
-              }
+              title={readOnly ? "Read-only access" : undefined}
             >
               Save changes
             </Button>
@@ -1097,6 +1086,7 @@ export function ExerciseModal({
       }
     >
       <div className="space-y-4">
+        {!onCollect && !readOnly && <ExerciseTutorWarning sessions={[session]} />}
         {/* Session Info Header */}
         <div className="flex items-center gap-2 flex-wrap bg-tint rounded-lg p-3">
           <span className="text-sm font-medium text-gray-500 dark:text-gray-400">

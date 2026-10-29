@@ -1,9 +1,6 @@
-"""Tests for tutors who assist another tutor.
-
-Only a lesson's own tutor or an admin can change its classwork and homework.
-A tutor who assists the lesson's tutor can too, for as long as the link is
-active, and that is the only thing the link lets them do. Here tutor 2 is the
-lead tutor who owns lesson 200, and tutor 3 is the new tutor who assists them.
+"""Assistant links remain available as staff records. Tutors can prepare
+exercises for other tutors with or without a link, while ratings and
+read-only roles retain their restrictions.
 """
 from datetime import date, timedelta
 
@@ -82,22 +79,21 @@ class TestSavingExercises:
         assert _save_cw(client).status_code == 200
         assert _cw_files(db_session) == [(200, "C.pdf")]
 
-    def test_a_tutor_without_a_link_is_still_refused(self, client, db_session, lessons, signed_in):
-        assert _save_cw(client).status_code == 403
-        assert _cw_files(db_session) == []
+    def test_a_tutor_without_a_link_can_prepare_exercises(self, client, db_session, lessons, signed_in):
+        assert _save_cw(client).status_code == 200
+        assert _cw_files(db_session) == [(200, "C.pdf")]
 
     def test_a_link_still_works_on_its_last_day(self, client, db_session, lessons, signed_in):
         _link(db_session, until=today_hk())
 
         assert _save_cw(client).status_code == 200
 
-    def test_a_link_lapses_the_day_after_it_ends(self, client, db_session, lessons, signed_in):
+    def test_an_expired_link_does_not_block_exercise_preparation(self, client, db_session, lessons, signed_in):
         _link(db_session, until=today_hk() - timedelta(days=1))
 
-        assert _save_cw(client).status_code == 403
+        assert _save_cw(client).status_code == 200
 
-    def test_the_link_only_goes_one_way(self, client, db_session, lessons, signed_in):
-        """The lead tutor doesn't gain the assistant's lessons by being assisted."""
+    def test_the_lead_can_also_prepare_the_assistants_exercises(self, client, db_session, lessons, signed_in):
         _link(db_session)
         db_session.add(SessionLog(
             id=203, student_id=1, tutor_id=3, session_date=date.today(),
@@ -111,7 +107,8 @@ class TestSavingExercises:
             json={"exercise_type": "CW", "exercises": [{"exercise_type": "CW", "pdf_name": "C.pdf"}]},
             cookies=AUTH_COOKIE,
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert _cw_files(db_session) == [(203, "C.pdf")]
 
     def test_an_assistant_cannot_rate_the_lesson(self, client, db_session, lessons, signed_in):
         _link(db_session)
@@ -125,10 +122,15 @@ class TestSavingExercises:
 
 
 class TestBulkAssign:
-    def test_bulk_assign_refuses_another_tutors_lesson(self, client, db_session, lessons, signed_in):
-        """Bulk assign only refused read-only roles before, so any tutor could
-        add classwork to anybody's lessons this way."""
-        assert _bulk(client, [200]).status_code == 403
+    def test_bulk_assign_allows_another_tutors_lesson(self, client, db_session, lessons, signed_in):
+        assert _bulk(client, [200]).status_code == 200
+        assert _cw_files(db_session) == [(200, "C.pdf")]
+
+    @pytest.mark.parametrize("role", ["Supervisor", "Guest"])
+    def test_read_only_roles_cannot_bulk_assign(self, client, db_session, lessons, signed_in, role):
+        app.dependency_overrides.pop(reject_read_only)
+        signed_in.role = role
+        assert _bulk(client, [200, 202]).status_code == 403
         assert _cw_files(db_session) == []
 
     def test_an_assistant_can_bulk_assign_to_the_lead_tutors_lessons(self, client, db_session, lessons, signed_in):
@@ -137,13 +139,12 @@ class TestBulkAssign:
         assert _bulk(client, [200, 201]).status_code == 200
         assert _cw_files(db_session) == [(200, "C.pdf"), (201, "C.pdf")]
 
-    def test_one_lesson_that_isnt_theirs_refuses_the_whole_batch(self, client, db_session, lessons, signed_in):
+    def test_bulk_assign_allows_a_mix_of_assisted_and_other_tutors(self, client, db_session, lessons, signed_in):
         _link(db_session)
 
         resp = _bulk(client, [200, 202])
-        assert resp.status_code == 403
-        assert "202" in resp.json()["detail"]
-        assert _cw_files(db_session) == []
+        assert resp.status_code == 200
+        assert _cw_files(db_session) == [(200, "C.pdf"), (202, "C.pdf")]
 
     def test_an_admin_can_bulk_assign_to_anybody(self, client, db_session, lessons, signed_in):
         signed_in.role = "Admin"

@@ -31,6 +31,8 @@ import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { ExerciseTutorWarning } from "./ExerciseTutorWarning";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Re-export type for external consumers
 export type ExerciseFormItem = ExerciseFormItemBase;
@@ -92,6 +94,7 @@ function GroupExerciseModal({
   onClose,
   onSave,
 }: BulkExerciseModalProps) {
+  const { isReadOnly } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
@@ -189,6 +192,7 @@ function GroupExerciseModal({
 
   // Initiate save - shows confirmation first
   const initiateSave = useCallback(() => {
+    if (isReadOnly) return;
     // Filter out exercises with empty PDF names
     const validExercises = exercises.filter(hasExerciseSource);
     const emptyCount = exercises.length - validExercises.length;
@@ -220,10 +224,11 @@ function GroupExerciseModal({
 
     // Show confirmation dialog
     setShowSaveConfirm(true);
-  }, [exercises, showToast]);
+  }, [exercises, showToast, isReadOnly]);
 
   // Execute actual save after confirmation
   const handleSave = useCallback(async () => {
+    if (isReadOnly) return;
     setShowSaveConfirm(false);
     setIsSaving(true);
     setSaveProgress({ current: 0, total: sessions.length });
@@ -316,7 +321,7 @@ function GroupExerciseModal({
     setValidationErrors([]);
     setShowPasteConfirm(false);
     onClose();
-  }, [sessions, exerciseType, exercises, onSave, onClose, showToast]);
+  }, [sessions, exerciseType, exercises, onSave, onClose, showToast, isReadOnly]);
 
   const addExercise = useCallback(() => {
     setExercises((prev) => [...prev, createExercise(exerciseType)]);
@@ -808,7 +813,7 @@ function GroupExerciseModal({
             <Button onClick={handleCloseAttempt} disabled={isSaving}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={initiateSave} disabled={isSaving || exercises.length === 0}>
+            <Button variant="primary" onClick={initiateSave} disabled={isReadOnly || isSaving || exercises.length === 0}>
               {isSaving && saveProgress
                 ? `Saving ${saveProgress.current}/${saveProgress.total}...`
                 : isSaving
@@ -820,6 +825,7 @@ function GroupExerciseModal({
       }
     >
       <div className="space-y-4">
+        <ExerciseTutorWarning sessions={sessions} />
         {/* Selected Sessions Header */}
         <div className="bg-tint rounded-lg p-3">
           <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
