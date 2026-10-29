@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Exercise answers**: answer-file search now finds IGCSE topic and Challenge answers, SAT keys and SG primary answers, and also finds DSE keys through Shelv."
+          },
+          {
+            "description": "**Helping prepare lessons**: tutors can now assign or edit exercises for another tutor’s session, with a warning naming the assigned tutor instead of blocking the save."
           }
         ]
       }

@@ -142,14 +142,36 @@ def test_classwork_is_listed_before_homework(db_session: Session, lesson):
     assert [ex.id for ex in db_session.get(SessionLog, 100).exercises] == [10, 11, 5, 20]
 
 
-def test_another_tutor_cannot_change_the_exercises(client: TestClient, db_session: Session, lesson, as_tutor):
-    """The lesson belongs to tutor 99. Every other change to a lesson already
-    refuses a tutor who doesn't own it, and saving its exercises now does too."""
+@pytest.mark.parametrize("exercise_type,original_id,filename", [("CW", 10, "A.pdf"), ("HW", 20, "H.pdf")])
+def test_another_tutor_can_change_exercises(client, db_session, lesson, as_tutor, exercise_type, original_id, filename):
     as_tutor.id = 98
-    resp = client.put(URL, json={"exercise_type": "CW", "exercises": [_cw("C.pdf")]}, cookies=AUTH_COOKIE)
+    shown = _save(client, exercise_type, [{
+        "id": original_id, "exercise_type": exercise_type, "pdf_name": filename, "page_start": 2, "page_end": 3,
+    }])
 
-    assert resp.status_code == 403
+    assert shown == [(original_id, filename)]
     db_session.expire_all()
+    session = db_session.get(SessionLog, 100)
+    assert session.tutor_id == 99
+    assert session.session_status == "Scheduled"
+    assert session.last_modified_by == as_tutor.user_email
+    assert db_session.get(SessionExercise, original_id).page_start == 2
+    if exercise_type == "HW":
+        assert db_session.get(HomeworkCompletion, 77).session_exercise_id == original_id
+
+
+def test_another_tutor_can_preassign_without_a_rescheduling_request(client, db_session, lesson, as_tutor):
+    as_tutor.id = 98
+    shown = _save(client, "CW", [_cw("Prepared.pdf")], append=True)
+    assert [name for _, name in shown] == ["A.pdf", "B.pdf", "Prepared.pdf"]
+
+
+@pytest.mark.parametrize("role", ["Supervisor", "Guest"])
+def test_read_only_roles_still_cannot_save_exercises(client, db_session, lesson, as_tutor, role):
+    app.dependency_overrides.pop(reject_read_only)
+    as_tutor.role = role
+    resp = client.put(URL, json={"exercise_type": "CW", "exercises": [_cw("Blocked.pdf")]}, cookies=AUTH_COOKIE)
+    assert resp.status_code == 403
     assert {ex.pdf_name for ex in db_session.query(SessionExercise).filter_by(exercise_type="CW")} == {"A.pdf", "B.pdf"}
 
 
