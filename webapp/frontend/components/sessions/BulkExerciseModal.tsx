@@ -1226,6 +1226,9 @@ function GroupExerciseModal({
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Assign {exercises.filter(hasExerciseSource).length} exercise(s) to {sessions.length} session(s)?
             </p>
+            <div className="mb-4">
+              <ExerciseTutorWarning sessions={sessions} />
+            </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-h-32 overflow-y-auto">
               <div className="font-medium mb-1">Sessions:</div>
               <div className="flex flex-wrap gap-1">

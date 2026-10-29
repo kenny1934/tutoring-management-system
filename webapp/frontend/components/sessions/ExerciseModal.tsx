@@ -40,7 +40,8 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { useAuth } from "@/contexts/AuthContext";
-import { ExerciseTutorWarning } from "./ExerciseTutorWarning";
+import { ExerciseTutorWarning, useExerciseTutorWarningMessage } from "./ExerciseTutorWarning";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -114,6 +115,8 @@ export function ExerciseModal({
 }: ExerciseModalProps) {
   const { isReadOnly } = useAuth();
   const readOnly = roleReadOnly || isReadOnly;
+  const tutorWarning = useExerciseTutorWarningMessage([session]);
+  const confirm = useConfirm();
   const { selectedLocation } = useLocation();
   // The modal's place in the overlay stack, taken here rather than inside
   // Modal because the keyboard shortcuts below need to know when something
@@ -363,6 +366,17 @@ export function ExerciseModal({
 
     setValidationErrors([]);
 
+    // Confirm before changing the cache, closing the form or sending the save.
+    if (!onCollect && tutorWarning) {
+      const proceed = await confirm({
+        title: "Save exercises for another tutor?",
+        message: tutorWarning,
+        confirmText: "Save anyway",
+        variant: "warning",
+      });
+      if (!proceed) return;
+    }
+
     const sessionId = session.id;
     const currentExercises = [...validExercises];
     const originalSession = session; // Store for rollback on error
@@ -448,7 +462,7 @@ export function ExerciseModal({
       updateSessionInCache(originalSession);
       showToast("Failed to save exercises. Changes reverted.", "error");
     }
-  }, [readOnly, session, exercises, exerciseType, onClose, onSave, onCollect, showToast]);
+  }, [readOnly, session, exercises, exerciseType, onClose, onSave, onCollect, showToast, tutorWarning, confirm]);
 
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
