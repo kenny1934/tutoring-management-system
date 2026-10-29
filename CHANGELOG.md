@@ -5,7 +5,7 @@
 ### Bug Fixes
 
 * **Exercise answers**: answer-file search now finds IGCSE topic and Challenge answers, SAT keys and SG primary answers, and also finds DSE keys through Shelv.
-* **Helping prepare lessons**: tutors can now assign or edit exercises for another tutor’s session, with a warning naming the assigned tutor instead of blocking the save.
+* **Helping prepare lessons**: tutors can now assign or edit exercises for another tutor’s session, with a warning naming the assigned tutor and confirmation before saving.
 
 ## [2.2.5](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.4...v2.2.5) (2026-10-27)
 
