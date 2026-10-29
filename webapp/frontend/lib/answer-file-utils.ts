@@ -42,8 +42,25 @@ const FILENAME_TRANSFORMATIONS: Array<{
     pattern: /^(DSE_\d+\.\d+)_/i,
     answerFilename: (match) => `${match[1]}_KEY`,
   },
+  {
+    pattern: /^(IGCSE_\d{2}(?:\.\d+)?)_/i,
+    answerFilename: (match) => `${match[1]}_ANS`,
+  },
+  {
+    pattern: /^(SAT_\d+_.+)$/i,
+    answerFilename: (match) => `${match[1]}_KEY`,
+  },
   // Add more rules here as needed
 ];
+
+/** Use the same filename rules for local paths and Shelv queries. */
+function getTransformedAnswerFilename(filename: string): string | null {
+  for (const rule of FILENAME_TRANSFORMATIONS) {
+    const match = filename.match(rule.pattern);
+    if (match) return rule.answerFilename(match);
+  }
+  return null;
+}
 
 /**
  * Get the "Ans" tag ID from Shelv, with caching.
@@ -124,17 +141,23 @@ export function buildAnswerPaths(originalPath: string): string[] {
   if (alias === 'Center') {
     // Pattern 1: Apply configurable folder replacements
     // e.g., [Center]\Courseware (Eng)\IB\abc.pdf → [Center]\ANS\IB_2020\abc_ANS.pdf
-    const modifiedParts = directoryParts.map(part =>
-      CENTER_FOLDER_REPLACEMENTS[part] ?? part
-    );
+    const modifiedParts = directoryParts.map((part, index) => {
+      // SG uses P1–P6 for worksheets and 1–6 for answers.
+      if (directoryParts[index - 1]?.toUpperCase() === 'SG') {
+        if (/^P[1-6]$/i.test(part)) return part.slice(1);
+        if (part.toUpperCase() === 'MOCK') return 'Mock';
+      }
+      return CENTER_FOLDER_REPLACEMENTS[part] ?? part;
+    });
 
     // Check for special filename transformations first (e.g., DSE_09.4_xxx → DSE_09.4_KEY)
-    for (const rule of FILENAME_TRANSFORMATIONS) {
-      const match = filenameWithoutExt.match(rule.pattern);
-      if (match) {
-        const ansFilename = rule.answerFilename(match);
-        const ansPath = `[Center]\\${modifiedParts.join('\\')}\\${ansFilename}.pdf`;
-        candidates.push(ansPath);
+    const transformedFilename = getTransformedAnswerFilename(filenameWithoutExt);
+    if (transformedFilename) {
+      const filenames = transformedFilename.endsWith('_KEY')
+        ? [transformedFilename, transformedFilename.replace(/_KEY$/, '_key'), transformedFilename.replace(/_KEY$/, '_Key')]
+        : [transformedFilename];
+      for (const filename of filenames) {
+        candidates.push(`[Center]\\${modifiedParts.join('\\')}\\${filename}.pdf`);
       }
     }
 
@@ -197,7 +220,18 @@ async function searchShelvAnswerFile(originalPath: string): Promise<AnswerSearch
   const { filenameWithoutExt } = parsePdfPath(originalPath);
 
   // Build search query for the answer filename
-  const searchQuery = `${filenameWithoutExt}_ans`;
+  const transformedAnswerFilename = getTransformedAnswerFilename(filenameWithoutExt);
+  const searchQuery = transformedAnswerFilename ?? `${filenameWithoutExt}_ans`;
+  const isMatchingAnswer = (doc: { title: string; original_path?: string | null }) => {
+    if (transformedAnswerFilename) {
+      // Require the complete code so chapter 01 cannot match section 01.1.
+      const expected = transformedAnswerFilename.toLowerCase();
+      const matches = (name: string) => name.replace(/\.pdf$/i, '').toLowerCase() === expected;
+      return matches(doc.title) || matches(doc.original_path?.split(/[\\/]/).pop() ?? '');
+    }
+    const title = doc.title.toLowerCase();
+    return title.includes(filenameWithoutExt.toLowerCase()) && title.includes('ans');
+  };
 
   try {
     // Get the Ans tag ID
@@ -209,28 +243,23 @@ async function searchShelvAnswerFile(originalPath: string): Promise<AnswerSearch
 
     if (results.results.length > 0) {
       // Find the best match (exact filename match preferred)
-      const bestMatch = results.results.find(doc => {
-        const docFilename = doc.title.toLowerCase();
-        return docFilename.includes(filenameWithoutExt.toLowerCase()) &&
-               docFilename.includes('ans');
-      }) || results.results[0];
+      const bestMatch = results.results.find(isMatchingAnswer) ||
+        (transformedAnswerFilename ? undefined : results.results[0]);
 
-      return {
-        path: bestMatch.original_path || bestMatch.title,
-        source: 'shelv',
-        documentId: bestMatch.id,
-      };
+      if (bestMatch) {
+        return {
+          path: bestMatch.original_path || bestMatch.title,
+          source: 'shelv',
+          documentId: bestMatch.id,
+        };
+      }
     }
 
     // If no results with tag filter, try without tag filter
     if (ansTagId) {
       const resultsNoTag = await paperlessAPI.search(searchQuery, 10, 'title');
       if (resultsNoTag.results.length > 0) {
-        const bestMatch = resultsNoTag.results.find(doc => {
-          const docFilename = doc.title.toLowerCase();
-          return docFilename.includes(filenameWithoutExt.toLowerCase()) &&
-                 docFilename.includes('ans');
-        });
+        const bestMatch = resultsNoTag.results.find(isMatchingAnswer);
 
         if (bestMatch) {
           return {
