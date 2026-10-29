@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.6](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.5...v2.2.6) (2026-10-29)
+
+### Bug Fixes
+
+* **Exercise answers**: answer-file search now finds IGCSE topic and Challenge answers, SAT keys and SG primary answers, and also finds DSE keys through Shelv.
+
 ## [2.2.5](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.4...v2.2.5) (2026-10-27)
 
 ### New Features
