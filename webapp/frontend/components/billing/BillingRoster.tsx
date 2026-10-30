@@ -25,8 +25,8 @@ import { billingDraftAuthScope } from './BillingDraftReview';
 const FILTERS = [
   { value: 'all', label: 'All', count: 'total' },
   { value: 'not_recorded', label: 'Not recorded', count: 'not_recorded' },
-  { value: 'manual', label: 'Manual', count: 'manual' },
   { value: 'autopay', label: 'Autopay', count: 'autopay' },
+  { value: 'manual', label: 'Manual', count: 'manual' },
   { value: 'setup_pending', label: 'Setup pending', count: 'setup_pending' },
 ] as const;
 

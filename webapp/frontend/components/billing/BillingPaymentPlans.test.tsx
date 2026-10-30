@@ -323,7 +323,7 @@ describe('payment plans on the existing student roster', () => {
     expect(screen.getByRole('tab', { name: /^Not recorded 1$/ })).toBeEnabled();
     expect(manual).toBeEnabled(); expect(autopay).toBeEnabled();
     expect(screen.getByRole('tab', { name: /^Setup pending 1$/ })).toBeEnabled();
-    fireEvent.keyDown(manual, { key: 'ArrowRight' });
+    fireEvent.keyDown(manual, { key: 'ArrowLeft' });
     expect(autopay).toHaveFocus(); expect(autopay).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => expect(mocks.students).toHaveBeenLastCalledWith(expect.objectContaining({ preference_filter: 'autopay' })));
     const stale = response([rows[0]]); stale.preference_counts = { total: 999, not_recorded: 0, manual: 999, autopay: 0, setup_pending: 0 };
