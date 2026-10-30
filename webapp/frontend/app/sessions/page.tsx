@@ -1719,7 +1719,7 @@ function SessionsPageContent() {
     return (
       <PageSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
         <PageTransition className={cn(
-          "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
+          "flex flex-col gap-2 sm:gap-3 p-4 sm:p-6",
           (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
         )}>
           {/* Toolbar Skeleton */}
@@ -2163,7 +2163,7 @@ function SessionsPageContent() {
       <PageSurface fullHeight>
         {daySwipeArrow}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+          <div className="flex flex-col gap-2 sm:gap-3 p-4 sm:p-6">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
             <div ref={setToolbarElement} className={toolbarStickyClasses}>
               <div className={toolbarInnerClasses}>
@@ -3188,7 +3188,7 @@ function SessionsPageContent() {
     <>
     <PageSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
-        "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
+        "flex flex-col gap-2 sm:gap-3 p-4 sm:p-6",
         (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
       )}>
         {/* Toolbar with animation (non-list views don't need sticky) */}

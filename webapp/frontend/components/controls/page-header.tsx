@@ -8,7 +8,7 @@
  * The icon is grey on purpose. Pages used to put it in a tile of their own
  * colour, which said nothing, so every page now looks the same here.
  *
- * On a phone the short line is hidden and the buttons drop to their own row,
+ * When the header is narrow the short line is hidden and buttons can wrap,
  * so the name is never cut short.
  *
  * Pages whose header is also their toolbar (Sessions, Courseware) pass their
@@ -59,7 +59,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <header className={cn("surface-header relative flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3", className)}>
-      <div className="flex min-w-[10rem] flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
+      <div className={cn("flex min-w-[10rem] flex-1 flex-wrap items-center gap-x-2.5 gap-y-2", subtitle && "@container/pageheading")}>
         {(backHref || onBack) && (() => {
           const backClass =
             "-ml-1 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-subtle transition-colors hover:bg-tint hover:text-gray-900 dark:hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60";
@@ -76,7 +76,7 @@ export function PageHeader({
           {titleExtra}
         </h1>
         {subtitle && (
-          <p className="hidden min-w-0 truncate text-[13px] text-ink-subtle sm:block">
+          <p className="hidden min-w-0 flex-1 truncate text-[13px] text-ink-subtle @2xl/pageheading:block">
             <span aria-hidden="true" className="mr-2">·</span>
             {subtitle}
           </p>

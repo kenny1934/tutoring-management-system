@@ -302,7 +302,7 @@ export default function StudentsPage() {
   if (loading) {
     return (
       <PageSurface fullHeight>
-        <PageTransition className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+        <PageTransition className="flex flex-col gap-2 sm:gap-3 p-4 sm:p-6 xl:p-8">
           {/* Toolbar Skeleton */}
           <div className={toolbarStickyClasses}>
             <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-3">
@@ -363,7 +363,7 @@ export default function StudentsPage() {
           : "overflow-y-auto"
       )}>
         <div className={cn(
-          "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
+          "flex flex-col gap-2 sm:gap-3 p-4 sm:p-6 xl:p-8",
           viewMode === 'my' && "flex-1 min-h-0"
         )}>
           {/* Compact Toolbar */}

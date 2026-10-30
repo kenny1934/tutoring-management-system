@@ -88,7 +88,7 @@ export default function WhatsNewPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 max-w-[48rem] mx-auto">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 xl:p-8 max-w-[48rem] mx-auto">
         <PageHeader icon={Megaphone} title="What's new" subtitle="Latest updates and improvements" />
 
         {/* Release list */}

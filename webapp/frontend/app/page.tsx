@@ -123,7 +123,7 @@ export default function DashboardPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 overflow-x-hidden">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 xl:p-8 overflow-x-hidden">
         {/* Dashboard Header with branding, welcome, and quick links */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}

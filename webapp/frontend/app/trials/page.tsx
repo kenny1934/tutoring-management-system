@@ -562,8 +562,8 @@ export default function TrialsPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="md:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 md:overflow-hidden">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 md:h-full flex flex-col">
+      <PageTransition className="md:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 xl:p-8 xl:pb-2 md:overflow-hidden">
+        <div className="min-h-0 md:h-full flex flex-col">
           <PageHeader
             icon={FlaskConical}
             title="Trials"

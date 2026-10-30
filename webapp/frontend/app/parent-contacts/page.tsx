@@ -342,7 +342,7 @@ export default function ParentContactsPage() {
           full length below the heading and figures. From md up the page
           keeps its fixed frame and each panel scrolls by itself. */}
       <PageTransition className="flex-1 overflow-hidden flex flex-col max-md:flex-none max-md:overflow-visible">
-        <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden max-md:h-auto max-md:overflow-visible">
+        <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8 h-full overflow-hidden max-md:h-auto max-md:overflow-visible">
           <PageHeader
             icon={Phone}
             title="Parent contacts"

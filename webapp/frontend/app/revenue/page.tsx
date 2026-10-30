@@ -254,7 +254,7 @@ export default function RevenuePage() {
   return (
     <PageSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-2 sm:p-4 min-h-full">
+        <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8 min-h-full">
           {/* The header is also the toolbar, stuck to the top. Its background is
               solid so the table doesn't show through as it scrolls. */}
           <div className="sticky top-0 z-30 surface-bar pt-1">

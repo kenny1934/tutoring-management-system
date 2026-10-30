@@ -340,7 +340,7 @@ export default function UncheckedAttendancePage() {
     <PageSurface>
       <PageTransition>
         <div className="min-h-full">
-          <div className="flex flex-col gap-3 p-2 sm:p-4">
+          <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
             {/* The header and bulk bar stay stuck to the top. The background is
                 solid so rows don't show through as they scroll. */}
             <div className="sticky top-0 z-30 flex flex-col gap-3 surface-bar pt-1">

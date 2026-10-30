@@ -140,7 +140,7 @@ export function BillingRoster() {
 
   if (authLoading) return <p className="p-6">Loading staff access…</p>;
   if (!enabled) return <p className="p-6">Staff access is required to review payment plans.</p>;
-  return <PageSurface><div className={cn('mx-auto max-w-7xl space-y-4 p-4 sm:p-6', selected.length > 0 && 'pb-28 sm:pb-28')}>
+  return <PageSurface><div className={cn('mx-auto max-w-7xl space-y-4 p-4 sm:p-6 xl:p-8', selected.length > 0 && 'pb-28 sm:pb-28')}>
     <PageHeader title="Payment plans" icon={CalendarRange} actions={<div className="flex flex-wrap items-center gap-2">
       <Link href="/admin/renewals" className={buttonClasses({ size: 'sm', variant: 'secondary' })}>Renewals</Link>
       <Link href="/billing/preview" className={buttonClasses({ size: 'sm', variant: 'primary' })}><Calculator className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Preview enrollment fees</Link>

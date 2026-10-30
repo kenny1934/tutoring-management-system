@@ -39,7 +39,7 @@ export default function SettingsPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 xl:p-8">
         <PageHeader
           icon={Settings}
           title="Settings"
@@ -47,12 +47,11 @@ export default function SettingsPage() {
         />
 
         {/* Settings Grid */}
-        <div className="w-full">
-          {/* grid-cols-1 and min-w-0 let the long descriptions truncate on a
-              phone instead of pushing the cards past the edge of the screen. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="@container/settings w-full">
+          {/* Split only when the content can fit both the menu and editor. */}
+          <div className="grid grid-cols-1 gap-6 @4xl/settings:grid-cols-[18rem_minmax(0,1fr)]">
             {/* Settings menu */}
-            <div className="min-w-0 md:col-span-1">
+            <div className="min-w-0">
               <div className="space-y-2">
                 {availableItems.map((item) => {
                   const Icon = item.icon;
@@ -77,14 +76,14 @@ export default function SettingsPage() {
                       )} />
                       <div className="flex-1 min-w-0">
                         <span className={cn(
-                          "block font-medium truncate",
+                          "block text-sm font-medium break-words",
                           isActive
                             ? "text-gray-900 dark:text-gray-100"
                             : "text-foreground"
                         )}>
                           {item.title}
                         </span>
-                        <span className="block text-xs text-foreground/60 truncate">
+                        <span className="mt-1 block text-[13px] leading-5 text-ink-subtle break-words">
                           {item.description}
                         </span>
                       </div>
@@ -102,10 +101,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Settings content */}
-            <div className="min-w-0 md:col-span-2">
+            <div className="min-w-0">
               {activeSection === null ? (
-                // On a phone the list sits above this, so the prompt only fills space.
-                <div className="hidden md:flex items-center justify-center h-64 text-foreground/50">
+                // In the stacked layout the list already gives the next action.
+                <div className="hidden @4xl/settings:flex items-center justify-center h-64 text-foreground/50">
                   <div className="text-center">
                     <Settings className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p className="text-sm">Select a setting to configure</p>

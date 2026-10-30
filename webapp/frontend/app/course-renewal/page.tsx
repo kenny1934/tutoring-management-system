@@ -243,8 +243,8 @@ export default function CourseRenewalPage() {
 
   return (
     <PageSurface fullHeight scrollOnPhone>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
-        <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+      <PageTransition className="flex flex-col h-full p-4 sm:p-6 xl:p-8">
+        <div className="flex min-h-0 flex-1 flex-col">
           {/* Two tabs rather than two pages. They are different questions
               about different people, but a tutor asks both in the same
               sitting in August, and the sidebar item is seasonal enough
@@ -255,7 +255,7 @@ export default function CourseRenewalPage() {
             subtitle={view === "chasing"
               ? "These are the students you taught last year and where each of them has got to."
               : "These are the classes you are down to teach in September and who has been placed in them."}
-            className="px-4 pt-3 sm:px-6 sm:pt-4"
+            className="mb-4"
             actions={
               <Segmented<RenewalView>
                 label="Which list"
@@ -268,7 +268,7 @@ export default function CourseRenewalPage() {
 
           {/* Body */}
           {view === "class" ? (
-            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6">
+            <div className="flex-1 min-h-0 flex flex-col">
               <SeptemberClasses
                 data={classData}
                 isLoading={classLoading}
@@ -284,7 +284,7 @@ export default function CourseRenewalPage() {
               There is no course intake open at the moment.
             </div>
           ) : (
-            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6">
+            <div className="flex-1 min-h-0 flex flex-col">
               {/* Counts, no rate: this is a worklist, not a scoreboard. The
                   same six lists the admin board offers, in the same order and
                   the same colours, because a tutor and an admin talking about

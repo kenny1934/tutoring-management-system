@@ -330,7 +330,7 @@ function FileLeaveForm({
           ))}
         </Select>
         {remaining !== null && (
-          <p className={cn("text-[11px] mt-0.5 ml-0.5", remaining > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600")}>
+          <p className={cn("text-xs mt-0.5 ml-0.5", remaining > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600")}>
             {remaining.toFixed(2)} days remaining
           </p>
         )}
@@ -347,7 +347,7 @@ function FileLeaveForm({
           <Input size="sm" id="leave-end" type="date" value={endDate} min={startDate} onChange={(e) => { setEndDate(e.target.value); setDaysManual(false); }} />
         </div>
       </div>
-      {dateError && <p className="text-[11px] text-red-600 -mt-1 ml-0.5">End date must be after start date</p>}
+      {dateError && <p className="text-xs text-red-600 -mt-1 ml-0.5">End date must be after start date</p>}
 
       {/* Time range (same-day only) */}
       {isSameDay && (
@@ -391,7 +391,7 @@ function FileLeaveForm({
 
       {/* Balance warning */}
       {remaining !== null && days && Number(days) > remaining && (
-        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-amber-700 dark:text-amber-400">
           This will exceed your available balance ({remaining.toFixed(2)} days remaining). It will still be submitted for approval.
         </p>
       )}

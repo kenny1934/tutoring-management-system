@@ -107,15 +107,15 @@ export function PaymentJourney({ journeys, slots, unitFee, initialMethod, action
         <span className="block text-sm font-medium">No additional fee</span>
         <span className="mt-1 block text-xs text-ink-subtle">{month(followingMonth(skipMonth), true)} sessions included in Payment {period.number}</span>
       </> : <>
-        <div className="flex flex-wrap items-center justify-between gap-1.5"><PaymentMethodBadge method={period.collection.method} size="sm" /><span className="text-[10px] text-ink-subtle">Payment {period.number}</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-1.5"><PaymentMethodBadge method={period.collection.method} size="sm" /><span className="text-xs text-ink-subtle">Payment {period.number}</span></div>
         <span className="mt-2 block text-xl font-semibold tabular-nums">{period.total_fee === null ? 'Total to confirm' : money(period.total_fee)}</span>
         <span className="block text-xs text-ink-subtle">{period.lesson_count} sessions{period.total_fee === null ? ` · ${money(period.tuition_after_deductions)} tuition` : ''}</span>
         <div className="my-2 flex flex-wrap gap-1">{period.counts_by_month.map(count => <span key={count.month} className="rounded bg-tint px-1.5 py-0.5 text-xs">{month(count.month, true)} <span className="text-ink-subtle">· {count.lessons}</span></span>)}</div>
         <span className="block text-xs font-medium">{timing(period)}</span>
-        {paymentGap(period) && <span className="mt-1 block text-[11px] text-ink-subtle">{paymentGap(period)}</span>}
-        {method === 'autopay' && period.collection.method === 'manual' && <span className="mt-1 block text-[11px] text-ink-subtle">First payment is manual</span>}
-        {attention.length > 0 && <span className="mt-2 flex flex-wrap gap-1">{attention.slice(0, 2).map(issue => <span key={issue.code} className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">{billingCheck(issue.code).label}</span>)}{attention.length > 2 && <span className="text-[11px] text-ink-subtle">+{attention.length - 2} checks</span>}</span>}
-        {notes.length > 0 && <span className="mt-2 block text-[11px] text-ink-subtle">{billingCheck(notes[0].code).label}</span>}
+        {paymentGap(period) && <span className="mt-1 block text-xs text-ink-subtle">{paymentGap(period)}</span>}
+        {method === 'autopay' && period.collection.method === 'manual' && <span className="mt-1 block text-xs text-ink-subtle">First payment is manual</span>}
+        {attention.length > 0 && <span className="mt-2 flex flex-wrap gap-1">{attention.slice(0, 2).map(issue => <span key={issue.code} className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">{billingCheck(issue.code).label}</span>)}{attention.length > 2 && <span className="text-xs text-ink-subtle">+{attention.length - 2} checks</span>}</span>}
+        {notes.length > 0 && <span className="mt-2 block text-xs text-ink-subtle">{billingCheck(notes[0].code).label}</span>}
       </>}
     </button>;
   }

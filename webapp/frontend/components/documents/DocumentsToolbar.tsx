@@ -77,7 +77,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
   return (
     <div className="shrink-0">
       {/* Row 1: Tabs + create actions */}
-      <div className="flex items-center px-4 py-1.5 border-b border-line/40">
+      <div className="flex flex-wrap items-center gap-y-1.5 px-4 py-1.5 border-b border-line/40">
         {/* Mobile: Folder drawer trigger */}
         {!isTemplatesTab && !isTrashTab && (
           <IconButton
@@ -109,7 +109,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         <div className="flex-1" />
 
         {!isReadOnly && (
-          <div className="flex items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {isTemplatesTab ? (
               <Button variant="primary" size="sm" icon={Plus} onClick={onCreateTemplate} aria-label="New template">
                 <span className="hidden sm:inline">Template</span>

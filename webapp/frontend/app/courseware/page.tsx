@@ -2932,7 +2932,7 @@ export default function CoursewarePage() {
         {/* Browse/search fill the visible area exactly (their boxes are
             flex-1, so the mobile header and stacked toolbar are accounted
             for naturally); ranking keeps the normal page scroll. */}
-        <div className={cn("flex flex-col gap-3 p-2 sm:p-4", activeTab !== "ranking" && "h-full")}>
+        <div className={cn("flex flex-col gap-3 p-4 sm:p-6", activeTab !== "ranking" && "h-full")}>
           {/* Toolbar */}
           <div className={toolbarStickyClasses}>
             <div className={toolbarInnerClasses}>

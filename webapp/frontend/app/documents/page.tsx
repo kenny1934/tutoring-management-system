@@ -618,7 +618,7 @@ export default function DocumentsPage() {
 
   return (
     <PageSurface fullHeight scrollOnPhone>
-      <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
+      <PageTransition className="flex flex-col flex-1 min-h-0 p-4 sm:p-6">
         {/* The page had no name of its own before. The tabs, search and create
             buttons stay in the toolbar inside the card, so this is only the name. */}
         <PageHeader icon={FileText} title="Documents" className="mb-2 sm:mb-3" />
@@ -822,9 +822,9 @@ export default function DocumentsPage() {
                         </div>
                         <h3 title={doc.title} className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
                         {doc.content_preview && (
-                          <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">{doc.content_preview}</p>
+                          <p className="text-[13px] leading-5 text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">{doc.content_preview}</p>
                         )}
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {doc.created_by_name}
                           {(isTrashTab ? doc.archived_at : doc.updated_at) && <> · {formatTimeAgo((isTrashTab ? doc.archived_at : doc.updated_at)!)}</>}
                         </p>

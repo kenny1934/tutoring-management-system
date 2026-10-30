@@ -371,7 +371,7 @@ export default function StudentDetailPage() {
   if (studentLoading) {
     return (
       <PageSurface fullHeight>
-        <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
+        <PageTransition className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
           {/* Header Skeleton */}
           <div className={cn(
             "flex flex-wrap items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
@@ -480,7 +480,7 @@ export default function StudentDetailPage() {
   return (
     <PageSurface fullHeight>
       <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-2 sm:p-4">
+        <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
           {/* Compact Header */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}

@@ -589,7 +589,7 @@ export default function EnrollmentDetailPage() {
   if (enrollmentLoading) {
     return (
       <PageSurface fullHeight>
-        <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
+        <PageTransition className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
           {/* Header Skeleton */}
           <div className={cn(
             "flex items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-4 py-3",
@@ -676,7 +676,7 @@ export default function EnrollmentDetailPage() {
   return (
     <PageSurface fullHeight>
       <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-2 sm:p-4">
+        <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}

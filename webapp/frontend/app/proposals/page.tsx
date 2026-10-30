@@ -208,7 +208,7 @@ export default function ProposalsPage() {
   if (!currentTutorId) {
     return (
       <PageSurface>
-        <PageTransition className="flex flex-col gap-4 p-4 sm:p-8">
+        <PageTransition className="flex flex-col gap-4 p-4 sm:p-6 xl:p-8">
           {/* Header skeleton */}
           <div className="flex items-center gap-4">
             <div className="h-9 w-9 shimmer-sepia rounded-lg" />
@@ -244,7 +244,7 @@ export default function ProposalsPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-4 p-4 sm:p-8">
+      <PageTransition className="flex flex-col gap-4 p-4 sm:p-6 xl:p-8">
         <PageHeader
           icon={CalendarClock}
           title="Make-up proposals"

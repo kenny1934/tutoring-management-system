@@ -810,7 +810,7 @@ export default function CurriculumPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
+      <PageTransition className="flex flex-col gap-3 p-4 sm:p-6">
         {/* Toolbar. Sticky from sm up only: on phones it wraps to two or
             three rows and would pin that much of the viewport. */}
         <div className="surface-bar relative z-30 sm:sticky sm:top-0">

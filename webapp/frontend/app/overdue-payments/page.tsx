@@ -502,7 +502,7 @@ export default function OverduePaymentsPage() {
       <AdminPageGuard accessDeniedMessage="Admin access required to view overdue payments">
       <PageTransition>
         <div className="min-h-full">
-          <div className="flex flex-col gap-3 p-2 sm:p-4">
+          <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
             {/* Toolbar: the page header and search stay stuck to the top. The
                 background is solid so rows don't show through as they scroll. */}
             <div className="sticky top-0 z-30 surface-bar pt-1">
@@ -745,10 +745,10 @@ export default function OverduePaymentsPage() {
 
         {/* Payment Modal */}
         {showPaymentModal && selectedEnrollment && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50" onClick={() => setShowPaymentModal(false)} />
             <div className={cn(
-              "relative bg-paper rounded-xl shadow-xl max-w-md w-full min-w-[400px] mx-4 p-6",
+              "relative bg-paper rounded-xl shadow-xl max-w-md w-full min-w-0 max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-6",
               "border-2 border-line-strong",
               "paper-texture"
             )}>
