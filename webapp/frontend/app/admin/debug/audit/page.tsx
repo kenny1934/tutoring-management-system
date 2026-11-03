@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
+import { PageHeader } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle } from "@/lib/hooks";
@@ -12,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { PaginatedAuditLogs, DebugAuditLog } from "@/types/debug";
 import {
   History,
-  ArrowLeft,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -237,33 +237,13 @@ export default function AuditLogPage() {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 z-40 surface-bar">
-            <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/admin/debug"
-                  className="p-2 hover:bg-tint rounded-lg transition-colors"
-                  aria-label="Back to debug panel"
-                >
-                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
-                </Link>
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:block p-2 rounded-lg bg-tint">
-                    <History className="h-6 w-6 text-accent-ink" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
-                      Audit Logs
-                    </h1>
-                    <p className="text-sm text-on-surface/70">
-                      History of debug panel operations
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="p-4 sm:p-6 xl:p-8">
+              <PageHeader icon={History} title="Audit logs" subtitle="History of debug panel operations"
+                backHref="/admin/debug" backLabel="Back to debug panel"   />
             </div>
 
             {/* Filters */}
-            <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 flex flex-wrap gap-3 items-center">
               <input
                 type="text"
                 placeholder="Filter by table..."
@@ -295,7 +275,7 @@ export default function AuditLogPage() {
           </div>
 
           {/* Content */}
-          <div className="px-4 sm:px-6 pb-6">
+          <div className="px-4 sm:px-6 xl:px-8 pb-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-accent-ink" aria-hidden="true" />

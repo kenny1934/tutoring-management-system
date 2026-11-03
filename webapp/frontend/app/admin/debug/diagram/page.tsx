@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
+import { PageHeader } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
@@ -12,7 +12,6 @@ import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import type { DebugTable, DebugTableSchema } from "@/types/debug";
 import {
-  ArrowLeft,
   Loader2,
   AlertTriangle,
   GitBranch,
@@ -67,7 +66,7 @@ interface Relationship {
 }
 
 export default function DiagramPage() {
-  usePageTitle("Table Relationships");
+  usePageTitle("Table relationships");
   const router = useRouter();
 
   const [zoom, setZoom] = useState(1);
@@ -268,38 +267,13 @@ export default function DiagramPage() {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="relative flex-shrink-0 surface-bar">
-            <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Link
-                    href="/admin/debug"
-                    className="p-2 hover:bg-tint rounded-lg transition-colors"
-                    aria-label="Back to debug panel"
-                  >
-                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
-                  </Link>
-                  <div className="flex items-center gap-3">
-                    <div className="hidden sm:block p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                      <GitBranch className="h-6 w-6 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
-                        Table Relationships
-                      </h1>
-                      <p className="hidden sm:block text-sm text-on-surface/70">
-                        Foreign key diagram • {nodes.length} tables • {relationships.length} relationships
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ThemeToggle compact />
-                </div>
-              </div>
+            <div className="p-4 sm:p-6 xl:p-8">
+              <PageHeader icon={GitBranch} title="Table relationships" subtitle={`${nodes.length} tables · ${relationships.length} relationships`}
+                backHref="/admin/debug" backLabel="Back to debug panel"  actions={<ThemeToggle compact />} />
             </div>
 
             {/* Controls */}
-            <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center justify-between">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 flex flex-wrap gap-3 items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleZoomOut}

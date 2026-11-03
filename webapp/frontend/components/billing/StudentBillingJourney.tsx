@@ -158,7 +158,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   </section>;
 
   if (intakeRevision) return <IntakeDraftJourney studentId={studentId} draftId={intakeRevision} onBack={() => setIntakeRevision(null)} />;
-  return <PageSurface><div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
+  return <PageSurface><div className="w-full min-w-0 space-y-4 p-4 sm:p-6 xl:p-8">
     <PageHeader title="Payment journey" icon={CalendarRange} titleExtra={!workflowAvailable ? <Badge>Preview</Badge> : undefined} backHref="/billing" backLabel="Back to payment plans" actions={
       <Button size="sm" aria-label="Refresh records" disabled={isValidating} onClick={() => { void mutate(); if (storageAvailable) void refreshDrafts(); }}><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden sm:inline">Refresh records</span></Button>
     } />
@@ -235,7 +235,7 @@ export function StudentBillingJourney({ studentId }: { studentId: number }) {
 }
 
 function IntakeDraftJourney({ studentId, draftId, onBack }: { studentId: number; draftId: string; onBack?: () => void }) {
-  return <PageSurface><div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
+  return <PageSurface><div className="w-full min-w-0 space-y-4 p-4 sm:p-6 xl:p-8">
     <PageHeader title="Enrollment fee preview" icon={CalendarRange} backHref="/admin/renewals" backLabel="Back to enrollment renewals" />
     {onBack && <Button size="sm" onClick={onBack}>Back to payment journey</Button>}
     <BillingEnrollmentIntake studentId={studentId} initialDraftId={draftId} />

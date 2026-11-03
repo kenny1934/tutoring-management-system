@@ -372,8 +372,8 @@ export default function RegularApplicationsPage() {
       {/* On a phone the whole page scrolls, so the list takes its full length
           and the heading and filters scroll away above it. From md up the
           card fills the screen and the list scrolls inside it. */}
-      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
-        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6 xl:p-8">
+        <div className="flex min-h-0 flex-col md:h-full">
           <PageHeader
             icon={ClipboardList}
             title="Regular applications"
@@ -393,7 +393,7 @@ export default function RegularApplicationsPage() {
               </>
             }
             subtitle="Review September intake applications and publish confirmed schedules"
-            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            className="mb-4"
             actions={
               <>
                 {lastUpdated && <TimeAgo timestamp={lastUpdated} />}
@@ -482,7 +482,7 @@ export default function RegularApplicationsPage() {
           />
 
           {/* Filter row */}
-          <div className="px-4 sm:px-6 py-2.5 border-b border-line/50">
+          <div className="py-2.5 border-b border-line/50">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-subtle" aria-hidden="true" />
@@ -736,7 +736,7 @@ export default function RegularApplicationsPage() {
           </div>
 
           {/* List */}
-          <div className="flex-1 min-h-0 overflow-y-auto max-md:flex-none max-md:overflow-visible px-4 sm:px-6 py-3">
+          <div className="flex-1 min-h-0 overflow-y-auto max-md:flex-none max-md:overflow-visible py-3">
             {isLoading ? (
               <div className="flex items-center justify-center h-32 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />

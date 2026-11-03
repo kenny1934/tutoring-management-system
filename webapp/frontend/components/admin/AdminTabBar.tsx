@@ -27,7 +27,7 @@ export function AdminTabBar({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 overflow-x-auto overflow-y-hidden">
+      <div className="border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 xl:px-8 overflow-x-auto overflow-y-hidden">
         <nav className="flex items-center gap-1 -mb-px whitespace-nowrap">
           {tabs.map((tab) => {
             const isActive = pathname.startsWith(tab.match ?? tab.href);

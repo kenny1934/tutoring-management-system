@@ -559,8 +559,8 @@ export default function AdminProspectsPage() {
 
   return (
     <PageSurface fullHeight scrollOnPhone>
-      <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
+      <PageTransition className="p-4 sm:p-6 xl:p-8 flex-1 min-h-0 flex flex-col">
+        <div className="overflow-hidden flex-1 min-h-0 flex flex-col">
           <HeaderBar
             year={year}
             availableYears={availableYears}
@@ -573,11 +573,11 @@ export default function AdminProspectsPage() {
           />
 
           {/* Content */}
-          <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 flex flex-col">
       {tab === "list" ? (
         <div className="space-y-5 flex-1 min-h-0 flex flex-col">
-          <div className="-mx-4 sm:mx-0">
-            <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible px-4 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:[mask-image:none]">
+          <div className="min-w-0">
+            <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:[mask-image:none]">
             <button
               onClick={() => setFilters((f) => ({ ...f, branch: "" }))}
               className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
@@ -1485,7 +1485,7 @@ function HeaderBar({
 }) {
   return (
     <PageHeader
-      className="px-4 pt-3 sm:px-6 sm:pt-4"
+      className="mb-4"
       icon={GraduationCap}
       title="P6 prospects"
       subtitle="Track and manage P6 student feeder list"

@@ -225,8 +225,8 @@ export default function SummerCertificatesPage() {
     <PageSurface fullHeight scrollOnPhone>
       {/* Held to the screen from md up. On a phone the card grows with its
           table and the whole page scrolls. */}
-      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
-        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6 xl:p-8">
+        <div className="flex min-h-0 flex-col md:h-full">
           <PageHeader
             icon={Award}
             title="Certificates"
@@ -237,7 +237,7 @@ export default function SummerCertificatesPage() {
                   : "Sessions attended by each summer student."}
               </>
             }
-            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            className="mb-4"
             actions={
               <>
                 {configs && configs.length > 1 && (
@@ -267,7 +267,7 @@ export default function SummerCertificatesPage() {
           />
 
           {/* Filters */}
-          <div className="px-4 sm:px-6 py-2 border-b border-line flex items-center gap-2 flex-wrap">
+          <div className="py-2 border-b border-line flex items-center gap-2 flex-wrap">
             {branchOptions.length > 1 && (
               <PickerDropdown
                 align="left"
@@ -317,7 +317,7 @@ export default function SummerCertificatesPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-auto">
+            <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-line bg-paper">
               <table className="w-full text-xs min-w-[640px]">
                 <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] sticky top-0 z-10">
                   <tr className="border-b border-line/30">

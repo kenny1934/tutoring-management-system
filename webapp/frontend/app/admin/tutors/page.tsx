@@ -266,8 +266,8 @@ function TutorsPageInner() {
 
   return (
     <PageSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6">
+      <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
+        <div className="min-w-0">
           <PageHeader
             className="mb-6"
             icon={Users}

@@ -285,7 +285,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   if (auth.isLoading) return <p className="p-6">Loading staff access…</p>;
   if (!enabled) return <p className="p-6">Admin access is required to review enrollment renewals.</p>;
 
-  return <PageSurface><div className={cn('mx-auto max-w-7xl space-y-4 p-4 sm:p-6', selectedRows.length > 0 && 'pb-28 sm:pb-28')}>
+  return <PageSurface><div className={cn('w-full min-w-0 space-y-4 p-4 sm:p-6 xl:p-8', selectedRows.length > 0 && 'pb-28 sm:pb-28 xl:pb-28')}>
     <PageHeader title="Enrollment renewals" subtitle="Prepare enrollments and follow up payments" icon={RefreshCw} titleExtra={auth.isReadOnly && <Badge>Read-only</Badge>} actions={
       <div className="flex flex-wrap items-center gap-2">
         <Link href={`/admin/autopay${month || serverMonth.current ? `?collection_month=${month || serverMonth.current}` : ''}`} className={buttonClasses({ size: 'sm', variant: 'secondary' })}>

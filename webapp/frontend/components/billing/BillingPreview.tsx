@@ -340,7 +340,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     </div>;
   }
   const Surface = embedded ? 'div' : PageSurface;
-  return <Surface><div className={embedded ? 'space-y-4' : 'mx-auto max-w-7xl space-y-5 p-4 sm:p-6'}>
+  return <Surface><div className={embedded ? 'space-y-4' : 'w-full min-w-0 space-y-5 p-4 sm:p-6 xl:p-8'}>
     {!embedded && <PageHeader title="Enrollment fee preview" icon={Calculator} titleExtra={<Badge>Preview</Badge>} backHref="/billing" backLabel="Back to payment plans" />}
     {!editorOpen && policyError}
     {journey}

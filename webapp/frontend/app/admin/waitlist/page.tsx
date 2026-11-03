@@ -446,10 +446,10 @@ export default function AdminWaitlistPage() {
 
   return (
     <PageSurface fullHeight scrollOnPhone>
-      {/* Held to the screen from md up. On a phone the card grows with its
+      {/* Held to the screen from md up. On a phone the content grows with its
           list and the whole page scrolls. */}
-      <PageTransition className="md:h-full p-4 sm:p-6 flex flex-col">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
+      <PageTransition className="md:h-full p-4 sm:p-6 xl:p-8 flex flex-col">
+        <div className="flex flex-col min-h-0 flex-1">
           <PageHeader
             className="mb-6"
             icon={ClipboardList}

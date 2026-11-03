@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.8](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.7...v2.2.8) (2026-11-03)
+
+### Improvements
+
+* **Admin pages**: Payment plans and the other admin pages now use consistent margins and make better use of wide screens.
+* **Debug panel**: the table browser, audit logs, SQL editor and relationship diagram now use the same compact headers and controls as the other admin pages.
+
 ## [2.2.7](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.6...v2.2.7) (2026-10-30)
 
 ### Improvements
