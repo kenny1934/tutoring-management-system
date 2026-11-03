@@ -286,13 +286,13 @@ export default function RegularConversionPage() {
       {/* On a phone the whole page scrolls, so the heading and tabs scroll
           away above the content. From md up the card fills the screen and
           the body scrolls inside it. */}
-      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
-        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6 xl:p-8">
+        <div className="flex min-h-0 flex-col md:h-full">
           <PageHeader
             icon={TrendingUp}
             title="Conversion"
             subtitle="How P6 prospects flow through summer into the regular intake."
-            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            className="mb-4"
             actions={
               <>
                 {(branchChoices.length > 1 || branch !== null) && (
@@ -380,7 +380,7 @@ export default function RegularConversionPage() {
           />
 
           {/* Tab bar: the intake at a glance, the analysis axes, and the chase list */}
-          <div className="px-4 sm:px-6 py-2 border-b border-line">
+          <div className="py-2 border-b border-line">
             <Segmented
               label="Report section"
               value={tab}
@@ -400,7 +400,7 @@ export default function RegularConversionPage() {
           ) : (
             <div
               className={cn(
-                "flex-1 min-h-0 p-4 sm:p-6 max-md:flex-none",
+                "flex-1 min-h-0 py-4 sm:py-6 max-md:flex-none",
                 // The chase tab sizes its table to the space and scrolls
                 // inside it; the other tabs scroll the body as one page.
                 tab === "chase" ? "flex flex-col overflow-hidden max-md:overflow-visible" : "overflow-auto max-md:overflow-visible space-y-6"

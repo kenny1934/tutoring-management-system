@@ -1032,7 +1032,7 @@ export default function SummerArrangementPage() {
   if (!canView) {
     return (
       <PageSurface>
-        <PageTransition className="p-6">
+        <PageTransition className="p-4 sm:p-6 xl:p-8">
           <p className="text-muted-foreground">Admin access required.</p>
         </PageTransition>
       </PageSurface>
@@ -1043,7 +1043,7 @@ export default function SummerArrangementPage() {
 
   return (
     <PageSurface fullHeight>
-      <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-2 sm:p-6")}>
+      <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-4 sm:p-6 xl:p-8")}>
         <div className="flex flex-col h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm paper-texture overflow-hidden">
         {/* Header. Full screen swaps the rows and the view-tab strip for the
             shared slim strip so the timetable keeps the height. */}

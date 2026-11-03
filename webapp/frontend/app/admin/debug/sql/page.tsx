@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { useTheme } from "next-themes";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
+import { PageHeader } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
@@ -21,11 +21,9 @@ import { defaultKeymap, history as cmHistory, historyKeymap } from "@codemirror/
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 
 import {
-  ArrowLeft,
   Play,
   Loader2,
   AlertTriangle,
-  Database,
   Clock,
   Download,
   Trash2,
@@ -178,7 +176,7 @@ function SqlEditor({ value, onChange, onExecute, isDark }: SqlEditorProps) {
 }
 
 export default function SqlExecutorPage() {
-  usePageTitle("SQL Executor");
+  usePageTitle("SQL executor");
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -351,37 +349,13 @@ export default function SqlExecutorPage() {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 z-40 surface-bar">
-            <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Link
-                    href="/admin/debug"
-                    className="p-2 hover:bg-tint rounded-lg transition-colors"
-                    aria-label="Back to debug panel"
-                  >
-                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
-                  </Link>
-                  <div className="flex items-center gap-3">
-                    <div className="hidden sm:block p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
-                      <Terminal className="h-6 w-6 text-violet-600 dark:text-violet-400" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h1 className="text-lg sm:text-2xl font-bold text-on-surface flex items-center gap-2">
-                        SQL Executor
-                        <Database className="h-5 w-5 text-violet-600" aria-hidden="true" />
-                      </h1>
-                      <p className="hidden sm:block text-sm text-on-surface/70">
-                        Execute read-only SQL queries
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <ThemeToggle />
-              </div>
+            <div className="p-4 sm:p-6 xl:p-8">
+              <PageHeader icon={Terminal} title="SQL executor" subtitle="Execute read-only SQL queries"
+                backHref="/admin/debug" backLabel="Back to debug panel"  actions={<ThemeToggle compact />} />
             </div>
 
             {/* Warning Banner */}
-            <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800">
               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium">
@@ -392,7 +366,7 @@ export default function SqlExecutorPage() {
           </div>
 
           {/* Main Content */}
-          <div className="p-4 sm:px-6 sm:py-4 space-y-4">
+          <div className="p-4 sm:p-6 xl:p-8 space-y-4">
             {/* Query Input */}
             <div className="relative">
               {mounted ? (

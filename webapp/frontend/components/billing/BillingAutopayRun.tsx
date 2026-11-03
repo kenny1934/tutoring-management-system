@@ -193,7 +193,7 @@ export function BillingAutopayRun({ initialCollectionMonth = '' }: { initialColl
   }
   if (auth.isLoading) return <p className="p-6">Loading staff access…</p>;
   if (!enabled) return <p className="p-6">Admin access is required to review autopay.</p>;
-  return <PageSurface><div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
+  return <PageSurface><div className="w-full min-w-0 space-y-4 p-4 sm:p-6 xl:p-8">
     <PageHeader title="Autopay" subtitle="Review the monthly bank collection" icon={Landmark} actions={
       <div className="flex items-center gap-2">
         <BillingAutopayExport collectionMonth={requestedMonth} defaultBranch={branch} disabled={!rangeReady || !!monthError} />

@@ -123,7 +123,7 @@ export default function AdminSummerConfigPage() {
   if (authLoading) {
     return (
       <PageSurface>
-        <PageTransition className="min-h-full p-4 sm:p-6">
+        <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
@@ -135,7 +135,7 @@ export default function AdminSummerConfigPage() {
   if (!user || !canViewAdminPages) {
     return (
       <PageSurface>
-        <PageTransition className="min-h-full p-4 sm:p-6">
+        <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
           <p className="text-center py-20 text-muted-foreground">
             You do not have permission to view this page.
           </p>
@@ -148,7 +148,7 @@ export default function AdminSummerConfigPage() {
   if (editingId !== null || creating) {
     return (
       <PageSurface>
-        <PageTransition className="min-h-full p-4 sm:p-6">
+        <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
           <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
             <SummerConfigEditor
               configId={editingId}
@@ -166,8 +166,8 @@ export default function AdminSummerConfigPage() {
   // List view
   return (
     <PageSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
+      <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
+        <div className="min-w-0">
           <PageHeader
             icon={Sun}
             title="Summer course config"
@@ -177,7 +177,7 @@ export default function AdminSummerConfigPage() {
               </>
             }
             subtitle="Manage yearly summer course configurations"
-            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            className="mb-4"
             actions={
               <>
                 {!isReadOnly && (
@@ -190,7 +190,7 @@ export default function AdminSummerConfigPage() {
           />
 
           {/* Config list */}
-          <div className="p-4 sm:p-6">
+          <div className="min-w-0">
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (

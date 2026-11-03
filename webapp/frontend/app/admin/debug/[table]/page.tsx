@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
+import { PageHeader } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
@@ -14,7 +15,6 @@ import { cn } from "@/lib/utils";
 import type { DebugTableSchema, DebugColumn, DebugRow, PaginatedRows } from "@/types/debug";
 import {
   Table2,
-  ArrowLeft,
   Search,
   AlertTriangle,
   Loader2,
@@ -1795,35 +1795,13 @@ export default function TableBrowserPage() {
             {/* Priority accent bar */}
             <div className={cn("h-1", priorityAccentColor)} />
 
-            <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <Link
-                    href="/admin/debug"
-                    className="p-2 hover:bg-tint rounded-lg transition-colors"
-                    aria-label="Back to debug panel"
-                  >
-                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
-                  </Link>
-                  <div className="flex items-center gap-3">
-                    <div className="hidden sm:block p-2 rounded-lg bg-tint">
-                      <Table2 className="h-6 w-6 text-accent-ink" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h1 className="text-lg sm:text-2xl font-bold text-on-surface">
-                        {schema?.display_name || tableName}
-                      </h1>
-                      <p className="text-sm text-on-surface/70 font-mono">{tableName}</p>
-                    </div>
-                  </div>
-                </div>
-                {/* Theme toggle */}
-                <ThemeToggle compact />
-              </div>
+            <div className="p-4 sm:p-6 xl:p-8">
+              <PageHeader icon={Table2} title={schema?.display_name || tableName} subtitle={tableName}
+                backHref="/admin/debug" backLabel="Back to debug panel"  actions={<ThemeToggle compact />} />
             </div>
 
             {/* Warning Banner */}
-            <div className="mx-4 sm:mx-6 mb-4 p-2 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 p-2 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800">
               <div className="flex items-center gap-2 text-red-700 dark:text-red-400 text-xs">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                 <span>Changes affect production data. All operations are logged.</span>
@@ -1831,7 +1809,7 @@ export default function TableBrowserPage() {
             </div>
 
             {/* Toolbar */}
-            <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center relative z-20">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 flex flex-wrap gap-3 items-center relative z-20">
               <div className="relative flex-1 min-w-[200px] z-10">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
                 <input
@@ -2083,7 +2061,7 @@ export default function TableBrowserPage() {
 
             {/* Quick filters panel */}
             {showQuickFilters && (
-              <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-wash border border-line">
+              <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 p-3 rounded-lg bg-wash border border-line">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-2">
                     Quick Filters:
@@ -2153,7 +2131,7 @@ export default function TableBrowserPage() {
             )}
 
             {/* Filter Builder Panel */}
-            <div className="mx-4 sm:mx-6 mb-4">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4">
               {/* Toggle Button + Active Filter Pills */}
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <button
@@ -2334,7 +2312,7 @@ export default function TableBrowserPage() {
 
             {/* Bulk selection bar */}
             {selectedRows.size > 0 && (
-              <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center gap-4">
+              <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center gap-4">
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                   {selectedRows.size} row{selectedRows.size !== 1 ? "s" : ""} selected
                 </span>
@@ -2375,7 +2353,7 @@ export default function TableBrowserPage() {
           </div>
 
           {/* Table */}
-          <div className="flex-1 min-h-0 overflow-auto mx-4 sm:mx-6 mb-4">
+          <div className="flex-1 min-h-0 overflow-auto mx-4 sm:mx-6 xl:mx-8 mb-4">
             {schemaError ? (
               <div className="flex flex-col items-center justify-center py-16 gap-4">
                 <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 max-w-md">
@@ -2639,7 +2617,7 @@ export default function TableBrowserPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex-shrink-0 px-4 sm:px-6 pb-4 flex items-center justify-between">
+            <div className="flex-shrink-0 px-4 sm:px-6 xl:px-8 pb-4 flex items-center justify-between">
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}

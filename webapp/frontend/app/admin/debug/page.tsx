@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
+import { PageHeader, buttonClasses } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle } from "@/lib/hooks";
@@ -12,7 +13,6 @@ import type { DebugTable } from "@/types/debug";
 import {
   Database,
   Table2,
-  ArrowLeft,
   Search,
   AlertTriangle,
   Loader2,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 export default function DebugPanelPage() {
-  usePageTitle("Debug Panel");
+  usePageTitle("Debug panel");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: tables, isLoading, error } = useSWR<DebugTable[]>(
@@ -52,34 +52,35 @@ export default function DebugPanelPage() {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 z-40 surface-bar">
-            <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/"
-                  className="p-2 hover:bg-tint rounded-lg transition-colors"
-                  aria-label="Back to home"
-                >
-                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
-                </Link>
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:block p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                    <Database className="h-6 w-6 text-red-600 dark:text-red-400" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-on-surface flex items-center gap-2">
-                      Debug Panel
-                      <Shield className="h-5 w-5 text-red-600" aria-hidden="true" />
-                    </h1>
-                    <p className="hidden sm:block text-sm text-on-surface/70">
-                      Super Admin database access
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="p-4 sm:p-6 xl:p-8">
+              <PageHeader icon={Database} title="Debug panel" subtitle="Super Admin database access"
+                backHref="/" backLabel="Back to home" titleExtra={<Shield className="h-4 w-4 text-red-600" aria-hidden="true" />} actions={<>
+              <Link
+                href="/admin/debug/diagram"
+                className={buttonClasses({ size: "sm", variant: "secondary" })}
+              >
+                <GitBranch className="h-4 w-4" aria-hidden="true" />
+                Relationships
+              </Link>
+              <Link
+                href="/admin/debug/sql"
+                className={buttonClasses({ size: "sm", variant: "secondary" })}
+              >
+                <Terminal className="h-4 w-4" aria-hidden="true" />
+                SQL executor
+              </Link>
+              <Link
+                href="/admin/debug/audit"
+                className={buttonClasses({ size: "sm", variant: "secondary" })}
+              >
+                <History className="h-4 w-4" aria-hidden="true" />
+                Audit logs
+              </Link>
+              </>} />
             </div>
 
             {/* Warning Banner */}
-            <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800">
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800">
               <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                 <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium">
@@ -88,8 +89,8 @@ export default function DebugPanelPage() {
               </div>
             </div>
 
-            {/* Search and Actions */}
-            <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center">
+            {/* Search */}
+            <div className="mx-4 sm:mx-6 xl:mx-8 mb-4 flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" aria-hidden="true" />
                 <input
@@ -101,32 +102,11 @@ export default function DebugPanelPage() {
                   className="w-full pl-9 pr-3 py-2 text-sm border border-field rounded-lg bg-field-fill placeholder-gray-400"
                 />
               </div>
-              <Link
-                href="/admin/debug/diagram"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
-              >
-                <GitBranch className="h-4 w-4" aria-hidden="true" />
-                Relationships
-              </Link>
-              <Link
-                href="/admin/debug/sql"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors"
-              >
-                <Terminal className="h-4 w-4" aria-hidden="true" />
-                SQL Executor
-              </Link>
-              <Link
-                href="/admin/debug/audit"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-line bg-raised dark:bg-raised text-gray-700 dark:text-gray-300 hover:bg-tint transition-colors"
-              >
-                <History className="h-4 w-4" aria-hidden="true" />
-                Audit Logs
-              </Link>
             </div>
           </div>
 
           {/* Content */}
-          <div className="px-4 sm:px-6 pb-6">
+          <div className="px-4 sm:px-6 xl:px-8 pb-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-accent-ink" aria-hidden="true" />

@@ -405,7 +405,7 @@ function TutorProfileInner() {
     <PageSurface fullHeight scrollOnPhone>
       {/* On a phone the whole page scrolls, heading and all. From md up the
           heading stays put and the columns below it scroll. */}
-      <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6 animate-fadeIn max-md:h-auto max-md:overflow-visible">
+      <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6 xl:p-8 animate-fadeIn max-md:h-auto max-md:overflow-visible">
         {/* Back link — chip so it stays legible on the desk texture */}
         <Link
           href="/admin/tutors"

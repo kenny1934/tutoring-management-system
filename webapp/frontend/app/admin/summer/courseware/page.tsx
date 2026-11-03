@@ -163,7 +163,7 @@ export default function AdminSummerCoursewarePage() {
   if (authLoading) {
     return (
       <PageSurface>
-        <PageTransition className="min-h-full p-4 sm:p-6">
+        <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
@@ -175,7 +175,7 @@ export default function AdminSummerCoursewarePage() {
   if (!user || !canViewAdminPages) {
     return (
       <PageSurface>
-        <PageTransition className="min-h-full p-4 sm:p-6">
+        <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
           <p className="text-center py-20 text-muted-foreground">
             You do not have permission to view this page.
           </p>
@@ -186,8 +186,8 @@ export default function AdminSummerCoursewarePage() {
 
   return (
     <PageSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
+      <PageTransition className="min-h-full p-4 sm:p-6 xl:p-8">
+        <div className="min-w-0">
           <PageHeader
             icon={BookOpen}
             title="Summer courseware"
@@ -197,7 +197,7 @@ export default function AdminSummerCoursewarePage() {
               </>
             }
             subtitle="Scanned snapshot of the courseware drive, used for lesson defaults"
-            className="px-4 pt-3 sm:px-6 sm:pt-4 sm:pb-4"
+            className="mb-4"
             actions={
               <>
                 <Select
@@ -227,7 +227,7 @@ export default function AdminSummerCoursewarePage() {
             }
           />
 
-          <div className="p-4 sm:p-6 space-y-6">
+          <div className="space-y-6">
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (

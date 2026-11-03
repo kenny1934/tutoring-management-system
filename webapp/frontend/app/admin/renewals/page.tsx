@@ -1006,12 +1006,12 @@ function LegacyRenewalsPage({ onBackToQueue, initialTaught }: { onBackToQueue?: 
 
   return (
     <PageSurface fullHeight scrollOnPhone>
-      {/* Held to the screen from md up. On a phone the card grows with its
+      {/* Held to the screen from md up. On a phone the content grows with its
           list and the whole page scrolls. */}
-      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6">
-        <div className="flex flex-col md:h-full bg-paper dark:bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
+      <PageTransition className="flex flex-col md:h-full p-4 sm:p-6 xl:p-8">
+        <div className="flex flex-col min-h-0 md:h-full">
         {/* Sticky Header Section */}
-        <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-paper dark:bg-raised">
+        <div className="flex-shrink-0">
         <PageHeader
           className="mb-6"
           icon={RefreshCcw}
@@ -1088,7 +1088,7 @@ function LegacyRenewalsPage({ onBackToQueue, initialTaught }: { onBackToQueue?: 
 
         {/* Tab bar - only show when data is loaded */}
         {!isLoading && !renewalsLoading && user && canViewAdminPages && renewals && (renewals.length > 0 || waitingTaught.length > 0) && (
-          <div ref={tabBarRef} className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide px-4 sm:px-6 -mx-4 sm:-mx-6">
+          <div ref={tabBarRef} className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('not_renewed')}
               data-active={activeTab === 'not_renewed' || undefined}
@@ -1166,7 +1166,7 @@ function LegacyRenewalsPage({ onBackToQueue, initialTaught }: { onBackToQueue?: 
         </div>
 
         {/* Scrollable Content Area */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 pb-4 sm:pb-6">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
           {/* Loading skeleton */}
           {(isLoading || renewalsLoading) ? (
             <div className="space-y-3">
