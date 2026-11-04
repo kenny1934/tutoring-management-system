@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 # Exact paths that do not require an access_token cookie.
 PUBLIC_PATHS = frozenset({
+    # Exact signed server-to-server role integration; handler validates HMAC.
+    "/api/admin/staff-home",
     # OAuth + session lifecycle (no/!valid access_token is the whole point here)
     "/api/auth/google/login",
     "/api/auth/google/callback",
