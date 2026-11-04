@@ -356,7 +356,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, unlisted_lessons, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy, waitlist, grade_progression, summer_courseware, summer_revenue, regular_course, homework, employment, curriculum, events, lesson_ink
+from routers import staff_home, students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, unlisted_lessons, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy, waitlist, grade_progression, summer_courseware, summer_revenue, regular_course, homework, employment, curriculum, events, lesson_ink
 
 # Register routers
 from routers import billing, billing_drafts, billing_workflow, billing_queue, billing_autopay, billing_bank_runs, billing_receipts, billing_coupons, makeup_entitlement
@@ -372,6 +372,7 @@ app.include_router(billing_receipts.router, prefix="/api", tags=["billing"])
 app.include_router(billing_coupons.router, prefix="/api", tags=["billing"])
 app.include_router(makeup_entitlement.router, prefix="/api", tags=["makeup"])
 app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(staff_home.router, prefix="/api", tags=["staff-home"])
 app.include_router(students.router, prefix="/api", tags=["students"])
 app.include_router(enrollments.router, prefix="/api", tags=["enrollments"])
 app.include_router(sessions.router, prefix="/api", tags=["sessions"])
