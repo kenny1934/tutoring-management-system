@@ -7,6 +7,7 @@ from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 from makeup_schemas import MakeupEligibility
+from utils.time_slots import TimeSlot, EnrollmentTimeSlot
 
 from constants import WEEKDAY_NAMES, SummerApplicationStatus, RegularApplicationStatus
 
@@ -347,7 +348,7 @@ class EnrollmentUpdate(BaseModel):
     """Schema for updating enrollment fields"""
     tutor_id: Optional[int] = Field(None, gt=0)
     assigned_day: Optional[str] = Field(None, max_length=20)
-    assigned_time: Optional[str] = Field(None, max_length=20)
+    assigned_time: Optional[EnrollmentTimeSlot] = Field(None, max_length=20)
     location: Optional[str] = Field(None, max_length=200)
     lessons_paid: Optional[int] = Field(None, ge=0)
     payment_date: Optional[date] = None
@@ -452,7 +453,7 @@ class EnrollmentCreate(BaseModel):
     student_id: int = Field(..., gt=0)
     tutor_id: int = Field(..., gt=0)
     assigned_day: str = Field(..., max_length=20, description="Day of week (e.g., 'Monday')")
-    assigned_time: str = Field(..., max_length=20, description="Time slot (e.g., '16:45 - 18:15')")
+    assigned_time: TimeSlot = Field(..., max_length=20, description="Time slot (e.g., '16:45 - 18:15')")
     location: str = Field(..., max_length=200)
     first_lesson_date: date = Field(..., description="Date of the first lesson")
     lessons_paid: int = Field(..., ge=1, description="Number of sessions to generate")
@@ -843,7 +844,7 @@ class RateSessionRequest(BaseModel):
 class SessionUpdate(BaseModel):
     """Schema for updating session fields"""
     session_date: Optional[date] = None
-    time_slot: Optional[str] = Field(None, max_length=50)
+    time_slot: Optional[TimeSlot] = Field(None, max_length=50)
     location: Optional[str] = Field(None, max_length=200)
     tutor_id: Optional[int] = Field(None, gt=0)
     session_status: Optional[str] = Field(None, max_length=50)
@@ -1026,7 +1027,7 @@ class MakeupSlotSuggestion(BaseModel):
 class ScheduleMakeupRequest(BaseModel):
     """Request to schedule a make-up session"""
     session_date: date
-    time_slot: str = Field(..., max_length=50)
+    time_slot: TimeSlot = Field(..., max_length=50)
     tutor_id: int = Field(..., gt=0)
     location: str = Field(..., max_length=200)
     notes: Optional[str] = Field(None, max_length=500, description="Optional reason for scheduling this make-up")
@@ -1725,6 +1726,7 @@ class MakeupProposalSlotBase(BaseModel):
 
 class MakeupProposalSlotCreate(MakeupProposalSlotBase):
     """Schema for creating a proposal slot"""
+    proposed_time_slot: TimeSlot = Field(..., max_length=100)
     slot_order: int = Field(default=1, ge=1, le=3)
 
 
@@ -1747,7 +1749,7 @@ class MakeupProposalSlotResponse(MakeupProposalSlotBase):
 class MakeupProposalSlotUpdate(BaseModel):
     """Schema for updating a proposal slot (all fields optional)"""
     proposed_date: Optional[date] = None
-    proposed_time_slot: Optional[str] = Field(None, max_length=100)
+    proposed_time_slot: Optional[TimeSlot] = Field(None, max_length=100)
     proposed_tutor_id: Optional[int] = Field(None, gt=0)
     proposed_location: Optional[str] = Field(None, max_length=100)
 
@@ -1911,7 +1913,7 @@ class ExamRevisionSlotCreate(BaseModel):
     """Schema for creating an exam revision slot"""
     calendar_event_id: int = Field(..., gt=0, description="ID of the calendar event (exam) this slot is for")
     session_date: date = Field(..., description="Date of the revision session")
-    time_slot: str = Field(..., max_length=50, description="Time slot (e.g., '10:00-12:00')")
+    time_slot: TimeSlot = Field(..., max_length=50, description="Time slot (e.g., '10:00-12:00')")
     tutor_id: int = Field(..., gt=0, description="ID of the tutor running the session")
     location: str = Field(..., max_length=100, description="Location of the session")
     notes: Optional[str] = Field(None, max_length=1000, description="Optional notes for this revision slot")
@@ -1921,7 +1923,7 @@ class ExamRevisionSlotCreate(BaseModel):
 class ExamRevisionSlotUpdate(BaseModel):
     """Schema for updating an exam revision slot"""
     session_date: Optional[date] = None
-    time_slot: Optional[str] = Field(None, max_length=50)
+    time_slot: Optional[TimeSlot] = Field(None, max_length=50)
     tutor_id: Optional[int] = Field(None, gt=0)
     location: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=1000)
@@ -2043,7 +2045,7 @@ class ExamWithRevisionSlotsResponse(BaseModel):
 class ScheduleChangeRequest(BaseModel):
     """Request to preview or apply a schedule change"""
     assigned_day: str = Field(..., max_length=20, description="New assigned day (Monday, Tuesday, etc.)")
-    assigned_time: str = Field(..., max_length=20, description="New time slot")
+    assigned_time: TimeSlot = Field(..., max_length=20, description="New time slot")
     location: str = Field(..., max_length=200, description="New location")
     tutor_id: int = Field(..., gt=0, description="New tutor ID")
 
@@ -2096,12 +2098,12 @@ class ScheduleChangePreviewResponse(BaseModel):
 class ApplyScheduleChangeRequest(BaseModel):
     """Request to apply schedule change"""
     assigned_day: str = Field(..., max_length=20)
-    assigned_time: str = Field(..., max_length=20)
+    assigned_time: TimeSlot = Field(..., max_length=20)
     location: str = Field(..., max_length=200)
     tutor_id: int = Field(..., gt=0)
     apply_to_sessions: bool = Field(default=True, description="Whether to also update future sessions")
     date_overrides: Optional[Dict[int, str]] = Field(default=None, description="Manual date overrides: session_id -> ISO date string")
-    time_overrides: Optional[Dict[int, str]] = Field(default=None, description="Manual time overrides: session_id -> time string (e.g. '14:30')")
+    time_overrides: Optional[Dict[int, TimeSlot]] = Field(default=None, description="Manual time overrides: session_id -> time string (e.g. '14:30 - 16:00')")
 
 
 class ScheduleChangeResult(BaseModel):
@@ -2187,7 +2189,7 @@ class UnlistedLessonCreate(BaseModel):
     the same shape as saving a lesson's exercises, links included."""
     student_id: int = Field(..., gt=0)
     lesson_date: date
-    time_slot: Optional[str] = Field(None, max_length=50)
+    time_slot: Optional[TimeSlot] = Field(None, max_length=50)
     location: Optional[str] = Field(None, max_length=50)
     notes: Optional[str] = Field(None, max_length=2000)
     exercises: List[ExerciseCreateRequest] = []
@@ -2201,7 +2203,7 @@ class UnlistedLessonUpdate(BaseModel):
     """Changes to a lesson that is still waiting. Only the fields sent change."""
     student_id: Optional[int] = Field(None, gt=0)
     lesson_date: Optional[date] = None
-    time_slot: Optional[str] = Field(None, max_length=50)
+    time_slot: Optional[TimeSlot] = Field(None, max_length=50)
     location: Optional[str] = Field(None, max_length=50)
     notes: Optional[str] = Field(None, max_length=2000)
     exercises: Optional[List[ExerciseCreateRequest]] = None
@@ -2828,7 +2830,7 @@ class SummerSlotCreate(BaseModel):
     """Create a new timetable slot."""
     config_id: int
     slot_day: str = Field(..., max_length=20)
-    time_slot: str = Field(..., max_length=50)
+    time_slot: TimeSlot = Field(..., max_length=50)
     location: str = Field(..., max_length=255)
     grade: Optional[str] = Field(None, max_length=50)
     slot_label: Optional[str] = Field(None, max_length=100)
@@ -2903,7 +2905,7 @@ class SummerMakeupSlotCreate(BaseModel):
     config_id: int
     location: str = Field(..., max_length=255)
     date: date
-    time_slot: str = Field(..., max_length=50)
+    time_slot: TimeSlot = Field(..., max_length=50)
     tutor_id: int
     max_students: int = Field(8, gt=0)
 
@@ -2944,7 +2946,7 @@ class SummerSessionMove(BaseModel):
     """
     target_lesson_id: Optional[int] = Field(None, gt=0)
     target_date: Optional[date] = None
-    time_slot: Optional[str] = Field(None, max_length=50)
+    time_slot: Optional[TimeSlot] = Field(None, max_length=50)
     tutor_id: Optional[int] = Field(None, gt=0)
     # Forces ad-hoc creation even if a matching regular slot exists. Useful
     # when admin explicitly wants a one-off context for this lesson.
@@ -4612,7 +4614,7 @@ class RegularSlotCreate(BaseModel):
     """Create a weekly arrangement slot."""
     config_id: int
     slot_day: str = Field(..., max_length=20)
-    time_slot: str = Field(..., max_length=50)
+    time_slot: TimeSlot = Field(..., max_length=50)
     location: str = Field(..., max_length=255)
     grade: Optional[str] = Field(None, max_length=50)
     lang_stream: Optional[str] = Field(None, max_length=20)
@@ -4623,7 +4625,7 @@ class RegularSlotCreate(BaseModel):
 class RegularSlotUpdate(BaseModel):
     """Update a slot. All fields optional; tutor/grade/stream clear via explicit null."""
     slot_day: Optional[str] = Field(None, max_length=20)
-    time_slot: Optional[str] = Field(None, max_length=50)
+    time_slot: Optional[TimeSlot] = Field(None, max_length=50)
     location: Optional[str] = Field(None, max_length=255)
     grade: Optional[str] = Field(None, max_length=50)
     lang_stream: Optional[str] = Field(None, max_length=20)

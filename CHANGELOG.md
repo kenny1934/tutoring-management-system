@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.9](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.8...v2.2.9) (2026-11-06)
+
+### Bug Fixes
+
+* **Class times**: custom enrolment times now use separate start and end controls, and sessions with the same times stay grouped together even when their spacing differs.
+* **Payment checks**: equivalent class times with different spacing no longer incorrectly block fee messages or payment recording.
+
 ## [2.2.8](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.7...v2.2.8) (2026-11-03)
 
 ### Improvements

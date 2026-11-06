@@ -13,6 +13,7 @@
  * the bare time slot, exactly as it was, which is what keeps the "Now" jump
  * button finding its anchor by `slot-${timeSlot}`.
  */
+import { normaliseTimeSlot } from "./time-slots";
 import { compareSessionsInSlot, getMainGradeGroup, type SlotSortSession } from "./session-status";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
@@ -108,6 +109,7 @@ export function groupSessionsForList<T extends GroupableSession>(
   const groups = new Map<string, SessionGroup<T>>();
 
   const ensure = (date: string, timeSlot: string) => {
+    timeSlot = normaliseTimeSlot(timeSlot);
     const key = groupByDate ? `${date}|${timeSlot}` : timeSlot;
     let group = groups.get(key);
     if (!group) {

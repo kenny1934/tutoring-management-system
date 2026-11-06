@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from models import Enrollment, Holiday, SessionLog, Student, StudentCoupon, Tutor
+from utils.time_slots import normalise_time_slot, same_time_slot
 from .drafts import DraftConflict, DraftNotFound, digest, draft_discarded, review_draft, utc
 from .messages import MESSAGE_TEMPLATE_VERSION
 from .models import (
@@ -213,7 +214,7 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
                 or enrollment.lessons_paid != line.lesson_count or enrollment.discount_id is not None
                 or enrollment.payment_status != payment.status
                 or enrollment.revenue_total != line.tuition_amount
-                or enrollment.assigned_day != slot.weekday or enrollment.assigned_time != slot.time_slot
+                or enrollment.assigned_day != slot.weekday or not same_time_slot(enrollment.assigned_time, slot.time_slot)
                 or enrollment.location != slot.location or enrollment.first_lesson_date != min(lesson_dates)
                 or enrollment.tutor_id != evidence.get('tutor_id')
                 or ('renewed_from_enrollment_id' in evidence and
@@ -395,7 +396,7 @@ def confirm_draft(db, student_id, draft_id, data, actor, *, as_of, policy=POLICY
         first_line = False
         enrollment = Enrollment(
             student_id=student_id, tutor_id=tutor_id, assigned_day=slot.weekday,
-            assigned_time=slot.time_slot, location=slot.location, first_lesson_date=min(l.date for l in lessons),
+            assigned_time=normalise_time_slot(slot.time_slot), location=slot.location, first_lesson_date=min(l.date for l in lessons),
             lessons_paid=len(lessons), enrollment_type='Regular', payment_status='Pending Payment',
             payment_deadline=review.period.collection.debit_to or review.period.collection.due_before_lesson,
             discount_id=None, is_new_student=is_new_student, fee_message_sent=False, revenue_total=tuition,
@@ -410,7 +411,7 @@ def confirm_draft(db, student_id, draft_id, data, actor, *, as_of, policy=POLICY
                                   discount_amount=shares[index], tuition_amount=tuition, materials_fee=materials))
         for lesson in lessons:
             session = SessionLog(enrollment_id=enrollment.id, student_id=student_id, tutor_id=tutor_id,
-                                 session_date=lesson.date, time_slot=lesson.time_slot, location=lesson.location,
+                                 session_date=lesson.date, time_slot=normalise_time_slot(lesson.time_slot), location=lesson.location,
                                  session_status='Scheduled', financial_status='Unpaid', last_modified_by=actor.user_email)
             db.add(session)
             db.flush()

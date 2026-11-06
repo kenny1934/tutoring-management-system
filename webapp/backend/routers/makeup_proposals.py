@@ -3,6 +3,7 @@ Make-up Proposals API endpoints.
 Allows tutors to propose make-up slots for confirmation by other tutors.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from utils.time_slots import same_time_slot, time_slot_matches
 from sqlalchemy.orm import Session, joinedload
 from utils.query_helpers import session_with_relations, proposal_with_slots
 from sqlalchemy import and_, or_, func, text
@@ -581,7 +582,7 @@ async def approve_slot(
             proposed_day = slot.proposed_date.strftime('%a')
             is_regular_slot = (
                 proposed_day == current_enrollment.assigned_day and
-                slot.proposed_time_slot == current_enrollment.assigned_time
+                same_time_slot(slot.proposed_time_slot, current_enrollment.assigned_time)
             )
 
             if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
@@ -660,7 +661,7 @@ async def approve_slot(
     existing_session = db.query(SessionLog).filter(
         SessionLog.student_id == original_session.student_id,
         SessionLog.session_date == slot.proposed_date,
-        SessionLog.time_slot == slot.proposed_time_slot,
+        time_slot_matches(SessionLog.time_slot, slot.proposed_time_slot),
         SessionLog.location == slot.proposed_location
     ).first()
 
@@ -692,7 +693,7 @@ async def approve_slot(
             CalendarEvent, ExamRevisionSlot.calendar_event_id == CalendarEvent.id
         ).filter(
             ExamRevisionSlot.session_date == slot.proposed_date,
-            ExamRevisionSlot.time_slot == slot.proposed_time_slot,
+            time_slot_matches(ExamRevisionSlot.time_slot, slot.proposed_time_slot),
             ExamRevisionSlot.location == slot.proposed_location,
             or_(CalendarEvent.school.is_(None), CalendarEvent.school == original_session.student.school),
             or_(CalendarEvent.grade.is_(None), CalendarEvent.grade == original_session.student.grade),

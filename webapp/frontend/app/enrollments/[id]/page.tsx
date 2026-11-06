@@ -1,5 +1,8 @@
 "use client";
 
+import { TimeRangeInput } from "@/components/controls/TimeRangeInput";
+import { normaliseTimeSlot, parseTimeRange, sameTimeSlot } from "@/lib/time-slots";
+
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions, useSummerApplication } from "@/lib/hooks";
@@ -120,10 +123,10 @@ export default function EnrollmentDetailPage() {
 
   const handleEditSchedule = () => {
     if (enrollment) {
-      setEditForm({ ...enrollment });
+      setEditForm({ ...enrollment, assigned_time: normaliseTimeSlot(enrollment.assigned_time || "") });
       setIsEditingSchedule(true);
       // Check if current time is not in predefined options
-      const currentTime = enrollment.assigned_time || "";
+      const currentTime = normaliseTimeSlot(enrollment.assigned_time || "");
       const isWeekendDay = ["Sat", "Sun"].includes(enrollment.assigned_day || "");
       const options = isWeekendDay ? WEEKEND_TIME_OPTIONS : WEEKDAY_TIME_OPTIONS;
       setIsCustomTime(currentTime !== "" && !options.includes(currentTime));
@@ -154,8 +157,9 @@ export default function EnrollmentDetailPage() {
 
     // Check if this is a schedule edit with schedule field changes
     if (isEditingSchedule) {
+      if (!parseTimeRange(editForm.assigned_time || "")) return;
       const dayChanged = editForm.assigned_day !== enrollment.assigned_day;
-      const timeChanged = editForm.assigned_time !== enrollment.assigned_time;
+      const timeChanged = !sameTimeSlot(editForm.assigned_time, enrollment.assigned_time);
       const locationChanged = editForm.location !== enrollment.location;
       const tutorChanged = editForm.tutor_id !== enrollment.tutor_id;
 
@@ -774,7 +778,7 @@ export default function EnrollmentDetailPage() {
                     <Button variant="quiet" size="sm" onClick={handleCancelEdit} disabled={isSaving}>
                       Cancel
                     </Button>
-                    <Button variant="primary" size="sm" onClick={handleSave} disabled={isSaving}>
+                    <Button variant="primary" size="sm" onClick={handleSave} disabled={isSaving || (isEditingSchedule && !parseTimeRange(editForm.assigned_time || ""))}>
                       {isSaving ? 'Saving...' : 'Save'}
                     </Button>
                   </div>
@@ -816,13 +820,10 @@ export default function EnrollmentDetailPage() {
                       <Label htmlFor="edit-enrollment-time" className="w-24 mb-0 flex-shrink-0">Time</Label>
                       {isCustomTime ? (
                         <div className="flex-1 flex items-center gap-2">
-                          <Input
+                          <TimeRangeInput
                             id="edit-enrollment-time"
-                            type="text"
-                            placeholder="e.g. 15:00 - 16:30"
                             value={editForm.assigned_time || ""}
-                            onChange={(e) => handleFormChange("assigned_time", e.target.value)}
-                            className="flex-1"
+                            onChange={(value) => handleFormChange("assigned_time", value)}
                           />
                           <Button variant="quiet" size="sm" onClick={() => setIsCustomTime(false)}>
                             Back
@@ -1050,7 +1051,7 @@ export default function EnrollmentDetailPage() {
                     <Button variant="quiet" size="sm" onClick={handleCancelEdit} disabled={isSaving}>
                       Cancel
                     </Button>
-                    <Button variant="primary" size="sm" onClick={handleSave} disabled={isSaving}>
+                    <Button variant="primary" size="sm" onClick={handleSave} disabled={isSaving || (isEditingSchedule && !parseTimeRange(editForm.assigned_time || ""))}>
                       {isSaving ? 'Saving...' : 'Save'}
                     </Button>
                   </div>

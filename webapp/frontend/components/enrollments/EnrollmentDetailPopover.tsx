@@ -1,5 +1,8 @@
 "use client";
 
+import { TimeRangeInput } from "@/components/controls/TimeRangeInput";
+import { normaliseTimeSlot, parseTimeRange, sameTimeSlot } from "@/lib/time-slots";
+
 import { useMemo, useEffect, useState, memo } from "react";
 import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
@@ -31,7 +34,7 @@ import type { Enrollment, Tutor } from "@/types";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { GradeBadge } from "@/components/ui/grade-label";
-import { Button, IconButton, Input, Label, Select, buttonClasses } from "@/components/controls";
+import { Button, IconButton, Label, Select, buttonClasses } from "@/components/controls";
 
 /** Stable empty list so a fetch in flight does not recompute the narrowing. */
 const EMPTY_TUTORS: Tutor[] = [];
@@ -182,13 +185,13 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     setIsCustomTime(false);
     if (enrollment) {
       setEditedDay(enrollment.assigned_day || '');
-      setEditedTime(enrollment.assigned_time || '');
+      setEditedTime(normaliseTimeSlot(enrollment.assigned_time || ''));
       setEditedLocation(enrollment.location || '');
       setEditedTutorId(enrollment.tutor_id || null);
       // Check if current time is custom (not in predefined options)
       if (enrollment.assigned_time) {
         const options = getTimeOptions(enrollment.assigned_day || '');
-        if (!options.includes(enrollment.assigned_time)) {
+        if (!options.includes(normaliseTimeSlot(enrollment.assigned_time))) {
           setIsCustomTime(true);
         }
       }
@@ -271,9 +274,10 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   };
 
   const handleSaveSchedule = () => {
+    if (!parseTimeRange(editedTime)) return;
     // Check if anything actually changed
     const dayChanged = editedDay !== enrollment.assigned_day;
-    const timeChanged = editedTime !== enrollment.assigned_time;
+    const timeChanged = !sameTimeSlot(editedTime, enrollment.assigned_time);
     const locationChanged = editedLocation !== enrollment.location;
     const tutorChanged = editedTutorId !== enrollment.tutor_id;
 
@@ -416,14 +420,11 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 <Label htmlFor={`enrollment-${enrollment.id}-time`} className="mb-0 w-12 flex-shrink-0">Time</Label>
                 {isCustomTime ? (
                   <div className="flex-1 flex items-center gap-1">
-                    <Input
+                    <TimeRangeInput
                       id={`enrollment-${enrollment.id}-time`}
-                      type="text"
                       size="sm"
                       value={editedTime}
-                      onChange={(e) => setEditedTime(e.target.value)}
-                      placeholder="e.g., 10:00 - 11:30"
-                      className="flex-1"
+                      onChange={setEditedTime}
                     />
                     <button
                       onClick={(e) => {
@@ -522,6 +523,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     e.stopPropagation();
                     handleSaveSchedule();
                   }}
+                  disabled={!parseTimeRange(editedTime)}
                   className="flex-1"
                 >
                   Save

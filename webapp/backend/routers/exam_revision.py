@@ -6,6 +6,7 @@ and track enrollment.
 """
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+from utils.time_slots import same_time_slot, time_slot_matches
 from sqlalchemy.orm import Session, joinedload
 from utils.query_helpers import session_with_relations
 from sqlalchemy import func, and_, or_
@@ -78,7 +79,7 @@ def _adopt_matching_sessions(
         Student, SessionLog.student_id == Student.id
     ).filter(
         SessionLog.session_date == slot.session_date,
-        SessionLog.time_slot == slot.time_slot,
+        time_slot_matches(SessionLog.time_slot, slot.time_slot),
         SessionLog.location == slot.location,
         SessionLog.session_status.in_(ENROLLED_SESSION_STATUSES),
         SessionLog.exam_revision_slot_id.is_(None),
@@ -215,7 +216,7 @@ def _check_past_deadline(
     proposed_day = target_date.strftime('%a')
     is_regular_slot = (
         proposed_day == current_enrollment.assigned_day and
-        target_time_slot == current_enrollment.assigned_time
+        same_time_slot(target_time_slot, current_enrollment.assigned_time)
     )
 
     if not is_regular_slot or not current_enrollment.first_lesson_date or not current_enrollment.lessons_paid:
@@ -352,7 +353,7 @@ async def create_revision_slot(
     existing = db.query(ExamRevisionSlot).filter(
         ExamRevisionSlot.calendar_event_id == request.calendar_event_id,
         ExamRevisionSlot.session_date == request.session_date,
-        ExamRevisionSlot.time_slot == request.time_slot,
+        time_slot_matches(ExamRevisionSlot.time_slot, request.time_slot),
         ExamRevisionSlot.tutor_id == request.tutor_id,
         ExamRevisionSlot.location == request.location
     ).first()
@@ -575,7 +576,7 @@ async def update_revision_slot(
             ExamRevisionSlot.id != slot_id,
             ExamRevisionSlot.calendar_event_id == slot.calendar_event_id,
             ExamRevisionSlot.session_date == check_date,
-            ExamRevisionSlot.time_slot == check_time,
+            time_slot_matches(ExamRevisionSlot.time_slot, check_time),
             ExamRevisionSlot.tutor_id == check_tutor,
             ExamRevisionSlot.location == check_location
         ).first()
@@ -622,7 +623,7 @@ async def update_revision_slot(
             Student, SessionLog.student_id == Student.id
         ).filter(
             SessionLog.session_date == slot.session_date,
-            SessionLog.time_slot == slot.time_slot,
+            time_slot_matches(SessionLog.time_slot, slot.time_slot),
             SessionLog.location == slot.location,
             SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
             SessionLog.exam_revision_slot_id.is_(None),
