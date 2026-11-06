@@ -14,6 +14,7 @@ from billing.models import (
     BillingPayment, BillingPaymentLine, BillingPreference,
 )
 from billing import workflow
+from utils.time_slots import normalise_time_slot
 from models import Enrollment, Holiday, SessionLog, StudentCoupon, Tutor, TutorMemo
 from tests.test_billing_drafts import env as draft_env, review_request, saved, save_request
 
@@ -181,19 +182,28 @@ def test_effective_tutor_cannot_mutate_even_with_super_admin_token(env):
     assert client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=data, headers=headers).status_code == 403
 
 
-def test_confirmation_creates_only_reviewed_dates_and_one_payment(env):
+@pytest.mark.parametrize('unspaced', [False, True])
+def test_confirmation_creates_only_reviewed_dates_and_one_payment(env, unspaced):
     client, session, _ = env
+    if unspaced:
+        source = session.get(Enrollment, 11)
+        source.assigned_time = source.assigned_time.replace(' ', '')
+        for lesson in session.query(SessionLog).filter_by(enrollment_id=11):
+            lesson.time_slot = lesson.time_slot.replace(' ', '')
+        session.commit()
     draft, _, payment = confirmed(client)
     assert payment['status'] == 'Pending Payment' and payment['version'] == 1
     assert payment['can_copy'] and payment['review_issues'] == []
     assert len(payment['lines']) == 1
     enrollment = session.get(Enrollment, payment['lines'][0]['enrollment_id'])
     assert enrollment.renewed_from_enrollment_id == 11
+    assert enrollment.assigned_time == '16:00 - 17:30'
+    assert all(claim.time_slot == '16:00-17:30' for claim in session.query(BillingLessonClaim))
     assert enrollment.payment_status == 'Pending Payment' and not enrollment.fee_message_sent
     assert enrollment.payment_deadline.isoformat() == payment['review']['period']['collection']['due_before_lesson']
     assert enrollment.discount_id is None and enrollment.revenue_total == 2400
     rows = session.query(SessionLog).filter_by(enrollment_id=enrollment.id).order_by(SessionLog.session_date).all()
-    expected = sorted((l['date'], l['time_slot'], l['location']) for l in draft['review']['period']['lessons'])
+    expected = sorted((l['date'], normalise_time_slot(l['time_slot']), l['location']) for l in draft['review']['period']['lessons'])
     assert [(r.session_date.isoformat(), r.time_slot, r.location) for r in rows] == expected
     assert all(r.financial_status == 'Unpaid' for r in rows)
     assert session.query(BillingLessonClaim).count() == len(expected)

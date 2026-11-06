@@ -1,5 +1,7 @@
 "use client";
 
+import { sameTimeSlot } from "@/lib/time-slots";
+
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, useUnlistedLessons, useNowMinutes, useEmploymentOverrun, preloadCurriculumSuggestions } from "@/lib/hooks";
@@ -1455,7 +1457,7 @@ function SessionsPageContent() {
         const scopeSessions = focusedSessionId
           ? (() => {
               const focused = currentSessions.find(s => s.id === focusedSessionId);
-              return focused ? currentSessions.filter(s => s.time_slot === focused.time_slot) : currentSessions.filter(s => visibleSet.has(s.id));
+              return focused ? currentSessions.filter(s => sameTimeSlot(s.time_slot, focused.time_slot)) : currentSessions.filter(s => visibleSet.has(s.id));
             })()
           : currentSessions.filter(s => visibleSet.has(s.id));
 
@@ -2718,7 +2720,7 @@ function SessionsPageContent() {
                           <div className="flex items-center gap-1 sm:gap-2">
                             {/* Lesson mode needs a lesson in CSM, or a worksheet of a student who isn't in CSM yet, to show */}
                             {tutorFilter && (sessionsInSlot.length > 0 || waitingLessons.some((lesson) =>
-                              lesson.time_slot === timeSlot && lesson.lesson_date === groupDate && hasSomethingToShow(lesson)
+                              sameTimeSlot(lesson.time_slot, timeSlot) && lesson.lesson_date === groupDate && hasSomethingToShow(lesson)
                             )) && (
                               <LessonNudge
                                 active={tutorFilter === effectiveUserId && isCurrentSlot && sessionsInSlot.some(isCountableSession)}
@@ -2771,7 +2773,7 @@ function SessionsPageContent() {
                             </div>
                             {(() => {
                               const proposedCount = proposedSessions.filter(
-                                (ps) => ps.time_slot === timeSlot && ps.session_date === groupDate
+                                (ps) => sameTimeSlot(ps.time_slot, timeSlot) && ps.session_date === groupDate
                               ).length;
                               if (proposedCount > 0) {
                                 return (
@@ -2973,7 +2975,7 @@ function SessionsPageContent() {
 
                             {/* Proposed Sessions for this time slot */}
                             {proposedSessions
-                              .filter((ps) => ps.time_slot === timeSlot && ps.session_date === toDateString(selectedDate))
+                              .filter((ps) => sameTimeSlot(ps.time_slot, timeSlot) && ps.session_date === toDateString(selectedDate))
                               .map((proposedSession, psIndex) => (
                                 <ProposedSessionRow
                                   key={proposedSession.id}
@@ -2984,7 +2986,7 @@ function SessionsPageContent() {
 
                             {/* Lessons taught but not in CSM yet, for this time slot */}
                             {waitingLessons
-                              .filter((lesson) => lesson.time_slot === timeSlot && lesson.lesson_date === groupDate)
+                              .filter((lesson) => sameTimeSlot(lesson.time_slot, timeSlot) && lesson.lesson_date === groupDate)
                               .map((lesson) => (
                                 <TaughtLessonRow
                                   key={`taught-${lesson.id}`}

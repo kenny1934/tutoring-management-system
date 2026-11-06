@@ -7,6 +7,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import HTTPException
+from utils.time_slots import same_time_slot, time_slot_matches
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -189,7 +190,7 @@ def validate_makeup_constraints(
             proposed_day = target_date.strftime('%a')
             is_regular_slot = (
                 proposed_day == current_enrollment.assigned_day and
-                target_time_slot == current_enrollment.assigned_time
+                same_time_slot(target_time_slot, current_enrollment.assigned_time)
             )
 
             if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
@@ -229,7 +230,7 @@ def validate_makeup_constraints(
     conflict_query = db.query(SessionLog).filter(
         SessionLog.student_id == student_id,
         SessionLog.session_date == target_date,
-        SessionLog.time_slot == target_time_slot,
+        time_slot_matches(SessionLog.time_slot, target_time_slot),
         SessionLog.location == target_location,
         ~SessionLog.session_status.like('%Pending Make-up%'),
         ~SessionLog.session_status.like('%Make-up Booked%'),

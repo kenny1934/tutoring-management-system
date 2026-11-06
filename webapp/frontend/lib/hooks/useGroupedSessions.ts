@@ -8,6 +8,7 @@
  * parsed start time, and the counts along the top of the card.
  */
 
+import { normaliseTimeSlot } from "@/lib/time-slots";
 import { useMemo } from 'react';
 import { parseTimeSlot } from '@/lib/calendar-utils';
 import { groupSessionsForList, UNSCHEDULED } from '@/lib/session-grouping';
@@ -42,7 +43,7 @@ export function useGroupedSessions(
     // Proposed make-up rows, by the slot they would land in.
     const proposedBySlot = new Map<string, ProposedSession[]>();
     proposedSessions.forEach((ps) => {
-      const slot = ps.time_slot || UNSCHEDULED;
+      const slot = normaliseTimeSlot(ps.time_slot || UNSCHEDULED);
       const existing = proposedBySlot.get(slot);
       if (existing) existing.push(ps);
       else proposedBySlot.set(slot, [ps]);

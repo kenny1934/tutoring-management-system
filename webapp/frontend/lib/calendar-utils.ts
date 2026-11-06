@@ -1,3 +1,4 @@
+import { parseTimeRange } from "./time-slots";
 import type { Session } from "@/types";
 
 /**
@@ -89,27 +90,7 @@ export function getMonthCalendarDates(date: Date): Date[] {
  * - "9:30-10:30" (single-digit, no spaces)
  */
 export function parseTimeSlot(timeSlot: string): { start: string; end: string } | null {
-  if (!timeSlot || timeSlot === "Unscheduled") {
-    return null;
-  }
-
-  // Match H:MM or HH:MM with optional spaces around dash
-  // Handles: "9:30-10:30", "09:00 - 10:00", "9:30 - 10:30"
-  const match = timeSlot.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-  if (!match) {
-    return null;
-  }
-
-  // Normalize to HH:MM format (add leading zero if needed)
-  const normalizeTime = (time: string): string => {
-    const [hours, minutes] = time.split(':');
-    return `${hours.padStart(2, '0')}:${minutes}`;
-  };
-
-  return {
-    start: normalizeTime(match[1]),
-    end: normalizeTime(match[2])
-  };
+  return parseTimeRange(timeSlot);
 }
 
 /**

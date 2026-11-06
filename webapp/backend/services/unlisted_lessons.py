@@ -30,6 +30,7 @@ import logging
 from typing import Iterable
 
 import anyio
+from utils.time_slots import same_time_slot
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
@@ -66,7 +67,7 @@ def pick_lesson(lesson: TutorMemo, candidates: list[SessionLog]) -> SessionLog |
     no clear choice. A lesson in the same time slot wins. Without one, the only
     lesson that day will do. Two equally good lessons are left to a person."""
     if lesson.time_slot:
-        same_slot = [c for c in candidates if c.time_slot == lesson.time_slot]
+        same_slot = [c for c in candidates if same_time_slot(c.time_slot, lesson.time_slot)]
         if len(same_slot) == 1:
             return same_slot[0]
         if len(same_slot) > 1:

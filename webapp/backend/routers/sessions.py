@@ -11,6 +11,7 @@ import time
 from urllib.parse import urlparse, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from utils.time_slots import time_slot_matches
 from sqlalchemy.orm import Session, joinedload
 from utils.employment import sessions_after_last_day_clause, works_at
 from utils.query_helpers import session_with_relations, get_handover_prospect
@@ -1613,7 +1614,7 @@ async def schedule_makeup(
             CalendarEvent, ExamRevisionSlot.calendar_event_id == CalendarEvent.id
         ).filter(
             ExamRevisionSlot.session_date == request.session_date,
-            ExamRevisionSlot.time_slot == request.time_slot,
+            time_slot_matches(ExamRevisionSlot.time_slot, request.time_slot),
             ExamRevisionSlot.location == request.location,
             or_(CalendarEvent.school.is_(None), CalendarEvent.school == student.school),
             or_(CalendarEvent.grade.is_(None), CalendarEvent.grade == student.grade),
@@ -2221,7 +2222,7 @@ async def update_session(
                 CalendarEvent, ExamRevisionSlot.calendar_event_id == CalendarEvent.id
             ).filter(
                 ExamRevisionSlot.session_date == session.session_date,
-                ExamRevisionSlot.time_slot == session.time_slot,
+                time_slot_matches(ExamRevisionSlot.time_slot, session.time_slot),
                 ExamRevisionSlot.location == session.location,
                 or_(CalendarEvent.school.is_(None), CalendarEvent.school == session.student.school),
                 or_(CalendarEvent.grade.is_(None), CalendarEvent.grade == session.student.grade),

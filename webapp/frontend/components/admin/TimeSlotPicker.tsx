@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { normaliseTimeSlot, parseTimeRange } from "@/lib/time-slots";
 import { Clock } from "lucide-react";
 import { Input, Select } from "@/components/controls";
 
@@ -20,12 +21,13 @@ export function seedTimeSlotState(
   src: string | null | undefined,
   presetTimeSlots: readonly string[],
 ): TimeSlotState {
+  src = src ? normaliseTimeSlot(src) : src;
   if (src && presetTimeSlots.includes(src)) {
     return { useCustom: false, preset: src, start: "", end: "" };
   }
-  if (src && src.includes(" - ")) {
-    const [start, end] = src.split(" - ");
-    return { useCustom: true, preset: "", start: start ?? "", end: end ?? "" };
+  const range = src ? parseTimeRange(src) : null;
+  if (range) {
+    return { useCustom: true, preset: "", ...range };
   }
   return EMPTY;
 }
@@ -38,7 +40,7 @@ export function effectiveTimeSlot(state: TimeSlotState): string {
 export function isTimeSlotValid(state: TimeSlotState): boolean {
   if (!state.useCustom) return true;
   if (!state.start || !state.end) return false;
-  return state.end > state.start;
+  return !!parseTimeRange(effectiveTimeSlot(state));
 }
 
 interface TimeSlotPickerProps {

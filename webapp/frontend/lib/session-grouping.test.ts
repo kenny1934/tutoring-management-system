@@ -141,3 +141,24 @@ describe('order within a group', () => {
     expect(ids(groups)).toEqual([[3, 2, 1]])
   })
 })
+
+
+describe('equivalent class time spellings', () => {
+  it('merges unspaced sessions and placeholders while preserving genuinely different times', () => {
+    const groups = groupSessionsForList([
+      row(1, '2026-11-06', '18:00-19:30'),
+      row(2, '2026-11-06', '18:00 - 19:30'),
+      row(3, '2026-11-06', '18:25 - 19:55'),
+    ], { groupByDate: false, placeholderSlots: [{ date: '2026-11-06', timeSlot: '18:00-19:30' }] });
+    expect(keys(groups)).toEqual(['18:00 - 19:30', '18:25 - 19:55']);
+    expect(groups[0].sessions.map(s => s.id)).toEqual([1, 2]);
+    expect(groups[1].sessions.map(s => s.id)).toEqual([3]);
+  });
+  it('normalises ranges but keeps different dates separate', () => {
+    const groups = groupSessionsForList([
+      row(1, '2026-11-06', '9:00-10:30'),
+      row(2, '2026-11-07', '09:00 - 10:30'),
+    ], { groupByDate: true });
+    expect(keys(groups)).toEqual(['2026-11-06|09:00 - 10:30', '2026-11-07|09:00 - 10:30']);
+  });
+});

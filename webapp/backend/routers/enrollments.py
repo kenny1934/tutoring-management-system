@@ -3,6 +3,7 @@ Enrollments API endpoints.
 Provides CRUD access to enrollment data with filtering and session generation.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from utils.time_slots import time_slot_matches
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
@@ -357,7 +358,7 @@ def check_student_conflicts(
     ).filter(
         SessionLog.student_id == student_id,
         SessionLog.session_date.in_(session_dates),
-        SessionLog.time_slot == time_slot,
+        time_slot_matches(SessionLog.time_slot, time_slot),
         SessionLog.session_status.in_(CONFLICTING_SESSION_STATUSES)
     )
 
@@ -2350,6 +2351,8 @@ async def update_enrollment(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     update_data = enrollment_update.model_dump(exclude_unset=True)
+    if update_data.get("assigned_time") == "Various" and enrollment.assigned_time != "Various":
+        raise HTTPException(status_code=422, detail="Enter a valid start and end time.")
     coupon_legacy.guard_edit(db, enrollment, update_data)
     assert_legacy_enrollments_mutable(
         db, [enrollment_id],

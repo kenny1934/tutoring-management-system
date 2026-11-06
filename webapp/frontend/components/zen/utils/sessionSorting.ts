@@ -3,6 +3,7 @@
  * Replicates the exact sorting logic from TodaySessionsCard.tsx
  */
 
+import { normaliseTimeSlot } from "@/lib/time-slots";
 import type { Session } from "@/types";
 import { GRADE_COLORS, getGradeColor } from "@/lib/constants";
 
@@ -107,7 +108,7 @@ export function groupAndSortSessions(sessions: Session[]): GroupedSessionsResult
   // Step 1: Group by time slot
   const groups: Record<string, Session[]> = {};
   sessions.forEach((session) => {
-    const timeSlot = session.time_slot || "Unscheduled";
+    const timeSlot = normaliseTimeSlot(session.time_slot || "Unscheduled");
     if (!groups[timeSlot]) {
       groups[timeSlot] = [];
     }

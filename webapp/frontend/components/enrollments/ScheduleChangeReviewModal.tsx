@@ -1,5 +1,8 @@
 "use client";
 
+import { parseTimeRange, sameTimeSlot } from "@/lib/time-slots";
+import { TimeRangeInput } from "@/components/controls/TimeRangeInput";
+
 import { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/contexts/ToastContext";
@@ -93,26 +96,11 @@ export function ScheduleChangeReviewModal({
     return !!(override?.date || override?.time);
   };
 
-  // Helper to parse time slot format "14:30 - 16:00" into start/end
-  const parseTimeSlot = (timeSlot: string): { start: string; end: string } => {
-    const parts = timeSlot.split(' - ');
-    return { start: parts[0] || '', end: parts[1] || '' };
-  };
-
   // Handle date override change
   const handleDateOverride = (sessionId: number, newDate: string) => {
     setOverrides(prev => ({
       ...prev,
       [sessionId]: { ...prev[sessionId], date: newDate }
-    }));
-  };
-
-  // Handle time override change (combines start and end times)
-  const handleTimeOverride = (sessionId: number, start: string, end: string) => {
-    const combined = `${start} - ${end}`;
-    setOverrides(prev => ({
-      ...prev,
-      [sessionId]: { ...prev[sessionId], time: combined }
     }));
   };
 
@@ -159,6 +147,7 @@ export function ScheduleChangeReviewModal({
 
   // Handle applying changes (update sessions)
   const handleApplyChanges = async () => {
+    if (Object.values(overrides).some((override) => override.time && !parseTimeRange(override.time))) return;
     setIsSubmitting(true);
     try {
       // Build date and time overrides from the combined state
@@ -217,7 +206,7 @@ export function ScheduleChangeReviewModal({
   const hasUnchangeableSessions = preview?.unchangeable_sessions && preview.unchangeable_sessions.length > 0;
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;
-  const canApply = preview?.can_apply ?? true;
+  const canApply = (preview?.can_apply ?? true) && Object.values(overrides).every((override) => !override.time || !!parseTimeRange(override.time));
 
   // Format schedule change summary
   const changeSummary = useMemo(() => {
@@ -225,7 +214,7 @@ export function ScheduleChangeReviewModal({
     if (currentSchedule.day !== newSchedule.day) {
       parts.push(`${currentSchedule.day} → ${newSchedule.day}`);
     }
-    if (currentSchedule.time !== newSchedule.time) {
+    if (!sameTimeSlot(currentSchedule.time, newSchedule.time)) {
       parts.push(`${currentSchedule.time} → ${newSchedule.time}`);
     }
     if (currentSchedule.tutorId !== newSchedule.tutorId) {
@@ -490,32 +479,21 @@ export function ScheduleChangeReviewModal({
                                       />
                                     </Field>
                                     <div>
-                                      <Label htmlFor={`override-start-${session.session_id}`}>
+                                      <Label htmlFor={`override-time-${session.session_id}`}>
                                         Override time
                                       </Label>
                                       {(() => {
                                         const currentTime = overrides[session.session_id]?.time || session.new_time_slot;
-                                        const { start, end } = parseTimeSlot(currentTime);
                                         return (
-                                          <div className="flex items-center gap-1">
-                                            <Input
-                                              id={`override-start-${session.session_id}`}
-                                              type="time"
-                                              size="sm"
-                                              value={start}
-                                              onChange={(e) => handleTimeOverride(session.session_id, e.target.value, end)}
-                                              className="flex-1"
-                                            />
-                                            <span className="text-foreground/50">-</span>
-                                            <Input
-                                              type="time"
-                                              size="sm"
-                                              value={end}
-                                              onChange={(e) => handleTimeOverride(session.session_id, start, e.target.value)}
-                                              aria-label="Override end time"
-                                              className="flex-1"
-                                            />
-                                          </div>
+                                          <TimeRangeInput
+                                            id={`override-time-${session.session_id}`}
+                                            size="sm"
+                                            value={currentTime}
+                                            onChange={(time) => setOverrides((previous) => ({
+                                              ...previous,
+                                              [session.session_id]: { ...previous[session.session_id], time },
+                                            }))}
+                                          />
                                         );
                                       })()}
                                     </div>
