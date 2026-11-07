@@ -674,6 +674,10 @@ export function SessionDetailPopover({
     if (!isOpen || !isTopmost || anyModalOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // Closing can make the modal underneath topmost before this event
+      // reaches its document listener. Consume Escape before unmounting.
+      e.preventDefault();
+      e.stopPropagation();
       if (lessonChoiceOpen) setLessonChoiceOpen(false);
       else onClose();
     };

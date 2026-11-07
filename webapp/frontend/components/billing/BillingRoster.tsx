@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import useSWR, { useSWRConfig } from 'swr';
-import { ArrowRight, Calculator, CalendarRange, RefreshCw, Settings2, X } from 'lucide-react';
+import { Calculator, CalendarRange, RefreshCw, Settings2, ShieldCheck, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
@@ -41,10 +41,10 @@ function matches(row: BillingRosterRow, filter: BillingPreferenceFilter) {
 function Scenario({ period, method, issues = [], saved = false }: { period: BillingRosterPeriod | null; method: BillingMethod; issues?: BillingPreviewResponse['issues']; saved?: boolean }) {
   const collection = period?.collection;
   return <div className="min-w-0 rounded-lg border border-line bg-wash p-3" aria-label={`${method === 'manual' ? 'Manual' : 'Autopay'} comparison`}>
-    <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="inline-flex items-center gap-2">{saved && <span className="text-xs text-ink-subtle">Next</span>}<PaymentMethodBadge method={saved ? collection?.method ?? method : method} size="sm" /></span>{period && <span className="text-xs text-ink-subtle">{plural(period.lesson_count, 'session')}</span>}</div>
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="inline-flex items-center gap-2"><PaymentMethodBadge method={saved ? collection?.method ?? method : method} size="sm" /></span>{period && <span className="text-xs text-ink-subtle">{plural(period.lesson_count, 'session')}</span>}</div>
     {!saved && collection && collection.method !== method && <p className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-subtle">First collection <PaymentMethodBadge method={collection.method} size="sm" /></p>}
     {period ? <>
-      <p className="text-lg font-semibold tabular-nums">{formatMOP(period.gross_tuition, 0)} <span className="text-xs font-normal text-ink-subtle">tuition</span></p>
+      <p title="Estimate before discounts and additional charges." className="text-lg font-semibold tabular-nums">{formatMOP(period.gross_tuition, 0)}</p>
       <p className="mt-1 text-xs text-ink-subtle">{formatShortDate(period.first_lesson_date)} to {formatShortDate(period.coverage_through)}</p>
       <p className="mt-2 text-xs text-ink-subtle">{collection?.method === 'manual' && collection.due_before_lesson ? `Due before ${formatShortDate(collection.due_before_lesson)}` : collection?.debit_from && collection.debit_to ? `Debit ${formatShortDate(collection.debit_from)} to ${formatShortDate(collection.debit_to)}` : 'Check payment date'}</p>
     </> : <p className="text-sm text-ink-subtle">Open journey to review</p>}
@@ -86,8 +86,9 @@ export function BillingRoster() {
   const filtersAvailable = !error && (scopedProgress?.available ?? (!options.error && !!options.data?.workflow_available));
   const selectionScope = JSON.stringify([scope, search.trim(), writable, auth.isReadOnly]);
   const [selection, setSelection] = useState<{ scope: string; rows: BillingRosterRow[] }>({ scope: '', rows: [] });
-  const [batch, setBatch] = useState<string | null>(null);
+  const [batch, setBatch] = useState<{ scope: string; mode: 'preference' | 'authorisation' } | null>(null);
   const selected = selection.scope === selectionScope ? selection.rows : [];
+  const canConfirmAuthorisation = selected.length > 0 && selected.every(row => row.recorded_payment_method === 'autopay' && !row.mandate_ready && Number.isSafeInteger(row.preference_version));
   const selectedIds = new Set(selected.map(row => row.student.id));
   const pageSelected = !!current?.rows.length && current.rows.every(row => selectedIds.has(row.student.id));
   const pagePartlySelected = !pageSelected && !!current?.rows.some(row => selectedIds.has(row.student.id));
@@ -97,7 +98,7 @@ export function BillingRoster() {
   const canSelect = writable && !!current?.preferences_available;
   useEffect(() => {
     setSelection(previous => previous.scope === selectionScope ? previous : { scope: selectionScope, rows: [] });
-    setBatch(previous => previous === selectionScope ? previous : null);
+    setBatch(previous => previous?.scope === selectionScope ? previous : null);
   }, [selectionScope]);
 
   function refreshRelated() {
@@ -113,7 +114,16 @@ export function BillingRoster() {
     void mutate(previous => {
       if (!previous) return previous;
       const rows = previous.rows.map(update).filter(row => matches(row, filter));
-      return { ...previous, rows, total: previous.total - (previous.rows.length - rows.length) };
+      const before = previous.rows.find(row => row.student.id === value.student_id);
+      let counts = previous.preference_counts;
+      if (counts && before) {
+        const after = update(before);
+        counts = { ...counts };
+        for (const key of ['not_recorded', 'manual', 'autopay', 'setup_pending'] as const) {
+          counts[key] = Math.max(0, counts[key] + Number(matches(after, key)) - Number(matches(before, key)));
+        }
+      }
+      return { ...previous, rows, preference_counts: counts, total: previous.total - (previous.rows.length - rows.length) };
     }, { revalidate }).catch(() => {});
     if (revalidate) refreshRelated();
     if (revalidate && filter !== 'all') requestAnimationFrame(() => {
@@ -164,11 +174,11 @@ export function BillingRoster() {
           <div className="flex items-start gap-3">
             {canSelect && <label className={cn('flex shrink-0 cursor-pointer items-center justify-center -m-2 p-2 pt-2.5 transition-opacity [@media(pointer:coarse)]:-m-3 [@media(pointer:coarse)]:p-3', !selected.length && '[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-within:opacity-100')}><input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary" aria-label={`Select ${row.student.student_name}`} checked={selectedIds.has(row.student.id)} onChange={() => toggle(row)} /></label>}
             <div className="grid min-w-0 flex-1 items-start gap-3 md:grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)] lg:grid-cols-[minmax(180px,1fr)_minmax(160px,0.8fr)_minmax(0,1.8fr)]">
-              <div className="min-w-0 space-y-2"><Link href={href} className="inline-flex max-w-full items-start gap-1.5 rounded hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" title="Open journey" aria-label={`${row.student.student_name}: open payment journey`}><StudentInfoBadges student={{ ...row.student, lang_stream: row.student.lang_stream ?? undefined, school: row.student.school ?? undefined, grade: row.student.grade ?? undefined, school_student_id: row.student.school_student_id ?? undefined, home_location: row.student.home_location ?? undefined }} showLocationPrefix /><ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-subtle" aria-hidden="true" /></Link>
+              <div className="min-w-0 space-y-2"><Link href={href} className="inline-flex max-w-full items-start gap-1.5 rounded hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" title="Open journey" aria-label={`${row.student.student_name}: open payment journey`}><StudentInfoBadges student={{ ...row.student, lang_stream: row.student.lang_stream ?? undefined, school: row.student.school ?? undefined, grade: row.student.grade ?? undefined, school_student_id: row.student.school_student_id ?? undefined, home_location: row.student.home_location ?? undefined }} showLocationPrefix /></Link>
                 <p className="text-xs text-ink-subtle">Last paid session: {row.last_paid_original_date ? formatShortDate(row.last_paid_original_date) : 'date to confirm'}</p>
                 <div className="flex flex-wrap gap-1.5">{row.pending_bill_count > 0 && <Badge tone="warning">{row.pending_bill_count} unpaid</Badge>}{row.sent_pending_bill_count > 0 && <Badge tone="info">{plural(row.sent_pending_bill_count, 'message')} sent</Badge>}{row.pending_makeup_count > 0 && <Badge>{plural(row.pending_makeup_count, 'makeup')}</Badge>}{row.selected_slot_count > 1 && <Badge>{row.selected_slot_count} sessions/week</Badge>}</div>
                 <BillingChecks issues={row.source_issues ?? row.issues} compact maxVisible={2} /></div>
-              <div className="min-w-0 space-y-1"><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Saved preference</p><BillingPlanControl key={`${selectionScope}:${row.student.id}:${canSelect}:${Number.isSafeInteger(row.preference_version)}`} row={row} showAuthorisation={false} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} tutorId={tutorId} onSaved={acceptPreference} onReload={() => mutate()} />{method === 'autopay' && <BillingPaymentSettings studentId={row.student.id} studentName={row.student.student_name} presentation="authorisation" recordedMethod={method} mandateReady={row.mandate_ready} storageAvailable={!!current.preferences_available} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} onSaved={acceptPreference} />}</div>
+              <div className="min-w-0 space-y-1"><BillingPlanControl key={`${selectionScope}:${row.student.id}:${canSelect}:${Number.isSafeInteger(row.preference_version)}`} row={row} showAuthorisation={false} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} tutorId={tutorId} onSaved={acceptPreference} onReload={() => mutate()} />{method === 'autopay' && <BillingPaymentSettings studentId={row.student.id} studentName={row.student.student_name} presentation="authorisation" recordedMethod={method} mandateReady={row.mandate_ready} storageAvailable={!!current.preferences_available} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} onSaved={acceptPreference} />}</div>
               <div className={cn('grid min-w-0 gap-2 md:col-span-2 lg:col-span-1', !method && 'sm:grid-cols-2')}>
                 {(!method || method === 'manual') && <Scenario period={row.next_manual} method="manual" issues={row.method_issues?.manual} saved={!!method} />}
                 {(!method || method === 'autopay') && <Scenario period={row.next_autopay} method="autopay" issues={row.method_issues?.autopay} saved={!!method} />}
@@ -179,7 +189,7 @@ export function BillingRoster() {
       })}</div>}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><span className="text-ink-subtle">{current.total ? `${current.offset + 1}–${Math.min(current.offset + current.rows.length, current.total)} of ${current.total}` : '0 students'}</span><div className="flex gap-2"><Button size="sm" disabled={offset === 0} onClick={() => setPage({ scope, offset: Math.max(0, offset - limit) })}>Previous</Button><Button size="sm" disabled={offset + limit >= current.total} onClick={() => setPage({ scope, offset: offset + limit })}>Next</Button></div></div>
     </section>}
-    <AnimatePresence>{canSelect && selected.length > 0 && <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] sm:bottom-[calc(1.5rem+var(--app-bottom-inset))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"><div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-xl dark:border-gray-700 dark:bg-gray-800"><span className="text-sm font-medium">{selected.length} selected</span><Button ref={trigger} variant="primary" icon={Settings2} disabled={searchPending} onClick={() => setBatch(selectionScope)}>Set payment method</Button><IconButton icon={X} label="Clear selection" onClick={() => setSelection({ scope: selectionScope, rows: [] })} /></div></motion.div>}</AnimatePresence>
-    {canSelect && batch === selectionScope && <BillingPreferenceBatchModal rows={selected} tutorId={tutorId} trigger={trigger} onSaved={value => acceptPreference(value, false)} onClose={completed => { setBatch(null); setSelection(previous => ({ scope: selectionScope, rows: previous.rows.filter(row => !completed.includes(row.student.id)) })); void mutate(); refreshRelated(); requestAnimationFrame(() => trigger.current?.focus()); }} />}
+    <AnimatePresence>{canSelect && selected.length > 0 && <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="fixed bottom-[calc(1rem+var(--app-bottom-inset))] sm:bottom-[calc(1.5rem+var(--app-bottom-inset))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"><div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-line bg-paper px-3 py-2 shadow-xl"><span className="text-sm font-medium">{selected.length} selected</span><Button variant={canConfirmAuthorisation ? 'secondary' : 'primary'} icon={Settings2} disabled={searchPending} onClick={event => { trigger.current = event.currentTarget; setBatch({ scope: selectionScope, mode: 'preference' }); }}>Set payment method</Button><Button variant={canConfirmAuthorisation ? 'primary' : 'secondary'} icon={ShieldCheck} disabled={searchPending || !canConfirmAuthorisation} title={!canConfirmAuthorisation ? 'Select Autopay students awaiting bank authorisation.' : undefined} onClick={event => { trigger.current = event.currentTarget; setBatch({ scope: selectionScope, mode: 'authorisation' }); }}>Confirm bank authorisation</Button><IconButton icon={X} label="Clear selection" onClick={() => setSelection({ scope: selectionScope, rows: [] })} /></div></motion.div>}</AnimatePresence>
+    {canSelect && batch?.scope === selectionScope && <BillingPreferenceBatchModal key={`${selectionScope}:${batch.mode}`} mode={batch.mode} rows={selected} tutorId={tutorId} trigger={trigger} onSaved={value => acceptPreference(value, false)} onClose={completed => { setBatch(null); setSelection(previous => ({ scope: selectionScope, rows: previous.rows.filter(row => !completed.includes(row.student.id)) })); void mutate(); refreshRelated(); requestAnimationFrame(() => { if (trigger.current?.isConnected) trigger.current.focus(); else document.getElementById(`${tabsId}-${filter}`)?.focus({ preventScroll: true }); }); }} />}
   </div></PageSurface>;
 }

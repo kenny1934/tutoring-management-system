@@ -20,7 +20,7 @@ import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import { useDebouncedValue, usePageTitle, useUnlistedWaitingCount, useVisibilityAwareInterval } from '@/lib/hooks';
 import { invalidateRenewalQueueCache } from '@/lib/renewal-queue';
 import { cn } from '@/lib/utils';
-import type { BillingQueueCounts, BillingQueueRow, BillingQueueStage, BillingQueueUrgency } from '@/types/billing';
+import type { BillingPreferences, BillingQueueCounts, BillingQueueRow, BillingQueueStage, BillingQueueUrgency } from '@/types/billing';
 import { BillingChecks } from './BillingChecks';
 import { billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
@@ -81,10 +81,10 @@ function collectionLabel(row: BillingQueueRow, asOf: string) {
   return null;
 }
 
-function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSettingsSaved, workflowAvailable, preferencesWritable, workflowWritesAvailable, batchSelected, showCheckboxes, onBatchToggle, feeExpanded, onToggleFee }: {
+function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSettingsSaved, refreshFailed, workflowAvailable, preferencesWritable, workflowWritesAvailable, batchSelected, showCheckboxes, onBatchToggle, feeExpanded, onToggleFee }: {
   row: BillingQueueRow; asOf: string; showLocation: boolean; showStage: boolean; selected: boolean;
   onOpen: (row: BillingQueueRow, trigger: HTMLButtonElement | null, action?: BillingRenewalAction) => void;
-  onSettingsSaved: () => void; workflowAvailable: boolean; preferencesWritable: boolean; workflowWritesAvailable: boolean;
+  onSettingsSaved: (preferences?: BillingPreferences) => void; refreshFailed: boolean; workflowAvailable: boolean; preferencesWritable: boolean; workflowWritesAvailable: boolean;
   batchSelected?: boolean; showCheckboxes?: boolean; onBatchToggle?: () => void;
   feeExpanded: boolean; onToggleFee: () => void;
 }) {
@@ -93,9 +93,19 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
   const feeId = useId();
   const feeTarget = cardFeeMessageTarget(row);
   const primaryMessage = row.stage === 'send' && !!feeTarget;
+  const [savedPreference, setSavedPreference] = useState<{ row: BillingQueueRow; value: BillingPreferences } | null>(null);
+  const updatingPreference = savedPreference?.row === row;
+  const controlsStale = updatingPreference || refreshFailed;
   const collection = collectionLabel(row, asOf);
   const enrollments = row.current_enrollments ?? [];
-  const recordedMethod = row.recorded_payment_method === undefined ? row.payment_method : row.recorded_payment_method;
+  const recordedMethod = updatingPreference ? savedPreference.value.payment_method
+    : row.recorded_payment_method === undefined ? row.payment_method : row.recorded_payment_method;
+  const savedMandate = updatingPreference ? savedPreference.value.mandate_ready : row.mandate_ready;
+  function preferenceSaved(value: BillingPreferences) {
+    const currentMethod = row.recorded_payment_method === undefined ? row.payment_method : row.recorded_payment_method;
+    if (value.payment_method !== currentMethod || value.mandate_ready !== !!row.mandate_ready) setSavedPreference({ row, value });
+    onSettingsSaved(value);
+  }
   const differentCollectionMethod = row.payment_method !== null && row.payment_method !== recordedMethod;
   const nextEnrollment = row.origin === 'projection' || row.origin === 'draft';
   const firstEnrollment = row.origin === 'draft' && !row.enrollment_ids.length;
@@ -114,10 +124,10 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
       if (!(event.target as HTMLElement).closest('a,button,input,select,textarea,summary,label')) onOpen(row, event.currentTarget.querySelector<HTMLButtonElement>('[data-open-details]'));
     }}>
       <div className="flex items-start justify-between gap-3">
-        {onBatchToggle && <div onClick={event => { event.stopPropagation(); onBatchToggle(); }} className={cn(
+        {onBatchToggle && <div onClick={event => { event.stopPropagation(); if (!controlsStale) onBatchToggle(); }} className={cn(
           'flex items-center justify-center transition-opacity -m-2 p-2 pt-2.5 [@media(pointer:coarse)]:-m-3 [@media(pointer:coarse)]:p-3 [@media(pointer:coarse)]:pt-3.5',
           !showCheckboxes && '[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-within:opacity-100',
-        )}><input type="checkbox" aria-label={`Select ${row.student.student_name}`} checked={!!batchSelected} onChange={() => {}}
+        )}><input type="checkbox" aria-label={`Select ${row.student.student_name}`} checked={!!batchSelected} disabled={controlsStale} onChange={() => {}}
           className="h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer" /></div>}
         <div className="min-w-0 flex-1 space-y-2">
           <StudentInfoBadges student={{ ...row.student, student_id: row.student.id, school_student_id: row.student.school_student_id ?? undefined, grade: row.student.grade ?? undefined, school: row.student.school ?? undefined, lang_stream: row.student.lang_stream ?? undefined, home_location: row.student.home_location ?? undefined }} nameHref={`/students/${row.student.id}`} showLocationPrefix={showLocation} />
@@ -130,16 +140,17 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
               {enrollment.payment_status !== 'Paid' && <Badge tone="warning">{enrollment.payment_status === 'Pending Payment' ? 'Unpaid' : enrollment.payment_status}</Badge>}
             </div>
           </div>)}
-          <div className="flex flex-wrap items-center gap-2"><BillingPaymentSettings studentId={row.student.id} presentation="badge" recordedMethod={recordedMethod} mandateReady={row.mandate_ready} storageAvailable={workflowAvailable} canWrite={preferencesWritable} onSaved={onSettingsSaved} />{showStage && status && <Badge tone={row.stage === 'attention' ? 'danger' : row.stage === 'awaiting_payment' ? 'warning' : row.stage === 'send' ? 'info' : 'neutral'}><status.icon className="h-3 w-3" aria-hidden="true" />{status.label}</Badge>}{row.overdue && <Badge tone="danger">Overdue</Badge>}</div>
+          <div className="flex flex-wrap items-center gap-2"><BillingPaymentSettings studentId={row.student.id} presentation="badge" recordedMethod={recordedMethod} mandateReady={savedMandate} storageAvailable={workflowAvailable} canWrite={preferencesWritable} onSaved={preferenceSaved} />{showStage && status && <Badge tone={row.stage === 'attention' ? 'danger' : row.stage === 'awaiting_payment' ? 'warning' : row.stage === 'send' ? 'info' : 'neutral'}><status.icon className="h-3 w-3" aria-hidden="true" />{status.label}</Badge>}{row.overdue && <Badge tone="danger">Overdue</Badge>}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
           {(action || primaryMessage) && <Button data-open-details size="sm" variant="quiet" icon={Eye} onClick={event => onOpen(row, event.currentTarget)}>View</Button>}
-          {primaryMessage ? <Button ref={feeButton} size="sm" icon={Copy} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined} onClick={onToggleFee}>Fee message</Button> : <Button data-open-details={!action || undefined} size="sm" icon={action?.kind === 'renew' ? RefreshCw : undefined} onClick={event => onOpen(row, event.currentTarget, action)}>{actionLabel(row)}</Button>}
-          {feeTarget && !primaryMessage && <Button ref={feeButton} size="sm" icon={Copy} aria-label="Copy fee message" title="Copy fee message" aria-pressed={feeExpanded} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined}
+          {primaryMessage ? <Button ref={feeButton} size="sm" icon={Copy} disabled={controlsStale} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined} onClick={onToggleFee}>Fee message</Button> : <Button data-open-details={!action || undefined} size="sm" disabled={controlsStale} icon={action?.kind === 'renew' ? RefreshCw : undefined} onClick={event => onOpen(row, event.currentTarget, action)}>{actionLabel(row)}</Button>}
+          {feeTarget && !primaryMessage && <Button ref={feeButton} size="sm" icon={Copy} aria-label="Copy fee message" title="Copy fee message" disabled={controlsStale} aria-pressed={feeExpanded} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined}
             className={cn(feeExpanded && 'bg-tint')} onClick={onToggleFee}>Fee</Button>}
         </div>
       </div>
-      {((showCoverage && row.first_lesson_date && row.coverage_through) || collection || showLessonCount || feeKnown || differentCollectionMethod) && <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-xs">
+      {updatingPreference && <p role="status" className="mt-3 border-t border-line pt-2 text-xs text-ink-subtle">{refreshFailed ? 'Refresh this enrollment to continue.' : 'Updating enrollment…'}</p>}
+      {!updatingPreference && ((showCoverage && row.first_lesson_date && row.coverage_through) || collection || showLessonCount || feeKnown || differentCollectionMethod) && <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-xs">
         {showCoverage && row.first_lesson_date && row.coverage_through && <span><span className="font-medium">{firstEnrollment ? 'Enrollment' : nextEnrollment ? 'Renewal' : 'Payment'}: </span>{formatShortDate(row.first_lesson_date)} to {formatShortDate(row.coverage_through)}</span>}
         {showLessonCount && <span>{plural(row.lesson_count!, 'session')}</span>}
         {feeKnown && <span className="font-medium">{formatMOP(row.total_fee!, 0)}{row.amount_basis === 'tuition_only' && <span className="font-normal text-ink-subtle"> tuition estimate</span>}</span>}
@@ -147,7 +158,7 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
         {collection && <span className={cn(row.urgency === 'now' || row.overdue ? 'text-red-700 dark:text-red-300' : row.urgency === 'week' ? 'text-orange-700 dark:text-orange-400' : 'text-ink-subtle')}>{collection}</span>}
       </div>}
     </div>
-    {(note || row.issues.length > 0 || isMultiple) && <div className="space-y-2 border-t border-line px-3 py-2 sm:px-4">
+    {!updatingPreference && (note || row.issues.length > 0 || isMultiple) && <div className="space-y-2 border-t border-line px-3 py-2 sm:px-4">
       {note && <p className="text-xs text-ink-subtle">{note}</p>}
       {row.issues.length > 0 && <BillingChecks issues={row.issues} compact maxVisible={1} />}
       {isMultiple && <details className="text-xs"><summary className="cursor-pointer text-accent-ink">Linked payments and enrollments</summary><div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
@@ -226,7 +237,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     { keepPreviousData: false, refreshInterval },
   );
   const { data: waitingTaught } = useUnlistedWaitingCount(enabled, location);
-  const current = stage !== 'receipts' && !error && !searchPending ? data : undefined;
+  const current = stage !== 'receipts' && !searchPending ? data : undefined;
   const selectedIds = new Set(selectedRows.map(row => row.student.id));
   const listPanel = useRef<HTMLElement | null>(null);
   const tabId = useId();
@@ -245,10 +256,14 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     else if (tab.left < parent.left) bar.scrollLeft -= parent.left - tab.left + 12;
   }, [stage, countsReady, stageCounts, receiptCount.data?.count]);
 
+  function refreshQueue(preferences?: BillingPreferences) {
+    if (preferences) setSelection(previous => ({ ...previous, rows: previous.rows.filter(row => row.student.id !== preferences.student_id) }));
+    void invalidateRenewalQueueCache(refreshCache);
+  }
   function selectStage(next: BillingQueueView) { setStage(next); }
   function selectable(row: BillingQueueRow) {
     const action = canBatchRenew(row) ? 'renew' : queuePaymentBatchAction(row);
-    return !!action && (!selectionAction || selectionAction === action);
+    return !error && !!action && (!selectionAction || selectionAction === action);
   }
   function toggleBatch(row: BillingQueueRow) {
     setSelection({ scope: batchScope, rows: selectedIds.has(row.student.id) ? selectedRows.filter(value => value.student.id !== row.student.id) : [...selectedRows, row] });
@@ -301,7 +316,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
         <div className="flex items-center gap-2">
           <Button size="sm" icon={History} onClick={onShowLegacy}>Earlier enrollments</Button>
           <span aria-hidden="true" className="mx-1 h-4 border-l border-line" />
-          <IconButton size="sm" label="Refresh renewals" title="Refresh" icon={RefreshCw} iconClassName={isValidating ? 'animate-spin' : undefined} disabled={isValidating || searchPending} onClick={() => { void mutate(); void refreshCache(key => Array.isArray(key) && ['billing-receipts', 'billing-receipts-count'].includes(key[0])); void invalidateRenewalQueueCache(); }} />
+          <IconButton size="sm" label="Refresh renewals" title="Refresh" icon={RefreshCw} iconClassName={isValidating ? 'animate-spin' : undefined} disabled={isValidating || searchPending} onClick={() => { refreshQueue(); void refreshCache(key => Array.isArray(key) && ['billing-receipts', 'billing-receipts-count'].includes(key[0])); }} />
         </div>
       </div>
     } />
@@ -319,7 +334,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     <section ref={listPanel} tabIndex={-1} role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${stage}-tab`} aria-busy={isValidating || searchPending} className="space-y-3 outline-none">
       {stage === 'receipts' && <BillingReceiptsQueue location={location} tutorId={tutorId} search={debouncedSearch} searchPending={searchPending} />}
       {stage !== 'receipts' && (isLoading || searchPending) && <p role="status" className="py-6 text-sm text-ink-subtle">Loading renewals…</p>}
-      {stage !== 'receipts' && error && !searchPending && <div role="alert" className="rounded border border-red-300 p-4 text-sm"><p>{error instanceof Error ? error.message : 'Could not load enrollment renewals.'}</p><Button size="sm" className="mt-2" onClick={() => mutate()}>Retry</Button></div>}
+      {stage !== 'receipts' && error && !searchPending && <div role="alert" className="rounded border border-red-300 p-4 text-sm"><p>{error instanceof Error ? error.message : 'Could not load enrollment renewals.'}</p>{data && <p className="mt-1 text-xs">These records could not be refreshed. Retry before continuing.</p>}<Button size="sm" className="mt-2" onClick={() => mutate()}>Retry</Button></div>}
       {current && <>
         <p className="text-xs text-ink-subtle">{title} · {plural(current.total, 'student')}{location ? ` · ${location}` : ''}</p>
         {current.rows.length ? URGENCY_GROUPS.map(group => {
@@ -333,8 +348,8 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
             count={current.urgency_counts?.[group.value] ?? rows.length} isCollapsed={collapsed.has(group.value)} onToggle={() => setCollapsed(previous => {
               const next = new Set(previous); if (next.has(group.value)) next.delete(group.value); else next.add(group.value); return next;
             })}>
-            {rows.map(row => <QueueCard key={row.key} row={row} asOf={current.as_of} showLocation={selectedLocation === 'All Locations'} showStage={stage === 'all'} selected={selectedWorkspace?.row.key === row.key}
-              workflowAvailable={!!options?.workflow_available} workflowWritesAvailable={!!options?.workflow_writes_available} preferencesWritable={!!options?.preferences_writes_available} onSettingsSaved={() => { void mutate(); void counts.mutate(); void invalidateRenewalQueueCache(); }}
+            {rows.map(row => <QueueCard key={`${scope}:${row.key}`} row={row} asOf={current.as_of} showLocation={selectedLocation === 'All Locations'} showStage={stage === 'all'} selected={selectedWorkspace?.row.key === row.key}
+              workflowAvailable={!!options?.workflow_available} workflowWritesAvailable={!!options?.workflow_writes_available} preferencesWritable={!!options?.preferences_writes_available} refreshFailed={!!error} onSettingsSaved={refreshQueue}
               batchSelected={selectedIds.has(row.student.id)} showCheckboxes={selectedRows.length > 0} onBatchToggle={canSelect && selectable(row) ? () => toggleBatch(row) : undefined}
               feeExpanded={feePanel?.scope === feeScope && feePanel.key === row.key} onToggleFee={() => setFeePanel(previous => previous?.scope === feeScope && previous.key === row.key ? null : { scope: feeScope, key: row.key })}
               onOpen={(value, trigger, action) => { workspaceTrigger.current = trigger; setWorkspace({ scope, row: value, action }); }} />)}
@@ -351,7 +366,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
       <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
         <span className="text-sm font-medium text-foreground">{selectedRows.length} selected</span>
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
-        <Button ref={batchTrigger} variant="primary" icon={selectionAction === 'sent' ? Send : selectionAction === 'paid' ? CreditCard : RefreshCw} disabled={!options || searchPending} onClick={() => {
+        <Button ref={batchTrigger} variant="primary" icon={selectionAction === 'sent' ? Send : selectionAction === 'paid' ? CreditCard : RefreshCw} disabled={!options || searchPending || !!error} onClick={() => {
           setWorkspace(null);
           if (selectionAction === 'renew') setBatchOpen(batchScope);
           else if (selectionAction) setPaymentBatch({ scope: batchScope, action: selectionAction, targets: selectedRows.map(paymentBatchTarget) });
@@ -359,15 +374,15 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
         <IconButton icon={X} label="Clear selection" onClick={() => setSelection({ scope: batchScope, rows: [] })} />
       </div>
     </motion.div>}</AnimatePresence>
-    {selectedWorkspace && <BillingRenewalWorkspace key={`${scope}:${selectedWorkspace.row.key}`} row={selectedWorkspace.row} initialAction={selectedWorkspace.action} trigger={workspaceTrigger} onClose={() => setWorkspace(null)} onChanged={() => { void mutate(); void invalidateRenewalQueueCache(); }} />}
+    {selectedWorkspace && <BillingRenewalWorkspace key={`${scope}:${selectedWorkspace.row.key}`} row={selectedWorkspace.row} initialAction={selectedWorkspace.action} trigger={workspaceTrigger} onClose={() => setWorkspace(null)} onChanged={() => refreshQueue()} />}
     {canSelect && paymentBatch?.scope === batchScope && <BillingPaymentBatchModal key={batchScope} targets={paymentBatch.targets} action={paymentBatch.action}
-      writesAvailable={!!options?.workflow_writes_available} trigger={batchTrigger} onChanged={() => { void mutate(); void invalidateRenewalQueueCache(); }} onClose={completedIds => {
+      writesAvailable={!!options?.workflow_writes_available} trigger={batchTrigger} onChanged={() => refreshQueue()} onClose={completedIds => {
         setPaymentBatch(null);
         const completed = new Set(completedIds);
         setSelection({ scope: batchScope, rows: selectedRows.filter(row => !row.payment_id || !completed.has(row.payment_id)) });
         requestAnimationFrame(() => (batchTrigger.current ?? listPanel.current)?.focus());
       }} />}
     {canSelect && batchOpen === batchScope && options && <BillingBatchRenewModal key={batchScope} rows={selectedRows} options={options} trigger={batchTrigger}
-      onClose={closeBatch} onChanged={() => { void mutate(); void invalidateRenewalQueueCache(); }} />}
+      onClose={closeBatch} onChanged={() => refreshQueue()} />}
   </div></PageSurface>;
 }

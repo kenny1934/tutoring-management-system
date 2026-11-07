@@ -222,3 +222,79 @@ describe('payment preference batch review', () => {
     expect(mocks.close).toHaveBeenCalledWith([]); expect(mocks.preferences).not.toHaveBeenCalled(); expect(mocks.savePreferences).not.toHaveBeenCalled();
   });
 });
+
+function showAuthorisation(values = [row(10, { recorded_payment_method: 'autopay' }), row(2, { recorded_payment_method: 'autopay' })]) {
+  return render(<BillingPreferenceBatchModal mode="authorisation" rows={values} trigger={createRef<HTMLButtonElement>()} onSaved={mocks.saved} onClose={mocks.close} />, { wrapper: Wrapper });
+}
+function confirmAuthorisation() {
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Bank authorisation has been verified for these students.' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm authorisation' }));
+}
+function authItem(id: number) { return screen.getByRole('article', { name: `Authorisation for Synthetic Student ${id}` }); }
+
+describe('bulk bank authorisation', () => {
+  beforeEach(() => mocks.preferences.mockImplementation(async (id: number) => preferences(id, { payment_method: 'autopay' })));
+
+  it('reviews selected students and requires explicit verification before writing', async () => {
+    showAuthorisation();
+    await screen.findByRole('dialog', { name: 'Confirm bank authorisation' });
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('article').map(row => row.getAttribute('aria-label'))).toEqual(['Authorisation for Synthetic Student 2', 'Authorisation for Synthetic Student 10']);
+    expect(screen.getByRole('button', { name: 'Confirm authorisation' })).toBeDisabled();
+    expect(mocks.savePreferences).not.toHaveBeenCalled();
+    confirmAuthorisation();
+    await screen.findByText('2 confirmed');
+    expect(mocks.savePreferences).toHaveBeenCalledTimes(2);
+    expect(mocks.savePreferences).toHaveBeenNthCalledWith(1, 2, expect.objectContaining({ payment_method: 'autopay', mandate_ready: true, expected_version: 2 }), expect.any(AbortSignal));
+    expect(mocks.saved).toHaveBeenCalledTimes(2);
+    expect(within(authItem(2)).getByLabelText('Confirmed')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(mocks.close).toHaveBeenCalledWith([2, 10]);
+  });
+
+  it('does not write for selected Manual or already-confirmed students', async () => {
+    showAuthorisation([row(1, { recorded_payment_method: 'manual' }), row(2, { recorded_payment_method: 'autopay', mandate_ready: true }), row(3, { recorded_payment_method: 'autopay' })]);
+    await screen.findByRole('dialog'); confirmAuthorisation();
+    await screen.findByText('1 confirmed');
+    expect(mocks.savePreferences).toHaveBeenCalledOnce();
+    expect(mocks.savePreferences.mock.calls[0][0]).toBe(3);
+    expect(within(authItem(1)).getByText('Autopay is not selected.')).toBeVisible();
+    expect(within(authItem(2)).getByText('Authorisation already confirmed.')).toBeVisible();
+  });
+
+  it('holds a student who changed to Manual while confirming the rest', async () => {
+    mocks.preferences.mockImplementation(async (id: number) => preferences(id, { payment_method: id === 2 ? 'manual' : 'autopay' }));
+    showAuthorisation(); await screen.findByRole('dialog'); confirmAuthorisation();
+    await screen.findByText('1 confirmed');
+    expect(within(authItem(2)).getByText('Autopay is no longer selected. Recheck this student.')).toBeVisible();
+    expect(mocks.savePreferences).toHaveBeenCalledOnce();
+    expect(mocks.savePreferences.mock.calls[0][0]).toBe(10);
+    fireEvent.click(within(authItem(2)).getByRole('button', { name: 'Recheck' }));
+    await within(authItem(2)).findByText('Autopay is not selected.');
+    expect(screen.getByRole('button', { name: 'Confirm authorisation' })).toBeDisabled();
+  });
+
+  it('replays an uncertain save exactly without repeating successful confirmations', async () => {
+    mocks.savePreferences.mockRejectedValueOnce(new Error('Reply lost'));
+    showAuthorisation(); await screen.findByRole('dialog'); confirmAuthorisation();
+    await screen.findByText('1 confirmed');
+    expect(within(authItem(2)).getByRole('button', { name: 'Retry save' })).toBeVisible();
+    const body = mocks.savePreferences.mock.calls[0][1];
+    fireEvent.click(within(authItem(2)).getByRole('button', { name: 'Retry save' }));
+    await screen.findByText('2 confirmed');
+    expect(mocks.savePreferences.mock.calls.map(call => call[0])).toEqual([2, 10, 2]);
+    expect(mocks.savePreferences.mock.calls[2][1]).toEqual(body);
+  });
+
+  it('aborts an obsolete modal and suppresses late callbacks', async () => {
+    const pending = deferred<BillingPreferences>();
+    mocks.savePreferences.mockReturnValueOnce(pending.promise);
+    const view = showAuthorisation(); await screen.findByRole('dialog'); confirmAuthorisation();
+    await waitFor(() => expect(mocks.savePreferences).toHaveBeenCalledOnce());
+    const signal = mocks.savePreferences.mock.calls[0][2];
+    view.unmount(); expect(signal.aborted).toBe(true);
+    await act(async () => pending.resolve(preferences(2, { payment_method: 'autopay', mandate_ready: true, version: 3 })));
+    expect(mocks.saved).not.toHaveBeenCalled();
+    expect(mocks.savePreferences).toHaveBeenCalledOnce();
+  });
+});

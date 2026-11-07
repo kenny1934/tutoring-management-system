@@ -2,14 +2,15 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import Link from 'next/link';
+import { useSWRConfig } from 'swr';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Route, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Route, X } from 'lucide-react';
 import { Button, Field, Select, buttonClasses } from '@/components/controls';
 import { EnrollmentDetailModal } from '@/components/enrollments/EnrollmentDetailModal';
 import { Modal } from '@/components/ui/modal';
 import { useOverlayLayer } from '@/hooks/useOverlayLayer';
 import { cn } from '@/lib/utils';
-import type { BillingQueueRow } from '@/types/billing';
+import type { BillingPaymentDetail, BillingQueueRow } from '@/types/billing';
 import { BillingDraftFocus } from './BillingDraftReview';
 import { BillingRenewalPanel, type BillingRenewalAction } from './BillingRenewalPanel';
 
@@ -33,11 +34,18 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
   const heading = useRef<HTMLHeadingElement>(null);
   const details = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [createdIds, setCreatedIds] = useState<number[]>([]);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [multipleCreated, setMultipleCreated] = useState(false);
+  const success = useRef<HTMLDivElement>(null);
+  const { mutate } = useSWRConfig();
   const previousStage = useRef(panelAction?.kind);
   useLayoutEffect(() => {
-    if (panelAction?.kind !== previousStage.current && action) heading.current?.focus();
+    if (panelAction?.kind !== previousStage.current && action && !created) heading.current?.focus();
     previousStage.current = panelAction?.kind;
-  }, [panelAction?.kind, action]);
+  }, [panelAction?.kind, action, created]);
+  useLayoutEffect(() => { if (showSuccess) success.current?.focus(); }, [showSuccess]);
   useEffect(() => {
     const resize = () => setWide(window.innerWidth >= 1024);
     resize(); window.addEventListener('resize', resize);
@@ -59,31 +67,45 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
     });
   }
   function openEnrollment(next: number) { if (busy) return; setEnrollmentId(next); setTab('details'); }
+  function enrollmentCreated(payment: BillingPaymentDetail) {
+    setCreated(true);
+    setShowSuccess(true);
+    setCreatedIds(payment.lines.map(line => line.enrollment_id));
+    setMultipleCreated(payment.lines?.length > 1);
+    const previousIds = new Set([...row.enrollment_ids, ...enrollments.map(item => item.enrollment_id)]);
+    if (enrollmentId) previousIds.add(enrollmentId);
+    void mutate(key => Array.isArray(key) && ['enrollment-detail', 'enrollment', 'enrollment-sessions'].includes(key[0]) && previousIds.has(key[1]));
+  }
+  function changed() { setShowSuccess(false); onChanged(); }
   function changeTab(event: KeyboardEvent<HTMLButtonElement>) {
     if (busy || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const next = event.key === 'Home' ? 'details' : event.key === 'End' ? 'renewal' : tab === 'details' ? 'renewal' : 'details';
     setTab(next); document.getElementById(`${id}-${next}-tab`)?.focus();
   }
-  const panelTitle = panelAction?.kind === 'payment' ? 'Payment' : panelAction?.kind === 'draft' ? 'Saved draft' : 'Create renewal';
+  const panelTitle = panelAction?.kind === 'payment' ? created ? multipleCreated ? 'New enrollments' : 'New enrollment' : 'Payment' : panelAction?.kind === 'draft' ? 'Saved draft' : 'Create renewal';
   const canRenew = row.origin !== 'payment' && row.origin !== 'legacy' && panelAction?.kind !== 'payment' && !(row.stage === 'no_payment' && row.first_lesson_date === null);
   const knownIds = enrollments.map(item => item.enrollment_id);
-  const ids = [...new Set([...knownIds, ...row.enrollment_ids, ...(enrollmentId ? [enrollmentId] : [])])];
+  const previousIds = new Set([...knownIds, ...row.enrollment_ids]);
+  const ids = [...new Set([...previousIds, ...createdIds, ...(enrollmentId ? [enrollmentId] : [])])];
+  const detailTitle = created && enrollmentId ? createdIds.includes(enrollmentId) ? 'New enrollment' : previousIds.has(enrollmentId) ? 'Previous enrollment' : 'Enrollment details' : null;
 
   return <Modal isOpen persistent={busy} onClose={() => { if (!busy) onClose(); }} layer={layer} title={intakeOnly ? 'New enrollment' : 'Enrollment renewal'} size={action && !intakeOnly ? '2xl' : 'lg'} className={cn('transition-[max-width] duration-200', action && !intakeOnly ? 'lg:!max-w-[60rem]' : '!max-w-[36rem]')}>
     <BillingDraftFocus trigger={trigger} suspended={!layer.isTopmost}>
+      {showSuccess && <div ref={success} role="status" tabIndex={-1} className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800 outline-none dark:border-green-800 dark:bg-green-950 dark:text-green-200"><CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />{multipleCreated ? 'Enrollments created.' : 'Enrollment created.'}</div>}
       {action && !wide && !intakeOnly && <div role="tablist" aria-label="Renewal workspace" className="mb-3 flex gap-4 border-b border-line">
         {([{ value: 'details', label: 'Details' }, { value: 'renewal', label: panelTitle }] as const).map(item => <button type="button" role="tab" id={`${id}-${item.value}-tab`} aria-controls={`${id}-${item.value}-panel`} aria-selected={tab === item.value} disabled={busy} tabIndex={tab === item.value ? 0 : -1} key={item.value} onKeyDown={changeTab} onClick={() => setTab(item.value)} className={cn('border-b-2 pb-2 text-sm font-medium', tab === item.value ? 'border-primary text-accent-ink' : 'border-transparent text-ink-subtle')}>{item.label}</button>)}
       </div>}
       <div className="flex h-[min(70dvh,52rem)] min-h-0 gap-4">
         {!intakeOnly && <div ref={details} tabIndex={-1} id={`${id}-details-panel`} role={!wide && action ? 'tabpanel' : undefined} aria-labelledby={!wide && action ? `${id}-details-tab` : undefined} hidden={!!action && !wide && tab !== 'details'} className={cn('min-w-0 flex-1 flex-col outline-none', wide && action && 'lg:w-[22rem] lg:flex-none', (!action || wide || tab === 'details') && 'flex')}>
+          {detailTitle && <h3 className="mb-2 text-sm font-semibold">{detailTitle}</h3>}
           {ids.length > 1 && <Field label="Enrollment details" id={`${id}-enrollment`} className="mb-2"><Select value={enrollmentId ?? ''} disabled={busy} onChange={event => setEnrollmentId(Number(event.target.value))}>{ids.map(value => {
             const item = enrollments.find(enrollment => enrollment.enrollment_id === value);
             return <option key={value} value={value}>{item ? `${item.weekday ?? 'Day to confirm'} ${item.time_slot ?? ''} @ ${item.location ?? ''}` : `Enrollment #${value}`}</option>;
           })}</Select></Field>}
           <div className="min-h-0 flex-1">
             {enrollmentId ? <EnrollmentDetailModal isOpen standalone={false} hideCloseButton enrollmentId={enrollmentId} compact={wide && !!action} onClose={onClose}
-              showRenewalActions={row.origin === 'legacy'} onStatusChange={onChanged}
+              showRenewalActions={row.origin === 'legacy'} onStatusChange={changed}
               onCreateBillingRenewal={canRenew ? renew : undefined} onOpenBillingPayment={paymentId => open({ kind: 'payment', id: paymentId })} />
               : <div className="space-y-3 rounded border border-line p-4"><p className="text-sm">No enrollment is available to open.</p>{canRenew && <Button onClick={renew}>Review renewal</Button>}</div>}
           </div>
@@ -91,7 +113,7 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
         <AnimatePresence initial={false}>
           {action && <motion.section key="renewal-panel" initial={{ opacity: 0, x: wide ? 24 : 0 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: wide ? 24 : 0 }} transition={{ duration: 0.18 }} id={`${id}-renewal-panel`} role={!wide && !intakeOnly ? 'tabpanel' : undefined} aria-labelledby={!wide && !intakeOnly ? `${id}-renewal-tab` : `${id}-renewal-heading`} hidden={!wide && !intakeOnly && tab !== 'renewal'} className={cn('min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-line bg-paper lg:max-w-[34rem]', (intakeOnly || wide || tab === 'renewal') && 'flex')}>
             <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2"><h3 ref={heading} tabIndex={-1} id={`${id}-renewal-heading`} className="font-semibold">{panelTitle}</h3><Button variant="quiet" size="sm" aria-label="Close renewal panel" disabled={busy} onClick={intakeOnly ? onClose : closePanel}><X className="h-4 w-4" aria-hidden="true" /></Button></div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"><BillingRenewalPanel key={action.kind === 'renew' ? 'renew' : `${action.kind}:${action.id}`} row={row} initialAction={action} onChanged={onChanged} onOpenEnrollment={openEnrollment} onActionChange={setPanelAction} onBusyChange={setBusy} /></div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"><BillingRenewalPanel key={action.kind === 'renew' ? 'renew' : `${action.kind}:${action.id}`} row={row} initialAction={action} onChanged={changed} onCreated={enrollmentCreated} onOpenEnrollment={openEnrollment} onActionChange={setPanelAction} onBusyChange={setBusy} /></div>
           </motion.section>}
         </AnimatePresence>
       </div>

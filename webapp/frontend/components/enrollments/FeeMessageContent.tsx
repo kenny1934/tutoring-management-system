@@ -40,8 +40,8 @@ export function FeeMessageContent({
   onCopy, onClose, closeLabel = "Close", onMarkSent, onUnmarkSent, markingSent = false,
 }: FeeMessageContentProps) {
   const messageUnavailable = loading || !!error || !message || !canCopy;
-  return <section aria-label="Fee message" className="border-t border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50" onClick={event => event.stopPropagation()}>
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+  return <section aria-label="Fee message" className="border-t border-line bg-paper" onClick={event => event.stopPropagation()}>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-wash px-4 py-2">
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-foreground/60">Language:</span>
         <Segmented label="Message language" value={language} onChange={onLanguageChange} options={[
@@ -69,10 +69,10 @@ export function FeeMessageContent({
         readOnly={!editable || !onMessageChange} disabled={busy} aria-label="Fee message"
         className={cn("h-64 resize-none p-3 font-mono transition-colors", !editable && "cursor-default bg-tint")} />}
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800/80">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper px-4 py-3">
       {onEditableChange ? <div className="flex items-center gap-2">
         <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground/70">
-          <input type="checkbox" checked={editable} disabled={busy} onChange={event => onEditableChange(event.target.checked)} className="rounded border-gray-300 text-accent-ink focus:ring-primary" />
+          <input type="checkbox" checked={editable} disabled={busy} onChange={event => onEditableChange(event.target.checked)} className="rounded border-field text-accent-ink focus:ring-primary" />
           Edit before copying
         </label>
         {editable && onReset && message !== originalMessage && <button type="button" disabled={busy} onClick={onReset} className="ml-2 text-xs text-accent-ink hover:underline">Reset</button>}

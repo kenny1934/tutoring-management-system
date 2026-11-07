@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
+import { useState } from "react";
+import { flushSync } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { SessionDetailPopover } from "./SessionDetailPopover";
 
@@ -44,6 +46,22 @@ describe("a lesson popover stacked over a modal", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onPopoverClose).toHaveBeenCalledTimes(1);
     expect(onModalClose).not.toHaveBeenCalled();
+  });
+
+  it("does not pass Escape to the payment modal when closing unmounts the popover immediately", () => {
+    const onModalClose = vi.fn();
+    function Payment() {
+      const [open, setOpen] = useState(false);
+      return <Modal isOpen onClose={onModalClose} title="Payment">
+        <button onClick={() => setOpen(true)}>Open session</button>
+        {open && popover(() => flushSync(() => setOpen(false)))}
+      </Modal>;
+    }
+    const view = render(<Payment />);
+    fireEvent.click(view.getByRole("button", { name: "Open session" }));
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onModalClose).not.toHaveBeenCalled();
+    expect(view.getByRole("dialog", { name: "Payment" })).toBeInTheDocument();
   });
 
   it("still hears Escape when the modal under it catches keys at the window", () => {

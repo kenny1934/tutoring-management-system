@@ -19,18 +19,20 @@ export class BillingPreferenceUpdater {
 
   hasPending(studentId: number) { return this.pending.has(studentId); }
 
-  async save(target: PreferenceTarget, change: PreferenceChange, tutorId?: number, signal?: AbortSignal) {
+  async save(target: PreferenceTarget, change: PreferenceChange, tutorId?: number, signal?: AbortSignal, requiredMethod?: BillingPreferences['payment_method']) {
     const studentId = target.student.id;
     let body = this.pending.get(studentId);
     if (!body) {
       const fresh = checkedPreferences(await billingAPI.preferences(studentId, tutorId, signal), studentId);
       signal?.throwIfAborted();
+      if (requiredMethod !== undefined && fresh.payment_method !== requiredMethod) throw new Error('Autopay is no longer selected. Recheck this student.');
       if (fresh.version !== (target.preference_version ?? 0)) throw new Error('Preference changed. Reload this list.');
       if (Object.entries(change).every(([field, value]) => fresh[field as keyof PreferenceChange] === value)) return fresh;
       body = { payment_method: fresh.payment_method, mandate_ready: fresh.mandate_ready,
         ...change, expected_version: fresh.version, idempotency_key: crypto.randomUUID() };
       this.pending.set(studentId, body);
     }
+    if (requiredMethod !== undefined && body.payment_method !== requiredMethod) throw new Error('This pending update needs checking before confirming authorisation.');
     try {
       signal?.throwIfAborted();
       const saved = checkedPreferences(await billingAPI.savePreferences(studentId, body, signal), studentId);
@@ -41,8 +43,8 @@ export class BillingPreferenceUpdater {
       this.pending.delete(studentId);
       return saved;
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      if (status && status >= 400 && status < 500) this.pending.delete(studentId);
+      const status = (error as { status?: number } | null)?.status;
+      if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) this.pending.delete(studentId);
       throw error;
     }
   }

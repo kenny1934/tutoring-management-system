@@ -9,6 +9,7 @@ import type { BillingDraftDetail, BillingPaymentDetail, BillingPreferences } fro
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), confirmDraft: vi.fn(), payments: vi.fn(), payment: vi.fn(), markPaymentSent: vi.fn(), recordPayment: vi.fn(), recordReceipt: vi.fn(), cancelPayment: vi.fn(), copy: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: mocks }));
+vi.mock('./BillingEnrollmentSessions', () => ({ BillingEnrollmentSessions: ({ enrollmentId }: { enrollmentId: number }) => <div>Actual sessions for enrollment {enrollmentId}</div> }));
 
 function preferences(): BillingPreferences { return { student_id: 4, payment_method: 'manual', mandate_ready: false, version: 2, updated_at: null }; }
 function payment(): BillingPaymentDetail {
@@ -109,6 +110,77 @@ describe('confirmed teaching enrollments', () => {
 
 describe('combined payment collection', () => {
   function show() { return render(<BillingPayments canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper }); }
+  it('puts created enrollment IDs first and uses actual session rows in renewal details', async () => {
+    render(<BillingPayments inline presentation="renewal" canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+    const enrollments = await screen.findByRole('region', { name: 'Linked enrollments' });
+    const fee = screen.getByRole('region', { name: 'Enrollment fee' });
+    expect(fee).toContainElement(enrollments);
+    expect(within(enrollments).getByRole('link', { name: 'Enrollment #20' })).toBeVisible();
+    expect(within(enrollments).getByText(/Tutor A/)).toBeVisible();
+    expect(screen.getByText('Actual sessions for enrollment 20')).toBeVisible();
+    expect(screen.getByText('Actual sessions for enrollment 21')).toBeVisible();
+    expect(screen.queryByLabelText('Sessions by month')).not.toBeInTheDocument();
+    expect(screen.queryByText('7 session dates')).not.toBeInTheDocument();
+    const cancel = screen.getByRole('button', { name: 'Cancel enrollments' });
+    expect(cancel.parentElement).toBe(screen.getByRole('button', { name: 'Record payment' }).parentElement);
+    expect(cancel).toHaveClass('h-7');
+    expect(cancel.querySelector('svg')).toHaveClass('text-red-600');
+    fireEvent.click(cancel);
+    expect(screen.getByRole('form', { name: 'Cancel linked enrollments' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirm cancellation' })).toBeDisabled();
+    expect(mocks.cancelPayment).not.toHaveBeenCalled();
+  });
+
+  it('shows one amount and lesson count for a straightforward renewal, with notes below sessions', async () => {
+    const value = payment();
+    value.lines = [{ ...value.lines[0], lesson_count: 7 }];
+    value.review.issues = [{ code: 'PENDING_COVERAGE_ASSUMED', message: 'Existing unpaid enrollments were counted.', period: null }, { code: 'COVERAGE_ASSUMED', message: 'The recorded end date was used.', period: null }];
+    mocks.payment.mockResolvedValue(value);
+    render(<BillingPayments inline presentation="renewal" canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+    const fee = await screen.findByRole('region', { name: 'Enrollment fee' });
+    expect(within(fee).getAllByText('MOP 2,800')).toHaveLength(1);
+    expect(within(fee).getAllByText('7 sessions')).toHaveLength(1);
+    expect(within(fee).queryByText('Tuition')).not.toBeInTheDocument();
+    expect(within(fee).getByText('Unpaid')).toBeVisible();
+    expect(screen.queryByText('2 notes')).not.toBeInTheDocument();
+    const notes = screen.getByText('Enrollment notes');
+    const sessions = screen.getByRole('region', { name: 'Enrollment sessions' });
+    expect(sessions.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(notes);
+    expect(screen.getByText('Existing unpaid enrollments were counted.')).toBeVisible();
+  });
+
+  it('retains the fee breakdown when a coupon changes the total', async () => {
+    const value = payment(); value.review.period.deductions = [{ kind: 'ordinary', amount: 300 }];
+    value.review.period.total_fee = 2500; value.review.period.tuition_after_deductions = 2500;
+    mocks.payment.mockResolvedValue(value);
+    render(<BillingPayments inline presentation="renewal" studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+    const fee = await screen.findByRole('region', { name: 'Enrollment fee' });
+    expect(within(fee).getByText('MOP 2,500')).toBeVisible();
+    expect(within(fee).getByText('Tuition')).toBeVisible();
+    expect(within(fee).getByText('−MOP 300')).toBeVisible();
+    expect(within(fee).getByText('MOP 2,800')).toBeVisible();
+  });
+
+  it('shows the exact created snapshot immediately while checking its server record', async () => {
+    mocks.payment.mockReturnValue(new Promise(() => {}));
+    const created = payment();
+    render(<BillingPayments inline presentation="renewal" initialDetail={created} canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+    expect(screen.getByRole('link', { name: 'Enrollment #20' })).toBeVisible();
+    expect(screen.queryByText('Loading payment…')).not.toBeInTheDocument();
+    await waitFor(() => expect(mocks.payment).toHaveBeenCalledWith('payment-1', undefined));
+  });
+
+  it('does not display a created snapshot for another student or authorisation scope', async () => {
+    mocks.payment.mockReturnValue(new Promise(() => {}));
+    const created = payment();
+    const { rerender } = render(<BillingPayments inline initialDetail={created} studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+    expect(screen.getByRole('link', { name: 'Enrollment #20' })).toBeVisible();
+    mocks.auth.mockReturnValue({ user: { id: 9 }, effectiveRole: 'Tutor', isAdmin: false });
+    rerender(<BillingPayments inline initialDetail={created} studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />);
+    expect(screen.queryByRole('link', { name: 'Enrollment #20' })).not.toBeInTheDocument();
+  });
+
   it('keeps exact combined-payment controls inline and opens teaching records in the workspace', async () => {
     const onOpenEnrollment = vi.fn();
     render(<BillingPayments inline canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} onOpenEnrollment={onOpenEnrollment} />, { wrapper: Wrapper });

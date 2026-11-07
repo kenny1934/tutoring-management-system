@@ -6,7 +6,7 @@ import type { BillingDraftDetail, BillingQueueCounts, BillingQueueResponse, Bill
 import { emptyBillingBatchItem, type BillingBatchItem } from '@/lib/billing-batch';
 import type { BillingCardMessageTarget } from './BillingCardFeeMessage';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), queueCounts: vi.fn(), options: vi.fn(), workspace: vi.fn(), batch: vi.fn(), feePanel: vi.fn(), invalidate: vi.fn(), receiptCount: vi.fn(), receipts: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), queueCounts: vi.fn(), options: vi.fn(), workspace: vi.fn(), batch: vi.fn(), feePanel: vi.fn(), invalidate: vi.fn(), receiptCount: vi.fn(), receipts: vi.fn(), settings: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: mocks.location }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { queue: mocks.queue, queueCounts: mocks.queueCounts, options: mocks.options, receiptCount: mocks.receiptCount, receipts: mocks.receipts } }));
@@ -14,7 +14,7 @@ vi.mock('@/lib/renewal-queue', () => ({ invalidateRenewalQueueCache: mocks.inval
 vi.mock('@/lib/hooks', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/hooks')>(), usePageTitle: vi.fn(), useVisibilityAwareInterval: () => 0, useUnlistedWaitingCount: () => ({ data: { count: 3 } }) }));
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
-vi.mock('./BillingPaymentSettings', () => ({ BillingPaymentSettings: ({ recordedMethod }: { recordedMethod?: string | null }) => <button aria-label="Payment method">{recordedMethod === 'autopay' ? 'Autopay' : recordedMethod === 'manual' ? 'Manual' : 'Not set'}</button> }));
+vi.mock('./BillingPaymentSettings', () => ({ BillingPaymentSettings: (props: { recordedMethod?: string | null; studentId: number; onSaved: (value: { student_id: number; payment_method: string; mandate_ready: boolean; version: number; updated_at: null }) => void }) => { mocks.settings(props); return <button aria-label="Payment method">{props.recordedMethod === 'autopay' ? 'Autopay' : props.recordedMethod === 'manual' ? 'Manual' : 'Not set'}</button>; } }));
 vi.mock('./BillingRenewalWorkspace', () => ({ BillingRenewalWorkspace: (props: { row: BillingQueueRow; initialAction?: { kind: string; id?: string }; onClose: () => void }) => {
   mocks.workspace(props); return <div role="dialog" aria-label="Enrollment renewal"><p>{props.initialAction ? `${props.initialAction.kind}:${props.initialAction.id ?? 'next'}` : 'Enrollment details'}</p><button onClick={props.onClose}>Close workspace</button></div>;
 } }));
@@ -59,7 +59,8 @@ beforeEach(() => {
   mocks.workspace.mockReset();
   mocks.batch.mockReset();
   mocks.feePanel.mockReset();
-  mocks.invalidate.mockReset().mockResolvedValue(undefined);
+  mocks.settings.mockReset();
+  mocks.invalidate.mockReset().mockImplementation(refresh => refresh ? refresh((key: unknown) => Array.isArray(key) && ['renewal-queue-counts', 'billing-renewal-queue'].includes(key[0])) : Promise.resolve());
 });
 
 describe('enrollment renewal queue', () => {
@@ -540,6 +541,42 @@ describe('enrollment renewal queue', () => {
     expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'true');
     await act(async () => resolve(response()));
     expect(screen.getByRole('article')).toBe(card);
+  });
+
+  it('updates a saved preference on its card without showing the previous estimate as the new plan', async () => {
+    const source = { ...row(), origin: 'projection' as const, draft_id: null, recorded_payment_method: 'manual' as const, mandate_ready: false };
+    mocks.queue.mockResolvedValueOnce(response([source]));
+    show(); const card = await screen.findByRole('article');
+    let finish!: (value: BillingQueueResponse) => void;
+    mocks.queue.mockImplementationOnce(() => new Promise<BillingQueueResponse>(done => { finish = done; }));
+    const saved = { student_id: 4, payment_method: 'autopay', mandate_ready: true, version: 2, updated_at: null };
+    act(() => mocks.settings.mock.lastCall![0].onSaved(saved));
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    expect(screen.getByRole('article')).toBe(card);
+    expect(within(card).getByRole('button', { name: 'Payment method' })).toHaveTextContent('Autopay');
+    expect(within(card).getByText('Updating enrollment…')).toBeInTheDocument();
+    expect(within(card).queryByText(/1,200/)).not.toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Renew' })).toBeDisabled();
+    expect(screen.queryByText('Loading renewals…')).not.toBeInTheDocument();
+    await act(async () => finish(response([{ ...source, recorded_payment_method: 'autopay', mandate_ready: true, payment_method: 'autopay', total_fee: 800, lesson_count: 2 }])));
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Renew' })).toBeEnabled());
+    expect(within(card).queryByText('Updating enrollment…')).not.toBeInTheDocument();
+    expect(within(card).getByText(/800/)).toBeInTheDocument();
+    expect(mocks.queue).toHaveBeenCalledTimes(2);
+  });
+
+  it('retains cards after a failed refresh and prevents acting on the retained calculation until retry', async () => {
+    const source = { ...row(), origin: 'projection' as const, draft_id: null };
+    mocks.queue.mockResolvedValueOnce(response([source]));show();const card = await screen.findByRole('article');
+    mocks.queue.mockRejectedValueOnce(new Error('Connection interrupted.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh renewals' }));
+    await screen.findByText('Connection interrupted.');
+    expect(screen.getByRole('article')).toBe(card);
+    expect(within(card).getByRole('button', { name: 'Renew' })).toBeDisabled();
+    expect(screen.queryByText('Loading renewals…')).not.toBeInTheDocument();
+    mocks.queue.mockResolvedValueOnce(response([source]));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Renew' })).toBeEnabled());
   });
 
   it('keeps a saved attention draft easy to identify and review', async () => {

@@ -1,13 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { SWRConfig } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BillingDraftMessage, BillingDraftReview, BillingDraftSummaryContent, type BillingCopyFeedback } from './BillingDraftReview';
 import { PaymentJourney } from './PaymentJourney';
-import type { BillingDraftDetail, BillingDraftReview as Review, BillingDraftReviewRequest, BillingPreviewResponse } from '@/types/billing';
+import type { BillingRenewalCreator } from '@/lib/billing-renewal-create';
+import type { BillingDraftDetail, BillingDraftReview as Review, BillingDraftReviewRequest, BillingPaymentDetail, BillingPreviewResponse } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), review: vi.fn(), save: vi.fn(), revise: vi.fn(), clipboard: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), review: vi.fn(), save: vi.fn(), revise: vi.fn(), preferences: vi.fn(), clipboard: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
-vi.mock('@/lib/billing-api', () => ({ billingAPI: { draftReview: mocks.review, saveDraft: mocks.save, reviseDraft: mocks.revise } }));
+vi.mock('@/lib/billing-api', () => ({ billingAPI: { draftReview: mocks.review, saveDraft: mocks.save, reviseDraft: mocks.revise, preferences: mocks.preferences } }));
 function request(): BillingDraftReviewRequest {
   return { scenario: { first_lesson_date: '2026-12-04', slots: [{ weekday: 'Fri', time_slot: '16:45 - 18:15', location: 'MSA' }], mode: 'transition', payment_method: 'manual', materials_fee: 0, trial_deduction: false, mandate_ready: false },
     basis: 'paid_only', selected_enrollment_ids: [10], expected_source_fingerprint: 'source-1', period_number: 1, confirmed_checks: [] };
@@ -26,19 +28,17 @@ function saved(): BillingDraftDetail { return { id: 'draft-1', student_id: 4, cu
 beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
   mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true });
+  mocks.preferences.mockReset().mockResolvedValue({ student_id: 4, payment_method: 'manual', mandate_ready: false, version: 1 });
   mocks.review.mockReset().mockResolvedValue(review()); mocks.save.mockReset().mockResolvedValue(saved()); mocks.revise.mockReset().mockResolvedValue({ ...saved(), revision: 2, current_revision: 2 }); mocks.clipboard.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: mocks.clipboard } });
 });
 async function open() { fireEvent.click(screen.getByRole('button', { name: 'Review payment' })); return await screen.findByRole('textbox', { name: 'Chinese fee message' }); }
 
 describe('payment draft review', () => {
-  it.each(['acknowledgement', 'authorisation'] as const)('keeps the renewal layout mounted while a %s is rechecked', async kind => {
+  it('keeps the renewal layout mounted while an acknowledgement is rechecked', async () => {
     const data = review();
     const req = request();
-    if (kind === 'authorisation') {
-      data.period.collection.method = 'autopay';
-      req.scenario.payment_method = 'autopay';
-    } else data.issues = [{ code: 'UNPAID_PAST_DATES', message: 'Check past dates.', period: 1 }];
+    data.issues = [{ code: 'UNPAID_PAST_DATES', message: 'Check past dates.', period: 1 }];
     mocks.review.mockResolvedValueOnce(data);
     let finish!: (value: Review) => void;
     mocks.review.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
@@ -46,7 +46,7 @@ describe('payment draft review', () => {
     const table = await screen.findByRole('table');
     fireEvent.click(screen.getByRole('button', { name: 'Preview fee message' }));
     const message = screen.getByRole('textbox', { name: 'Chinese fee message' });
-    const checkbox = screen.getByRole('checkbox', { name: kind === 'authorisation' ? 'Bank authorisation is ready for this payment.' : 'The past session dates are correct.' });
+    const checkbox = screen.getByRole('checkbox', { name: 'The past session dates are correct.' });
     checkbox.focus();
     fireEvent.click(checkbox);
     await waitFor(() => expect(mocks.review).toHaveBeenCalledTimes(2));
@@ -59,7 +59,7 @@ describe('payment draft review', () => {
     expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     expect(mocks.save).not.toHaveBeenCalled();
-    await act(async () => finish({ ...data, review_hash: 'updated-review', confirmed_checks: kind === 'acknowledgement' ? ['UNPAID_PAST_DATES'] : [] }));
+    await act(async () => finish({ ...data, review_hash: 'updated-review', confirmed_checks: ['UNPAID_PAST_DATES'] }));
     expect(screen.getByRole('table')).toBe(table);
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Copy message' })).toBeEnabled();
@@ -68,6 +68,24 @@ describe('payment draft review', () => {
     view.rerender(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={{ ...req, expected_source_fingerprint: 'changed-source' }} storageAvailable />);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Chinese fee message' })).not.toBeInTheDocument();
+  });
+
+  it('creates the reviewed renewal directly without a separate draft-save stage', async () => {
+    const payment = { id: 'payment-1' } as BillingPaymentDetail;
+    const create = vi.fn().mockResolvedValue(payment);
+    const onCreated = vi.fn();
+    render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable
+      directCreation={{ creator: { create } as unknown as BillingRenewalCreator, canWrite: true, onCreated }} />);
+    const action = await screen.findByRole('button', { name: 'Create enrollment' });
+    expect(action).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Bank authorisation is ready for this payment.' })).not.toBeInTheDocument();
+    fireEvent.click(action);
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      studentId: 4, request: request(), review: expect.objectContaining({ review_hash: 'review-1' }), note: '',
+    }), expect.any(AbortSignal)));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledExactlyOnceWith(payment));
+    expect(mocks.save).not.toHaveBeenCalled();
   });
 
   it('opens the renewal fee message on demand below the save action and retains language and copy feedback', async () => {
@@ -110,7 +128,7 @@ describe('payment draft review', () => {
     await waitFor(() => expect(mocks.save).toHaveBeenCalledWith(4, expect.objectContaining({ note: 'Parent confirmed the new time.' }), expect.any(AbortSignal)));
   });
 
-  it('shows every renewal lesson in date order under month totals without another date disclosure', () => {
+  it('shows numbered renewal lessons in date order with class details only when needed', () => {
     const data = review(), lesson = data.period.lessons[0];
     data.period = { ...data.period, lesson_count: 5, first_lesson_date: '2026-11-10', last_lesson_date: '2026-12-18', coverage_from: '2026-11-01', gross_tuition: 2000, tuition_after_deductions: 2000, total_fee: 2000, counts_by_month: [{ month: '2026-11', lessons: 2 }, { month: '2026-12', lessons: 3 }], counts_by_slot: [3, 2], lessons: [
       { ...lesson, date: '2026-12-18', holiday_exception: true },
@@ -121,14 +139,12 @@ describe('payment draft review', () => {
     ] };
     const view = render(<BillingDraftSummaryContent review={data} presentation="renewal" />);
     const table = screen.getByRole('table', { name: 'Sessions included in this enrollment' });
-    expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Date', 'Day', 'Time', 'Branch']);
-    expect(within(table).getByText('November 2026')).toBeVisible();
-    expect(within(table).getByText('2 sessions')).toBeVisible();
-    expect(within(table).getByText('December 2026')).toBeVisible();
-    expect(within(table).getByText('3 sessions')).toBeVisible();
-    expect([...table.querySelectorAll('tbody tr')].filter(row => row.querySelector('td')).map(row => row.querySelector('td')!.textContent)).toEqual(['Nov 10, 2026', 'Nov 13, 2026', 'Dec 4, 2026', 'Dec 8, 2026', 'Dec 18, 2026']);
+    expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['#', 'Date', 'Class', 'Status']);
+    const rows = [...table.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+    expect(rows.map(row => row.cells[0].textContent)).toEqual(['1', '2', '3', '4', '5']);
+    expect(rows.map(row => row.cells[1].textContent)).toEqual(['Tue, Nov 10, 2026', 'Fri, Nov 13, 2026', 'Fri, Dec 4, 2026', 'Tue, Dec 8, 2026', 'Fri, Dec 18, 2026']);
     expect(within(table).getByText('Holiday class')).toBeVisible();
-    expect(within(table).getAllByText('MSB')).toHaveLength(2);
+    expect(within(table).getAllByText('18:00 - 19:30 @ MSB')).toHaveLength(2);
     expect(screen.queryByLabelText('Sessions by month')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sessions by class')).not.toBeInTheDocument();
     expect(screen.queryByText('5 session dates')).not.toBeInTheDocument();
@@ -294,7 +310,7 @@ describe('payment draft review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
     await waitFor(() => expect(mocks.clipboard).toHaveBeenCalledWith('English fee message'));
     expect(mocks.review).toHaveBeenCalledTimes(2);
-    expect(mocks.review.mock.calls[0][1].scenario.mandate_ready).toBe(false);
+    expect(mocks.review.mock.calls[0][1].scenario.mandate_ready).toBe(true);
     expect(screen.queryByLabelText('Bank authorisation is ready for this payment.')).not.toBeInTheDocument();
     const message = screen.getByRole('region', { name: 'Fee message preview' });
     expect(await within(message).findByRole('status')).toHaveTextContent('Message copied.');
@@ -387,32 +403,31 @@ describe('payment draft review', () => {
     expect(mocks.clipboard).not.toHaveBeenCalled();
   });
 
-  it('requires an explicit payment authorisation even when the preview assumed autopay was ready', async () => {
-    const previewReady = request(); previewReady.scenario.payment_method = 'autopay'; previewReady.scenario.mandate_ready = true;
+  it.each([true, false])('uses saved bank authorisation (%s) without requiring a second checkbox', async mandateReady => {
+    const previewReady = request();
+    previewReady.scenario.payment_method = 'autopay';
+    previewReady.scenario.mandate_ready = !mandateReady;
+    mocks.preferences.mockResolvedValue({ student_id: 4, payment_method: 'autopay', mandate_ready: mandateReady, version: 7 });
     mocks.review.mockImplementation((_student: number, outgoing: BillingDraftReviewRequest) => {
       const result = review(); result.scenario = outgoing.scenario;
       result.period.collection = { ...result.period.collection, method: 'autopay', due_before_lesson: null, debit_from: '2026-11-20', debit_to: '2026-11-22' };
       if (!outgoing.scenario.mandate_ready) result.message = { template_version: 'v1', zh: null, en: null, blocked_reasons: ['Confirm bank authorisation before copying.'] };
       return Promise.resolve(result);
     });
-    const { rerender } = render(<BillingDraftReview studentId={4} reviewRequest={previewReady} storageAvailable />);
+    render(<SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <BillingDraftReview studentId={4} reviewRequest={previewReady} storageAvailable preferencesAvailable />
+    </SWRConfig>);
     fireEvent.click(screen.getByRole('button', { name: 'Review payment' }));
-    const confirm = await screen.findByRole('checkbox', { name: 'Bank authorisation is ready for this payment.' });
-    expect(confirm).not.toBeChecked();
-    expect(mocks.review.mock.calls[0][1].scenario.mandate_ready).toBe(false);
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
-    confirm.focus(); fireEvent.click(confirm);
-    await screen.findByRole('textbox', { name: 'Chinese fee message' });
-    expect(confirm).toHaveFocus();
-    expect(mocks.review.mock.calls.at(-1)?.[1].scenario.mandate_ready).toBe(true);
-    expect(screen.getByRole('button', { name: 'Copy message' })).not.toBeDisabled();
-    mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Tutor', isAdmin: false });
-    rerender(<BillingDraftReview studentId={4} reviewRequest={previewReady} storageAvailable />);
-    fireEvent.click(screen.getByRole('button', { name: 'Review payment' }));
-    await screen.findByText('Confirm bank authorisation before copying.');
+    if (mandateReady) {
+      await screen.findByRole('textbox', { name: 'Chinese fee message' });
+      expect(screen.getByRole('button', { name: 'Copy message' })).toBeEnabled();
+    } else {
+      await screen.findByText('Confirm bank authorisation before copying.');
+      expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
+    }
+    expect(mocks.preferences).toHaveBeenCalledWith(4, undefined);
+    expect(mocks.review.mock.calls[0][1].scenario.mandate_ready).toBe(mandateReady);
     expect(screen.queryByRole('checkbox', { name: 'Bank authorisation is ready for this payment.' })).not.toBeInTheDocument();
-    expect(mocks.review.mock.calls.at(-1)?.[1].scenario.mandate_ready).toBe(false);
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
   });
 
   it('recalculates explicit confirmations and does not offer administrative writes under tutor role', async () => {
