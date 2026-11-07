@@ -34,6 +34,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Renewal lists**: saving preferences and completing actions now update entries without replacing the list with a loading screen."
+          },
+          {
+            "description": "**Session popovers**: pressing Escape closes the session popover while leaving its payment window open."
           }
         ]
       }

@@ -16,6 +16,7 @@
 ### Bug Fixes
 
 * **Renewal lists**: saving preferences and completing actions now update entries without replacing the list with a loading screen.
+* **Session popovers**: pressing Escape closes the session popover while leaving its payment window open.
 
 ## [2.3.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.9...v2.3.0) (2026-11-07)
 
