@@ -59,14 +59,34 @@ function GapDates({ evidence }: { evidence: BillingGapEvidence[] }) {
 }
 
 /** Short labels remain visible; complete explanations are available on demand. */
-export function BillingChecks({ issues, compact = false, maxVisible = 2 }: {
+export function BillingChecks({ issues, compact = false, maxVisible = 2, presentation = 'default', representedByControls = [] }: {
   issues: BillingIssue[];
   compact?: boolean;
   maxVisible?: number;
+  presentation?: 'default' | 'renewal';
+  representedByControls?: readonly string[];
 }) {
   const ordered = displayedIssues(issues);
   if (!ordered.length) return null;
   const attention = ordered.filter(i => billingCheck(i.code).severity !== 'info');
+  const renewalAttention = attention.filter(issue => !representedByControls.includes(issue.code));
+  if (presentation === 'renewal') return <section aria-label="Renewal checks" className="space-y-2 rounded-md border border-line p-3 text-xs">
+    {renewalAttention.length > 0 && <>
+      <h4 className="font-semibold">Check before creating</h4>
+      <ul className="space-y-1.5">{renewalAttention.map(issue => <li key={`${issue.code}:${issue.period ?? ''}:${issue.message}`} className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+        <span>{issue.code === 'CONTINUATION_UNCONFIRMED' ? 'Confirm the student is continuing.' : issue.code === 'UNPAID_PAST_DATES' ? 'Check the past lesson dates.' : billingCheck(issue.code).label}</span>
+      </li>)}</ul>
+    </>}
+    <details>
+      <summary className="cursor-pointer text-ink-subtle underline decoration-dotted underline-offset-4">{attention.length ? 'Explanations and notes' : 'Enrollment notes'}</summary>
+      <ul className="mt-3 space-y-3 border-t border-line pt-3">{ordered.map(issue => <li key={`${issue.code}:${issue.period ?? ''}:${issue.message}`} className="space-y-1 leading-relaxed">
+        <p className="font-medium">{billingCheck(issue.code).label}{issue.period ? ` · Payment ${issue.period}` : ''}</p>
+        <p className="text-ink-subtle">{issue.message}</p>
+        {!!issue.gap_evidence?.length && <GapDates evidence={issue.gap_evidence} />}
+      </li>)}</ul>
+    </details>
+  </section>;
   const visible = (compact ? attention : ordered).slice(0, maxVisible);
   const hidden = ordered.length - visible.length;
   return <details className="group/checks text-sm" aria-label={attention.length ? `${attention.length} payment checks` : 'Payment notes'}>

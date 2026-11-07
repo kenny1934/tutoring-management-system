@@ -5,10 +5,11 @@ import type { BillingDraftDetail, BillingDraftReview, BillingPaymentDetail, Bill
 import type { RenewalListItem } from '@/types';
 
 const mocks = vi.hoisted(() => ({
-  auth: vi.fn(), draft: vi.fn(), payment: vi.fn(), enrollment: vi.fn(), legacy: vi.fn(), clipboard: vi.fn(),
+  auth: vi.fn(), draft: vi.fn(), payment: vi.fn(), enrollment: vi.fn(), legacy: vi.fn(), clipboard: vi.fn(), sent: vi.fn(), invalidate: vi.fn(),
 }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
-vi.mock('@/lib/billing-api', () => ({ billingAPI: { draft: mocks.draft, payment: mocks.payment } }));
+vi.mock('@/lib/billing-api', () => ({ billingAPI: { draft: mocks.draft, payment: mocks.payment, markPaymentSent: mocks.sent } }));
+vi.mock('@/lib/renewal-queue', () => ({ invalidateRenewalQueueCache: mocks.invalidate }));
 vi.mock('@/lib/api', () => ({ enrollmentsAPI: { getById: mocks.enrollment } }));
 vi.mock('@/components/enrollments/FeeMessagePanel', () => ({
   FeeMessagePanel: (props: { enrollment: RenewalListItem; onClose: () => void; onMarkSent: () => void }) => {
@@ -51,15 +52,16 @@ function show(kind: 'draft' | 'payment' | 'legacy' = 'draft') {
   return render(<BillingCardFeeMessage target={{ kind, id: kind === 'legacy' ? 10 : `${kind}-1`, studentId: 4 } as Parameters<typeof BillingCardFeeMessage>[0]['target']} onClose={vi.fn()} onChanged={vi.fn()} />);
 }
 async function copy() {
-  await screen.findByRole('textbox', { name: 'Chinese fee message' });
-  fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+  await screen.findByRole('textbox', { name: 'Fee message' });
+  fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
 }
 beforeEach(() => {
   Object.values(mocks).forEach(mock => mock.mockReset());
   mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true, isReadOnly: false });
   mocks.draft.mockResolvedValue(draft()); mocks.payment.mockResolvedValue(payment());
   mocks.enrollment.mockResolvedValue({ id: 10, student_id: 4, enrollment_type: 'Regular', lessons_paid: 4, payment_status: 'Pending Payment', fee_message_sent: false });
-  mocks.clipboard.mockResolvedValue(undefined);
+  mocks.clipboard.mockResolvedValue(undefined); mocks.invalidate.mockResolvedValue(undefined);
+  mocks.sent.mockResolvedValue({ ...payment(), version: 3, sent_at: '2026-11-15T12:00:00+08:00', sent_language: 'zh' });
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: mocks.clipboard } });
 });
 
@@ -81,16 +83,108 @@ describe('renewal card fee target', () => {
 });
 
 describe('reviewed card fee message', () => {
+  it('opens and copies an already-sent Awaiting payment message without refreshing its queue', async () => {
+    const changed = vi.fn();
+    mocks.payment.mockResolvedValue({ ...payment(), sent_at: '2026-11-15T12:00:00+08:00', sent_language: 'zh' });
+    render(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} canWrite onClose={vi.fn()} onChanged={changed} />);
+    await copy();
+    await screen.findByText('Message copied.');
+    expect(mocks.payment).toHaveBeenCalledTimes(2);
+    expect(mocks.invalidate).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
+  });
+
+  it('refreshes a stale To send card when its message is already sent', async () => {
+    const changed = vi.fn();
+    mocks.payment.mockResolvedValue({ ...payment(), sent_at: '2026-11-15T12:00:00+08:00', sent_language: 'zh' });
+    render(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} expectsUnsent canWrite onClose={vi.fn()} onChanged={changed} />);
+    await screen.findByRole('textbox', { name: 'Fee message' });
+    expect(changed).toHaveBeenCalledOnce(); expect(mocks.invalidate).toHaveBeenCalledOnce();
+    expect(mocks.sent).not.toHaveBeenCalled();
+  });
+
+  it('edits only the copied text and keeps the saved lesson count fixed', async () => {
+    show('payment'); const message = await screen.findByRole('textbox', { name: 'Fee message' });
+    expect(screen.getByRole('spinbutton', { name: 'Lessons' })).toHaveAttribute('readonly');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Edit before copying' }));
+    fireEvent.change(message, { target: { value: 'Parent-specific note.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await waitFor(() => expect(mocks.clipboard).toHaveBeenCalledWith('Parent-specific note.'));
+    expect(mocks.sent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(message).toHaveValue('中文收費通知');
+    expect(message).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
+    expect(screen.queryByText('Message copied.')).not.toBeInTheDocument();
+  });
+
+  it('marks the exact payment sent from the inline panel and refreshes the queue', async () => {
+    const changed = vi.fn();
+    render(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} canWrite onClose={vi.fn()} onChanged={changed} />);
+    await screen.findByRole('textbox', { name: 'Fee message' });
+    fireEvent.click(screen.getByRole('button', { name: 'English' }));
+    mocks.sent.mockResolvedValue({ ...payment(), version: 3, sent_at: '2026-11-15T12:00:00+08:00', sent_language: 'en' });
+    fireEvent.click(screen.getByRole('button', { name: 'Mark sent' }));
+    await screen.findByText('Fee message marked sent.');
+    expect(mocks.sent).toHaveBeenCalledWith('payment-1', { language: 'en', expected_version: 2, idempotency_key: expect.any(String) }, expect.any(AbortSignal));
+    expect(mocks.payment).toHaveBeenCalledTimes(2);
+    expect(mocks.clipboard).not.toHaveBeenCalled();
+    expect(mocks.invalidate).toHaveBeenCalledOnce(); expect(changed).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
+  });
+
+  it('does not mark a changed payment sent without another review', async () => {
+    mocks.payment.mockResolvedValueOnce(payment()).mockResolvedValueOnce({ ...payment(), version: 3 });
+    render(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} canWrite onClose={vi.fn()} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark sent' }));
+    await screen.findByText('The fee message changed. Check it before marking sent.');
+    expect(mocks.sent).not.toHaveBeenCalled();
+  });
+
+  it('reuses the exact Mark sent intention after an uncertain request and source reload', async () => {
+    mocks.sent.mockRejectedValueOnce(new Error('Connection interrupted.')).mockResolvedValueOnce({ ...payment(), version: 3, sent_at: '2026-11-15T12:00:00+08:00', sent_language: 'zh' });
+    render(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} canWrite onClose={vi.fn()} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark sent' }));
+    await screen.findByText('Connection interrupted.');
+    const first = mocks.sent.mock.calls[0][1];
+    fireEvent.click(screen.getByRole('button', { name: 'Retry message' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark sent' }));
+    await screen.findByText('Fee message marked sent.');
+    expect(mocks.sent.mock.calls[1][1]).toEqual(first);
+  });
+
+  it('refreshes To send when reloading discovers that an uncertain Mark sent request succeeded', async () => {
+    const changed = vi.fn();
+    mocks.payment.mockResolvedValueOnce(payment()).mockResolvedValueOnce(payment()).mockResolvedValue({ ...payment(), version: 3, sent_at: '2026-11-15T12:00:00+08:00', sent_language: 'zh' });
+    mocks.sent.mockRejectedValueOnce(new Error('Connection interrupted.'));
+    render(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} canWrite onClose={vi.fn()} onChanged={changed} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark sent' }));
+    await screen.findByText('Connection interrupted.');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry message' }));
+    await screen.findByRole('textbox', { name: 'Fee message' });
+    await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    expect(mocks.invalidate).toHaveBeenCalledOnce();
+    expect(mocks.sent).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
+  });
+
+  it.each(['read-only', 'writes disabled', 'draft'] as const)('withholds Mark sent for %s', async kind => {
+    if (kind === 'read-only') mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true, isReadOnly: true });
+    render(<BillingCardFeeMessage target={{ kind: kind === 'draft' ? 'draft' : 'payment', id: kind === 'draft' ? 'draft-1' : 'payment-1', studentId: 4 }} canWrite={kind !== 'writes disabled'} onClose={vi.fn()} onChanged={vi.fn()} />);
+    await screen.findByRole('textbox', { name: 'Fee message' });
+    expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
+  });
+
   it.each(['draft', 'payment'] as const)('refetches the exact %s before copying and shows local success', async kind => {
     show(kind); await copy();
-    expect(await screen.findByRole('button', { name: 'Copied' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Copied!' })).toBeEnabled();
     expect(screen.getByRole('status')).toHaveTextContent('Message copied.');
     expect(mocks.clipboard).toHaveBeenCalledWith('中文收費通知');
     expect(mocks[kind]).toHaveBeenCalledTimes(2);
     expect(mocks.legacy).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'English' }));
     expect(screen.queryByText('Message copied.')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     await waitFor(() => expect(mocks.clipboard).toHaveBeenLastCalledWith('English fee message'));
   });
   it.each([
@@ -104,7 +198,7 @@ describe('reviewed card fee message', () => {
     show(); await copy();
     await screen.findByText('The fee message changed. Check it before copying.');
     expect(mocks.clipboard).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled();
   });
   it.each(['Paid', 'Cancelled'] as const)('blocks a payment that becomes %s before copying', async status => {
     mocks.payment.mockResolvedValueOnce(payment()).mockResolvedValueOnce({ ...payment(), status });
@@ -135,10 +229,10 @@ describe('reviewed card fee message', () => {
     show(); await copy();
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not refresh source.');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Retry message' }));
-    await screen.findByRole('textbox', { name: 'Chinese fee message' });
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeEnabled();
+    await screen.findByRole('textbox', { name: 'Fee message' });
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
     expect(mocks.clipboard).not.toHaveBeenCalled();
   });
   it('keeps verified text available after clipboard denial and permits another attempt', async () => {
@@ -146,15 +240,15 @@ describe('reviewed card fee message', () => {
     show(); await copy();
     expect(await screen.findByRole('alert')).toHaveTextContent('Clipboard denied.');
     expect(screen.getByRole('textbox')).toHaveValue('中文收費通知');
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
-    await screen.findByRole('button', { name: 'Copied' });
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await screen.findByRole('button', { name: 'Copied!' });
     expect(mocks.draft).toHaveBeenCalledTimes(3);
   });
   it('passes tutor scope on both reads while exposing only copy controls', async () => {
     mocks.auth.mockReturnValue({ user: { id: 7 }, effectiveRole: 'Tutor', isAdmin: false, isReadOnly: true });
     show('payment'); await copy();
-    await screen.findByRole('button', { name: 'Copied' });
+    await screen.findByRole('button', { name: 'Copied!' });
     expect(mocks.payment).toHaveBeenNthCalledWith(1, 'payment-1', 7, expect.any(AbortSignal));
     expect(mocks.payment).toHaveBeenNthCalledWith(2, 'payment-1', 7, expect.any(AbortSignal));
     expect(screen.queryByRole('button', { name: /Mark.*sent|Record payment/ })).not.toBeInTheDocument();
@@ -168,7 +262,7 @@ describe('reviewed card fee message', () => {
     view.rerender(<BillingCardFeeMessage target={{ kind: 'payment', id: 'payment-1', studentId: 4 }} onClose={vi.fn()} onChanged={vi.fn()} />);
     expect(signal.aborted).toBe(true);
     await act(async () => resolve(draft()));
-    await screen.findByRole('textbox', { name: 'Chinese fee message' });
+    await screen.findByRole('textbox', { name: 'Fee message' });
     expect(mocks.clipboard).not.toHaveBeenCalled();
   });
 });
@@ -186,7 +280,7 @@ describe('legacy card fee message', () => {
   it('switches to the combined message if the legacy enrollment has since been adopted', async () => {
     mocks.enrollment.mockResolvedValue({ id: 10, student_id: 4, billing_payment_id: 'payment-1' });
     show('legacy');
-    await screen.findByRole('textbox', { name: 'Chinese fee message' });
+    await screen.findByRole('textbox', { name: 'Fee message' });
     expect(mocks.payment).toHaveBeenCalledWith('payment-1', undefined, expect.any(AbortSignal));
     expect(mocks.legacy).not.toHaveBeenCalled();
   });

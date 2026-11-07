@@ -96,6 +96,46 @@ beforeEach(() => {
 });
 
 describe('billing source review', () => {
+  it('restores renewal override ownership and reason in the compact editor and clears it on cancel', async () => {
+    mocks.options.mockResolvedValue({ draft_storage_available: true });
+    const baseline = context();
+    baseline.basis = 'include_pending';
+    baseline.selected_enrollment_ids = [102];
+    baseline.suggested_request = { ...baseline.suggested_request!, first_lesson_date: '2026-11-12', slots: [{ weekday: 'Thu', time_slot: '16:45 - 18:15', location: 'MSA', covered_through: '2026-11-05' }] };
+    mocks.context.mockResolvedValue(baseline);
+    show(<StudentBillingJourney studentId={12} />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Saved drafts\b/ }));
+    const draft = savedDraft();
+    draft.review.period = { number: 1 } as BillingDraftDetail['review']['period'];
+    draft.review.renewal = { source_enrollment_ids: [102], reason: 'Parent requested a later lesson' };
+    draft.review.scenario.first_lesson_date = '2026-11-19';
+    act(() => mocks.savedDraftProps.mock.lastCall?.[0].onRevise(draft));
+    await waitFor(() => expect(mocks.previewProps.mock.lastCall?.[0]).toEqual(expect.objectContaining({
+      focused: true, initialRequest: expect.objectContaining({ first_lesson_date: '2026-11-19' }),
+      renewalSource: expect.objectContaining({ enrollmentIds: [102], reason: 'Parent requested a later lesson', tutorNames: ['Synthetic Tutor'], scenario: expect.objectContaining({ first_lesson_date: '2026-11-12' }) }),
+    })));
+    act(() => mocks.previewProps.mock.lastCall?.[0].onCancelRevision());
+    await waitFor(() => expect(mocks.previewProps.mock.lastCall?.[0]).toEqual(expect.objectContaining({ focused: false, renewalSource: undefined, revisionTarget: undefined })));
+  });
+
+  it('drops restored override metadata when explicitly selecting different source coverage', async () => {
+    mocks.options.mockResolvedValue({ draft_storage_available: true });
+    const baseline = context();
+    baseline.selected_enrollment_ids = [102];
+    baseline.suggested_request = savedDraft().review.scenario;
+    mocks.context.mockResolvedValue(baseline);
+    show(<StudentBillingJourney studentId={12} />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Saved drafts\b/ }));
+    const draft = savedDraft();
+    draft.review.period = { number: 1 } as BillingDraftDetail['review']['period'];
+    draft.review.renewal = { source_enrollment_ids: [102], reason: 'Later lesson' };
+    act(() => mocks.savedDraftProps.mock.lastCall?.[0].onRevise(draft));
+    await waitFor(() => expect(mocks.previewProps.mock.lastCall?.[0].focused).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit preview' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Count existing enrollments' }), { target: { value: 'paid_only' } });
+    await waitFor(() => expect(mocks.previewProps.mock.lastCall?.[0]).toEqual(expect.objectContaining({ focused: false, renewalSource: undefined })));
+  });
+
   it('allows preference recording independently of financial workflow writes', async () => {
     mocks.options.mockResolvedValue({ draft_storage_available: true, workflow_available: true, workflow_writes_available: false, preferences_writes_available: true });
     show(<StudentBillingJourney studentId={12} />);

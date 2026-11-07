@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { Button, Field, Select } from '@/components/controls';
 import { useAuth } from '@/contexts/AuthContext';
 import { billingAPI } from '@/lib/billing-api';
+import { renewalSourceFor } from '@/lib/billing-renewal';
 import { invalidateCaches } from '@/lib/hooks';
 import { formatShortDate } from '@/lib/formatters';
 import type { BillingContextBasis, BillingDraftDetail, BillingMethod, BillingQueueRow } from '@/types/billing';
@@ -78,7 +79,7 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
   }
 
   const sourceControls = source && <div className="space-y-3">
-    <Field label="Start sessions after" id="renewal-coverage-basis"><Select value={basis} onChange={event => { setBasis(event.target.value as BillingContextBasis); setSelection(null); }}><option value="paid_only">Paid enrollments</option><option value="include_pending">Paid + unpaid enrollments</option></Select></Field>
+    <Field label="Count existing enrollments" id="renewal-coverage-basis"><Select value={basis} onChange={event => { setBasis(event.target.value as BillingContextBasis); setSelection(null); }}><option value="include_pending">Paid and unpaid</option><option value="paid_only">Paid only</option></Select></Field>
     <fieldset className="space-y-2"><legend className="mb-2 text-sm font-semibold">Continuing timetable</legend>
       {source.slot_candidates.map(slot => {
         const checked = selected.includes(slot.enrollment_id);
@@ -89,6 +90,8 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
   </div>;
 
   const scenario = revision ? { ...revision.review.scenario, coupon: revision.review.scenario.coupon ? { ...revision.review.scenario.coupon, verified: false } : null } : source?.suggested_request;
+  const renewalSource = renewalSourceFor(source, revision?.review);
+
   if (intakeDraftId) return <BillingEnrollmentIntake studentId={studentId} initialDraftId={intakeDraftId}
     onBusyChange={setFormBusy} onCreated={changed} />;
   return <div ref={body} tabIndex={-1} className="outline-none"><fieldset disabled={busy} className="min-w-0 space-y-4">
@@ -100,14 +103,14 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
     {action.kind === 'renew' && <>
       {!source && !sourceError && <p role="status" className="text-sm text-ink-subtle">Loading enrollment records…</p>}
       {sourceError && <div role="alert" className="space-y-2 text-sm"><p>{sourceError}</p><Button size="sm" onClick={() => context.mutate()}>Retry records</Button></div>}
-      {source && !previewMethod && <><p className="text-sm text-ink-subtle">Choose Manual or Autopay to preview the next enrollment.</p><BillingChecks issues={source.issues} compact /></>}
+      {source && !previewMethod && <><p className="text-sm text-ink-subtle">Choose Autopay or Manual for this renewal.</p><BillingChecks issues={source.issues} presentation="renewal" /></>}
       {source && previewMethod && scenario && <BillingPreview onBusyChange={setFormBusy} key={generation} focused embedded initialRequest={{ ...scenario, payment_method: previewMethod }}
-        focusedPeriodNumber={revision?.review.period.number ?? 1} sourceKey={source.source_fingerprint} sourceLoading={context.isValidating || !!sourceError} sourceError={sourceError}
+        focusedPeriodNumber={revision?.review.period.number ?? 1} sourceKey={`${source.source_fingerprint}:${basis}:${selected.join(',')}`} renewalSource={renewalSource} sourceLoading={context.isValidating || !!sourceError} sourceError={sourceError}
         onRetrySource={() => { void context.mutate(); }} contextIssues={source.issues} editorContent={sourceControls} couponSnapshot={source.coupon_snapshot}
         draftContext={{ studentId, basis, selectedEnrollmentIds: selected, sourceFingerprint: source.source_fingerprint }}
         revisionTarget={revision ? { id: revision.id, current_revision: revision.current_revision } : undefined} onCancelRevision={resetRevision}
         onDraftSaved={draft => { if (onBatchDraftSaved) { onBatchDraftSaved(draft); return; } setSavedRevision(draft.revision); setRevision(null); setAction({ kind: 'draft', id: draft.id }); onChanged(); }} />}
-      {source && previewMethod && !scenario && <div className="space-y-3"><p className="text-sm">Check the continuing timetable before preparing the renewal.</p><BillingChecks issues={source.issues} />{sourceControls}</div>}
+      {source && previewMethod && !scenario && <div className="space-y-3"><p className="text-sm">Check the continuing timetable before preparing the renewal.</p><BillingChecks issues={source.issues} presentation="renewal" />{sourceControls}</div>}
     </>}
     {action.kind === 'draft' && options && !options.draft_storage_available && <p className="text-sm text-ink-subtle">Saved drafts are not available right now.</p>}
     {action.kind === 'payment' && options && !options.workflow_available && <p className="text-sm text-ink-subtle">Payment records are not available right now.</p>}

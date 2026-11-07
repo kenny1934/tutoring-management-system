@@ -80,6 +80,7 @@ describe('shared payment-plan recalculation', () => {
     const autopay = new Promise<BillingPreviewResponse>(resolve => { resolveAutopay = resolve; });
     mocks.preview.mockImplementation((request: BillingPreviewRequest) => request.payment_method === 'autopay' ? autopay : Promise.resolve(calculation(request)));
     const view = render(<SharedPreview />, { wrapper: Wrapper });
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview fee message' }));
     expect(await screen.findByRole('textbox', { name: 'Chinese fee message' })).toHaveValue('manual fee message');
     fireEvent.click(screen.getByRole('button', { name: 'Change' }));
     fireEvent.change(screen.getByLabelText('Payment plan'), { target: { value: 'autopay' } });
@@ -87,6 +88,7 @@ describe('shared payment-plan recalculation', () => {
     expect(screen.queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
     await waitFor(() => expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ payment_method: 'autopay' }), expect.any(AbortSignal)));
     await act(async () => resolveAutopay(calculation({ ...scenario, payment_method: 'autopay' })));
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview fee message' }));
     expect(await screen.findByRole('textbox', { name: 'Chinese fee message' })).toHaveValue('autopay fee message');
     expect(within(currentPayment()).getByText('Manual')).toBeVisible();
     expect(screen.getByText('Manual payment is needed before the first bank collection run.')).toBeVisible();
@@ -111,15 +113,18 @@ describe('shared payment-plan recalculation', () => {
 
   it('changes a regular collection to Autopay immediately and Cancel restores the earlier manual preview', async () => {
     render(<SharedPreview firstDate="2026-12-05" />, { wrapper: Wrapper });
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview fee message' }));
     await screen.findByRole('textbox', { name: 'Chinese fee message' });
     fireEvent.click(screen.getByRole('button', { name: 'Change' }));
     fireEvent.change(screen.getByLabelText('Payment plan'), { target: { value: 'autopay' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview fee message' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Chinese fee message' })).toHaveValue('autopay fee message'));
     expect(within(currentPayment()).getByText('Autopay')).toBeVisible();
     expect(screen.queryByText(/collected manually/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Next planned debit:/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('textbox', { name: 'Chinese fee message' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview fee message' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Chinese fee message' })).toHaveValue('manual fee message'));
     expect(within(currentPayment()).getByText('Manual')).toBeVisible();
     expect(mocks.savePreferences).not.toHaveBeenCalled();

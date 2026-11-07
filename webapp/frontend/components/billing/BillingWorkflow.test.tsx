@@ -136,30 +136,90 @@ describe('combined payment collection', () => {
     await screen.findByText('Payment recorded for every linked enrollment.');
     expect(mocks.recordPayment).toHaveBeenCalledWith('payment-1', expect.objectContaining({ amount: 2800, method: 'cash', payment_date: '2026-10-18', expected_version: 1 }), expect.any(AbortSignal));
     expect(mocks.markPaymentSent).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Copy message' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
   });
+  it('keeps payment collection primary and opens the fee message on demand without resetting its language', async () => {
+    show();
+    const toggle = await screen.findByRole('button', { name: 'Fee message' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Record payment' })).toBeVisible());
+    expect(screen.queryByRole('region', { name: 'Fee message' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    const message = screen.getByRole('region', { name: 'Fee message' });
+    const mark = screen.getByRole('button', { name: 'Mark sent' });
+    expect(message.parentElement).toContainElement(mark);
+    fireEvent.click(within(message).getByRole('button', { name: 'English' }));
+    expect(within(message).getByRole('textbox', { name: 'Fee message' })).toHaveValue('English fee message');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide fee message' }));
+    expect(message).not.toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Fee message' }));
+    expect(screen.getByRole('region', { name: 'Fee message' })).toBe(message);
+    expect(within(message).getByRole('textbox', { name: 'Fee message' })).toHaveValue('English fee message');
+    expect(screen.getByRole('button', { name: 'Mark sent' })).toBeVisible();
+    expect(mocks.copy).not.toHaveBeenCalled();
+    expect(mocks.markPaymentSent).not.toHaveBeenCalled();
+  });
+
+  it('uses the shared message panel without a language subtitle and copies local edits without changing payment facts', async () => {
+    show(); fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
+    const text = screen.getByRole('textbox', { name: 'Fee message' });
+    expect(screen.queryByText('Chinese fee message')).not.toBeInTheDocument();
+    expect(screen.queryByText('English fee message')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy message' })).not.toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Lessons' })).toHaveAttribute('readonly');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Edit before copying' }));
+    fireEvent.change(text, { target: { value: 'A parent-specific message.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await screen.findByRole('button', { name: 'Copied!' });
+    expect(mocks.copy).toHaveBeenCalledWith('A parent-specific message.');
+    expect(mocks.markPaymentSent).not.toHaveBeenCalled(); expect(mocks.recordPayment).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(text).toHaveValue('中文收費通知');
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
+    expect(screen.queryByText('Message copied.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close fee message' }));
+    expect(screen.queryByRole('textbox', { name: 'Fee message' })).not.toBeInTheDocument();
+  });
+
+  it('clears copy success when the displayed payment message becomes blocked', async () => {
+    const view = show(); fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await screen.findByRole('button', { name: 'Copied!' });
+    view.rerender(<BillingPayments canWrite studentId={4} initialPaymentId="payment-1" sourceBlocked onChanged={vi.fn()} />);
+    expect(screen.queryByText('Message copied.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copied!' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled();
+    view.rerender(<BillingPayments canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />);
+    expect(screen.queryByText('Message copied.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
+  });
+
   it('records the selected message language but copying does not mark sent', async () => {
-    show(); await screen.findByRole('button', { name: 'Copy message' });
+    show(); fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
+    await screen.findByRole('button', { name: 'Copy' });
     fireEvent.click(screen.getByRole('button', { name: 'English' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
-    const message = screen.getByRole('region', { name: 'Fee message preview' });
-    await within(message).findByRole('button', { name: 'Copied' });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    const message = screen.getByRole('region', { name: 'Fee message' });
+    await within(message).findByRole('button', { name: 'Copied!' });
     expect(within(message).getByRole('status')).toHaveTextContent('Message copied.');
     expect(mocks.copy).toHaveBeenCalledWith('English fee message');
     expect(mocks.markPaymentSent).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Mark English message sent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark sent' }));
     await screen.findByText('Fee message marked sent.');
     expect(mocks.markPaymentSent).toHaveBeenCalledWith('payment-1', expect.objectContaining({ language: 'en', expected_version: 1 }), expect.any(AbortSignal));
   });
   it('shows clipboard denial beside Copy without marking sent or recording payment', async () => {
     mocks.copy.mockRejectedValueOnce(new Error('Clipboard permission denied.'));
-    show(); fireEvent.click(await screen.findByRole('button', { name: 'Copy message' }));
-    const message = screen.getByRole('region', { name: 'Fee message preview' });
+    show(); fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
+    const message = screen.getByRole('region', { name: 'Fee message' });
     expect(await within(message).findByRole('alert')).toHaveTextContent('Clipboard permission denied.');
-    expect(within(message).getByRole('button', { name: 'Copy message' })).toBeDisabled();
+    expect(within(message).getByRole('button', { name: 'Copy' })).toBeDisabled();
     expect(within(message).queryByRole('textbox')).not.toBeInTheDocument();
     fireEvent.click(within(message.parentElement!).getByRole('button', { name: 'Refresh payment' }));
-    await waitFor(() => expect(within(message).getByRole('button', { name: 'Copy message' })).toBeEnabled());
+    await waitFor(() => expect(within(message).getByRole('button', { name: 'Copy' })).toBeEnabled());
     expect(within(message).queryByRole('alert')).not.toBeInTheDocument();
     expect(mocks.markPaymentSent).not.toHaveBeenCalled();
     expect(mocks.recordPayment).not.toHaveBeenCalled();
@@ -167,23 +227,25 @@ describe('combined payment collection', () => {
 
   it('shows changed-payment information beside Copy and resets success on language changes', async () => {
     mocks.payment.mockResolvedValueOnce(payment()).mockResolvedValue({ ...payment(), version: 2 });
-    show(); fireEvent.click(await screen.findByRole('button', { name: 'Copy message' }));
-    const message = screen.getByRole('region', { name: 'Fee message preview' });
+    show(); fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
+    const message = screen.getByRole('region', { name: 'Fee message' });
     expect(await within(message).findByRole('status')).toHaveTextContent('This payment changed. Check its details before copying.');
     expect(mocks.copy).not.toHaveBeenCalled();
-    fireEvent.click(within(message).getByRole('button', { name: 'Copy message' }));
-    await within(message).findByRole('button', { name: 'Copied' });
+    fireEvent.click(within(message).getByRole('button', { name: 'Copy' }));
+    await within(message).findByRole('button', { name: 'Copied!' });
     fireEvent.click(within(message).getByRole('button', { name: 'English' }));
     expect(within(message).queryByRole('status')).not.toBeInTheDocument();
-    expect(within(message).getByRole('button', { name: 'Copy message' })).toBeVisible();
+    expect(within(message).getByRole('button', { name: 'Copy' })).toBeVisible();
     expect(mocks.markPaymentSent).not.toHaveBeenCalled();
     expect(mocks.recordPayment).not.toHaveBeenCalled();
   });
 
   it('refuses copying changed payment facts and disables financial actions until refreshed', async () => {
     mocks.payment.mockResolvedValueOnce(payment()).mockRejectedValueOnce(new Error('Could not verify payment.'));
-    show(); fireEvent.click(await screen.findByRole('button', { name: 'Copy message' }));
-    expect(await within(screen.getByRole('region', { name: 'Fee message preview' })).findByRole('alert')).toHaveTextContent('Could not verify payment.');
+    show(); fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
+    expect(await within(screen.getByRole('region', { name: 'Fee message' })).findByRole('alert')).toHaveTextContent('Could not verify payment.');
     expect(mocks.copy).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Record payment' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh payment' }));
@@ -193,7 +255,7 @@ describe('combined payment collection', () => {
     mocks.payment.mockResolvedValue({ ...payment(), status: 'Paid', can_copy: false, payment_date: '2026-10-18', received_method: 'cash', coupon_status: couponStatus });
     show();
     const receipt = await screen.findByLabelText('Issued KMS receipt reference');
-    expect(screen.queryByRole('button', { name: 'Copy message' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
     fireEvent.change(receipt, { target: { value: 'KMS-123' } });
     if (couponStatus === 'awaiting_receipt') fireEvent.click(screen.getByRole('checkbox', { name: 'The coupon was selected on this receipt in KMS.' }));
     fireEvent.click(screen.getByRole('button', { name: 'Record KMS receipt' }));
@@ -238,7 +300,7 @@ describe('combined payment collection', () => {
     expect(screen.getByText('Parent postponed the return.')).toBeInTheDocument();
     expect(mocks.cancelPayment).toHaveBeenCalledWith('payment-1', expect.objectContaining({ reason: 'Parent postponed the return.', expected_version: 1 }), expect.any(AbortSignal));
     expect(screen.queryByRole('button', { name: 'Record payment' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Copy message' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
   });
   it('does not show a returned payment belonging to another selection', async () => {
     mocks.payment.mockResolvedValue({ ...payment(), id: 'different-payment' });

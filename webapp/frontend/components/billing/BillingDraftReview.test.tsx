@@ -32,6 +32,130 @@ beforeEach(() => {
 async function open() { fireEvent.click(screen.getByRole('button', { name: 'Review payment' })); return await screen.findByRole('textbox', { name: 'Chinese fee message' }); }
 
 describe('payment draft review', () => {
+  it.each(['acknowledgement', 'authorisation'] as const)('keeps the renewal layout mounted while a %s is rechecked', async kind => {
+    const data = review();
+    const req = request();
+    if (kind === 'authorisation') {
+      data.period.collection.method = 'autopay';
+      req.scenario.payment_method = 'autopay';
+    } else data.issues = [{ code: 'UNPAID_PAST_DATES', message: 'Check past dates.', period: 1 }];
+    mocks.review.mockResolvedValueOnce(data);
+    let finish!: (value: Review) => void;
+    mocks.review.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={req} storageAvailable />);
+    const table = await screen.findByRole('table');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fee message' }));
+    const message = screen.getByRole('textbox', { name: 'Chinese fee message' });
+    const checkbox = screen.getByRole('checkbox', { name: kind === 'authorisation' ? 'Bank authorisation is ready for this payment.' : 'The past session dates are correct.' });
+    checkbox.focus();
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(mocks.review).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('table')).toBe(table);
+    expect(screen.getByRole('textbox', { name: 'Chinese fee message' })).toBe(message);
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).toBeChecked();
+    expect(checkbox).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Copy message' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    expect(mocks.save).not.toHaveBeenCalled();
+    await act(async () => finish({ ...data, review_hash: 'updated-review', confirmed_checks: kind === 'acknowledgement' ? ['UNPAID_PAST_DATES'] : [] }));
+    expect(screen.getByRole('table')).toBe(table);
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Copy message' })).toBeEnabled();
+    // A different source/scenario must not inherit the displayed snapshot.
+    mocks.review.mockImplementationOnce(() => new Promise(() => {}));
+    view.rerender(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={{ ...req, expected_source_fingerprint: 'changed-source' }} storageAvailable />);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Chinese fee message' })).not.toBeInTheDocument();
+  });
+
+  it('opens the renewal fee message on demand below the save action and retains language and copy feedback', async () => {
+    render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable />);
+    const save = await screen.findByRole('button', { name: 'Save draft' });
+    expect(save).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Fee message preview' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Chinese fee message' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fee message' }));
+    const message = screen.getByRole('region', { name: 'Fee message preview' });
+    expect(message).toBeVisible();
+    expect(save.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(within(message).getByRole('button', { name: 'English' }));
+    fireEvent.click(within(message).getByRole('button', { name: 'Copy message' }));
+    await waitFor(() => expect(mocks.clipboard).toHaveBeenCalledWith('English fee message'));
+    await within(message).findByText('Message copied.');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide fee message' }));
+    expect(screen.queryByRole('region', { name: 'Fee message preview' })).not.toBeInTheDocument();
+    expect(save).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fee message' }));
+    expect(screen.getByRole('textbox', { name: 'English fee message' })).toHaveValue('English fee message');
+    fireEvent.click(within(message).getByRole('button', { name: '中文' }));
+    expect(screen.getByRole('textbox', { name: 'Chinese fee message' })).toBeVisible();
+    expect(within(message).queryByText('Message copied.')).not.toBeInTheDocument();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps the renewal note optional and saves its text only when entered', async () => {
+    render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable />);
+    await screen.findByRole('button', { name: 'Save draft' });
+    expect(screen.queryByRole('textbox', { name: 'Draft note' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add note' }));
+    expect(screen.getByRole('textbox', { name: 'Draft note' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide note' }));
+    expect(screen.queryByRole('textbox', { name: 'Draft note' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Add note' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Draft note' }), { target: { value: 'Parent confirmed the new time.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith(4, expect.objectContaining({ note: 'Parent confirmed the new time.' }), expect.any(AbortSignal)));
+  });
+
+  it('shows every renewal lesson in date order under month totals without another date disclosure', () => {
+    const data = review(), lesson = data.period.lessons[0];
+    data.period = { ...data.period, lesson_count: 5, first_lesson_date: '2026-11-10', last_lesson_date: '2026-12-18', coverage_from: '2026-11-01', gross_tuition: 2000, tuition_after_deductions: 2000, total_fee: 2000, counts_by_month: [{ month: '2026-11', lessons: 2 }, { month: '2026-12', lessons: 3 }], counts_by_slot: [3, 2], lessons: [
+      { ...lesson, date: '2026-12-18', holiday_exception: true },
+      { ...lesson, date: '2026-11-13' },
+      { ...lesson, date: '2026-12-08', weekday: 'Tue', slot: 1, time_slot: '18:00 - 19:30', location: 'MSB' },
+      { ...lesson, date: '2026-12-04' },
+      { ...lesson, date: '2026-11-10', weekday: 'Tue', slot: 1, time_slot: '18:00 - 19:30', location: 'MSB' },
+    ] };
+    const view = render(<BillingDraftSummaryContent review={data} presentation="renewal" />);
+    const table = screen.getByRole('table', { name: 'Sessions included in this enrollment' });
+    expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Date', 'Day', 'Time', 'Branch']);
+    expect(within(table).getByText('November 2026')).toBeVisible();
+    expect(within(table).getByText('2 sessions')).toBeVisible();
+    expect(within(table).getByText('December 2026')).toBeVisible();
+    expect(within(table).getByText('3 sessions')).toBeVisible();
+    expect([...table.querySelectorAll('tbody tr')].filter(row => row.querySelector('td')).map(row => row.querySelector('td')!.textContent)).toEqual(['Nov 10, 2026', 'Nov 13, 2026', 'Dec 4, 2026', 'Dec 8, 2026', 'Dec 18, 2026']);
+    expect(within(table).getByText('Holiday class')).toBeVisible();
+    expect(within(table).getAllByText('MSB')).toHaveLength(2);
+    expect(screen.queryByLabelText('Sessions by month')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Sessions by class')).not.toBeInTheDocument();
+    expect(screen.queryByText('5 session dates')).not.toBeInTheDocument();
+    view.rerender(<BillingDraftSummaryContent review={data} />);
+    expect(screen.getByLabelText('Sessions by month')).toBeVisible();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByText('5 session dates')).toBeVisible();
+  });
+
+  it('retains required confirmations when the renewal summary is simplified', async () => {
+    const data = review(); data.issues = [{ code: 'CONTINUATION_UNCONFIRMED', message: 'Confirm the continuing timetable.', period: null }, { code: 'UNPAID_PAST_DATES', message: 'Confirm the dates being charged.', period: 1 }, { code: 'RENEWAL_START_GAP', message: 'November 6 is omitted from this renewal.', period: 1 }];
+    mocks.review.mockImplementation(async (_id, body) => ({ ...data, confirmed_checks: body.confirmed_checks }));
+    render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable />);
+    await screen.findByRole('table', { name: 'Sessions included in this enrollment' });
+    expect(screen.queryByText('Confirm the student is continuing.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Check the past lesson dates.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'The student is continuing lessons.' }));
+    await waitFor(() => expect(mocks.review.mock.lastCall![1].confirmed_checks).toContain('CONTINUATION_UNCONFIRMED'));
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'The student is continuing lessons.' })).toBeChecked());
+    fireEvent.click(screen.getByRole('checkbox', { name: 'The past session dates are correct.' }));
+    await waitFor(() => expect(mocks.review.mock.lastCall![1].confirmed_checks).toEqual(expect.arrayContaining(['CONTINUATION_UNCONFIRMED', 'UNPAID_PAST_DATES'])));
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'The past session dates are correct.' })).toBeChecked());
+    fireEvent.click(screen.getByRole('checkbox', { name: 'The omitted session dates are correct for this renewal.' }));
+    await waitFor(() => expect(mocks.review.mock.lastCall![1].confirmed_checks).toContain('RENEWAL_START_GAP'));
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'The omitted session dates are correct for this renewal.' })).toBeChecked());
+  });
+
   it.each([1280, 390])('keeps the %ipx review open during draft save and hands off its completed result', async width => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
     let finish!: (value: BillingDraftDetail) => void;
@@ -42,6 +166,8 @@ describe('payment draft review', () => {
     if (width === 390) fireEvent.click(screen.getByRole('button', { name: /Manual payment 1/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Review payment' }));
     await screen.findByRole('textbox', { name: 'Chinese fee message' });
+    // Wait for the opening animation before testing whether Save keeps it open.
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Chinese fee message' })).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
     const abort = mocks.save.mock.calls[0][2] as AbortSignal;

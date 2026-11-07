@@ -39,7 +39,7 @@ beforeEach(() => {
 describe('renewal panel handoffs', () => {
   it('uses the queue coverage basis and waits for an explicit unknown-method choice', async () => {
     show();
-    await screen.findByText('Choose Manual or Autopay to preview the next enrollment.');
+    await screen.findByText('Choose Autopay or Manual for this renewal.');
     expect(mocks.context).toHaveBeenCalledWith(4, { basis: 'include_pending', tutor_id: undefined, selected_enrollment_ids: undefined });
     expect(mocks.preview).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Preview Manual' }));
@@ -52,7 +52,7 @@ describe('renewal panel handoffs', () => {
     await screen.findByLabelText('Focused calculation');
     fireEvent.click(screen.getByRole('button', { name: 'Clear preview plan' }));
     expect(screen.queryByLabelText('Focused calculation')).not.toBeInTheDocument();
-    expect(screen.getByText('Choose Manual or Autopay to preview the next enrollment.')).toBeVisible();
+    expect(screen.getByText('Choose Autopay or Manual for this renewal.')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Preview Manual' }));
     expect(screen.getByLabelText('Focused calculation')).toBeVisible();
   });

@@ -81,10 +81,10 @@ function collectionLabel(row: BillingQueueRow, asOf: string) {
   return null;
 }
 
-function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSettingsSaved, workflowAvailable, preferencesWritable, batchSelected, showCheckboxes, onBatchToggle, feeExpanded, onToggleFee }: {
+function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSettingsSaved, workflowAvailable, preferencesWritable, workflowWritesAvailable, batchSelected, showCheckboxes, onBatchToggle, feeExpanded, onToggleFee }: {
   row: BillingQueueRow; asOf: string; showLocation: boolean; showStage: boolean; selected: boolean;
   onOpen: (row: BillingQueueRow, trigger: HTMLButtonElement | null, action?: BillingRenewalAction) => void;
-  onSettingsSaved: () => void; workflowAvailable: boolean; preferencesWritable: boolean;
+  onSettingsSaved: () => void; workflowAvailable: boolean; preferencesWritable: boolean; workflowWritesAvailable: boolean;
   batchSelected?: boolean; showCheckboxes?: boolean; onBatchToggle?: () => void;
   feeExpanded: boolean; onToggleFee: () => void;
 }) {
@@ -92,6 +92,7 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
   const feePanelElement = useRef<HTMLDivElement | null>(null);
   const feeId = useId();
   const feeTarget = cardFeeMessageTarget(row);
+  const primaryMessage = row.stage === 'send' && !!feeTarget;
   const collection = collectionLabel(row, asOf);
   const enrollments = row.current_enrollments ?? [];
   const recordedMethod = row.recorded_payment_method === undefined ? row.payment_method : row.recorded_payment_method;
@@ -132,9 +133,9 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
           <div className="flex flex-wrap items-center gap-2"><BillingPaymentSettings studentId={row.student.id} presentation="badge" recordedMethod={recordedMethod} mandateReady={row.mandate_ready} storageAvailable={workflowAvailable} canWrite={preferencesWritable} onSaved={onSettingsSaved} />{showStage && status && <Badge tone={row.stage === 'attention' ? 'danger' : row.stage === 'awaiting_payment' ? 'warning' : row.stage === 'send' ? 'info' : 'neutral'}><status.icon className="h-3 w-3" aria-hidden="true" />{status.label}</Badge>}{row.overdue && <Badge tone="danger">Overdue</Badge>}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
-          {action && <Button data-open-details size="sm" variant="quiet" icon={Eye} onClick={event => onOpen(row, event.currentTarget)}>View</Button>}
-          <Button data-open-details={!action || undefined} size="sm" icon={action?.kind === 'renew' ? RefreshCw : undefined} onClick={event => onOpen(row, event.currentTarget, action)}>{actionLabel(row)}</Button>
-          {feeTarget && <Button ref={feeButton} size="sm" icon={Copy} aria-label="Copy fee message" title="Copy fee message" aria-pressed={feeExpanded} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined}
+          {(action || primaryMessage) && <Button data-open-details size="sm" variant="quiet" icon={Eye} onClick={event => onOpen(row, event.currentTarget)}>View</Button>}
+          {primaryMessage ? <Button ref={feeButton} size="sm" icon={Copy} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined} onClick={onToggleFee}>Fee message</Button> : <Button data-open-details={!action || undefined} size="sm" icon={action?.kind === 'renew' ? RefreshCw : undefined} onClick={event => onOpen(row, event.currentTarget, action)}>{actionLabel(row)}</Button>}
+          {feeTarget && !primaryMessage && <Button ref={feeButton} size="sm" icon={Copy} aria-label="Copy fee message" title="Copy fee message" aria-pressed={feeExpanded} aria-expanded={feeExpanded} aria-controls={feeExpanded ? feeId : undefined}
             className={cn(feeExpanded && 'bg-tint')} onClick={onToggleFee}>Fee</Button>}
         </div>
       </div>
@@ -160,7 +161,7 @@ function QueueCard({ row, asOf, showLocation, showStage, selected, onOpen, onSet
       const feedback = feePanelElement.current?.querySelector<HTMLElement>('[data-billing-copy-feedback]');
       feedback?.closest<HTMLElement>('[data-billing-copy-actions]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }}>
-      <BillingCardFeeMessage target={feeTarget} onClose={() => { onToggleFee(); requestAnimationFrame(() => feeButton.current?.focus()); }} onChanged={onSettingsSaved} />
+      <BillingCardFeeMessage expectsUnsent={row.stage === 'send'} canWrite={workflowWritesAvailable} target={feeTarget} onClose={() => { onToggleFee(); requestAnimationFrame(() => feeButton.current?.focus()); }} onChanged={onSettingsSaved} />
     </motion.div>}</AnimatePresence>
   </article>;
 }
@@ -333,7 +334,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
               const next = new Set(previous); if (next.has(group.value)) next.delete(group.value); else next.add(group.value); return next;
             })}>
             {rows.map(row => <QueueCard key={row.key} row={row} asOf={current.as_of} showLocation={selectedLocation === 'All Locations'} showStage={stage === 'all'} selected={selectedWorkspace?.row.key === row.key}
-              workflowAvailable={!!options?.workflow_available} preferencesWritable={!!options?.preferences_writes_available} onSettingsSaved={() => { void mutate(); }}
+              workflowAvailable={!!options?.workflow_available} workflowWritesAvailable={!!options?.workflow_writes_available} preferencesWritable={!!options?.preferences_writes_available} onSettingsSaved={() => { void mutate(); void counts.mutate(); void invalidateRenewalQueueCache(); }}
               batchSelected={selectedIds.has(row.student.id)} showCheckboxes={selectedRows.length > 0} onBatchToggle={canSelect && selectable(row) ? () => toggleBatch(row) : undefined}
               feeExpanded={feePanel?.scope === feeScope && feePanel.key === row.key} onToggleFee={() => setFeePanel(previous => previous?.scope === feeScope && previous.key === row.key ? null : { scope: feeScope, key: row.key })}
               onOpen={(value, trigger, action) => { workspaceTrigger.current = trigger; setWorkspace({ scope, row: value, action }); }} />)}

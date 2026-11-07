@@ -174,7 +174,7 @@ describe('payment plans on the existing student roster', () => {
     await waitFor(() => expect(within(screen.getByRole('article', { name: /Synthetic plan 3\b/ })).queryByText('MOP 4,000')).not.toBeInTheDocument());
     const updated = screen.getByRole('article', { name: /Synthetic plan 3\b/ });
     expect(within(updated).getByText('MOP 2,000')).toBeVisible();
-    expect(within(updated).getByRole('checkbox', { name: 'Bank authorisation ready' })).not.toBeChecked();
+    expect(within(updated).getByText('Authorisation needed')).toBeVisible();
     expect(mocks.savePreferences).toHaveBeenCalledWith(3, expect.objectContaining({ payment_method: 'autopay', mandate_ready: false, expected_version: 0 }), expect.any(AbortSignal));
     expect(mocks.confirmDraft).not.toHaveBeenCalled(); expect(mocks.recordPayment).not.toHaveBeenCalled();
     expect(mocks.recordManualPayment).not.toHaveBeenCalled(); expect(mocks.markPaymentSent).not.toHaveBeenCalled();
@@ -353,8 +353,24 @@ describe('payment plans on the existing student roster', () => {
     fireEvent.click(page);
     expect(page).not.toBeChecked(); expect(page.indeterminate).toBe(false);
     for (const id of [1, 2, 3, 4]) expect(screen.getByRole('checkbox', { name: `Select Synthetic plan ${id}` })).not.toBeChecked();
-    expect(within(fourth).getByRole('checkbox', { name: 'Bank authorisation ready' })).toBeChecked();
+    expect(within(fourth).getByText('Authorisation ready')).toBeVisible();
     expect(mocks.savePreferences).not.toHaveBeenCalled();
   });
 
+});
+
+
+it('provides a direct authorisation editor for saved Autopay choices on Payment plans', async () => {
+  show();
+  const autopay = await card(2), manual = await card(1);
+  expect(within(manual).queryByRole('button', { name: /Bank authorisation/ })).not.toBeInTheDocument();
+  expect(within(autopay).getByText('Authorisation needed')).toBeVisible();
+  fireEvent.click(within(autopay).getByRole('button', { name: 'Bank authorisation for Synthetic plan 2' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Bank authorisation' });
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Save authorisation' })).toBeEnabled());
+  expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Bank authorisation is ready.' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save authorisation' }));
+  await waitFor(() => expect(within(screen.getByRole('article', { name: /Synthetic plan 2\b/ })).getByText('Authorisation ready')).toBeVisible());
+  expect(mocks.savePreferences).toHaveBeenCalledWith(2, expect.objectContaining({ payment_method: 'autopay', mandate_ready: true }), expect.any(AbortSignal));
 });

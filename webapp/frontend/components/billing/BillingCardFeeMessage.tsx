@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import { Button, IconButton } from '@/components/controls';
+import { FeeMessageContent } from '@/components/enrollments/FeeMessageContent';
+import { shareOrCopy, useCanShare } from '@/lib/share';
+import { invalidateRenewalQueueCache } from '@/lib/renewal-queue';
 import { FeeMessagePanel } from '@/components/enrollments/FeeMessagePanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { billingAPI } from '@/lib/billing-api';
 import { enrollmentsAPI } from '@/lib/api';
 import type { Enrollment } from '@/types';
 import type { BillingDraftDetail, BillingPaymentDetail, BillingQueueRow } from '@/types/billing';
-import { BillingDraftMessage, billingDraftAuthScope, billingDraftTutorId, type BillingCopyFeedback } from './BillingDraftReview';
+import { BillingCopyFeedbackNotice, billingDraftAuthScope, billingDraftTutorId, type BillingCopyFeedback } from './BillingDraftReview';
 
 export type BillingCardMessageTarget = { kind: 'draft' | 'payment'; id: string; studentId: number }
   | { kind: 'legacy'; id: number; studentId: number };
@@ -23,16 +26,20 @@ export function cardFeeMessageTarget(row: BillingQueueRow): BillingCardMessageTa
   return null;
 }
 
-export function BillingCardFeeMessage({ target, onClose, onChanged }: {
+export function BillingCardFeeMessage({ target, onClose, onChanged, canWrite = false, expectsUnsent = false }: {
+  expectsUnsent?: boolean;
+  canWrite?: boolean;
   target: BillingCardMessageTarget; onClose: () => void; onChanged: () => void;
 }) {
   const auth = useAuth();
   const identity = JSON.stringify([billingDraftAuthScope(auth), target]);
-  return target.kind === 'legacy' ? <LegacyCardMessage key={identity} target={target} onClose={onClose} onChanged={onChanged} />
-    : <ReviewedCardMessage key={identity} target={target} onClose={onClose} />;
+  return target.kind === 'legacy' ? <LegacyCardMessage key={identity} expectsUnsent={expectsUnsent} canWrite={canWrite} target={target} onClose={onClose} onChanged={onChanged} />
+    : <ReviewedCardMessage key={identity} expectsUnsent={expectsUnsent} canWrite={canWrite} target={target} onClose={onClose} onChanged={onChanged} />;
 }
 
-function LegacyCardMessage({ target, onClose, onChanged }: {
+function LegacyCardMessage({ target, onClose, onChanged, canWrite, expectsUnsent }: {
+  expectsUnsent: boolean;
+  canWrite: boolean;
   target: Extract<BillingCardMessageTarget, { kind: 'legacy' }>; onClose: () => void; onChanged: () => void;
 }) {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
@@ -47,7 +54,7 @@ function LegacyCardMessage({ target, onClose, onChanged }: {
     return () => { active = false; };
   }, [target.id, target.studentId]);
   // A record can have moved to the combined workflow since the queue loaded.
-  if (enrollment?.billing_payment_id) return <ReviewedCardMessage target={{ kind: 'payment', id: enrollment.billing_payment_id, studentId: target.studentId }} onClose={onClose} />;
+  if (enrollment?.billing_payment_id) return <ReviewedCardMessage expectsUnsent={expectsUnsent} canWrite={canWrite} onChanged={onChanged} target={{ kind: 'payment', id: enrollment.billing_payment_id, studentId: target.studentId }} onClose={onClose} />;
   const blocked = error || (enrollment?.enrollment_type === 'Summer' ? 'Open this enrollment to use its Summer fee message.'
     : enrollment && !['Pending Payment', 'Unpaid', 'Overdue'].includes(enrollment.payment_status) ? 'This enrollment is no longer awaiting payment.'
     : enrollment && (!enrollment.lessons_paid || enrollment.lessons_paid <= 0) ? 'Check the enrollment’s lesson count first.' : null);
@@ -85,11 +92,18 @@ function sameMessage(before: MessageRecord, after: MessageRecord): boolean {
   return before.kind === 'payment' && after.kind === 'payment' && before.data.version === after.data.version;
 }
 
-function ReviewedCardMessage({ target, onClose }: {
+function ReviewedCardMessage({ target, onClose, onChanged, canWrite, expectsUnsent }: {
+  expectsUnsent: boolean;
+  onChanged: () => void; canWrite: boolean;
   target: Exclude<BillingCardMessageTarget, { kind: 'legacy' }>; onClose: () => void;
 }) {
   const auth = useAuth();
   const tutorId = billingDraftTutorId(auth);
+  const canShare = useCanShare();
+  const [language, setLanguage] = useState<'zh' | 'en'>('zh');
+  const [editing, setEditing] = useState(false);
+  const [localMessage, setLocalMessage] = useState<{ key: string; text: string } | null>(null);
+  const sentRetry = useRef<{ key: string; token: string } | null>(null);
   const [record, setRecord] = useState<MessageRecord | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<BillingCopyFeedback | null>(null);
@@ -105,6 +119,13 @@ function ReviewedCardMessage({ target, onClose }: {
       ? { kind: 'draft', data: await billingAPI.draft(target.id, undefined, signal, tutorId) }
       : { kind: 'payment', data: await billingAPI.payment(target.id, tutorId, signal) };
     if (next.data.student_id !== target.studentId || next.data.id !== target.id) throw new Error('These records belong to another student or payment.');
+    // A lost Mark sent response can leave an old card in the queue. Recover
+    // from the authoritative read without sending the request a second time.
+    // Already-sent messages in Awaiting payment need no queue refresh: doing
+    // that on every mount would repeatedly unmount and reload their panel.
+    if (!signal.aborted && active.current && (expectsUnsent || sentRetry.current !== null) && next.kind === 'payment' && (next.data.sent_at || next.data.status !== 'Pending Payment')) {
+      void invalidateRenewalQueueCache(); onChanged();
+    }
     return next;
   }
 
@@ -122,6 +143,11 @@ function ReviewedCardMessage({ target, onClose }: {
   const blocks = record ? copyBlocks(record) : [];
   const canCopy = !!record && verified && !blocks.length;
 
+  const templateKey = JSON.stringify([record?.data.id, record?.data.review.review_hash, record?.kind === 'payment' ? record.data.version : record?.data.revision, language]);
+  const originalMessage = record?.data.review.message[language] || '';
+  const message = localMessage?.key === templateKey ? localMessage.text : originalMessage;
+  const canMarkSent = auth.isAdmin && !auth.isReadOnly && canWrite && canCopy && record?.kind === 'payment' && !record.data.sent_at;
+
   async function copy(language: 'zh' | 'en') {
     if (!record || !canCopy || copying.current) return;
     copying.current = true; setBusy(true); setFeedback(null);
@@ -135,9 +161,9 @@ function ReviewedCardMessage({ target, onClose }: {
         setFeedback({ kind: 'info', message: 'The fee message changed. Check it before copying.' }); return;
       }
       checked = true;
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard is unavailable in this browser.');
-      await navigator.clipboard.writeText(fresh.data.review.message[language]!);
-      if (active.current && !abort.signal.aborted) setFeedback({ kind: 'success', message: 'Message copied.' });
+      const outcome = await shareOrCopy(message);
+      if (outcome === 'cancelled') return;
+      if (active.current && !abort.signal.aborted) setFeedback({ kind: 'success', message: outcome === 'copied' ? 'Message copied.' : 'Message shared.' });
     } catch (error) {
       if (active.current && !abort.signal.aborted) {
         if (!checked) setVerified(false);
@@ -146,15 +172,44 @@ function ReviewedCardMessage({ target, onClose }: {
     } finally { copying.current = false; if (active.current) setBusy(false); }
   }
 
-  const review = record && (!canCopy ? { ...record.data.review, message: { ...record.data.review.message, zh: null, en: null,
-    blocked_reasons: [...new Set([...blocks, ...(!verified ? ['Reload the message before copying.'] : [])])],
-  } } : record.data.review);
-  return <div className="space-y-3 border-t border-line bg-wash p-3 sm:p-4" onClick={event => event.stopPropagation()}>
-    <div className="flex justify-end"><IconButton label="Close fee message" icon={X} size="sm" disabled={busy} onClick={onClose} /></div>
-    {loadError ? <div role="alert" className="space-y-2 text-sm"><p>{loadError}</p><Button size="sm" onClick={() => setRetry(value => value + 1)}>Retry message</Button></div> : !record ? <p role="status" className="text-sm text-ink-subtle">Loading fee message…</p> : review && <>
-      <BillingDraftMessage review={review} canCopy={canCopy} onCopy={copy} busy={busy} feedback={feedback} onLanguageChange={() => setFeedback(null)} />
-      {!verified && <Button size="sm" onClick={() => setRetry(value => value + 1)}>Retry message</Button>}
-      {record.kind === 'draft' && record.data.confirmed_payment_id && <Link className="text-sm text-accent-ink hover:underline" href={`/billing/students/${target.studentId}?view=payments&payment=${encodeURIComponent(record.data.confirmed_payment_id)}`}>Open payment</Link>}
-    </>}
-  </div>;
+  async function markSent() {
+    if (!record || record.kind !== 'payment' || !canMarkSent || !message.trim() || copying.current) return;
+    copying.current = true; setBusy(true); setFeedback(null);
+    const abort = new AbortController(); operation.current = abort;
+    try {
+      const fresh = await read(abort.signal);
+      if (!active.current || abort.signal.aborted) return;
+      setRecord(fresh);
+      if (fresh.kind !== 'payment' || copyBlocks(fresh).length || !sameMessage(record, fresh) || !fresh.data.review.message[language] || fresh.data.sent_at) {
+        setFeedback({ kind: 'info', message: 'The fee message changed. Check it before marking sent.' }); return;
+      }
+      const body = { language, expected_version: fresh.data.version };
+      const key = JSON.stringify([target, body]);
+      if (sentRetry.current?.key !== key) sentRetry.current = { key, token: crypto.randomUUID() };
+      const result = await billingAPI.markPaymentSent(fresh.data.id, { ...body, idempotency_key: sentRetry.current.token }, abort.signal);
+      if (!active.current || abort.signal.aborted) return;
+      if (result.id !== target.id || result.student_id !== target.studentId || result.status !== 'Pending Payment' || !result.sent_at || result.sent_language !== language) throw new Error('Could not verify the sent status. Reload the message before continuing.');
+      sentRetry.current = null; setRecord({ kind: 'payment', data: result });
+      setFeedback({ kind: 'success', message: 'Fee message marked sent.' });
+      void invalidateRenewalQueueCache(); onChanged();
+    } catch (error) {
+      if (active.current && !abort.signal.aborted) {
+        setVerified(false);
+        setFeedback({ kind: 'error', message: error instanceof Error ? error.message : 'Could not mark the message sent.' });
+      }
+    } finally { copying.current = false; if (active.current) setBusy(false); }
+  }
+
+  const errorContent = loadError ? <div className="space-y-2 text-sm"><p>{loadError}</p><Button size="sm" onClick={() => setRetry(value => value + 1)}>Retry message</Button></div>
+    : record && !canCopy ? <div className="space-y-2 text-sm">{feedback?.kind === 'error' && <p>{feedback.message}</p>}<ul>{[...new Set([...blocks, ...(!verified ? ['Reload the message before copying.'] : [])])].map(reason => <li key={reason}>{reason}</li>)}</ul>{!verified && <Button size="sm" onClick={() => setRetry(value => value + 1)}>Retry message</Button>}</div> : undefined;
+  return <FeeMessageContent
+    language={language} onLanguageChange={value => { setLanguage(value); setFeedback(null); setEditing(false); }}
+    lessons={record?.data.review.period.lesson_count ?? 0} message={canCopy ? message : ''} originalMessage={originalMessage}
+    editable={editing} onEditableChange={setEditing} onMessageChange={value => { setLocalMessage({ key: templateKey, text: value }); setFeedback(null); }}
+    onReset={() => { setLocalMessage(null); setEditing(false); setFeedback(null); }} loading={!record && !loadError} error={errorContent}
+    busy={busy} canCopy={canCopy && !!message.trim()} copied={feedback?.kind === 'success' && feedback.message === 'Message copied.'} canShare={canShare}
+    onCopy={() => { void copy(language); }} onClose={onClose} closeLabel="Close fee message"
+    onMarkSent={canMarkSent ? () => { void markSent(); } : undefined}
+    feedback={<>{feedback && !(errorContent && feedback.kind === 'error') && <BillingCopyFeedbackNotice feedback={feedback} />}{record?.kind === 'draft' && record.data.confirmed_payment_id && <Link className="text-sm text-accent-ink hover:underline" href={`/billing/students/${target.studentId}?view=payments&payment=${encodeURIComponent(record.data.confirmed_payment_id)}`}>Open payment</Link>}</>}
+  />;
 }

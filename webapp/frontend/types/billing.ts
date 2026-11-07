@@ -51,7 +51,14 @@ export interface BillingOptions {
   policy_version: string;
 }
 
+export interface BillingRenewalOverride {
+  tutor_ids?: number[] | null;
+  source_enrollment_ids: number[];
+  reason: string;
+}
+
 export interface BillingDraftReviewRequest {
+  renewal?: BillingRenewalOverride | null;
   intake?: BillingIntakeRequest | null;
   confirmed_checks?: BillingConfirmableCheck[];
   scenario: BillingPreviewRequest;
@@ -62,6 +69,7 @@ export interface BillingDraftReviewRequest {
 }
 
 export interface BillingDraftReview {
+  renewal?: BillingRenewalOverride | null;
   intake?: BillingIntakeRequest | null;
   confirmed_checks: BillingConfirmableCheck[];
   student: BillingStudent;
@@ -78,7 +86,7 @@ export interface BillingDraftReview {
   review_hash: string;
 }
 
-export type BillingConfirmableCheck = 'UNPAID_PAST_DATES' | 'CONTINUING_SLOTS_REVIEW' | 'CONTINUATION_UNCONFIRMED' | 'HOLIDAY_OPENING_ASSUMED';
+export type BillingConfirmableCheck = 'UNPAID_PAST_DATES' | 'CONTINUING_SLOTS_REVIEW' | 'CONTINUATION_UNCONFIRMED' | 'HOLIDAY_OPENING_ASSUMED' | 'RENEWAL_START_GAP';
 
 export interface BillingDraftSaveRequest {
   review: BillingDraftReviewRequest;

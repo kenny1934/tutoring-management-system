@@ -20,6 +20,7 @@ from tests.test_billing_coupons import env as coupon_env, balance, observed
 @pytest.fixture(autouse=True)
 def no_external_connections_or_inherited_clock(monkeypatch):
     monkeypatch.delenv('BILLING_TEST_DATE_FILE', raising=False)
+    monkeypatch.delenv('BILLING_DEMO_DATE', raising=False)
     def reject(dialect, *_args):
         assert dialect.name == 'sqlite', 'Clock checks may only connect to disposable SQLite.'
     event.listen(Engine, 'do_connect', reject)
@@ -38,6 +39,79 @@ def isolated_clock(monkeypatch, tmp_path):
     monkeypatch.setattr(database, 'engine', SimpleNamespace(url=URL.create(
         'mysql+pymysql', host='synthetic.invalid', database='synthetic_billing_clock_test')))
     return path
+
+
+@pytest.fixture
+def hosted_demo_clock(monkeypatch):
+    monkeypatch.setenv('BILLING_DEMO_DATE', '2026-11-15')
+    monkeypatch.setenv('ARK_DEMO', '1')
+    monkeypatch.setenv('K_SERVICE', 'csm-demo-backend')
+    monkeypatch.setattr(database, 'ENVIRONMENT', 'production')
+    monkeypatch.setattr(database, 'DB_NAME', 'csm_demo')
+    monkeypatch.setattr(database, 'DB_USER', 'csm_demo_app')
+    monkeypatch.setattr(database, 'engine', SimpleNamespace(url=URL.create(
+        'mysql+pymysql', username='csm_demo_app', database='csm_demo')))
+
+
+def test_hosted_demo_date_is_explicit_and_keeps_real_audit_time(hosted_demo_clock, monkeypatch):
+    assert clock.test_date() == clock.today() == date(2026, 11, 15)
+    before = datetime.now(timezone.utc).replace(tzinfo=None)
+    timestamp = utc_now()
+    after = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert before <= timestamp <= after
+    monkeypatch.setenv('BILLING_DEMO_DATE', '2027-01-20')
+    assert clock.today() == date(2027, 1, 20)
+    monkeypatch.delenv('BILLING_DEMO_DATE')
+    assert clock.test_date() is None
+
+
+@pytest.mark.parametrize('field,value', [
+    ('ENVIRONMENT', 'development'), ('ENVIRONMENT', 'test'),
+    ('DB_NAME', 'production'), ('DB_NAME', 'csm_demo_base'),
+    ('DB_USER', 'production_app'), ('DB_USER', 'csm_demo_publish'),
+])
+def test_hosted_demo_rejects_any_other_resolved_target(hosted_demo_clock, monkeypatch, field, value):
+    monkeypatch.setattr(database, field, value)
+    with pytest.raises(RuntimeError, match='isolated hosted demo database'):
+        clock.test_date()
+
+
+@pytest.mark.parametrize('field,value', [
+    ('ARK_DEMO', '0'), ('ARK_DEMO', 'true'),
+    ('K_SERVICE', ''), ('K_SERVICE', 'tutoring-backend'),
+    ('BILLING_TEST_DATE_FILE', '/synthetic/local-date.txt'),
+])
+def test_hosted_demo_rejects_other_service_or_competing_clock(hosted_demo_clock, monkeypatch, field, value):
+    monkeypatch.setenv(field, value)
+    with pytest.raises(RuntimeError, match='isolated hosted demo database'):
+        clock.test_date()
+
+
+@pytest.mark.parametrize('name,user', [
+    ('production', 'csm_demo_app'), ('csm_demo', 'production_app'),
+    ('csm_demo_base', 'csm_demo_publish'),
+])
+def test_hosted_demo_checks_actual_engine_target(hosted_demo_clock, monkeypatch, name, user):
+    monkeypatch.setattr(database, 'engine', SimpleNamespace(url=URL.create(
+        'mysql+pymysql', username=user, database=name)))
+    with pytest.raises(RuntimeError, match='isolated hosted demo database'):
+        clock.test_date()
+
+
+@pytest.mark.parametrize('value', ['2026-02-30', '2026-1-15', '2026-11-15T00:00:00', '2026-11-15\n2026-11-16'])
+def test_hosted_demo_rejects_invalid_dates(hosted_demo_clock, monkeypatch, value):
+    monkeypatch.setenv('BILLING_DEMO_DATE', value)
+    with pytest.raises(RuntimeError, match='demo fee date is unavailable or invalid'):
+        clock.test_date()
+
+
+def test_hosted_demo_options_reports_the_verified_date(workflow_env, hosted_demo_clock, monkeypatch):
+    from routers import billing
+    client, _, _ = workflow_env
+    monkeypatch.setattr(billing, 'today', clock.today)
+    response = client.get('/api/billing/options')
+    assert response.status_code == 200, response.text
+    assert response.json()['test_date'] == response.json()['as_of'] == '2026-11-15'
 
 
 def freeze_clock(monkeypatch, fixed):

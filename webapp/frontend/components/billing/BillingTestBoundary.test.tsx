@@ -52,9 +52,9 @@ beforeEach(() => {
 });
 afterEach(() => { setBillingTestDate(null); vi.useRealTimers(); vi.unstubAllEnvs(); });
 
-describe('the development billing database boundary', () => {
+describe('the billing test database boundary', () => {
   it.each([
-    ['production', '1'], ['development', '0'], ['development', ''], ['test', undefined], ['test', '1'],
+    ['production', '0'], ['production', undefined], ['development', '0'], ['development', ''], ['test', undefined], ['test', '1'],
   ])('leaves ordinary %s operation unchanged with flag %s', (environment, flag) => {
     vi.stubEnv('NODE_ENV', environment); vi.stubEnv('NEXT_PUBLIC_BILLING_TEST_MODE', flag);
     show();
@@ -62,6 +62,23 @@ describe('the development billing database boundary', () => {
     expect(mocks.auth).not.toHaveBeenCalled(); expect(mocks.options).not.toHaveBeenCalled();
     expect(screen.queryByText(/Billing test data/)).not.toBeInTheDocument();
   });
+
+  it('supports an explicitly enabled hosted test build after verifying its backend date', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    show();
+    expect(await screen.findByText('Form date: 2026-11-20')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Billing test data');
+    expect(mocks.mounted).toHaveBeenCalledExactlyOnceWith('2026-11-20');
+  });
+
+  it.each([{}, { test_date: null, as_of: '2026-11-20' }, { test_date: '2026-11-20', as_of: '2026-11-21' }])(
+    'holds a hosted test build without verified date evidence %j', async response => {
+      vi.stubEnv('NODE_ENV', 'production');
+      mocks.options.mockResolvedValue(response);
+      show();
+      expect(await screen.findByRole('alert')).toHaveTextContent('not connected to its billing test database');
+      expect(mocks.mounted).not.toHaveBeenCalled();
+    });
 
   it('does not request options or block the logged-out login page', () => {
     mocks.auth.mockReturnValue({ user: null, effectiveRole: null, isLoading: false });
@@ -105,7 +122,7 @@ describe('the development billing database boundary', () => {
 
   it('holds a failed backend read without mounting fee forms', async () => {
     mocks.options.mockRejectedValue(new Error('Backend is unavailable.')); show();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Restart its backend');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ask the administrator');
     expect(mocks.mounted).not.toHaveBeenCalled(); expect(billingToday()).toBe('2026-10-23');
   });
 

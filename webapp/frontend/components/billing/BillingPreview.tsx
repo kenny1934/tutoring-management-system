@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { Calculator, Loader2, Settings2 } from 'lucide-react';
+import { Calculator, Calendar, Clock, Loader2, MapPin, Settings2, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageTitle } from '@/lib/hooks';
-import { statsAPI } from '@/lib/api';
+import { statsAPI, tutorsAPI } from '@/lib/api';
 import { billingAPI } from '@/lib/billing-api';
 import { BILLING_DAYS, suggestedStartAfterTrial, weekdayForDate } from '@/lib/billing-preview';
+import type { Tutor } from '@/types';
+import type { BillingRenewalSource } from '@/lib/billing-renewal';
+import { pickableTutors, isHomeBranch } from '@/lib/employment';
+import { getTutorSortName } from '@/components/zen/utils/sessionSorting';
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from '@/lib/constants';
 import type { BillingContextBasis, BillingDraftDetail, BillingIntakeRequest, BillingMethod, BillingMode, BillingPreviewRequest, BillingPreviewResponse, BillingSlot, BillingWeekday, StudentBillingContext } from '@/types/billing';
 import { Badge, Button, Field, Input, PageHeader, Select, Textarea } from '@/components/controls';
@@ -19,11 +23,16 @@ import { PaymentJourney } from './PaymentJourney';
 import { BillingEditorDialog } from './BillingEditorDialog';
 import { BillingDraftReview } from './BillingDraftReview';
 
+function RenewalScheduleSelect({ icon: Icon, ...props }: ComponentProps<typeof Select> & { icon: LucideIcon }) {
+  return <div className="relative"><Icon className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-ink-subtle" aria-hidden="true" /><Select {...props} className="pl-10" /></div>;
+}
+
 function selectableBranch(location: string) {
   return location !== 'Various' && location !== 'All Locations';
 }
 
-export function BillingPreview({ initialRequest, embedded = false, contextIssues = [], editorContent, couponSnapshot, sourceLoading = false, sourceKey, sourceError, onRetrySource, draftContext, revisionTarget, onDraftSaved, onCancelRevision, focused = false, focusedPeriodNumber = 1, onBusyChange, intake, intakeTutors = [], defaultMaterialsFee, materialsBasis }: {
+export function BillingPreview({ initialRequest, embedded = false, contextIssues = [], editorContent, couponSnapshot, sourceLoading = false, sourceKey, sourceError, onRetrySource, draftContext, revisionTarget, onDraftSaved, onCancelRevision, focused = false, focusedPeriodNumber = 1, onBusyChange, intake, intakeTutors = [], defaultMaterialsFee, materialsBasis, renewalSource }: {
+  renewalSource?: BillingRenewalSource;
   initialRequest?: BillingPreviewRequest;
   embedded?: boolean;
   /** Show the next reviewed collection inside the renewal workspace. */
@@ -83,6 +92,8 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [renewalTutorIds, setRenewalTutorIds] = useState<number[]>(() => [...(renewalSource?.selectedTutorIds ?? renewalSource?.tutorIds ?? [])]);
+  const [renewalReason, setRenewalReason] = useState(renewalSource?.reason || '');
   const [editorView, setEditorView] = useState<'details' | 'adjustments'>('details');
   const editorId = useId();
   const editorRoot = useRef<HTMLDivElement | null>(null);
@@ -92,6 +103,8 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   const sourceBlocked = sourceLoading || !!sourceError;
   const { data: options, error: optionsError, mutate: reloadOptions } = useSWR(enabled ? 'billing-preview-options' : null, billingAPI.options);
   const { data: locations = [] } = useSWR(enabled ? 'locations' : null, statsAPI.getLocations);
+  const tutorRoster = useSWR<Tutor[]>(enabled && focused && !intake ? 'tutors' : null, () => tutorsAPI.getAll());
+  const tutors = pickableTutors(Array.isArray(tutorRoster.data) ? tutorRoster.data : []);
   const couponSelected = deduction === 'ordinary' || deduction === 'staff';
   const materialsChanged = !!intake && (materials === '' ? null : Number(materials)) !== defaultMaterialsFee;
   const intakeRequest: BillingIntakeRequest | undefined = intake ? { ...intake, slots: intakeSlots,
@@ -102,6 +115,8 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   useEffect(() => {
     if (!needsRebase || !initialRequest) return;
     if (!intake) {
+      setRenewalReason(renewalSource?.reason || '');
+      setRenewalTutorIds([...(renewalSource?.selectedTutorIds ?? renewalSource?.tutorIds ?? [])]);
       setFirstDate(initialRequest.first_lesson_date);
       setMode(initialRequest.mode);
       if (initialRequest.mode === 'new_student' && !materialsEdited) setMaterials(initialRequest.materials_fee == null ? '' : String(initialRequest.materials_fee));
@@ -112,7 +127,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       if (initialRequest.mode !== 'new_student' && deduction === 'trial') setDeduction('none');
     } else setCouponVerified(false);
     setAppliedSourceVersion(sourceVersion);
-  }, [needsRebase, initialRequest, sourceVersion, deduction, materialsEdited, intake]);
+  }, [needsRebase, initialRequest, sourceVersion, deduction, materialsEdited, intake, renewalSource]);
 
   useEffect(() => {
     if (!couponEvidenceChanged) return;
@@ -139,7 +154,16 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     };
   }, [firstDate, slots, mode, method, materials, deduction, mandateReady, adjust, adjustThrough, adjustReason,
     isAdmin, couponSelected, couponValue, couponExpiry, couponCount, couponVerified, couponEvidenceChanged, combineCoupon]);
-  const currentKey = JSON.stringify({ request, sourceVersion, intake: intakeRequest, intakeReady });
+  const routineRenewal = focused && !intake;
+  const renewalTutorsChanged = !!renewalSource?.tutorIds && JSON.stringify(renewalTutorIds) !== JSON.stringify(renewalSource.tutorIds);
+  const renewalTutorsReady = !renewalTutorsChanged || (renewalTutorIds.length === slots.length && renewalTutorIds.every(id => id > 0));
+  const renewalChanged = !!renewalSource && (renewalTutorsChanged || firstDate !== renewalSource.scenario.first_lesson_date
+    || JSON.stringify(slots.map(slot => [slot.weekday, slot.time_slot?.trim(), slot.location?.trim()]))
+      !== JSON.stringify(renewalSource.scenario.slots.map(slot => [slot.weekday, slot.time_slot?.trim(), slot.location?.trim()])));
+  const renewalChange = renewalChanged && renewalSource ? { source_enrollment_ids: renewalSource.enrollmentIds, ...(renewalTutorsChanged ? { tutor_ids: renewalTutorIds } : {}), reason: renewalReason.trim() } : undefined;
+  const renewalReady = renewalTutorsReady && (!renewalChanged || !!renewalReason.trim());
+  const renewalDetailsBlocked = sourceBlocked || reviewBusy || (!!draftContext && !renewalSource);
+  const currentKey = JSON.stringify({ request, sourceVersion, intake: intakeRequest, intakeReady, renewal: renewalChange });
   const preview = !sourceBlocked && !needsRebase && result?.key === currentKey ? result.data : null;
   const error = !sourceBlocked && !needsRebase && failure?.key === currentKey ? failure.message : null;
 
@@ -167,7 +191,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
 
   function updateSlot(index: number, change: Partial<BillingSlot>) {
     if (change.location && !selectableBranch(change.location)) change = { ...change, location: '' };
-    setSlots(current => current.map((slot, i) => i === index ? { ...slot, ...change } : slot));
+    setSlots(current => current.map((slot, i) => i === index ? { ...slot, ...(routineRenewal && change.weekday && change.weekday !== slot.weekday ? { holiday_exceptions: [] } : {}), ...change } : slot));
   }
 
   if (authLoading) return <p className="p-6">Loading…</p>;
@@ -190,6 +214,48 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     selectEditorView(next);
     event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-editor-tab="${next}"]`)?.focus();
   }
+
+  const discountField = <Field label="Discount" id="billing-deduction"><Select value={deduction} onChange={e => { setDeduction(e.target.value); setCouponVerified(false); }}><option value="none">No discount</option>{mode === 'new_student' && (!intake || intake.trial_enrollment_id) && <option value="trial">$150 trial deduction</option>}<option value="ordinary">Coupon</option><option value="staff">$500 staff voucher</option></Select></Field>;
+  const feeFields = <section className={routineRenewal ? "space-y-3" : "space-y-3 border-t border-line pt-4"} aria-label="Discount details">
+      {!routineRenewal && <h3 className="text-sm font-semibold">Discounts and materials</h3>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {!routineRenewal && discountField}
+        {mode === 'new_student' && <Field label="Materials charge" id="billing-materials" hint={materialsBasis || 'Enter 0 if waived.'}><Input disabled={!!intake && !isAdmin} type="number" min="0" max="10000" step="1" placeholder="To confirm" value={materials} onChange={e => { setMaterials(e.target.value); setMaterialsEdited(true); }} /></Field>}
+        {materialsChanged && <Field label="Reason for materials adjustment" id="billing-materials-reason"><Textarea disabled={!isAdmin} value={materialsReason} maxLength={500} onChange={event => setMaterialsReason(event.target.value)} /></Field>}
+      </div>
+      {draftContext && (!routineRenewal || couponSelected) ? <BillingCouponPanel studentId={draftContext.studentId} legacyCount={couponSnapshot?.remaining_count} onVersion={setCouponBalanceVersion} onChanged={onRetrySource} onSelect={group => { setDeduction(group.kind); setCouponValue(String(group.value)); setCouponExpiry(group.expires_on); setCouponCount(String(group.usable_count)); setCouponVerified(true); }} /> : couponSnapshot && <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle"><Badge>{couponSnapshot.remaining_count} {couponSnapshot.remaining_count === 1 ? 'coupon' : 'coupons'}</Badge><span>Check KMS before use.</span></div>}
+      {couponSelected && <fieldset className="rounded-md border border-line p-3 space-y-3">
+        <legend className="px-1 text-xs font-medium">Coupon details</legend>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {deduction !== 'staff' && <Field label="Coupon amount" id="billing-coupon-value"><Input type="number" min="1" max="10000" step="1" value={couponValue} onChange={e => { setCouponValue(e.target.value); setCouponVerified(false); }} /></Field>}
+          <Field label="Coupon expiry" id="billing-coupon-expiry"><Input type="date" value={couponExpiry} onChange={e => { setCouponExpiry(e.target.value); setCouponVerified(false); }} /></Field>
+          <Field label="Remaining coupon count" id="billing-coupon-count"><Input type="number" min="0" step="1" value={couponCount} onChange={e => { setCouponCount(e.target.value); setCouponVerified(false); }} /></Field>
+        </div>
+        <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={couponVerified} onChange={e => setCouponVerified(e.target.checked)} />Checked in KMS</label>
+        <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={combineCoupon} onChange={e => setCombineCoupon(e.target.checked)} />Include the next month if needed for this coupon</label>
+      </fieldset>}
+    </section>;
+
+  const dateExceptions = <section className="space-y-3 border-t border-line pt-4" aria-labelledby="preview-adjustments">
+      <h3 id="preview-adjustments" className="text-sm font-semibold">Date exceptions</h3>
+      <p className="text-xs text-ink-subtle">Add an exception only when a regular class will run on a holiday.</p>
+      {slots.map((slot, i) => <fieldset key={i} className="space-y-3 rounded-md border border-line p-3">
+        <legend className="px-1 text-xs font-medium text-ink-subtle">{slot.weekday} {slot.time_slot}</legend>
+        {mode !== 'new_student' && !routineRenewal && <Field label="Existing coverage through" id={`billing-covered-${i}`}><Input type="date" disabled={sourceBlocked} value={slot.covered_through || ''} max={options?.regular_end} onChange={e => updateSlot(i, { covered_through: e.target.value || null })} /></Field>}
+        {(slot.holiday_exceptions || []).map((day, index) => <div key={index} className="flex items-end gap-2">
+          <Field label="Holiday class date" id={`billing-holiday-${i}-${index}`}><Input type="date" disabled={sourceBlocked} value={day} min={options?.academic_start} max={options?.regular_end} onChange={e => updateSlot(i, { holiday_exceptions: slot.holiday_exceptions!.map((current, j) => j === index ? e.target.value : current) })} /></Field>
+          <Button size="sm" disabled={sourceBlocked} onClick={() => updateSlot(i, { holiday_exceptions: slot.holiday_exceptions!.filter((_, j) => j !== index) })}>Remove</Button>
+        </div>)}
+        <Button size="sm" disabled={sourceBlocked || (slot.holiday_exceptions?.length || 0) >= 30} onClick={() => updateSlot(i, { holiday_exceptions: [...(slot.holiday_exceptions || []), ''] })}>Add class on a holiday</Button>
+      </fieldset>)}
+      {isAdmin && <>
+        <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={adjust} onChange={e => setAdjust(e.target.checked)} />{routineRenewal ? 'Adjust enrollment end date' : 'Compare an adjusted first payment'}</label>
+        {adjust && <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Cover through" id="billing-adjust-through" hint="Use month-end or the final teaching day."><Input type="date" min={firstDate} max={options?.regular_end} value={adjustThrough} onChange={e => setAdjustThrough(e.target.value)} /></Field>
+          <Field label="Reason for adjustment" id="billing-adjust-reason"><Textarea value={adjustReason} maxLength={500} onChange={e => setAdjustReason(e.target.value)} /></Field>
+        </div>}
+      </>}
+    </section>;
 
   const editor = <div ref={editorRoot} className="space-y-5">
     <div role="tablist" aria-label="Preview settings" className="sticky -top-3 z-10 flex gap-4 border-b border-line bg-paper pb-3 pt-3 sm:-top-4">
@@ -236,25 +302,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
         if (intake) setIntakeSlots(current => current.length === 1 ? [...current, { tutor_id: 0 }] : current.slice(0, 1));
       }}>{slots.length === 1 ? 'Add second weekly class' : 'Remove second weekly class'}</Button>
     </section>
-    <section className="space-y-3 border-t border-line pt-4" aria-labelledby="preview-discounts">
-      <h3 id="preview-discounts" className="text-sm font-semibold">Discounts and materials</h3>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Discount" id="billing-deduction"><Select value={deduction} onChange={e => { setDeduction(e.target.value); setCouponVerified(false); }}><option value="none">No discount</option>{mode === 'new_student' && (!intake || intake.trial_enrollment_id) && <option value="trial">$150 trial deduction</option>}<option value="ordinary">Coupon</option><option value="staff">$500 staff voucher</option></Select></Field>
-        {mode === 'new_student' && <Field label="Materials charge" id="billing-materials" hint={materialsBasis || 'Enter 0 if waived.'}><Input disabled={!!intake && !isAdmin} type="number" min="0" max="10000" step="1" placeholder="To confirm" value={materials} onChange={e => { setMaterials(e.target.value); setMaterialsEdited(true); }} /></Field>}
-        {materialsChanged && <Field label="Reason for materials adjustment" id="billing-materials-reason"><Textarea disabled={!isAdmin} value={materialsReason} maxLength={500} onChange={event => setMaterialsReason(event.target.value)} /></Field>}
-      </div>
-      {draftContext ? <BillingCouponPanel studentId={draftContext.studentId} legacyCount={couponSnapshot?.remaining_count} onVersion={setCouponBalanceVersion} onChanged={onRetrySource} onSelect={group => { setDeduction(group.kind); setCouponValue(String(group.value)); setCouponExpiry(group.expires_on); setCouponCount(String(group.usable_count)); setCouponVerified(true); }} /> : couponSnapshot && <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle"><Badge>{couponSnapshot.remaining_count} {couponSnapshot.remaining_count === 1 ? 'coupon' : 'coupons'}</Badge><span>Check KMS before use.</span></div>}
-      {couponSelected && <fieldset className="rounded-md border border-line p-3 space-y-3">
-        <legend className="px-1 text-xs font-medium">Coupon details</legend>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {deduction !== 'staff' && <Field label="Coupon amount" id="billing-coupon-value"><Input type="number" min="1" max="10000" step="1" value={couponValue} onChange={e => { setCouponValue(e.target.value); setCouponVerified(false); }} /></Field>}
-          <Field label="Coupon expiry" id="billing-coupon-expiry"><Input type="date" value={couponExpiry} onChange={e => { setCouponExpiry(e.target.value); setCouponVerified(false); }} /></Field>
-          <Field label="Remaining coupon count" id="billing-coupon-count"><Input type="number" min="0" step="1" value={couponCount} onChange={e => { setCouponCount(e.target.value); setCouponVerified(false); }} /></Field>
-        </div>
-        <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={couponVerified} onChange={e => setCouponVerified(e.target.checked)} />Checked in KMS</label>
-        <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={combineCoupon} onChange={e => setCombineCoupon(e.target.checked)} />Include the next month if needed for this coupon</label>
-      </fieldset>}
-    </section>
+    {feeFields}
 
     </div>
     <div role="tabpanel" id={`${editorId}-adjustments-panel`} aria-labelledby={`${editorId}-adjustments-tab`} hidden={editorView !== 'adjustments'} className="space-y-5">
@@ -271,28 +319,59 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
         }}><option value="new_student">New or returning student</option><option value="transition">Existing student transition</option><option value="regular">Ongoing payments</option></Select></Field>}
       <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={mandateReady} onChange={e => setMandateReady(e.target.checked)} />Compare with autopay setup complete</label>
     </section>
-    <section className="space-y-3 border-t border-line pt-4" aria-labelledby="preview-adjustments">
-      <h3 id="preview-adjustments" className="text-sm font-semibold">Date exceptions</h3>
-      <p className="text-xs text-ink-subtle">Add an exception only when a regular class will run on a holiday.</p>
-      {slots.map((slot, i) => <fieldset key={i} className="space-y-3 rounded-md border border-line p-3">
-        <legend className="px-1 text-xs font-medium text-ink-subtle">{slot.weekday} {slot.time_slot}</legend>
-        {mode !== 'new_student' && <Field label="Existing coverage through" id={`billing-covered-${i}`}><Input type="date" disabled={sourceBlocked} value={slot.covered_through || ''} max={options?.regular_end} onChange={e => updateSlot(i, { covered_through: e.target.value || null })} /></Field>}
-        {(slot.holiday_exceptions || []).map((day, index) => <div key={index} className="flex items-end gap-2">
-          <Field label="Holiday class date" id={`billing-holiday-${i}-${index}`}><Input type="date" disabled={sourceBlocked} value={day} min={options?.academic_start} max={options?.regular_end} onChange={e => updateSlot(i, { holiday_exceptions: slot.holiday_exceptions!.map((current, j) => j === index ? e.target.value : current) })} /></Field>
-          <Button size="sm" disabled={sourceBlocked} onClick={() => updateSlot(i, { holiday_exceptions: slot.holiday_exceptions!.filter((_, j) => j !== index) })}>Remove</Button>
-        </div>)}
-        <Button size="sm" disabled={sourceBlocked || (slot.holiday_exceptions?.length || 0) >= 30} onClick={() => updateSlot(i, { holiday_exceptions: [...(slot.holiday_exceptions || []), ''] })}>Add class on a holiday</Button>
-      </fieldset>)}
-      {isAdmin && <>
-        <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={adjust} onChange={e => setAdjust(e.target.checked)} />Compare an adjusted first payment</label>
-        {adjust && <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Cover through" id="billing-adjust-through" hint="Use month-end or the final teaching day."><Input type="date" min={firstDate} max={options?.regular_end} value={adjustThrough} onChange={e => setAdjustThrough(e.target.value)} /></Field>
-          <Field label="Reason for adjustment" id="billing-adjust-reason"><Textarea value={adjustReason} maxLength={500} onChange={e => setAdjustReason(e.target.value)} /></Field>
-        </div>}
-      </>}
-    </section>
+    {dateExceptions}
     </div>
   </div>;
+
+  function changeRenewalDay(index: number, weekday: BillingWeekday) {
+    updateSlot(index, { weekday });
+    if (!weekdayForDate(firstDate)) return;
+    const nextSlots = slots.map((slot, i) => i === index ? { ...slot, weekday } : slot);
+    if (nextSlots.some(slot => slot.weekday === weekdayForDate(firstDate))) return;
+    const day = new Date(`${firstDate}T00:00:00Z`);
+    for (let offset = 1; offset <= 7; offset++) {
+      day.setUTCDate(day.getUTCDate() + 1);
+      const next = day.toISOString().slice(0, 10);
+      if (nextSlots.some(slot => slot.weekday === weekdayForDate(next))) { setFirstDate(next); break; }
+    }
+  }
+  const renewalEditor = <section aria-label="Renewal enrollment details" className="space-y-4">
+
+    {slots.map((slot, index) => {
+      const times: readonly string[] = ['Sat', 'Sun'].includes(slot.weekday) ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
+      const branches = [...new Set([...locations, slot.location || ''].filter(value => !!value && selectableBranch(value)))];
+      const offered = tutors.filter(tutor => isHomeBranch(tutor, slot.location || '')).sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
+      const chosenId = renewalTutorIds[index] || '';
+      const inheritedTutorId = renewalSource?.tutorIds?.[index] || null;
+      const chosen = (Array.isArray(tutorRoster.data) ? tutorRoster.data : []).find(tutor => tutor.id === chosenId);
+      return <fieldset key={index} className="space-y-2" disabled={renewalDetailsBlocked}>
+        <legend className="mb-2 text-xs font-medium text-ink-subtle">{slots.length > 1 ? `Class ${index + 1}` : 'Weekly class'}</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Tutor" id={`renewal-tutor-${index}`}><Select id={`renewal-tutor-${index}`} disabled={!renewalSource?.tutorIds?.every(id => id > 0)} value={chosenId} onChange={event => setRenewalTutorIds(current => current.map((id, i) => i === index ? Number(event.target.value) : id))}>
+            <option value="">{!chosenId && renewalSource?.tutorNames[index] ? renewalSource.tutorNames[index] : 'Select tutor...'}</option>
+            {chosenId && !offered.some(tutor => tutor.id === chosenId) && <option value={chosenId}>{chosen?.tutor_name || renewalSource?.tutorNames[index] || 'Current tutor'}</option>}
+            {inheritedTutorId && inheritedTutorId !== chosenId && !offered.some(tutor => tutor.id === inheritedTutorId) && <option value={inheritedTutorId}>{renewalSource?.tutorNames[index] || 'Original tutor'}</option>}
+            {offered.map(tutor => <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>)}
+          </Select></Field>
+          <Field label="Location" id={`renewal-branch-${index}`}><RenewalScheduleSelect icon={MapPin} id={`renewal-branch-${index}`} value={slot.location || ''} onChange={event => updateSlot(index, { location: event.target.value })}><option value="">Choose branch</option>{branches.map(branch => <option key={branch}>{branch}</option>)}</RenewalScheduleSelect></Field>
+          <Field label="Day of week" id={`renewal-weekday-${index}`}><RenewalScheduleSelect icon={Calendar} id={`renewal-weekday-${index}`} value={slot.weekday} onChange={event => changeRenewalDay(index, event.target.value as BillingWeekday)}>{BILLING_DAYS.map(day => <option key={day}>{day}</option>)}</RenewalScheduleSelect></Field>
+          <Field label="Time slot" id={`renewal-time-${index}`}><RenewalScheduleSelect icon={Clock} id={`renewal-time-${index}`} value={slot.time_slot || ''} onChange={event => updateSlot(index, { time_slot: event.target.value })}><option value="">Choose time</option>{slot.time_slot && !times.includes(slot.time_slot) && <option value={slot.time_slot}>{slot.time_slot}</option>}{times.map(time => <option key={time}>{time}</option>)}</RenewalScheduleSelect></Field>
+        </div>
+      </fieldset>;
+    })}
+    <div className="grid grid-cols-2 gap-3"><Field label="First lesson date" id="renewal-first-lesson"><Input id="renewal-first-lesson" type="date" disabled={renewalDetailsBlocked} value={firstDate} min={options?.academic_start} max={options?.regular_end} onChange={event => {
+      setFirstDate(event.target.value);
+      const day = weekdayForDate(event.target.value);
+      if (day && slots.length === 1) updateSlot(0, { weekday: day });
+    }} /></Field>{discountField}</div>
+    {tutorRoster.error && <div role="alert" className="text-sm"><p>Could not load tutors.</p><Button size="sm" onClick={() => { void tutorRoster.mutate(); }}>Retry tutors</Button></div>}
+    {renewalChanged && <Field label="Reason for change" id="renewal-change-reason"><Textarea id="renewal-change-reason" rows={2} maxLength={500} disabled={sourceBlocked || reviewBusy} value={renewalReason} onChange={event => setRenewalReason(event.target.value)} /></Field>}
+    {feeFields}
+    <details className="border-t border-line pt-3"><summary className="cursor-pointer text-xs text-ink-subtle">Special arrangements</summary><div className="mt-3 space-y-4">
+      {editorContent && <section className="space-y-3"><h3 className="text-sm font-semibold">Existing enrollments</h3>{editorContent}</section>}
+      {dateExceptions}
+    </div></details>
+  </section>;
 
   const editAction = <Button ref={editorTrigger} size="sm" icon={Settings2} disabled={reviewBusy} onClick={() => setEditorOpen(true)}>Edit preview</Button>;
   const sourceFailure = sourceError && <div role="alert" className="space-y-2"><p>{sourceError}</p>{onRetrySource && <Button size="sm" onClick={onRetrySource}>Retry records</Button>}</div>;
@@ -317,6 +396,27 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
           period_number: event.period.number, confirmed_checks: [], ...(intakeRequest ? { intake: intakeRequest } : {}) }}
         storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} /> : undefined} />}
   </div>;
+  if (routineRenewal) {
+    const period = preview?.[method]?.periods.find(value => value.number === focusedPeriodNumber);
+    const hasReview = !!(period && draftContext && request && intakeReady && renewalReady);
+    return <div className="space-y-4" aria-label="Renewal calculation">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{revisionTarget ? `Revision ${revisionTarget.current_revision + 1}` : 'Next enrollment'}</h3>{revisionTarget && <Button size="sm" variant="quiet" onClick={onCancelRevision}>Cancel revision</Button>}</div>
+      {sourceFailure}{policyError}{calculationError}
+      {renewalEditor}
+      {!hasReview && <BillingChecks issues={contextIssues} presentation="renewal" />}
+      {!request && <p className="text-sm text-ink-subtle">Complete the enrollment details to calculate its fee.</p>}
+      {!renewalReady && <p role="status" className="text-xs text-ink-subtle">{renewalTutorsReady ? 'Enter a reason to review the changed enrollment.' : 'Select a tutor for each class.'}</p>}
+      {sourceLoading && <p role="status" className="text-sm text-ink-subtle">Refreshing enrollment records…</p>}
+      {!sourceBlocked && request && options && !preview && !error && <p role="status" className="text-sm text-ink-subtle">Calculating enrollment…</p>}
+      {preview && !period && <p className="text-sm text-ink-subtle">No payment is needed for this period.</p>}
+      {hasReview && period && draftContext && request && <BillingDraftReview inline summaryPresentation="renewal" onBusyChange={reviewBusyChanged} key={`${currentKey}:${method}:${period.number}`}
+        studentId={draftContext.studentId} calculation={preview?.[method]}
+        reviewRequest={{ scenario: { ...request, payment_method: method }, basis: draftContext.basis,
+          selected_enrollment_ids: draftContext.selectedEnrollmentIds, expected_source_fingerprint: draftContext.sourceFingerprint,
+          period_number: period.number, confirmed_checks: [], ...(renewalChange ? { renewal: renewalChange } : {}), ...(intakeRequest ? { intake: intakeRequest } : {}) }}
+        storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} />}
+    </div>;
+  }
   if (focused) {
     const period = preview?.[method]?.periods.find(value => value.number === focusedPeriodNumber);
     return <div className="space-y-4" aria-label="Renewal calculation">

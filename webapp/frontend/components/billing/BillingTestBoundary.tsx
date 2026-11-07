@@ -9,7 +9,7 @@ import { formatShortDate } from '@/lib/formatters';
 import { Button } from '@/components/controls';
 
 export function BillingTestBoundary({ children }: { children: ReactNode }) {
-  if (process.env.NODE_ENV !== 'development' || process.env.NEXT_PUBLIC_BILLING_TEST_MODE !== '1') return <>{children}</>;
+  if ((process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'production') || process.env.NEXT_PUBLIC_BILLING_TEST_MODE !== '1') return <>{children}</>;
   return <TestCalendar>{children}</TestCalendar>;
 }
 
@@ -29,6 +29,6 @@ function TestCalendar({ children }: { children: ReactNode }) {
   }, [scope, date, valid]);
   if (!auth.user) return <>{children}</>;
   if (options.isLoading) return <p role="status" className="p-4 text-sm">Checking the billing test database…</p>;
-  if (options.error || !valid || !date) return <div role="alert" className="space-y-3 p-4 text-sm"><p>The test app is not connected to its billing test database. Restart its backend before continuing.</p><Button onClick={() => window.location.reload()}>Check again</Button></div>;
+  if (options.error || !valid || !date) return <div role="alert" className="space-y-3 p-4 text-sm"><p>The test app is not connected to its billing test database. Ask the administrator to check the test setup.</p><Button onClick={() => window.location.reload()}>Check again</Button></div>;
   return <><div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"><span>Billing test data · Fee date: {formatShortDate(date)}</span><Button size="sm" onClick={() => window.location.reload()}>Reload test date</Button></div>{ready === `${scope}:${date}` && children}</>;
 }

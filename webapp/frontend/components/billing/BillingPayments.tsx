@@ -4,8 +4,10 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import useSWR, { useSWRConfig } from 'swr';
-import { Check, CreditCard, Send } from 'lucide-react';
+import { Check, CreditCard } from 'lucide-react';
 import { Badge, Button, Field, Input, Select, Textarea } from '@/components/controls';
+import { FeeMessageContent } from '@/components/enrollments/FeeMessageContent';
+import { shareOrCopy, useCanShare } from '@/lib/share';
 import { StudentInfoBadges } from '@/components/ui/student-info-badges';
 import { Modal } from '@/components/ui/modal';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
@@ -14,7 +16,12 @@ import { billingToday } from '@/lib/billing-clock';
 import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import type { BillingPaymentDetail, BillingReceiptMethod, BillingReceiptTask } from '@/types/billing';
-import { BillingCopyFeedbackNotice, BillingDraftFocus, BillingDraftMessage, BillingDraftSummaryContent, billingDraftAuthScope, billingDraftTutorId, type BillingCopyFeedback } from './BillingDraftReview';
+import { BillingCopyFeedbackNotice, BillingDraftFocus, BillingDraftSummaryContent, billingDraftAuthScope, billingDraftTutorId, type BillingCopyFeedback } from './BillingDraftReview';
+
+function paymentMessageProof(detail: BillingPaymentDetail, language: 'zh' | 'en', sourceBlocked: boolean) {
+  return JSON.stringify([detail.id, detail.version, detail.status, detail.review.source_fingerprint,
+    detail.review.review_hash, detail.review.message, detail.can_copy, detail.review_issues, language, sourceBlocked]);
+}
 
 function localToday() {
   return billingToday();
@@ -66,10 +73,15 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
   const active = useRef(true);
   useEffect(() => { active.current = true; onBusyChange?.(running.current); return () => { active.current = false; onBusyChange?.(false); }; }, [onBusyChange]);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
-  const [copyFeedback, setCopyFeedback] = useState<{ version: number; value: BillingCopyFeedback } | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{ key: string; value: BillingCopyFeedback } | null>(null);
   const resultNotice = useRef<HTMLParagraphElement>(null);
   const [unverified, setUnverified] = useState(false);
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');
+  const canShare = useCanShare();
+  const [messageEditable, setMessageEditable] = useState(false);
+  const [messageEdit, setMessageEdit] = useState<{ key: string; text: string } | null>(null);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const messageRegionId = useId();
   const [collecting, setCollecting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -103,26 +115,34 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
   }, [mode, detail.id, canWrite, detail.receipt_reference]);
   const review = canCopy ? detail.review : { ...detail.review, message: { ...detail.review.message, zh: null, en: null, blocked_reasons: detail.review_issues.length ? detail.review_issues : detail.review.message.blocked_reasons.length ? detail.review.message.blocked_reasons : ['Refresh this payment before using the fee message.'] } };
 
-  async function run(kind: 'copy' | 'sent' | 'paid' | 'refresh' | 'receipt' | 'cancel', copyLanguage = language) {
+  const messageKey = JSON.stringify([identity, detail.version, review.review_hash, language]);
+  const originalMessage = review.message[language] || '';
+  const message = messageEdit?.key === messageKey ? messageEdit.text : originalMessage;
+  const messageBlocks = review.message.blocked_reasons;
+  const messageProof = paymentMessageProof(detail, language, sourceBlocked);
+  const currentCopyFeedback = copyFeedback?.key === messageProof ? copyFeedback.value : null;
+  useEffect(() => { setCopyFeedback(current => current?.key === messageProof ? current : null); }, [messageProof]);
+
+  async function run(kind: 'copy' | 'sent' | 'paid' | 'refresh' | 'receipt' | 'cancel', copyLanguage = language, copyText?: string) {
     if ((sourceBlocked && kind !== 'copy' && kind !== 'refresh') || running.current || busy || (kind !== 'copy' && kind !== 'refresh' && (!auth.isAdmin || !canWrite))) return;
     const abort = new AbortController(); operation.current = abort; running.current = true; onBusyChange?.(true); setBusy(true); setNotice(null); setCopyFeedback(null);
-    let checkedVersion = detail.version;
+    let checkedPayment = detail;
     try {
       if (kind === 'copy' || kind === 'refresh') {
         const fresh = await billingAPI.payment(detail.id, tutorId, abort.signal);
         if (abort.signal.aborted || current.current !== identity) return;
-        checkedVersion = fresh.version;
+        checkedPayment = fresh;
         await onUpdate(fresh);
         if (abort.signal.aborted || current.current !== identity) return;
         setUnverified(false);
         if (kind === 'copy') {
           if (!fresh.can_copy || fresh.review_issues.length || fresh.version !== detail.version || fresh.review.review_hash !== detail.review.review_hash || !fresh.review.message[copyLanguage]) {
-            setCopyFeedback({ version: fresh.version, value: { kind: 'info', message: 'This payment changed. Check its details before copying.' } }); return;
+            setCopyFeedback({ key: paymentMessageProof(fresh, copyLanguage, sourceBlocked), value: { kind: 'info', message: 'This payment changed. Check its details before copying.' } }); return;
           }
-          if (!navigator.clipboard?.writeText) throw new Error('Clipboard is unavailable in this browser.');
           if (abort.signal.aborted || current.current !== identity) return;
-          await navigator.clipboard.writeText(fresh.review.message[copyLanguage]);
-          if (!abort.signal.aborted && current.current === identity) setCopyFeedback({ version: fresh.version, value: { kind: 'success', message: 'Message copied.' } });
+          const result = await shareOrCopy(copyText ?? fresh.review.message[copyLanguage]);
+          if (result === 'cancelled') return;
+          if (!abort.signal.aborted && current.current === identity) setCopyFeedback({ key: paymentMessageProof(fresh, copyLanguage, sourceBlocked), value: { kind: 'success', message: result === 'copied' ? 'Message copied.' : 'Message shared.' } });
         }
         return;
       }
@@ -150,7 +170,7 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
         const duplicate = (failure as { status?: number }).status === 409 && failure instanceof Error && failure.message.startsWith('This student already has this receipt number.');
         if (duplicate) { setDuplicateReceipt(true); setDuplicateAcknowledged(false); }
         else if (kind === 'copy' || (failure as { status?: number }).status === 409) setUnverified(true);
-        if (kind === 'copy') setCopyFeedback({ version: checkedVersion, value: { kind: 'error', message: failure instanceof Error ? failure.message : 'Could not copy this message.' } });
+        if (kind === 'copy') setCopyFeedback({ key: paymentMessageProof(checkedPayment, copyLanguage, sourceBlocked), value: { kind: 'error', message: failure instanceof Error ? failure.message : 'Could not copy this message.' } });
         else setNotice({ text: failure instanceof Error ? failure.message : 'Could not update this payment. Try again.', error: true });
       }
     } finally { running.current = false; if (active.current && current.current === identity) { setBusy(false); onBusyChange?.(false); } }
@@ -186,11 +206,22 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
     {detail.status !== 'Pending Payment' && detail.review_issues.length > 0 && <ul role="alert" className="list-inside list-disc text-sm text-amber-800 dark:text-amber-300">{detail.review_issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
     <BillingDraftSummaryContent review={detail.review} />
     <section className="space-y-2" aria-label="Linked enrollments"><h3 className="text-sm font-semibold">Enrollments</h3>{detail.lines.map(line => <div key={line.enrollment_id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-line p-3 text-xs"><div>{onOpenEnrollment ? <button type="button" className="font-medium text-accent-ink hover:underline" onClick={() => onOpenEnrollment(line.enrollment_id)}>Enrollment #{line.enrollment_id}</button> : <Link className="font-medium text-accent-ink hover:underline" href={`/enrollments/${line.enrollment_id}`}>Enrollment #{line.enrollment_id}</Link>}<p className="mt-1 text-ink-subtle">{line.tutor_name} · {plural(line.lesson_count, 'session')}</p></div><span>${(line.tuition_amount + line.materials_fee).toLocaleString('en-US')}</span></div>)}</section>
-    {detail.status === 'Pending Payment' ? <div className="space-y-2">
-      <BillingDraftMessage review={review} canCopy={canCopy} busy={busy} feedback={copyFeedback?.version === detail.version ? copyFeedback.value : null} onLanguageChange={value => { setLanguage(value); setCopyFeedback(null); }} onCopy={value => { void run('copy', value); }} />
-      {unverified && <Button size="sm" disabled={busy} onClick={() => { void run('refresh'); }}>Refresh payment</Button>}
-    </div> : copyFeedback?.version === detail.version && <BillingCopyFeedbackNotice feedback={copyFeedback.value} />}
-    {auth.isAdmin && canWrite && detail.status === 'Pending Payment' && <div className="flex flex-wrap gap-2"><Button icon={Send} disabled={!canCopy || busy || !!detail.sent_at} onClick={() => { void run('sent'); }}>{detail.sent_at ? 'Message sent' : `Mark ${language === 'zh' ? 'Chinese' : 'English'} message sent`}</Button><Button icon={CreditCard} variant="primary" disabled={!safe || busy} onClick={() => { setCollecting(value => !value); setCancelling(false); }}>Record payment</Button></div>}
+    {detail.status === 'Pending Payment' && <div className="flex flex-wrap gap-2">
+      {auth.isAdmin && canWrite && <Button icon={CreditCard} variant="primary" disabled={!safe || busy} onClick={() => { setCollecting(value => !value); setCancelling(false); }}>Record payment</Button>}
+      <Button variant="secondary" disabled={busy} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessageOpen(value => !value)}>{messageOpen ? 'Hide fee message' : 'Fee message'}</Button>
+    </div>}
+    {detail.status === 'Pending Payment' ? <div id={messageRegionId} hidden={!messageOpen} inert={!messageOpen} className="space-y-3">
+      <FeeMessageContent language={language} onLanguageChange={value => { setLanguage(value); setCopyFeedback(null); setMessageEditable(false); }}
+        lessons={detail.review.period.lesson_count} message={message} originalMessage={originalMessage}
+        editable={messageEditable} onEditableChange={setMessageEditable}
+        onMessageChange={value => { setMessageEdit({ key: messageKey, text: value }); setCopyFeedback(null); }}
+        onReset={() => { setMessageEdit(null); setMessageEditable(false); setCopyFeedback(null); }}
+        busy={busy} canCopy={canCopy && !!message.trim()} copied={currentCopyFeedback?.kind === 'success' && currentCopyFeedback.message === 'Message copied.'} canShare={canShare}
+        onCopy={() => { void run('copy', language, message); }} onClose={() => setMessageOpen(false)} closeLabel="Close fee message"
+        onMarkSent={auth.isAdmin && canWrite && !detail.sent_at ? () => { void run('sent'); } : undefined}
+        error={messageBlocks.length ? <>{currentCopyFeedback?.kind === 'error' && <p>{currentCopyFeedback.message}</p>}<ul>{messageBlocks.map(reason => <li key={reason}>{reason}</li>)}</ul>{unverified && <Button size="sm" disabled={busy} onClick={() => { void run('refresh'); }}>Refresh payment</Button>}</> : undefined}
+        feedback={currentCopyFeedback && !(messageBlocks.length && currentCopyFeedback.kind === 'error') && <BillingCopyFeedbackNotice feedback={currentCopyFeedback} />} />
+    </div> : currentCopyFeedback && <BillingCopyFeedbackNotice feedback={currentCopyFeedback} />}
     {collecting && auth.isAdmin && canWrite && detail.status === 'Pending Payment' && <form aria-label="Record received payment" className="space-y-4 rounded-lg border border-line bg-wash p-4" onSubmit={event => { event.preventDefault(); void run('paid'); }}>
       <h3 className="font-semibold">Record received payment</h3>
       <p className="text-sm">${detail.review.period.total_fee?.toLocaleString('en-US')} covers all {plural(detail.review.period.lesson_count, 'session')}.</p>
