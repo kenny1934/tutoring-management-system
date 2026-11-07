@@ -166,6 +166,8 @@ describe('payment draft review', () => {
     if (width === 390) fireEvent.click(screen.getByRole('button', { name: /Manual payment 1/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Review payment' }));
     await screen.findByRole('textbox', { name: 'Chinese fee message' });
+    // Wait for the opening animation before testing whether Save keeps it open.
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Chinese fee message' })).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
     const abort = mocks.save.mock.calls[0][2] as AbortSignal;
