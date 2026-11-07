@@ -3,7 +3,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { BillingPreview } from './BillingPreview';
 import type { BillingPreviewResponse } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ preview: vi.fn(), auth: vi.fn(), params: vi.fn(), review: vi.fn() }));
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), auth: vi.fn(), params: vi.fn(), review: vi.fn(), tutors: [] as { id: number; tutor_name: string; default_location: string; is_active_tutor?: boolean; departure_effective_on?: string }[] }));
 const options = {
   academic_start: '2026-09-01', first_payment_from: '2026-10-30', regular_end: '2027-07-04', makeup_end: '2027-06-30',
   unit_fee: 400, first_minimum: 6, ordinary_coupon_minimum: 4, policy_version: 'test',
@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({ useSearchParams: mocks.params }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/lib/hooks', () => ({ usePageTitle: vi.fn() }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { options: vi.fn(), preview: mocks.preview } }));
-vi.mock('swr', () => ({ default: (key: string) => ({ data: key === 'locations' ? ['MSA', 'Various', 'MSB', 'All Locations'] : options, mutate: vi.fn() }) }));
+vi.mock('swr', () => ({ default: (key: string) => ({ data: key === 'tutors' ? mocks.tutors : key === 'locations' ? ['MSA', 'Various', 'MSB', 'All Locations'] : options, mutate: vi.fn() }) }));
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
 vi.mock('./BillingDraftReview', () => ({ BillingDraftReview: (props: { inline?: boolean; reviewRequest: { period_number: number } }) => { mocks.review(props); return <p>Review period {props.reviewRequest.period_number}</p>; } }));
@@ -52,10 +52,77 @@ beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: false, isGuest: false });
   mocks.preview.mockReset().mockResolvedValue(response());
   mocks.review.mockReset();
+  mocks.tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }, { id: 13, tutor_name: 'Tutor Other', default_location: 'MSB' }];
 });
 afterEach(() => vi.useRealTimers());
 
 describe('enrollment fee preview', () => {
+  it('uses the old renewal field order and reviews a changed tutor with source lineage', async () => {
+    mocks.tutors[0].is_active_tutor = false;
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const, time_slot: '16:45 - 18:15', location: 'MSA', covered_through: '2026-11-03' }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused embedded initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorIds: [9], tutorNames: ['Tutor Nine'] }}
+      draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate();
+    const section = screen.getByRole('region', { name: 'Renewal enrollment details' });
+    const labels = [...section.querySelectorAll('label')].map(label => label.textContent);
+    expect(labels.slice(0, 6)).toEqual(['Tutor', 'Location', 'Day of week', 'Time slot', 'First lesson date', 'Discount']);
+    const tutor = screen.getByLabelText('Tutor');
+    expect(tutor).toHaveValue('9');
+    expect(within(tutor).queryByRole('option', { name: 'Tutor Other' })).not.toBeInTheDocument();
+    expect(mocks.review.mock.lastCall![0].reviewRequest.renewal).toBeUndefined();
+    fireEvent.change(tutor, { target: { value: '12' } });
+    await calculate();
+    expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Parent requested a tutor change.' } });
+    await calculate();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({
+      renewal: { source_enrollment_ids: [7], tutor_ids: [12], reason: 'Parent requested a tutor change.' },
+    }) }));
+    expect(within(tutor).getByRole('option', { name: 'Tutor Nine' })).toHaveValue('9');
+    fireEvent.change(tutor, { target: { value: '9' } });
+    await calculate();
+    expect(mocks.review.mock.lastCall![0].reviewRequest.renewal).toBeUndefined();
+  });
+
+  it('reviews a changed next timetable with its original enrollment mapping and a deliberate reason', async () => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const, time_slot: '16:45 - 18:15', location: 'MSA', covered_through: '2026-11-03' }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused embedded initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] }}
+      draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate();
+    expect(screen.getByText('Weekly class')).toBeVisible();
+    expect(screen.queryByLabelText('Reason for change')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add second weekly class' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Enter a custom timetable')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Day of week'), { target: { value: 'Mon' } });
+    expect(screen.getByLabelText('First lesson date')).toHaveValue('2026-11-16');
+    await calculate();
+    expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Parent requested Monday next period.' } });
+    await calculate();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ summaryPresentation: 'renewal', reviewRequest: expect.objectContaining({
+      scenario: expect.objectContaining({ first_lesson_date: '2026-11-16', slots: [expect.objectContaining({ weekday: 'Mon', covered_through: '2026-11-03' })] }),
+      renewal: { source_enrollment_ids: [7], reason: 'Parent requested Monday next period.' },
+    }) }));
+    expect(screen.queryByLabelText('Existing coverage through')).not.toBeInTheDocument();
+  });
+
+  it('resets edited renewal details when fresh source records replace their timetable', async () => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const, time_slot: '16:45 - 18:15', location: 'MSA', covered_through: '2026-11-03' }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    const props={ focused: true, embedded: true, initialRequest: initial, sourceKey: 'one', renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] }, draftContext: { studentId: 4, basis: 'include_pending' as const, selectedEnrollmentIds: [7], sourceFingerprint: 'one' } };
+    const view=renderBase(<BillingPreview {...props} />);
+    fireEvent.change(screen.getByLabelText('First lesson date'),{target:{value:'2026-11-17'}});
+    fireEvent.change(screen.getByLabelText('Reason for change'),{target:{value:'Old local edit'}});
+    const fresh={...initial,first_lesson_date:'2026-11-24'};
+    view.rerender(<BillingPreview {...props} sourceKey="two" initialRequest={fresh} renewalSource={{...props.renewalSource,scenario:fresh}} draftContext={{...props.draftContext,sourceFingerprint:'two'}} />);
+    expect(screen.getByLabelText('First lesson date')).toHaveValue('2026-11-24');
+    expect(screen.queryByLabelText('Reason for change')).not.toBeInTheDocument();
+    await calculate();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({reviewRequest:expect.objectContaining({expected_source_fingerprint:'two',scenario:expect.objectContaining({first_lesson_date:'2026-11-24'})})}));
+  });
+
   it('preserves intake dates, tutor, materials waiver and period exception when saved payment settings refresh', async () => {
     mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
     const initial = { first_lesson_date: '2026-11-10', mode: 'new_student' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const, time_slot: '16:45 - 18:15', location: 'MSA' }], materials_fee: 100, trial_deduction: true, mandate_ready: false };
@@ -138,11 +205,15 @@ describe('enrollment fee preview', () => {
     expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ inline: true, reviewRequest: expect.objectContaining({ period_number: 3, basis: 'include_pending', selected_enrollment_ids: [7, 8], expected_source_fingerprint: 'current-source' }) }));
     expect(screen.getByText('Review period 3')).toBeInTheDocument();
     expect(screen.queryByLabelText('Payment journey')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit preview' }));
+    expect(screen.queryByRole('button', { name: 'Edit preview' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('First session to charge')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Back to renewal' }));
-    expect(screen.getByText('Review period 3')).toBeInTheDocument();
+    expect(screen.getByLabelText('First lesson date')).toBeVisible();
+    expect(screen.getByLabelText('Day of week')).toBeVisible();
+    expect(screen.getByLabelText('Time slot')).toBeVisible();
+    expect(screen.getByLabelText('Location')).toBeVisible();
+    expect(screen.queryByRole('tablist', { name: 'Preview settings' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Preview for')).not.toBeInTheDocument();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ summaryPresentation: 'renewal' }));
   });
 
   it('opens settings on demand and preserves edits when closed and reopened', async () => {

@@ -2,10 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
-import { Loader2, Copy, Share, Check, X, Undo2 } from "lucide-react";
 import { shareOrCopy, useCanShare } from "@/lib/share";
-import { cn } from "@/lib/utils";
-import { Button, IconButton, Input, Segmented, Textarea } from "@/components/controls";
+import { FeeMessageContent } from "./FeeMessageContent";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -132,108 +130,14 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
 
   if (billingPaymentId) return <div className="border-t border-line p-4"><BillingWorkflowLink studentId={enrollment.student_id} paymentId={billingPaymentId} onClick={onClose} /></div>;
 
-  return (
-    <div
-      className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Header with language tabs and lessons selector */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-foreground/60">Language:</span>
-          <Segmented
-            label="Message language"
-            value={lang}
-            onChange={setLang}
-            options={[
-              { value: "zh", label: "中文" },
-              { value: "en", label: "English" },
-            ]}
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-foreground/60">Lessons:</span>
-            <Input
-              type="number" inputMode="numeric"
-              size="sm"
-              min={1}
-              max={52}
-              value={lessonsPaid}
-              onChange={(e) => setLessonsPaid(Math.max(1, Math.min(52, Number(e.target.value) || 1)))}
-              aria-label="Lessons"
-              className="w-16 text-center"
-            />
-          </div>
-          <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
-        </div>
-      </div>
-
-      {/* Message content */}
-      <div className="p-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
-            <span className="ml-2 text-sm text-foreground/60">Generating message...</span>
-          </div>
-        ) : loadError ? <p role="alert" className="text-sm text-red-700 dark:text-red-300">{loadError}</p> : (
-          <Textarea
-            value={message}
-            onChange={(e) => isEditable && setMessage(e.target.value)}
-            readOnly={!isEditable}
-            aria-label="Fee message"
-            className={cn(
-              "h-64 p-3 font-mono resize-none transition-colors",
-              // Read-only, the box sits back on the tint so it reads as a preview.
-              !isEditable && "bg-tint cursor-default"
-            )}
-          />
-        )}
-      </div>
-
-      {/* Footer with controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/80">
-        <label className="flex items-center gap-2 text-sm text-foreground/70 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isEditable}
-            onChange={(e) => setIsEditable(e.target.checked)}
-            className="rounded border-gray-300 text-accent-ink focus:ring-primary"
-          />
-          Edit before copying
-          {isEditable && message !== originalMessage && (
-            <button
-              onClick={handleReset}
-              className="text-xs text-accent-ink hover:underline ml-2"
-            >
-              Reset
-            </button>
-          )}
-        </label>
-
-        <div className="flex items-center gap-2">
-          {showMarkSentButton && (
-            <Button
-              onClick={handleMarkSent}
-              loading={markingSent}
-              disabled={loading || !!loadError || !message}
-              icon={Check}
-              iconClassName="text-orange-700 dark:text-orange-400"
-            >
-              Mark sent
-            </Button>
-          )}
-          {showUnmarkSentButton && (
-            <Button onClick={handleUnmarkSent} loading={markingSent} icon={Undo2} variant="quiet">
-              Unmark sent
-            </Button>
-          )}
-          <Button variant="primary" onClick={handleCopy} disabled={loading || !!loadError || !message} icon={copied ? Check : canShare ? Share : Copy}>
-            {copied ? "Copied!" : canShare ? "Share" : "Copy"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  return <FeeMessageContent
+    language={lang} onLanguageChange={setLang}
+    lessons={lessonsPaid} onLessonsChange={setLessonsPaid}
+    message={message} onMessageChange={setMessage} originalMessage={originalMessage}
+    editable={isEditable} onEditableChange={setIsEditable} onReset={handleReset}
+    loading={loading} error={loadError} copied={copied} canShare={canShare}
+    markingSent={markingSent} onClose={onClose} onCopy={handleCopy}
+    onMarkSent={showMarkSentButton ? handleMarkSent : undefined}
+    onUnmarkSent={showUnmarkSentButton ? handleUnmarkSent : undefined}
+  />;
 }

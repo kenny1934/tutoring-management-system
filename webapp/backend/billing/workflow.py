@@ -148,7 +148,7 @@ def canonical_time(value):
     return f'{start // 60:02}:{start % 60:02}-{end // 60:02}:{end % 60:02}'
 
 
-def check_lesson_conflicts(db, student_id, lessons):
+def check_lesson_conflicts(db, student_id, lessons, *, include_claims=True):
     from constants import CONFLICTING_SESSION_STATUSES
     dates = {lesson.date for lesson in lessons}
     existing = db.query(SessionLog).filter(SessionLog.student_id == student_id,
@@ -166,6 +166,8 @@ def check_lesson_conflicts(db, student_id, lessons):
             if day == lesson.date and start < other_end and other_start < end:
                 raise DraftConflict('The two classes overlap. Check their times before creating enrollments.')
         proposed.append((lesson.date, start, end))
+    if not include_claims:
+        return
     claims = db.query(BillingLessonClaim).filter(BillingLessonClaim.student_id == student_id,
                                                 BillingLessonClaim.lesson_date.in_(dates)).all()
     if any((claim.lesson_date, claim.time_slot, claim.location) ==
@@ -327,12 +329,21 @@ def confirm_draft(db, student_id, draft_id, data, actor, *, as_of, policy=POLICY
         raise DraftConflict('Save the parent’s current payment preference before confirming enrollments.')
     lock_sources(db, student_id, policy)
     request = BillingDraftReviewRequest.model_validate(row.snapshot['request'])
+    locked_renewal_tutors = None
     if request.intake:
         db.query(Tutor.id).filter(Tutor.id.in_([s.tutor_id for s in request.intake.slots])).order_by(
             Tutor.id).with_for_update(read=True).all()
+    elif request.renewal and request.renewal.tutor_ids is not None:
+        # Locking reads see current tutor metadata even if an earlier MySQL
+        # consistent read established an older transaction snapshot.
+        locked_renewal_tutors = db.query(Tutor.id, Tutor.tutor_name, Tutor.departure_effective_on).filter(
+            Tutor.id.in_(request.renewal.tutor_ids)).order_by(Tutor.id).with_for_update(read=True).all()
+        if {tutor.id for tutor in locked_renewal_tutors} != set(request.renewal.tutor_ids):
+            raise DraftConflict('A chosen tutor is no longer available. Review this renewal again.')
     # Source fingerprints include the review day. Stable evidence and the
     # complete review hash decide whether a saved draft can be confirmed later.
-    review = review_draft(db, student_id, request, as_of=as_of, admin=True, check_fingerprint=False, policy=policy)
+    review = review_draft(db, student_id, request, as_of=as_of, admin=True, check_fingerprint=False, policy=policy,
+                          locked_renewal_tutors=locked_renewal_tutors)
     if review.review_hash != data.expected_review_hash or row.review_hash != data.expected_review_hash:
         raise DraftConflict('The draft calculation or student records changed. Review and save a new revision.')
     if review.message.blocked_reasons:
@@ -354,8 +365,9 @@ def confirm_draft(db, student_id, draft_id, data, actor, *, as_of, policy=POLICY
             trial_session_id=request.intake.trial_session_id, policy=policy,
         )
     else:
-        sources = db.query(Enrollment).filter(Enrollment.id.in_(request.selected_enrollment_ids)).all()
+        sources = db.query(Enrollment).filter(Enrollment.student_id == student_id, Enrollment.id.in_(request.selected_enrollment_ids)).all()
         by_slot = {(e.assigned_day[:3], e.assigned_time.strip(), e.location.strip()): e for e in sources}
+        by_source_id = {source.id: source for source in sources}
     counts = review.period.counts_by_slot
     discount = sum(d.amount for d in review.period.deductions)
     shares = allocate_discount(discount, counts)
@@ -389,8 +401,9 @@ def confirm_draft(db, student_id, draft_id, data, actor, *, as_of, policy=POLICY
             previous_id = request.intake.trial_enrollment_id or intake_slot.renewed_from_enrollment_id
             is_new_student = bool(first_line and intake_context.is_new_student)
         else:
-            source = by_slot[(slot.weekday, slot.time_slot.strip(), slot.location.strip())]
-            tutor_id, previous_id, is_new_student = source.tutor_id, source.id, False
+            source = by_source_id[request.renewal.source_enrollment_ids[index]] if request.renewal else by_slot[(slot.weekday, slot.time_slot.strip(), slot.location.strip())]
+            tutor_id = request.renewal.tutor_ids[index] if request.renewal and request.renewal.tutor_ids is not None else source.tutor_id
+            previous_id, is_new_student = source.id, False
         tuition = len(lessons) * policy.unit_fee - shares[index]
         materials = review.period.materials_fee if first_line else 0
         first_line = False

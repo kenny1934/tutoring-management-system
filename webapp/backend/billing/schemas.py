@@ -446,7 +446,27 @@ class BillingQueueCountResponse(BillingQueueCounts):
     collection_month: str
 
 
+class BillingRenewalOverride(BaseModel):
+    """Reviewed changes for the next enrollment, with explicit source lineage."""
+    model_config = ConfigDict(extra='forbid')
+    source_enrollment_ids: list[int] = Field(min_length=1, max_length=2)
+    tutor_ids: list[int] | None = Field(default=None, min_length=1, max_length=2, exclude_if=lambda value: value is None)
+    reason: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode='after')
+    def validate_change(self):
+        self.reason = self.reason.strip()
+        if not self.reason:
+            raise ValueError('Explain why the next enrollment details are changing.')
+        if any(value <= 0 for value in self.source_enrollment_ids) or len(set(self.source_enrollment_ids)) != len(self.source_enrollment_ids):
+            raise ValueError('Choose a different source enrollment for each renewed class.')
+        if self.tutor_ids is not None and (len(self.tutor_ids) != len(self.source_enrollment_ids) or any(value <= 0 for value in self.tutor_ids)):
+            raise ValueError('Choose a tutor for every renewed class.')
+        return self
+
+
 class BillingDraftReviewRequest(BaseModel):
+    renewal: BillingRenewalOverride | None = Field(default=None, exclude_if=lambda value: value is None)
     model_config = ConfigDict(extra='forbid')
     scenario: BillingPreviewRequest
     basis: ContextBasis = 'paid_only'
@@ -454,10 +474,16 @@ class BillingDraftReviewRequest(BaseModel):
     intake: BillingIntakeSource | None = Field(default=None, exclude_if=lambda value: value is None)
     expected_source_fingerprint: str = Field(pattern=r'^[0-9a-f]{64}$')
     period_number: int = Field(default=1, ge=1)
-    confirmed_checks: list[Literal['CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES']] = Field(default_factory=list)
+    confirmed_checks: list[Literal['CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES', 'RENEWAL_START_GAP']] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def validate_review_source(self):
+        if self.renewal:
+            if self.intake or self.scenario.mode == 'new_student' or self.period_number != 1:
+                raise ValueError('Renewal changes apply only to the next continuing enrollment.')
+            mapped = self.renewal.source_enrollment_ids
+            if len(mapped) != len(self.scenario.slots) or len(mapped) != len(self.selected_enrollment_ids) or set(mapped) != set(self.selected_enrollment_ids):
+                raise ValueError('Match every renewed class to its selected source enrollment.')
         if self.intake:
             if self.selected_enrollment_ids:
                 raise ValueError('An intake does not select continuing enrollments.')
@@ -471,6 +497,7 @@ class BillingDraftReviewRequest(BaseModel):
 
 
 class BillingDraftReview(BaseModel):
+    renewal: BillingRenewalOverride | None = Field(default=None, exclude_if=lambda value: value is None)
     student: BillingStudent
     source_fingerprint: str
     evidence_hash: str
@@ -480,7 +507,7 @@ class BillingDraftReview(BaseModel):
     basis: ContextBasis
     selected_enrollment_ids: list[int]
     intake: BillingIntakeSource | None = Field(default=None, exclude_if=lambda value: value is None)
-    confirmed_checks: list[Literal['CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES']] = Field(default_factory=list)
+    confirmed_checks: list[Literal['CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES', 'RENEWAL_START_GAP']] = Field(default_factory=list)
     period: BillingPreviewPeriod
     issues: list[PreviewIssue]
     message: FeeMessagePreview

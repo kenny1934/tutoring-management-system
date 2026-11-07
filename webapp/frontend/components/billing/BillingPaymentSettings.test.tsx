@@ -251,3 +251,82 @@ describe('discoverable payment methods', () => {
     expect(mocks.savePreferences).not.toHaveBeenCalled();
   });
 });
+
+
+describe('bank authorisation controls', () => {
+  const autopay = { ...stored, payment_method: 'autopay' as const };
+  it('opens a compact authorisation editor on demand and preserves the latest saved method', async () => {
+    mocks.preferences.mockResolvedValue(autopay);
+    mocks.savePreferences.mockResolvedValue({ ...autopay, mandate_ready: true, version: 3 });
+    const onSaved = vi.fn();
+    render(<BillingPaymentSettings storageAvailable canWrite recordedMethod="autopay" mandateReady={false} studentId={4} studentName="Synthetic Student" onSaved={onSaved} presentation="authorisation" />, { wrapper: Wrapper });
+    expect(screen.getByText('Authorisation needed')).toBeVisible();
+    expect(mocks.preferences).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Bank authorisation for Synthetic Student' }));
+    await screen.findByRole('dialog', { name: 'Bank authorisation' });
+    const save = await screen.findByRole('button', { name: 'Save authorisation' });
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bank authorisation is ready.' }));
+    fireEvent.click(save);
+    await screen.findByText('Bank authorisation saved.');
+    expect(mocks.savePreferences).toHaveBeenCalledWith(4, expect.objectContaining({ payment_method: 'autopay', mandate_ready: true, expected_version: 2 }), expect.any(AbortSignal));
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'autopay', mandate_ready: true, version: 3 }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('Authorisation ready')).toBeVisible();
+  });
+
+  it('embeds the form in the existing dialog only after Update authorisation', async () => {
+    mocks.preferences.mockResolvedValue(autopay);
+    render(<BillingPaymentSettings storageAvailable canWrite recordedMethod="autopay" mandateReady studentId={4} onSaved={vi.fn()} presentation="authorisation-inline" />, { wrapper: Wrapper });
+    expect(screen.getByText('Authorisation ready')).toBeVisible();
+    expect(mocks.preferences).not.toHaveBeenCalled();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Update authorisation' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save authorisation' })).toBeEnabled());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Update authorisation' })).toHaveFocus();
+  });
+
+  it('can open the inline authorisation form immediately from the row action', async () => {
+    mocks.preferences.mockResolvedValue(autopay);
+    render(<BillingPaymentSettings storageAvailable canWrite initialAuthorisationOpen recordedMethod="autopay" studentId={4} onSaved={vi.fn()} presentation="authorisation-inline" />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save authorisation' })).toBeEnabled());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Bank authorisation is ready.' })).not.toBeChecked();
+  });
+
+  it('does not change a saved Manual preference through an old Autopay authorisation control', async () => {
+    mocks.preferences.mockResolvedValue({ ...stored, version: 7 });
+    render(<BillingPaymentSettings storageAvailable canWrite initialAuthorisationOpen recordedMethod="autopay" studentId={4} onSaved={vi.fn()} presentation="authorisation-inline" />, { wrapper: Wrapper });
+    await screen.findByText('The saved payment method is no longer Autopay. Update the payment plan first.');
+    expect(screen.getByRole('button', { name: 'Save authorisation' })).toBeDisabled();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByRole('button', { name: 'Save authorisation' }).closest('form')!);
+    expect(mocks.savePreferences).not.toHaveBeenCalled();
+  });
+
+  it('shows authorisation status without exposing edits to read-only staff', () => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true, isReadOnly: true });
+    render(<BillingPaymentSettings storageAvailable canWrite recordedMethod="autopay" mandateReady studentId={4} onSaved={vi.fn()} presentation="authorisation" />, { wrapper: Wrapper });
+    expect(screen.getByText('Authorisation ready')).toBeVisible();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(mocks.preferences).not.toHaveBeenCalled();
+  });
+
+  it('reuses the same operation token after an uncertain authorisation save', async () => {
+    mocks.preferences.mockResolvedValue(autopay);
+    mocks.savePreferences.mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValueOnce({ ...autopay, mandate_ready: true, version: 3 });
+    render(<BillingPaymentSettings storageAvailable canWrite initialAuthorisationOpen recordedMethod="autopay" studentId={4} onSaved={vi.fn()} presentation="authorisation-inline" />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save authorisation' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save authorisation' }));
+    await screen.findByText('Connection lost');
+    fireEvent.click(screen.getByRole('button', { name: 'Save authorisation' }));
+    await screen.findByText('Bank authorisation saved.');
+    expect(mocks.savePreferences.mock.calls[1][1]).toEqual(mocks.savePreferences.mock.calls[0][1]);
+  });
+});

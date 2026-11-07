@@ -56,6 +56,14 @@ describe('legacy payment routing', () => {
     expect(mocks.batchRenew).not.toHaveBeenCalled();
     expect(screen.queryByText('Tick a student to renew them anyway.')).not.toBeInTheDocument();
   });
+  it('routes an unconverted student to the journey when their start date requires the new workflow', async () => {
+    mocks.batchCheck.mockResolvedValue({ eligible: [], ineligible: [{ enrollment_id: 10, eligible: false, reason: 'billing_workflow', student_id: 4, student_name: 'Example Student', details: 'Use Enrollment renewals to prepare the next enrollment.', billing_managed: false, overridable: false, assigned_day: 'Fri', assigned_time: '16:45 - 18:15', suggested_first_lesson_date: '2026-11-06' }] });
+    render(<BatchRenewModal isOpen onClose={vi.fn()} enrollmentIds={[10]} onSuccess={vi.fn()} />);
+    expect(await screen.findByRole('link', { name: 'Review next enrollment' })).toHaveAttribute('href', '/billing/students/4');
+    expect(screen.getByText('Use Enrollment renewals to prepare the next enrollment.')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(mocks.batchRenew).not.toHaveBeenCalled();
+  });
   it('recognises only the structured workflow redirect from legacy mutation guards', () => {
     expect(billingErrorHref({ detail: { code: 'BILLING_WORKFLOW_REQUIRED', student_id: 4, payment_id: 'group 1' } })).toBe('/billing/students/4?view=payments&payment=group%201');
     expect(billingErrorHref({ detail: { code: 'OTHER_CONFLICT', student_id: 4 } })).toBeNull();

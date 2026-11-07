@@ -226,7 +226,7 @@ describe('enrollment renewal queue', () => {
     const projected = { ...row(), key: 'student-5', origin: 'projection' as const, draft_id: null, student: { ...row().student, id: 5, student_name: 'Unreviewed Student' } };
     mocks.queue.mockResolvedValue(response([combined, projected]));
     show();
-    fireEvent.click(await screen.findByRole('button', { name: 'Copy fee message' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Fee message' }));
     expect(mocks.feePanel.mock.lastCall![0].target).toEqual({ kind: 'payment', id: 'combined-1', studentId: 4 });
     expect(within(screen.getByRole('article', { name: 'Unreviewed Student renewal' })).queryByRole('button', { name: 'Copy fee message' })).not.toBeInTheDocument();
   });
@@ -430,12 +430,16 @@ describe('enrollment renewal queue', () => {
     expect(screen.queryByRole('button', { name: /Mark sent|Record payment|Mark paid/ })).not.toBeInTheDocument();
   });
 
-  it('opens a confirmed fee message even when its originating draft id is present', async () => {
+  it('expands a confirmed fee message directly with one action and keeps View for enrollment details', async () => {
     mocks.queue.mockResolvedValue(response([{ ...row(), stage: 'send', origin: 'payment', payment_id: 'confirmed-1', payment_ids: ['confirmed-1'], action_url: '/billing/students/4?view=payments&payment=confirmed-1' }]));
     show({ initialStage: 'send' });
     const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Open fee message' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('payment:confirmed-1');
+    fireEvent.click(within(card).getByRole('button', { name: 'Fee message' }));
+    expect(await screen.findByRole('region', { name: 'Card fee message' })).toHaveTextContent('payment:confirmed-1');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Copy fee message' })).not.toBeInTheDocument();
+    fireEvent.click(within(card).getByRole('button', { name: 'View' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Enrollment details');
     expect(within(card).queryByText('Draft saved')).not.toBeInTheDocument();
     expect(within(card).queryByRole('link', { name: 'Review draft' })).not.toBeInTheDocument();
   });
@@ -624,15 +628,16 @@ describe('enrollment renewal queue', () => {
     expect(within(card).queryByText(/Pay before/)).not.toBeInTheDocument();
   });
 
-  it('shows only one details action and no repeated coverage/count for an existing unpaid enrollment', async () => {
+  it('shows inline Fee message and one View action without repeated coverage/count for an existing unpaid enrollment', async () => {
     const current = { enrollment_id: 7, tutor_id: 2, tutor_name: 'Tutor A', weekday: 'Fri', time_slot: '16:00 - 17:30', location: 'MSA', first_lesson_date: '2026-12-04', effective_end_date: '2026-12-31', last_original_date: '2026-12-31', last_paid_original_date: null, payment_status: 'Pending Payment', lesson_count: 3, sessions_remaining: 3, fee_message_marked_sent: false };
     mocks.queue.mockResolvedValue(response([{ ...row(), origin: 'legacy', stage: 'send', draft_id: null, current_enrollments: [current] }]));
     show();
     const card = await screen.findByRole('article');
-    expect(within(card).queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Fee message' })).toBeInTheDocument();
     expect(within(card).queryByText('3 sessions', { exact: true })).not.toBeInTheDocument();
     expect(within(card).queryByText('Payment:')).not.toBeInTheDocument();
-    fireEvent.click(within(card).getByRole('button', { name: 'Open enrollment' }));
+    fireEvent.click(within(card).getByRole('button', { name: 'View' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Enrollment details');
   });
 

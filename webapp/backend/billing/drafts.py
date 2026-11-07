@@ -3,7 +3,7 @@
 The account row serialises draft writes. It remains inactive, and these services
 never create enrolments, sessions, payments or coupon reservations.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from models import Enrollment, Holiday, SessionLog, Student, StudentCoupon
+from models import Enrollment, Holiday, SessionLog, Student, StudentCoupon, Tutor
 from .calculator import BillingPolicy, preview_billing
 from .evidence import load_contexts
 from .messages import MESSAGE_TEMPLATE_VERSION, prepare_fee_messages
@@ -30,7 +30,7 @@ INFORMATIONAL_CALCULATION = {
     'COVERAGE_ASSUMED', 'ADMIN_ADJUSTMENT', 'TRIAL_COUPON_CHOICE',
     'COUPON_SAVED', 'SAVED_COUPON_EXPIRY', 'FIRST_AUTOPAY_TIMING',
 }
-CONFIRMABLE = {'CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES'}
+CONFIRMABLE = {'CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES', 'RENEWAL_START_GAP'}
 
 
 class DraftConflict(ValueError):
@@ -81,8 +81,94 @@ def evidence_hash(db, context):
     return digest(data)
 
 
+def review_renewal_change(db, data, context, period, holidays, policy, block, issues, confirmed, *, tutors=None):
+    """Validate explicit future changes without rewriting existing coverage."""
+    from constants import SECONDARY_LOCATION_TO_CODE
+    from .calculator import DAYS
+    from .workflow import time_range
+    from utils.employment import can_hold_work_on
+
+    change = data.renewal
+    selected = {candidate.enrollment_id: candidate for candidate in context.slot_candidates if candidate.selected}
+    if data.basis != 'include_pending':
+        block('RENEWAL_SOURCE_REVIEW', 'Count paid and unpaid enrollments before changing this renewal.')
+    if set(change.source_enrollment_ids) != set(selected) or len(change.source_enrollment_ids) != len(selected):
+        block('RENEWAL_SOURCE_REVIEW', 'The renewed classes do not match the current selected enrollments.')
+        return
+    if tutors is None:
+        tutors = db.query(Tutor.id, Tutor.tutor_name, Tutor.departure_effective_on).filter(
+            Tutor.id.in_(change.tutor_ids)).order_by(Tutor.id).all() if change.tutor_ids is not None else []
+    tutor_names = {tutor.id: tutor.tutor_name for tutor in tutors}
+    if change.tutor_ids is not None and any(tutor_id not in tutor_names for tutor_id in change.tutor_ids):
+        block('RENEWAL_TUTOR_UNAVAILABLE', 'Choose an existing tutor for every renewed class.')
+    if change.tutor_ids is not None:
+        by_id = {tutor.id: tutor for tutor in tutors}
+        for index, tutor_id in enumerate(change.tutor_ids):
+            last_lesson = max((lesson.date for lesson in period.lessons if lesson.slot == index), default=None)
+            tutor = by_id.get(tutor_id)
+            if tutor and last_lesson and not can_hold_work_on(tutor, last_lesson):
+                block('RENEWAL_TUTOR_UNAVAILABLE',
+                      f'{tutor.tutor_name} leaves on {tutor.departure_effective_on}, so a session on {last_lesson} cannot be assigned to them.')
+    if context.suggested_request is None:
+        return tutors  # The normal unavailable-source gate remains blocking.
+
+    source_tutors = {source.enrollment_id: source.tutor_id for source in context.source_blocks}
+    earliest = []
+    omitted = []
+    changes = []
+    if data.scenario.first_lesson_date != context.suggested_request.first_lesson_date:
+        changes.append(f'Start date changes from {context.suggested_request.first_lesson_date} to {data.scenario.first_lesson_date}.')
+    for index, source_id in enumerate(change.source_enrollment_ids):
+        candidate = selected[source_id]
+        if change.tutor_ids is not None and change.tutor_ids[index] != source_tutors.get(source_id):
+            target_name = tutor_names.get(change.tutor_ids[index], 'Unavailable tutor')
+            changes.append(f'Class {index + 1} tutor changes from {candidate.tutor_name or source_tutors.get(source_id)} to {target_name}.')
+        slot = data.scenario.slots[index]
+        time_range(slot.time_slot)
+        if slot.location.strip() not in set(SECONDARY_LOCATION_TO_CODE.values()):
+            raise ValueError('Choose a supported teaching branch for the renewed class.')
+        expected = candidate.last_retained_original_date
+        if expected is None and candidate.first_uncovered_date:
+            expected = candidate.first_uncovered_date - timedelta(days=1)
+        if slot.covered_through != expected:
+            block('SOURCE_COVERAGE_MISMATCH', 'Previous coverage cannot be changed when editing a renewal.')
+        if expected is None:
+            block('RENEWAL_SOURCE_REVIEW', 'Check the end of the existing enrollment before changing this renewal.')
+            continue
+        if any(lesson.slot == index and lesson.date <= expected for lesson in period.lessons):
+            block('RENEWAL_START_BEFORE_COVERAGE', 'Renewed sessions must start after the existing enrollment ends.')
+        source_key = ((candidate.weekday or '')[:3], (candidate.time_slot or '').strip(), (candidate.location or '').strip())
+        target_key = (slot.weekday, slot.time_slot.strip(), slot.location.strip())
+        if source_key != target_key:
+            changes.append(f'Class {index + 1} changes from {source_key[0]} {source_key[1]} at {source_key[2]} to {target_key[0]} {target_key[1]} at {target_key[2]}.')
+        first = max(expected + timedelta(days=1), policy.academic_start)
+        first += timedelta(days=(DAYS.index(slot.weekday) - first.weekday()) % 7)
+        while first in holidays and first not in slot.holiday_exceptions:
+            first += timedelta(days=7)
+        earliest.append(first)
+        current = first
+        while current < data.scenario.first_lesson_date and current <= policy.regular_end:
+            if current not in holidays or current in slot.holiday_exceptions:
+                omitted.append((current, index))
+            current += timedelta(days=7)
+    if earliest and data.scenario.first_lesson_date < min(earliest):
+        block('RENEWAL_START_BEFORE_COVERAGE', f'The earliest lesson on the renewed timetable is {min(earliest)}. Choose that date or a later lesson.')
+    if changes:
+        issues.append(PreviewIssue(code='RENEWAL_DETAILS_CHANGED', period=period.number,
+            message=' '.join(changes) + ' Reason: ' + change.reason))
+    if omitted:
+        dates = ', '.join(f'{day} (class {index + 1})' for day, index in sorted(omitted))
+        message = 'These regular session dates are omitted from the new enrollment: ' + dates + '. Check the start date and the reason for changing it.'
+        issues.append(PreviewIssue(code='RENEWAL_START_GAP', period=period.number, message=message))
+        if 'RENEWAL_START_GAP' not in confirmed:
+            block('RENEWAL_START_GAP', message)
+    return tutors
+
+
 def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, *,
-                 as_of, admin=False, check_fingerprint=True, policy=POLICY):
+                 as_of, admin=False, check_fingerprint=True, policy=POLICY, locked_renewal_tutors=None):
+    if data.renewal and not admin:
+        raise PermissionError('Only an admin can change the next enrollment details.')
     if data.confirmed_checks and not admin:
         raise PermissionError('Only an admin can confirm timetable, continuation or holiday checks.')
     holidays = current_holidays(db, policy)
@@ -137,7 +223,7 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
         expected_keys = {((c.weekday or '')[:3], (c.time_slot or '').strip(), (c.location or '').strip()): c
                          for c in selected.values()}
         actual_keys = {(s.weekday, s.time_slot.strip(), s.location.strip()) for s in scenario.slots}
-        if len(selected) != len(scenario.slots) or actual_keys != set(expected_keys):
+        if not data.renewal and (len(selected) != len(scenario.slots) or actual_keys != set(expected_keys)):
             block('SCENARIO_SOURCE_MISMATCH', 'These classes do not match the selected enrollments. Check the timetable in Edit preview.')
     if data.intake:
         if period.collection.method != 'manual':
@@ -147,9 +233,9 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
     else:
         if scenario.mode != context.suggested_request.mode:
             block('SCENARIO_POLICY_MISMATCH', 'This payment uses a different fee scheme from the student’s records. Check Preview for in Edit preview.')
-        if scenario.first_lesson_date != context.suggested_request.first_lesson_date:
+        if not data.renewal and scenario.first_lesson_date != context.suggested_request.first_lesson_date:
             block('SOURCE_DATE_MISMATCH', 'The start date does not match the next uncovered lesson. Check the date in Edit preview.')
-        for slot in scenario.slots:
+        for slot in ([] if data.renewal else scenario.slots):
             candidate = expected_keys.get((slot.weekday, slot.time_slot.strip(), slot.location.strip()))
             if candidate:
                 expected = candidate.last_retained_original_date
@@ -164,6 +250,10 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
                 if actual != expected:
                     block('SOURCE_COVERAGE_MISMATCH', 'Previous coverage does not match the selected enrollments. Check the dates in Edit preview.')
 
+    renewal_tutors = None
+    if data.renewal:
+        renewal_tutors = review_renewal_change(db, data, context, period, holidays, policy, block, issues, confirmed, tutors=locked_renewal_tutors)
+
     if data.intake:
         existing = {(r.session_date, (r.time_slot or '').strip(), (r.location or '').strip())
                     for r in db.query(SessionLog).join(Enrollment, Enrollment.id == SessionLog.enrollment_id).filter(
@@ -175,6 +265,16 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
                     for b in context.source_blocks if b.payment_status != 'Cancelled' for r in b.originals}
     if any((lesson.date, lesson.time_slot.strip(), lesson.location.strip()) in existing for lesson in period.lessons):
         block('EXISTING_ORIGINALS_OVERLAP', 'Some sessions are already in an enrollment. Check that enrollment before preparing another fee message.')
+    if data.renewal and not any(issue.code == 'EXISTING_ORIGINALS_OVERLAP' for issue in issues):
+        # The reviewed message must not promise overlapping lessons. Claims
+        # are checked when workflow storage is available and rechecked under
+        # financial locks at confirmation. Draft-only storage remains compatible
+        # with migration187 without the financial claim tables.
+        from .workflow import check_lesson_conflicts, workflow_storage_enabled
+        try:
+            check_lesson_conflicts(db, student_id, period.lessons, include_claims=workflow_storage_enabled())
+        except DraftConflict as error:
+            block('RENEWAL_SESSION_CONFLICT', str(error))
     if period.number > 1:
         block('FUTURE_PAYMENT_PREVIEW', 'This later payment depends on earlier payments being confirmed. Prepare the student’s next payment first.')
     if period.collection.method == 'autopay' and not scenario.mandate_ready:
@@ -199,11 +299,14 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
                     or balance.usable_count < 1 or group is None or group.usable_count < 1):
                 block('COUPON_STOCK_REVIEW', 'Choose an available checked coupon group before preparing this fee message.')
     message = prepare_fee_messages(context.student, scenario, period, policy.unit_fee, blocked_reasons=reasons)
+    source_evidence = intake_evidence or evidence_hash(db, context)
+    if data.renewal and data.renewal.tutor_ids is not None:
+        source_evidence = digest([source_evidence, [list(tutor) for tutor in renewal_tutors or []]])
     result = BillingDraftReview(
         student=context.student, source_fingerprint=context.source_fingerprint,
-        evidence_hash=intake_evidence or evidence_hash(db, context), calendar_hash=digest(sorted(holidays)),
+        evidence_hash=source_evidence, calendar_hash=digest(sorted(holidays)),
         policy_version=policy.version, scenario=scenario, basis=data.basis,
-        selected_enrollment_ids=data.selected_enrollment_ids, intake=data.intake, confirmed_checks=sorted(confirmed),
+        selected_enrollment_ids=data.selected_enrollment_ids, intake=data.intake, renewal=data.renewal, confirmed_checks=sorted(confirmed),
         period=period, issues=issues, message=message, review_hash='',
     )
     result.review_hash = digest(result.model_dump(mode='json', exclude={'review_hash', 'source_fingerprint', 'issues'}))

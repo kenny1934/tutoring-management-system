@@ -3323,6 +3323,18 @@ async def batch_mark_sent(
     return BatchOperationResponse(updated=updated, count=len(updated))
 
 
+def _batch_renewal_billing_reason(student_id, first_lesson_date):
+    """Keep batch eligibility and writes on the single-create cutover policy."""
+    try:
+        assert_generic_regular_policy(student_id, first_lesson_date, "Regular")
+    except HTTPException as error:
+        if (error.status_code == 409 and isinstance(error.detail, dict)
+                and error.detail.get("code") == "BILLING_WORKFLOW_REQUIRED"):
+            return "Use Enrollment renewals to prepare the next enrollment."
+        raise
+    return None
+
+
 @router.post("/enrollments/batch-renew-check", response_model=BatchRenewCheckResponse)
 async def batch_renew_check(
     request: BatchEnrollmentRequest,
@@ -3421,11 +3433,12 @@ async def batch_renew_check(
         }
 
         metadata = managed.get(eid, {})
-        if metadata.get("billing_managed"):
+        billing_reason = _batch_renewal_billing_reason(enrollment.student_id, suggested_date)
+        if metadata.get("billing_managed") or billing_reason:
             ineligible.append(EligibilityResult(
                 enrollment_id=eid, eligible=False, reason="billing_workflow",
                 student_name=student_name,
-                details="Open this student's Billing page to prepare the next enrollment.",
+                details=billing_reason or "Open this student's Billing page to prepare the next enrollment.",
                 overridable=False, **student_info, **schedule_info, **metadata,
             ))
             continue
@@ -3665,6 +3678,17 @@ async def batch_renew(
         first_lesson_date = effective_end + timedelta(days=1)
         while first_lesson_date.weekday() != assigned_weekday:
             first_lesson_date += timedelta(days=1)
+
+        # A stale client can submit without the eligibility check. Reject the
+        # affected item before creating teaching records or reserving coupons.
+        billing_reason = _batch_renewal_billing_reason(enrollment.student_id, first_lesson_date)
+        if billing_reason:
+            results.append(BatchRenewResult(
+                original_enrollment_id=eid, new_enrollment_id=None,
+                success=False, error=billing_reason,
+            ))
+            failed_count += 1
+            continue
 
         assert_legacy_creation_allowed(db, enrollment.student_id, first_lesson_date)
 

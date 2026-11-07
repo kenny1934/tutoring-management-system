@@ -409,7 +409,7 @@ export function BatchRenewModal({
                             {item.details && (
                               <p className="text-xs text-foreground/50 mt-0.5">{item.details}</p>
                             )}
-                            {item.billing_managed && item.student_id ? <BillingWorkflowLink studentId={item.student_id} onClick={handleClose} /> : <ScheduleInfo item={item} />}
+                            {(item.billing_managed || item.reason === "billing_workflow") && item.student_id ? <BillingWorkflowLink studentId={item.student_id} onClick={handleClose} /> : <ScheduleInfo item={item} />}
                           </div>
                         </motion.div>
                       ))}
@@ -498,7 +498,7 @@ export function BatchRenewModal({
                               {isOverridden && item.details && (
                                 <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">{item.details}</p>
                               )}
-                              {item.billing_managed && item.student_id ? <BillingWorkflowLink studentId={item.student_id} onClick={handleClose} /> : <ScheduleInfo item={item} />}
+                              {(item.billing_managed || item.reason === "billing_workflow") && item.student_id ? <BillingWorkflowLink studentId={item.student_id} onClick={handleClose} /> : <ScheduleInfo item={item} />}
                             </div>
                           </motion.div>
                         );

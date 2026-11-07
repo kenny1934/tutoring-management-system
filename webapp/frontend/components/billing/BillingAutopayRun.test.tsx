@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BillingAutopayRun } from './BillingAutopayRun';
 import type { BillingAutopayResponse, BillingAutopayRow, BillingAutopayStage } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), setLocation: vi.fn(), options: vi.fn(), autopay: vi.fn(), payment: vi.fn(), bankRuns: vi.fn(), bankRun: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), setLocation: vi.fn(), options: vi.fn(), autopay: vi.fn(), payment: vi.fn(), bankRuns: vi.fn(), bankRun: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), autopayExportPreview: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: mocks.location }));
-vi.mock('@/lib/billing-api', () => ({ billingAPI: { autopay: mocks.autopay, options: mocks.options, bankRuns: mocks.bankRuns, bankRun: mocks.bankRun } }));
+vi.mock('@/lib/billing-api', () => ({ billingAPI: { autopay: mocks.autopay, options: mocks.options, bankRuns: mocks.bankRuns, bankRun: mocks.bankRun, preferences: mocks.preferences, savePreferences: mocks.savePreferences, autopayExportPreview: mocks.autopayExportPreview } }));
 vi.mock('@/lib/hooks', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/hooks')>(), usePageTitle: vi.fn(), useVisibilityAwareInterval: () => 0 }));
 vi.mock('@/lib/hooks/useSummerPreGradeWindow', () => ({ useSummerPreGradeWindow: () => false }));
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
@@ -15,7 +15,7 @@ vi.mock('./BillingPayments', () => ({ BillingPayments: (props: { studentId: numb
   mocks.payment(props); return <section aria-label="Reviewed payment">{props.studentId}:{props.initialPaymentId}</section>;
 } }));
 
-const options = { autopay_first_collection_month: '2026-11', autopay_last_collection_month: '2027-06' };
+const options = { autopay_first_collection_month: '2026-11', autopay_last_collection_month: '2027-06', workflow_available: true, preferences_writes_available: true };
 function row(overrides: Partial<BillingAutopayRow> = {}): BillingAutopayRow {
   return { key: 'payment-one', student: { id: 4, student_name: 'Synthetic Student', school_student_id: '004', home_location: 'MSA', grade: 'F1', lang_stream: 'E', school: 'Synthetic School', is_staff_referral: false },
     stage: 'ready', origin: 'payment', payment_id: 'payment-one', draft_id: 'draft-one', payment_status: 'Pending Payment',
@@ -41,6 +41,9 @@ beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, isAdmin: true, canViewAdminPages: true, isLoading: false, effectiveRole: 'Admin' });
   mocks.location.mockReturnValue({ selectedLocation: 'MSA', locations: ['All Locations', 'MSA', 'MSB', 'Various'], setSelectedLocation: mocks.setLocation });
   mocks.options.mockReset().mockResolvedValue(options);
+  mocks.autopayExportPreview.mockReset().mockRejectedValue(new Error('Synthetic bank preview.'));
+  mocks.preferences.mockReset().mockResolvedValue({ student_id: 4, payment_method: 'autopay', mandate_ready: false, version: 3, updated_at: null });
+  mocks.savePreferences.mockReset().mockImplementation(async (id, body) => ({ student_id: id, payment_method: body.payment_method, mandate_ready: body.mandate_ready, version: body.expected_version + 1, updated_at: null }));
   mocks.autopay.mockReset().mockResolvedValue(response());
   mocks.bankRuns.mockReset().mockResolvedValue({ storage_available: true, writes_available: false, runs: [] });
   mocks.bankRun.mockReset().mockRejectedValue(new Error('Synthetic selected run.'));
@@ -48,6 +51,66 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('autopay collection review', () => {
+  it.each([
+    row(),
+    row({ stage: 'attention', mandate_ready: false, reasons: [{ code: 'MESSAGE_NOT_SENT', label: 'Send fee message' }] }),
+    row({ stage: 'attention', mandate_ready: true, reasons: [{ code: 'MANDATE_NOT_READY', label: 'Check bank authorisation' }] }),
+  ])('keeps authorisation editing out of the row unless its bank-authorisation check is unresolved', async value => {
+    mocks.autopay.mockResolvedValue(response([value]));show();
+    const card=await screen.findByRole('article');
+    expect(within(card).queryByRole('button', { name: /Check bank authorisation for/ })).not.toBeInTheDocument();
+    expect(within(card).queryByText('Update authorisation')).not.toBeInTheDocument();
+  });
+
+  it('makes a secondary bank-authorisation check actionable alongside saved-run status', async () => {
+    mocks.autopay.mockResolvedValue(response([row({stage:'attention',mandate_ready:false,reasons:[{code:'CHECK_OTHER',label:'Check enrollment'},{code:'MANDATE_NOT_READY',label:'Check bank authorisation'}],bank_run:{id:'saved-run',branch:'MSA',collection_month:'2026-11',follow_up:'prepared',reason:'Saved bank file'}})]));
+    show();const card=await screen.findByRole('article');
+    expect(within(card).getByText('File saved')).toBeVisible();
+    expect(within(card).getByText('Check enrollment')).toBeVisible();
+    expect(within(card).getAllByRole('button',{name:'Check bank authorisation for Synthetic Student'})).toHaveLength(1);
+    expect(within(card).queryByText('+1 check')).not.toBeInTheDocument();
+  });
+
+  it('opens a new Ready bank workflow for the student profile branch, not the teaching filter', async () => {
+    mocks.location.mockReturnValue({ selectedLocation: 'MSB', locations: ['All Locations', 'MSA', 'MSB'], setSelectedLocation: mocks.setLocation });
+    show();
+    fireEvent.click(await screen.findByRole('button', { name: 'Details for Synthetic Student' }));
+    const details = await screen.findByRole('dialog', { name: 'Payment' });
+    fireEvent.click(within(details).getByRole('button', { name: 'Bank file & results' }));
+    const bank = await screen.findByRole('dialog', { name: 'Bank file & results' });
+    expect(screen.queryByRole('dialog', { name: 'Payment' })).not.toBeInTheDocument();
+    expect(within(bank).getByLabelText('Profile branch')).toHaveValue('MSA');
+    await waitFor(() => expect(mocks.bankRuns).toHaveBeenCalledWith({ collection_month: '2026-11', branch: 'MSA' }, expect.any(AbortSignal)));
+    expect(mocks.bankRun).not.toHaveBeenCalled();
+  });
+
+  it('updates authorisation from the attention row using the fresh preference version and refreshes the collection', async () => {
+    const attention = row({ stage: 'attention', mandate_ready: false, reasons: [{ code: 'MANDATE_NOT_READY', label: 'Check bank authorisation' }] });
+    mocks.autopay.mockImplementation(({ stage }: { stage: BillingAutopayStage }) => Promise.resolve(response(stage === 'attention' ? [attention] : [])));
+    show();fireEvent.click(await screen.findByRole('tab', { name: 'Needs attention 3' }));
+    const card = await screen.findByRole('article');
+    expect(within(card).getByRole('button', { name: 'Check bank authorisation for Synthetic Student' })).toHaveTextContent('Check bank authorisation');
+    fireEvent.click(within(card).getByRole('button', { name: 'Check bank authorisation for Synthetic Student' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Payment' });
+    const checkbox = await within(dialog).findByRole('checkbox', { name: 'Bank authorisation is ready.' });
+    await waitFor(() => expect(checkbox).toBeEnabled());fireEvent.click(checkbox);
+    mocks.autopay.mockResolvedValue(response([], { counts: { ready: 3, attention: 2, prepare: 4, skipped: 5 } }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save authorisation' }));
+    await waitFor(() => expect(mocks.savePreferences).toHaveBeenCalledWith(4, expect.objectContaining({ payment_method: 'autopay', mandate_ready: true, expected_version: 3 }), expect.any(AbortSignal)));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await screen.findByRole('tab', { name: 'Ready 3' });
+  });
+
+  it.each(['read_only', 'preferences_disabled', 'options_error'])('does not expose authorisation writes when %s', async mode => {
+    if (mode === 'read_only') mocks.auth.mockReturnValue({ user: { id: 1 }, isAdmin: true, isReadOnly: true, canViewAdminPages: true, isLoading: false, effectiveRole: 'Admin' });
+    if (mode === 'preferences_disabled') mocks.options.mockResolvedValue({ ...options, preferences_writes_available: false });
+    if (mode === 'options_error') mocks.options.mockRejectedValue(new Error('Options unavailable'));
+    show();
+    if (mode === 'options_error') { await screen.findByText('Options unavailable'); expect(screen.queryByRole('article')).not.toBeInTheDocument(); }
+    else { const card = await screen.findByRole('article');expect(within(card).queryByRole('button', { name: /Check bank authorisation for/ })).not.toBeInTheDocument(); }
+    expect(mocks.savePreferences).not.toHaveBeenCalled();
+  });
+
   it('opens the exact saved run month and profile branch while preserving the familiar Details action', async () => {
     mocks.location.mockReturnValue({ selectedLocation: 'MSB', locations: ['All Locations', 'MSA', 'MSB', 'Various'], setSelectedLocation: mocks.setLocation });
     mocks.autopay.mockResolvedValue(response([row({ stage: 'attention', bank_run: { id: 'earlier-run', branch: 'MSA', collection_month: '2026-11', follow_up: 'awaiting_results', reason: 'Awaiting bank results' } })], { collection_month: '2026-12', ready_total: 0 }));
@@ -104,7 +167,8 @@ describe('autopay collection review', () => {
     fireEvent.click(within(card).getByRole('button', { name: 'Details for Synthetic Student' }));
     const dialog = await screen.findByRole('dialog', { name: 'Payment' });
     expect(mocks.payment.mock.lastCall![0]).toEqual(expect.objectContaining({ studentId: 4, initialPaymentId: 'payment-one', canWrite: false, inline: true }));
-    expect(within(dialog).getByRole('link', { name: 'Open payment' })).toHaveAttribute('href', '/billing/students/4?view=payments&payment=payment-one');
+    expect(within(dialog).queryByRole('link', { name: 'Open payment' })).not.toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Bank file & results' })).toBeVisible());
     expect(within(dialog).queryByRole('link', { name: 'Review draft' })).not.toBeInTheDocument();
   });
 

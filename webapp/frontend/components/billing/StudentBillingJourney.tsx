@@ -8,6 +8,7 @@ import { CalendarRange, CreditCard, FileClock, History, RefreshCw, Route, Settin
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateCaches, usePageTitle } from '@/lib/hooks';
 import { billingAPI } from '@/lib/billing-api';
+import { renewalSourceFor } from '@/lib/billing-renewal';
 import { formatShortDate, plural } from '@/lib/formatters';
 import type { BillingSourceBlock, BillingContextBasis, BillingDraftDetail, BillingPreviewRequest } from '@/types/billing';
 import { Badge, Button, Field, PageHeader, Select } from '@/components/controls';
@@ -66,6 +67,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   });
   const [paymentId, setPaymentId] = useState<string | null>(params.get('payment'));
   const [restoredScenario, setRestoredScenario] = useState<BillingPreviewRequest | null>(null);
+  const [restoredReview, setRestoredReview] = useState<BillingDraftDetail['review'] | null>(null);
   const [intakeRevision, setIntakeRevision] = useState<string | null>(null);
   const [revisionTarget, setRevisionTarget] = useState<{ id: string; current_revision: number }>();
   const [previewGeneration, setPreviewGeneration] = useState(0);
@@ -100,9 +102,16 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   const selected = selection ?? context?.selected_enrollment_ids ?? [];
   const sourceError = error ? error instanceof Error ? error.message : 'Could not load this student’s payment journey.' : undefined;
 
+  function resetOverrideSource() {
+    if (!restoredReview?.renewal) return;
+    setRestoredReview(null);
+    setRestoredScenario(null);
+    setPreviewGeneration(value => value + 1);
+  }
+
   function chooseSlot(id: number, checked: boolean) {
     const next = checked ? [...selected, id] : selected.filter(value => value !== id);
-    if (next.length >= 1 && next.length <= 2) setSelection(next.sort((left, right) => left - right));
+    if (next.length >= 1 && next.length <= 2) { resetOverrideSource(); setSelection(next.sort((left, right) => left - right)); }
   }
 
   function changeTab(event: KeyboardEvent<HTMLButtonElement>) {
@@ -118,6 +127,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   function reviseDraft(draft: BillingDraftDetail) {
     if (draft.review.intake) { setIntakeRevision(draft.id); return; }
     setSavedDraft(null);
+    setRestoredReview(draft.review.renewal ? draft.review : null);
     setBasis(draft.review.basis);
     setSelection(draft.review.selected_enrollment_ids);
     // KMS verification must be deliberately checked again when revising.
@@ -130,6 +140,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   }
 
   function cancelRevision() {
+    setRestoredReview(null);
     setRestoredScenario(null);
     setRevisionTarget(undefined);
     setSelection(null);
@@ -138,7 +149,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
   }
 
   const sourceControls = context && <section className="space-y-4" aria-label="Existing enrollment settings">
-    <Field label="Count existing enrollments" id="journey-basis" className="max-w-sm"><Select title="The next enrollment starts after the enrollments counted here." value={basis} onChange={event => { setBasis(event.target.value as BillingContextBasis); setSelection(null); }}>
+    <Field label="Count existing enrollments" id="journey-basis" className="max-w-sm"><Select title="The next enrollment starts after the enrollments counted here." value={basis} onChange={event => { resetOverrideSource(); setBasis(event.target.value as BillingContextBasis); setSelection(null); }}>
       <option value="include_pending">Paid and unpaid</option><option value="paid_only">Paid only</option>
     </Select></Field>
     <fieldset className="space-y-2"><legend className="mb-2 text-sm font-semibold">Continuing timetable</legend>
@@ -153,7 +164,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
             {basis === 'include_pending' && <span className="block text-xs text-ink-subtle">Last session in existing enrollments: {dateOrUnknown(slot.last_retained_original_date)}</span>}</span>
         </label>;
       })}
-      {selection !== null && <Button size="sm" onClick={() => setSelection(null)}>Reset timetable</Button>}
+      {selection !== null && <Button size="sm" onClick={() => { resetOverrideSource(); setSelection(null); }}>Reset timetable</Button>}
     </fieldset>
   </section>;
 
@@ -190,9 +201,9 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
       </div>
       {savedDraft && !draftToOpen && <div role="status" className="flex flex-wrap items-center gap-2 text-sm"><span>Draft saved. Revision {savedDraft.revision}.</span><Button size="sm" variant="quiet" onClick={() => { setDraftToOpen(savedDraft.id); setView('drafts'); }}>Open draft</Button></div>}
       <section role="tabpanel" id={`${tabId}-journey-panel`} aria-labelledby={`${tabId}-journey-tab`} hidden={activeView !== 'journey'} className="space-y-3">
-        {context.suggested_request ? <BillingPreview key={previewGeneration} sourceLoading={isValidating || !!error} sourceError={sourceError} onRetrySource={() => { void mutate(); }} sourceKey={context.source_fingerprint} initialRequest={restoredScenario ?? context.suggested_request} contextIssues={context.issues} editorContent={sourceControls} couponSnapshot={context.coupon_snapshot}
+        {context.suggested_request ? <BillingPreview key={previewGeneration} sourceLoading={isValidating || !!error} sourceError={sourceError} onRetrySource={() => { void mutate(); }} sourceKey={restoredReview?.renewal ? `${context.source_fingerprint}:${basis}:${selected.join(',')}` : context.source_fingerprint} focused={!!restoredReview?.renewal} focusedPeriodNumber={restoredReview?.period.number ?? 1} renewalSource={restoredReview?.renewal ? renewalSourceFor(context, restoredReview) : undefined} initialRequest={restoredScenario ?? context.suggested_request} contextIssues={context.issues} editorContent={sourceControls} couponSnapshot={context.coupon_snapshot}
           draftContext={{ studentId, basis, selectedEnrollmentIds: selected, sourceFingerprint: context.source_fingerprint }} revisionTarget={revisionTarget} onCancelRevision={cancelRevision}
-          onDraftSaved={draft => { setSavedRefresh(value => value + 1); setSavedDraft({ id: draft.id, revision: draft.revision }); setDraftToOpen(draft.id); setRevisionTarget(undefined); setView('drafts'); }} embedded />
+          onDraftSaved={draft => { setRestoredReview(null); setRestoredScenario(null); setSavedRefresh(value => value + 1); setSavedDraft({ id: draft.id, revision: draft.revision }); setDraftToOpen(draft.id); setRevisionTarget(undefined); setView('drafts'); }} embedded />
           : <><div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-line p-4"><div className="space-y-3"><p className="text-sm">Check the timetable and records to prepare the next payment.</p><BillingChecks issues={context.issues} /></div><Button ref={sourceEditorTrigger} size="sm" icon={Settings2} onClick={() => setSourceEditorOpen(true)}>Edit preview</Button></div>
             <BillingEditorDialog open={sourceEditorOpen} onClose={() => setSourceEditorOpen(false)} trigger={sourceEditorTrigger}>
               <div className="space-y-4">
@@ -206,7 +217,7 @@ function JourneyContent({ studentId, tutorId, scope, initialBasis }: { studentId
         {activeView === 'drafts' && <BillingSavedDrafts studentId={studentId} scope={scope} refreshKey={savedRefresh} initialDraftId={draftToOpen} savedRevision={savedDraft?.revision}
           onOpenPayment={id => { setPaymentId(id); setView('payments'); }}
           onDraftClosed={() => setDraftToOpen(null)}
-          onDiscarded={id => { if (savedDraft?.id === id) setSavedDraft(null); void refreshDrafts(items => items?.filter(draft => draft.id !== id), false); }} onRevise={reviseDraft} workflowAvailable={workflowAvailable} workflowWritesAvailable={workflowWritesAvailable} onConfirmed={payment => { setPaymentId(payment.id); setSavedDraft(null); setSavedRefresh(value => value + 1); setView('payments'); invalidateCaches('enrollments', { studentId }); void mutate(); }} />}
+          onDiscarded={id => { if (revisionTarget?.id === id) cancelRevision(); if (savedDraft?.id === id) setSavedDraft(null); void refreshDrafts(items => items?.filter(draft => draft.id !== id), false); }} onRevise={reviseDraft} workflowAvailable={workflowAvailable} workflowWritesAvailable={workflowWritesAvailable} onConfirmed={payment => { setRestoredReview(null); setRestoredScenario(null); setRevisionTarget(undefined); setPaymentId(payment.id); setSavedDraft(null); setSavedRefresh(value => value + 1); setView('payments'); invalidateCaches('enrollments', { studentId }); void mutate(); }} />}
       </section>}
       {workflowAvailable && <section role="tabpanel" id={`${tabId}-payments-panel`} aria-labelledby={`${tabId}-payments-tab`} hidden={activeView !== 'payments'} className="space-y-3">
         {activeView === 'payments' && <BillingPayments canWrite={workflowWritesAvailable} key={paymentId ?? 'payments'} studentId={studentId} initialPaymentId={paymentId} refreshKey={savedRefresh} onChanged={() => { invalidateCaches('enrollments', { studentId }); void mutate(); }} />}

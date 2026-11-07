@@ -6,6 +6,37 @@ import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import type { BillingGapEvidence, BillingGapLesson } from '@/types/billing';
 
 describe('billing presentation checks', () => {
+  it('keeps renewal risks visible with one complete explanations section', () => {
+    render(<BillingChecks presentation="renewal" issues={[
+      { code: 'CONTINUATION_UNCONFIRMED', message: 'Confirm these classes will continue.', period: null },
+      { code: 'UNPAID_PAST_DATES', message: 'These past dates are included in this payment.', period: 1 },
+      { code: 'NEW_SERVER_RULE', message: 'Resolve this future policy check.', period: null },
+      { code: 'PENDING_BILLS', message: 'Existing unpaid enrollments still need payment.', period: null },
+    ]} />);
+    expect(screen.getByRole('region', { name: 'Renewal checks' })).toBeVisible();
+    expect(screen.getByText('Confirm the student is continuing.')).toBeVisible();
+    expect(screen.getByText('Check the past lesson dates.')).toBeVisible();
+    expect(screen.getAllByText('Check arrangement')[0]).toBeVisible();
+    expect(screen.getByText('Existing unpaid enrollments still need payment.')).not.toBeVisible();
+    expect(screen.queryByText(/\+\d+ details/)).not.toBeInTheDocument();
+    expect(document.querySelectorAll('details')).toHaveLength(1);
+    fireEvent.click(screen.getByText('Explanations and notes'));
+    expect(screen.getByText('Confirm these classes will continue.')).toBeVisible();
+    expect(screen.getByText('These past dates are included in this payment.')).toBeVisible();
+    expect(screen.getByText('Resolve this future policy check.')).toBeVisible();
+    expect(screen.getByText('Existing unpaid enrollments still need payment.')).toBeVisible();
+  });
+
+  it('preserves exact lesson-gap evidence under the renewal explanation section', () => {
+    const gap: BillingGapEvidence = { date: '2026-11-12', weekday: 'Thu', time_slot: '16:00 - 17:30', location: 'MSA', selected: true, enrollment_id: 12, kind: 'recorded_unpaid', before: null, after: null, matching_lessons: [{ session_id: 120, enrollment_id: 12, date: '2026-11-12', status: 'Scheduled', payment_status: 'Pending Payment', time_slot: '16:00 - 17:30', location: 'MSA' }], nearby_lessons: [] };
+    render(<BillingChecks presentation="renewal" issues={[{ code: 'CONDITIONAL_COVERAGE_GAP', message: 'Check these dates against the enrollment records.', period: 1, gap_evidence: [gap] }]} />);
+    expect(screen.getByText('Check lesson dates')).toBeVisible();
+    fireEvent.click(screen.getByText('Explanations and notes'));
+    expect(screen.getByRole('link', { name: 'Enrollment #12' })).toHaveAttribute('href', '/enrollments/12');
+    expect(screen.getByText('Unpaid session recorded')).toBeVisible();
+    expect(screen.getByText('Pending Payment · Scheduled')).toBeVisible();
+  });
+
   it('explains the exact questioned date and an existing unpaid enrollment', () => {
     const lesson: BillingGapLesson = { session_id: 120, enrollment_id: 12, date: '2026-11-12', status: 'Scheduled', payment_status: 'Pending Payment', time_slot: '16:00 - 17:30', location: 'MSA' };
     const gap: BillingGapEvidence = { date: lesson.date, weekday: 'Thu', time_slot: lesson.time_slot!, location: 'MSA', selected: true, enrollment_id: 13, kind: 'recorded_unpaid', before: { ...lesson, session_id: 110, enrollment_id: 11, date: '2026-11-05', payment_status: 'Paid' }, after: { ...lesson, session_id: 130, enrollment_id: 13, date: '2026-11-19', payment_status: 'Paid' }, matching_lessons: [lesson], nearby_lessons: [] };

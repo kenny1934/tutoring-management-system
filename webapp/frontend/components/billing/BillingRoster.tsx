@@ -18,6 +18,7 @@ import { PageSurface } from '@/components/layout/PageSurface';
 import { StudentInfoBadges } from '@/components/ui/student-info-badges';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import { BillingChecks } from './BillingChecks';
+import { BillingPaymentSettings } from './BillingPaymentSettings';
 import { BillingPlanControl } from './BillingPlanControl';
 import { BillingPreferenceBatchModal } from './BillingPreferenceBatchModal';
 import { billingDraftAuthScope } from './BillingDraftReview';
@@ -167,7 +168,7 @@ export function BillingRoster() {
                 <p className="text-xs text-ink-subtle">Last paid session: {row.last_paid_original_date ? formatShortDate(row.last_paid_original_date) : 'date to confirm'}</p>
                 <div className="flex flex-wrap gap-1.5">{row.pending_bill_count > 0 && <Badge tone="warning">{row.pending_bill_count} unpaid</Badge>}{row.sent_pending_bill_count > 0 && <Badge tone="info">{plural(row.sent_pending_bill_count, 'message')} sent</Badge>}{row.pending_makeup_count > 0 && <Badge>{plural(row.pending_makeup_count, 'makeup')}</Badge>}{row.selected_slot_count > 1 && <Badge>{row.selected_slot_count} sessions/week</Badge>}</div>
                 <BillingChecks issues={row.source_issues ?? row.issues} compact maxVisible={2} /></div>
-              <div className="min-w-0 space-y-1"><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Saved preference</p><BillingPlanControl key={`${selectionScope}:${row.student.id}:${canSelect}:${Number.isSafeInteger(row.preference_version)}`} row={row} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} tutorId={tutorId} onSaved={acceptPreference} onReload={() => mutate()} /></div>
+              <div className="min-w-0 space-y-1"><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Saved preference</p><BillingPlanControl key={`${selectionScope}:${row.student.id}:${canSelect}:${Number.isSafeInteger(row.preference_version)}`} row={row} showAuthorisation={false} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} tutorId={tutorId} onSaved={acceptPreference} onReload={() => mutate()} />{method === 'autopay' && <BillingPaymentSettings studentId={row.student.id} studentName={row.student.student_name} presentation="authorisation" recordedMethod={method} mandateReady={row.mandate_ready} storageAvailable={!!current.preferences_available} canWrite={canSelect && Number.isSafeInteger(row.preference_version)} onSaved={acceptPreference} />}</div>
               <div className={cn('grid min-w-0 gap-2 md:col-span-2 lg:col-span-1', !method && 'sm:grid-cols-2')}>
                 {(!method || method === 'manual') && <Scenario period={row.next_manual} method="manual" issues={row.method_issues?.manual} saved={!!method} />}
                 {(!method || method === 'autopay') && <Scenario period={row.next_autopay} method="autopay" issues={row.method_issues?.autopay} saved={!!method} />}

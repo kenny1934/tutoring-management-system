@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.3.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.9...v2.3.0) (2026-11-07)
+
+### New Features
+
+* **Enrollment renewals**: prepare transition and ongoing fees with exact lesson dates, editable previews, familiar renewal controls and batch actions.
+* **Payments and receipts**: manage combined enrollment payments, follow up overdue fees and track receipts issued in KMS.
+* **Autopay**: download separate bank files and totals for each branch, then import bank results to record successful collections and review rejected payments.
+* **Coupons**: import KMS records and check coupon values, expiry dates and remaining stock before applying discounts.
+* **Make-ups**: students on the new scheme can carry eligible make-ups through June, with pause and return controls.
+
+### Bug Fixes
+
+* **Batch renewal**: the old batch action now directs affected students to the new renewal workflow when their next enrollment starts under the new scheme.
+
 ## [2.2.9](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.8...v2.2.9) (2026-11-06)
 
 ### Bug Fixes
