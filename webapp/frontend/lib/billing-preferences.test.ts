@@ -230,6 +230,29 @@ describe('versioned payment preference updates', () => {
     expect(api.savePreferences.mock.calls[1][1]).toEqual(api.savePreferences.mock.calls[0][1]);
   });
 
+  it('confirms authorisation only against a fresh saved Autopay method', async () => {
+    api.preferences.mockResolvedValue(preference({ payment_method: 'autopay' }));
+    await new BillingPreferenceUpdater().save(target(), { mandate_ready: true }, undefined, undefined, 'autopay');
+    expect(api.savePreferences).toHaveBeenCalledWith(4, expect.objectContaining({ payment_method: 'autopay', mandate_ready: true, expected_version: 2 }), undefined);
+  });
+
+  it.each(['manual', null] as const)('refuses bulk authorisation when the fresh plan is %s', async payment_method => {
+    api.preferences.mockResolvedValue(preference({ payment_method }));
+    await expect(new BillingPreferenceUpdater().save(target(), { mandate_ready: true }, undefined, undefined, 'autopay')).rejects.toThrow('Autopay is no longer selected');
+    expect(api.savePreferences).not.toHaveBeenCalled();
+  });
+
+  it.each([408, 429])('retains the exact confirmation request after HTTP %s', async status => {
+    api.preferences.mockResolvedValue(preference({ payment_method: 'autopay' }));
+    api.savePreferences.mockRejectedValueOnce(Object.assign(new Error('Try again'), { status }));
+    const updater = new BillingPreferenceUpdater();
+    await expect(updater.save(target(), { mandate_ready: true }, undefined, undefined, 'autopay')).rejects.toThrow('Try again');
+    expect(updater.hasPending(4)).toBe(true);
+    await updater.save(target(), { mandate_ready: true }, undefined, undefined, 'autopay');
+    expect(api.preferences).toHaveBeenCalledTimes(1);
+    expect(api.savePreferences.mock.calls[1][1]).toEqual(api.savePreferences.mock.calls[0][1]);
+  });
+
   it('validates every field of a standalone preference snapshot', () => {
     expect(checkedPreferences(preference(), 4)).toEqual(preference());
     expect(() => checkedPreferences(preference({ student_id: 5 }), 4)).toThrow('Could not verify');

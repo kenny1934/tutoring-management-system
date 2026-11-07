@@ -4,7 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import useSWR, { useSWRConfig } from 'swr';
-import { Check, CreditCard } from 'lucide-react';
+import { Calendar, Check, CreditCard, UserRound, XCircle } from 'lucide-react';
 import { Badge, Button, Field, Input, Select, Textarea } from '@/components/controls';
 import { FeeMessageContent } from '@/components/enrollments/FeeMessageContent';
 import { shareOrCopy, useCanShare } from '@/lib/share';
@@ -13,9 +13,12 @@ import { Modal } from '@/components/ui/modal';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { billingToday } from '@/lib/billing-clock';
+import { BillingChecks } from './BillingChecks';
+import { BillingEnrollmentSessions } from './BillingEnrollmentSessions';
+import { billingCheck } from '@/lib/billing-presentation';
 import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
-import type { BillingPaymentDetail, BillingReceiptMethod, BillingReceiptTask } from '@/types/billing';
+import type { BillingConfirmableCheck, BillingPaymentDetail, BillingReceiptMethod, BillingReceiptTask } from '@/types/billing';
 import { BillingCopyFeedbackNotice, BillingDraftFocus, BillingDraftSummaryContent, billingDraftAuthScope, billingDraftTutorId, type BillingCopyFeedback } from './BillingDraftReview';
 
 function paymentMessageProof(detail: BillingPaymentDetail, language: 'zh' | 'en', sourceBlocked: boolean) {
@@ -27,7 +30,7 @@ function localToday() {
   return billingToday();
 }
 
-export function BillingPayments({ studentId, refreshKey, initialPaymentId, onChanged, canWrite = false, inline = false, onOpenEnrollment, onBusyChange, sourceBlocked = false, mode = 'payment', receiptTask, receiptFooter, onReceiptSaved, onNextReceipt, nextReceiptDisabled = true, receiptQueueComplete = false }: { receiptQueueComplete?: boolean; mode?: 'payment' | 'receipt'; receiptTask?: BillingReceiptTask; receiptFooter?: HTMLElement | null; onReceiptSaved?: (detail: BillingPaymentDetail) => void; onNextReceipt?: () => void; nextReceiptDisabled?: boolean; sourceBlocked?: boolean; onBusyChange?: (busy: boolean) => void; onOpenEnrollment?: (id: number) => void; inline?: boolean; canWrite?: boolean; studentId: number; refreshKey?: number; initialPaymentId?: string | null; onChanged: () => void }) {
+export function BillingPayments({ presentation = 'default', initialDetail, studentId, refreshKey, initialPaymentId, onChanged, canWrite = false, inline = false, onOpenEnrollment, onBusyChange, sourceBlocked = false, mode = 'payment', receiptTask, receiptFooter, onReceiptSaved, onNextReceipt, nextReceiptDisabled = true, receiptQueueComplete = false }: { presentation?: 'default' | 'renewal'; initialDetail?: BillingPaymentDetail; receiptQueueComplete?: boolean; mode?: 'payment' | 'receipt'; receiptTask?: BillingReceiptTask; receiptFooter?: HTMLElement | null; onReceiptSaved?: (detail: BillingPaymentDetail) => void; onNextReceipt?: () => void; nextReceiptDisabled?: boolean; sourceBlocked?: boolean; onBusyChange?: (busy: boolean) => void; onOpenEnrollment?: (id: number) => void; inline?: boolean; canWrite?: boolean; studentId: number; refreshKey?: number; initialPaymentId?: string | null; onChanged: () => void }) {
   const auth = useAuth();
   const tutorId = billingDraftTutorId(auth);
   const { mutate: refreshCache } = useSWRConfig();
@@ -35,11 +38,13 @@ export function BillingPayments({ studentId, refreshKey, initialPaymentId, onCha
   const list = useSWR(['billing-payments', scope, refreshKey], () => billingAPI.payments(studentId, tutorId), { keepPreviousData: false });
   const [selection, setSelection] = useState<{ scope: string; id: string } | null>(() => initialPaymentId ? { scope, id: initialPaymentId } : null);
   const selected = selection?.scope === scope ? selection.id : null;
-  const details = useSWR(selected ? ['billing-payment', scope, selected] : null, () => billingAPI.payment(selected!, tutorId), { keepPreviousData: false });
+  const initialScope = useRef(scope);
+  const fallbackDetail = initialScope.current === scope && initialDetail?.student_id === studentId && initialDetail.id === selected ? initialDetail : undefined;
+  const details = useSWR(selected ? ['billing-payment', scope, selected] : null, () => billingAPI.payment(selected!, tutorId), { keepPreviousData: false, fallbackData: fallbackDetail });
   const detail = details.data?.student_id === studentId && details.data?.id === selected ? details.data : null;
   const trigger = useRef<HTMLButtonElement | null>(null);
 
-  const content = <>{details.error ? <div role="alert" className="space-y-2 text-sm"><p>Could not load this payment.</p><Button onClick={() => details.mutate()}>Retry payment</Button></div> : !detail ? <p role="status" className="text-sm text-ink-subtle">Loading payment…</p> : <PaymentContent key={`${scope}:${detail.id}:${canWrite}`} detail={detail} receiptTask={receiptTask} mode={mode} receiptFooter={receiptFooter} onReceiptSaved={onReceiptSaved} onNextReceipt={onNextReceipt} nextReceiptDisabled={nextReceiptDisabled} receiptQueueComplete={receiptQueueComplete} sourceBlocked={sourceBlocked} canWrite={canWrite} onBusyChange={onBusyChange} onOpenEnrollment={onOpenEnrollment} onUpdate={async (next, changed) => { await details.mutate(next, false); if (changed) { void list.mutate().catch(() => {}); void refreshCache(key => Array.isArray(key) && ['billing-receipts', 'billing-receipts-count', 'billing-coupons'].includes(key[0])).catch(() => {}); onChanged(); } else { await list.mutate(); } }} />}</>;
+  const content = <>{details.error ? <div role="alert" className="space-y-2 text-sm"><p>Could not load this payment.</p><Button onClick={() => details.mutate()}>Retry payment</Button></div> : !detail ? <p role="status" className="text-sm text-ink-subtle">Loading payment…</p> : <PaymentContent presentation={presentation} key={`${scope}:${detail.id}:${canWrite}`} detail={detail} receiptTask={receiptTask} mode={mode} receiptFooter={receiptFooter} onReceiptSaved={onReceiptSaved} onNextReceipt={onNextReceipt} nextReceiptDisabled={nextReceiptDisabled} receiptQueueComplete={receiptQueueComplete} sourceBlocked={sourceBlocked} canWrite={canWrite} onBusyChange={onBusyChange} onOpenEnrollment={onOpenEnrollment} onUpdate={async (next, changed) => { await details.mutate(next, false); if (changed) { void list.mutate().catch(() => {}); void refreshCache(key => Array.isArray(key) && ['billing-receipts', 'billing-receipts-count', 'billing-coupons'].includes(key[0])).catch(() => {}); onChanged(); } else { await list.mutate(); } }} />}</>;
 
   return <section className="space-y-3" aria-label="Student payments">
     {!inline && <><h2 className="flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-ink-subtle" aria-hidden="true" />Payments</h2>
@@ -61,7 +66,7 @@ export function BillingPayments({ studentId, refreshKey, initialPaymentId, onCha
   </section>;
 }
 
-function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyChange, sourceBlocked, mode, receiptTask, receiptFooter, onReceiptSaved, onNextReceipt, nextReceiptDisabled, receiptQueueComplete }: { receiptQueueComplete: boolean; mode: 'payment' | 'receipt'; receiptTask?: BillingReceiptTask; receiptFooter?: HTMLElement | null; onReceiptSaved?: (detail: BillingPaymentDetail) => void; onNextReceipt?: () => void; nextReceiptDisabled: boolean; sourceBlocked: boolean; onBusyChange?: (busy: boolean) => void; onOpenEnrollment?: (id: number) => void; canWrite: boolean; detail: BillingPaymentDetail; onUpdate: (next: BillingPaymentDetail, changed?: boolean) => Promise<void> }) {
+function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnrollment, onBusyChange, sourceBlocked, mode, receiptTask, receiptFooter, onReceiptSaved, onNextReceipt, nextReceiptDisabled, receiptQueueComplete }: { presentation: 'default' | 'renewal'; receiptQueueComplete: boolean; mode: 'payment' | 'receipt'; receiptTask?: BillingReceiptTask; receiptFooter?: HTMLElement | null; onReceiptSaved?: (detail: BillingPaymentDetail) => void; onNextReceipt?: () => void; nextReceiptDisabled: boolean; sourceBlocked: boolean; onBusyChange?: (busy: boolean) => void; onOpenEnrollment?: (id: number) => void; canWrite: boolean; detail: BillingPaymentDetail; onUpdate: (next: BillingPaymentDetail, changed?: boolean) => Promise<void> }) {
   const auth = useAuth();
   const tutorId = billingDraftTutorId(auth);
   const identity = JSON.stringify([detail.id, billingDraftAuthScope(auth)]);
@@ -86,6 +91,7 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelConfirmed, setCancelConfirmed] = useState(false);
+  const cancelRegionId = useId();
   const [date, setDate] = useState(localToday);
   const [method, setMethod] = useState<BillingReceiptMethod>(detail.review.period.collection.method === 'autopay' ? 'autopay' : 'cash');
   const receiptFormId = useId();
@@ -201,15 +207,32 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
     </div>;
   }
 
-  return <div className="space-y-5">
+  const renewalChecks = paymentReviewChecks(detail);
+  const renewalWarnings = renewalChecks.filter(issue => billingCheck(issue.code).severity !== 'info');
+  const renewalNotes = renewalChecks.filter(issue => billingCheck(issue.code).severity === 'info');
+  return <div className="space-y-4">
+    {presentation === 'renewal' ? <RenewalPaymentSummary detail={detail} onOpenEnrollment={onOpenEnrollment} /> : <>
     <div className="flex flex-wrap items-center gap-2"><Badge tone={detail.status === 'Cancelled' ? 'neutral' : detail.status === 'Paid' ? 'success' : 'warning'}>{detail.status === 'Cancelled' ? 'Cancelled' : detail.status === 'Paid' ? 'Paid' : 'Unpaid'}</Badge>{detail.sent_at && <span className="text-xs text-ink-subtle">Message sent {formatShortDate(detail.sent_at)} ({detail.sent_language === 'en' ? 'English' : '中文'})</span>}</div>
-    {detail.status !== 'Pending Payment' && detail.review_issues.length > 0 && <ul role="alert" className="list-inside list-disc text-sm text-amber-800 dark:text-amber-300">{detail.review_issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
-    <BillingDraftSummaryContent review={detail.review} />
     <section className="space-y-2" aria-label="Linked enrollments"><h3 className="text-sm font-semibold">Enrollments</h3>{detail.lines.map(line => <div key={line.enrollment_id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-line p-3 text-xs"><div>{onOpenEnrollment ? <button type="button" className="font-medium text-accent-ink hover:underline" onClick={() => onOpenEnrollment(line.enrollment_id)}>Enrollment #{line.enrollment_id}</button> : <Link className="font-medium text-accent-ink hover:underline" href={`/enrollments/${line.enrollment_id}`}>Enrollment #{line.enrollment_id}</Link>}<p className="mt-1 text-ink-subtle">{line.tutor_name} · {plural(line.lesson_count, 'session')}</p></div><span>${(line.tuition_amount + line.materials_fee).toLocaleString('en-US')}</span></div>)}</section>
+    <BillingDraftSummaryContent review={detail.review} />
+
+    </>}
+    {detail.review_issues.length > 0 && <ul role="alert" className="list-inside list-disc text-sm text-amber-800 dark:text-amber-300">{detail.review_issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
+    {presentation === 'renewal' && <BillingChecks issues={renewalWarnings} compact />}
+
     {detail.status === 'Pending Payment' && <div className="flex flex-wrap gap-2">
-      {auth.isAdmin && canWrite && <Button icon={CreditCard} variant="primary" disabled={!safe || busy} onClick={() => { setCollecting(value => !value); setCancelling(false); }}>Record payment</Button>}
-      <Button variant="secondary" disabled={busy} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessageOpen(value => !value)}>{messageOpen ? 'Hide fee message' : 'Fee message'}</Button>
+      {auth.isAdmin && canWrite && <Button size="sm" icon={CreditCard} variant="primary" disabled={!safe || busy} onClick={() => { setCollecting(value => !value); setCancelling(false); }}>Record payment</Button>}
+      <Button size="sm" variant="secondary" disabled={busy} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessageOpen(value => !value)}>{messageOpen ? 'Hide fee message' : 'Fee message'}</Button>
+      {auth.isAdmin && canWrite && <Button size="sm" variant="secondary" icon={XCircle} iconClassName="text-red-600 dark:text-red-400" disabled={busy || !safe} aria-expanded={cancelling} aria-controls={cancelRegionId} onClick={() => { setCancelling(value => !value); setCollecting(false); }}>Cancel {detail.lines.length > 1 ? 'enrollments' : 'enrollment'}</Button>}
     </div>}
+    {auth.isAdmin && canWrite && detail.status === 'Pending Payment' && cancelling && <section id={cancelRegionId} className="space-y-3 border-t border-line pt-3">
+      <form className="space-y-3" aria-label="Cancel linked enrollments" onSubmit={event => { event.preventDefault(); void run('cancel'); }}>
+        <Field label="Reason for cancellation" id="payment-cancellation-reason"><Textarea id="payment-cancellation-reason" required maxLength={500} value={cancelReason} disabled={busy} onChange={event => setCancelReason(event.target.value)} /></Field>
+        {detail.sent_at && <p className="text-xs text-ink-subtle">Contact the parent separately about the cancelled fee message.</p>}
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={cancelConfirmed} disabled={busy} onChange={event => setCancelConfirmed(event.target.checked)} />Cancel every linked enrollment and its scheduled sessions.</label>
+        <Button type="submit" variant="danger" disabled={busy || !safe || !cancelConfirmed || !cancelReason.trim()}>Confirm cancellation</Button>
+      </form>
+    </section>}
     {detail.status === 'Pending Payment' ? <div id={messageRegionId} hidden={!messageOpen} inert={!messageOpen} className="space-y-3">
       <FeeMessageContent language={language} onLanguageChange={value => { setLanguage(value); setCopyFeedback(null); setMessageEditable(false); }}
         lessons={detail.review.period.lesson_count} message={message} originalMessage={originalMessage}
@@ -236,19 +259,56 @@ function PaymentContent({ detail, onUpdate, canWrite, onOpenEnrollment, onBusyCh
     {detail.status === 'Paid' && <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded border border-line p-3 text-sm"><dt className="text-ink-subtle">Payment date</dt><dd>{formatShortDate(detail.payment_date)}</dd><dt className="text-ink-subtle">Received by</dt><dd>{detail.received_method === 'bank_transfer' ? 'Bank transfer' : detail.received_method === 'autopay' ? 'Autopay' : 'Cash'}</dd>{detail.receipt_reference && <><dt className="text-ink-subtle">KMS receipt</dt><dd className="min-w-0 [overflow-wrap:anywhere]">{detail.receipt_reference}</dd></>}{detail.note && <><dt className="text-ink-subtle">Note</dt><dd className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{detail.note}</dd></>}</dl>}
     {detail.status === 'Cancelled' && detail.note && <section className="space-y-1 rounded border border-line p-3"><h3 className="text-sm font-semibold">Reason for cancellation</h3><p className="min-w-0 whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{detail.note}</p></section>}
     {detail.status === 'Paid' && !detail.receipt_reference && <section className="space-y-3 rounded border border-line p-3"><h3 className="text-sm font-semibold">KMS receipt pending</h3>{auth.isAdmin && canWrite && <form className="space-y-3" onSubmit={event => { event.preventDefault(); void run('receipt'); }}><Field label="Issued KMS receipt reference" id="issued-kms-receipt"><Input id="issued-kms-receipt" required value={receipt} maxLength={100} disabled={busy} onChange={event => changeReceipt(event.target.value)} /></Field>{couponReceipt && <ReceiptCouponCheck selected={couponSelected} onSelect={setCouponSelected} usedOn={couponUsedOn} onDate={setCouponUsedOn} busy={busy} />}{duplicateReceipt && <DuplicateReceiptCheck checked={duplicateAcknowledged} onChange={setDuplicateAcknowledged} busy={busy} />}<Button type="submit" disabled={busy || !safe || !receipt.trim() || !receiptReady}>Record KMS receipt</Button></form>}</section>}
-    {auth.isAdmin && canWrite && detail.status === 'Pending Payment' && <section className="space-y-3 border-t border-line pt-3">
-      <Button variant="quiet" disabled={busy || !safe} onClick={() => { setCancelling(value => !value); setCollecting(false); }}>Cancel {detail.lines.length > 1 ? 'enrollments' : 'enrollment'}</Button>
-      {cancelling && <form className="space-y-3" aria-label="Cancel linked enrollments" onSubmit={event => { event.preventDefault(); void run('cancel'); }}>
-        <Field label="Reason for cancellation" id="payment-cancellation-reason"><Textarea id="payment-cancellation-reason" required maxLength={500} value={cancelReason} disabled={busy} onChange={event => setCancelReason(event.target.value)} /></Field>
-        {detail.sent_at && <p className="text-xs text-ink-subtle">Contact the parent separately about the cancelled fee message.</p>}
-        <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={cancelConfirmed} disabled={busy} onChange={event => setCancelConfirmed(event.target.checked)} />Cancel every linked enrollment and its scheduled sessions.</label>
-        <Button type="submit" variant="danger" disabled={busy || !safe || !cancelConfirmed || !cancelReason.trim()}>Confirm cancellation</Button>
-      </form>}
-    </section>}
+
+    {presentation === 'renewal' && <section aria-label="Enrollment sessions" className="space-y-3">{detail.lines.map(line => <div key={line.enrollment_id} className="space-y-2">{detail.lines.length > 1 && <h4 className="text-sm font-medium">Enrollment #{line.enrollment_id}</h4>}<BillingEnrollmentSessions enrollmentId={line.enrollment_id} studentId={detail.student_id} /></div>)}</section>}
+    {presentation === 'renewal' && <BillingChecks issues={renewalNotes} presentation="renewal" />}
     <details className="rounded border border-line p-3"><summary className="cursor-pointer text-sm">Payment history</summary><ol className="mt-3 space-y-2 text-xs">{detail.history.map((event, index) => <li key={index}>{({ confirmed: 'Enrollment created', sent: 'Message marked sent', paid: 'Payment recorded', receipt: 'KMS receipt recorded', cancelled: 'Enrollment cancelled', cancel: 'Enrollment cancelled' } as Record<string, string>)[event.kind] ?? event.kind} · {event.actor_name} · {formatShortDate(event.created_at)}</li>)}</ol></details>
     {notice && <p ref={resultNotice} tabIndex={-1} role={notice.error ? 'alert' : 'status'} className="text-sm">{notice.text}</p>}
     {unverified && detail.status !== 'Pending Payment' && <Button size="sm" disabled={busy} onClick={() => { void run('refresh'); }}>Refresh payment</Button>}
   </div>;
+}
+
+function paymentReviewChecks(detail: BillingPaymentDetail) {
+  const period = detail.review.period;
+  return detail.review.issues.filter(issue => (issue.period === null || issue.period === period.number)
+    && !detail.review.confirmed_checks.includes(issue.code as BillingConfirmableCheck)
+    && !(issue.code === 'MANDATE_NOT_READY' && period.collection.method === 'manual'));
+}
+
+function RenewalPaymentSummary({ detail, onOpenEnrollment }: { detail: BillingPaymentDetail; onOpenEnrollment?: (id: number) => void }) {
+  const period = detail.review.period;
+  const multiple = detail.lines.length > 1;
+  const breakdown = period.deductions.length > 0 || period.materials_fee !== 0;
+  const status = detail.status === 'Cancelled' ? 'Cancelled' : detail.status === 'Paid' ? 'Paid' : 'Unpaid';
+  return <section aria-label="Enrollment fee" className="overflow-hidden rounded-lg border border-line">
+    <section aria-label="Linked enrollments" className="divide-y divide-line px-3">
+      {detail.lines.map((line, index) => {
+        const slot = detail.review.scenario.slots[line.slot_index];
+        const enrollment = `Enrollment #${line.enrollment_id}`;
+        return <div key={line.enrollment_id} className="space-y-2 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {onOpenEnrollment ? <button type="button" className="text-sm font-semibold text-accent-ink hover:underline" onClick={() => onOpenEnrollment(line.enrollment_id)}>{enrollment}</button> : <Link className="text-sm font-semibold text-accent-ink hover:underline" href={`/enrollments/${line.enrollment_id}`}>{enrollment}</Link>}
+            {index === 0 && <Badge tone={detail.status === 'Cancelled' ? 'neutral' : detail.status === 'Paid' ? 'success' : 'warning'}>{status}</Badge>}
+          </div>
+          <p className="flex items-center gap-2 text-sm"><UserRound className="h-3.5 w-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />{line.tutor_name}{multiple && <span className="ml-auto text-xs text-ink-subtle">{plural(line.lesson_count, 'session')}</span>}</p>
+          {slot && <p className="flex items-center gap-2 text-xs text-ink-subtle"><Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span>{[slot.weekday, slot.time_slot, slot.location].filter(Boolean).join(' · ')}</span></p>}
+        </div>;
+      })}
+    </section>
+    <div className="space-y-3 border-t border-line bg-wash p-3">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
+        <dt className="text-ink-subtle">Dates</dt><dd className="text-right">{formatShortDate(period.first_lesson_date)} to {formatShortDate(period.last_lesson_date)}</dd>
+        <dt className="text-ink-subtle">{period.collection.method === 'manual' ? 'Pay before' : 'Debit dates'}</dt><dd className="text-right">{period.collection.method === 'manual' ? formatShortDate(period.collection.due_before_lesson) : `${formatShortDate(period.collection.debit_from)} to ${formatShortDate(period.collection.debit_to)}`}</dd>
+      </dl>
+      <div className="flex flex-wrap items-end justify-between gap-2 border-t border-line pt-3"><div><strong className="text-lg">{period.total_fee === null ? 'To confirm' : formatMOP(period.total_fee, 0)}</strong><p className="mt-0.5 text-xs text-ink-subtle">{plural(period.lesson_count, 'session')}</p></div><PaymentMethodBadge method={period.collection.method} /></div>
+      {breakdown && <dl aria-label="Fee breakdown" className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 border-t border-line pt-2 text-xs">
+        <dt>Tuition</dt><dd>{formatMOP(period.gross_tuition, 0)}</dd>
+        {period.deductions.map((deduction, index) => <div key={index} className="contents"><dt>{deduction.kind === 'trial' ? 'Trial deduction' : deduction.kind === 'staff' ? 'Staff voucher' : 'Coupon'}</dt><dd>−{formatMOP(deduction.amount, 0)}</dd></div>)}
+        {period.materials_fee !== 0 && <><dt>Materials</dt><dd>{period.materials_fee === null ? 'To confirm' : formatMOP(period.materials_fee, 0)}</dd></>}
+      </dl>}
+      {detail.sent_at && <p className="text-xs text-ink-subtle">Message sent {formatShortDate(detail.sent_at)} ({detail.sent_language === 'en' ? 'English' : '中文'})</p>}
+    </div>
+  </section>;
 }
 
 function ReceiptCouponCheck({ selected, onSelect, usedOn, onDate, busy }: { selected: boolean; onSelect: (value: boolean) => void; usedOn: string; onDate: (value: string) => void; busy: boolean }) {

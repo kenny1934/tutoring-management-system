@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import useSWR from 'swr';
+import type { BillingRenewalCreator } from '@/lib/billing-renewal-create';
+import { BillingRenewalCreate } from './BillingRenewalCreate';
+import { RenewalSessionPreview } from './RenewalSessionPreview';
 import { ArrowLeft, Check, ClipboardCopy, FileCheck2, Save } from 'lucide-react';
 import { Button, Label, Segmented, Textarea } from '@/components/controls';
 import { Modal } from '@/components/ui/modal';
@@ -11,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { billingAPI } from '@/lib/billing-api';
 import { invalidateRenewalQueueCache } from '@/lib/renewal-queue';
 import { formatShortDate } from '@/lib/formatters';
-import type { BillingConfirmableCheck, BillingDraftDetail, BillingDraftReview as Review, BillingDraftReviewRequest, BillingPreviewResponse } from '@/types/billing';
+import type { BillingConfirmableCheck, BillingDraftDetail, BillingDraftReview as Review, BillingDraftReviewRequest, BillingPreviewResponse, BillingPaymentDetail } from '@/types/billing';
 
 export function billingDraftAuthScope(auth: ReturnType<typeof useAuth>): string {
   return JSON.stringify([auth.user?.id, auth.effectiveRole, auth.isImpersonating, auth.impersonatedTutor?.id, auth.isAdmin]);
@@ -65,32 +69,6 @@ const confirmations: Record<BillingConfirmableCheck, string> = {
   HOLIDAY_OPENING_ASSUMED: 'These holiday classes will run.',
 };
 
-function RenewalSessionDates({ review }: { review: Review }) {
-  const grouped = new Map<string, Review['period']['lessons']>();
-  for (const lesson of [...review.period.lessons].sort((a, b) => a.date.localeCompare(b.date) || (a.time_slot || '').localeCompare(b.time_slot || '') || a.slot - b.slot)) {
-    const month = lesson.date.slice(0, 7);
-    grouped.set(month, [...(grouped.get(month) ?? []), lesson]);
-  }
-  return <section aria-label="Enrollment session dates" className="space-y-2">
-    <h4 className="text-sm font-semibold">Session dates</h4>
-    <div className="overflow-hidden rounded-md border border-line">
-      <table className="w-full text-left text-xs">
-        <caption className="sr-only">Sessions included in this enrollment</caption>
-        <thead className="bg-wash text-ink-subtle"><tr><th scope="col" className="px-2 py-2 font-medium">Date</th><th scope="col" className="px-2 py-2 font-medium">Day</th><th scope="col" className="px-2 py-2 font-medium">Time</th><th scope="col" className="px-2 py-2 font-medium">Branch</th></tr></thead>
-        {[...grouped].map(([month, lessons]) => <tbody key={month}>
-          <tr className="border-t border-line bg-tint"><th scope="rowgroup" colSpan={4} className="px-2 py-2 font-medium"><span className="flex items-baseline justify-between gap-3"><span>{new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</span><span className="text-ink-subtle">{lessons.length} {lessons.length === 1 ? 'session' : 'sessions'}</span></span></th></tr>
-          {lessons.map((lesson, index) => <tr key={`${lesson.date}:${lesson.slot}:${index}`} className="border-t border-line">
-            <td className="whitespace-nowrap px-2 py-2 align-top tabular-nums">{formatShortDate(lesson.date)}</td>
-            <td className="px-2 py-2 align-top">{lesson.weekday}</td>
-            <td className="px-2 py-2 align-top">{lesson.time_slot || 'To confirm'}{lesson.holiday_exception && <span className="mt-0.5 block text-amber-800 dark:text-amber-300">Holiday class</span>}</td>
-            <td className="px-2 py-2 align-top">{lesson.location || 'To confirm'}</td>
-          </tr>)}
-        </tbody>)}
-      </table>
-    </div>
-  </section>;
-}
-
 export function BillingDraftSummaryContent({ review, calculation, presentation = 'default', confirmationControls = false }: { review: Review; calculation?: BillingPreviewResponse; presentation?: 'default' | 'renewal'; confirmationControls?: boolean }) {
   const period = review.period;
   const manualUnderAutopay = review.scenario.payment_method === 'autopay' && period.collection.method === 'manual';
@@ -115,7 +93,7 @@ export function BillingDraftSummaryContent({ review, calculation, presentation =
     </div>
     <div className="grid grid-cols-2 gap-3 rounded-md bg-wash p-3 text-sm sm:grid-cols-3"><div><p className="text-xs text-ink-subtle">Sessions</p><p className="mt-1 font-semibold">{period.lesson_count}</p></div><div><p className="text-xs text-ink-subtle">Total fee</p><p className="mt-1 font-semibold">{period.total_fee === null ? 'To confirm' : `$${period.total_fee.toLocaleString('en-US')}`}</p></div><div className="col-span-2 sm:col-span-1"><p className="text-xs text-ink-subtle">Payment</p><p className="mt-1 text-xs">{period.collection.method === 'manual' ? `Before ${formatShortDate(period.collection.due_before_lesson)}` : `${formatShortDate(period.collection.debit_from)} to ${formatShortDate(period.collection.debit_to)}`}</p></div></div>
     <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs"><dt>Tuition · {period.lesson_count} sessions</dt><dd>${period.gross_tuition.toLocaleString('en-US')}</dd>{period.deductions.map((deduction, index) => <div key={index} className="contents"><dt>{deduction.kind === 'trial' ? 'Trial deduction' : deduction.kind === 'staff' ? 'Staff coupon' : 'Coupon'}</dt><dd>−${deduction.amount.toLocaleString('en-US')}</dd></div>)}<dt>Materials</dt><dd>{period.materials_fee === null ? 'To confirm' : `$${period.materials_fee.toLocaleString('en-US')}`}</dd><dt className="border-t border-line pt-1 font-semibold">Total</dt><dd className="border-t border-line pt-1 font-semibold">{period.total_fee === null ? 'To confirm' : `$${period.total_fee.toLocaleString('en-US')}`}</dd></dl>
-    {presentation === 'renewal' ? <RenewalSessionDates review={review} /> : <>
+    {presentation === 'renewal' ? <RenewalSessionPreview review={review} calculation={calculation} /> : <>
     <div aria-label="Sessions by month" className="flex flex-wrap gap-2">{period.counts_by_month.map(value => <span key={value.month} className="rounded bg-tint px-2 py-1 text-xs"><span className="font-medium">{new Date(`${value.month}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })}</span> · {value.lessons} {value.lessons === 1 ? 'session' : 'sessions'}</span>)}</div>
     {period.counts_by_slot.filter(count => count > 0).length > 1 && <div aria-label="Sessions by class" className="grid gap-2">{period.counts_by_slot.map((count, index) => {
       if (!count) return null;
@@ -174,7 +152,11 @@ export function BillingDraftMessage({ review, canCopy, onCopy, busy = false, onL
 
 
 
-export function BillingDraftReview({ studentId, reviewRequest, storageAvailable, onSaved, revisionTarget, inline = false, onBusyChange, calculation, summaryPresentation = 'default' }: {
+export function BillingDraftReview({ studentId, reviewRequest, storageAvailable, onSaved, revisionTarget, inline = false, onBusyChange, calculation, summaryPresentation = 'default', preferencesAvailable = false, directCreation, saveLabel, onStaleReview }: {
+  preferencesAvailable?: boolean;
+  directCreation?: { creator: BillingRenewalCreator; canWrite: boolean; onCreated: (payment: BillingPaymentDetail) => void };
+  saveLabel?: string;
+  onStaleReview?: () => void;
   studentId: number;
   reviewRequest: BillingDraftReviewRequest;
   storageAvailable: boolean;
@@ -195,15 +177,18 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
   const open = inline || (openKey === baseKey && (!presentation || presentation.active));
   const active = useRef(open); active.current = open;
   const [confirmed, setConfirmed] = useState<{ key: string; values: BillingConfirmableCheck[] }>({ key: '', values: [] });
-  const [mandate, setMandate] = useState({ key: '', ready: false });
-  const mandateReady = auth.isAdmin && mandate.key === baseKey && mandate.ready;
+  const preferenceScope = `${studentId}:${billingDraftAuthScope(auth)}`;
+  const preferences = useSWR(open && preferencesAvailable ? ['billing-preferences', preferenceScope] : null,
+    () => billingAPI.preferences(studentId, tutorId), { keepPreviousData: false });
+  const mandateReady = preferencesAvailable ? !!preferences.data?.mandate_ready : !!reviewRequest.scenario.mandate_ready;
   const values = confirmed.key === baseKey ? confirmed.values : reviewRequest.confirmed_checks ?? [];
   const request = { ...reviewRequest, scenario: { ...reviewRequest.scenario, mandate_ready: mandateReady }, confirmed_checks: values };
   const requestKey = JSON.stringify([baseKey, values, mandateReady]);
   const currentKey = useRef(requestKey); currentKey.current = requestKey;
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{ key: string; baseKey: string; data: Review } | null>(null);
-  const review = result?.key === requestKey ? result.data : null;
+  const preferencesUnavailable = preferencesAvailable && (!!preferences.error || !preferences.data);
+  const review = result?.key === requestKey && !preferencesUnavailable ? result.data : null;
   // Acknowledgements recheck the same enrollment. Keep its layout mounted so
   // the scroll container does not shrink while the request is in flight.
   // Only the current review may be saved or copied.
@@ -213,7 +198,8 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
   const [copyFeedback, setCopyFeedback] = useState<{ key: string; value: BillingCopyFeedback; previousReview?: Review } | null>(null);
   useEffect(() => { setCopyFeedback(null); }, [requestKey]);
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const busy = busyKey === requestKey;
+  const [creating, setCreating] = useState(false);
+  const busy = busyKey === requestKey || creating;
   useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
   useEffect(() => { setDetailBusy?.(busy); return () => setDetailBusy?.(false); }, [busy, setDetailBusy]);
   const currentFailure = failure?.key === requestKey ? failure : null;
@@ -234,7 +220,7 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
   useEffect(() => () => { operation.current?.abort(); setReviewing?.(false); }, [baseKey, setReviewing]);
   useEffect(() => () => operation.current?.abort(), [open, requestKey]);
   useEffect(() => {
-    if (!open) return;
+    if (!open || preferencesUnavailable) return;
     const abort = new AbortController();
     billingAPI.draftReview(studentId, JSON.parse(JSON.stringify(request)), abort.signal, tutorId).then(data => {
       if (!abort.signal.aborted && currentKey.current === requestKey) { setResult({ key: requestKey, baseKey, data }); setFailure(null); }
@@ -242,7 +228,7 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
     return () => abort.abort();
     // requestKey captures the complete request and authorisation scope.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, requestKey, retry]);
+  }, [open, requestKey, retry, preferencesUnavailable]);
   useLayoutEffect(() => {
     if (presentation?.inDialog) {
       if (open) back.current?.focus();
@@ -303,21 +289,23 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
 
   const activeCopyFeedback = copyFeedback?.key === requestKey ? copyFeedback : null;
   const withheldCopyReview = !review && activeCopyFeedback?.previousReview;
-  const noteFields = <><Label htmlFor={`draft-note-${displayedReview?.review_hash}`}>Draft note</Label><Textarea id={`draft-note-${displayedReview?.review_hash}`} value={note} maxLength={5000} disabled={busy} onChange={event => setNote({ key: baseKey, text: event.target.value })} /></>;
-  const saveAction = <Button icon={Save} disabled={!review || !storageAvailable || busy || savedContent === contentKey} onClick={save}>{savedContent === contentKey ? 'Saved' : revisionTarget ? 'Save revision' : 'Save draft'}</Button>;
+  const noteFields = <><Label htmlFor={`draft-note-${displayedReview?.review_hash}`}>{directCreation ? 'Enrollment note' : 'Draft note'}</Label><Textarea id={`draft-note-${displayedReview?.review_hash}`} value={note} maxLength={5000} disabled={busy} onChange={event => setNote({ key: baseKey, text: event.target.value })} /></>;
+  const saveAction = <Button icon={Save} disabled={!review || !storageAvailable || busy || savedContent === contentKey} onClick={save}>{savedContent === contentKey ? 'Saved' : saveLabel ?? (revisionTarget ? 'Save revision' : 'Save draft')}</Button>;
   const messageToggle = <Button size="sm" variant="secondary" disabled={busy || !review} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessagePreview(messageOpen ? null : baseKey)}>{messageOpen ? 'Hide fee message' : 'Preview fee message'}</Button>;
+  const createAction = directCreation && <BillingRenewalCreate creator={directCreation.creator} authScope={billingDraftAuthScope(auth)} studentId={studentId} review={preferences.error ? null : review} request={request} note={note} revisionTarget={revisionTarget}
+    canWrite={directCreation.canWrite} storageAvailable={storageAvailable} onCreated={directCreation.onCreated} onBusyChange={setCreating} onStale={onStaleReview} />;
   const body = <div className="space-y-5" aria-busy={!review && !!displayedReview}>
     {presentation?.inDialog && <Button ref={back} icon={ArrowLeft} variant="quiet" disabled={busy} onClick={() => close()}>Back to payment details</Button>}
     {!displayedReview && !currentFailure && <p role="status" className="text-sm text-ink-subtle">Checking payment details…</p>}
     {failure?.key === requestKey && !withheldCopyReview && <div role="alert" className="space-y-2 text-sm text-red-700 dark:text-red-300"><p>{failure.message}</p>{!review && <Button size="sm" onClick={() => { setFailure(null); setCopyFeedback(null); setRetry(value => value + 1); }}>Retry review</Button>}</div>}
-    {auth.isAdmin && result?.baseKey === baseKey && result.data.period.collection.method === 'autopay' && <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={mandateReady} disabled={busy || !review} onChange={event => setMandate({ key: baseKey, ready: event.target.checked })} />Bank authorisation is ready for this payment.</label>}
+    {preferencesAvailable && preferences.error && <div role="alert" className="space-y-2 text-sm"><p>Could not load bank authorisation.</p><Button size="sm" onClick={() => preferences.mutate()}>Retry payment settings</Button></div>}
     {displayedReview && <><BillingDraftSummaryContent review={displayedReview} presentation={summaryPresentation} confirmationControls={auth.isAdmin} calculation={displayedReview.source_fingerprint === reviewRequest.expected_source_fingerprint ? calculation : undefined} />
       {auth.isAdmin && Object.entries(confirmations).filter(([code]) => displayedReview.issues.some(issue => issue.code === code) || values.includes(code as BillingConfirmableCheck)).map(([code, label]) => <label key={code} className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={values.includes(code as BillingConfirmableCheck)} disabled={busy || !review} onChange={event => setConfirmed({ key: baseKey, values: event.target.checked ? [...values, code as BillingConfirmableCheck] : values.filter(value => value !== code) })} />{label}</label>)}
       {summaryPresentation !== 'renewal' && <BillingDraftMessage review={displayedReview} canCopy={!!review && review.period.total_fee !== null} onCopy={copy} busy={busy || !review} feedback={activeCopyFeedback?.value} onLanguageChange={() => setCopyFeedback(null)} />}
       {auth.isAdmin && <div className="space-y-2">
         {showNote && noteFields}
-        {summaryPresentation === 'renewal' ? <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2">{!note && <Button size="sm" variant="quiet" disabled={busy || !review} onClick={() => setNoteEditor(showNote ? null : baseKey)}>{showNote ? 'Hide note' : 'Add note'}</Button>}{messageToggle}</div><div className="ml-auto">{saveAction}</div></div> : saveAction}
-        {!storageAvailable && <p className="text-xs text-ink-subtle">Saving drafts is not available yet.</p>}
+        {summaryPresentation === 'renewal' ? <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2">{!note && <Button size="sm" variant="quiet" disabled={busy || !review} onClick={() => setNoteEditor(showNote ? null : baseKey)}>{showNote ? 'Hide note' : 'Add note'}</Button>}{messageToggle}</div><div className="ml-auto">{createAction || saveAction}</div></div> : saveAction}
+        {!storageAvailable && <p className="text-xs text-ink-subtle">{directCreation ? 'Enrollment creation is not available yet.' : 'Saving drafts is not available yet.'}</p>}
       </div>}
       {summaryPresentation === 'renewal' && <>
         {!auth.isAdmin && messageToggle}

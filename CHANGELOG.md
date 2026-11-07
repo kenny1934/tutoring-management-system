@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.3.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.3.0...v2.3.1) (2026-11-08)
+
+### New Features
+
+* **Bank authorisation**: confirm verified authorisations for multiple Autopay students from Payment plans, with individual results and retries.
+
+### Improvements
+
+* **Enrollment renewals**: create enrollments directly with a familiar lesson preview, custom time inputs and the student's saved bank authorisation.
+* **Coupons**: choose an available verified coupon without re-entering its details during renewal.
+* **Payment details**: renewal and Autopay views now show a clearer enrollment summary, familiar session popovers and consistent fee-message styling.
+* **Payment plans**: simpler labels and controls make preferences and upcoming fees easier to scan.
+
+### Bug Fixes
+
+* **Renewal lists**: saving preferences and completing actions now update entries without replacing the list with a loading screen.
+
 ## [2.3.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.2.9...v2.3.0) (2026-11-07)
 
 ### New Features

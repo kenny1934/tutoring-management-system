@@ -5,10 +5,11 @@ import useSWR from 'swr';
 import { Button, Field, Select } from '@/components/controls';
 import { useAuth } from '@/contexts/AuthContext';
 import { billingAPI } from '@/lib/billing-api';
+import { BillingRenewalCreator } from '@/lib/billing-renewal-create';
 import { renewalSourceFor } from '@/lib/billing-renewal';
 import { invalidateCaches } from '@/lib/hooks';
 import { formatShortDate } from '@/lib/formatters';
-import type { BillingContextBasis, BillingDraftDetail, BillingMethod, BillingQueueRow } from '@/types/billing';
+import type { BillingContextBasis, BillingDraftDetail, BillingMethod, BillingPaymentDetail, BillingQueueRow } from '@/types/billing';
 import { billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview';
 import { BillingChecks } from './BillingChecks';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
@@ -20,10 +21,11 @@ import { BillingEnrollmentIntake } from './BillingEnrollmentIntake';
 export type BillingRenewalAction = { kind: 'renew' } | { kind: 'draft' | 'payment'; id: string };
 
 /** The renewal workspace and the full journey use the same review and payment controls. */
-export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrollment, onActionChange, onBusyChange, onBatchDraftSaved }: {
+export function BillingRenewalPanel({ row, initialAction, onChanged, onCreated, onOpenEnrollment, onActionChange, onBusyChange, onBatchDraftSaved }: {
   row: BillingQueueRow;
   initialAction: BillingRenewalAction;
   onChanged: () => void;
+  onCreated?: (payment: BillingPaymentDetail) => void;
   onOpenEnrollment: (id: number) => void;
   onActionChange: (action: BillingRenewalAction) => void;
   onBusyChange: (busy: boolean) => void;
@@ -33,7 +35,10 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
   const studentId = row.student.id;
   const scope = `${studentId}:${billingDraftAuthScope(auth)}`;
   const tutorId = billingDraftTutorId(auth);
+  const creator = useRef({ scope, value: new BillingRenewalCreator() });
+  if (creator.current.scope !== scope) creator.current = { scope, value: new BillingRenewalCreator() };
   const [action, setAction] = useState(initialAction);
+  const [createdPayment, setCreatedPayment] = useState<{ scope: string; payment: BillingPaymentDetail } | null>(null);
   const [basis, setBasis] = useState<BillingContextBasis>('include_pending');
   const [selection, setSelection] = useState<number[] | null>(null);
   const [method, setMethod] = useState<BillingMethod | null | undefined>(undefined);
@@ -66,6 +71,12 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
     invalidateCaches('enrollments', { studentId });
     void context.mutate();
     onChanged();
+  }
+
+  function created(payment: BillingPaymentDetail) {
+    setCreatedPayment({ scope, payment });
+    setRevision(null); setAction({ kind: 'payment', id: payment.id });
+    changed(); onCreated?.(payment);
   }
 
   function revise(draft: BillingDraftDetail) {
@@ -105,6 +116,9 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
       {sourceError && <div role="alert" className="space-y-2 text-sm"><p>{sourceError}</p><Button size="sm" onClick={() => context.mutate()}>Retry records</Button></div>}
       {source && !previewMethod && <><p className="text-sm text-ink-subtle">Choose Autopay or Manual for this renewal.</p><BillingChecks issues={source.issues} presentation="renewal" /></>}
       {source && previewMethod && scenario && <BillingPreview onBusyChange={setFormBusy} key={generation} focused embedded initialRequest={{ ...scenario, payment_method: previewMethod }}
+        renewalCreator={onBatchDraftSaved ? undefined : creator.current.value}
+        onEnrollmentCreated={onBatchDraftSaved ? undefined : created}
+        draftSaveLabel={onBatchDraftSaved ? 'Apply to batch' : undefined}
         focusedPeriodNumber={revision?.review.period.number ?? 1} sourceKey={`${source.source_fingerprint}:${basis}:${selected.join(',')}`} renewalSource={renewalSource} sourceLoading={context.isValidating || !!sourceError} sourceError={sourceError}
         onRetrySource={() => { void context.mutate(); }} contextIssues={source.issues} editorContent={sourceControls} couponSnapshot={source.coupon_snapshot}
         draftContext={{ studentId, basis, selectedEnrollmentIds: selected, sourceFingerprint: source.source_fingerprint }}
@@ -117,7 +131,7 @@ export function BillingRenewalPanel({ row, initialAction, onChanged, onOpenEnrol
     {action.kind === 'draft' && options?.draft_storage_available && <BillingSavedDrafts inline onBusyChange={setFormBusy} key={action.id} studentId={studentId} scope={scope} initialDraftId={action.id} savedRevision={savedRevision}
       workflowAvailable={!!options.workflow_available} workflowWritesAvailable={!!options.workflow_writes_available} onRevise={revise}
       onDiscarded={() => { resetRevision(); setAction({ kind: 'renew' }); onChanged(); }}
-      onOpenPayment={id => setAction({ kind: 'payment', id })} onConfirmed={payment => { setAction({ kind: 'payment', id: payment.id }); changed(); }} />}
-    {action.kind === 'payment' && options?.workflow_available && <BillingPayments inline onBusyChange={setFormBusy} key={action.id} studentId={studentId} initialPaymentId={action.id} canWrite={!!options.workflow_writes_available} onChanged={changed} onOpenEnrollment={onOpenEnrollment} />}
+      onOpenPayment={id => setAction({ kind: 'payment', id })} onConfirmed={created} />}
+    {action.kind === 'payment' && options?.workflow_available && <BillingPayments inline presentation="renewal" initialDetail={createdPayment?.scope === scope && createdPayment.payment.id === action.id ? createdPayment.payment : undefined} onBusyChange={setFormBusy} key={action.id} studentId={studentId} initialPaymentId={action.id} canWrite={!!options.workflow_writes_available} onChanged={changed} onOpenEnrollment={onOpenEnrollment} />}
   </fieldset></div>;
 }

@@ -1,9 +1,9 @@
 import { act, fireEvent, render as renderBase, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { BillingPreview } from './BillingPreview';
-import type { BillingPreviewResponse } from '@/types/billing';
+import type { BillingCouponBalance, BillingPreviewRequest, BillingPreviewResponse } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ preview: vi.fn(), auth: vi.fn(), params: vi.fn(), review: vi.fn(), tutors: [] as { id: number; tutor_name: string; default_location: string; is_active_tutor?: boolean; departure_effective_on?: string }[] }));
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), auth: vi.fn(), params: vi.fn(), review: vi.fn(), coupons: undefined as BillingCouponBalance | undefined, checkingCoupons: false, couponError: undefined as Error | undefined, tutors: [] as { id: number; tutor_name: string; default_location: string; is_active_tutor?: boolean; departure_effective_on?: string }[] }));
 const options = {
   academic_start: '2026-09-01', first_payment_from: '2026-10-30', regular_end: '2027-07-04', makeup_end: '2027-06-30',
   unit_fee: 400, first_minimum: 6, ordinary_coupon_minimum: 4, policy_version: 'test',
@@ -13,10 +13,10 @@ vi.mock('next/navigation', () => ({ useSearchParams: mocks.params }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/lib/hooks', () => ({ usePageTitle: vi.fn() }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { options: vi.fn(), preview: mocks.preview } }));
-vi.mock('swr', () => ({ default: (key: string) => ({ data: key === 'tutors' ? mocks.tutors : key === 'locations' ? ['MSA', 'Various', 'MSB', 'All Locations'] : options, mutate: vi.fn() }) }));
+vi.mock('swr', () => ({ default: (key: string | unknown[] | null) => Array.isArray(key) && key[0] === 'billing-coupons' ? { data: mocks.coupons, isValidating: mocks.checkingCoupons, error: mocks.couponError, mutate: vi.fn() } : ({ data: key === 'tutors' ? mocks.tutors : key === 'locations' ? ['MSA', 'Various', 'MSB', 'All Locations'] : options, mutate: vi.fn() }) }));
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
-vi.mock('./BillingDraftReview', () => ({ BillingDraftReview: (props: { inline?: boolean; reviewRequest: { period_number: number } }) => { mocks.review(props); return <p>Review period {props.reviewRequest.period_number}</p>; } }));
+vi.mock('./BillingDraftReview', () => ({ billingDraftAuthScope: () => 'admin-1', billingDraftTutorId: () => undefined, BillingDraftReview: (props: { inline?: boolean; reviewRequest: { period_number: number } }) => { mocks.review(props); return <p>Review period {props.reviewRequest.period_number}</p>; } }));
 
 function response(): BillingPreviewResponse {
   return {
@@ -52,11 +52,151 @@ beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: false, isGuest: false });
   mocks.preview.mockReset().mockResolvedValue(response());
   mocks.review.mockReset();
+  mocks.coupons = undefined; mocks.checkingCoupons = false; mocks.couponError = undefined;
   mocks.tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }, { id: 13, tutor_name: 'Tutor Other', default_location: 'MSB' }];
 });
 afterEach(() => vi.useRealTimers());
 
 describe('enrollment fee preview', () => {
+  it('uses a verified ledger coupon for renewal without editable KMS fields and invalidates changed evidence', async () => {
+    mocks.coupons = { student_id: 4, storage_available: true, writes_available: true, version: 3,
+      observation: { id: 'obs', remaining_count: 2, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
+      reserved_count: 1, receipt_pending_count: 0, used_awaiting_sync_count: 0, usable_count: 1,
+      groups: [{ key: 'ordinary', kind: 'ordinary', value: 300, expires_on: '2027-06-30', quantity: 2, usable_count: 1 }],
+      checked_at: '2026-11-01', checked_by: 'Fixture', issues: [], uses: [], can_verify: true };
+    const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    const props = { focused: true, embedded: true, initialRequest: initial, renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }, draftContext: { studentId: 4, basis: 'include_pending' as const, selectedEnrollmentIds: [7], sourceFingerprint: 'source' } };
+    const view = renderBase(<BillingPreview {...props} />);
+    await calculate();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'ordinary' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: {
+      kind: 'ordinary', value: 300, expires_on: '2027-06-30', available_count: 1, verified: true, combine_next_month: false,
+    } }), expect.any(AbortSignal));
+    expect(screen.queryByLabelText('Coupon amount')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Coupon expiry')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Remaining coupon count')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Checked in KMS')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Include next month/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Manage student coupons' })).toHaveAttribute('href', '/students/4#student-coupons');
+    const callsBeforeStudentChange = mocks.preview.mock.calls.length;
+    view.rerender(<BillingPreview {...props} draftContext={{ ...props.draftContext, studentId: 5 }} />);
+    await calculate();
+    expect(mocks.preview).toHaveBeenCalledTimes(callsBeforeStudentChange);
+    expect(screen.getByText('Check coupons or select No coupon to continue.')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('__changed');
+    expect(screen.queryByRole('option', { name: /300.*coupon/ })).not.toBeInTheDocument();
+    view.rerender(<BillingPreview {...props} />);
+    await calculate();
+    const callsBeforeCheck = mocks.preview.mock.calls.length;
+    mocks.checkingCoupons = true;
+    view.rerender(<BillingPreview {...props} />);
+    await calculate();
+    expect(mocks.preview).toHaveBeenCalledTimes(callsBeforeCheck);
+    expect(screen.getByText('Check coupons or select No coupon to continue.')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toBeEnabled();
+    mocks.checkingCoupons = false;
+    mocks.coupons = { ...mocks.coupons, version: 4 };
+    view.rerender(<BillingPreview {...props} />);
+    await calculate();
+    expect(screen.getByText('Coupon details changed. Select a coupon again.')).toBeVisible();
+    expect(mocks.preview).toHaveBeenCalledTimes(callsBeforeCheck);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'ordinary' } });
+    await calculate();
+    const callsBeforeImport = mocks.preview.mock.calls.length;
+    view.rerender(<BillingPreview {...props} couponSnapshot={{ remaining_count: 0, cached_value: '300', synced_at_utc: '2026-11-02', verified: false }} />);
+    await calculate();
+    expect(mocks.preview).toHaveBeenCalledTimes(callsBeforeImport);
+    expect(screen.getByText('Coupon details changed. Select a coupon again.')).toBeVisible();
+
+  });
+
+  it('does not trust an incoming verified coupon until it is selected from current ledger stock', async () => {
+    const initial = { first_lesson_date: '2026-11-10', mode: 'regular' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const }], materials_fee: 0, trial_deduction: false, mandate_ready: false,
+      coupon: { kind: 'ordinary' as const, value: 300, expires_on: '2027-06-30', available_count: 9, verified: true, combine_next_month: true } };
+    renderBase(<BillingPreview focused initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate();
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(screen.getByText('Check coupons or select No coupon to continue.')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toBeEnabled();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+  });
+
+  it.each([
+    { kind: 'regular', lessons: 3, couponKind: 'ordinary' as const, visible: true },
+    { kind: 'regular', lessons: 4, couponKind: 'ordinary' as const, visible: false },
+    { kind: 'transition', lessons: 3, couponKind: 'ordinary' as const, visible: false },
+    { kind: 'legacy', lessons: 3, couponKind: 'ordinary' as const, visible: false },
+    { kind: 'regular', lessons: 3, couponKind: 'staff' as const, visible: false },
+  ])('offers optional coupon month combination only where applicable: %j', async ({ kind, lessons, couponKind, visible }) => {
+    mocks.coupons = { student_id: 4, storage_available: true, writes_available: true, version: 3,
+      observation: { id: 'obs', remaining_count: 1, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
+      reserved_count: 0, receipt_pending_count: 0, used_awaiting_sync_count: 0, usable_count: 1,
+      groups: [{ key: 'selected', kind: couponKind, value: couponKind === 'staff' ? 500 : 300, expires_on: '2027-06-30', quantity: 1, usable_count: 1 }],
+      checked_at: '2026-11-01', checked_by: 'Fixture', issues: [], uses: [], can_verify: true };
+    const result = response(); result.periods[0] = { ...result.periods[0], kind, lesson_count: lessons };
+    mocks.preview.mockResolvedValue(result);
+    const initial = { first_lesson_date: '2026-11-10', mode: 'regular' as const, payment_method: 'autopay' as const, slots: [{ weekday: 'Tue' as const }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'selected' } });
+    await calculate();
+    const control = screen.queryByRole('checkbox', { name: 'Include next month to reach 4 sessions' });
+    expect(!!control).toBe(visible);
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: expect.objectContaining({ combine_next_month: false }) }), expect.any(AbortSignal));
+    if (control) {
+      fireEvent.click(control);
+      await calculate();
+      expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: expect.objectContaining({ combine_next_month: true }) }), expect.any(AbortSignal));
+    }
+  });
+
+  it('supports the old custom-time workflow and withholds incomplete or reversed ranges', async () => {
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-11-10', slots: [{ weekday: 'Tue', time_slot: '16:45 - 18:15', location: 'MSA' }], mode: 'regular', payment_method: 'manual', materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused embedded initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'one' }} />);
+    await calculate();
+    fireEvent.click(screen.getByRole('button', { name: 'Use custom time' }));
+    expect(screen.getByLabelText('Start time')).toHaveValue('16:45');
+    expect(screen.getByLabelText('End time')).toHaveValue('18:15');
+    fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '17:00' } });
+    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '18:30' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ slots: [expect.objectContaining({ time_slot: '17:00 - 18:30' })] }), expect.any(AbortSignal));
+    const validCalls = mocks.preview.mock.calls.length;
+    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '' } });
+    await calculate();
+    expect(screen.getByRole('alert')).toHaveTextContent('End time must be after start time');
+    expect(mocks.preview).toHaveBeenCalledTimes(validCalls);
+    expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '16:00' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenCalledTimes(validCalls);
+    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '18:30' } });
+    fireEvent.change(screen.getByLabelText('Day of week'), { target: { value: 'Sat' } });
+    await calculate();
+    expect(screen.getByLabelText('Start time')).toHaveValue('17:00');
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ slots: [expect.objectContaining({ weekday: 'Sat', time_slot: '17:00 - 18:30' })] }), expect.any(AbortSignal));
+    fireEvent.click(screen.getByRole('button', { name: 'Use preset time slots' }));
+    expect(screen.getByRole('combobox', { name: 'Time slot' })).toHaveValue('10:00 - 11:30');
+    expect(screen.queryByLabelText('Start time')).not.toBeInTheDocument();
+  });
+
+  it('opens inherited custom times in the clock inputs and resets their mode with fresh source data', async () => {
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-11-10', slots: [{ weekday: 'Tue', time_slot: '17:00 - 18:30', location: 'MSA' }], mode: 'regular', payment_method: 'manual', materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    const props = { focused: true, embedded: true, initialRequest: initial, sourceKey: 'one', renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] } };
+    const view = renderBase(<BillingPreview {...props} />);
+    expect(screen.getByLabelText('Start time')).toHaveValue('17:00');
+    const fresh = { ...initial, slots: [{ ...initial.slots[0], time_slot: '16:45 - 18:15' }] };
+    view.rerender(<BillingPreview {...props} sourceKey="two" initialRequest={fresh} renewalSource={{ ...props.renewalSource, scenario: fresh }} />);
+    expect(screen.queryByLabelText('Start time')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Time slot' })).toHaveValue('16:45 - 18:15');
+  });
+
   it('uses the old renewal field order and reviews a changed tutor with source lineage', async () => {
     mocks.tutors[0].is_active_tutor = false;
     mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
@@ -66,7 +206,7 @@ describe('enrollment fee preview', () => {
     await calculate();
     const section = screen.getByRole('region', { name: 'Renewal enrollment details' });
     const labels = [...section.querySelectorAll('label')].map(label => label.textContent);
-    expect(labels.slice(0, 6)).toEqual(['Tutor', 'Location', 'Day of week', 'Time slot', 'First lesson date', 'Discount']);
+    expect(labels.slice(0, 6)).toEqual(['Tutor', 'Location', 'Day of week', 'Time slot', 'First lesson date', 'Coupon']);
     const tutor = screen.getByLabelText('Tutor');
     expect(tutor).toHaveValue('9');
     expect(within(tutor).queryByRole('option', { name: 'Tutor Other' })).not.toBeInTheDocument();
@@ -91,7 +231,9 @@ describe('enrollment fee preview', () => {
     renderBase(<BillingPreview focused embedded initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] }}
       draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
     await calculate();
-    expect(screen.getByText('Weekly class')).toBeVisible();
+    expect(screen.queryByText('Weekly class')).not.toBeInTheDocument();
+    expect(screen.queryByText('Special arrangements')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Next enrollment' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Reason for change')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add second weekly class' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Enter a custom timetable')).not.toBeInTheDocument();

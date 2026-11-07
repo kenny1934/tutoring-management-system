@@ -4,24 +4,28 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type Componen
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { Calculator, Calendar, Clock, Loader2, MapPin, Settings2, type LucideIcon } from 'lucide-react';
+import { TimeRangeInput } from '@/components/controls/TimeRangeInput';
+import { parseTimeRange } from '@/lib/time-slots';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageTitle } from '@/lib/hooks';
 import { statsAPI, tutorsAPI } from '@/lib/api';
 import { billingAPI } from '@/lib/billing-api';
 import { BILLING_DAYS, suggestedStartAfterTrial, weekdayForDate } from '@/lib/billing-preview';
 import type { Tutor } from '@/types';
+import type { BillingRenewalCreator } from '@/lib/billing-renewal-create';
 import type { BillingRenewalSource } from '@/lib/billing-renewal';
 import { pickableTutors, isHomeBranch } from '@/lib/employment';
 import { getTutorSortName } from '@/components/zen/utils/sessionSorting';
-import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from '@/lib/constants';
-import type { BillingContextBasis, BillingDraftDetail, BillingIntakeRequest, BillingMethod, BillingMode, BillingPreviewRequest, BillingPreviewResponse, BillingSlot, BillingWeekday, StudentBillingContext } from '@/types/billing';
+import { DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from '@/lib/constants';
+import type { BillingContextBasis, BillingDraftDetail, BillingIntakeRequest, BillingMethod, BillingPaymentDetail, BillingMode, BillingPreviewRequest, BillingPreviewResponse, BillingSlot, BillingWeekday, StudentBillingContext } from '@/types/billing';
 import { Badge, Button, Field, Input, PageHeader, Select, Textarea } from '@/components/controls';
 import { PageSurface } from '@/components/layout/PageSurface';
 import { BillingCouponPanel } from './BillingCouponPanel';
+import { BillingRenewalCoupon, matchingRenewalCoupon, type RenewalCouponSelection } from './BillingRenewalCoupon';
 import { BillingChecks } from './BillingChecks';
 import { PaymentJourney } from './PaymentJourney';
 import { BillingEditorDialog } from './BillingEditorDialog';
-import { BillingDraftReview } from './BillingDraftReview';
+import { BillingDraftReview, billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview';
 
 function RenewalScheduleSelect({ icon: Icon, ...props }: ComponentProps<typeof Select> & { icon: LucideIcon }) {
   return <div className="relative"><Icon className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-ink-subtle" aria-hidden="true" /><Select {...props} className="pl-10" /></div>;
@@ -31,7 +35,17 @@ function selectableBranch(location: string) {
   return location !== 'Various' && location !== 'All Locations';
 }
 
-export function BillingPreview({ initialRequest, embedded = false, contextIssues = [], editorContent, couponSnapshot, sourceLoading = false, sourceKey, sourceError, onRetrySource, draftContext, revisionTarget, onDraftSaved, onCancelRevision, focused = false, focusedPeriodNumber = 1, onBusyChange, intake, intakeTutors = [], defaultMaterialsFee, materialsBasis, renewalSource }: {
+function customTimeIndices(slots: BillingSlot[]) {
+  return new Set(slots.flatMap((slot, index) => {
+    const times: readonly string[] = slot.weekday === 'Sat' || slot.weekday === 'Sun' ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
+    return slot.time_slot && !times.includes(slot.time_slot) ? [index] : [];
+  }));
+}
+
+export function BillingPreview({ initialRequest, embedded = false, contextIssues = [], editorContent, couponSnapshot, sourceLoading = false, sourceKey, sourceError, onRetrySource, draftContext, revisionTarget, onDraftSaved, onCancelRevision, focused = false, focusedPeriodNumber = 1, onBusyChange, intake, intakeTutors = [], defaultMaterialsFee, materialsBasis, renewalSource, renewalCreator, onEnrollmentCreated, draftSaveLabel }: {
+  renewalCreator?: BillingRenewalCreator;
+  onEnrollmentCreated?: (payment: BillingPaymentDetail) => void;
+  draftSaveLabel?: string;
   renewalSource?: BillingRenewalSource;
   initialRequest?: BillingPreviewRequest;
   embedded?: boolean;
@@ -57,7 +71,9 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
 }) {
   usePageTitle(focused ? undefined : embedded && !intake ? 'Student payment journey' : 'Enrollment fee preview');
   const params = useSearchParams();
-  const { user, isLoading: authLoading, isAdmin, isGuest } = useAuth();
+  const auth = useAuth();
+  const { user, isLoading: authLoading, isAdmin, isGuest } = auth;
+  const routineRenewal = focused && !intake;
   const [firstDate, setFirstDate] = useState(() => initialRequest?.first_lesson_date || suggestedStartAfterTrial(params.get('trial_date') || ''));
   const [mode, setMode] = useState<BillingMode>(initialRequest?.mode || 'new_student');
   const sourceVersion = sourceKey ?? JSON.stringify(initialRequest);
@@ -68,6 +84,8 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     weekday: weekdayForDate(suggestedStartAfterTrial(params.get('trial_date') || '')) || 'Mon',
     time_slot: params.get('time_slot') || '', location: selectableBranch(params.get('location') || '') ? params.get('location') || '' : '',
   }]);
+  const [customRenewalTimes, setCustomRenewalTimes] = useState(() => customTimeIndices(initialRequest?.slots ?? []));
+  const presetTimes = useRef(new Map<number, string>());
   const [materials, setMaterials] = useState(initialRequest?.materials_fee == null ? '' : String(initialRequest.materials_fee));
   const [materialsEdited, setMaterialsEdited] = useState(initialRequest?.mode === 'new_student' && initialRequest.materials_fee != null);
   const [deduction, setDeduction] = useState(() => initialRequest ? initialRequest.coupon?.kind || (initialRequest.trial_deduction ? 'trial' : 'none') : params.get('trial_date') ? 'trial' : 'none');
@@ -75,6 +93,11 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   const [couponExpiry, setCouponExpiry] = useState(initialRequest?.coupon?.expires_on || '');
   const [couponCount, setCouponCount] = useState(initialRequest?.coupon?.available_count == null ? '' : String(initialRequest.coupon.available_count));
   const [couponVerified, setCouponVerified] = useState(initialRequest?.coupon?.verified || false);
+  const [renewalCouponSnapshot, setRenewalCouponSnapshot] = useState(JSON.stringify(couponSnapshot ?? null));
+  const [renewalCoupon, setRenewalCoupon] = useState<RenewalCouponSelection | null>(() => routineRenewal && initialRequest?.coupon ? {
+    studentId: draftContext?.studentId ?? -1, version: -1, group: { key: '__initial', kind: initialRequest.coupon.kind,
+      value: initialRequest.coupon.value, expires_on: initialRequest.coupon.expires_on || '', quantity: 0, usable_count: null },
+  } : null);
   const [couponBalanceVersion, setCouponBalanceVersion] = useState<number | null>(null);
   const couponVersion = JSON.stringify([couponSnapshot ?? null, couponBalanceVersion]);
   const [verifiedCouponVersion, setVerifiedCouponVersion] = useState(couponVersion);
@@ -102,6 +125,26 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   const enabled = !!user && !isGuest;
   const sourceBlocked = sourceLoading || !!sourceError;
   const { data: options, error: optionsError, mutate: reloadOptions } = useSWR(enabled ? 'billing-preview-options' : null, billingAPI.options);
+  const savedPreferences = useSWR(enabled && routineRenewal && draftContext && options?.workflow_available
+    ? ['billing-preferences', `${draftContext.studentId}:${billingDraftAuthScope(auth)}`] : null,
+    () => billingAPI.preferences(draftContext!.studentId, billingDraftTutorId(auth)), { keepPreviousData: false });
+  const renewalCouponState = useSWR(enabled && routineRenewal && draftContext
+    ? ['billing-coupons', `${draftContext.studentId}:${billingDraftAuthScope(auth)}`] : null,
+    () => billingAPI.couponBalance(draftContext!.studentId, billingDraftTutorId(auth)), { keepPreviousData: false });
+  const renewalCouponBalance = renewalCouponState.data?.student_id === draftContext?.studentId ? renewalCouponState.data : undefined;
+  const renewalCouponFailed = !!renewalCouponState.error || (!!renewalCouponState.data && !renewalCouponBalance);
+  const renewalCouponChecking = !renewalCouponFailed && (!!renewalCouponState.isValidating || !renewalCouponBalance);
+  const currentCouponSnapshot = JSON.stringify(couponSnapshot ?? null);
+  const previousCouponSnapshot = useRef(currentCouponSnapshot);
+  useEffect(() => {
+    if (previousCouponSnapshot.current === currentCouponSnapshot) return;
+    previousCouponSnapshot.current = currentCouponSnapshot;
+    if (routineRenewal && draftContext) void renewalCouponState.mutate();
+  }, [currentCouponSnapshot, routineRenewal, draftContext, renewalCouponState]);
+  const renewalSelection = renewalCoupon && renewalCouponSnapshot !== JSON.stringify(couponSnapshot ?? null) ? { ...renewalCoupon, version: -1 } : renewalCoupon;
+  const selectedRenewalCoupon = matchingRenewalCoupon(renewalCouponBalance, renewalSelection,
+    renewalCouponChecking || renewalCouponFailed);
+  const effectiveMandateReady = routineRenewal && savedPreferences.data ? savedPreferences.data.mandate_ready : mandateReady;
   const { data: locations = [] } = useSWR(enabled ? 'locations' : null, statsAPI.getLocations);
   const tutorRoster = useSWR<Tutor[]>(enabled && focused && !intake ? 'tutors' : null, () => tutorsAPI.getAll());
   const tutors = pickableTutors(Array.isArray(tutorRoster.data) ? tutorRoster.data : []);
@@ -118,6 +161,8 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       setRenewalReason(renewalSource?.reason || '');
       setRenewalTutorIds([...(renewalSource?.selectedTutorIds ?? renewalSource?.tutorIds ?? [])]);
       setFirstDate(initialRequest.first_lesson_date);
+      setCustomRenewalTimes(customTimeIndices(initialRequest.slots));
+      presetTimes.current.clear();
       setMode(initialRequest.mode);
       if (initialRequest.mode === 'new_student' && !materialsEdited) setMaterials(initialRequest.materials_fee == null ? '' : String(initialRequest.materials_fee));
       setSlots(initialRequest.slots.map(slot => ({ ...slot,
@@ -136,25 +181,29 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   }, [couponEvidenceChanged, couponVersion]);
 
   const request = useMemo<BillingPreviewRequest | null>(() => {
+    if (routineRenewal && renewalCoupon && !selectedRenewalCoupon) return null;
+    if (routineRenewal && slots.some((slot, index) => customRenewalTimes.has(index) && !parseTimeRange(slot.time_slot || ''))) return null;
     if (!firstDate || !weekdayForDate(firstDate) || (adjust && isAdmin && (!adjustThrough || !adjustReason.trim()))) return null;
     if (mode === 'new_student' && materials !== '' && (!Number.isInteger(Number(materials)) || Number(materials) < 0)) return null;
-    if (couponSelected && deduction !== 'staff' && (!Number.isInteger(Number(couponValue)) || Number(couponValue) <= 0)) return null;
-    if (couponSelected && couponCount !== '' && (!Number.isInteger(Number(couponCount)) || Number(couponCount) < 0)) return null;
+    if (!routineRenewal && couponSelected && deduction !== 'staff' && (!Number.isInteger(Number(couponValue)) || Number(couponValue) <= 0)) return null;
+    if (!routineRenewal && couponSelected && couponCount !== '' && (!Number.isInteger(Number(couponCount)) || Number(couponCount) < 0)) return null;
     if (slots.some(slot => slot.holiday_exceptions?.some(day => !weekdayForDate(day)))) return null;
     return {
       first_lesson_date: firstDate, slots: mode === 'new_student' ? slots.map(slot => ({ ...slot, covered_through: null })) : slots, mode, payment_method: method,
       materials_fee: mode === 'new_student' ? (materials === '' ? null : Number(materials)) : 0,
-      trial_deduction: mode === 'new_student' && deduction === 'trial', mandate_ready: mandateReady,
+      trial_deduction: mode === 'new_student' && deduction === 'trial' && (!routineRenewal || !selectedRenewalCoupon), mandate_ready: effectiveMandateReady,
       adjustment: adjust && isAdmin ? { through: adjustThrough, reason: adjustReason.trim() } : null,
-      coupon: couponSelected ? {
+      coupon: routineRenewal ? (selectedRenewalCoupon ? {
+        kind: selectedRenewalCoupon.kind, value: selectedRenewalCoupon.value, expires_on: selectedRenewalCoupon.expires_on,
+        available_count: selectedRenewalCoupon.usable_count, verified: true, combine_next_month: combineCoupon,
+      } : null) : couponSelected ? {
         kind: deduction as 'ordinary' | 'staff', value: deduction === 'staff' ? 500 : Number(couponValue),
         expires_on: couponExpiry || null, available_count: couponCount === '' ? null : Number(couponCount),
         verified: couponVerified && !couponEvidenceChanged, combine_next_month: combineCoupon,
       } : null,
     };
-  }, [firstDate, slots, mode, method, materials, deduction, mandateReady, adjust, adjustThrough, adjustReason,
-    isAdmin, couponSelected, couponValue, couponExpiry, couponCount, couponVerified, couponEvidenceChanged, combineCoupon]);
-  const routineRenewal = focused && !intake;
+  }, [firstDate, slots, mode, method, materials, deduction, effectiveMandateReady, adjust, adjustThrough, adjustReason,
+    isAdmin, routineRenewal, customRenewalTimes, renewalCoupon, selectedRenewalCoupon, couponSelected, couponValue, couponExpiry, couponCount, couponVerified, couponEvidenceChanged, combineCoupon]);
   const renewalTutorsChanged = !!renewalSource?.tutorIds && JSON.stringify(renewalTutorIds) !== JSON.stringify(renewalSource.tutorIds);
   const renewalTutorsReady = !renewalTutorsChanged || (renewalTutorIds.length === slots.length && renewalTutorIds.every(id => id > 0));
   const renewalChanged = !!renewalSource && (renewalTutorsChanged || firstDate !== renewalSource.scenario.first_lesson_date
@@ -215,15 +264,21 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-editor-tab="${next}"]`)?.focus();
   }
 
+  const couponPeriod = preview?.[method]?.periods.find(period => period.number === focusedPeriodNumber);
+  const couponUsedEarlier = preview?.[method]?.periods.some(period => period.number < focusedPeriodNumber && period.deductions.some(item => item.kind === 'ordinary' || item.kind === 'staff'));
+  const canCombineRenewalCoupon = selectedRenewalCoupon?.kind === 'ordinary' && !couponUsedEarlier && !!couponPeriod
+    && couponPeriod.kind !== 'legacy' && couponPeriod.kind !== 'transition' && !(adjust && couponPeriod.number === 1)
+    && couponPeriod.coverage_through < (options?.regular_end || '')
+    && (combineCoupon || couponPeriod.lesson_count < (options?.ordinary_coupon_minimum ?? 4));
   const discountField = <Field label="Discount" id="billing-deduction"><Select value={deduction} onChange={e => { setDeduction(e.target.value); setCouponVerified(false); }}><option value="none">No discount</option>{mode === 'new_student' && (!intake || intake.trial_enrollment_id) && <option value="trial">$150 trial deduction</option>}<option value="ordinary">Coupon</option><option value="staff">$500 staff voucher</option></Select></Field>;
-  const feeFields = <section className={routineRenewal ? "space-y-3" : "space-y-3 border-t border-line pt-4"} aria-label="Discount details">
-      {!routineRenewal && <h3 className="text-sm font-semibold">Discounts and materials</h3>}
+  const feeFields = !routineRenewal && <section className="space-y-3 border-t border-line pt-4" aria-label="Discount details">
+      <h3 className="text-sm font-semibold">Discounts and materials</h3>
       <div className="grid gap-3 sm:grid-cols-2">
-        {!routineRenewal && discountField}
+        {discountField}
         {mode === 'new_student' && <Field label="Materials charge" id="billing-materials" hint={materialsBasis || 'Enter 0 if waived.'}><Input disabled={!!intake && !isAdmin} type="number" min="0" max="10000" step="1" placeholder="To confirm" value={materials} onChange={e => { setMaterials(e.target.value); setMaterialsEdited(true); }} /></Field>}
         {materialsChanged && <Field label="Reason for materials adjustment" id="billing-materials-reason"><Textarea disabled={!isAdmin} value={materialsReason} maxLength={500} onChange={event => setMaterialsReason(event.target.value)} /></Field>}
       </div>
-      {draftContext && (!routineRenewal || couponSelected) ? <BillingCouponPanel studentId={draftContext.studentId} legacyCount={couponSnapshot?.remaining_count} onVersion={setCouponBalanceVersion} onChanged={onRetrySource} onSelect={group => { setDeduction(group.kind); setCouponValue(String(group.value)); setCouponExpiry(group.expires_on); setCouponCount(String(group.usable_count)); setCouponVerified(true); }} /> : couponSnapshot && <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle"><Badge>{couponSnapshot.remaining_count} {couponSnapshot.remaining_count === 1 ? 'coupon' : 'coupons'}</Badge><span>Check KMS before use.</span></div>}
+      {draftContext ? <BillingCouponPanel studentId={draftContext.studentId} legacyCount={couponSnapshot?.remaining_count} onVersion={setCouponBalanceVersion} onChanged={onRetrySource} onSelect={group => { setDeduction(group.kind); setCouponValue(String(group.value)); setCouponExpiry(group.expires_on); setCouponCount(String(group.usable_count)); setCouponVerified(true); }} /> : couponSnapshot && <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle"><Badge>{couponSnapshot.remaining_count} {couponSnapshot.remaining_count === 1 ? 'coupon' : 'coupons'}</Badge><span>Check KMS before use.</span></div>}
       {couponSelected && <fieldset className="rounded-md border border-line p-3 space-y-3">
         <legend className="px-1 text-xs font-medium">Coupon details</legend>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -285,7 +340,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
         return <fieldset key={i} className="rounded-md border border-line p-3">
           <legend className="px-1 text-xs font-medium text-ink-subtle">{slots.length === 1 ? 'Weekly class' : `Class ${i + 1}`}</legend>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Weekday" id={`billing-day-${i}`}><Select disabled={sourceBlocked} value={slot.weekday} onChange={e => updateSlot(i, { weekday: e.target.value as BillingWeekday })}>{BILLING_DAYS.map(day => <option key={day}>{day}</option>)}</Select></Field>
+            <Field label="Weekday" id={`billing-day-${i}`}><Select disabled={sourceBlocked} value={slot.weekday} onChange={e => updateSlot(i, { weekday: e.target.value as BillingWeekday })}>{DAY_NAMES.map(day => <option key={day}>{day}</option>)}</Select></Field>
             {intake && <Field label="Tutor" id={`billing-tutor-${i}`}><Select disabled={sourceBlocked} value={intakeSlots[i]?.tutor_id || ''} onChange={event => setIntakeSlots(current => current.map((value, index) => index === i ? { ...value, tutor_id: Number(event.target.value) } : value))}><option value="">Choose tutor</option>{intakeTutors.map(tutor => <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>)}</Select></Field>}
             {customTimetable ? <>
               <Field label={`Custom time for class ${i + 1}`} id={`billing-custom-time-${i}`}><Input disabled={sourceBlocked} value={slot.time_slot || ''} placeholder="16:45 - 18:15" maxLength={100} onChange={e => updateSlot(i, { time_slot: e.target.value })} /></Field>
@@ -345,7 +400,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       const inheritedTutorId = renewalSource?.tutorIds?.[index] || null;
       const chosen = (Array.isArray(tutorRoster.data) ? tutorRoster.data : []).find(tutor => tutor.id === chosenId);
       return <fieldset key={index} className="space-y-2" disabled={renewalDetailsBlocked}>
-        <legend className="mb-2 text-xs font-medium text-ink-subtle">{slots.length > 1 ? `Class ${index + 1}` : 'Weekly class'}</legend>
+        {slots.length > 1 && <legend className="mb-2 text-xs font-medium text-ink-subtle">Class {index + 1}</legend>}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Tutor" id={`renewal-tutor-${index}`}><Select id={`renewal-tutor-${index}`} disabled={!renewalSource?.tutorIds?.every(id => id > 0)} value={chosenId} onChange={event => setRenewalTutorIds(current => current.map((id, i) => i === index ? Number(event.target.value) : id))}>
             <option value="">{!chosenId && renewalSource?.tutorNames[index] ? renewalSource.tutorNames[index] : 'Select tutor...'}</option>
@@ -354,8 +409,24 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
             {offered.map(tutor => <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>)}
           </Select></Field>
           <Field label="Location" id={`renewal-branch-${index}`}><RenewalScheduleSelect icon={MapPin} id={`renewal-branch-${index}`} value={slot.location || ''} onChange={event => updateSlot(index, { location: event.target.value })}><option value="">Choose branch</option>{branches.map(branch => <option key={branch}>{branch}</option>)}</RenewalScheduleSelect></Field>
-          <Field label="Day of week" id={`renewal-weekday-${index}`}><RenewalScheduleSelect icon={Calendar} id={`renewal-weekday-${index}`} value={slot.weekday} onChange={event => changeRenewalDay(index, event.target.value as BillingWeekday)}>{BILLING_DAYS.map(day => <option key={day}>{day}</option>)}</RenewalScheduleSelect></Field>
-          <Field label="Time slot" id={`renewal-time-${index}`}><RenewalScheduleSelect icon={Clock} id={`renewal-time-${index}`} value={slot.time_slot || ''} onChange={event => updateSlot(index, { time_slot: event.target.value })}><option value="">Choose time</option>{slot.time_slot && !times.includes(slot.time_slot) && <option value={slot.time_slot}>{slot.time_slot}</option>}{times.map(time => <option key={time}>{time}</option>)}</RenewalScheduleSelect></Field>
+          <Field label="Day of week" id={`renewal-weekday-${index}`}><RenewalScheduleSelect icon={Calendar} id={`renewal-weekday-${index}`} value={slot.weekday} onChange={event => changeRenewalDay(index, event.target.value as BillingWeekday)}>{DAY_NAMES.map(day => <option key={day}>{day}</option>)}</RenewalScheduleSelect></Field>
+          <div className="space-y-1">
+            <Field label="Time slot" id={`renewal-time-${index}`}>
+              {customRenewalTimes.has(index)
+                ? <TimeRangeInput id={`renewal-time-${index}`} value={slot.time_slot || ''} onChange={value => updateSlot(index, { time_slot: value })} />
+                : <RenewalScheduleSelect icon={Clock} id={`renewal-time-${index}`} value={slot.time_slot || ''} onChange={event => updateSlot(index, { time_slot: event.target.value })}><option value="">Choose time</option>{slot.time_slot && !times.includes(slot.time_slot) && <option value={slot.time_slot}>{slot.time_slot}</option>}{times.map(time => <option key={time}>{time}</option>)}</RenewalScheduleSelect>}
+            </Field>
+            {customRenewalTimes.has(index)
+              ? <button type="button" className="text-xs text-accent-ink hover:underline" onClick={() => {
+                setCustomRenewalTimes(current => { const next = new Set(current); next.delete(index); return next; });
+                const previous = presetTimes.current.get(index);
+                updateSlot(index, { time_slot: previous && times.includes(previous) ? previous : times[0] });
+              }}>Use preset time slots</button>
+              : <button type="button" className="text-xs text-accent-ink hover:underline" onClick={() => {
+                presetTimes.current.set(index, slot.time_slot || times[0]);
+                setCustomRenewalTimes(current => new Set(current).add(index));
+              }}>Use custom time</button>}
+          </div>
         </div>
       </fieldset>;
     })}
@@ -363,14 +434,12 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       setFirstDate(event.target.value);
       const day = weekdayForDate(event.target.value);
       if (day && slots.length === 1) updateSlot(0, { weekday: day });
-    }} /></Field>{discountField}</div>
+    }} /></Field>{draftContext ? <BillingRenewalCoupon studentId={draftContext.studentId} balance={renewalCouponBalance} checking={renewalCouponChecking} failed={renewalCouponFailed}
+      selection={renewalSelection} disabled={renewalDetailsBlocked} onSelect={value => { setRenewalCoupon(value); setRenewalCouponSnapshot(JSON.stringify(couponSnapshot ?? null)); setCombineCoupon(false); }} onRetry={() => { void renewalCouponState.mutate(); }}
+      combine={combineCoupon} canCombine={canCombineRenewalCoupon} onCombine={setCombineCoupon} /> : null}</div>
     {tutorRoster.error && <div role="alert" className="text-sm"><p>Could not load tutors.</p><Button size="sm" onClick={() => { void tutorRoster.mutate(); }}>Retry tutors</Button></div>}
     {renewalChanged && <Field label="Reason for change" id="renewal-change-reason"><Textarea id="renewal-change-reason" rows={2} maxLength={500} disabled={sourceBlocked || reviewBusy} value={renewalReason} onChange={event => setRenewalReason(event.target.value)} /></Field>}
-    {feeFields}
-    <details className="border-t border-line pt-3"><summary className="cursor-pointer text-xs text-ink-subtle">Special arrangements</summary><div className="mt-3 space-y-4">
-      {editorContent && <section className="space-y-3"><h3 className="text-sm font-semibold">Existing enrollments</h3>{editorContent}</section>}
-      {dateExceptions}
-    </div></details>
+
   </section>;
 
   const editAction = <Button ref={editorTrigger} size="sm" icon={Settings2} disabled={reviewBusy} onClick={() => setEditorOpen(true)}>Edit preview</Button>;
@@ -394,27 +463,29 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
         reviewRequest={{ scenario: { ...request, payment_method: event.method }, basis: draftContext.basis,
           selected_enrollment_ids: draftContext.selectedEnrollmentIds, expected_source_fingerprint: draftContext.sourceFingerprint,
           period_number: event.period.number, confirmed_checks: [], ...(intakeRequest ? { intake: intakeRequest } : {}) }}
-        storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} /> : undefined} />}
+        preferencesAvailable={!!options?.workflow_available} storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} /> : undefined} />}
   </div>;
   if (routineRenewal) {
     const period = preview?.[method]?.periods.find(value => value.number === focusedPeriodNumber);
     const hasReview = !!(period && draftContext && request && intakeReady && renewalReady);
     return <div className="space-y-4" aria-label="Renewal calculation">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{revisionTarget ? `Revision ${revisionTarget.current_revision + 1}` : 'Next enrollment'}</h3>{revisionTarget && <Button size="sm" variant="quiet" onClick={onCancelRevision}>Cancel revision</Button>}</div>
+      {revisionTarget && <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Revision {revisionTarget.current_revision + 1}</h3><Button size="sm" variant="quiet" onClick={onCancelRevision}>Cancel revision</Button></div>}
       {sourceFailure}{policyError}{calculationError}
       {renewalEditor}
       {!hasReview && <BillingChecks issues={contextIssues} presentation="renewal" />}
-      {!request && <p className="text-sm text-ink-subtle">Complete the enrollment details to calculate its fee.</p>}
+      {!request && <p className="text-sm text-ink-subtle">{renewalCoupon && !selectedRenewalCoupon ? 'Check coupons or select No coupon to continue.' : 'Complete the enrollment details to calculate its fee.'}</p>}
       {!renewalReady && <p role="status" className="text-xs text-ink-subtle">{renewalTutorsReady ? 'Enter a reason to review the changed enrollment.' : 'Select a tutor for each class.'}</p>}
       {sourceLoading && <p role="status" className="text-sm text-ink-subtle">Refreshing enrollment records…</p>}
       {!sourceBlocked && request && options && !preview && !error && <p role="status" className="text-sm text-ink-subtle">Calculating enrollment…</p>}
       {preview && !period && <p className="text-sm text-ink-subtle">No payment is needed for this period.</p>}
       {hasReview && period && draftContext && request && <BillingDraftReview inline summaryPresentation="renewal" onBusyChange={reviewBusyChanged} key={`${currentKey}:${method}:${period.number}`}
         studentId={draftContext.studentId} calculation={preview?.[method]}
+        directCreation={renewalCreator && onEnrollmentCreated ? { creator: renewalCreator, canWrite: !!options?.workflow_writes_available, onCreated: onEnrollmentCreated } : undefined}
+        saveLabel={draftSaveLabel} onStaleReview={onRetrySource}
         reviewRequest={{ scenario: { ...request, payment_method: method }, basis: draftContext.basis,
           selected_enrollment_ids: draftContext.selectedEnrollmentIds, expected_source_fingerprint: draftContext.sourceFingerprint,
           period_number: period.number, confirmed_checks: [], ...(renewalChange ? { renewal: renewalChange } : {}), ...(intakeRequest ? { intake: intakeRequest } : {}) }}
-        storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} />}
+        preferencesAvailable={!!options?.workflow_available} storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} />}
     </div>;
   }
   if (focused) {
@@ -435,7 +506,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
           reviewRequest={{ scenario: { ...request, payment_method: method }, basis: draftContext.basis,
             selected_enrollment_ids: draftContext.selectedEnrollmentIds, expected_source_fingerprint: draftContext.sourceFingerprint,
             period_number: period.number, confirmed_checks: [], ...(intakeRequest ? { intake: intakeRequest } : {}) }}
-          storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} />}
+          preferencesAvailable={!!options?.workflow_available} storageAvailable={!!options?.draft_storage_available} revisionTarget={revisionTarget} onSaved={onDraftSaved} />}
       </>}
     </div>;
   }

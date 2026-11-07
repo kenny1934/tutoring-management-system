@@ -205,6 +205,58 @@ describe('payment plans on the existing student roster', () => {
     expect(screen.queryByLabelText('Collection month')).not.toBeInTheDocument();
   });
 
+  it('confirms selected Setup pending authorisations and updates the roster and count immediately', async () => {
+    mocks.students.mockImplementation(async ({ preference_filter }: { preference_filter?: string } = {}) => response(preference_filter === 'setup_pending' ? rows.filter(row => row.recorded_payment_method === 'autopay' && !row.mandate_ready) : rows));
+    const view = show(); await card(2);
+    fireEvent.click(screen.getByRole('tab', { name: /^Setup pending 1$/ }));
+    const student = await card(2);
+    fireEvent.click(within(student).getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm bank authorisation' }));
+    await screen.findByRole('dialog', { name: 'Confirm bank authorisation' });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bank authorisation has been verified for these students.' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm authorisation' }));
+    await screen.findByText('1 confirmed');
+    expect(mocks.savePreferences).toHaveBeenCalledOnce();
+    expect(mocks.savePreferences.mock.calls[0][1]).toMatchObject({ payment_method: 'autopay', mandate_ready: true });
+    expect(within(view.container).queryByText('Synthetic plan 2')).not.toBeInTheDocument();
+    const pendingTab = [...view.container.querySelectorAll('[role="tab"]')].find(tab => tab.textContent?.startsWith('Setup pending'))!;
+    expect(pendingTab).toHaveTextContent('Setup pending 0');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.getByText('No students match these filters.')).toBeVisible());
+    expect(mocks.confirmDraft).not.toHaveBeenCalled(); expect(mocks.recordPayment).not.toHaveBeenCalled();
+  });
+
+  it('enables bulk authorisation only for a selection of unconfirmed Autopay students', async () => {
+    show(); const manual = await card(1), pending = await card(2), confirmed = await card(4);
+    fireEvent.click(within(manual).getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirm bank authorisation' })).toBeDisabled();
+    fireEvent.click(within(pending).getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirm bank authorisation' })).toBeDisabled();
+    fireEvent.click(within(manual).getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirm bank authorisation' })).toBeEnabled();
+    fireEvent.click(within(confirmed).getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirm bank authorisation' })).toBeDisabled();
+  });
+
+  it('aborts bulk authorisation if write access changes while a save is pending', async () => {
+    let finish!: (value: BillingPreferences) => void;
+    mocks.savePreferences.mockImplementationOnce(() => new Promise<BillingPreferences>(resolve => { finish = resolve; }));
+    const view = show(); const pending = await card(2);
+    fireEvent.click(within(pending).getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm bank authorisation' }));
+    await screen.findByRole('dialog', { name: 'Confirm bank authorisation' });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bank authorisation has been verified for these students.' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm authorisation' }));
+    await waitFor(() => expect(mocks.savePreferences).toHaveBeenCalledOnce());
+    const signal = mocks.savePreferences.mock.calls[0][2] as AbortSignal;
+    mocks.auth.mockReturnValue({ user: { id: 9 }, isLoading: false, isGuest: false, isAdmin: false, isReadOnly: true, effectiveRole: 'Supervisor' });
+    view.rerender(<BillingRoster />);
+    await waitFor(() => expect(signal.aborted).toBe(true));
+    await act(async () => finish({ student_id: 2, payment_method: 'autopay', mandate_ready: true, version: 3, updated_at: null }));
+    expect(screen.queryByRole('dialog', { name: 'Confirm bank authorisation' })).not.toBeInTheDocument();
+    expect(screen.queryByText('1 confirmed')).not.toBeInTheDocument();
+  });
+
   it('clears selection when the preference filter changes', async () => {
     show(); const manual = await card(1);
     fireEvent.click(within(manual).getByRole('checkbox', { name: 'Select Synthetic plan 1' }));

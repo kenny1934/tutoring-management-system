@@ -166,8 +166,10 @@ describe('autopay collection review', () => {
     expect(mocks.autopay).toHaveBeenCalledWith({ collection_month: '2026-11', stage: 'ready', location: 'MSA', search: undefined, offset: 0, limit: 25 });
     fireEvent.click(within(card).getByRole('button', { name: 'Details for Synthetic Student' }));
     const dialog = await screen.findByRole('dialog', { name: 'Payment' });
-    expect(mocks.payment.mock.lastCall![0]).toEqual(expect.objectContaining({ studentId: 4, initialPaymentId: 'payment-one', canWrite: false, inline: true }));
+    expect(mocks.payment.mock.lastCall![0]).toEqual(expect.objectContaining({ studentId: 4, initialPaymentId: 'payment-one', canWrite: false, inline: true, presentation: 'renewal' }));
     expect(within(dialog).queryByRole('link', { name: 'Open payment' })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: 'Synthetic Student' })).toHaveAttribute('href', '/students/4');
+    expect(within(dialog).queryByText('Bank debit')).not.toBeInTheDocument();
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Bank file & results' })).toBeVisible());
     expect(within(dialog).queryByRole('link', { name: 'Review draft' })).not.toBeInTheDocument();
   });
