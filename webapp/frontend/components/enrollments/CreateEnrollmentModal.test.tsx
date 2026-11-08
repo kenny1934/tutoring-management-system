@@ -3,18 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Student, TrialListItem } from '@/types';
 import { CreateEnrollmentModal } from './CreateEnrollmentModal';
 
-const mocks = vi.hoisted(() => ({ student: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), renewal: vi.fn() }));
-const tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }];
+const mocks = vi.hoisted(() => ({ student: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), intakeContext: vi.fn(), renewal: vi.fn() }));
+const tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }, { id: 13, tutor_name: 'Tutor MSB', default_location: 'MSB' }];
 const options = { first_payment_from: '2026-10-30', workflow_writes_available: true };
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true }) }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: () => ({ selectedLocation: 'MSA' }) }));
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: vi.fn(), showError: vi.fn() }) }));
 vi.mock('@/lib/hooks', () => ({ useActiveTutors: () => ({ data: tutors }), useCacheInvalidation: () => ({ invalidateAfterEnrollmentCreate: vi.fn() }) }));
 vi.mock('@/lib/api', () => ({ studentsAPI: { getById: mocks.student, getCoupon: vi.fn().mockResolvedValue({ has_coupon: false }) },
   enrollmentsAPI: { getAll: vi.fn().mockResolvedValue([]), getRenewalData: vi.fn(), preview: mocks.preview, create: mocks.create }, discountsAPI: { getAll: vi.fn() } }));
-vi.mock('@/lib/billing-api', () => ({ billingAPI: { options: vi.fn() } }));
+vi.mock('@/lib/billing-api', () => ({ billingAPI: { options: vi.fn(), intakeContext: mocks.intakeContext } }));
 vi.mock('swr', () => ({ default: (key: unknown) => ({ data: !key ? undefined : key === 'discounts' ? [] : Array.isArray(key) ? mocks.renewal() : options, isLoading: false, mutate: vi.fn() }) }));
 vi.mock('@/components/ui/modal', () => ({ Modal: ({ isOpen, children, footer }: { isOpen: boolean; children: React.ReactNode; footer: React.ReactNode }) => isOpen ? <div>{children}{footer}</div> : null }));
-vi.mock('@/components/ui/student-search', () => ({ StudentSearch: ({ value }: { value: Student | null }) => <span>{value?.student_name}</span> }));
+vi.mock('@/components/ui/student-search', () => ({ StudentSearch: ({ value, onChange }: { value: Student | null; onChange: (value: Student) => void }) => <div><span>{value?.student_name}</span><button onClick={() => onChange({ id: 6, student_name: 'Student Six', home_location: 'MSB' } as Student)}>Choose MSB student</button></div> }));
 vi.mock('@/components/ui/student-info-badges', () => ({ StudentInfoBadges: () => <span>Student badges</span> }));
 vi.mock('@/components/billing/BillingEnrollmentIntake', () => ({ BillingEnrollmentIntake: (props: unknown) => { mocks.intake(props); return <span>Reviewed intake</span>; } }));
 
@@ -22,11 +23,84 @@ const student = { id: 4, student_name: 'Student Four', home_location: 'MSA', is_
 const trial = { enrollment_id: 70, session_id: 71, student_id: 4, student_name: 'Student Four', tutor_id: 9, tutor_name: 'Tutor Nine', session_date: '2026-10-23', time_slot: '16:45 - 18:15', location: 'MSA', session_status: 'Attended', trial_status: 'pending' } as TrialListItem;
 beforeEach(() => {
   options.workflow_writes_available = true;
+  mocks.intakeContext.mockReset().mockImplementation(async (id, params) => ({ student: { ...student, id }, source_fingerprint: 'source', trial: params.trial_enrollment_id ? { enrollment_id: params.trial_enrollment_id, session_id: params.trial_session_id } : null }));
   vi.clearAllMocks(); mocks.student.mockReset().mockResolvedValue(student); mocks.renewal.mockReturnValue(undefined);
   mocks.preview.mockResolvedValue({ sessions: [], conflicts: [], warnings: [], potential_renewals: [] });
 });
 
 describe('existing enrollment form under the new fee scheme', () => {
+  it('uses the student branch instead of the global filter and preserves a manual change on refresh', async () => {
+    const branchStudent = { ...student, home_location: 'MSB' };
+    const view = render(<CreateEnrollmentModal isOpen onClose={vi.fn()} prefillStudent={branchStudent} />);
+    await screen.findByText('Student Four');
+    expect(screen.getByLabelText('Location')).toHaveValue('MSB');
+    fireEvent.change(screen.getByLabelText('Location'), { target: { value: 'MSA' } });
+    view.rerender(<CreateEnrollmentModal isOpen onClose={vi.fn()} prefillStudent={{ ...branchStudent }} />);
+    expect(screen.getByLabelText('Location')).toHaveValue('MSA');
+    await act(async () => {});
+  });
+
+  it('defaults to the branch of a student selected from search', async () => {
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Choose MSB student' }));
+    expect(screen.getByLabelText('Location')).toHaveValue('MSB');
+    await act(async () => {});
+  });
+
+  it('retains the actual trial lesson branch even when the profile branch differs', async () => {
+    mocks.student.mockResolvedValue({ ...student, home_location: 'MSB' });
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    expect(screen.getByLabelText('Location')).toHaveValue('MSA');
+  });
+
+  it('uses the student branch when a taught lesson has no location', async () => {
+    mocks.student.mockResolvedValue({ ...student, home_location: 'MSB' });
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} fromTaughtLesson={{ student_id: 4, tutor_id: 13, lesson_date: '2026-11-17', time_slot: '16:45 - 18:15', location: null }} />);
+    await screen.findByText('Student Four');
+    expect(screen.getByLabelText('Location')).toHaveValue('MSB');
+  });
+
+  it('aborts a pending preview when the modal closes and ignores its late response', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.intakeContext.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    const signal = mocks.intakeContext.mock.calls[0][2] as AbortSignal;
+    view.rerender(<CreateEnrollmentModal isOpen={false} onClose={vi.fn()} convertFromTrial={trial} />);
+    expect(signal.aborted).toBe(true);
+    await act(async () => finish({ student, source_fingerprint: 'late', trial: { enrollment_id: 70, session_id: 71 } }));
+    view.rerender(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    expect(screen.queryByText('Reviewed intake')).not.toBeInTheDocument();
+  });
+
+  it('keeps the form visible and disabled until the next preview is prepared', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.intakeContext.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    expect(screen.getByLabelText('Location')).toBeVisible();
+    expect(screen.getByLabelText('Location')).toBeDisabled();
+    expect(screen.queryByText('Reviewed intake')).not.toBeInTheDocument();
+    await act(async () => finish({ student, source_fingerprint: 'prepared', trial: { enrollment_id: 70, session_id: 71 } }));
+    await screen.findByText('Reviewed intake');
+    expect(mocks.intake).toHaveBeenLastCalledWith(expect.objectContaining({ initialContext: expect.objectContaining({ data: expect.objectContaining({ source_fingerprint: 'prepared' }) }) }));
+  });
+
+  it('keeps a failed preload on the form and lets the admin retry', async () => {
+    mocks.intakeContext.mockRejectedValueOnce(new Error('Connection interrupted.'));
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    await screen.findByText('Connection interrupted.');
+    expect(screen.getByLabelText('Location')).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    await screen.findByText('Reviewed intake');
+  });
+
   it('keeps post-cutover trial conversion on the original six-session route while only collecting preferences', async () => {
     options.workflow_writes_available = false;
     render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
@@ -46,7 +120,7 @@ describe('existing enrollment form under the new fee scheme', () => {
     fireEvent.change(screen.getByLabelText(/First lesson date/), { target: { value: '2026-11-13' } });
     fireEvent.change(screen.getByLabelText(/Tutor/), { target: { value: '12' } });
     fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
-    expect(screen.getByText('Reviewed intake')).toBeInTheDocument();
+    expect(await screen.findByText('Reviewed intake')).toBeInTheDocument();
     expect(mocks.intake).toHaveBeenLastCalledWith(expect.objectContaining({ studentId: 4, trialEnrollmentId: 70, trialSessionId: 71,
       initialFirstLessonDate: '2026-11-13', initialIntakeSlots: [{ tutor_id: 12, renewed_from_enrollment_id: 70 }] }));
     expect(mocks.preview).not.toHaveBeenCalled();
@@ -68,6 +142,7 @@ describe('existing enrollment form under the new fee scheme', () => {
     await screen.findByText('Student Four');
     expect(screen.getByLabelText('Time slot')).toHaveValue('16:00 - 17:30');
     fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    await screen.findByText('Reviewed intake');
     expect(mocks.intake).toHaveBeenLastCalledWith(expect.objectContaining({ initialSlots: [{ weekday: 'Fri', time_slot: '16:00 - 17:30', location: 'MSA' }] }));
   });
 
@@ -76,6 +151,7 @@ describe('existing enrollment form under the new fee scheme', () => {
     render(<CreateEnrollmentModal isOpen onClose={vi.fn()} onBusyChange={onBusyChange} convertFromTrial={trial} />);
     await screen.findByText('Student Four');
     fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    await screen.findByText('Reviewed intake');
     act(() => mocks.intake.mock.lastCall![0].onBusyChange(true));
     expect(onBusyChange).toHaveBeenLastCalledWith(true);
     expect(screen.getByRole('button', { name: 'Back to enrollment details' })).toBeDisabled();
@@ -121,6 +197,7 @@ describe('existing enrollment form under the new fee scheme', () => {
     await act(async () => finish(student));
     expect(screen.queryByText('Student Four')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    await screen.findByText('Reviewed intake');
     expect(mocks.intake).toHaveBeenLastCalledWith(expect.objectContaining({ studentId: 5, trialEnrollmentId: 80, trialSessionId: 81 }));
   });
 });

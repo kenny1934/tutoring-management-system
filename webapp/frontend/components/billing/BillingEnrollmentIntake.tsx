@@ -28,6 +28,7 @@ export interface BillingEnrollmentIntakeProps {
   initialSlots?: BillingSlot[];
   initialIntakeSlots?: BillingIntakeRequest['slots'];
   initialDraftId?: string;
+  initialContext?: { data: BillingIntakeContext; authScope: string };
   onCreated?: () => void;
   onBusyChange?: (busy: boolean) => void;
 }
@@ -36,21 +37,25 @@ export interface BillingEnrollmentIntakeProps {
 export function BillingEnrollmentIntake(props: BillingEnrollmentIntakeProps) {
   const auth = useAuth();
   const scope = JSON.stringify([props.studentId, props.trialEnrollmentId, props.trialSessionId, props.initialDraftId,
-    props.initialFirstLessonDate, props.initialSlots, props.initialIntakeSlots, billingDraftAuthScope(auth)]);
+    props.initialContext?.data.source_fingerprint, props.initialFirstLessonDate, props.initialSlots, props.initialIntakeSlots, billingDraftAuthScope(auth)]);
   return <IntakeContent key={scope} {...props} scope={scope} />;
 }
 
-function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFirstLessonDate, initialSlots, initialIntakeSlots, initialDraftId, onCreated, onBusyChange, scope }: BillingEnrollmentIntakeProps & { scope: string }) {
+function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFirstLessonDate, initialSlots, initialIntakeSlots, initialDraftId, initialContext, onCreated, onBusyChange, scope }: BillingEnrollmentIntakeProps & { scope: string }) {
   const auth = useAuth();
   const tutorId = billingDraftTutorId(auth);
   const enabled = !!auth.user && !auth.isGuest;
   const { data: tutors = [] } = useActiveTutors();
   const options = useSWR(enabled ? 'billing-preview-options' : null, billingAPI.options);
-  const [context, setContext] = useState<BillingIntakeContext | null>(null);
+  const preparedContext = initialContext?.authScope === billingDraftAuthScope(auth) ? initialContext.data : null;
+  const initialSource = preparedContext?.student.id === studentId
+    && (trialEnrollmentId === undefined || (preparedContext.trial?.enrollment_id === trialEnrollmentId && preparedContext.trial.session_id === trialSessionId)) ? preparedContext : null;
+  const preparedKey = useRef(initialSource ? JSON.stringify([studentId, trialEnrollmentId, trialSessionId, tutorId, 0]) : null);
+  const [context, setContext] = useState<BillingIntakeContext | null>(initialSource);
   const [failure, setFailure] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [loadedContextKey, setLoadedContextKey] = useState<string | null>(null);
+  const [loadedContextKey, setLoadedContextKey] = useState<string | null>(preparedKey.current);
   const creator = useRef(new BillingRenewalCreator());
   const [createdPayment, setCreatedPayment] = useState<BillingPaymentDetail | null>(null);
   const success = useRef<HTMLDivElement>(null);
@@ -69,7 +74,8 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
   useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || preparedKey.current === contextKey) return;
+    preparedKey.current = null;
     const abort = new AbortController();
     setLoading(true); setFailure(null);
     billingAPI.intakeContext(studentId, { trial_enrollment_id: contextTrialEnrollment, trial_session_id: contextTrialSession, tutor_id: tutorId }, abort.signal)

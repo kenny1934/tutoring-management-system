@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 import { billingErrorHref, billingPaymentHref } from "@/lib/billing-workflow";
 import { billingAPI } from "@/lib/billing-api";
+import { useAuth } from "@/contexts/AuthContext";
+import { billingDraftAuthScope, billingDraftTutorId } from "@/components/billing/BillingDraftReview";
+import type { BillingIntakeContext } from "@/types/billing";
 import { BillingEnrollmentIntake } from "@/components/billing/BillingEnrollmentIntake";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -83,6 +86,10 @@ export interface CreateEnrollmentModalProps {
   } | null;
 }
 
+function studentLocation(student: Student | null | undefined, fallback: string) {
+  return [student?.home_location, fallback].find(value => value === 'MSA' || value === 'MSB') || 'MSA';
+}
+
 export function CreateEnrollmentModal({
   isOpen,
   onClose,
@@ -97,15 +104,17 @@ export function CreateEnrollmentModal({
   fromTaughtLesson,
 }: CreateEnrollmentModalProps) {
   const { selectedLocation } = useLocation();
+  const auth = useAuth();
   const { showToast, showError } = useToast();
   const { invalidateAfterEnrollmentCreate } = useCacheInvalidation();
 
   // Form state
+  const branchStudent = useRef<number | null>(null);
   const [student, setStudent] = useState<Student | null>(null);
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [assignedDay, setAssignedDay] = useState<string>("Mon");
   const [assignedTime, setAssignedTime] = useState<string>(WEEKDAY_TIME_SLOTS[0]);
-  const [location, setLocation] = useState<string>(selectedLocation !== "All Locations" ? selectedLocation : "MSA");
+  const [location, setLocation] = useState<string>(studentLocation(prefillStudent, selectedLocation));
   const [firstLessonDate, setFirstLessonDate] = useState<string>("");
   // Empty string is allowed transiently so the field can be cleared and retyped.
   const [lessonsPaid, setLessonsPaid] = useState<number | "">(6);
@@ -131,6 +140,8 @@ export function CreateEnrollmentModal({
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [preparedIntake, setPreparedIntake] = useState<{ data: BillingIntakeContext; authScope: string } | undefined>();
+  const intakeOperation = useRef<AbortController | null>(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [intakeBusy, setIntakeBusy] = useState(false);
   const [intakeCreated, setIntakeCreated] = useState(false);
@@ -191,10 +202,11 @@ export function CreateEnrollmentModal({
     if (!isOpen) {
       // Reset on close
       setStudent(null);
+      branchStudent.current = null;
       setTutorId(null);
       setAssignedDay("Mon");
       setAssignedTime(WEEKDAY_TIME_SLOTS[0]);
-      setLocation(selectedLocation !== "All Locations" ? selectedLocation : "MSA");
+      setLocation(studentLocation(undefined, selectedLocation));
       setFirstLessonDate("");
       setLessonsPaid(6);
       setEnrollmentType("Regular");
@@ -208,6 +220,8 @@ export function CreateEnrollmentModal({
       setIsNewStudent(null);
       setIsSuccess(false);
       setIntakeOpen(false);
+      setPreparedIntake(undefined);
+      setPreviewLoading(false);
       setIntakeCreated(false);
     } else if (trialMode && !convertFromTrial && !renewFromId) {
       // Initialize trial mode on open (when not converting or renewing)
@@ -238,8 +252,12 @@ export function CreateEnrollmentModal({
   useEffect(() => {
     if (prefillStudent && isOpen && !convertFromTrial && !renewFromId) {
       setStudent(prefillStudent);
+      if (!fromTaughtLesson && branchStudent.current !== prefillStudent.id) {
+        branchStudent.current = prefillStudent.id;
+        setLocation(studentLocation(prefillStudent, selectedLocation));
+      }
     }
-  }, [prefillStudent, isOpen, convertFromTrial, renewFromId]);
+  }, [prefillStudent, isOpen, convertFromTrial, renewFromId, fromTaughtLesson, selectedLocation]);
 
   // Pre-fill tutor from props (used from student detail page to carry over from latest enrollment)
   useEffect(() => {
@@ -256,7 +274,7 @@ export function CreateEnrollmentModal({
     let active = true;
     if (!renewFromId) {
       setStudent(null);
-      studentsAPI.getById(fromTaughtLesson.student_id).then((s) => { if (active) setStudent(s); }).catch(() => { if (active) setPreviewError('Could not load the student. Open the enrollment again.'); });
+      studentsAPI.getById(fromTaughtLesson.student_id).then((s) => { if (active) { setStudent(s); if (!fromTaughtLesson.location && (s.home_location === 'MSA' || s.home_location === 'MSB')) setLocation(s.home_location); } }).catch(() => { if (active) setPreviewError('Could not load the student. Open the enrollment again.'); });
     }
     setTutorId(fromTaughtLesson.tutor_id);
     setAssignedDay(DAY_NAMES[new Date(`${fromTaughtLesson.lesson_date}T00:00:00`).getDay()]);
@@ -413,6 +431,13 @@ export function CreateEnrollmentModal({
     };
   }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, discountId, useCustomTime, isCustomTimeValid, isNewStudent, convertFromTrial?.student_id, fromTaughtLesson?.student_id, prefillStudent?.id, renewalData?.student_id]);
 
+  const intakeSourceKey = JSON.stringify([isOpen, billingDraftAuthScope(auth), student?.id, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, enrollmentType, effectiveRenewalLinkId, convertFromTrial?.enrollment_id, convertFromTrial?.session_id]);
+  const currentIntakeSource = useRef(intakeSourceKey); currentIntakeSource.current = intakeSourceKey;
+  useEffect(() => {
+    setPreviewLoading(false);
+    return () => intakeOperation.current?.abort();
+  }, [intakeSourceKey]);
+
   // Check if first lesson date matches selected day of week
   const dayMismatchWarning = useMemo(() => {
     if (!firstLessonDate || !assignedDay) return null;
@@ -426,8 +451,25 @@ export function CreateEnrollmentModal({
 
   // Preview sessions
   const handlePreview = async () => {
-    if (!enrollmentData || billingHref) return;
-    if (newPolicyRegular) { setIntakeOpen(true); return; }
+    if (!enrollmentData || billingHref || previewLoading) return;
+    if (newPolicyRegular) {
+      const key = intakeSourceKey;
+      const abort = new AbortController(); intakeOperation.current?.abort(); intakeOperation.current = abort;
+      setPreviewLoading(true); setPreviewError(null);
+      try {
+        const context = await billingAPI.intakeContext(enrollmentData.student_id, {
+          trial_enrollment_id: convertFromTrial?.enrollment_id, trial_session_id: convertFromTrial?.session_id, tutor_id: billingDraftTutorId(auth),
+        }, abort.signal);
+        if (abort.signal.aborted || currentIntakeSource.current !== key) return;
+        if (context.student.id !== enrollmentData.student_id || (convertFromTrial && (context.trial?.enrollment_id !== convertFromTrial.enrollment_id || context.trial.session_id !== convertFromTrial.session_id))) throw new Error('The student or trial changed. Open the enrollment again.');
+        setPreparedIntake({ data: context, authScope: billingDraftAuthScope(auth) }); setIntakeOpen(true);
+      } catch (error) {
+        if (!abort.signal.aborted && currentIntakeSource.current === key) setPreviewError(formatError(error, 'Could not prepare the enrollment preview.'));
+      } finally {
+        if (currentIntakeSource.current === key) setPreviewLoading(false);
+      }
+      return;
+    }
     setPreviewLoading(true);
     setPreviewError(null);
     try {
@@ -540,8 +582,9 @@ export function CreateEnrollmentModal({
         )
       }
     >
+      <fieldset disabled={previewLoading} aria-busy={previewLoading} className="min-w-0">
       {billingHref ? <div className="space-y-3 py-4"><p className="text-sm">Review this student’s next enrollment in Billing.</p><Link className="text-sm font-medium text-accent-ink hover:underline" href={billingHref} onClick={onClose}>Open payment journey</Link></div> : intakeOpen && student && tutorId ? <BillingEnrollmentIntake
-        studentId={student.id} trialEnrollmentId={convertFromTrial?.enrollment_id} trialSessionId={convertFromTrial?.session_id}
+        studentId={student.id} initialContext={preparedIntake} trialEnrollmentId={convertFromTrial?.enrollment_id} trialSessionId={convertFromTrial?.session_id}
         initialFirstLessonDate={firstLessonDate} initialSlots={[{ weekday: assignedDay as import('@/types/billing').BillingWeekday, time_slot: effectiveTimeSlot, location }]}
         initialIntakeSlots={[{ tutor_id: tutorId, renewed_from_enrollment_id: effectiveRenewalLinkId ?? null }]}
         onBusyChange={setIntakeBusy} onCreated={() => { setIntakeCreated(true); invalidateAfterEnrollmentCreate({ studentId: student.id, location }); }} /> : isSuccess ? (
@@ -601,7 +644,7 @@ export function CreateEnrollmentModal({
           {/* Student */}
           <div className="md:col-span-2">
             <Label>Student <span className="text-red-600">*</span></Label>
-            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent || !!fromTaughtLesson} location={location} />
+            <StudentSearch value={student} onChange={next => { setStudent(next); if (next) setLocation(studentLocation(next, selectedLocation)); }} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent || !!fromTaughtLesson} location={location} />
           </div>
 
           {/* Tutor */}
@@ -974,6 +1017,7 @@ export function CreateEnrollmentModal({
           </div>
         </div>
       )}
+      </fieldset>
     </Modal>
   );
 }

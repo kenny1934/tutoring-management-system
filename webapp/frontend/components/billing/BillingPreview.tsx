@@ -496,7 +496,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       {sourceFailure}{policyError}{calculationError}
       <div className={intake ? "flex min-w-0 flex-wrap items-start gap-5" : "space-y-4"}>
       <div className={intake ? "min-w-0 flex-[1_1_19rem] space-y-4" : "space-y-4"}>{renewalEditor}{intakeFees}</div>
-      <div className={intake ? "min-w-0 flex-[1_1_22rem] space-y-4" : "space-y-4"}>
+      <div className={intake ? "min-h-[22rem] min-w-0 flex-[1_1_22rem] space-y-4" : "space-y-4"}>
       {!hasReview && <BillingChecks issues={contextIssues} presentation="renewal" />}
       {!request && <p className="text-sm text-ink-subtle">{renewalCoupon && !selectedRenewalCoupon ? 'Check coupons or select No coupon to continue.' : 'Complete the enrollment details to calculate its fee.'}</p>}
       {intake && !intakeReady && <p role="status" className="text-sm text-ink-subtle">{materialsChanged && !materialsReason.trim() ? 'Enter a reason for the materials adjustment.' : 'Choose a tutor for each class.'}</p>}
