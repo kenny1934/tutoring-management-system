@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/controls';
 import { StudentInfoBadges } from '@/components/ui/student-info-badges';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTutors, invalidateCaches } from '@/lib/hooks';
 import { billingAPI } from '@/lib/billing-api';
 import { formatShortDate } from '@/lib/formatters';
+import { BillingRenewalCreator } from '@/lib/billing-renewal-create';
 import { suggestedStartAfterTrial } from '@/lib/billing-preview';
-import type { BillingDraftDetail, BillingIntakeContext, BillingIntakeRequest, BillingMethod, BillingPreviewRequest, BillingSlot } from '@/types/billing';
+import type { BillingDraftDetail, BillingIntakeContext, BillingIntakeRequest, BillingMethod, BillingPreviewRequest, BillingPaymentDetail, BillingSlot } from '@/types/billing';
 import { billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview';
 import { BillingChecks } from './BillingChecks';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
@@ -50,6 +51,10 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
   const [retry, setRetry] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadedContextKey, setLoadedContextKey] = useState<string | null>(null);
+  const creator = useRef(new BillingRenewalCreator());
+  const [createdPayment, setCreatedPayment] = useState<BillingPaymentDetail | null>(null);
+  const success = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (createdPayment) success.current?.focus(); }, [createdPayment]);
   const [method, setMethod] = useState<BillingMethod | undefined>();
   const [action, setAction] = useState<{ kind: 'preview' } | { kind: 'draft' | 'payment'; id: string }>(initialDraftId ? { kind: 'draft', id: initialDraftId } : { kind: 'preview' });
   const [revision, setRevision] = useState<BillingDraftDetail | null>(null);
@@ -94,12 +99,16 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
   const scenario: BillingPreviewRequest = revision ? { ...revision.review.scenario, payment_method: plan,
     coupon: revision.review.scenario.coupon ? { ...revision.review.scenario.coupon, verified: false } : null } : {
     first_lesson_date: firstDate, slots, mode: 'new_student', payment_method: plan, materials_fee: context.materials_fee,
-    trial_deduction: !!trial, mandate_ready: false,
+    trial_deduction: !!trial, mandate_ready: !!context.mandate_ready,
   };
   const canPreview = !!scenario.first_lesson_date && scenario.slots.length > 0 && intake.slots.length === scenario.slots.length;
 
   function changed() {
     invalidateCaches('enrollments', { studentId });
+  }
+  function created(payment: BillingPaymentDetail) {
+    setCreatedPayment(payment); setRevision(null); setAction({ kind: 'payment', id: payment.id });
+    changed(); onCreated?.();
   }
   function revise(draft: BillingDraftDetail) {
     setRevision(draft); setMethod(draft.review.scenario.payment_method); setGeneration(value => value + 1); setAction({ kind: 'preview' });
@@ -109,14 +118,14 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
     <StudentInfoBadges student={{ student_id: context.student.id, student_name: context.student.student_name,
       school_student_id: context.student.school_student_id ?? undefined, grade: context.student.grade ?? undefined,
       lang_stream: context.student.lang_stream ?? undefined, school: context.student.school ?? undefined }} nameHref={busy ? undefined : `/students/${studentId}`} />
-    {trial && action.kind === 'preview' && <p className="text-xs text-ink-subtle">Trial: {formatShortDate(trial.session_date)} · {trial.time_slot} · {trial.tutor_name}. Confirm the first regular lesson before saving.</p>}
     {action.kind === 'preview' && scenario.first_lesson_date && scenario.first_lesson_date < options.data.first_payment_from ? <div className="space-y-3"><p className="text-sm">The proposed first lesson is {formatShortDate(scenario.first_lesson_date)}. Use the existing enrollment flow for dates before {formatShortDate(options.data.first_payment_from)}.</p><Link href="/trials" className="text-sm font-medium text-accent-ink hover:underline">Open trials</Link></div> : <fieldset disabled={busy} className="min-w-0 space-y-4">
       {action.kind !== 'payment' && <BillingPaymentSettings studentId={studentId} presentation="inline" storageAvailable={!!options.data.workflow_available}
         canWrite={!!options.data.preferences_writes_available} recordedMethod={context.recorded_payment_method} mandateReady={context.mandate_ready}
         previewMethod={plan} onPreviewMethod={value => setMethod(value ?? 'manual')} onBusyChange={setSettingsBusy}
         onSaved={() => setRetry(value => value + 1)} />}
       {action.kind === 'preview' && <>
-        {!canPreview ? <><p className="text-sm">Choose the actual first lesson and weekly classes in the enrollment form.</p><BillingChecks issues={context.issues} /></> : <BillingPreview key={generation} embedded initialRequest={scenario}
+        {!canPreview ? <><p className="text-sm">Choose the actual first lesson and weekly classes in the enrollment form.</p><BillingChecks issues={context.issues} /></> : <BillingPreview key={generation} embedded focused initialRequest={scenario}
+          renewalCreator={creator.current} onEnrollmentCreated={created}
           sourceKey={context.source_fingerprint} contextIssues={context.issues} couponSnapshot={context.coupon_snapshot}
           sourceLoading={loading || (contextPending && !failure)} sourceError={failure ?? undefined} onRetrySource={() => setRetry(value => value + 1)}
           intake={intake} intakeTutors={tutors} defaultMaterialsFee={context.materials_fee} materialsBasis={context.materials_basis}
@@ -125,11 +134,12 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
           onCancelRevision={() => { setRevision(null); setGeneration(value => value + 1); }}
           onBusyChange={setFormBusy} onDraftSaved={draft => { setRevision(null); setAction({ kind: 'draft', id: draft.id }); }} />}
       </>}
-      {action.kind === 'draft' && <><Button size="sm" variant="quiet" icon={ArrowLeft} disabled={busy} onClick={() => setAction({ kind: 'preview' })}>Back to payment journey</Button><BillingSavedDrafts key={action.id} inline studentId={studentId} scope={scope} initialDraftId={action.id}
+      {action.kind === 'draft' && <><Button size="sm" variant="quiet" icon={ArrowLeft} disabled={busy} onClick={() => setAction({ kind: 'preview' })}>Back to enrollment</Button><BillingSavedDrafts key={action.id} inline studentId={studentId} scope={scope} initialDraftId={action.id}
         workflowAvailable={!!options.data.workflow_available} workflowWritesAvailable={!!options.data.workflow_writes_available}
         onBusyChange={setFormBusy} onRevise={revise} onDiscarded={() => { setRevision(null); setAction({ kind: 'preview' }); }}
-        onOpenPayment={id => setAction({ kind: 'payment', id })} onConfirmed={payment => { changed(); setAction({ kind: 'payment', id: payment.id }); onCreated?.(); }} /></>}
-      {action.kind === 'payment' && <BillingPayments key={action.id} inline studentId={studentId} initialPaymentId={action.id} canWrite={!!options.data.workflow_writes_available} onBusyChange={setFormBusy} onChanged={changed} />}
+        onOpenPayment={id => setAction({ kind: 'payment', id })} onConfirmed={created} /></>}
+      {createdPayment && action.kind === 'payment' && <div ref={success} role="status" tabIndex={-1} className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800 outline-none dark:border-green-800 dark:bg-green-950 dark:text-green-200"><CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />{createdPayment.lines?.length > 1 ? 'Enrollments created.' : 'Enrollment created.'}</div>}
+      {action.kind === 'payment' && <BillingPayments presentation="renewal" initialDetail={createdPayment?.id === action.id ? createdPayment : undefined} key={action.id} inline studentId={studentId} initialPaymentId={action.id} canWrite={!!options.data.workflow_writes_available} onBusyChange={setFormBusy} onChanged={changed} />}
     </fieldset>}
   </div>;
 }

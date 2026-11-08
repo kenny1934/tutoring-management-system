@@ -70,6 +70,37 @@ describe('payment draft review', () => {
     expect(screen.queryByRole('textbox', { name: 'Chinese fee message' })).not.toBeInTheDocument();
   });
 
+  it('opens and closes the first-payment rule by tapping and keyboard', async () => {
+    const first = review(); first.period.kind = 'first';
+    render(<BillingDraftSummaryContent review={first} presentation="renewal" />);
+    const info = screen.getByRole('button', { name: 'First payment rule' });
+    const text = screen.getByText(/The first payment covers at least six lessons/);
+    expect(text).not.toBeVisible();
+    fireEvent.click(info);
+    expect(info).toHaveAttribute('aria-expanded', 'true');
+    expect(text).toBeVisible();
+    fireEvent.click(info);
+    expect(text).not.toBeVisible();
+    const user = userEvent.setup();
+    info.focus(); await user.keyboard('{Enter}');
+    expect(text).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(text).not.toBeVisible();
+    expect(info).toHaveFocus();
+  });
+
+  it('keeps direct creation disabled until the previewed preference is saved', async () => {
+    mocks.preferences.mockResolvedValue({ student_id: 4, payment_method: null, mandate_ready: false, version: 0 });
+    const create = vi.fn();
+    render(<SWRConfig value={{ provider: () => new Map() }}><BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable preferencesAvailable
+      directCreation={{ creator: { create } as unknown as BillingRenewalCreator, canWrite: true, onCreated: vi.fn() }} /></SWRConfig>);
+    expect(await screen.findByText('Save the payment plan above before creating the enrollment.')).toBeVisible();
+    const button = screen.getByRole('button', { name: 'Create enrollment' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('creates the reviewed renewal directly without a separate draft-save stage', async () => {
     const payment = { id: 'payment-1' } as BillingPaymentDetail;
     const create = vi.fn().mockResolvedValue(payment);

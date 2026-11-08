@@ -50,6 +50,7 @@ import { RecordContactModal } from "@/components/parent-contacts/RecordContactMo
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { StudentProgressDrawer } from "@/components/students/StudentProgressTab";
 import { StudentParticipation } from "@/components/students/StudentParticipation";
+import { StudentPaymentPlan } from "@/components/students/StudentPaymentPlan";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
 import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
 import type { CheckItem } from "@/lib/homework-check";
@@ -504,6 +505,8 @@ export default function StudentDetailPage() {
               {student.student_name}
             </h1>
 
+            <StudentParticipation studentId={student.id} />
+
             {/* Grade Badge */}
             {student.grade && (
               <GradeBadge className="text-xs px-2 py-0.5 rounded text-gray-800" grade={student.grade} langStream={student.lang_stream} />
@@ -524,10 +527,6 @@ export default function StudentDetailPage() {
               <span>{activeEnrollments.length} enrollment{activeEnrollments.length !== 1 ? 's' : ''}</span>
             </div>
 
-            <Link href={`/billing/students/${student.id}`} className="rounded border border-line px-2.5 py-1 text-sm hover:bg-tint">
-              Payment journey
-            </Link>
-
             {/* Progress drawer toggle */}
             <button
               onClick={() => setProgressOpen(prev => !prev)}
@@ -543,8 +542,6 @@ export default function StudentDetailPage() {
               <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", progressOpen && "rotate-180")} />
             </button>
           </motion.div>
-
-          <StudentParticipation studentId={student.id} />
 
           {/* Progress Drawer */}
           <AnimatePresence>
@@ -1083,6 +1080,8 @@ function ProfileTab({
           )}
         </div>
       </div>
+
+      <StudentPaymentPlan studentId={student.id} isMobile={isMobile} />
 
       {/* Discounts & Coupons Card - loading skeleton */}
       {couponLoading && (

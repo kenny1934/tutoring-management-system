@@ -66,7 +66,7 @@ export class BillingRenewalCreator {
         const preference = await billingAPI.preferences(input.studentId, undefined, signal);
         signal?.throwIfAborted();
         if (preference.payment_method !== input.review.scenario.payment_method) {
-          throw new Error('The payment method changed. Review the enrollment again.');
+          throw new Error(preference.payment_method ? 'The payment method changed. Review the enrollment again.' : 'Save Autopay or Manual in Payment plan before creating the enrollment.');
         }
         if (input.review.period.collection.method === 'autopay' && !preference.mandate_ready) {
           throw new Error('Record bank authorisation in Payment settings first.');

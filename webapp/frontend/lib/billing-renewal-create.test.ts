@@ -27,6 +27,24 @@ describe('one-action renewal creation', () => {
     expect(mocks.saveDraft).toHaveBeenCalledWith(4, expect.objectContaining({ review: request.request, expected_review_hash: 'review-1', note: 'Synthetic note', idempotency_key: expect.any(String) }), undefined);
     expect(mocks.confirmDraft).toHaveBeenCalledWith('draft-1', expect.objectContaining({ expected_revision: 1, expected_review_hash: 'review-1', expected_preference_version: 6, idempotency_key: expect.any(String) }), undefined);
   });
+  it('confirms an exact first enrollment manually while retaining Autopay without bank authorisation', async () => {
+    const data = input();
+    data.request.scenario = { ...data.request.scenario, mode: 'new_student', payment_method: 'autopay', materials_fee: 100, trial_deduction: true };
+    data.request.selected_enrollment_ids = [];
+    data.request.intake = { trial_enrollment_id: 70, trial_session_id: 71, slots: [{ tutor_id: 9, renewed_from_enrollment_id: 70 }], materials_override_reason: null };
+    data.review.scenario = data.request.scenario;
+    mocks.preferences.mockResolvedValue({ student_id: 4, payment_method: 'autopay', mandate_ready: false, version: 8 });
+    mocks.saveDraft.mockResolvedValue(saved(data));
+    await new BillingRenewalCreator().create(data);
+    expect(mocks.saveDraft).toHaveBeenCalledWith(4, expect.objectContaining({ review: data.request }), undefined);
+    expect(mocks.confirmDraft).toHaveBeenCalledWith('draft-1', expect.objectContaining({ expected_preference_version: 8 }), undefined);
+  });
+  it('asks staff to record an unknown preference before any creation write', async () => {
+    mocks.preferences.mockResolvedValue({ student_id: 4, payment_method: null, mandate_ready: false, version: 0 });
+    await expect(new BillingRenewalCreator().create(input())).rejects.toThrow('Save Autopay or Manual in Payment plan');
+    expect(mocks.saveDraft).not.toHaveBeenCalled();
+    expect(mocks.confirmDraft).not.toHaveBeenCalled();
+  });
   it('uses a saved bank authorisation without a per-payment checkbox', async () => {
     const data = input(); data.request.scenario.payment_method = 'autopay'; data.request.scenario.mandate_ready = true;
     data.review.scenario = data.request.scenario; data.review.period.collection.method = 'autopay';

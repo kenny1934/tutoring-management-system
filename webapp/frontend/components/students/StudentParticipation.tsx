@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
+import { ChevronDown } from 'lucide-react';
 import { Badge, Button, Field, Input, Select, Textarea } from '@/components/controls';
 import { Modal } from '@/components/ui/modal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,10 +30,9 @@ function ParticipationContent({ studentId, scope }: { studentId: number; scope: 
   if (state.error) return <div className="flex items-center gap-2 text-xs text-ink-subtle"><span>Could not load participation.</span><Button size="sm" variant="quiet" onClick={() => state.mutate()}>Retry</Button></div>;
   if (!detail?.enabled) return null;
   const canManage = auth.isAdmin && !auth.isReadOnly && detail.can_manage;
-  return <div className="flex flex-wrap items-center gap-2 py-1.5 text-xs" aria-label="Student participation">
-    <span className="text-ink-subtle">Participation</span><Badge tone={detail.status === 'Active' ? 'success' : 'warning'}>{detail.status}</Badge>
+  return <div className="flex flex-wrap items-center gap-2 text-xs" aria-label="Student participation">
+    <button type="button" aria-label={`Participation: ${detail.status}`} title={canManage ? 'Change participation' : 'View participation history'} aria-haspopup="dialog" onClick={() => setOpen(true)} className="inline-flex min-h-8 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge tone={detail.status === 'Active' ? 'success' : 'warning'}>{detail.status}<ChevronDown className="ml-1 h-3 w-3" aria-hidden="true" /></Badge></button>
     {detail.scheduled_status && <span>{detail.scheduled_status} from {formatShortDate(detail.scheduled_effective_on)}</span>}
-    <Button size="sm" variant="quiet" onClick={() => setOpen(true)}>{canManage ? 'Change' : 'History'}</Button>
     {open && <ParticipationDialog key={`${scope}:${detail.version}`} detail={detail} canManage={canManage} onClose={() => setOpen(false)}
       onReload={() => state.mutate()}
       onSaved={async next => { await state.mutate(next, false); setOpen(false); invalidateCaches('sessions', { studentId }); invalidateCaches('enrollments', { studentId }); invalidateCaches('proposals', { studentId }); void invalidateRenewalQueueCache(); }} />}

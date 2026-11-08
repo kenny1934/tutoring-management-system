@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import type { BillingRenewalCreator } from '@/lib/billing-renewal-create';
 import { BillingRenewalCreate } from './BillingRenewalCreate';
 import { RenewalSessionPreview } from './RenewalSessionPreview';
-import { ArrowLeft, Check, ClipboardCopy, FileCheck2, Save } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardCopy, FileCheck2, Info, Save } from 'lucide-react';
 import { Button, Label, Segmented, Textarea } from '@/components/controls';
 import { Modal } from '@/components/ui/modal';
 import { BillingChecks } from './BillingChecks';
@@ -70,6 +70,8 @@ const confirmations: Record<BillingConfirmableCheck, string> = {
 };
 
 export function BillingDraftSummaryContent({ review, calculation, presentation = 'default', confirmationControls = false }: { review: Review; calculation?: BillingPreviewResponse; presentation?: 'default' | 'renewal'; confirmationControls?: boolean }) {
+  const [firstRuleOpen, setFirstRuleOpen] = useState(false);
+  const firstRuleId = useId();
   const period = review.period;
   const manualUnderAutopay = review.scenario.payment_method === 'autopay' && period.collection.method === 'manual';
   const manualReason = manualUnderAutopay ? manualCollectionReasons[period.kind] : undefined;
@@ -85,6 +87,12 @@ export function BillingDraftSummaryContent({ review, calculation, presentation =
     && !review.confirmed_checks.includes(issue.code as BillingConfirmableCheck)
     && !(issue.code === 'MANDATE_NOT_READY' && period.collection.method === 'manual'));
   return <div className="space-y-3">
+    {presentation === 'renewal' && period.kind === 'first' && <div className="space-y-2">
+      <div className="flex items-center gap-1"><p className="text-sm font-medium">First payment: {period.lesson_count} lessons through {formatShortDate(period.coverage_through)}.</p><button type="button" aria-label="First payment rule" aria-expanded={firstRuleOpen} aria-controls={firstRuleId} onClick={() => setFirstRuleOpen(value => !value)} onKeyDown={event => {
+        if (event.key === 'Escape' && firstRuleOpen) { event.preventDefault(); event.stopPropagation(); setFirstRuleOpen(false); }
+      }} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-subtle hover:bg-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Info className="h-3.5 w-3.5" aria-hidden="true" /></button></div>
+      <p id={firstRuleId} hidden={!firstRuleOpen} className="rounded-md border border-line bg-wash px-3 py-2 text-xs text-ink-subtle">The first payment covers at least six lessons and ends at a month-end. The final teaching period may need an admin adjustment.</p>
+    </div>}
     <div><p className="font-semibold">{review.student.student_name}</p><p className="text-xs text-ink-subtle">{formatShortDate(period.first_lesson_date)} to {formatShortDate(period.last_lesson_date)}</p></div>
     <div className="space-y-2">
       <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs"><div className="flex items-center gap-2"><dt>Payment plan</dt><dd><PaymentMethodBadge method={review.scenario.payment_method} /></dd></div><div className="flex items-center gap-2"><dt>This payment</dt><dd><PaymentMethodBadge method={period.collection.method} /></dd></div></dl>
@@ -292,7 +300,8 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
   const noteFields = <><Label htmlFor={`draft-note-${displayedReview?.review_hash}`}>{directCreation ? 'Enrollment note' : 'Draft note'}</Label><Textarea id={`draft-note-${displayedReview?.review_hash}`} value={note} maxLength={5000} disabled={busy} onChange={event => setNote({ key: baseKey, text: event.target.value })} /></>;
   const saveAction = <Button icon={Save} disabled={!review || !storageAvailable || busy || savedContent === contentKey} onClick={save}>{savedContent === contentKey ? 'Saved' : saveLabel ?? (revisionTarget ? 'Save revision' : 'Save draft')}</Button>;
   const messageToggle = <Button size="sm" variant="secondary" disabled={busy || !review} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessagePreview(messageOpen ? null : baseKey)}>{messageOpen ? 'Hide fee message' : 'Preview fee message'}</Button>;
-  const createAction = directCreation && <BillingRenewalCreate creator={directCreation.creator} authScope={billingDraftAuthScope(auth)} studentId={studentId} review={preferences.error ? null : review} request={request} note={note} revisionTarget={revisionTarget}
+  const unsavedPlan = !!directCreation && !!preferences.data && preferences.data.payment_method !== reviewRequest.scenario.payment_method;
+  const createAction = directCreation && <BillingRenewalCreate creator={directCreation.creator} authScope={billingDraftAuthScope(auth)} studentId={studentId} review={preferences.error || unsavedPlan ? null : review} request={request} note={note} revisionTarget={revisionTarget}
     canWrite={directCreation.canWrite} storageAvailable={storageAvailable} onCreated={directCreation.onCreated} onBusyChange={setCreating} onStale={onStaleReview} />;
   const body = <div className="space-y-5" aria-busy={!review && !!displayedReview}>
     {presentation?.inDialog && <Button ref={back} icon={ArrowLeft} variant="quiet" disabled={busy} onClick={() => close()}>Back to payment details</Button>}
@@ -305,6 +314,7 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
       {auth.isAdmin && <div className="space-y-2">
         {showNote && noteFields}
         {summaryPresentation === 'renewal' ? <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2">{!note && <Button size="sm" variant="quiet" disabled={busy || !review} onClick={() => setNoteEditor(showNote ? null : baseKey)}>{showNote ? 'Hide note' : 'Add note'}</Button>}{messageToggle}</div><div className="ml-auto">{createAction || saveAction}</div></div> : saveAction}
+        {unsavedPlan && <p role="status" className="text-xs text-amber-800 dark:text-amber-300">Save the payment plan above before creating the enrollment.</p>}
         {!storageAvailable && <p className="text-xs text-ink-subtle">{directCreation ? 'Enrollment creation is not available yet.' : 'Saving drafts is not available yet.'}</p>}
       </div>}
       {summaryPresentation === 'renewal' && <>

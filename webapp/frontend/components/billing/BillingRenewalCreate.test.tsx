@@ -81,7 +81,7 @@ describe('direct renewal creation', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
     expect(props.onCreated).not.toHaveBeenCalled();
     expect(props.onStale).toHaveBeenCalledTimes(stale ? 1 : 0);
-    expect(props.onBusyChange).toHaveBeenLastCalledWith(false);
+    await waitFor(() => expect(props.onBusyChange).toHaveBeenLastCalledWith(false));
     fireEvent.click(screen.getByRole('button', { name: 'Create enrollment' }));
     await waitFor(() => expect(props.onCreated).toHaveBeenCalledExactlyOnceWith(payment));
     expect(create).toHaveBeenCalledTimes(2);
