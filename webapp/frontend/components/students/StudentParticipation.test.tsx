@@ -20,7 +20,7 @@ beforeEach(() => {
   mocks.mutate.mockResolvedValue(undefined);
 });
 async function edit() {
-  fireEvent.click(screen.getByRole('button', { name: 'Change' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Participation:/ }));
   await screen.findByLabelText('Reason');
   fireEvent.change(screen.getByLabelText('From'), { target: { value: '2027-04-01' } });
   fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Family trip.' } });
@@ -36,6 +36,17 @@ describe('student participation', () => {
     render(<StudentParticipation studentId={4} />);
     expect(screen.queryByLabelText('Student participation')).not.toBeInTheDocument();
     expect(mocks.preview).not.toHaveBeenCalled();
+  });
+
+  it('uses a clickable status and retains a scheduled change beside it', () => {
+    mocks.source = { ...detail(), scheduled_status: 'Paused', scheduled_effective_on: '2027-04-01' };
+    render(<StudentParticipation studentId={4} />);
+    const status = screen.getByRole('button', { name: 'Participation: Active' });
+    expect(status).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(screen.getByText(/Paused from/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument();
+    fireEvent.click(status);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('requires an explicit review and release confirmation before changing a pause', async () => {
@@ -102,8 +113,8 @@ describe('student participation', () => {
     view.rerender(<StudentParticipation studentId={4} />);
     await act(async () => finish(preview(original[1])));
     expect((original[2] as AbortSignal).aborted).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    expect(screen.getByRole('button', { name: 'Participation: Active' })).toHaveAttribute('title', 'View participation history');
+    fireEvent.click(screen.getByRole('button', { name: 'Participation: Active' }));
     expect(screen.queryByRole('button', { name: 'Review change' })).not.toBeInTheDocument();
     expect(mocks.save).not.toHaveBeenCalled();
   });

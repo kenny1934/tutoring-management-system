@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.3.1...v2.3.2) (2026-11-08)
+
+### Improvements
+
+* **First enrollment**: create regular enrollments directly from a focused schedule, fee breakdown and session preview, including when converting a trial.
+* **Enrollment charges**: select verified coupons or the trial deduction with simpler materials controls, and compare future payment schedules when needed.
+* **Student profiles**: participation now appears beside the student’s name, and a matching Payment plan card brings together preferences, bank authorisation and the payment journey.
+
+### Bug Fixes
+
+* **First-payment help**: tap the info button to open or close the explanation on phones and tablets.
+
 ## [2.3.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.3.0...v2.3.1) (2026-11-08)
 
 ### New Features

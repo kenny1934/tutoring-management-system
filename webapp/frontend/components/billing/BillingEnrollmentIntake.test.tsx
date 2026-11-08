@@ -103,6 +103,20 @@ describe('reviewed first enrollment', () => {
     expect(mocks.payments).toHaveBeenLastCalledWith(expect.objectContaining({ initialPaymentId: 'payment-1', canWrite: false }));
   });
 
+  it('creates directly from the focused preview and shows the same payment panel as renewals', async () => {
+    const onCreated = vi.fn();
+    render(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} onCreated={onCreated} />);
+    await screen.findByText('Intake journey');
+    const props = mocks.preview.mock.lastCall![0];
+    expect(props).toEqual(expect.objectContaining({ focused: true, renewalCreator: expect.any(Object), onEnrollmentCreated: expect.any(Function) }));
+    const payment = { id: 'new-payment', student_id: 4, lines: [{ enrollment_id: 123 }] };
+    act(() => props.onEnrollmentCreated(payment));
+    expect(screen.getByText('Enrollment created.')).toBeVisible();
+    expect(screen.queryByText('Exact saved draft')).not.toBeInTheDocument();
+    expect(mocks.payments).toHaveBeenLastCalledWith(expect.objectContaining({ presentation: 'renewal', initialDetail: payment, initialPaymentId: 'new-payment' }));
+    expect(onCreated).toHaveBeenCalledOnce();
+  });
+
   it('reopens an exact saved intake draft from a persistent link', async () => {
     render(<BillingEnrollmentIntake studentId={4} initialDraftId="draft-previous" />);
     await screen.findByText('Exact saved draft');
