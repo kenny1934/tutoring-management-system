@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BillingDraftDetail, BillingIntakeContext } from '@/types/billing';
 import { BillingEnrollmentIntake } from './BillingEnrollmentIntake';
+import { billingDraftAuthScope } from './BillingDraftReview';
 
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), context: vi.fn(), preview: vi.fn(), saved: vi.fn(), payments: vi.fn(), settings: vi.fn(), invalidate: vi.fn() }));
 const options = { first_payment_from: '2026-10-30', draft_storage_available: true, workflow_available: true, workflow_writes_available: false, preferences_writes_available: false };
@@ -29,6 +30,28 @@ beforeEach(() => {
 });
 
 describe('reviewed first enrollment', () => {
+  it('uses a prepared source immediately and rechecks it after payment settings change', async () => {
+    const initialContext = { data: context(), authScope: billingDraftAuthScope(mocks.auth()) };
+    render(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} initialContext={initialContext} />);
+    expect(screen.getByText('Intake journey')).toBeVisible();
+    expect(screen.queryByText('Checking enrollment details…')).not.toBeInTheDocument();
+    expect(mocks.context).not.toHaveBeenCalled();
+    act(() => mocks.settings.mock.lastCall![0].onSaved());
+    await screen.findByText('Intake journey');
+    expect(mocks.context).toHaveBeenCalledOnce();
+  });
+
+  it('does not reuse a prepared source after the effective staff role changes', () => {
+    const initialContext = { data: context(), authScope: billingDraftAuthScope(mocks.auth()) };
+    const view = render(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} initialContext={initialContext} />);
+    expect(screen.getByText('Intake journey')).toBeVisible();
+    mocks.context.mockImplementation(() => new Promise(() => {}));
+    mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Tutor', isAdmin: false, isGuest: false, isLoading: false, isImpersonating: true, impersonatedTutor: { id: 9 } });
+    view.rerender(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} initialContext={initialContext} />);
+    expect(screen.queryByText('Intake journey')).not.toBeInTheDocument();
+    expect(mocks.context).toHaveBeenCalledWith(4, expect.objectContaining({ tutor_id: 9 }), expect.any(AbortSignal));
+  });
+
   it('loads verified trial identity but keeps the actual chosen date, tutor and slot', async () => {
     render(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} initialFirstLessonDate="2026-11-17"
       initialSlots={[{ weekday: 'Tue', time_slot: '18:30 - 20:00', location: 'MSB' }]}
