@@ -15,7 +15,7 @@ function parsePdfPath(path: string): {
   filename: string;
   filenameWithoutExt: string;
 } {
-  let cleaned = path.replace(/^["']|["']$/g, '');
+  const cleaned = path.replace(/^["']|["']$/g, '');
 
   const aliasMatch = cleaned.match(/^\[([^\]]+)\]\\(.+)$/);
 
@@ -99,25 +99,28 @@ function buildNormalizedQuery(searchPath: string): string {
  */
 export async function searchPaperlessByPath(
   searchPath: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  signal?: AbortSignal
 ): Promise<number | null> {
+  signal?.throwIfAborted();
   const { filename, filenameWithoutExt, directoryParts } = parsePdfPath(searchPath);
 
   // Step 1: Full path as-is (current behavior)
   onProgress?.("Searching by full path\u2026");
   try {
-    const response = await api.paperless.search(searchPath, 1, 'all');
+    const response = await api.paperless.search(searchPath, 1, 'all', undefined, 'all', 0, signal);
     if (response.results.length > 0) {
       return response.results[0].id;
     }
   } catch {
+    signal?.throwIfAborted();
     // Continue to next strategy
   }
 
   // Step 2: Filename with extension, full-text search
   onProgress?.(`Searching by filename: ${filename}\u2026`);
   try {
-    const response = await api.paperless.search(filename, 5, 'all');
+    const response = await api.paperless.search(filename, 5, 'all', undefined, 'all', 0, signal);
     if (response.results.length > 0) {
       // Prefer exact title match
       const exactMatch = response.results.find(
@@ -133,6 +136,7 @@ export async function searchPaperlessByPath(
       if (partialMatch) return partialMatch.id;
     }
   } catch {
+    signal?.throwIfAborted();
     // Continue to next strategy
   }
 
@@ -140,7 +144,7 @@ export async function searchPaperlessByPath(
   onProgress?.(`Searching by name: ${filenameWithoutExt}\u2026`);
   if (filenameWithoutExt !== filename) {
     try {
-      const response = await api.paperless.search(filenameWithoutExt, 10, 'all');
+      const response = await api.paperless.search(filenameWithoutExt, 10, 'all', undefined, 'all', 0, signal);
       if (response.results.length > 0) {
         const validMatch = response.results.find(doc =>
           validateMatch(doc, filenameWithoutExt, directoryParts, true)
@@ -148,6 +152,7 @@ export async function searchPaperlessByPath(
         if (validMatch) return validMatch.id;
       }
     } catch {
+      signal?.throwIfAborted();
       // Continue to next strategy
     }
   }
@@ -157,7 +162,7 @@ export async function searchPaperlessByPath(
   const normalizedQuery = buildNormalizedQuery(searchPath);
   if (normalizedQuery && normalizedQuery !== searchPath) {
     try {
-      const response = await api.paperless.search(normalizedQuery, 5, 'all');
+      const response = await api.paperless.search(normalizedQuery, 5, 'all', undefined, 'all', 0, signal);
       if (response.results.length > 0) {
         const validMatch = response.results.find(doc =>
           validateMatch(doc, filenameWithoutExt, directoryParts, false)
@@ -165,6 +170,7 @@ export async function searchPaperlessByPath(
         if (validMatch) return validMatch.id;
       }
     } catch {
+      signal?.throwIfAborted();
       // All strategies exhausted
     }
   }

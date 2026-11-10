@@ -24,7 +24,7 @@ export const viewerTabClass = (active: boolean) => cn(
  */
 export function PdfRenderFailure({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
+    <div data-native-pdf-failed className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
       <div className="flex flex-col items-center gap-3 max-w-sm text-center">
         <AlertTriangle className="h-10 w-10 text-amber-700" />
         <p className="text-sm text-ink-subtle">

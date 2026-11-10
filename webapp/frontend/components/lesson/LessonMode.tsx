@@ -22,6 +22,8 @@ import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { motion } from "framer-motion";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
 import { useLessonInk } from "@/hooks/useLessonInk";
@@ -72,6 +74,7 @@ export function LessonMode({
   useHideBottomBar();
   const currentSession = session;
   const previousSession = session.previous_session ?? null;
+  const preview = useNativePresentation();
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 
@@ -460,7 +463,8 @@ export function LessonMode({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="flex flex-col flex-1 min-h-0 relative"
+      className={cn("flex flex-col flex-1 min-h-0 relative", previewStyles.lessonStage)}
+      data-native-preview={preview ?? undefined}
     >
       {/* Header bar — hidden in focus mode */}
       {!focusMode && renderHeader()}
@@ -478,6 +482,7 @@ export function LessonMode({
         {/* The open exercise, with its Draft and its answer key */}
         <LessonViewerArea
           isMobile={isMobile}
+          contextRevealed={(focusMode && hoverSidebar) || mobileExerciseListOpen}
           link={selectedExercise?.url && !selectedExercise?.pdf_name ? (
             <UrlExerciseView
               url={selectedExercise.url}

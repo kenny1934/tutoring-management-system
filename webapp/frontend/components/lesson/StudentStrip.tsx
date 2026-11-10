@@ -50,6 +50,7 @@ export function StudentStrip({ entry, position, onPrevious, onNext, selectedLoca
 
   return (
     <div
+      data-native-student-strip
       className={cn(
         "@container/strip flex items-center gap-2 px-2 py-1 flex-none",
         "border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f5efe5] dark:bg-[#1e1a14]",
@@ -69,7 +70,7 @@ export function StudentStrip({ entry, position, onPrevious, onNext, selectedLoca
           badgeClassName="text-xs leading-4 py-0.5"
         >
           {studentId && (
-            <span className="flex-none text-sm font-mono text-ink-subtle dark:text-[#8a7a60]">{studentId}</span>
+            <span data-native-strip-id className="flex-none text-sm font-mono text-ink-subtle dark:text-[#8a7a60]">{studentId}</span>
           )}
           <span className="truncate text-lg font-bold text-[#4a3520] dark:text-[#e8d4b8]">
             {entry.studentName}
@@ -84,6 +85,7 @@ export function StudentStrip({ entry, position, onPrevious, onNext, selectedLoca
         </WithSchoolIfItFits>
         {/* The count keeps its line even when it's empty, so the strip's height never changes. */}
         <span className="text-xs text-ink-subtle dark:text-[#8a7a60] tabular-nums min-h-4">
+          {studentId && <span data-native-strip-id-sub>{studentId} · </span>}
           {position ? `${position.index} of ${position.total}` : caption ?? ""}
         </span>
       </div>

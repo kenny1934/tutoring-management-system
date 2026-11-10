@@ -1223,7 +1223,8 @@ export const paperlessAPI = {
     searchMode: PaperlessSearchMode = "all",
     tagIds?: number[],
     tagMatchMode: PaperlessTagMatchMode = "all",
-    offset: number = 0
+    offset: number = 0,
+    signal?: AbortSignal
   ) => {
     const params = new URLSearchParams({
       query,
@@ -1235,7 +1236,7 @@ export const paperlessAPI = {
       params.append("tag_ids", tagIds.join(","));
       params.append("tag_match_mode", tagMatchMode);
     }
-    return fetchAPI<PaperlessSearchResponse>(`/paperless/search?${params}`);
+    return fetchAPI<PaperlessSearchResponse>(`/paperless/search?${params}`, signal ? { signal } : undefined);
   },
 
   getTags: () => {

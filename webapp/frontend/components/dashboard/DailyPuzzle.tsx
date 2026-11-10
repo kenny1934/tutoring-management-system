@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { getAppScroller } from "@/lib/scroll";
+import { recessSessionBackground } from "@/components/design-preview/sessionDetailMotion";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
+import { NativeDesktopPuzzle } from "@/components/design-preview/NativeDesktopPuzzle";
 import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
 import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -24,14 +29,21 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
     submitAnswer,
   } = useDailyPuzzle();
   const onPhone = useAsSheet();
+  const nativePreview = useNativePresentation();
+  const desktopPreview = !onPhone && nativePreview === "motion";
   const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    const main = getAppScroller();
+    if (nativePreview !== "motion" || !onPhone || !sheetOpen || !main) return;
+    return recessSessionBackground(main, true, previewStyles.sessionBackground);
+  }, [nativePreview, onPhone, sheetOpen]);
   // On a phone the puzzle starts folded to one line, see below.
   const [unfolded, setUnfolded] = useState(false);
 
   // Loading state
   if (isLoading) {
     return (
-      <div className={cn("py-1.5 px-4", className)}>
+      <div data-native-puzzle className={cn("py-1.5 px-4", className)}>
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>Loading puzzle...</span>
@@ -57,6 +69,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
   if (onPhone && !unfolded) {
     return (
       <button
+        data-native-puzzle
         type="button"
         onClick={() => setUnfolded(true)}
         className={cn("flex w-full items-center gap-2 py-2 px-4 text-left active:bg-tint", className)}
@@ -103,8 +116,8 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
     );
   };
 
-  return (
-    <div className={cn("py-1.5 px-4 sm:px-6", className)}>
+  const content = (
+    <div data-native-puzzle={desktopPreview ? undefined : true} data-native-puzzle-content className={cn("py-1.5 px-4 sm:px-6", className)}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <Lightbulb className="h-3.5 w-3.5 text-amber-700" />
@@ -156,12 +169,12 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
         <>
           <button
             type="button"
-            onClick={() => setSheetOpen(true)}
+            onClick={event => { event.currentTarget.focus({ preventScroll: true }); setSheetOpen(true); }}
             className="px-3 py-1 text-xs font-medium rounded-full border border-line-strong bg-field-fill text-accent-ink active:bg-tint"
           >
             {userAnswer === null ? "Choose an answer" : "See the answers"}
           </button>
-          <MobileBottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title="Daily puzzle">
+          <MobileBottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} onCloseStart={nativePreview === "motion" ? () => setSheetOpen(false) : undefined} modalLabel={nativePreview === "motion" ? "Daily puzzle" : undefined} title="Daily puzzle">
             <div className="flex flex-col gap-2 px-4 pt-3 pb-4">
               <p className="text-sm text-foreground leading-relaxed mb-1">{question.question}</p>
               {question.allAnswers.map((answer) => (
@@ -200,4 +213,9 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
       )}
     </div>
   );
+  return desktopPreview ? (
+    <NativeDesktopPuzzle question={question.question} answers={question.allAnswers} correctAnswer={question.correctAnswer} userAnswer={userAnswer} onAnswer={submitAnswer}>
+      {content}
+    </NativeDesktopPuzzle>
+  ) : content;
 }

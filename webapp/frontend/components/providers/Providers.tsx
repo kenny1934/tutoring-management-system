@@ -20,6 +20,7 @@ import { ZenProvider } from "@/contexts/ZenContext";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ZenActivator } from "@/components/zen";
 import { PageErrorBoundary } from "@/components/ui/error-boundary";
+import { NativeNavigationProvider } from "@/components/design-preview/NativeNavigationMemory";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { ExerciseClipboardWidget } from "@/components/ui/ExerciseClipboardWidget";
 
@@ -75,9 +76,11 @@ export function Providers({ children }: { children: ReactNode }) {
                   <CommandPaletteProvider>
                     <ToastProvider>
                       <ConfirmProvider>
-                        <PageErrorBoundary>
-                          {children}
-                        </PageErrorBoundary>
+                        <NativeNavigationProvider>
+                          <PageErrorBoundary>
+                            {children}
+                          </PageErrorBoundary>
+                        </NativeNavigationProvider>
                         <AdminOnly>
                           <CommandPalette />
                           <ZenActivator />

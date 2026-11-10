@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import type { PdfViewState } from "@/components/lesson/PdfPageViewer";
 import { usePdfCache } from "@/hooks/useExercisePdf";
 import type { AnswerSearchResult } from "@/lib/answer-file-utils";
 import type { CheckItem } from "@/lib/homework-check";
@@ -10,6 +11,8 @@ import type { HomeworkCompletion } from "@/types";
 // The viewer brings the whole PDF renderer with it, so it's only fetched the
 // first time someone opens it.
 const CheckViewer = dynamic(() => import("./CheckViewer").then((mod) => mod.CheckViewer), { ssr: false });
+
+export type CheckViewerViews = { worksheet: Map<number, PdfViewState>; answer: Map<number, PdfViewState> };
 
 interface CheckViewerApi {
   /** Opens the Check Viewer on this item. */
@@ -42,11 +45,15 @@ export function useCheckViewer(): CheckViewerApi | null {
  */
 export function CheckViewerProvider({
   items,
+  lessonPreview,
+  retainedViews,
   readOnly,
   onMarked,
   children,
 }: {
   items: CheckItem[];
+  lessonPreview?: boolean;
+  retainedViews?: CheckViewerViews;
   readOnly?: boolean;
   /** Called with each record saved from inside the viewer, like a row's own onMarked. */
   onMarked?: (updated: HomeworkCompletion) => void;
@@ -56,6 +63,7 @@ export function CheckViewerProvider({
   const [current, setCurrent] = useState<CheckItem | null>(null);
   const cache = usePdfCache();
   const [searches] = useState(() => new Map<string, AnswerSearchResult | null>());
+  const [views] = useState(() => ({ worksheet: new Map<number, PdfViewState>(), answer: new Map<number, PdfViewState>() }));
   const close = useCallback(() => setCurrent(null), []);
   const api = useMemo<CheckViewerApi>(() => ({ open: setCurrent }), []);
 
@@ -67,6 +75,8 @@ export function CheckViewerProvider({
       {current && (
         <CheckViewer
           items={items}
+          lessonPreview={lessonPreview}
+          retainedViews={retainedViews ?? views}
           current={current}
           onNavigate={setCurrent}
           onClose={close}

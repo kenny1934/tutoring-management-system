@@ -7,6 +7,8 @@ import { formatActivityTime, formatActivityDate, formatFullTimestamp } from "@/l
 import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { ActivityFeedModal } from "./ActivityFeedModal";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { NativeRecentActivity } from "@/components/design-preview/NativeRecentActivity";
 import {
   CheckCircle,
   CheckCircle2,
@@ -114,7 +116,12 @@ interface ActivityFeedProps {
   tutorId?: number;
 }
 
-export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityFeedProps) {
+export function ActivityFeed(props: ActivityFeedProps) {
+  const native = useNativePresentation() === "motion";
+  return native ? <NativeRecentActivity className={props.className} tutorId={props.tutorId} /> : <OriginalActivityFeed {...props} />;
+}
+
+function OriginalActivityFeed({ className, isMobile = false, tutorId }: ActivityFeedProps) {
   const { selectedLocation } = useLocation();
   const { data: apiEvents, isLoading } = useActivityFeed(selectedLocation, tutorId, 10);
   const { data: tutors } = useTutors();
@@ -151,7 +158,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
 
   if (isLoading) {
     return (
-      <div className={cn(
+      <div data-native-activity-panel className={cn(
         "bg-paper rounded-xl border border-line overflow-hidden",
         !isMobile && "paper-texture",
         className
@@ -173,7 +180,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
 
   if (!events.length) {
     return (
-      <div className={cn(
+      <div data-native-activity-panel className={cn(
         "bg-paper rounded-xl border border-line overflow-hidden",
         !isMobile && "paper-texture",
         className
@@ -194,7 +201,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
   }
 
   return (
-    <div className={cn(
+    <div data-native-activity-panel className={cn(
       "bg-paper rounded-xl border border-line overflow-hidden",
       !isMobile && "paper-texture",
       className
@@ -222,7 +229,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
             entries wrap onto a second line and fell out of step with it, so
             the lines ran through the text. */}
         {!isMobile && (
-          <div className="absolute left-10 top-0 bottom-0 w-px bg-red-300/50 dark:bg-red-700/30" />
+          <div data-native-activity-ruling className="absolute left-10 top-0 bottom-0 w-px bg-red-300/50 dark:bg-red-700/30" />
         )}
 
         <div className={cn("p-4 pl-2", !isMobile && "ruled-lines")}>
@@ -284,6 +291,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
 
                         {/* Right: Modified by + Time */}
                         <span
+                          data-native-activity-time
                           className="flex-shrink-0 text-[11px] font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap"
                           title={formatFullTimestamp(event.time)}
                         >

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback, type ComponentProps } from "react";
+import { useState, useMemo, useCallback, useLayoutEffect, useRef, type ComponentProps } from "react";
 import {
   PenTool, BookOpen, ChevronDown, Pencil, Plus, FileX,
   Users, FileStack, User, ChevronsDownUp, ChevronsUpDown, UserPlus,
 } from "lucide-react";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { revealLessonSelection } from "@/components/design-preview/lessonReading";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
@@ -18,7 +20,7 @@ import type { Session, HomeworkCompletion, UnlistedLesson } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
-import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
+import { CheckViewerProvider, type CheckViewerViews } from "@/components/homework/CheckViewerProvider";
 import { slotCheckItems } from "@/lib/homework-check";
 import { PrintIconButton } from "./PrintIconButton";
 import { WithSchoolIfItFits } from "./SchoolBadge";
@@ -47,6 +49,7 @@ interface LessonWideSidebarProps {
   printing?: PrintingState;
   /** Homework carried in from earlier lessons, keyed by session. */
   homeworkBySession?: Map<number, HomeworkCompletion[]>;
+  homeworkViews?: CheckViewerViews;
   onHomeworkMarked?: (updated: HomeworkCompletion) => void;
   /** The slot's own Draft, for its row above the exercises. Leave it out where it can't open, such as on a phone. */
   lessonDraft?: LessonDraftEntry;
@@ -99,6 +102,8 @@ function StudentExerciseItem({
       <button
         type="button"
         onClick={onClick}
+        title={displayName}
+        data-native-lesson-exercise={entry.exercise.id}
         aria-current={isSelected || undefined}
         className={cn(
           "flex-1 min-w-0 text-left px-2.5 py-2 rounded-md transition-all text-sm",
@@ -198,11 +203,11 @@ function StudentBlock({
   };
 
   return (
-    <div>
+    <div data-native-lesson-student={session.id} data-native-student-active={selectedEntry?.session.id === session.id || undefined}>
       {/* The student's number, name, grade and language are what the pane is
           grouped by, so they sit on a tinted band in the largest text here.
           Their school follows whenever there's room for all of it. */}
-      <div className="flex items-center rounded-md bg-[#f0e6d4] dark:bg-[#252018]">
+      <div data-native-student-band className="flex items-center rounded-md bg-[#f0e6d4] dark:bg-[#252018]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -490,7 +495,8 @@ function FileGroupItem({
                     <button
                       type="button"
                       onClick={() => onEntrySelect(entry)}
-                      aria-current={isSelected || undefined}
+                      data-native-lesson-exercise={entry.exercise.id}
+                    aria-current={isSelected || undefined}
                       className={cn(
                         "flex-1 min-w-0 text-left px-2 py-1.5 rounded-md transition-all text-xs",
                         "border border-transparent min-h-10",
@@ -571,6 +577,7 @@ export function LessonWideSidebar({
   onBulkAssign,
   printing,
   homeworkBySession,
+  homeworkViews,
   onHomeworkMarked,
   lessonDraft,
   onAddUnlisted,
@@ -579,6 +586,14 @@ export function LessonWideSidebar({
   onUnlistedEntryOpen,
   onUnlistedEdit,
 }: LessonWideSidebarProps) {
+  const preview = useNativePresentation();
+  const rosterScroll = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const scroller = rosterScroll.current;
+    const row = scroller?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (preview === "motion" && scroller && row) revealLessonSelection(scroller, row);
+  }, [preview, selectedEntry, sidebarMode]);
+
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
   const handlePickerClose = useCallback(() => setPickerType(null), []);
@@ -663,7 +678,7 @@ export function LessonWideSidebar({
           className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong px-2 py-2 text-xs text-ink-subtle transition-colors hover:bg-paper hover:text-ink"
         >
           <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-          Add a student who isn't listed
+          Add a student who isn&apos;t listed
         </button>
       )}
     </>
@@ -683,11 +698,12 @@ export function LessonWideSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div data-native-lesson-roster className="flex flex-col h-full">
       {/* Mode toggle. In a narrow sidebar, Collapse all shows only its icon, so the row still fits. */}
       <div className="@container/sidebarhead flex items-center gap-1 px-2 py-1.5 border-b border-[#e8d4b8] dark:border-[#3a3228]">
         <button
           onClick={() => onSidebarModeChange("by-student")}
+          aria-pressed={sidebarMode === "by-student"}
           className={cn(
             "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
             sidebarMode === "by-student"
@@ -700,6 +716,7 @@ export function LessonWideSidebar({
         </button>
         <button
           onClick={() => onSidebarModeChange("by-file")}
+          aria-pressed={sidebarMode === "by-file"}
           className={cn(
             "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
             sidebarMode === "by-file"
@@ -725,7 +742,7 @@ export function LessonWideSidebar({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto py-2 px-1">
+      <div ref={rosterScroll} data-native-roster-scroll className="flex-1 overflow-y-auto py-2 px-1">
         {/* The slot's own Draft, above everything the students have */}
         {lessonDraft && (
           <div className="px-1 pb-2">
@@ -773,7 +790,7 @@ export function LessonWideSidebar({
           // By-student mode: one block per student
           // The Check Viewer steps through the whole slot, student by student,
           // in the order they are listed here.
-          <CheckViewerProvider items={slotHomework} readOnly={isReadOnly} onMarked={onHomeworkMarked}>
+          <CheckViewerProvider lessonPreview retainedViews={homeworkViews} items={slotHomework} readOnly={isReadOnly} onMarked={onHomeworkMarked}>
             <div className="flex flex-col gap-2">
               {students.map((session) => {
                 const studentEntries = allEntries.filter(e => e.session.id === session.id);

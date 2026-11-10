@@ -20,6 +20,7 @@ export function SidebarPane({ width, onResizeStart, children }: SidebarPaneProps
   return (
     <>
       <div
+        data-native-lesson-sidebar
         className={cn(
           "flex flex-col border-r border-[#d4c4a8] dark:border-[#3a3228]",
           "bg-[#faf5ed] dark:bg-[#1e1a14]",
@@ -30,6 +31,7 @@ export function SidebarPane({ width, onResizeStart, children }: SidebarPaneProps
         {children}
       </div>
       <div
+        data-native-sidebar-grip
         onMouseDown={onResizeStart}
         className={cn(
           "w-1.5 cursor-col-resize flex-shrink-0",

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { useLessonCheckSurface } from "@/components/design-preview/useLessonCheckSurface";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { BookCheck, ChevronLeft, ChevronRight, Files, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -29,6 +32,8 @@ const ALL_PAGES: number[] = [];
 
 interface CheckViewerProps {
   items: CheckItem[];
+  lessonPreview?: boolean;
+  retainedViews?: { worksheet: Map<number, PdfViewState>; answer: Map<number, PdfViewState> };
   current: CheckItem;
   /** Moves to another item. Also handed a function, to refresh the open item's record after a save. */
   onNavigate: Dispatch<SetStateAction<CheckItem | null>>;
@@ -55,6 +60,8 @@ interface CheckViewerProps {
  */
 export function CheckViewer({
   items,
+  lessonPreview,
+  retainedViews,
   current,
   onNavigate,
   onClose,
@@ -67,6 +74,10 @@ export function CheckViewer({
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<"answer" | "worksheet">("answer");
   const panelRef = useRef<HTMLDivElement>(null);
+  const preview = useNativePresentation();
+  const enhanced = !!lessonPreview && preview === "motion";
+  const surface = useLessonCheckSurface(enhanced, isMobile, isTopmost, panelRef, onClose);
+  const closeViewer = surface.close;
 
   // --- Where we are in the list ---
   const openable = useMemo(() => items.filter((item) => canOpenInCheckViewer(item.homework)), [items]);
@@ -99,8 +110,10 @@ export function CheckViewer({
   const [allPagesFor, setAllPagesFor] = useState<string | null>(null);
   const allAnswerPages = allPagesFor === key;
   // Zoom and scroll per item, kept apart for the worksheet and the answers.
-  const [worksheetViews] = useState(() => new Map<number, PdfViewState>());
-  const [answerViews] = useState(() => new Map<number, PdfViewState>());
+  const [ownWorksheetViews] = useState(() => new Map<number, PdfViewState>());
+  const [ownAnswerViews] = useState(() => new Map<number, PdfViewState>());
+  const worksheetViews = enhanced && retainedViews ? retainedViews.worksheet : ownWorksheetViews;
+  const answerViews = enhanced && retainedViews ? retainedViews.answer : ownAnswerViews;
 
   // --- Saving from the marking row ---
   const handleMarked = useCallback(
@@ -127,7 +140,22 @@ export function CheckViewer({
       if (e.key === "Escape") {
         e.preventDefault();
         if (isTypingTarget(e.target)) (e.target as HTMLElement).blur();
-        else onClose();
+        else closeViewer();
+        return;
+      }
+      if (enhanced && e.key === "Tab") {
+        const panel = panelRef.current;
+        const targets = panel ? [...panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), [tabindex="0"]')].filter(el => el.getClientRects().length > 0) : [];
+        const first = targets[0], last = targets[targets.length - 1];
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === panel)) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+      if (enhanced && isMobile && e.target instanceof HTMLElement && e.target.closest('[role="tablist"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+        e.preventDefault();
+        const target = e.key === "Home" ? "answer" : e.key === "End" ? "worksheet" : tab === "answer" ? "worksheet" : "answer";
+        setTab(target);
+        const tabs = panelRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+        tabs?.[target === "answer" ? 0 : 1]?.focus();
         return;
       }
       if (isTypingTarget(e.target) || hasBrowserModifier(e)) return;
@@ -141,14 +169,15 @@ export function CheckViewer({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [isTopmost, onClose, onNavigate, previous, next]);
+  }, [isTopmost, onNavigate, previous, next, enhanced, closeViewer, isMobile, tab]);
 
   // Focus moves into the viewer, and goes back to whatever opened it afterwards.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
+    if (enhanced) return;
     panelRef.current?.focus();
     return () => opener?.focus?.();
-  }, []);
+  }, [enhanced]);
 
   if (typeof document === "undefined") return null;
 
@@ -157,7 +186,7 @@ export function CheckViewer({
   const source = assignedLabel(hw);
   const showNav = openable.length > 1 || index < 0;
 
-  const header = (
+  const originalHeader = (
     <div className="flex items-center gap-1 pl-3 pr-1 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-wash">
       <BookCheck className="h-4 w-4 flex-none text-accent-ink" />
       <div className="min-w-0 flex-1 py-1.5 pl-1">
@@ -214,7 +243,7 @@ export function CheckViewer({
       )}
       <button
         type="button"
-        onClick={onClose}
+        onClick={closeViewer}
         aria-label="Close"
         title="Close (Esc)"
         className={cn(tbBtn, tbBtnIdle, "transition-colors")}
@@ -223,6 +252,25 @@ export function CheckViewer({
       </button>
     </div>
   );
+
+  const header = enhanced ? (
+    <header className={previewStyles.checkHeader}>
+      <div className={previewStyles.checkIdentity}>
+        <BookCheck size={18} aria-hidden />
+        <strong>{live.studentName || "Homework"}</strong>
+        <div className={previewStyles.checkNavigation}>
+          {showNav && <>
+            <button type="button" onClick={() => previous && onNavigate(previous)} disabled={!previous} aria-label="Previous homework" title="Previous homework (←)"><ChevronLeft size={20} /></button>
+            {index >= 0 && <span>{index + 1} of {openable.length}</span>}
+            <button type="button" onClick={() => next && onNavigate(next)} disabled={!next} aria-label="Next homework" title="Next homework (→)"><ChevronRight size={20} /></button>
+          </>}
+          <button type="button" onClick={closeViewer} aria-label="Close" title="Return to lesson (Esc)"><X size={20} /></button>
+        </div>
+      </div>
+      <div className={previewStyles.checkAssignment}><span title={hw.pdf_name}>{name}</span>{pageLabel && <small>{pageLabel}</small>}</div>
+      {source && <p>from {source}{(hw.sessions_ago || 0) > 1 && <span> · {hw.sessions_ago} sessions ago</span>}</p>}
+    </header>
+  ) : originalHeader;
 
   const worksheetPane = (
     <div className="relative flex flex-1 min-h-0 min-w-0">
@@ -303,10 +351,12 @@ export function CheckViewer({
 
   return createPortal(
     <div
-      className="fixed inset-0 flex items-stretch justify-center bg-black/50 sm:items-center sm:p-4"
-      style={{ zIndex }}
+      ref={surface.backdrop}
+      data-native-check-overlay={enhanced || undefined}
+      className={enhanced ? previewStyles.checkBackdrop : "fixed inset-0 flex items-stretch justify-center bg-black/50 sm:items-center sm:p-4"}
+      style={{ ...surface.bounds, zIndex }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && isTopmost) onClose();
+        if (e.target === e.currentTarget && isTopmost) closeViewer();
       }}
     >
       <div
@@ -316,34 +366,35 @@ export function CheckViewer({
         aria-label={`Check homework: ${name}`}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-full w-full flex-col overflow-hidden bg-[#e8dcc8] shadow-2xl focus:outline-none dark:bg-[#1e1a14] sm:h-[92vh] sm:max-w-[1500px] sm:rounded-lg sm:border sm:border-[#d4c4a8] dark:sm:border-[#3a3228]"
+        className={enhanced ? previewStyles.checkSurface : "flex h-full w-full flex-col overflow-hidden bg-[#e8dcc8] shadow-2xl focus:outline-none dark:bg-[#1e1a14] sm:h-[92vh] sm:max-w-[1500px] sm:rounded-lg sm:border sm:border-[#d4c4a8] dark:sm:border-[#3a3228]"}
       >
         {header}
 
         {isMobile && (
-          <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-wash">
-            <button type="button" onClick={() => setTab("answer")} className={viewerTabClass(tab === "answer")}>
+          <div role={enhanced ? "tablist" : undefined} aria-label={enhanced ? "Homework files" : undefined} className={cn("flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-wash", enhanced && previewStyles.checkTabs)}>
+            <button type="button" role={enhanced ? "tab" : undefined} aria-selected={enhanced ? tab === "answer" : undefined} onClick={() => setTab("answer")} className={viewerTabClass(tab === "answer")}>
               Answers
             </button>
-            <button type="button" onClick={() => setTab("worksheet")} className={viewerTabClass(tab === "worksheet")}>
+            <button type="button" role={enhanced ? "tab" : undefined} aria-selected={enhanced ? tab === "worksheet" : undefined} onClick={() => setTab("worksheet")} className={viewerTabClass(tab === "worksheet")}>
               Worksheet
             </button>
           </div>
         )}
 
         <div className="flex flex-1 min-h-0 min-w-0">
-          {(!isMobile || tab === "worksheet") && worksheetPane}
+          {(!isMobile || tab === "worksheet") && <div className={enhanced ? previewStyles.checkPane : "contents"} data-native-check-pane="worksheet">{enhanced && !isMobile && <div className={previewStyles.checkPaneLabel}>Worksheet</div>}{worksheetPane}</div>}
           {!isMobile && viewerDivider}
-          {(!isMobile || tab === "answer") && answerPane}
+          {(!isMobile || tab === "answer") && <div className={enhanced ? previewStyles.checkPane : "contents"} data-native-check-pane="answer">{enhanced && !isMobile && <div className={previewStyles.checkPaneLabel}>Answers</div>}{answerPane}</div>}
         </div>
 
-        <div className="flex-none max-h-[40vh] overflow-y-auto border-t border-[#d4c4a8] bg-[#faf3e8] px-3 dark:border-[#3a3228] dark:bg-[#221c14] sm:px-4">
+        <div className={enhanced ? previewStyles.checkFooter : "flex-none max-h-[40vh] overflow-y-auto border-t border-[#d4c4a8] bg-[#faf3e8] px-3 dark:border-[#3a3228] dark:bg-[#221c14] sm:px-4"}>
           <HomeworkCheckRow
             key={key}
             homework={hw}
             sessionId={live.sessionId}
             readOnly={readOnly}
             onMarked={handleMarked}
+            enhanced={enhanced}
             inCheckViewer
           />
         </div>

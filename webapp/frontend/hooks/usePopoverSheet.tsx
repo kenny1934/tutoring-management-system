@@ -85,6 +85,10 @@ export interface PopoverSheet {
   sheetClass: string;
   zIndex: number;
   onClose: () => void;
+  /** Optional paired-surface transition, called once when dismissal starts. */
+  onCloseStart?: () => void;
+  /** An enclosing lesson journey owns Back instead of adding a second history entry. */
+  backManaged?: boolean;
   /**
    * Closes the popover. A sheet slides down first and only then calls
    * onClose, because most pages remove the popover the moment they hear it
@@ -112,6 +116,8 @@ export function usePopoverSheet(
   floatingStyles: CSSProperties,
   onClose: () => void,
   zIndex = 9999,
+  onCloseStart?: () => void,
+  backManaged = false,
 ): PopoverSheet {
   const controls = useRef<SheetControls | null>(null);
 
@@ -126,6 +132,8 @@ export function usePopoverSheet(
     sheetClass: SHEET_CLASS,
     zIndex,
     onClose,
+    onCloseStart,
+    backManaged,
     close,
     controls,
   };
@@ -193,7 +201,7 @@ function Sheet({
   inset = true,
   children,
 }: PopoverShellProps) {
-  const { zIndex, onClose } = sheet;
+  const { zIndex, onClose, onCloseStart } = sheet;
   const reduceMotion = useReducedMotion();
   const dragControls = useDragControls();
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -230,6 +238,7 @@ function Sheet({
   const close = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
+    onCloseStart?.();
     setLeaving(true);
     if (reduceMotion) {
       onClose();
@@ -237,10 +246,10 @@ function Sheet({
     }
     const height = shellRef.current?.offsetHeight || window.innerHeight;
     animate(y, height, FALL).then(onClose);
-  }, [onClose, reduceMotion, y]);
+  }, [onClose, reduceMotion, y, onCloseStart]);
 
   // Back closes the sheet too, sliding it away like the close button.
-  useBackToClose(!leaving, close);
+  useBackToClose(!leaving && !sheet.backManaged, close);
 
   useEffect(() => {
     sheet.controls.current = { close };

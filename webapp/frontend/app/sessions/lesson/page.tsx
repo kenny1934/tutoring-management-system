@@ -1,5 +1,6 @@
 "use client";
 
+import { sameTimeSlot } from "@/lib/time-slots";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -9,7 +10,7 @@ import { PageSurface } from "@/components/layout/PageSurface";
 import { AlertTriangle, ArrowLeft, Users, UserPlus } from "lucide-react";
 import { useLocation } from "@/contexts/LocationContext";
 import { Button } from "@/components/controls";
-import type { Session, UnlistedLesson } from "@/types";
+import type { UnlistedLesson } from "@/types";
 
 const NO_UNLISTED_LESSONS: UnlistedLesson[] = [];
 
@@ -46,7 +47,7 @@ export default function LessonWidePage() {
     date && tutorId ? { status: "waiting", tutor_id: parseInt(tutorId, 10), from_date: date, to_date: date } : null
   );
   const unlistedLessons = useMemo(
-    () => waitingThatDay.filter((lesson) => lesson.time_slot === slot),
+    () => waitingThatDay.filter((lesson) => sameTimeSlot(lesson.time_slot, slot)),
     [waitingThatDay, slot],
   );
 
@@ -54,7 +55,7 @@ export default function LessonWidePage() {
   // kept with one of them, so a student marked absent part way through the
   // lesson never moves it.
   const slotSessionIds = useMemo(
-    () => (allSessions && slot ? allSessions.filter((s) => s.time_slot === slot).map((s) => s.id) : []),
+    () => (allSessions && slot ? allSessions.filter((s) => sameTimeSlot(s.time_slot, slot)).map((s) => s.id) : []),
     [allSessions, slot],
   );
 
@@ -62,7 +63,7 @@ export default function LessonWidePage() {
   const sessions = useMemo(() => {
     if (!allSessions || !slot) return [];
     return allSessions.filter(
-      (s) => s.time_slot === slot
+      (s) => sameTimeSlot(s.time_slot, slot)
         && s.session_status !== "Cancelled"
         && !s.session_status.includes("Pending Make-up")
         && !s.session_status.includes("Make-up Booked")
@@ -135,7 +136,7 @@ export default function LessonWidePage() {
             </p>
             {!isReadOnly && (
               <Button size="sm" variant="secondary" icon={UserPlus} onClick={() => setAddingUnlisted(true)}>
-                Add a student who isn't listed
+                Add a student who isn&apos;t listed
               </Button>
             )}
           </div>
@@ -161,6 +162,7 @@ export default function LessonWidePage() {
     <PageSurface fullHeight>
       <LessonWideMode
         sessions={sessions}
+        initialSessionId={Number(searchParams.get("lesson_session")) || undefined}
         slotSessionIds={slotSessionIds}
         date={date}
         slot={slot}

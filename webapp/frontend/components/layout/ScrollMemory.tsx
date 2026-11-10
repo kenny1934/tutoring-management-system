@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useNativeNavigationMemory } from "@/components/design-preview/NativeNavigationMemory";
 import { getAppScroller } from "@/lib/scroll";
 
 // Where each page was scrolled to, so going back puts you where you were, the
@@ -63,6 +64,7 @@ function findPageBox(main: HTMLElement): HTMLElement | null {
  */
 export function ScrollMemory() {
   const pathname = usePathname();
+  const nativeMemory = useNativeNavigationMemory();
   const swappedAt = useRef(0);
   const renderedPath = useRef<string | null>(null);
 
@@ -76,10 +78,14 @@ export function ScrollMemory() {
   useEffect(() => {
     const main = getAppScroller();
     if (!main) return;
+    // The native manager restores only Dashboard and Sessions. Other routes
+    // keep this listener mounted so Back is observed before their next render.
+    const usesNativeMemory = () => !!nativeMemory && (location.pathname === "/" || location.pathname === "/sessions");
     const store = readStore();
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
     const onScroll = (e: Event) => {
+      if (usesNativeMemory()) return;
       if (performance.now() - swappedAt.current < SWAP_SETTLE_MS) return;
       const target = e.target as HTMLElement;
       const key = pageKey();
@@ -103,6 +109,7 @@ export function ScrollMemory() {
 
     const onPopState = () => {
       stopRestoring();
+      if (usesNativeMemory()) return;
       const key = pageKey();
       const place = store[key];
       if (!place) return;
@@ -146,7 +153,7 @@ export function ScrollMemory() {
       clearTimeout(saveTimer);
       writeStore(store);
     };
-  }, []);
+  }, [nativeMemory]);
 
   return null;
 }

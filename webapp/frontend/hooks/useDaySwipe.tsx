@@ -50,7 +50,16 @@ export function useDaySwipe(
       return false;
     };
 
+    const reset = () => {
+      tracking = false;
+      swiping = false;
+      armed = false;
+      dx = 0;
+      setDrag(0);
+    };
+
     const onStart = (e: TouchEvent) => {
+      reset();
       tracking = e.touches.length === 1 && !scrollsSideways(e.target);
       swiping = false;
       armed = false;
@@ -61,6 +70,7 @@ export function useDaySwipe(
     };
 
     const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) { reset(); return; }
       if (!tracking) return;
       dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
@@ -85,25 +95,22 @@ export function useDaySwipe(
         if (dx > 0) handlers.current.onPrevious();
         else handlers.current.onNext();
       }
-      tracking = false;
-      swiping = false;
-      armed = false;
-      setDrag(0);
+      reset();
     };
 
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd);
-    el.addEventListener("touchcancel", onEnd);
+    el.addEventListener("touchcancel", reset);
     return () => {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
-      el.removeEventListener("touchcancel", onEnd);
+      el.removeEventListener("touchcancel", reset);
     };
   }, [enabled, ref]);
 
-  if (drag === 0) return null;
+  if (drag === 0 || !enabled) return null;
   const forward = drag < 0;
   const progress = Math.min(1, Math.abs(drag) / THRESHOLD);
   const Icon = forward ? ChevronRight : ChevronLeft;

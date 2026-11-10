@@ -4,6 +4,8 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  // These component tests use plain CSS modules, without compiling the app stylesheet.
+  css: { postcss: { plugins: [] } },
   test: {
     environment: 'jsdom',
     globals: true,
