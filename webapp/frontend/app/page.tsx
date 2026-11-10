@@ -179,21 +179,19 @@ export default function DashboardPage() {
 
         <div data-native-flow="analytics" data-native-flow-enter className={previewStyles.analyticsGroup}>
         {/* Distribution Charts */}
-        {showAdminTutorFilter && (
-          <div className="flex items-center justify-end gap-2 -mb-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-paper border border-line text-xs font-medium text-ink-strong shadow-sm">
-              Filter charts:
-            </span>
-            <TutorSelector
-              value={chartTutorId}
-              onChange={setChartTutorId}
-              location={selectedLocation}
-              showAllTutors
-            />
-          </div>
-        )}
         <NativeDashboardCharts
           isMobile={isMobile}
+          filter={showAdminTutorFilter && (
+            <div className={previewStyles.chartScope} role="group" aria-label="Chart tutor filter">
+              <span className="text-xs text-ink-subtle max-sm:sr-only">Tutor</span>
+              <TutorSelector
+                value={chartTutorId}
+                onChange={setChartTutorId}
+                location={selectedLocation}
+                showAllTutors
+              />
+            </div>
+          )}
           grade={
             <LazySection fallback={<NativeChartLoading kind="grade" />}>
               <CompactErrorBoundary>

@@ -1,4 +1,6 @@
-.dashboard { display: contents; }
+/* Small text must retain contrast over the dashboard's warm light and paper layers. */
+.dashboard { display: contents; --color-ink-subtle: #6b5c4d; --color-accent-ink: #805536; }
+:global(.dark) .dashboard { --color-ink-subtle: #b5aa9d; --color-accent-ink: #d3965b; }
 
 .worksheetHold { opacity: 1; }
 .worksheetHoldStatus {
@@ -275,17 +277,20 @@
 }
 
 .dashboard[data-native-preview="motion"] .rowActions {
-  background: rgb(143 98 64 / 0.035);
+  background: transparent;
   border-radius: 3px;
 }
 
 .dashboard[data-native-preview="motion"] .rowActions button {
+  color: var(--color-ink-subtle);
   border-color: transparent;
   background: transparent;
   border-radius: 3px;
 }
 
-.dashboard[data-native-preview="motion"] .rowActions button:hover { background: var(--color-tint); }
+.dashboard[data-native-preview="motion"] .rowActions button:global(.ring-green-400) { --tw-ring-color: #40815e; }
+:global(.dark) .dashboard[data-native-preview="motion"] .rowActions button:global(.ring-green-400) { --tw-ring-color: #82bb91; }
+.dashboard[data-native-preview="motion"] .rowActions button:hover { background: var(--color-tint); color: var(--color-foreground); }
 
 .lessonStage[data-native-preview="motion"] {
   background: #173b30;
@@ -661,7 +666,6 @@
   .dashboard[data-native-preview="motion"] [data-native-stack] { padding: 20px; gap: 24px; }
   .dashboard[data-native-preview="motion"] [data-native-paper-head] { padding-inline: 12px; }
   .dashboard[data-native-preview="motion"] [data-native-flow="activity"] { padding-bottom: 12px; }
-  .dashboard[data-native-preview="motion"] [data-native-flow="analytics"] [aria-label="Which chart to show"] { align-self: flex-start; }
 }
 @media (max-width: 359px) {
   .dashboard[data-native-preview="motion"] [data-native-stack] { padding-inline: 16px; }
@@ -674,6 +678,14 @@
 
 .dashboard[data-native-preview="motion"] [data-native-paper].card-hover:hover { transform: none; }
 .dashboard[data-native-preview="motion"] [data-native-flow="analytics"] [aria-label="Student analytics"]::before { content: none; }
+
+.chartToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.chartScope { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chartScope > button { min-width: 0; max-width: 100%; }
+@media (max-width: 767px) {
+  .chartScope { flex: 1; min-width: 100px; justify-content: flex-end; }
+  .chartScope > button { min-height: 40px; }
+}
 
 /* Both mobile charts share a grid cell, so their different legends do not move the page. */
 .chartDeck[data-native-chart-motion="true"] { grid-template-columns: minmax(0, 1fr); }

@@ -1,7 +1,7 @@
 "use client";
 
 import { BillingCouponPanel } from '@/components/billing/BillingCouponPanel';
-import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentCoupon, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework, preloadCurriculumSuggestions } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect, HomeworkCompletion, HomeworkStatus } from "@/types";
@@ -22,7 +22,7 @@ import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Button, IconButton, Field, Input, Select, Segmented } from "@/components/controls";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus, isSupersededSession } from "@/lib/session-status";
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
@@ -49,7 +49,11 @@ import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBa
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { StudentProgressDrawer } from "@/components/students/StudentProgressTab";
-import { StudentParticipation } from "@/components/students/StudentParticipation";
+import { StudentRecordHeader } from "@/components/students/StudentRecordHeader";
+import { StudentRecordTabs } from "@/components/students/StudentRecordTabs";
+import { useRecordTabJourney } from "@/components/students/useRecordTabJourney";
+import { RecordSaveFeedback, useRecordEditReturn } from "@/components/students/RecordSaveFeedback";
+import materialStyles from "@/components/material/MaterialWorkspace.module.css";
 import { StudentPaymentPlan } from "@/components/students/StudentPaymentPlan";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
 import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
@@ -87,11 +91,11 @@ const TABS: Tab[] = [
   { id: "contacts", label: "Parent Contacts", icon: Phone },
 ];
 
-// The count on a tab is neutral in both states: it says how many, not that
-// anything needs attention.
-const TAB_COUNT_CLASS = "bg-tint text-gray-700 dark:text-gray-200 ring-1 ring-inset ring-line";
+const TAB_ORDER = TABS.map(tab => tab.id);
+type SaveSection = "personal" | "academic" | "referral";
 
 export default function StudentDetailPage() {
+  const reduceMotion = useReducedMotion();
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,8 +103,17 @@ export default function StudentDetailPage() {
   const studentId = params.id ? parseInt(params.id as string) : null;
 
   // Read initial tab from URL, default to "profile"
-  const initialTab = (searchParams.get('tab') as TabId) || 'profile';
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const requestedTab = searchParams.get('tab');
+  const activeTab = TABS.find(tab => tab.id === requestedTab)?.id ?? 'profile';
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const recordContentRef = useRef<HTMLDivElement>(null);
+  const recordAnchorRef = useRef<HTMLDivElement>(null);
+  const [saved, setSaved] = useState({ studentId, personal: 0, academic: 0, referral: 0 });
+  const clearSaved = (section: SaveSection) => setSaved(previous => ({ ...previous, [section]: 0 }));
+  const markSaved = (section: SaveSection) => {
+    const revision = Date.now();
+    setSaved(previous => ({ ...(previous.studentId === studentId ? previous : { personal: 0, academic: 0, referral: 0 }), studentId, [section]: revision }));
+  };
   const [isMobile, setIsMobile] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   // Toast notifications
@@ -109,6 +122,12 @@ export default function StudentDetailPage() {
   // Fetch student data
   const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
 
+  const { prepareTab, direction } = useRecordTabJourney({
+    recordId: studentId, activeTab, order: TAB_ORDER, scrollerRef,
+    contentRef: recordContentRef, anchorRef: recordAnchorRef,
+    ready: !!student && !studentLoading && !studentError,
+  });
+
   // Dynamic page title
   usePageTitle(
     student ? `${student.school_student_id || ''} ${student.student_name}`.trim() : "Loading..."
@@ -116,8 +135,13 @@ export default function StudentDetailPage() {
 
   // Update URL when tab changes (without adding to history)
   const handleTabChange = (tab: TabId) => {
-    setActiveTab(tab);
-    router.replace(`/students/${params.id}?tab=${tab}`, { scroll: false });
+    if (tab === activeTab) return;
+    prepareTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    // Next integrates native history with useSearchParams. These client-side tabs
+    // need no server navigation, and Back always restores the selected tab.
+    window.history.replaceState(null, "", url);
   };
 
   // Session popover state (lifted to page level for correct positioning)
@@ -281,6 +305,7 @@ export default function StudentDetailPage() {
       contacts: student.contacts,
     });
     setPersonalSaveError(null);
+    clearSaved("personal");
     setIsEditingPersonal(true);
   };
 
@@ -293,6 +318,7 @@ export default function StudentDetailPage() {
       academic_stream: student.academic_stream,
     });
     setAcademicSaveError(null);
+    clearSaved("academic");
     setIsEditingAcademic(true);
   };
 
@@ -329,6 +355,7 @@ export default function StudentDetailPage() {
     try {
       const { student_name, phone, contacts } = personalForm;
       await persistStudentUpdate({ student_name, phone, contacts });
+      markSaved("personal");
       setIsEditingPersonal(false);
       setPersonalForm({});
     } catch (error) {
@@ -345,6 +372,7 @@ export default function StudentDetailPage() {
     try {
       const { school, grade, lang_stream, academic_stream } = academicForm;
       await persistStudentUpdate({ school, grade, lang_stream, academic_stream });
+      markSaved("academic");
       setIsEditingAcademic(false);
       setAcademicForm({});
     } catch (error) {
@@ -360,6 +388,7 @@ export default function StudentDetailPage() {
     setStaffReferralSaveError(null);
     try {
       await persistStudentUpdate(data);
+      markSaved("referral");
       return true;
     } catch (error) {
       setStaffReferralSaveError(formatError(error, 'Failed to save changes'));
@@ -478,79 +507,45 @@ export default function StudentDetailPage() {
     );
   }
 
+  const tabCounts: Partial<Record<TabId, number>> = {
+    sessions: sortedSessions.length,
+    courseware: coursewareHistory.length,
+    tests: filteredTests.length,
+    contacts: parentContacts.length,
+  };
+
   return (
     <PageSurface fullHeight>
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
-          {/* Compact Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className={cn(
-              "flex flex-wrap items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
-              !isMobile && "paper-texture"
-            )}
-          >
-            {/* Back Button */}
-            <IconButton label="Back" icon={ArrowLeft} onClick={() => router.back()} />
+      <div ref={scrollerRef} className={cn("flex-1 min-h-0 overflow-y-auto", materialStyles.materialRecordScroller)}>
+        <div className={cn("flex flex-col p-4 sm:p-6 xl:p-8", materialStyles.materialRecord)}>
+          <div ref={recordAnchorRef} className={materialStyles.materialRecordAnchor}>
+            <StudentRecordHeader
+              student={student}
+              enrollments={activeEnrollments.length}
+              progressOpen={progressOpen}
+              onBack={() => router.back()}
+              onProgress={() => {
+                if (!progressOpen && scrollerRef.current) scrollerRef.current.scrollTop = 0;
+                setProgressOpen(previous => !previous);
+              }}
+            />
+            <StudentRecordTabs
+              tabs={TABS.map(tab => ({ ...tab, count: tabCounts[tab.id] }))}
+              activeTab={activeTab}
+              onChange={handleTabChange}
+            />
+          </div>
 
-            {/* Student ID */}
-            <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-              {student.school_student_id || `#${student.id}`}
-            </span>
-
-            {/* Student Name */}
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-              {student.student_name}
-            </h1>
-
-            <StudentParticipation studentId={student.id} />
-
-            {/* Grade Badge */}
-            {student.grade && (
-              <GradeBadge className="text-xs px-2 py-0.5 rounded text-gray-800" grade={student.grade} langStream={student.lang_stream} />
-            )}
-
-            {/* School Badge */}
-            {student.school && (
-              <span className="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-amber-200 hidden sm:inline">
-                {student.school}
-              </span>
-            )}
-
-            <div className="flex-1" />
-
-            {/* Enrollment count */}
-            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-              <BookOpen className="h-4 w-4" />
-              <span>{activeEnrollments.length} enrollment{activeEnrollments.length !== 1 ? 's' : ''}</span>
-            </div>
-
-            {/* Progress drawer toggle */}
-            <button
-              onClick={() => setProgressOpen(prev => !prev)}
-              className={cn(
-                "flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-md transition-colors",
-                progressOpen
-                  ? "bg-primary text-white"
-                  : "text-accent-ink hover:bg-[#d4a574]/20"
-              )}
-            >
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Progress</span>
-              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", progressOpen && "rotate-180")} />
-            </button>
-          </motion.div>
-
+          {/* Keep the record sheet still while the new section enters. */}
+          <div ref={recordContentRef} className={cn("flex-1", materialStyles.materialRecordContent)}>
           {/* Progress Drawer */}
           <AnimatePresence>
             {progressOpen && (
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
+                initial={reduceMotion ? false : { height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
+                exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.3, ease: "easeInOut" }}
                 className="py-2 overflow-hidden"
               >
                 <StudentProgressDrawer
@@ -564,80 +559,23 @@ export default function StudentDetailPage() {
             )}
           </AnimatePresence>
 
-          {/* Horizontal Tab Navigation */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1, duration: 0.3 }}
-            className="flex gap-1 overflow-x-auto pb-1"
-          >
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border",
-                    isActive
-                      ? "bg-primary/10 text-accent-ink border-primary/40"
-                      : "bg-field-fill text-gray-600 dark:text-gray-400 hover:bg-tint border-line"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{tab.label}</span>
-                  {/* Badge for sessions/tests count */}
-                  {tab.id === "sessions" && sortedSessions.length > 0 && (
-                    <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
-                      TAB_COUNT_CLASS
-                    )}>
-                      {sortedSessions.length}
-                    </span>
-                  )}
-                  {tab.id === "courseware" && coursewareHistory.length > 0 && (
-                    <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
-                      TAB_COUNT_CLASS
-                    )}>
-                      {coursewareHistory.length}
-                    </span>
-                  )}
-                  {tab.id === "tests" && filteredTests.length > 0 && (
-                    <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
-                      TAB_COUNT_CLASS
-                    )}>
-                      {filteredTests.length}
-                    </span>
-                  )}
-                  {tab.id === "contacts" && parentContacts.length > 0 && (
-                    <span className={cn(
-                      "ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums",
-                      TAB_COUNT_CLASS
-                    )}>
-                      {parentContacts.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </motion.div>
-
-          {/* Tab Content */}
-          <AnimatePresence mode="wait">
             <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="flex-1"
+              key={`${studentId}-${activeTab}`}
+              id="student-record-panel"
+              role="tabpanel"
+              aria-labelledby={`record-tab-${activeTab}`}
+              tabIndex={0}
+              initial={reduceMotion ? false : { opacity: 0.4, x: direction * 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.2, 0.7, 0.2, 1] }}
+              className="min-w-0"
             >
               {/* Profile Tab */}
               {activeTab === "profile" && (
                 <ProfileTab
+                  key={student.id}
+                  savedRevisions={saved.studentId === studentId ? saved : { personal: 0, academic: 0, referral: 0 }}
+                  onClearSaved={clearSaved}
                   student={student}
                   enrollments={enrollments}
                   enrollmentsLoading={enrollmentsLoading}
@@ -744,7 +682,7 @@ export default function StudentDetailPage() {
                 />
               )}
             </motion.div>
-          </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -860,6 +798,8 @@ const ACADEMIC_STREAM_OPTIONS = [
 ];
 
 function ProfileTab({
+  savedRevisions,
+  onClearSaved,
   student,
   enrollments,
   enrollmentsLoading,
@@ -894,6 +834,8 @@ function ProfileTab({
   readOnly = false,
   isAdmin,
 }: {
+  savedRevisions: Record<SaveSection, number>;
+  onClearSaved: (section: SaveSection) => void;
   student: Student;
   enrollments: Enrollment[];
   enrollmentsLoading: boolean;
@@ -929,8 +871,11 @@ function ProfileTab({
   readOnly?: boolean;
   isAdmin?: boolean;
 }) {
+  const personalActionRef = useRecordEditReturn(isEditingPersonal, isSavingPersonal);
+  const academicActionRef = useRecordEditReturn(isEditingAcademic, isSavingAcademic);
   // Staff referral edit state
   const [isEditingStaffReferral, setIsEditingStaffReferral] = useState(false);
+  const referralActionRef = useRecordEditReturn(isEditingStaffReferral, isSavingStaffReferral);
   const [staffReferralForm, setStaffReferralForm] = useState({
     is_staff_referral: student.is_staff_referral ?? false,
     staff_referral_notes: student.staff_referral_notes ?? '',
@@ -938,6 +883,7 @@ function ProfileTab({
 
   // Reset staff referral form when student changes or edit is cancelled
   const handleEditStaffReferral = () => {
+    onClearSaved("referral");
     setStaffReferralForm({
       is_staff_referral: student.is_staff_referral ?? false,
       staff_referral_notes: student.staff_referral_notes ?? '',
@@ -965,7 +911,7 @@ function ProfileTab({
     <div className="space-y-4">
       {student.handover_prospect && <HandoverFromP6Card prospect={student.handover_prospect} />}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div data-material-record-details className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
       <div className={cn(
         "bg-raised border border-line rounded-lg p-4 transition-all",
@@ -977,6 +923,8 @@ function ProfileTab({
             <User className="h-4 w-4" />
             Personal Info
           </h3>
+          <div ref={personalActionRef} data-editing={isEditingPersonal} className={materialStyles.materialRecordEditActions}>
+          <RecordSaveFeedback revision={isEditingPersonal ? 0 : savedRevisions.personal} />
           {isEditingPersonal ? (
             <div className="flex items-center gap-2">
               {personalSaveError && (
@@ -1002,6 +950,7 @@ function ProfileTab({
               className="disabled:pointer-events-auto disabled:cursor-not-allowed"
             />
           )}
+          </div>
         </div>
         <div className="space-y-3">
           {isEditingPersonal ? (
@@ -1036,6 +985,8 @@ function ProfileTab({
             <GraduationCap className="h-4 w-4" />
             Academic Info
           </h3>
+          <div ref={academicActionRef} data-editing={isEditingAcademic} className={materialStyles.materialRecordEditActions}>
+          <RecordSaveFeedback revision={isEditingAcademic ? 0 : savedRevisions.academic} />
           {isEditingAcademic ? (
             <div className="flex items-center gap-2">
               {academicSaveError && (
@@ -1061,6 +1012,7 @@ function ProfileTab({
               className="disabled:pointer-events-auto disabled:cursor-not-allowed"
             />
           )}
+          </div>
         </div>
         <div className="space-y-3">
           {isEditingAcademic ? (
@@ -1109,6 +1061,8 @@ function ProfileTab({
               <Gift className="h-4 w-4" />
               Discounts & Coupons
             </h3>
+            <div ref={referralActionRef} data-editing={isEditingStaffReferral} className={materialStyles.materialRecordEditActions}>
+            <RecordSaveFeedback revision={isEditingStaffReferral ? 0 : savedRevisions.referral} />
             {isAdmin && !isEditingStaffReferral && (
               <IconButton label="Edit staff referral" icon={Pencil} size="sm" onClick={handleEditStaffReferral} />
             )}
@@ -1127,6 +1081,7 @@ function ProfileTab({
                 </Button>
               </div>
             )}
+            </div>
           </div>
 
           <div className="mb-3"><BillingCouponPanel studentId={student.id} branch={student.home_location} legacyCount={couponInfo?.available} /></div>
@@ -2035,19 +1990,17 @@ function SessionsTab({
   }
 
   // Render a single session card
-  const renderSessionCard = (session: Session, index: number) => {
+  const renderSessionCard = (session: Session) => {
     const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
     const StatusIcon = statusConfig.Icon;
     const sessionDate = new Date(session.session_date + 'T00:00:00');
     const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
     return (
-      <motion.div
+      <div
         key={session.id}
         onClick={(e) => onSessionClick(session, e)}
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
-        transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
+        style={isCancelledEnrollment ? { opacity: 0.5 } : undefined}
         className={cn(
           "flex rounded-lg overflow-hidden bg-raised border border-line cursor-pointer",
           statusConfig.bgTint,
@@ -2141,7 +2094,7 @@ function SessionsTab({
         <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.stripClass)}>
           <StatusIcon className={cn("h-4 w-4", statusConfig.stripIconClass)} />
         </div>
-      </motion.div>
+      </div>
     );
   };
 
@@ -2248,7 +2201,7 @@ function SessionsTab({
 
                 {/* Session Cards */}
                 <div className="space-y-2 pl-3 border-l-2 border-line">
-                  {visibleEnrollmentSessions.map((session, index) => renderSessionCard(session, index))}
+                  {visibleEnrollmentSessions.map(renderSessionCard)}
                 </div>
               </div>
             );
@@ -2257,7 +2210,7 @@ function SessionsTab({
       ) : (
         // Flat list by date view
         <div className="space-y-2">
-          {sortedSessions.map((session, index) => renderSessionCard(session, index))}
+          {sortedSessions.map(renderSessionCard)}
         </div>
       )}
 
