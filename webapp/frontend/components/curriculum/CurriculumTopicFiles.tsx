@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useLayoutEffect } from "react";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
@@ -16,6 +16,7 @@ import {
   CurriculumModalShell,
   CurriculumShowMoreFiles,
 } from "./CurriculumModalShell";
+import { useDocumentJourney } from "@/components/material/useDocumentJourney";
 import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
 
 interface Scope {
@@ -34,6 +35,7 @@ interface CurriculumTopicFilesProps {
    *  topic it was opened on. */
   onAdd?: (path: string, conceptId: number) => void;
   onClose: () => void;
+  inspector?: boolean;
 }
 
 const FILES_SHOWN = 30;
@@ -50,15 +52,24 @@ export function CurriculumTopicFiles({
   scope,
   onAdd,
   onClose,
+  inspector = false,
 }: CurriculumTopicFilesProps) {
   const hitArea = iconHitArea(useCoarsePointer());
   const [preview, setPreview] = useState<{
     file: CurriculumFile;
     conceptId: number;
   } | null>(null);
-  // Files shown per concept, keyed by concept id; absent = default chunk.
-  const [fileCounts, setFileCounts] = useState<Record<number, number>>({});
+  const workspace = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const positions = useRef(new Map<number, number>());
   const [current, setCurrent] = useState({ conceptId, name: conceptName });
+  // Each topic retains its expanded chunks while walking the prerequisite trail.
+  const [countsByTopic, setCountsByTopic] = useState<Record<number, Record<number, number>>>({});
+  const fileCounts = countsByTopic[current.conceptId] || {};
+  const setFileCounts = (update: (counts: Record<number, number>) => Record<number, number>) => setCountsByTopic(previous => ({ ...previous, [current.conceptId]: update(previous[current.conceptId] || {}) }));
+  const fileJourney = useDocumentJourney(workspace, preview?.file.file_path ?? null, { sourceSelector: "[data-curriculum-file]", targetSelector: "[data-curriculum-pdf-content]", focusWithinDialog: true, focusOriginalControl: true });
+  const closePreview = () => { fileJourney.prepareReturn(); setPreview(null); };
+  const rememberList = () => { if (list.current) positions.current.set(current.conceptId, list.current.scrollTop); };
   const [trail, setTrail] = useState<{ conceptId: number; name: string }[]>([]);
 
   const { data: vocab } = useCurriculumConcepts();
@@ -80,16 +91,16 @@ export function CurriculumTopicFiles({
   const leadsTo = relatedChips(currentVocab?.leads_to_ids);
 
   const goTo = (target: { conceptId: number; name: string }) => {
+    rememberList();
     setTrail((prev) => [...prev, current]);
     setCurrent(target);
-    setFileCounts({});
   };
   const goBack = () => {
     const prev = trail[trail.length - 1];
     if (!prev) return;
+    rememberList();
     setTrail((t) => t.slice(0, -1));
     setCurrent(prev);
-    setFileCounts({});
   };
 
   const anyExpanded = Object.values(fileCounts).some((n) => n > FILES_SHOWN);
@@ -109,6 +120,20 @@ export function CurriculumTopicFiles({
     // Keep the capped list on screen while the lifted-cap fetch loads.
     { keepPreviousData: true }
   );
+
+  useLayoutEffect(() => {
+    const pane = list.current;
+    if (!pane || isLoading) return;
+    const top = positions.current.get(current.conceptId) ?? 0;
+    let restoring = true;
+    const restore = () => { if (!restoring) return; pane.scrollTop = top; if (Math.abs(pane.scrollTop - top) < 1) stop(); };
+    const stop = () => { restoring = false; observer.disconnect(); };
+    const observer = new ResizeObserver(restore);
+    if (pane.firstElementChild) observer.observe(pane.firstElementChild);
+    restore();
+    pane.addEventListener("wheel", stop, { passive: true }); pane.addEventListener("touchstart", stop, { passive: true }); pane.addEventListener("pointerdown", stop); pane.addEventListener("keydown", stop);
+    return () => { observer.disconnect(); pane.removeEventListener("wheel", stop); pane.removeEventListener("touchstart", stop); pane.removeEventListener("pointerdown", stop); pane.removeEventListener("keydown", stop); };
+  }, [current.conceptId, isLoading]);
 
   const concepts = data?.concepts || [];
   const totalFiles = concepts.reduce((n, c) => n + c.files.length, 0);
@@ -133,8 +158,10 @@ export function CurriculumTopicFiles({
   );
 
   return (
-    <>
+    <div ref={workspace} className="contents">
       <CurriculumModalShell
+        inspector={inspector}
+        bodyRef={list}
         ariaLabel={`Worksheets for ${current.name}`}
         closeLabel="Close worksheet list"
         previewOpen={preview != null}
@@ -182,9 +209,9 @@ export function CurriculumTopicFiles({
                     <button
                       type="button"
                       onClick={() => {
+                        rememberList();
                         setCurrent(t);
                         setTrail((prev) => prev.slice(0, i));
-                        setFileCounts({});
                       }}
                       className="text-[11px] text-teal-700 dark:text-teal-400 hover:underline truncate max-w-[9rem]"
                       title={t.name}
@@ -260,9 +287,10 @@ export function CurriculumTopicFiles({
                   <CurriculumFileRow
                     key={file.file_path}
                     file={file}
-                    onPreview={(f) =>
-                      setPreview({ file: f, conceptId: concept.concept_id })
-                    }
+                    onPreview={(f, source) => {
+                      fileJourney.prepareOpen(f.file_path, source);
+                      setPreview({ file: f, conceptId: concept.concept_id });
+                    }}
                     onAdd={
                       onAdd
                         ? () => onAdd(file.file_path, concept.concept_id)
@@ -306,9 +334,9 @@ export function CurriculumTopicFiles({
               ? () => onAdd(preview.file.file_path, preview.conceptId)
               : undefined
           }
-          onClose={() => setPreview(null)}
+          onClose={closePreview}
         />
       )}
-    </>
+    </div>
   );
 }

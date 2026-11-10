@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount, useEmploymentOverrun, useUnlistedWaitingCount } from "@/lib/hooks";
@@ -20,7 +20,12 @@ import {
   useDismiss,
   useInteractions,
   FloatingPortal,
+  FloatingFocusManager,
+  useTransitionStyles,
 } from "@floating-ui/react";
+import { useNotificationReturn } from "./useNotificationReturn";
+import { useBackToClose } from "@/hooks/useBackToClose";
+import { useReducedMotion } from "framer-motion";
 import { fitToScreen } from "@/hooks/usePopoverSheet";
 
 interface NotificationBellProps {
@@ -45,6 +50,13 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   const [isOpen, setIsOpen] = useState(false);
   const { viewMode } = useRole();
   const { isGuest } = useAuth();
+  const source = useRef<HTMLButtonElement>(null);
+  const reduced = useReducedMotion();
+  const following = useRef(false);
+  const openNow = useRef(isOpen); openNow.current = isOpen;
+  useEffect(() => { if (isOpen) following.current = false; }, [isOpen]);
+  const { list, changeOpen, follow } = useNotificationReturn(`${tutorId}:${location}:${viewMode}`, setIsOpen, source);
+  useBackToClose(isOpen, () => setIsOpen(false));
 
   // Fetch contact-needed count (skip for guests — endpoint is guest-blocked)
   const { data: contactNeeded } = useSWR(
@@ -257,9 +269,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
   // Floating UI
-  const { refs, floatingStyles, context } = useFloating({
+  const { refs, floatingStyles, context } = useFloating<HTMLButtonElement>({
     open: isOpen,
-    onOpenChange: setIsOpen,
+    onOpenChange: changeOpen,
     middleware: [
       offset(8),
       flip({ fallbackAxisSideDirection: "end" }),
@@ -269,6 +281,22 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     placement: "bottom-end",
   });
 
+  const { setFloating, domReference } = refs;
+  const setPanel = useCallback((element: HTMLDivElement | null) => {
+    setFloating(element);
+    if (element) return;
+    // Browser Back can clear focus itself. Wait until the exiting portal releases focus.
+    requestAnimationFrame(() => {
+      const bell = domReference.current;
+      if (!openNow.current && !following.current && bell?.isConnected && document.activeElement === document.body) bell.focus({ preventScroll: true });
+    });
+  }, [setFloating, domReference]);
+  const { isMounted, styles: transitionStyles } = useTransitionStyles(context, {
+    duration: reduced ? 0 : { open: 140, close: 100 },
+    initial: { opacity: 0, transform: "translateY(4px)" },
+    open: { opacity: 1, transform: "translateY(0)" },
+    close: { opacity: 0, transform: "translateY(2px)" },
+  });
   const click = useClick(context);
   const dismiss = useDismiss(context);
   const { getReferenceProps, getFloatingProps } = useInteractions([
@@ -305,7 +333,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   return (
     <div className="relative">
       <button
-        ref={refs.setReference}
+        ref={element => { source.current = element; refs.setReference(element); }}
         {...getReferenceProps()}
         className={cn(
           "relative min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 rounded-full transition-all flex items-center justify-center",
@@ -322,33 +350,39 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       </button>
 
       {/* Dropdown */}
-      {isOpen && (
+      {isMounted && (
         <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false} initialFocus={-1} returnFocus={refs.domReference} closeOnFocusOut={false}>
           <div
-            ref={refs.setFloating}
+            ref={setPanel}
             style={floatingStyles}
             {...getFloatingProps()}
             className={cn(
-              "z-50 w-72 py-2",
-              "bg-raised rounded-lg shadow-lg",
-              "border border-line"
+              "z-50 w-72 max-w-[calc(100vw-16px)]"
             )}
+            aria-label="Notifications"
+            role="dialog"
+            inert={!isOpen}
           >
+            <div style={transitionStyles} className="py-2 bg-raised rounded-lg shadow-lg border border-line">
             <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-line mb-1">
               Notifications
             </div>
 
-            <div className="px-2 space-y-1">
+            <div ref={list} className="px-2 space-y-1 max-h-[min(60dvh,480px)] overflow-y-auto overscroll-contain">
               {notifications.map((item) => {
                 const styles = severityStyles[item.severity];
                 return (
                   <Link
                     key={item.id}
                     href={item.href}
-                    onClick={() => setIsOpen(false)}
+                    onClick={event => {
+                      if (!event.defaultPrevented && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) following.current = true;
+                      follow(event, item.id);
+                    }}
+                    data-notification-item={item.id}
                     className={cn(
-                      "flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-all",
-                      "hover:scale-[1.01]",
+                      "flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-colors",
                       styles.bg,
                       styles.border
                     )}
@@ -383,7 +417,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
                 );
               })}
             </div>
+            </div>
           </div>
+          </FloatingFocusManager>
         </FloatingPortal>
       )}
     </div>
