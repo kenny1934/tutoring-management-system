@@ -75,7 +75,7 @@ interface ChalkStubProps {
   shortLabel: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   colors: typeof CHALK_PALETTE.white;
-  onClick: () => void;
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
   disabled?: boolean;
   index: number;
   active?: boolean;  // Indicates content exists (e.g., CW/HW assigned)
@@ -88,6 +88,7 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
   const isDisabled = disabled || loading;
   return (
     <motion.button
+      data-native-single-lesson-source={id === "lesson" || undefined}
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -180,7 +181,7 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
 interface ChalkboardHeaderProps {
   session: Session;
   onEdit?: () => void;
-  onLesson?: () => void;
+  onLesson?: (source: HTMLElement) => void;
   onAction?: (actionId: string, action: ActionConfig<Session>) => void;
   loadingActionId?: string | null;
 }
@@ -526,7 +527,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
   });
 
   return (
-    <motion.div
+    <motion.div data-native-session-chalkboard
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.38, 1.21, 0.22, 1.00] }}
@@ -647,7 +648,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
                 shortLabel="Lesson"
                 icon={Presentation}
                 colors={CHALK_PALETTE.green}
-                onClick={onLesson}
+                onClick={event => onLesson(event.currentTarget)}
                 index={visibleActions.length}
               />
             )}
@@ -682,6 +683,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
               className="flex items-center gap-2 mb-1"
             >
               <h1
+                data-native-session-identity
                 className="text-lg sm:text-xl lg:text-2xl font-bold text-white/98 truncate"
                 style={{
                   textShadow: '2px 2px 6px rgba(0,0,0,0.5), 0 0 12px rgba(255,255,255,0.15)',

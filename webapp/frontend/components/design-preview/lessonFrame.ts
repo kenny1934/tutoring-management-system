@@ -17,6 +17,7 @@ export function lessonFrameOrigin() {
 
 export type LessonOpening = {
   href: string;
+  kind?: "single" | "class";
   source: HTMLElement;
   /** A detail sheet can remain open while its row supplies the transition origin. */
   returnFocus?: HTMLElement | null;

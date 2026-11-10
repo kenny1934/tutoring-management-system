@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import { animateLessonArrival, animateLessonFocus } from "./lessonJourney";
 import { lessonFrameToken } from "./lessonFrame";
 
-export function useWideLessonMotion(stage: RefObject<HTMLDivElement | null>, enabled: boolean, focusMode: boolean) {
+export function useLessonMotion(stage: RefObject<HTMLDivElement | null>, enabled: boolean, focusMode: boolean) {
   const previous = useRef<DOMRect | null>(null);
   useLayoutEffect(() => {
     if (!enabled || !stage.current || lessonFrameToken()) return;

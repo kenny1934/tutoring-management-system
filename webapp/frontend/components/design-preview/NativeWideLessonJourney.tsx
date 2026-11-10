@@ -151,14 +151,14 @@ function LessonFrame({ opening, onClosed, onNavigate, onNavigationCancelled }: {
     return () => window.removeEventListener("message", onMessage);
   }, [finish, token]);
 
-  return createPortal(<div ref={host} tabIndex={-1} role="dialog" aria-label="Whole class lesson" aria-modal={window.matchMedia("(max-width: 767px)").matches || undefined} className={styles.lessonJourneyHost} style={{ zIndex, pointerEvents: "none" }} onKeyDown={event => { if (event.key === "Escape" && isTopmost) { event.stopPropagation(); requestExit(); } }}>
+  return createPortal(<div ref={host} tabIndex={-1} role="dialog" aria-label={opening.kind === "single" ? "Student lesson" : "Whole class lesson"} aria-modal={window.matchMedia("(max-width: 767px)").matches || undefined} className={styles.lessonJourneyHost} style={{ zIndex, pointerEvents: "none" }} onKeyDown={event => { if (event.key === "Escape" && isTopmost) { event.stopPropagation(); requestExit(); } }}>
     {bounds && <div ref={surface} data-native-lesson-opening className={styles.lessonJourneySurface} style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height, pointerEvents: "auto" }}>
       <div className={styles.lessonJourneyLoading} aria-hidden={ready || undefined} inert={ready || undefined}>
         <div className={styles.lessonJourneyContext}><Users size={16} /><strong ref={opening.student ? undefined : identity}>{[opening.tutor, opening.slot].filter(Boolean).join(" · ")}</strong><span><Calendar size={13} />{formatShortDate(opening.date)}</span><span><MapPin size={13} />{opening.location}</span><button onClick={requestExit} aria-label="Cancel opening lesson"><X size={18} /></button></div>
         {opening.student && <div ref={identity} className={styles.lessonJourneyIdentity}><strong>{opening.student}</strong>{opening.grade && <span>{opening.grade}</span>}{opening.school && <span>{opening.school}</span>}</div>}
         {!ready && <span role="status" className={styles.lessonJourneyStatus}>Loading...</span>}
       </div>
-      <iframe ref={frame} title="Wide lesson workspace" src={url.href} className={styles.lessonJourneyFrame} data-ready={ready} style={{ left: -frameOffset.left, top: -frameOffset.top, width: bounds.width + frameOffset.left, height: bounds.height + frameOffset.top }} onLoad={() => { const doc = frame.current?.contentDocument; if (doc) doc.documentElement.classList.toggle("dark", document.documentElement.classList.contains("dark")); measureFrame.current?.(); }} />
+      <iframe ref={frame} title={opening.kind === "single" ? "Student lesson workspace" : "Wide lesson workspace"} src={url.href} className={styles.lessonJourneyFrame} data-ready={ready} style={{ left: -frameOffset.left, top: -frameOffset.top, width: bounds.width + frameOffset.left, height: bounds.height + frameOffset.top }} onLoad={() => { const doc = frame.current?.contentDocument; if (doc) doc.documentElement.classList.toggle("dark", document.documentElement.classList.contains("dark")); measureFrame.current?.(); }} />
     </div>}
   </div>, document.body);
 }
@@ -192,10 +192,13 @@ export function NativeWideLessonJourney({ root, enabled }: { root: RefObject<HTM
     const onOpen = (event: Event) => {
       const request = event as CustomEvent<LessonOpening>;
       if (!root.current?.contains(request.detail.source)) return;
-      // Sessions can enter from a slot header or its actual student row. Other phone callers keep their existing flow.
-      if (!window.matchMedia("(min-width: 768px)").matches && !request.detail.source.closest("[data-native-lesson-slot], [data-native-session-row]")) return;
+      // Phone lessons enter from their slot header, student row or detail-page lesson button.
+      if (!window.matchMedia("(min-width: 768px)").matches && !request.detail.source.closest("[data-native-lesson-slot], [data-native-session-row], [data-native-single-lesson-source]")) return;
       const url = new URL(request.detail.href, window.location.href);
-      if (url.origin !== window.location.origin || url.pathname !== "/sessions/lesson") return;
+      const targetMatches = request.detail.kind === "single"
+        ? /^\/sessions\/[1-9]\d*$/.test(url.pathname) && url.searchParams.get("lesson") === "true"
+        : url.pathname === "/sessions/lesson";
+      if (url.origin !== window.location.origin || !targetMatches) return;
       if (!currentOpening.current) pendingNavigation.current = null;
       request.preventDefault(); setOpening(current => current ?? request.detail);
     };

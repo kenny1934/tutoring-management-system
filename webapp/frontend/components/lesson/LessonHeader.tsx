@@ -26,7 +26,7 @@ interface LessonHeaderProps {
   onExit: () => void;
   /** Who or what the lesson is for, shown after the exit button. */
   info: ReactNode;
-  /** The wide lesson places materials and its tools button here on a phone. */
+  /** Both lesson views place Exercises and Tools here on a phone. */
   phoneControls?: ReactNode;
   details: HeaderDetail[];
   syncStatus: ComponentProps<typeof InkSaveStatus>["status"];

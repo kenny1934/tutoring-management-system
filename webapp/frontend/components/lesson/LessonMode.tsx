@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Calendar, Clock, MapPin,
-  LayoutList, Home,
+  LayoutList, Home, MoreHorizontal, Sigma, Download, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHideBottomBar } from "@/lib/app-chrome";
@@ -22,6 +22,13 @@ import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { motion } from "framer-motion";
+import { useLessonMotion } from "@/components/design-preview/useLessonMotion";
+import { useLessonPhoneSurface } from "@/components/design-preview/useLessonPhoneSurface";
+import { useWorksheetHandoff } from "@/components/design-preview/useWorksheetHandoff";
+import { useLessonResumeEntry, useLessonResumeScope } from "@/components/design-preview/LessonResumeMemory";
+import { lessonSingleKey, lessonTarget } from "@/components/design-preview/lessonResume";
+import { cancelLessonFrameNavigation, closeLessonFrame, connectLessonFrame, dismissLessonOverlay, lessonFrameToken } from "@/components/design-preview/lessonFrame";
+import { SchoolBadge } from "./SchoolBadge";
 import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
 import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
@@ -64,7 +71,12 @@ interface LessonModeProps {
 
 const SHORTCUTS = lessonShortcuts("one-student");
 
-export function LessonMode({
+export function LessonMode(props: LessonModeProps) {
+  const { memory } = useLessonResumeScope();
+  return <SingleLessonWorkspace key={`${props.session.id}:${memory?.scope ?? ""}`} {...props} />;
+}
+
+function SingleLessonWorkspace({
   session,
   onExit,
   onSessionDataChange,
@@ -75,6 +87,8 @@ export function LessonMode({
   const currentSession = session;
   const previousSession = session.previous_session ?? null;
   const preview = useNativePresentation();
+  const nativeStage = useRef<HTMLDivElement>(null);
+  const { prepare: prepareWorksheet, isPending: isWorksheetPending } = useWorksheetHandoff(nativeStage, true);
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 
@@ -90,8 +104,31 @@ export function LessonMode({
   // Stamp for PDF pages (same info as printing)
   const stamp = useMemo(() => stampFor(session), [session]);
 
-  // Exercise state
-  const [selectedExercise, setSelectedExercise] = useState<SessionExercise | null>(null);
+  // All exercises from both sessions (for auto-select, save-all ZIP, and saving ink)
+  const allExercises = useMemo(() => {
+    const exercises: SessionExercise[] = [];
+    if (currentSession?.exercises) exercises.push(...currentSession.exercises);
+    if (previousSession?.exercises) exercises.push(...previousSession.exercises);
+    return exercises;
+  }, [currentSession, previousSession]);
+
+  const resumeTargets = useMemo(() => allExercises.map(exercise => lessonTarget(exercise.session_id, exercise)), [allExercises]);
+  const { entry: resume, ready: resumeReady } = useLessonResumeEntry(lessonSingleKey(session.id), resumeTargets, true);
+  const [selectedExercise, setSelectedExerciseState] = useState<SessionExercise | null>(() => {
+    const restored = resume.initial(resumeTargets);
+    return allExercises.find(exercise => exercise.id === restored?.exerciseId && exercise.session_id === restored.sessionId) ?? null;
+  });
+  const setSelectedExercise = useCallback((exercise: SessionExercise | null) => {
+    if (selectedExercise?.id !== exercise?.id || selectedExercise?.pdf_name !== exercise?.pdf_name) {
+      prepareWorksheet(exercise?.pdf_name ? exercise.id : null);
+    }
+    setSelectedExerciseState(exercise);
+  }, [prepareWorksheet, selectedExercise?.id, selectedExercise?.pdf_name]);
+  useEffect(() => {
+    if (!resumeReady || !selectedExercise) return;
+    const target = lessonTarget(selectedExercise.session_id, selectedExercise);
+    if (resumeTargets.some(t => t.sessionId === target.sessionId && t.exerciseId === target.exerciseId && t.source === target.source)) resume.remember(target, "by-student");
+  }, [resume, resumeReady, resumeTargets, selectedExercise]);
 
   // The open exercise's file, loaded through the one cache everything in this view shares
   const pdfCache = usePdfCache();
@@ -101,6 +138,12 @@ export function LessonMode({
   // Mobile responsive
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
+  const [phoneToolsOpen, setPhoneToolsOpen] = useState(false);
+  useEffect(() => {
+    if (!isMobile) { setMobileExerciseListOpen(false); setPhoneToolsOpen(false); }
+  }, [isMobile]);
+  const phoneSheetOpen = isMobile && (mobileExerciseListOpen || phoneToolsOpen);
+  useLessonPhoneSurface(nativeStage, isMobile, phoneSheetOpen);
 
   // The exercise editor, for this lesson's classwork or homework
   const { editing, openEditor: handleEditExercises, closeEditor: handleExerciseModalClose } = useExerciseEditor(onSessionDataChange);
@@ -112,6 +155,8 @@ export function LessonMode({
   // the mouse rests at its edge. Phones don't get it.
   const focus = useFocusMode(!isMobile);
   const { focusMode, hoverSidebar, setHoverSidebar, exitFocusMode, toggleFocusMode } = focus;
+
+  useLessonMotion(nativeStage, true, focusMode);
 
   // Wolfram, the print menu and the shortcut help
   const panels = useLessonPanels();
@@ -159,14 +204,6 @@ export function LessonMode({
     if (opening && focusMode) setHoverSidebar(true);
     if (opening && isMobile) setMobileExerciseListOpen(true);
   }, [homeworkOpen, focusMode, isMobile, setHoverSidebar]);
-
-  // All exercises from both sessions (for auto-select, save-all ZIP, and saving ink)
-  const allExercises = useMemo(() => {
-    const exercises: SessionExercise[] = [];
-    if (currentSession?.exercises) exercises.push(...currentSession.exercises);
-    if (previousSession?.exercises) exercises.push(...previousSession.exercises);
-    return exercises;
-  }, [currentSession, previousSession]);
 
   // How "Download All" saves an exercise's ink. A preview is class-wide, so it has no student stamp.
   const describeForZip = useCallback((exercise: SessionExercise): AnnotatedExercise | null => {
@@ -223,16 +260,17 @@ export function LessonMode({
     return exercises;
   }, [currentSession, previousSession, selectedIsFromPrevious]);
 
-  // Auto-select first exercise on mount / session change. Current session
-  // only: with nothing assigned yet (fresh summer sessions especially), the
-  // viewer should stay empty rather than silently loading the previous
-  // session's file.
+  // A fresh empty lesson stays empty. A saved explicit choice can resume the
+  // previous lesson, and refreshed records replace stale exercise metadata.
   useEffect(() => {
-    const exercises = currentSession?.exercises;
-    if (exercises && exercises.length > 0 && !selectedExercise) {
-      setSelectedExercise(exercises[0]);
-    }
-  }, [currentSession, selectedExercise]);
+    if (!resumeReady) return;
+    // Parallel summer files are deliberate, temporary previews, not assignments.
+    if (selectedExercise && isPreviewExercise(selectedExercise) && [session.id, previousSession?.id].includes(selectedExercise.session_id)) return;
+    const live = allExercises.find(exercise => exercise.id === selectedExercise?.id && exercise.session_id === selectedExercise?.session_id);
+    const restored = resume.initial(resumeTargets);
+    const next = live ?? allExercises.find(exercise => exercise.id === restored?.exerciseId && exercise.session_id === restored.sessionId) ?? currentSession.exercises?.[0] ?? null;
+    if (next !== selectedExercise) setSelectedExercise(next);
+  }, [allExercises, currentSession.exercises, selectedExercise, setSelectedExercise, resume, resumeReady, resumeTargets, session.id, previousSession?.id]);
 
   // Prefetch adjacent exercise PDFs into cache
   useEffect(() => {
@@ -253,7 +291,7 @@ export function LessonMode({
     closeLessonDraft();
     if (isMobile) setMobileExerciseListOpen(false);
     if (focusMode) setHoverSidebar(false);
-  }, [isMobile, focusMode, setHoverSidebar, closeLessonDraft]);
+  }, [isMobile, focusMode, setHoverSidebar, closeLessonDraft, setSelectedExercise]);
 
   // The sidebar's "Lesson draft" row, which a phone doesn't get.
   const lessonDraftRow = lessonDraftEntry(draft, checkHasAnnotations, () => {
@@ -311,8 +349,25 @@ export function LessonMode({
       session.session_date,
       session.time_slot,
     ].filter(Boolean).join("_"),
-    leave: onExit,
+    leave: () => {
+      resume.flush();
+      if (!closeLessonFrame()) onExit();
+    },
   });
+
+  const frameExit = useRef<() => void>(() => {});
+  frameExit.current = () => {
+    if (dismissLessonOverlay()) return;
+    if (isMobile && mobileExerciseListOpen) { setMobileExerciseListOpen(false); return; }
+    if (isMobile && phoneToolsOpen) { setPhoneToolsOpen(false); return; }
+    void handleExitAttempt();
+  };
+  const frameNavigate = useRef<() => void>(() => {});
+  frameNavigate.current = () => {
+    if (dismissLessonOverlay()) { cancelLessonFrameNavigation(); return; }
+    void handleExitAttempt();
+  };
+  useEffect(() => connectLessonFrame(() => frameExit.current(), nativeStage.current, () => frameNavigate.current()), []);
 
   // --- Keys ---
   // The key table is shared with the multi-student view, in useLessonKeys. An
@@ -326,7 +381,7 @@ export function LessonMode({
   };
   useLessonKeys(
     {
-      blocked: !!editing || showExitConfirm,
+      blocked: !!editing || showExitConfirm || phoneSheetOpen || isWorksheetPending(),
       ...panels.keyState,
       drawing: tools.drawingEnabled,
       focusMode,
@@ -392,34 +447,41 @@ export function LessonMode({
       exitTitle="Exit Lesson Mode (Esc)"
       onExit={handleExitAttempt}
       info={
-        <div className="flex items-center gap-2 min-w-0">
-          {studentIdDisplay && (
-            <span className="text-xs text-white/60 font-mono">{studentIdDisplay}</span>
-          )}
-          <span className="text-sm font-bold text-white/90 truncate">
-            {session.student_name}
-          </span>
-          <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
-          {session.grade && (
-            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" grade={session.grade} langStream={session.lang_stream} />
-          )}
-          {homeworkProgress.total > 0 && (
-            <button
-              onClick={toggleHomeworkBlock}
-              className={cn(
-                "flex items-center gap-1 px-2 min-h-8 rounded-md text-xs font-medium tabular-nums flex-shrink-0 transition-colors",
-                homeworkProgress.checked >= homeworkProgress.total
-                  ? "bg-white/15 text-white/80 hover:bg-white/25"
-                  : "bg-amber-400/20 text-amber-200 hover:bg-amber-400/30"
-              )}
-              title={`${homeworkCountLabel(homeworkProgress.checked, homeworkProgress.total)} (H)`}
-            >
-              <Home className="h-3.5 w-3.5" />
-              HW {homeworkProgress.checked}/{homeworkProgress.total}
-            </button>
-          )}
+        <div data-native-single-identity className="flex flex-1 flex-col gap-0.5 min-w-0">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+            <span className="text-sm font-bold text-white/90 truncate">
+              {session.student_name}
+            </span>
+            {session.grade && (
+              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+            )}
+            {session.school && <SchoolBadge school={session.school} className="text-[10px] py-0.5" />}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-white/70">
+            {studentIdDisplay && <span>{studentIdDisplay}</span>}
+            <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
+            {homeworkProgress.total > 0 && (
+              <button
+                onClick={toggleHomeworkBlock}
+                className={cn(
+                  "flex items-center gap-1 px-2 min-h-8 rounded-md text-xs font-medium tabular-nums flex-shrink-0 transition-colors",
+                  homeworkProgress.checked >= homeworkProgress.total
+                    ? "bg-white/15 text-white/80 hover:bg-white/25"
+                    : "bg-amber-400/20 text-amber-200 hover:bg-amber-400/30"
+                )}
+                title={`${homeworkCountLabel(homeworkProgress.checked, homeworkProgress.total)} (H)`}
+              >
+                <Home className="h-3.5 w-3.5" />
+                HW {homeworkProgress.checked}/{homeworkProgress.total}
+              </button>
+            )}
+          </div>
         </div>
       }
+      phoneControls={isMobile ? <div className={previewStyles.phoneLessonControls}>
+        <button type="button" onClick={event => { event.currentTarget.focus({ preventScroll: true }); setMobileExerciseListOpen(true); }} aria-label="Exercise list" aria-expanded={mobileExerciseListOpen} title="Exercises"><LayoutList size={20} /></button>
+        <button type="button" onClick={event => { event.currentTarget.focus({ preventScroll: true }); setPhoneToolsOpen(true); }} aria-label="Lesson tools" aria-expanded={phoneToolsOpen} title="Lesson tools"><MoreHorizontal size={20} /></button>
+      </div> : undefined}
       details={headerDetails}
       syncStatus={syncStatus}
       wolframOpen={panels.wolframOpen}
@@ -459,7 +521,10 @@ export function LessonMode({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      ref={nativeStage}
+      data-native-single-lesson
+      data-native-focus={focusMode}
+      initial={lessonFrameToken() ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
@@ -481,8 +546,9 @@ export function LessonMode({
 
         {/* The open exercise, with its Draft and its answer key */}
         <LessonViewerArea
+          readingState={resume}
           isMobile={isMobile}
-          contextRevealed={(focusMode && hoverSidebar) || mobileExerciseListOpen}
+          contextRevealed={(focusMode && hoverSidebar) || mobileExerciseListOpen || phoneToolsOpen}
           link={selectedExercise?.url && !selectedExercise?.pdf_name ? (
             <UrlExerciseView
               url={selectedExercise.url}
@@ -538,45 +604,30 @@ export function LessonMode({
           isOpen
           isSaving={isSavingAll}
           unsentInk
-          onCancel={stay}
+          onCancel={() => { stay(); cancelLessonFrameNavigation(); }}
           onSaveAndExit={saveAllAndExit}
           onExit={exitAnyway}
         />
       )}
 
-      {/* Mobile: Floating exercise list button */}
-      {isMobile && (
-        <button
-          onClick={() => setMobileExerciseListOpen(true)}
-          className={cn(
-            "fixed right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#8f6240] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform",
-            // Above the page bar and the Pen Tray's collapsed button, which sits in the same corner.
-            selectedExercise?.pdf_name ? "bottom-36" : "bottom-4",
-          )}
-          aria-label="Exercise list"
-        >
-          <LayoutList className="h-6 w-6 text-white" />
-          {/* Everything is behind the sheet on mobile, so without this the
-              homework waiting to be checked has nothing to announce it. */}
-          {homeworkProgress.total > homeworkProgress.checked && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-              <span className="text-[10px] font-bold text-white tabular-nums">
-                {homeworkProgress.total - homeworkProgress.checked}
-              </span>
-            </span>
-          )}
-        </button>
-      )}
-
       {/* Mobile: Exercise list bottom sheet */}
-      <MobileBottomSheet
+      {isMobile && <MobileBottomSheet
         isOpen={mobileExerciseListOpen}
         onClose={() => setMobileExerciseListOpen(false)}
         title="Exercises"
-        className="bg-[#faf5ed] dark:bg-[#1e1a14]"
+        modalLabel="Exercises"
+        backManaged={!!lessonFrameToken()}
+        onCloseStart={() => setMobileExerciseListOpen(false)}
+        className={previewStyles.phoneMaterialsSheet}
       >
         {sidebar}
-      </MobileBottomSheet>
+      </MobileBottomSheet>}
+      {isMobile && <MobileBottomSheet isOpen={phoneToolsOpen} onClose={() => setPhoneToolsOpen(false)} onCloseStart={() => setPhoneToolsOpen(false)} title="Lesson tools" modalLabel="Lesson tools" backManaged={!!lessonFrameToken()} className={previewStyles.phoneToolsSheet}>
+        <button type="button" onClick={() => { setPhoneToolsOpen(false); panels.toggleWolfram(); }}><Sigma size={20} />Wolfram Alpha</button>
+        <button type="button" disabled={isSavingAll || !hasAnyAnnotations()} onClick={() => { setPhoneToolsOpen(false); void downloadAllInk(); }}><Download size={20} />Download all ink as PDFs</button>
+        <button type="button" disabled={printing.id !== null} onClick={() => { setPhoneToolsOpen(false); handleBulkPrint("CW"); }}><Printer size={20} />Print CW</button>
+        <button type="button" disabled={printing.id !== null} onClick={() => { setPhoneToolsOpen(false); handleBulkPrint("HW"); }}><Printer size={20} />Print HW</button>
+      </MobileBottomSheet>}
     </motion.div>
   );
 }

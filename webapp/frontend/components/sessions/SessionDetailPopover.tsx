@@ -59,6 +59,7 @@ import type { ExtensionRequestDetail } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
 import { lessonHref } from "@/components/design-preview/lessonJourney";
+import { requestSingleLesson } from "@/components/design-preview/singleLessonJourney";
 import { requestLessonOpening } from "@/components/design-preview/lessonFrame";
 import { useNativeSessionDetail } from "@/components/design-preview/useNativeSessionDetail";
 import previewStyles from "@/components/design-preview/NativePreview.module.css";
@@ -1384,8 +1385,14 @@ export function SessionDetailPopover({
                     <Link
                       href={lessonHref(`/sessions/${session.id}?lesson=true`)}
                       role="menuitem"
-                      onClick={() => {
+                      onClick={(event) => {
                         setLessonChoiceOpen(false);
+                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                        if (nativeDetail.enabled && transitionSource && requestSingleLesson(session, transitionSource, {
+                          panel: refs.floating.current,
+                          returnFocus: lessonMenu.refs.domReference.current instanceof HTMLElement ? lessonMenu.refs.domReference.current : undefined,
+                          beforeNavigate: onClose,
+                        })) { event.preventDefault(); return; }
                         onNavigate?.();
                         onClose();
                       }}
