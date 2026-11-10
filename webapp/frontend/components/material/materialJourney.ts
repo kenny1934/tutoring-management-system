@@ -32,7 +32,7 @@ function landingRect(element: HTMLElement) {
 }
 
 export function createMaterialFlight(source: HTMLElement, options: {
-  kind: "folder" | "document"; reverse?: boolean; from?: DOMRect; onFinish?: () => void;
+  kind: "folder" | "document" | "label"; reverse?: boolean; from?: DOMRect; onFinish?: () => void;
 }) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof source.animate !== "function") return null;
   const sourceRect = source.getBoundingClientRect(), from = options.from ?? sourceRect;
@@ -44,12 +44,12 @@ export function createMaterialFlight(source: HTMLElement, options: {
   const style = getComputedStyle(source), background = style.backgroundColor === "rgba(0, 0, 0, 0)" ? style.getPropertyValue("--color-raised") || "#fef9f3" : style.backgroundColor;
   Object.assign(wrapper.style, { position: "fixed", pointerEvents: "none", zIndex: "2147483000", left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: "3px", overflow: "hidden", background: options.reverse && options.kind === "document" ? "#fffdfa" : background, boxShadow: "0 10px 30px -16px rgba(35,22,10,.45)", perspective: "600px" });
   for (const property of ["--material-edge", "--material-shadow"]) wrapper.style.setProperty(property, style.getPropertyValue(property));
-  const identities = ["id", "autofocus", "data-material-doc-id", "data-doc-id", "data-material-file", "data-material-reader-content", "data-previewing"];
+  const identities = ["id", "autofocus", "data-material-doc-id", "data-doc-id", "data-material-file", "data-material-reader-content", "data-previewing", "data-curriculum-file", "data-curriculum-pdf-content", "data-curriculum-topic-heading"];
   for (const element of [copy, ...copy.querySelectorAll<HTMLElement>("*")]) {
     for (const attribute of identities) element.removeAttribute(attribute);
   }
   copy.querySelectorAll("iframe, video, audio").forEach(element => element.remove());
-  Object.assign(copy.style, { margin: "0", position: "absolute", left: "0", top: "0", width: `${sourceRect.width}px`, height: `${sourceRect.height}px`, transformOrigin: "top left", transform: `scale(${options.kind === "folder" ? 1 : from.width / sourceRect.width})`, translate: "none", rotate: "none", opacity: options.reverse ? "0" : "1" });
+  Object.assign(copy.style, { margin: "0", position: "absolute", left: "0", top: "0", width: `${sourceRect.width}px`, height: `${sourceRect.height}px`, transformOrigin: "top left", transform: `scale(${options.kind !== "document" ? 1 : from.width / sourceRect.width})`, translate: "none", rotate: "none", opacity: options.reverse ? "0" : "1" });
   wrapper.append(copy); document.body.append(wrapper);
   const animations: Animation[] = [];
   let done = false, landing: HTMLElement | null = null, previousOpacity = "", previousInert = false;
@@ -80,11 +80,11 @@ export function createMaterialFlight(source: HTMLElement, options: {
       const duration = 280, easing = "cubic-bezier(.2,.7,.2,1)";
       const geometry = wrapper.animate([
         { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, opacity: 1, backgroundColor: options.reverse && options.kind === "document" ? "#fffdfa" : background },
-        { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, opacity: 0, backgroundColor: options.reverse || options.kind === "folder" ? background : "#fffdfa" },
+        { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, opacity: 0, backgroundColor: options.reverse || options.kind !== "document" ? background : "#fffdfa" },
       ], { duration, easing, fill: "forwards" });
       animations.push(geometry, copy.animate([
-        { transform: `scale(${options.kind === "folder" ? 1 : from.width / sourceRect.width})`, opacity: options.reverse ? 0 : 1 },
-        { transform: `scale(${options.kind === "folder" ? 1 : to.width / sourceRect.width})`, opacity: options.reverse ? 1 : 0 },
+        { transform: `scale(${options.kind !== "document" ? 1 : from.width / sourceRect.width})`, opacity: options.reverse ? 0 : 1 },
+        { transform: `scale(${options.kind !== "document" ? 1 : to.width / sourceRect.width})`, opacity: options.reverse ? 1 : 0 },
       ], { duration, easing, fill: "forwards" }));
       void geometry.finished.then(cancel, cancel);
       timer = setTimeout(cancel, duration + 100);

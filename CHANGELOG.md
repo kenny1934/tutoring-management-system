@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.1...v2.4.2) (2026-11-11)
+
+### Improvements
+
+* **Inbox**: return to your reading position and draft when reopening a conversation, with steadier desktop panes and smoother phone opening, Back and swipe gestures.
+* **Curriculum**: browse worksheets beside the desktop map or in a full-height phone view, with wrapping filenames and your place preserved while exploring related topics and PDF previews.
+* **Notifications**: return to the same reminder and scroll position, with a short opening transition and consistent phone Back behaviour.
+
+### Bug Fixes
+
+* **Message notifications**: open the relevant conversation and highlight the requested or first unread message, including when Inbox is already open.
+* **Inbox navigation**: delayed responses cannot reopen a closed conversation or replace a newer selection, and notification category links update an already open Inbox.
+* **Phone focus**: closing notifications returns focus to the visible bell, and closing a conversation returns to its place in the message list.
+
 ## [2.4.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.0...v2.4.1) (2026-11-10)
 
 ### Improvements

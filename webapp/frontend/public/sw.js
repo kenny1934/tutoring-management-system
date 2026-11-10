@@ -134,17 +134,35 @@ async function refreshBadge() {
   await (count > 0 ? self.navigator.setAppBadge(count) : self.navigator.clearAppBadge());
 }
 
+// Older push payloads already carry a thread ID, even when their URL is just /inbox.
+function notificationUrl(data = {}) {
+  let url;
+  try { url = new URL(data.url || "/inbox", self.location.origin); }
+  catch { url = new URL("/inbox", self.location.origin); }
+  if (url.origin !== self.location.origin) url = new URL("/inbox", self.location.origin);
+  const validId = value => /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value));
+  if (url.pathname === "/inbox") {
+    if (validId(data.threadId)) url.searchParams.set("thread", String(data.threadId));
+    if (validId(data.messageId)) url.searchParams.set("message", String(data.messageId));
+  }
+  return url.href;
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/inbox";
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.includes("/inbox") && "focus" in client) {
-          return client.focus();
-        }
-      }
-      return clients.openWindow(url);
-    })
-  );
+  const url = notificationUrl(event.notification.data);
+  event.waitUntil((async () => {
+    const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    const inbox = windowClients.find(client => {
+      const current = new URL(client.url);
+      return current.origin === self.location.origin && current.pathname === "/inbox";
+    });
+    if (inbox) {
+      try {
+        const target = inbox.url === url ? inbox : await inbox.navigate(url);
+        if (target) return target.focus();
+      } catch { /* A closed or navigating tab can no longer receive this notification. */ }
+    }
+    return clients.openWindow(url);
+  })());
 });

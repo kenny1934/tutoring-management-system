@@ -1,0 +1,22 @@
+.inspectorBackdrop { background: transparent; justify-content: flex-end; padding: 24px; }
+.inspectorPanel { width: min(560px, calc(100vw - var(--sidebar-width, 256px) - 48px)); max-width: none; height: min(800px, calc(100dvh - 64px)); max-height: calc(100dvh - 64px); border-width: 1px; border-radius: 5px; }
+.inspectorHeading { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.pdfPanel { position: relative; }
+.fileRow { min-width: 0; }
+.fileName { text-align: left; }
+.fileBadges { display: contents; }
+@media (max-width: 767px) {
+  .inspectorBackdrop, .pdfBackdrop { padding: 0; align-items: stretch; background: rgb(0 0 0 / .14); }
+  .inspectorPanel, .pdfPanel { width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .inspectorPanel > header, .pdfPanel > header { padding: max(12px, env(safe-area-inset-top)) 16px 12px; gap: 8px; }
+  .inspectorHeading > span { white-space: normal; overflow-wrap: anywhere; }
+  .fileRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--color-line); border-radius: 0; }
+  .fileName { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 18px; padding: 0; }
+  .fileBadges { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+  .fileRow > button:not(.fileName) { min-width: 36px; min-height: 36px; }
+  .fileRow > button[data-curriculum-add] { grid-column: 2; grid-row: 2; }
+  .fileRow > button[data-curriculum-preview] { grid-column: 3; grid-row: 2; }
+  .fileRow > button[data-curriculum-copy] { grid-column: 4; grid-row: 2; }
+  .inspectorPanel [data-curriculum-list-scroll], .pdfPanel { padding-bottom: env(safe-area-inset-bottom); }
+  .pdfPanel [data-curriculum-pdf-label] { white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 18px; }
+}

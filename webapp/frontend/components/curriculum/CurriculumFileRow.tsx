@@ -8,11 +8,12 @@ import { ROLE_LABELS, listInWords, stripExtension } from "@/lib/curriculum-label
 import { formatDayFirstDate, plural } from "@/lib/formatters";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import type { CurriculumFile } from "@/types";
+import styles from "./CurriculumJourney.module.css";
 import { CurriculumFileUsage } from "./CurriculumFileUsage";
 
 interface CurriculumFileRowProps {
   file: CurriculumFile;
-  onPreview: (file: CurriculumFile) => void;
+  onPreview: (file: CurriculumFile, source?: HTMLElement) => void;
   /** When set (the exercise modal case), the row leads with an add button —
    *  same shape as CurriculumPastPaperRow. */
   onAdd?: () => void;
@@ -202,12 +203,13 @@ export function CurriculumFileRow({
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
+      <div data-curriculum-file className={cn("flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10", styles.fileRow)}>
         {onAdd && (
           <button
             type="button"
             onClick={onAdd}
             title="Add to the session"
+            data-curriculum-add
             className={cn(
               hitArea,
               "rounded text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
@@ -218,23 +220,27 @@ export function CurriculumFileRow({
         )}
         {/* Name click previews: the row's biggest target does the safe,
             read-only thing; adding stays on the explicit plus button. */}
-        <span
-          className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
+        <button
+          type="button"
+          className={cn("text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer", styles.fileName)}
           title={file.file_path}
-          onClick={() => onPreview(file)}
+          onClick={event => onPreview(file, event.currentTarget)}
         >
           {stripExtension(file.file_basename)}
-        </span>
+        </button>
+        <div className={styles.fileBadges}>
         <CurriculumFileBadges
           file={file}
           scopeSchool={scopeSchool}
           usageOpen={usageOpen}
           onToggleUsage={() => setUsageOpen((open) => !open)}
         />
+        </div>
         <button
           type="button"
-          onClick={() => onPreview(file)}
+          onClick={event => onPreview(file, event.currentTarget)}
           title="Preview this worksheet"
+          data-curriculum-preview
           className={cn(
             hitArea,
             "rounded shrink-0 text-gray-500 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
@@ -246,6 +252,7 @@ export function CurriculumFileRow({
           type="button"
           onClick={copyPath}
           title="Copy the file path to paste into an exercise"
+          data-curriculum-copy
           className={cn(
             hitArea,
             "rounded shrink-0 transition-colors",

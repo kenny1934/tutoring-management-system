@@ -5,6 +5,10 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { IconButton } from "@/components/controls";
+import { useAsSheet } from "@/hooks/usePopoverSheet";
+import { useBackToClose } from "@/hooks/useBackToClose";
+import { cn } from "@/lib/utils";
+import styles from "./CurriculumJourney.module.css";
 
 /**
  * Dialog focus management shared by the curriculum overlays (modal shell,
@@ -15,8 +19,8 @@ import { IconButton } from "@/components/controls";
 export function useDialogFocus(panelRef: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    return () => opener?.focus?.();
+    panelRef.current?.focus({ preventScroll: true });
+    return () => { if (opener?.isConnected) opener.focus({ preventScroll: true }); };
   }, [panelRef]);
   return (e: React.KeyboardEvent) => {
     if (e.key !== "Tab") return;
@@ -55,6 +59,8 @@ interface CurriculumModalShellProps {
   previewOpen?: boolean;
   onClose: () => void;
   children: ReactNode;
+  inspector?: boolean;
+  bodyRef?: RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -72,9 +78,13 @@ export function CurriculumModalShell({
   previewOpen = false,
   onClose,
   children,
+  inspector = false,
+  bodyRef,
 }: CurriculumModalShellProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const trapTab = useDialogFocus(panelRef);
+  const onPhone = useAsSheet();
+  useBackToClose(onPhone, onClose);
 
   // In the overlay stack so that a lesson's detail popover, opened from the
   // usage list under a file row in here, can take Escape for itself. The
@@ -97,7 +107,7 @@ export function CurriculumModalShell({
   return createPortal(
     <div
       data-curriculum-overlay=""
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-6 bg-black/50"
+      className={cn("fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-6 bg-black/50", inspector && styles.inspectorBackdrop)}
       onClick={onClose}
     >
       <div
@@ -107,23 +117,23 @@ export function CurriculumModalShell({
         aria-label={ariaLabel}
         tabIndex={-1}
         onKeyDown={trapTab}
-        className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none"
+        className={cn("bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none", inspector && styles.inspectorPanel)}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
-          {header}
+        <header className="flex items-center gap-2 px-4 py-2.5 border-b border-line-strong/40 dark:border-line-strong/60 bg-gradient-to-r from-teal-50 to-paper dark:from-teal-900/20">
+          <div data-curriculum-topic-heading={inspector ? "inspector" : undefined} className={styles.inspectorHeading}>{header}</div>
           <IconButton icon={X} size="sm" label={closeLabel} onClick={onClose} className="ml-auto" />
-        </div>
+        </header>
 
         {subtitle && (
-          <p className="px-4 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 border-b border-line-strong/20 dark:border-line-strong/30">
+          <p className="px-4 py-1.5 text-[11px] text-ink-subtle border-b border-line-strong/20 dark:border-line-strong/30">
             {subtitle}
           </p>
         )}
 
         {beforeBody}
 
-        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+        <div ref={bodyRef} data-curriculum-list-scroll className="flex-1 min-h-0 overflow-y-auto"><div className="flow-root">{children}</div></div>
       </div>
     </div>,
     document.body
@@ -176,7 +186,7 @@ export function CurriculumShowMoreFiles({
         <button
           type="button"
           onClick={onShowFewer}
-          className="text-gray-500 dark:text-gray-400 hover:underline"
+          className="text-ink-subtle hover:underline"
         >
           Show fewer
         </button>
