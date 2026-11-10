@@ -17,7 +17,10 @@ const changelogData = [
             "description": "**Sessions**: compact phone filters, clearer active choices and a reset action that respects My view, with date swipes and navigation preserving your context."
           },
           {
-            "description": "**Lesson mode**: enter a whole-class lesson from a session or time slot and return to the same page, with your student, worksheet, zoom and reading position remembered when reopening in the same tab."
+            "description": "**Lesson mode**: enter a single-student or whole-class lesson from a session or time slot and return to the same page, with your student, worksheet, zoom and reading position remembered when reopening in the same tab."
+          },
+          {
+            "description": "**Single-student lessons**: matching light and dark chalkboard surfaces, compact phone Exercises and Tools controls, and smoother focus and worksheet transitions while keeping current and previous lessons together."
           },
           {
             "description": "**Worksheets**: smoother switching between files and students, clearer loading progress and retry options when a file cannot open."
@@ -29,6 +32,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Navigation**: sidebar links remain available during desktop lessons, and closing a phone sheet no longer interrupts navigation to another page."
+          },
+          {
+            "description": "**Lesson sheets**: Exercises and Tools stay closed when rotating back from a wider layout."
           },
           {
             "description": "**Dashboard refresh**: failed refreshes keep already loaded sessions, calendar events and charts visible while offering retry."

@@ -155,7 +155,7 @@ vi.mock("@/components/sessions/ExerciseModal", () => ({
 }));
 vi.mock("@/components/sessions/BulkExerciseModal", () => ({ BulkExerciseModal: () => null }));
 vi.mock("./SummerCoursewarePanel", () => ({
-  SummerCoursewarePanel: () => null,
+  SummerCoursewarePanel: ({ session, onPreview }: { session: Session; onPreview: (exercise: SessionExercise) => void }) => <button onClick={() => onPreview({ id: -1, session_id: session.id, exercise_type: "CW", created_by: "preview", pdf_name: "Algebra\\Quadratics 1.pdf" })}>Preview parallel courseware</button>,
   summerAssignButtonClass: "",
   SummerAssignIcon: () => null,
   ParallelChipsRow: () => null,
@@ -184,7 +184,7 @@ function lesson(id: number, name: string, schoolId: string, exercises: SessionEx
     id, student_id: id + 800, student_name: name, school_student_id: schoolId,
     grade: "F2", lang_stream: "E", lesson_number: 12, location: "MSA",
     session_date: "2026-09-11", time_slot: "16:45 - 18:15", tutor_name: "Ms Lee",
-    exercises, homework_completion: [], previous_session: null,
+    exercises, homework_completion: [], previous_session: undefined,
   } as unknown as Session;
 }
 
@@ -203,10 +203,11 @@ const lee = lesson(102, "Lee Ka Yan", "1236", [exercise(3001, 102, "CW", LINEAR)
 const VIDEO = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 const ho = lesson(103, "Ho Wing Kei", "1237", [{ ...exercise(4001, 103, "CW", ""), url: VIDEO } as SessionExercise]);
 
-function renderOneStudent({ session = chan, ...props }: { isReadOnly?: boolean; session?: Session } = {}) {
+function renderOneStudent({ session = chan, resumeScope, ...props }: { isReadOnly?: boolean; session?: Session; resumeScope?: string } = {}) {
   const onExit = vi.fn();
-  render(<LessonMode session={session} onExit={onExit} onSessionDataChange={() => {}} {...props} />);
-  return { onExit };
+  const lesson = <LessonMode session={session} onExit={onExit} onSessionDataChange={() => {}} {...props} />;
+  const view = render(resumeScope ? <LessonResumeProvider scope={resumeScope} ready>{lesson}</LessonResumeProvider> : lesson);
+  return { ...view, onExit };
 }
 
 function renderSlot({ sessions = [chan, wong], slotSessionIds, resumeScope, ...props }: {
@@ -632,6 +633,101 @@ describe.each([
 // --- The one-student view ---
 
 describe("The one-student view", () => {
+  it("keeps a deliberate parallel preview on screen without saving it as an assignment to resume", async () => {
+    const session = { ...chan, lesson_number: 1 };
+    const view = renderOneStudent({ session, resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByRole("button", { name: "Preview parallel courseware" }));
+    await opened("Quadratics 1");
+    expect(worksheet()).not.toHaveTextContent("Stamped for");
+    view.unmount();
+    renderOneStudent({ session, resumeScope: "viewer" });
+    await opened("Linear equations 3");
+  });
+
+  it("resumes previous work in the same tab independently of the wide lesson", async () => {
+    const previous = { ...lee, exercises: [exercise(3001, lee.id, "CW", FACTORISING)] };
+    const session = { ...chan, previous_session: previous };
+    const first = renderOneStudent({ session, resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByRole("button", { name: /Previous Session/ }));
+    fireEvent.click(first.container.querySelector('[data-native-lesson-exercise="3001"]')!);
+    await opened("Factorising 2");
+    first.unmount();
+    const wide = renderSlot({ resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    fireEvent.click(wide.container.querySelector('[data-native-lesson-exercise="2002"]')!);
+    await opened("Factorising 2");
+    wide.unmount();
+    const reopened = renderOneStudent({ session, resumeScope: "viewer" });
+    await opened("Factorising 2");
+    expect(worksheet()).toHaveTextContent("Stamped for Chan Tai Man");
+    reopened.unmount();
+    const other = renderOneStudent({ session, resumeScope: "another viewer" });
+    await opened("Linear equations 3");
+    other.unmount();
+  });
+
+  it("falls back to current work when a saved previous exercise is removed", async () => {
+    const session = { ...chan, previous_session: lee };
+    const first = renderOneStudent({ session, resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByRole("button", { name: /Previous Session/ }));
+    fireEvent.click(first.container.querySelector('[data-native-lesson-exercise="3001"]')!);
+    await waitFor(() => expect(first.container.querySelector('[data-native-lesson-exercise="3001"]')).toHaveAttribute("aria-current", "true"));
+    first.unmount();
+    const reopened = renderOneStudent({ session: { ...session, previous_session: undefined }, resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    reopened.unmount();
+  });
+
+  it.each(["Exercise list", "Lesson tools"])("dismisses the phone %s sheet on host Back before leaving", async (control) => {
+    const prior = window.location.href;
+    const parent = { postMessage: vi.fn() } as unknown as Window;
+    vi.spyOn(window, "parent", "get").mockReturnValue(parent);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    window.history.replaceState(null, "", "/sessions/100?lesson=true&lesson_frame=single-phone");
+    const back = () => fireEvent(window, new MessageEvent("message", { source: parent, origin: window.location.origin, data: { type: "csm-wide-exit-request", token: "single-phone" } }));
+    try {
+      await act(async () => { renderOneStudent(); });
+      await inkLoaded();
+      const before = worksheet();
+      fireEvent.click(screen.getByRole("button", { name: control }));
+      expect(await screen.findByRole("dialog", { name: control === "Exercise list" ? "Exercises" : "Lesson tools" })).toBeInTheDocument();
+      expect(document.querySelector<HTMLElement>("[data-native-single-lesson]")!.inert).toBe(true);
+      back();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(worksheet()).toBe(before);
+      expect(document.querySelector<HTMLElement>("[data-native-single-lesson]")!.inert).not.toBe(true);
+      expect(parent.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "csm-wide-closed" }), expect.anything());
+      back();
+      await waitFor(() => expect(parent.postMessage).toHaveBeenCalledWith({ type: "csm-wide-closed", token: "single-phone" }, window.location.origin));
+    } finally { window.history.replaceState(null, "", prior); }
+  });
+
+  it("keeps the single lesson open for unsaved ink and cancels host navigation on Stay", async () => {
+    const prior = window.location.href;
+    const parent = { postMessage: vi.fn() } as unknown as Window;
+    vi.spyOn(window, "parent", "get").mockReturnValue(parent);
+    window.history.replaceState(null, "", "/sessions/100?lesson=true&lesson_frame=single-ink");
+    h.inkSave.mockRejectedValue(new Error("offline"));
+    const navigate = () => fireEvent(window, new MessageEvent("message", { source: parent, origin: window.location.origin, data: { type: "csm-wide-navigate-request", token: "single-ink" } }));
+    try {
+      const { onExit } = renderOneStudent();
+      await inkLoaded();
+      drawAStroke();
+      navigate();
+      expect(await screen.findByText("Some ink isn't saved yet")).toBeInTheDocument();
+      expect(onExit).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Stay" }));
+      expect(parent.postMessage).toHaveBeenCalledWith({ type: "csm-wide-navigation-cancelled", token: "single-ink" }, window.location.origin);
+      navigate();
+      fireEvent.click(await screen.findByRole("button", { name: "Exit anyway" }));
+      await waitFor(() => expect(parent.postMessage).toHaveBeenCalledWith({ type: "csm-wide-closed", token: "single-ink" }, window.location.origin));
+      expect(onExit).not.toHaveBeenCalled();
+    } finally { window.history.replaceState(null, "", prior); }
+  });
+
   it("moves through the lesson's exercises with j and k, and stops at each end", async () => {
     renderOneStudent();
     await opened("Linear equations 3");
@@ -797,7 +893,7 @@ describe("The multi-student view", () => {
       await act(async () => { renderSlot(); });
       await inkLoaded();
       const worksheet = screen.getByTestId("worksheet");
-      fireEvent.click(screen.getByRole("button", { name: "Exercise list", exact: true }));
+      fireEvent.click(screen.getByRole("button", { name: "Exercise list" }));
       expect(await screen.findByRole("dialog", { name: "Exercises" })).toBeInTheDocument();
       expect(document.querySelector<HTMLElement>("[data-native-wide-lesson]")!.inert).toBe(true);
       back();
@@ -1068,5 +1164,21 @@ describe("reopening a wide lesson in the same tab", () => {
     const other = renderSlot({ resumeScope: "another viewer" });
     await opened("Linear equations 3");
     expect(worksheet()).toHaveTextContent("Stamped for Chan Tai Man"); other.unmount();
+  });
+});
+
+
+describe.each(["single", "wide"] as const)("%s phone sheet rotation", mode => {
+  it.each(["Exercise list", "Lesson tools"])("does not reopen %s when returning from a desktop layout", async control => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 390 });
+    if (mode === "single") renderOneStudent(); else renderSlot();
+    await inkLoaded();
+    fireEvent.click(screen.getByRole("button", { name: control }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    act(() => { window.innerWidth = 1024; window.dispatchEvent(new Event("resize")); });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    act(() => { window.innerWidth = 390; window.dispatchEvent(new Event("resize")); });
+    await waitFor(() => expect(screen.getByRole("button", { name: control })).toHaveAttribute("aria-expanded", "false"));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

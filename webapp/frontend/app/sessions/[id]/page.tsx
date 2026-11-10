@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, memo } from "react";
+import React, { useEffect, useState, useCallback, memo } from "react";
 import useSWR from "swr";
 import { useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -45,6 +45,8 @@ import { cn, formatError } from "@/lib/utils";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { useToast } from "@/contexts/ToastContext";
+import { NativeLessonPreview } from "@/components/design-preview/NativeLessonPreview";
+import { requestSingleLesson } from "@/components/design-preview/singleLessonJourney";
 import { PageSurface } from "@/components/layout/PageSurface";
 
 const LessonMode = dynamic(() =>
@@ -274,6 +276,10 @@ export default function SessionDetailPage() {
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [lessonMode, setLessonMode] = useState(() => searchParams.get('lesson') === 'true');
+  const enterLesson = useCallback((source?: HTMLElement) => {
+    if (session && source && requestSingleLesson(session, source)) return;
+    setLessonMode(true);
+  }, [session]);
 
   // Dynamic page title (skip when in lesson mode — LessonMode sets its own)
   usePageTitle(
@@ -370,14 +376,15 @@ export default function SessionDetailPage() {
       // L - Enter Lesson Mode
       if (key === 'l') {
         e.preventDefault();
-        setLessonMode(true);
+        const source = [...document.querySelectorAll<HTMLButtonElement>('[data-native-single-lesson-source]')].find(button => button.getClientRects().length > 0);
+        enterLesson(source);
         return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [session, isEditModalOpen, exerciseModalType, lessonMode]);
+  }, [session, isEditModalOpen, exerciseModalType, lessonMode, enterLesson]);
 
   if (loading) {
     return (
@@ -491,6 +498,7 @@ export default function SessionDetailPage() {
   }
 
   return (
+    <NativeLessonPreview>
     <PageSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 md:pr-16 lg:pr-16">
         {/* Bookmark Tab for Previous Session (fixed position) */}
@@ -518,13 +526,13 @@ export default function SessionDetailPage() {
         <div className="hidden sm:flex items-center gap-4">
           <IconButton label="Back to sessions" icon={ArrowLeft} onClick={goBack} />
           <div className="flex-1 min-w-0">
-            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
+            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={enterLesson} loadingActionId={loadingActionId} />
           </div>
         </div>
 
         {/* Mobile: Full-width chalkboard */}
         <div className="sm:hidden">
-          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
+          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={enterLesson} loadingActionId={loadingActionId} />
         </div>
       </div>
 
@@ -862,5 +870,6 @@ export default function SessionDetailPage() {
         )}
       </AnimatePresence>
     </PageSurface>
+    </NativeLessonPreview>
   );
 }

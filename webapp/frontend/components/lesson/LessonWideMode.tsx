@@ -27,7 +27,8 @@ import { TaughtLessonModal } from "@/components/sessions/TaughtLessonModal";
 import { motion } from "framer-motion";
 import { cancelLessonFrameNavigation, closeLessonFrame, connectLessonFrame, dismissLessonOverlay, lessonFrameToken } from "@/components/design-preview/lessonFrame";
 import { useWorksheetHandoff } from "@/components/design-preview/useWorksheetHandoff";
-import { useWideLessonMotion } from "@/components/design-preview/useWideLessonMotion";
+import { useLessonPhoneSurface } from "@/components/design-preview/useLessonPhoneSurface";
+import { useLessonMotion } from "@/components/design-preview/useLessonMotion";
 import { useLessonResumeEntry, useLessonResumeScope } from "@/components/design-preview/LessonResumeMemory";
 import { lessonClassKey, lessonTarget } from "@/components/design-preview/lessonResume";
 import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
@@ -228,24 +229,12 @@ function LessonWideWorkspace({
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
   const [phoneToolsOpen, setPhoneToolsOpen] = useState(false);
+  useEffect(() => {
+    if (!isMobile) { setMobileExerciseListOpen(false); setPhoneToolsOpen(false); }
+  }, [isMobile]);
   const phoneLesson = preview === "motion" && isMobile;
   const phoneSheetOpen = phoneLesson && (mobileExerciseListOpen || phoneToolsOpen);
-  useEffect(() => {
-    const stage = nativeStage.current;
-    if (!phoneLesson || !stage) return;
-    const body = document.body, property = "--native-lesson-height";
-    const previous = body.style.getPropertyValue(property);
-    const measure = () => body.style.setProperty(property, `${stage.clientHeight}px`);
-    measure();
-    const observer = new ResizeObserver(measure); observer.observe(stage);
-    return () => { observer.disconnect(); if (previous) body.style.setProperty(property, previous); else body.style.removeProperty(property); };
-  }, [phoneLesson]);
-  useEffect(() => {
-    const stage = nativeStage.current;
-    if (!phoneSheetOpen || !stage) return;
-    const previous = stage.inert; stage.inert = true;
-    return () => { stage.inert = previous; };
-  }, [phoneSheetOpen]);
+  useLessonPhoneSurface(nativeStage, phoneLesson, phoneSheetOpen);
 
   // --- Exercise editor, for one student's classwork or homework ---
   const { editing, openEditor: handleEditExercises, closeEditor: handleExerciseModalClose } = useExerciseEditor(onSessionDataChange);
@@ -272,7 +261,7 @@ function LessonWideWorkspace({
   // --- Focus mode, which phones don't get ---
   const focus = useFocusMode(!isMobile);
   const { focusMode, hoverSidebar, setHoverSidebar, exitFocusMode, toggleFocusMode } = focus;
-  useWideLessonMotion(nativeStage, preview === "motion", focusMode);
+  useLessonMotion(nativeStage, preview === "motion", focusMode);
 
   // --- Wolfram, the print menu and the shortcut help ---
   const panels = useLessonPanels();

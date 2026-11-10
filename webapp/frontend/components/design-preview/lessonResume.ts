@@ -21,6 +21,10 @@ export function lessonClassKey(date: string, slot: string, tutor: number, locati
   return JSON.stringify([date, normaliseTimeSlot(slot), tutor, location]);
 }
 
+export function lessonSingleKey(sessionId: number) {
+  return JSON.stringify(["single", sessionId]);
+}
+
 /** Only a source fingerprint enters tab storage, along with IDs and reading choices. */
 export function lessonTarget(sessionId: number, exercise: SessionExercise, record = false): LessonTarget {
   const source = JSON.stringify([exercise.pdf_name, exercise.url, getExercisePageNumbers(exercise), exercise.answer_pdf_name, getAnswerPageNumbers(exercise)]);

@@ -15,14 +15,14 @@ function Probe() {
   const [count, setCount] = useState(0);
   return <button onClick={() => setCount(count + 1)}>Dashboard state {count}</button>;
 }
-function setup(phoneRow = false, strict = false, beforeNavigate?: () => void, detailSheet = false) {
+function setup(phoneRow = false, strict = false, beforeNavigate?: () => void, detailSheet = false, single = false) {
   const main = document.createElement("main"); main.id = "main-content"; main.scrollTop = 130; document.body.append(main);
   vi.spyOn(main, "getBoundingClientRect").mockReturnValue({ left: 256, top: 0, right: 1440, bottom: 900, width: 1184, height: 900 } as DOMRect);
   const content = <NativeDashboardPreview><Probe /></NativeDashboardPreview>;
   const view = render(strict ? <StrictMode>{content}</StrictMode> : content, { container: main });
   fireEvent.click(screen.getByRole("button", { name: "Dashboard state 0" }));
   const source = screen.getByRole("button", { name: "Dashboard state 1" });
-  if (phoneRow) source.setAttribute("data-native-session-row", "");
+  if (phoneRow) source.setAttribute(single ? "data-native-single-lesson-source" : "data-native-session-row", "");
   const details = detailSheet ? document.createElement("div") : null;
   const lessonButton = detailSheet ? document.createElement("button") : null;
   if (details && lessonButton) {
@@ -30,9 +30,9 @@ function setup(phoneRow = false, strict = false, beforeNavigate?: () => void, de
     details.append(lessonButton); document.body.append(details);
     main.inert = true; main.setAttribute("inert", "");
   }
-  const opening: LessonOpening = { returnFocus: lessonButton, href: "/sessions/lesson?date=2026-11-05&slot=16%3A45&tutor_id=4&ui-preview=motion", source, beforeNavigate, from: { left: 320, top: 100, right: 600, bottom: 600 }, tutor: "Ms Lee", slot: "16:45 - 18:15", date: "2026-11-05", location: "MSA", student: "Chan Tai Man", grade: "F2", school: "PCMS" };
+  const opening: LessonOpening = { kind: single ? "single" : "class", returnFocus: lessonButton, href: single ? "/sessions/100?lesson=true" : "/sessions/lesson?date=2026-11-05&slot=16%3A45&tutor_id=4&ui-preview=motion", source, beforeNavigate, from: { left: 320, top: 100, right: 600, bottom: 600 }, tutor: "Ms Lee", slot: "16:45 - 18:15", date: "2026-11-05", location: "MSA", student: "Chan Tai Man", grade: "F2", school: "PCMS" };
   act(() => { expect(requestLessonOpening(opening)).toBe(true); });
-  const frame = screen.getByTitle("Wide lesson workspace") as HTMLIFrameElement;
+  const frame = screen.getByTitle(single ? "Student lesson workspace" : "Wide lesson workspace") as HTMLIFrameElement;
   const token = new URL(frame.src).searchParams.get("lesson_frame");
   const send = (type: string, overrides: Partial<MessageEventInit> = {}) => act(() => {
     window.dispatchEvent(new MessageEvent("message", { source: frame.contentWindow, origin: window.location.origin, data: { type, token }, ...overrides }));
@@ -256,4 +256,41 @@ it("uses the layout bounds while an underlying phone sheet finishes its recessio
     fireEvent(window, new Event("resize"));
     expect(document.querySelector("[data-native-lesson-opening]")).toHaveStyle({ left: "256px", top: "0px", width: "1184px", height: "900px" });
   } finally { scene.close(); parent.remove(); }
+});
+
+
+it.each([false, true])("opens a single lesson from its detail header and restores the source (phone: %s)", async phone => {
+  if (phone) vi.mocked(window.matchMedia).mockImplementation(query => ({ matches: query.includes("max-width") || query.includes("reduced-motion"), addEventListener() {}, removeEventListener() {} } as unknown as MediaQueryList));
+  const scene = setup(phone, false, undefined, false, true);
+  try {
+    expect(new URL(scene.frame.src).pathname).toBe("/sessions/100");
+    expect(new URL(scene.frame.src).searchParams.get("lesson")).toBe("true");
+    expect(screen.getByRole("dialog", { name: "Student lesson" })).toBeInTheDocument();
+    scene.send("csm-wide-ready"); scene.send("csm-wide-closed");
+    await waitFor(() => expect(screen.queryByTitle("Student lesson workspace")).not.toBeInTheDocument());
+    expect(scene.main.scrollTop).toBe(130);
+    expect(scene.source).toHaveFocus();
+    expect(scene.source).toHaveTextContent("Dashboard state 1");
+  } finally { scene.close(); }
+});
+
+
+it("returns a single lesson to its retained student detail sheet", async () => {
+  const scene = setup(false, false, undefined, true, true);
+  try {
+    scene.send("csm-wide-ready"); scene.send("csm-wide-closed");
+    await waitFor(() => expect(screen.queryByTitle("Student lesson workspace")).not.toBeInTheDocument());
+    expect(scene.lessonButton).toHaveFocus();
+    expect(scene.main.inert).toBe(true);
+    expect(scene.main.scrollTop).toBe(130);
+  } finally { scene.close(); }
+});
+
+it.each(["https://elsewhere.invalid/sessions/100?lesson=true", "/sessions/100", "/students/100?lesson=true", "/sessions/0?lesson=true"])("does not embed an invalid single-lesson target: %s", href => {
+  const view = render(<NativeDashboardPreview><Probe /></NativeDashboardPreview>);
+  const source = screen.getByRole("button", { name: "Dashboard state 0" });
+  try {
+    expect(requestLessonOpening({ kind: "single", href, source, from: source.getBoundingClientRect(), tutor: "Ms Lee", slot: "16:45", date: "2026-11-05", location: "MSA" })).toBe(false);
+    expect(screen.queryByTitle("Student lesson workspace")).not.toBeInTheDocument();
+  } finally { view.unmount(); }
 });
