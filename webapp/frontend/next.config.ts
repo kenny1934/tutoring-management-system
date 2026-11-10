@@ -1,5 +1,15 @@
 import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { realpathSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
+
+// Worktrees share the primary checkout's node_modules. Turbopack's filesystem
+// boundary must contain both directories so it can follow that symlink.
+const dependencyDirectory = realpathSync(join(__dirname, "node_modules"));
+let turbopackRoot = __dirname;
+while (relative(turbopackRoot, dependencyDirectory).split(sep)[0] === "..") {
+  turbopackRoot = dirname(turbopackRoot);
+}
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -7,6 +17,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 const nextConfig: NextConfig = {
   /* config options here */
+  turbopack: { root: turbopackRoot },
   output: 'standalone', // Required for Docker deployment
   // Next's built-in trailing-slash strip runs BEFORE middleware, which
   // turned the games.* /<slug>/ URLs into a redirect loop (Next strips
@@ -42,12 +53,10 @@ const nextConfig: NextConfig = {
     ],
   },
   // Rewrite /api/* to the backend
-  // - Development: proxy to localhost backend
-  // - Production: proxy to Cloud Run backend (fallback when not going through Cloudflare Worker)
+  // BACKEND_REWRITE_URL also lets an isolated development preview use its own backend.
+  // Production uses this as a fallback when not going through the Cloudflare Worker.
   async rewrites() {
-    const backendUrl = process.env.NODE_ENV === 'production'
-      ? (process.env.BACKEND_REWRITE_URL || 'http://localhost:8000') + '/api/:path*'
-      : 'http://localhost:8000/api/:path*';
+    const backendUrl = (process.env.BACKEND_REWRITE_URL || 'http://localhost:8000') + '/api/:path*';
     return [
       {
         source: '/api/:path*',

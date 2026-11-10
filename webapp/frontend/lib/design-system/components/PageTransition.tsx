@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, type HTMLMotionProps } from "framer-motion";
 import { pageVariants, quickPageVariants } from "../animations/variants";
 
-interface PageTransitionProps {
+interface PageTransitionProps extends HTMLMotionProps<"div"> {
   /**
    * Page content
    */
@@ -24,10 +24,11 @@ interface PageTransitionProps {
  * lag there. Only the timing changes: the starting position is the same either
  * way, because the server has already drawn the page in that position.
  */
-export function PageTransition({ children, className }: PageTransitionProps) {
+export function PageTransition({ children, className, ...props }: PageTransitionProps) {
   const [onPhone] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)").matches);
   return (
     <motion.div
+      {...props}
       initial="initial"
       animate="enter"
       exit="exit"

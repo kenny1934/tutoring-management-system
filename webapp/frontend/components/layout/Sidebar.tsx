@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useNativeSessionsHref } from "@/components/design-preview/NativeNavigationMemory";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -66,6 +67,7 @@ function placeTooltip(item: HTMLElement) {
  * and favicon count up to date for every page.
  */
 export function Sidebar() {
+  const sessionsHref = useNativeSessionsHref("/sessions");
   const pathname = usePathname();
   const { user, isAdmin, isSuperAdmin, isSupervisor, isGuest, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
@@ -272,7 +274,7 @@ export function Sidebar() {
               }}
             >
               <Link
-                href={item.href}
+                href={item.href === "/sessions" ? sessionsHref : item.href}
                 prefetch={true}
                 style={{
                   transition: `background-color ${isActive ? '350ms' : '200ms'} var(--ease-out), color ${isActive ? '350ms' : '200ms'} var(--ease-out)`

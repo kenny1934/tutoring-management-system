@@ -11,6 +11,7 @@ import {
   useDismiss,
   useInteractions,
   FloatingPortal,
+  FloatingFocusManager,
 } from "@floating-ui/react";
 import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, StickyNote } from "lucide-react";
 import useSWR from "swr";
@@ -56,6 +57,11 @@ import { uncheckedCount } from "@/lib/homework-utils";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { lessonHref } from "@/components/design-preview/lessonJourney";
+import { requestLessonOpening } from "@/components/design-preview/lessonFrame";
+import { useNativeSessionDetail } from "@/components/design-preview/useNativeSessionDetail";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
 const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name?: string; url?: string; url_title?: string; page_start?: number; page_end?: number; remarks?: string }; stamp?: PrintStampInfo }) {
@@ -420,6 +426,7 @@ interface SessionDetailPopoverProps {
   onNavigate?: () => void;
   sessionProposalMap?: Map<number, MakeupProposal>;
   onProposalClick?: (proposal: MakeupProposal) => void;
+  transitionSource?: HTMLElement | null;
 }
 
 export function SessionDetailPopover({
@@ -432,6 +439,7 @@ export function SessionDetailPopover({
   onNavigate,
   sessionProposalMap,
   onProposalClick,
+  transitionSource,
 }: SessionDetailPopoverProps) {
   const { showToast } = useToast();
   const { user, effectiveRole, impersonatedTutor, isReadOnly } = useAuth();
@@ -496,14 +504,14 @@ export function SessionDetailPopover({
 
   // Check if current user can mark attendance (tutors can only mark their own sessions)
   const canMarkAttendance = useCallback((s: Session | null) => {
-    if (!s) return false;
+    if (!s || isReadOnly) return false;
     if (!canBeMarked(s)) return false;
     // Tutors can only mark their own sessions
     if (effectiveRole === 'Tutor') {
       return s.tutor_id === (impersonatedTutor?.id ?? user?.id);
     }
     return true;
-  }, [canBeMarked, effectiveRole, user?.id]);
+  }, [canBeMarked, effectiveRole, user?.id, impersonatedTutor?.id, isReadOnly]);
 
   // Handler to open extension request modal
   const handleOpenExtensionRequest = useCallback(async () => {
@@ -610,11 +618,12 @@ export function SessionDetailPopover({
     };
   }, [clickPosition]);
 
+  const preview = useNativePresentation();
   const asSheet = useAsSheet();
-  const { refs, floatingStyles, context } = useFloating({
+  const { refs, floatingStyles, context, isPositioned } = useFloating({
     open: isOpen,
     onOpenChange: (open) => {
-      if (!open) onClose();
+      if (!open) nativeDetail.close();
     },
     middleware: [
       offset(8),
@@ -631,8 +640,19 @@ export function SessionDetailPopover({
     placement: "bottom-start",
   });
 
-  // On a phone the popover is a sheet along the bottom of the screen.
-  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose, zIndex);
+  const nativeDetail = useNativeSessionDetail({
+    enabled: preview === "motion" && !!transitionSource && isOpen,
+    source: transitionSource, asSheet, positioned: isPositioned, zIndex, onClose,
+    canFocus: isTopmost && !exerciseModalType && !isRateModalOpen && !isEditModalOpen && !isExtensionModalOpen && !confirmDialogOpen,
+  });
+  const setFloating = refs.setFloating;
+  const setNativeSurface = nativeDetail.setSurface;
+  const setSurface = useCallback((node: HTMLElement | null) => {
+    setFloating(node);
+    setNativeSurface(node);
+  }, [setFloating, setNativeSurface]);
+  // The existing phone sheet owns its drag and exit animation.
+  const sheet = usePopoverSheet(asSheet, floatingStyles, nativeDetail.close, zIndex, nativeDetail.beginClose);
 
   // Use setPositionReference for virtual references (not elements.reference)
   useEffect(() => {
@@ -670,6 +690,7 @@ export function SessionDetailPopover({
   // floating-ui listens, so a popover opened over that modal would never hear
   // Escape otherwise. Only the topmost overlay answers it. With the Lesson
   // mode menu open, Escape closes just the menu.
+  const closeSheet = sheet.close;
   useEffect(() => {
     if (!isOpen || !isTopmost || anyModalOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -679,16 +700,18 @@ export function SessionDetailPopover({
       e.preventDefault();
       e.stopPropagation();
       if (lessonChoiceOpen) setLessonChoiceOpen(false);
+      else if (nativeDetail.enabled) closeSheet();
       else onClose();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [isOpen, isTopmost, anyModalOpen, onClose, lessonChoiceOpen]);
+  }, [isOpen, isTopmost, anyModalOpen, onClose, lessonChoiceOpen, nativeDetail.enabled, closeSheet]);
 
   if (!isOpen) return null;
 
   const shellClass = cn(
     "bg-paper border-2 border-line-strong shadow-lg p-4",
+    nativeDetail.enabled && previewStyles.sessionDetail,
     asSheet ? sheet.sheetClass : "paper-texture rounded-lg w-[280px]",
   );
 
@@ -696,10 +719,11 @@ export function SessionDetailPopover({
   if (isLoading || !session) {
     return (
       <FloatingPortal>
-        <PopoverShell
+        <FloatingFocusManager context={context} disabled={!nativeDetail.enabled || !isTopmost || anyModalOpen} modal={asSheet} initialFocus={-1} returnFocus={isTopmost && !anyModalOpen ? nativeDetail.returnFocus : false} closeOnFocusOut={false}>
+      <PopoverShell
           sheet={sheet}
-          floatingRef={refs.setFloating}
-          floatingProps={getFloatingProps()}
+          floatingRef={setSurface}
+          floatingProps={getFloatingProps(nativeDetail.enabled ? { role: "dialog", "aria-label": "Session details", "aria-modal": asSheet || undefined } : undefined)}
           className={shellClass}
           header={<IconButton label="Close" icon={X} size="sm" onClick={sheet.close} className="absolute top-2 right-2" />}
         >
@@ -731,6 +755,7 @@ export function SessionDetailPopover({
             <div className="h-8 w-full bg-gray-200 dark:bg-gray-700 rounded mt-4" />
           </div>
         </PopoverShell>
+        </FloatingFocusManager>
       </FloatingPortal>
     );
   }
@@ -750,10 +775,11 @@ export function SessionDetailPopover({
 
   return (
     <FloatingPortal>
+      <FloatingFocusManager context={context} disabled={!nativeDetail.enabled || !isTopmost || anyModalOpen} modal={asSheet} initialFocus={-1} returnFocus={isTopmost && !anyModalOpen ? nativeDetail.returnFocus : false} closeOnFocusOut={false}>
       <PopoverShell
         sheet={sheet}
-        floatingRef={refs.setFloating}
-        floatingProps={getFloatingProps()}
+        floatingRef={setSurface}
+        floatingProps={getFloatingProps(nativeDetail.enabled ? { role: "dialog", "aria-label": "Session details", "aria-modal": asSheet || undefined } : undefined)}
         className={shellClass}
         header={
           <>
@@ -775,6 +801,7 @@ export function SessionDetailPopover({
                   onSave={saveLessonNumber}
                 />
               </div>
+              <div data-native-session-target ref={nativeDetail.identity} className={cn(nativeDetail.enabled && "flex flex-wrap items-center gap-1.5")}>
               <Link
                 href={`/students/${session.student_id}`}
                 onClick={(e) => {
@@ -786,6 +813,9 @@ export function SessionDetailPopover({
               >
                 {session.student_name || "Unknown Student"}
               </Link>
+              {nativeDetail.enabled && session.grade && <GradeBadge className="text-xs px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />}
+              {nativeDetail.enabled && session.school && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">{session.school}</span>}
+              </div>
             </div>
           </>
         }
@@ -833,14 +863,14 @@ export function SessionDetailPopover({
 
         {/* Details */}
         <div className="space-y-2 text-sm mb-4">
-          {session.grade && (
+          {!nativeDetail.enabled && session.grade && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Grade:</span>
               <GradeBadge className="text-xs px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
             </div>
           )}
 
-          {session.school && (
+          {!nativeDetail.enabled && session.school && (
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">School:</span>
               <span className="font-medium text-gray-900 dark:text-gray-100">
@@ -1278,11 +1308,11 @@ export function SessionDetailPopover({
             session.session_status === "Cancelled"
           );
           const wholeClassHref = session.tutor_id != null
-            ? `/sessions/lesson?${new URLSearchParams({
+            ? lessonHref(`/sessions/lesson?${new URLSearchParams({
                 date: session.session_date,
                 slot: session.time_slot,
                 tutor_id: String(session.tutor_id),
-              }).toString()}`
+              }).toString()}`, session.id)
             : null;
           const menuItem = "block w-full whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-primary/10";
           return (
@@ -1330,14 +1360,29 @@ export function SessionDetailPopover({
                         target="_blank"
                         rel="noopener noreferrer"
                         role="menuitem"
-                        onClick={() => setLessonChoiceOpen(false)}
+                        onClick={(event) => {
+                          if (nativeDetail.enabled && preview === "motion" && transitionSource && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+                            const panel = refs.floating.current;
+                            const handled = requestLessonOpening({
+                              href: wholeClassHref, source: transitionSource, beforeNavigate: onClose,
+                              returnFocus: lessonMenu.refs.domReference.current instanceof HTMLElement ? lessonMenu.refs.domReference.current : undefined,
+                              identity: panel?.querySelector<HTMLElement>("[data-native-session-target]") ?? transitionSource.querySelector<HTMLElement>("[data-native-session-identity]"),
+                              from: panel?.getBoundingClientRect() ?? transitionSource.getBoundingClientRect(),
+                              tutor: session.tutor_name ?? "", slot: session.time_slot, date: session.session_date,
+                              location: session.location ?? "", student: session.student_name ?? "", grade: session.grade, school: session.school,
+                            });
+                            if (handled) event.preventDefault();
+                          }
+                          setLessonChoiceOpen(false);
+                          if (nativeDetail.enabled) transitionSource?.focus({ preventScroll: true });
+                        }}
                         className={menuItem}
                       >
                         Whole class
                       </a>
                     )}
                     <Link
-                      href={`/sessions/${session.id}?lesson=true`}
+                      href={lessonHref(`/sessions/${session.id}?lesson=true`)}
                       role="menuitem"
                       onClick={() => {
                         setLessonChoiceOpen(false);
@@ -1360,6 +1405,7 @@ export function SessionDetailPopover({
           <span className="font-mono">A</span>=Attended <span className="font-mono">N</span>=No Show <span className="font-mono">C</span>=CW <span className="font-mono">H</span>=HW <span className="font-mono">R</span>=Rate <span className="font-mono">E</span>=Edit
         </div>}
       </PopoverShell>
+      </FloatingFocusManager>
 
       {/* Modals triggered by keyboard shortcuts */}
       {exerciseModalType && session && (

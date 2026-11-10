@@ -1,65 +1,72 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, act, waitFor } from "@testing-library/react";
-import { useBackToClose } from "./useBackToClose";
+import { act, fireEvent, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { hasStaleOverlayHistory, protectOverlayHistory, useBackToClose } from "./useBackToClose";
 
-function Overlay({ open, onBack }: { open: boolean; onBack: () => void }) {
-  useBackToClose(open, onBack);
-  return null;
-}
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+  vi.spyOn(window.history, "back").mockImplementation(() => {});
+  window.history.replaceState({}, "", "/sessions");
+});
+afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); vi.restoreAllMocks(); window.history.replaceState({}, "", "/"); });
 
-const overlayEntry = () => window.history.state?.csmOverlay;
-
-async function goBack() {
-  await act(async () => {
-    window.history.back();
-    await new Promise((resolve) => window.addEventListener("popstate", resolve, { once: true }));
-  });
-}
-
-describe("useBackToClose on a touch screen", () => {
-  beforeEach(() => {
-    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(pointer: coarse)" }));
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("adds an entry when the overlay opens, and back closes it", async () => {
-    const onBack = vi.fn();
-    render(<Overlay open onBack={onBack} />);
-    expect(overlayEntry()).toBeTypeOf("number");
-    await goBack();
-    expect(onBack).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes only the overlay on top", async () => {
-    const lower = vi.fn();
-    const upper = vi.fn();
-    render(
-      <>
-        <Overlay open onBack={lower} />
-        <Overlay open onBack={upper} />
-      </>,
-    );
-    await goBack();
-    expect(upper).toHaveBeenCalledTimes(1);
-    expect(lower).not.toHaveBeenCalled();
-  });
-
-  it("takes its entry off when it closes some other way and the page stays", async () => {
-    const { rerender } = render(<Overlay open onBack={() => {}} />);
-    const id = overlayEntry();
-    rerender(<Overlay open={false} onBack={() => {}} />);
-    await waitFor(() => expect(overlayEntry()).not.toBe(id), { timeout: 1000 });
-  });
+it("does not remove a lesson's entry when its underlying phone sheet unmounts during rotation", () => {
+  const sheet = renderHook(() => useBackToClose(true, vi.fn()));
+  const sheetEntry = { ...window.history.state };
+  const release = protectOverlayHistory("csmWideLesson", "lesson");
+  try {
+    window.history.pushState({ ...sheetEntry, csmWideLesson: "lesson" }, "");
+    sheet.unmount(); act(() => vi.advanceTimersByTime(350));
+    expect(window.history.back).not.toHaveBeenCalled();
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(window.history.back).not.toHaveBeenCalled();
+    expect(hasStaleOverlayHistory()).toBe(true);
+  } finally { release(); }
+  window.history.replaceState(sheetEntry, "");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+  expect(window.history.back).toHaveBeenCalledOnce();
+  window.history.replaceState({}, "");
+  expect(hasStaleOverlayHistory()).toBe(false);
 });
 
-describe("useBackToClose on a computer", () => {
-  it("leaves history alone", () => {
-    vi.stubGlobal("matchMedia", () => ({ matches: false }));
-    const before = window.history.length;
-    render(<Overlay open onBack={() => {}} />);
-    expect(window.history.length).toBe(before);
-    vi.unstubAllGlobals();
-  });
+it("still removes an overlay above the workspace and preserves an active source sheet", () => {
+  const source = renderHook(() => useBackToClose(true, vi.fn()));
+  expect(hasStaleOverlayHistory()).toBe(false);
+  const release = protectOverlayHistory("csmWideLesson", "lesson");
+  try {
+    const above = renderHook(() => useBackToClose(true, vi.fn()));
+    above.unmount(); act(() => vi.advanceTimersByTime(350));
+    expect(window.history.back).toHaveBeenCalledOnce();
+  } finally { release(); source.unmount(); }
+});
+
+it.each([false, true])("preserves a pending app navigation when clicked after close: %s", afterClose => {
+  const overlay = renderHook(() => useBackToClose(true, vi.fn()));
+  const link = document.createElement("a"); link.href = "/students/12";
+  link.onclick = event => event.preventDefault(); document.body.append(link);
+  if (afterClose) overlay.unmount();
+  fireEvent.click(link);
+  if (!afterClose) overlay.unmount();
+  act(() => vi.advanceTimersByTime(350));
+  expect(window.history.back).not.toHaveBeenCalled();
+  link.remove();
+});
+
+it("keeps a completed programmatic navigation even if it inherited the old overlay state", () => {
+  const overlay = renderHook(() => useBackToClose(true, vi.fn()));
+  const old = { ...window.history.state };
+  overlay.unmount();
+  window.history.pushState(old, "", "/students/12");
+  act(() => vi.advanceTimersByTime(350));
+  expect(window.history.back).not.toHaveBeenCalled();
+});
+
+it("still removes an ordinary closed sheet and ignores modified clicks", () => {
+  const overlay = renderHook(() => useBackToClose(true, vi.fn()));
+  const link = document.createElement("a"); link.href = "/students/12";
+  link.onclick = event => event.preventDefault(); document.body.append(link);
+  fireEvent.click(link, { ctrlKey: true }); overlay.unmount();
+  act(() => vi.advanceTimersByTime(350));
+  expect(window.history.back).toHaveBeenCalledOnce();
+  link.remove();
 });

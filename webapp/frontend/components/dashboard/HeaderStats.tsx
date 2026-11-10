@@ -100,11 +100,12 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
   }, [students, searchTerm]);
 
   return (
-    <div className="px-4 sm:px-6 py-2.5">
+    <div data-native-stats className="px-4 sm:px-6 py-2.5">
       <div className="flex items-center gap-2 justify-between sm:justify-start sm:gap-8">
         {/* Students stat with popover */}
-        <div className="relative">
+        <div data-native-stat-cell className="relative">
           <button
+            data-native-stat-action
             ref={refs.setReference}
             {...getReferenceProps()}
             className={cn(
@@ -230,6 +231,8 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
 
         {/* This Week stat - clickable link */}
         <Link
+          data-native-stat-cell
+          data-native-stat-action
           href="/sessions?view=weekly"
           className={cn(
             "flex items-center gap-1.5 text-sm transition-all rounded-full px-2.5 py-1",
@@ -249,7 +252,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
         </Link>
 
         {/* Revenue stat - hidden by default with eye toggle */}
-        <div className="flex items-center gap-1.5 text-sm">
+        <div data-native-stat-cell data-native-revenue className="flex items-center gap-1.5 text-sm">
           <DollarSign className="h-4 w-4 text-ink-subtle" />
 
           <span className={STACKED}>

@@ -20,6 +20,11 @@ import { PieChart as PieIcon, BarChart3, Target, Languages } from "lucide-react"
 import { cn } from "@/lib/utils";
 import type { ActiveStudent } from "@/types";
 import { CopyDataButton } from "@/components/dashboard/CopyDataButton";
+import { NativeChartPlaceholder } from "@/components/design-preview/NativeChartLoading";
+import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
+import { NativeChartBody, NativeChartLegend, NativeChartPlot } from "@/components/design-preview/NativeChartLegend";
 
 type ViewType = "donut" | "bar" | "radial";
 const STORAGE_KEY = "dashboard-grade-chart-view";
@@ -147,12 +152,14 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
   ];
 
   return (
-    <div className="flex items-center gap-0.5 bg-tint rounded-md p-0.5 border border-line">
+    <div role="group" aria-label="Grade chart type" className="flex items-center gap-0.5 bg-tint rounded-md p-0.5 border border-line">
       {buttons.map(({ type, icon: Icon, label }) => (
         <button
           key={type}
           onClick={() => onChange(type)}
           title={label}
+          aria-label={label}
+          aria-pressed={view === type}
           className={cn(
             "p-1 rounded transition-colors",
             view === type
@@ -168,7 +175,7 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
 }
 
 interface GradeDistributionChartProps {
-  students?: ActiveStudent[];
+  students?: Partial<Pick<ActiveStudent, "grade" | "lang_stream">>[];
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -184,8 +191,10 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
   tutorFilterId,
 }: GradeDistributionChartProps) {
   const router = useRouter();
+  const native = useNativePresentation() === "motion";
   const [viewType, setViewType] = useState<ViewType>("donut");
   const [splitByStream, setSplitByStream] = useState(false);
+  const [selection, setSelection] = useNativeViewState<string | null>(`dashboard:grade-selection:${tutorFilterId ?? "all"}:${splitByStream}`, () => null);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -307,6 +316,11 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
   const totalStudents = chartData.reduce((sum, d) => sum + d.value, 0);
   const activeStreamKeys: StreamKey[] = hasOtherStream ? ["C", "E", "Other"] : ["C", "E"];
 
+  const legendData = splitByStream ? splitChartData : chartData;
+  const selectedEntry = native ? legendData.find(entry => entry.name === selection) : undefined;
+  const selected = selectedEntry?.name ?? null;
+  const opacityFor = (name: string) => selected && selected !== name ? .24 : 1;
+
   // Render chart based on view type
   const renderChart = () => {
     const donutData = splitByStream ? splitChartData : chartData;
@@ -317,22 +331,24 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
 
     if (viewType === "donut") {
       return (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={native ? "100%" : 200}>
           <PieChart>
             <Pie
+              isAnimationActive={native ? false : undefined}
               data={donutData}
               cx="50%"
               cy="50%"
-              innerRadius={42}
-              outerRadius={72}
+              innerRadius={native ? "52%" : 42}
+              outerRadius={native ? "90%" : 72}
               fill="#8884d8"
+              stroke={native ? "var(--color-paper)" : undefined}
               dataKey="value"
               onClick={handleSliceClick}
               style={{ cursor: "pointer" }}
               paddingAngle={2}
             >
               {donutData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={cellFill(entry, index)} />
+                <Cell key={`cell-${index}`} fill={cellFill(entry, index)} fillOpacity={opacityFor(entry.name)} />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip total={totalStudents} />} />
@@ -341,7 +357,7 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
               <tspan
                 style={{
                   fontSize: "22px",
-                  fill: "#a0704b",
+                  fill: native ? "var(--color-foreground)" : "#a0704b",
                   fontWeight: 600,
                 }}
               >
@@ -349,7 +365,7 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
               </tspan>
             </text>
             <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle">
-              <tspan style={{ fontSize: "10px", fill: "#8b6f47", fontWeight: 500 }}>
+              <tspan style={{ fontSize: "10px", fill: native ? "var(--color-ink-subtle)" : "#8b6f47", fontWeight: 500 }}>
                 students
               </tspan>
             </text>
@@ -360,14 +376,14 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
 
     if (viewType === "bar") {
       return (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={native ? "100%" : 200}>
           <BarChart layout="vertical" data={chartData} margin={{ left: 10, right: 20 }}>
             <XAxis type="number" hide />
             <YAxis
               type="category"
               dataKey="name"
               width={35}
-              tick={{ fontSize: 11, fill: "#8b6f47" }}
+              tick={{ fontSize: 11, fill: native ? "var(--color-ink-subtle)" : "#8b6f47" }}
               axisLine={false}
               tickLine={false}
             />
@@ -388,30 +404,32 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
                 };
                 return (
                   <Bar
+                    isAnimationActive={native ? false : undefined}
                     key={stream}
                     dataKey={stream}
                     stackId="grade"
                     radius={i === activeStreamKeys.length - 1 ? [0, 4, 4, 0] : 0}
                     // Recharts gives the row data but not which Bar fired,
                     // so we close over `stream` here to pass it through.
-                    onClick={(data) => handleSliceClick({ ...(data as { grade?: string; name: string }), stream })}
+                    onClick={(data) => handleSliceClick({ ...data.payload, stream })}
                     style={{ cursor: "pointer" }}
                   >
                     {chartData.map((row, ri) => (
-                      <Cell key={`cell-${stream}-${ri}`} fill={tintFor(row.gradeColor)} />
+                      <Cell key={`cell-${stream}-${ri}`} fill={tintFor(row.gradeColor)} fillOpacity={opacityFor(`${row.grade}${stream === "Other" ? "?" : stream}`)} />
                     ))}
                   </Bar>
                 );
               })
             ) : (
               <Bar
+                isAnimationActive={native ? false : undefined}
                 dataKey="value"
                 radius={[0, 4, 4, 0]}
-                onClick={(data) => handleSliceClick(data)}
+                onClick={(data) => handleSliceClick(data.payload)}
                 style={{ cursor: "pointer" }}
               >
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={entry.gradeColor} fillOpacity={opacityFor(entry.name)} />
                 ))}
               </Bar>
             )}
@@ -423,12 +441,12 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
     if (viewType === "radial") {
       // For radial bar, we need data sorted by value for visual clarity.
       // Inject `fill` per row — RadialBar reads it directly off the data
-      // (no Cell children supported on this chart type).
+      // to retain the same colours as the legend in value-sorted order.
       const radialData = [...donutData]
         .sort((a, b) => a.value - b.value)
-        .map((entry, i) => ({ ...entry, fill: cellFill(entry, i) }));
+        .map((entry, i) => ({ ...entry, fill: cellFill(entry, i), fillOpacity: opacityFor(entry.name) }));
       return (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={native ? "100%" : 200}>
           <RadialBarChart
             cx="50%"
             cy="50%"
@@ -439,9 +457,10 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
             endAngle={0}
           >
             <RadialBar
+              isAnimationActive={native ? false : undefined}
               dataKey="value"
               cornerRadius={4}
-              onClick={(data) => handleSliceClick(data)}
+              onClick={(data) => handleSliceClick(data.payload)}
               style={{ cursor: "pointer" }}
             />
             <Tooltip content={<CustomTooltip total={totalStudents} />} />
@@ -450,13 +469,13 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
               <tspan
                 style={{
                   fontSize: "16px",
-                  fill: "#a0704b",
+                  fill: native ? "var(--color-foreground)" : "#a0704b",
                   fontWeight: 600,
                 }}
               >
                 {totalStudents}
               </tspan>
-              <tspan style={{ fontSize: "10px", fill: "#8b6f47", fontWeight: 500 }}> students</tspan>
+              <tspan style={{ fontSize: "10px", fill: native ? "var(--color-ink-subtle)" : "#8b6f47", fontWeight: 500 }}> students</tspan>
             </text>
           </RadialBarChart>
         </ResponsiveContainer>
@@ -467,9 +486,9 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
   };
 
   return (
-    <div>
+    <div data-native-chart="grade" data-native-chart-interactive={native || undefined}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 mb-4">
+      <div data-native-chart-header className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
           <GradeAccent className="w-8 h-6" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Grade Distribution</h3>
@@ -510,12 +529,14 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Cached data remains usable if a background refresh fails. */}
+      {error && students.length > 0 && onRetry && <NativeRequestError label="Couldn’t refresh student distribution" retry={onRetry} loading={isLoading} />}
       {isLoading ? (
+        native ? <div role="status" aria-busy="true" aria-label="Loading grade distribution"><NativeChartPlaceholder kind="grade" /></div> : (
         <div className="h-[250px] flex items-center justify-center">
           <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
-      ) : error ? (
+      )) : error && students.length === 0 ? (
         <div className="h-[250px] flex flex-col items-center justify-center gap-3">
           <div className="text-red-600 dark:text-red-400 text-sm">Failed to load data</div>
           {onRetry && (
@@ -532,9 +553,19 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
           <div className="text-center text-gray-500 dark:text-gray-400 text-sm">No data available</div>
         </div>
       ) : (
-        <div>
-          {renderChart()}
-          <CustomLegend
+        <NativeChartBody enabled={native}>
+          <NativeChartPlot enabled={native} signature={`${viewType}:${splitByStream}:${legendData.map(entry => `${entry.name}:${entry.value}`).join("|")}`}>
+            {renderChart()}
+          </NativeChartPlot>
+          {native ? <NativeChartLegend
+            label="Grade legend"
+            entries={legendData.map(entry => ({ name: entry.name, value: entry.value, color: "fill" in entry ? entry.fill : entry.gradeColor }))}
+            total={totalStudents}
+            selected={selected}
+            onSelect={setSelection}
+            summary={`${chartData.length} grades`}
+            onOpen={selectedEntry && selectedEntry.grade !== "Unknown" && !("stream" in selectedEntry && selectedEntry.stream === "Other") ? () => handleSliceClick(selectedEntry) : undefined}
+          /> : <CustomLegend
             payload={
               splitByStream
                 ? // All split views (bar/donut/radial) encode color as
@@ -550,8 +581,8 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
                     value: entry.name,
                   }))
             }
-          />
-        </div>
+          />}
+        </NativeChartBody>
       )}
     </div>
   );

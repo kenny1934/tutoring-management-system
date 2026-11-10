@@ -78,23 +78,25 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const linksFade = useScrollFade<HTMLDivElement>();
 
   return (
-    <div className={cn(
+    <div data-native-header className={cn(
       "@container/header",
       "bg-[#fdf6eb] dark:bg-[#342d1f] rounded-xl border border-line overflow-hidden",
       "shadow-md",
       !isMobile && "paper-texture"
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
-      <div className="px-4 sm:px-6 py-2 border-b border-line bg-tint">
+      <div data-native-greeting className="px-4 sm:px-6 py-2 border-b border-line bg-tint">
         <div className="flex items-center justify-between gap-3">
           {/* Welcome message, and the day's line under it. On a phone the date
               and weather end the greeting's line as small text, in place of
               the tear-off calendar, which took a row of its own there. */}
           <div className="min-w-0 max-sm:flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
-                Welcome back, {getTutorFirstName(userName)}
-              </p>
+              <div data-native-identity>
+                <p data-native-welcome className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
+                  Welcome back, {getTutorFirstName(userName)}
+                </p>
+              </div>
               <CompactDate className="sm:hidden" />
             </div>
             {greetingLine && (
@@ -103,9 +105,11 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
           </div>
 
           {/* Right side: Search + Date/Weather + Location, from 640px up */}
-          <div className="flex items-center gap-2 @[500px]/header:gap-3 max-sm:hidden">
+          <div data-native-context-tools className="flex items-center gap-2 @[500px]/header:gap-3 max-sm:hidden">
             {/* Search Button - hidden on mobile, responsive via container queries */}
             <button
+              data-native-search
+              aria-label="Search"
               onClick={openCommandPalette}
               className={cn(
                 "hidden sm:flex items-center gap-2 px-2 @[500px]/header:px-3 py-1.5",
@@ -138,7 +142,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       </div>
 
       {/* Stats Row with Bell */}
-      <div className="flex items-center justify-between border-b border-line">
+      <div data-native-summary className="flex items-center justify-between border-b border-line">
         {isStatsLoading && !stats ? (
           <div className="px-4 sm:px-6 py-2">
             <div className="flex items-center gap-4 sm:gap-8">
@@ -162,7 +166,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
           <HeaderStats stats={stats} tutorId={tutorId} />
         ) : null}
         {/* Below 768px the bell is in the app's top bar, as on every page. */}
-        <div className="ml-auto px-4 sm:px-6 flex items-center gap-2 max-md:hidden">
+        <div data-native-notifications className="ml-auto px-4 sm:px-6 flex items-center gap-2 max-md:hidden">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
         </div>
       </div>
@@ -171,7 +175,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       <DailyPuzzle className="border-b border-line" />
 
       {/* Bottom section: Quick Links (hidden for Guest role) */}
-      {!isGuest && <div className="px-4 sm:px-6 py-3">
+      {!isGuest && <div data-native-actions className="px-4 sm:px-6 py-3">
         {/* Quick Links */}
         <div ref={linksFade.ref} style={linksFade.style} className={QUICK_LINKS_ROW}>
           {quickLinks.map((link) => {

@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.4.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.3.2...v2.4.0) (2026-11-10)
+
+### Improvements
+
+* **Dashboard**: clearer welcome and session sections, compact calendar and chart layouts, and readable Wood desk surfaces in light and dark mode.
+* **Recent activity**: read complete event details and browse older activity while keeping your place when returning.
+* **Sessions**: compact phone filters, clearer active choices and a reset action that respects My view, with date swipes and navigation preserving your context.
+* **Lesson mode**: enter a whole-class lesson from a session or time slot and return to the same page, with your student, worksheet, zoom and reading position remembered when reopening in the same tab.
+* **Worksheets**: smoother switching between files and students, clearer loading progress and retry options when a file cannot open.
+
+### Bug Fixes
+
+* **Navigation**: sidebar links remain available during desktop lessons, and closing a phone sheet no longer interrupts navigation to another page.
+* **Dashboard refresh**: failed refreshes keep already loaded sessions, calendar events and charts visible while offering retry.
+
 ## [2.3.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.3.1...v2.3.2) (2026-11-08)
 
 ### Improvements

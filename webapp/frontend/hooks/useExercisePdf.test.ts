@@ -55,6 +55,7 @@ describe("useExercisePdf", () => {
     ["no_file", NO_FILE_ERROR],
     ["fetch_failed", "Failed to download PDF"],
     ["file_not_found", "File not found"],
+    ["timed_out", "The worksheet took too long to load."],
   ])("says what went wrong when the load reports %s", async (error, message) => {
     load.mockResolvedValue({ error });
     const { result } = renderPdf(exercise(1, "A.pdf"));

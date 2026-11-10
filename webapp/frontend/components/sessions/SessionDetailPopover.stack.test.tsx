@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, waitFor, screen, act } from "@testing-library/react";
 import { useState } from "react";
 import { flushSync } from "react-dom";
 import { Modal } from "@/components/ui/modal";
@@ -83,6 +83,40 @@ describe("a lesson popover stacked over a modal", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onPopoverClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Escape scoped to the session detail while its desktop exit finishes", async () => {
+    const main = document.createElement("main"); main.id = "main-content";
+    const row = document.createElement("div"); row.tabIndex = -1; main.append(row); document.body.append(main);
+    const onModalClose = vi.fn(), onPopoverClose = vi.fn();
+    const { unmount } = render(<><Modal isOpen onClose={onModalClose} title="Classwork">body</Modal><SessionDetailPopover session={null} isOpen onClose={onPopoverClose} clickPosition={{ x: 0, y: 0 }} transitionSource={row} /></>);
+    try {
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onPopoverClose).not.toHaveBeenCalled();
+      await waitFor(() => expect(onPopoverClose).toHaveBeenCalledTimes(1));
+      expect(onModalClose).not.toHaveBeenCalled();
+    } finally {
+      unmount(); main.remove();
+    }
+  });
+
+  it("lets a modal over the session detail keep focus and handle Escape", async () => {
+    const main = document.createElement("main"); main.id = "main-content";
+    const row = document.createElement("div"); row.tabIndex = -1; main.append(row); document.body.append(main);
+    const parentClose = vi.fn(), childClose = vi.fn();
+    const parent = <SessionDetailPopover session={null} isOpen onClose={parentClose} clickPosition={{ x: 0, y: 0 }} transitionSource={row} />;
+    const { rerender, unmount } = render(<>{parent}</>);
+    try {
+      rerender(<>{parent}<Modal isOpen onClose={childClose} title="Classwork"><button>Save exercise</button></Modal></>);
+      const child = screen.getByText("Save exercise"); child.focus();
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+      expect(document.activeElement).toBe(child);
+      fireEvent.keyDown(child, { key: "Escape" });
+      expect(childClose).toHaveBeenCalledTimes(1);
+      expect(parentClose).not.toHaveBeenCalled();
+    } finally {
+      unmount(); main.remove();
+    }
   });
 
   it("leaves Escape to a modal opened over it", () => {

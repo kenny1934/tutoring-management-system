@@ -89,6 +89,7 @@ export function useExercisePdf(exercise: SessionExercise | null, cache: Map<stri
         setLoaded(null);
         setPdfError(
           result.error === "no_file" ? NO_FILE_ERROR
+            : result.error === "timed_out" ? "The worksheet took too long to load."
             : result.error === "fetch_failed" ? "Failed to download PDF"
             : "File not found"
         );
@@ -102,6 +103,12 @@ export function useExercisePdf(exercise: SessionExercise | null, cache: Map<stri
 
   const retry = useCallback(() => {
     if (exercise?.pdf_name) cache.delete(exercise.pdf_name);
+    // Clear rejected bytes in the same event as resetting the render boundary,
+    // so it cannot immediately crash again on the old file before effects run.
+    setLoaded(null);
+    setPdfError(null);
+    setPdfLoadingMessage(null);
+    setPdfLoading(!!exercise?.pdf_name);
     setAttempt((count) => count + 1);
   }, [exercise, cache]);
 

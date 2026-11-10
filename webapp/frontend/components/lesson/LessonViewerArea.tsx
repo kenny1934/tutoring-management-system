@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, type ReactNode, type Ref } from "react";
+import { useCallback, useRef, useState, type ReactNode, type Ref } from "react";
+import { LessonWorksheetLoading } from "@/components/design-preview/LessonWorksheetLoading";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { NotebookPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -11,12 +14,14 @@ import type { useAnswerKey } from "@/hooks/useAnswerKey";
 import type { useDraft } from "@/hooks/useDraft";
 import type { useLessonInk } from "@/hooks/useLessonInk";
 import type { SessionExercise } from "@/types";
-import { PdfPageViewer, type PdfViewerHandle, type PdfViewState } from "./PdfPageViewer";
+import { PdfPageViewer, toolbarRow, formatCompactPageRange, type PdfViewerHandle, type PdfViewState } from "./PdfPageViewer";
 import { PdfRenderFailure, viewerDivider, viewerTabClass } from "./ViewerParts";
 import { DraftPane, DraftTrayLane } from "./DraftPane";
 import { DraftSplit } from "./DraftSplit";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { LESSON_DRAFT_DESCRIPTION } from "./LessonDraftRow";
+import type { LessonResumeEntry } from "@/components/design-preview/lessonResume";
+import { lessonTarget } from "@/components/design-preview/lessonResume";
 
 /** The ink handlers the worksheet and the Draft draw through. */
 type ViewerInk = Pick<
@@ -26,7 +31,11 @@ type ViewerInk = Pick<
 >;
 
 interface LessonViewerAreaProps {
+  /** A wide lesson can retain these maps after its frame closes. */
+  readingState?: Pick<LessonResumeEntry, "worksheet" | "answer" | "capture">;
   isMobile: boolean;
+  /** A sidebar or materials sheet is layered over the still-mounted worksheet. */
+  contextRevealed?: boolean;
   /** Shown above the viewers. The multi-student view puts its student strip here. */
   top?: ReactNode;
   /** The open exercise when it's a link, shown in the worksheet's place. */
@@ -73,14 +82,21 @@ interface LessonViewerAreaProps {
  * between the views, such as the stamp and what printing does.
  */
 export function LessonViewerArea({
-  isMobile, top, link, exercise, inkless = false, exerciseLabel, pdf, answer, draft, ink,
+  isMobile, contextRevealed = false, readingState, top, link, exercise, inkless = false, exerciseLabel, pdf, answer, draft, ink,
   stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef,
 }: LessonViewerAreaProps) {
+  const preview = useNativePresentation();
   // Each exercise's zoom, scroll position, "Hide ink" and covers, so switching
   // between exercises and back finds each one as the tutor left it. The answer
   // key keeps its own, so its zoom and covers stay apart from the worksheet's.
-  const [viewStates] = useState(() => new Map<number, PdfViewState>());
-  const [answerViewStates] = useState(() => new Map<number, PdfViewState>());
+  const [localViews] = useState(() => new Map<number, PdfViewState>());
+  const [localAnswerViews] = useState(() => new Map<number, PdfViewState>());
+  const viewStates = readingState?.worksheet ?? localViews;
+  const answerViewStates = readingState?.answer ?? localAnswerViews;
+  const rememberReading = useCallback(() => {
+    if (exercise) readingState?.capture(exercise.id, lessonTarget(exercise.session_id, exercise).source);
+  }, [readingState, exercise]);
+  const worksheetBoundary = useRef<ErrorBoundary>(null);
   const { showAnswerKey, answerPdfData, mobileActiveTab, setMobileActiveTab } = answer;
   const isPrinting = printing.id !== null;
   // The Draft opens beside the worksheet only when the worksheet can keep ink.
@@ -109,6 +125,7 @@ export function LessonViewerArea({
       error={answer.answerError}
       exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
       viewStates={answerViewStates}
+      onViewStateChange={readingState ? rememberReading : undefined}
       viewKey={exercise?.id}
       // The answer key has no Pen Tray, so it covers its pages from a toolbar button.
       coverButton
@@ -116,7 +133,12 @@ export function LessonViewerArea({
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 min-w-0">
+    <div
+      data-native-lesson-viewer
+      className={cn("flex flex-col flex-1 min-h-0 min-w-0", previewStyles.lessonViewer)}
+      data-native-preview={preview ?? undefined}
+      data-context-revealed={contextRevealed || undefined}
+    >
       {top}
 
       {/* A phone only gets the tabs once the answer key's file has loaded. */}
@@ -136,7 +158,13 @@ export function LessonViewerArea({
         draftBeside && "group/viewers relative overflow-hidden @container/viewers",
       )}>
         {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
-          <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftBeside && "@[1100px]/viewers:flex-[2]")}>
+          <div
+            data-native-worksheet-pane
+            data-native-worksheet-id={exercise?.id}
+            data-native-worksheet-kind={lessonDraftShown !== null ? "draft" : link ? "link" : exercise?.pdf_name ? "pdf" : "empty"}
+            data-native-worksheet-error={pdf.pdfError ? exercise?.id : undefined}
+            className={cn("relative flex flex-1 min-h-0 min-w-0", draftBeside && "@[1100px]/viewers:flex-[2]")}
+          >
             {/* The lesson's own Draft takes the worksheet's place, with a Pen Tray of its own */}
             {lessonDraftShown !== null ? (
               <DraftPane
@@ -155,8 +183,19 @@ export function LessonViewerArea({
               />
             ) : link ?? (
               <ErrorBoundary
+                ref={worksheetBoundary}
+                resetKey={exercise?.id}
                 onReset={pdf.retry}
-                fallback={<PdfRenderFailure onRetry={pdf.retry} />}
+                fallback={preview === "motion" ? (
+                  <LessonWorksheetLoading
+                    label={exerciseLabel}
+                    pages={pdf.pageNumbers.length ? formatCompactPageRange(pdf.pageNumbers) : undefined}
+                    toolbarStart={toolbarStart}
+                    toolbarClass={toolbarRow}
+                    error="Something went wrong rendering the PDF"
+                    onRetry={() => worksheetBoundary.current?.handleReset()}
+                  />
+                ) : <PdfRenderFailure onRetry={() => worksheetBoundary.current?.handleReset()} />}
               >
                 <PdfPageViewer
                   ref={worksheetRef}
@@ -195,6 +234,7 @@ export function LessonViewerArea({
                   emptyMessage={emptyMessage}
                   emptyAction={lessonDraftButton}
                   viewStates={viewStates}
+                  onViewStateChange={readingState ? rememberReading : undefined}
                   trayArea={draft.trayArea}
                 />
               </ErrorBoundary>

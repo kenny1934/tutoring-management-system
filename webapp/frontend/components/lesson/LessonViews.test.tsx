@@ -8,6 +8,7 @@ import type { AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { Ref } from "react";
 import type { PdfViewerHandle } from "./PdfPageViewer";
+import { LessonResumeProvider } from "@/components/design-preview/LessonResumeMemory";
 
 // These tests pin down what the two lesson views do today, so the work of
 // moving their shared parts into hooks can't change it without a test
@@ -208,14 +209,15 @@ function renderOneStudent({ session = chan, ...props }: { isReadOnly?: boolean; 
   return { onExit };
 }
 
-function renderSlot({ sessions = [chan, wong], slotSessionIds, ...props }: {
+function renderSlot({ sessions = [chan, wong], slotSessionIds, resumeScope, ...props }: {
+  resumeScope?: string;
+  initialSessionId?: number;
   isReadOnly?: boolean;
   sessions?: Session[];
   /** Every lesson in the slot, whatever its status. It's the listed lessons unless a test says otherwise. */
   slotSessionIds?: number[];
 } = {}) {
-  render(
-    <LessonWideMode
+  const lesson = <LessonWideMode
       sessions={sessions}
       slotSessionIds={slotSessionIds ?? sessions.map((s) => s.id)}
       date="2026-09-11"
@@ -223,8 +225,8 @@ function renderSlot({ sessions = [chan, wong], slotSessionIds, ...props }: {
       tutorId={7}
       onSessionDataChange={() => {}}
       {...props}
-    />,
-  );
+    />;
+  return render(resumeScope ? <LessonResumeProvider scope={resumeScope} ready>{lesson}</LessonResumeProvider> : lesson);
 }
 
 // --- Helpers ---
@@ -288,6 +290,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+
   vi.restoreAllMocks();
 });
 
@@ -762,6 +765,72 @@ describe("The one-student view", () => {
 // --- The multi-student view ---
 
 describe("The multi-student view", () => {
+  it("keeps an embedded lesson open for unsaved ink and tells its host to close only after the tutor accepts", async () => {
+    const prior = window.location.href;
+    const parent = { postMessage: vi.fn() } as unknown as Window;
+    vi.spyOn(window, "parent", "get").mockReturnValue(parent);
+    window.history.replaceState(null, "", "/sessions/lesson?ui-preview=motion&lesson_frame=test-frame");
+    h.inkSave.mockRejectedValue(new Error("offline"));
+    try {
+      await act(async () => { renderSlot(); });
+      await inkLoaded();
+      drawAStroke();
+      fireEvent(window, new MessageEvent("message", { source: parent, origin: window.location.origin, data: { type: "csm-wide-exit-request", token: "test-frame" } }));
+      expect(await screen.findByText("Some ink isn't saved yet")).toBeInTheDocument();
+      expect(parent.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "csm-wide-closed" }), expect.anything());
+      fireEvent.click(screen.getByRole("button", { name: "Exit anyway" }));
+      await waitFor(() => expect(parent.postMessage).toHaveBeenCalledWith({ type: "csm-wide-closed", token: "test-frame" }, window.location.origin));
+      expect(window.close).not.toHaveBeenCalled();
+      expect(h.routerPush).not.toHaveBeenCalled();
+    } finally { window.history.replaceState(null, "", prior); }
+  });
+
+  it("uses Back to close a phone materials sheet before asking to leave the lesson", async () => {
+    const prior = window.location.href;
+    const width = Object.getOwnPropertyDescriptor(window, "innerWidth")!;
+    const parent = { postMessage: vi.fn() } as unknown as Window;
+    vi.spyOn(window, "parent", "get").mockReturnValue(parent);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    window.history.replaceState(null, "", "/sessions/lesson?ui-preview=motion&lesson_frame=phone-frame");
+    const back = () => fireEvent(window, new MessageEvent("message", { source: parent, origin: window.location.origin, data: { type: "csm-wide-exit-request", token: "phone-frame" } }));
+    try {
+      await act(async () => { renderSlot(); });
+      await inkLoaded();
+      const worksheet = screen.getByTestId("worksheet");
+      fireEvent.click(screen.getByRole("button", { name: "Exercise list", exact: true }));
+      expect(await screen.findByRole("dialog", { name: "Exercises" })).toBeInTheDocument();
+      expect(document.querySelector<HTMLElement>("[data-native-wide-lesson]")!.inert).toBe(true);
+      back();
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Exercises" })).toBeNull());
+      expect(screen.getByTestId("worksheet")).toBe(worksheet);
+      expect(document.querySelector<HTMLElement>("[data-native-wide-lesson]")!.inert).not.toBe(true);
+      expect(parent.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "csm-wide-closed" }), expect.anything());
+      back();
+      await waitFor(() => expect(parent.postMessage).toHaveBeenCalledWith({ type: "csm-wide-closed", token: "phone-frame" }, window.location.origin));
+    } finally { Object.defineProperty(window, "innerWidth", width); window.history.replaceState(null, "", prior); }
+  });
+
+  it("opens the Dashboard student's worksheet in Motion and retains it and its ink through focus mode", async () => {
+    sessionStorage.setItem("csm.native-preview.v1", "motion");
+    await act(async () => { renderSlot({ initialSessionId: wong.id }); });
+    await opened("Stamped for Wong Siu Ming");
+    await inkLoaded();
+    const before = worksheet();
+    drawAStroke();
+    await act(async () => { press("f"); });
+    expect(worksheet()).toBe(before);
+    expect(strokesShown()).toBe("Strokes on the first page: 1");
+    await act(async () => { press("f"); });
+    expect(worksheet()).toBe(before);
+    expect(worksheet()).toHaveTextContent("Stamped for Wong Siu Ming");
+    expect(strokesShown()).toBe("Strokes on the first page: 1");
+  });
+
+  it("honours an explicit student without requiring a preview choice", async () => {
+    renderSlot({ initialSessionId: wong.id });
+    await opened("Stamped for Wong Siu Ming");
+  });
+
   it("opens the first student's first worksheet, stamped with their name", async () => {
     renderSlot();
     await opened("Linear equations 3");
@@ -961,5 +1030,43 @@ describe("The multi-student view", () => {
     await waitFor(() => expect(window.close).toHaveBeenCalledTimes(1));
     // Each run of spaces becomes one hyphen, so the slot's " - " comes out as three.
     expect(h.downloadBlob.mock.calls[0][1]).toBe("Annotations_2026-09-11_16:45---18:15.zip");
+  });
+});
+
+
+describe("reopening a wide lesson in the same tab", () => {
+  it("returns to the selected student and file, while respecting a later explicit student choice", async () => {
+
+    const first = renderSlot({ resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    fireEvent.click(first.container.querySelector('[data-native-lesson-exercise="1002"]')!);
+    await opened("Quadratics 1");
+    fireEvent.click(first.container.querySelector('[data-native-lesson-exercise="2002"]')!);
+    await opened("Factorising 2");
+    fireEvent.click(screen.getByRole("button", { name: "Files" }));
+    first.unmount();
+    const reopened = renderSlot({ resumeScope: "viewer" });
+    await opened("Factorising 2");
+    expect(worksheet()).toHaveTextContent("Stamped for Wong Siu Ming");
+    expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-pressed", "true");
+    reopened.unmount();
+    const requested = renderSlot({ resumeScope: "viewer", initialSessionId: 100 });
+    await opened("Quadratics 1");
+    expect(worksheet()).toHaveTextContent("Stamped for Chan Tai Man");
+    requested.unmount();
+  });
+
+  it("uses the current roster after a saved worksheet is removed and isolates another viewer", async () => {
+
+    const first = renderSlot({ resumeScope: "viewer" });
+    await opened("Linear equations 3");
+    fireEvent.click(first.container.querySelector('[data-native-lesson-exercise="2002"]')!);
+    await opened("Factorising 2"); first.unmount();
+    const reopened = renderSlot({ resumeScope: "viewer", sessions: [chan, { ...wong, exercises: wong.exercises!.slice(0, 1) }] });
+    await opened("Linear equations 3");
+    expect(worksheet()).toHaveTextContent("Stamped for Wong Siu Ming"); reopened.unmount();
+    const other = renderSlot({ resumeScope: "another viewer" });
+    await opened("Linear equations 3");
+    expect(worksheet()).toHaveTextContent("Stamped for Chan Tai Man"); other.unmount();
   });
 });

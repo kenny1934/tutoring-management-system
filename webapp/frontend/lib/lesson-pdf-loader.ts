@@ -21,8 +21,10 @@ export interface PdfLoadResult {
 }
 
 export interface PdfLoadError {
-  error: 'no_file' | 'file_not_found' | 'fetch_failed';
+  error: 'no_file' | 'file_not_found' | 'fetch_failed' | 'timed_out';
 }
+
+export const PDF_LOAD_TIMEOUT_MS = 45_000;
 
 /**
  * Load a PDF as ArrayBuffer from an exercise's pdf_name.
@@ -33,15 +35,43 @@ export async function loadExercisePdf(
   pdfName: string,
   onProgress?: (message: string) => void
 ): Promise<PdfLoadResult | PdfLoadError> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<PdfLoadError>(resolve => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ error: 'timed_out' });
+    }, PDF_LOAD_TIMEOUT_MS);
+  });
+  // Local drive APIs cannot be aborted. The deadline still releases the view,
+  // and the signal prevents a late local result from starting another search.
+  const progress = (message: string) => {
+    if (!controller.signal.aborted) onProgress?.(message);
+  };
+  try {
+    return await Promise.race([loadPdf(pdfName, progress, controller.signal), timeout]);
+  } catch {
+    return { error: 'fetch_failed' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadPdf(
+  pdfName: string,
+  onProgress: (message: string) => void,
+  signal: AbortSignal
+): Promise<PdfLoadResult | PdfLoadError> {
   const parallel = parseParallelPath(pdfName);
   if (!parallel) {
-    return loadSinglePdf(pdfName, onProgress);
+    return loadSinglePdf(pdfName, onProgress, signal);
   }
   onProgress?.("Loading both language versions…");
   const [left, right] = await Promise.all([
-    loadSinglePdf(parallel.left),
-    loadSinglePdf(parallel.right),
+    loadSinglePdf(parallel.left, undefined, signal),
+    loadSinglePdf(parallel.right, undefined, signal),
   ]);
+  signal.throwIfAborted();
   if ('error' in left) return left;
   if ('error' in right) return right;
   onProgress?.("Composing side by side…");
@@ -56,7 +86,8 @@ export async function loadExercisePdf(
 /** Single real path: local File System Access first, Paperless fallback. */
 async function loadSinglePdf(
   pdfName: string,
-  onProgress?: (message: string) => void
+  onProgress: ((message: string) => void) | undefined,
+  signal: AbortSignal
 ): Promise<PdfLoadResult | PdfLoadError> {
   if (!pdfName || !pdfName.trim()) {
     return { error: 'no_file' };
@@ -66,10 +97,12 @@ async function loadSinglePdf(
   onProgress?.("Trying local file access\u2026");
   if (isFileSystemAccessSupported()) {
     const result = await getFileHandleFromPath(pdfName);
+    signal.throwIfAborted();
     if (result.success) {
       try {
         const file = await result.handle.getFile();
         const data = await file.arrayBuffer();
+        signal.throwIfAborted();
         // Validate PDF magic bytes — non-PDF files (e.g. .doc/.docx) fall through to Paperless
         const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
         const magic = String.fromCharCode(...header);
@@ -81,6 +114,7 @@ async function loadSinglePdf(
       }
     }
   }
+  signal.throwIfAborted();
 
   // 1.5. Summer courseware paths can also resolve via the per-year drive
   // handle connected in the Summer Materials panel (the share isn't in
@@ -89,6 +123,7 @@ async function loadSinglePdf(
   if (summer && isFileSystemAccessSupported()) {
     onProgress?.("Reading from the courseware drive…");
     const data = await readCoursewareFile(summer.year, summer.relPath);
+    signal.throwIfAborted();
     if (data) {
       const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
       if (String.fromCharCode(...header).startsWith('%PDF-')) {
@@ -98,12 +133,13 @@ async function loadSinglePdf(
   }
 
   // 2. Try Paperless: check cache first
-  onProgress?.("Checking Paperless cache\u2026");
+  onProgress?.("Checking Shelv\u2026");
   let documentId = getCachedPaperlessDocumentId(pdfName);
 
   // 3. Cache miss — search Paperless
   if (!documentId) {
-    documentId = await searchPaperlessByPath(pdfName, onProgress);
+    documentId = await searchPaperlessByPath(pdfName, onProgress, signal);
+    signal.throwIfAborted();
     if (documentId) {
       setPaperlessPathCache(pdfName, documentId);
     }
@@ -113,7 +149,7 @@ async function loadSinglePdf(
   onProgress?.("Downloading PDF\u2026");
   if (documentId) {
     try {
-      const response = await fetch(`/api/paperless/preview/${documentId}`);
+      const response = await fetch(`/api/paperless/preview/${documentId}`, { signal });
       if (response.ok) {
         const blob = await response.blob();
         const data = await blob.arrayBuffer();
@@ -127,6 +163,7 @@ async function loadSinglePdf(
         }
         return { data, source: 'paperless' };
       }
+      return { error: response.status === 404 ? 'file_not_found' : 'fetch_failed' };
     } catch {
       return { error: 'fetch_failed' };
     }

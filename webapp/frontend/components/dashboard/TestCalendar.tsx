@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useId, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCalendarEvents, useExamsWithSlots, useHolidays } from "@/lib/hooks";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { TONES } from "@/lib/tones";
 import { Button, IconButton } from "@/components/controls";
 import { toDateString } from "@/lib/calendar-utils";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, PencilLine, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, PencilLine } from "lucide-react";
 import { CalendarEventModal } from "./CalendarEventModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
@@ -28,6 +28,15 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { fitToScreen, useAsSheet } from "@/hooks/usePopoverSheet";
+
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
+import { useCalendarMotion } from "@/components/design-preview/useCalendarMotion";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
+import { getAppScroller } from "@/lib/scroll";
+import { recessSessionBackground } from "@/components/design-preview/sessionDetailMotion";
+import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 
 // Event type colors
 const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -87,7 +96,7 @@ function EventPopoverContent({
   colors: { bg: string; text: string; dot: string };
 }) {
   return (
-    <div
+    <div data-calendar-syllabus-content
       className={cn(
         "bg-paper",
         "border-2 border-line-strong",
@@ -127,7 +136,15 @@ function TestItemPopover({
   onEdit?: (event: CalendarEvent) => void;  // Only used in selected-date variant
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const preview = useNativePresentation();
+  const onPhone = useAsSheet();
+  const native = preview === "motion";
+  const syllabusRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
+  useEffect(() => {
+    const main = getAppScroller();
+    if (native && onPhone && isOpen && main) return recessSessionBackground(main, true, previewStyles.sessionBackground);
+  }, [native, onPhone, isOpen]);
   const colors = EVENT_TYPE_COLORS[event.event_type || 'Test'] || EVENT_TYPE_COLORS.Test;
 
   const handleExamClick = () => {
@@ -151,43 +168,60 @@ function TestItemPopover({
   });
 
   // Use clientPoint to follow cursor position
-  const clientPoint = useClientPoint(context, { enabled: !isMobile });
+  const clientPoint = useClientPoint(context, { enabled: !isMobile && !(native && onPhone) });
 
   // Use hover on desktop, click on mobile
-  const hover = useHover(context, { enabled: !isMobile, delay: { open: 200, close: 100 } });
-  const click = useClick(context, { enabled: isMobile });
-  const dismiss = useDismiss(context);
+  const hover = useHover(context, { enabled: !isMobile && !(native && onPhone), delay: { open: 200, close: 100 } });
+  const click = useClick(context, { enabled: isMobile && !native });
+  const dismiss = useDismiss(context, { enabled: !(native && onPhone) });
 
   const { getReferenceProps, getFloatingProps } = useInteractions([clientPoint, hover, click, dismiss]);
 
   const hasDescription = event.description && event.description.trim().length > 0;
 
+  const syllabus = hasDescription && (native ? (
+    <button ref={syllabusRef} type="button" data-calendar-syllabus
+      aria-label={`View syllabus for ${event.title}`} aria-expanded={isOpen}
+      onClick={e => { e.stopPropagation(); e.currentTarget.focus({ preventScroll: true }); setIsOpen(open => onPhone ? !open : true); }}
+      onPointerEnter={e => e.stopPropagation()}
+    ><BookOpen className="h-3.5 w-3.5" aria-hidden="true" /></button>
+  ) : <BookOpen className="h-3 w-3 text-gray-500 flex-shrink-0" />);
+  const details = native && onPhone ? (
+    <MobileBottomSheet isOpen={isOpen} onClose={() => setIsOpen(false)} onCloseStart={() => setIsOpen(false)} title="Syllabus" modalLabel="Syllabus" className={previewStyles.calendarSyllabusSheet}>
+      <EventPopoverContent event={event} colors={colors} />
+    </MobileBottomSheet>
+  ) : isOpen && hasDescription ? (
+    <FloatingPortal><div ref={refs.setFloating} style={{ ...floatingStyles, zIndex: 9998 }} {...getFloatingProps()} className={native ? previewStyles.calendarPopover : undefined}>
+      <EventPopoverContent event={event} colors={colors} />
+    </div></FloatingPortal>
+  ) : null;
+
   // Render for upcoming list variant (with days badge)
   if (variant === "upcoming") {
     return (
-      <div className="relative">
+      <div data-native-calendar-event={native || undefined} className="relative">
         <div
           ref={refs.setReference}
           {...getReferenceProps()}
           onClick={handleExamClick}
+          role={native ? "link" : undefined} tabIndex={native ? 0 : undefined}
+          onKeyDown={e => { if (native && e.target === e.currentTarget && e.key === "Enter") handleExamClick(); }}
           className={cn(
             "px-3 py-2 hover:bg-[#d4a574]/10 dark:hover:bg-[#8b6f47]/20 transition-colors cursor-pointer"
           )}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <div className={cn("w-2 h-2 rounded-full flex-shrink-0", colors.dot)} />
+              <div data-calendar-event-title className="flex items-center gap-2">
+                <div data-calendar-event-dot className={cn("w-2 h-2 rounded-full flex-shrink-0", colors.dot)} />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {event.title}
                 </span>
-                {hasDescription && (
-                  <BookOpen className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                )}
+                {syllabus}
               </div>
               {/* Revision stats */}
               {stats && stats.slots > 0 && (
-                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
+                <div data-calendar-event-stats className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
                   <span className="inline-flex items-center gap-0.5" title="Revision slots created">
                     <GraduationCap className="h-3 w-3" />
                     {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
@@ -232,13 +266,7 @@ function TestItemPopover({
         </div>
 
         {/* Popover */}
-        {isOpen && hasDescription && (
-          <FloatingPortal>
-            <div ref={refs.setFloating} style={{ ...floatingStyles, zIndex: 9998 }} {...getFloatingProps()}>
-              <EventPopoverContent event={event} colors={colors} />
-            </div>
-          </FloatingPortal>
-        )}
+        {details}
       </div>
     );
   }
@@ -246,20 +274,23 @@ function TestItemPopover({
   // Render for selected-date variant (compact card style)
   return (
     <div
+      data-native-calendar-event={native || undefined}
+      data-calendar-event-variant="selected-date"
       ref={refs.setReference}
       {...getReferenceProps()}
-      onClick={handleExamClick}
+      onClick={e => { if (e.currentTarget.contains(e.target as Node)) handleExamClick(); }}
+      role={native ? "link" : undefined} tabIndex={native ? 0 : undefined}
+      onKeyDown={e => { if (native && e.target === e.currentTarget && e.key === "Enter") handleExamClick(); }}
       className={cn(
         "px-2 py-1.5 rounded text-xs relative cursor-pointer",
         colors.bg
       )}
     >
       <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1 min-w-0">
+        <div data-calendar-event-title className="flex items-center gap-1 min-w-0">
+          {native && <span data-calendar-event-dot className={cn("w-2 h-2 rounded-full flex-shrink-0", colors.dot)} />}
           <div className={cn("font-medium truncate", colors.text)}>{event.title}</div>
-          {hasDescription && (
-            <BookOpen className="h-3 w-3 text-gray-500 flex-shrink-0" />
-          )}
+          {syllabus}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {canManageEvents && onEdit && (
@@ -281,7 +312,7 @@ function TestItemPopover({
       </div>
       {/* Revision stats */}
       {stats && stats.slots > 0 && (
-        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+        <div data-calendar-event-stats className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
           <span className="inline-flex items-center gap-0.5" title="Revision slots created">
             <GraduationCap className="h-2.5 w-2.5" />
             {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
@@ -298,13 +329,7 @@ function TestItemPopover({
       )}
 
       {/* Popover */}
-      {isOpen && hasDescription && (
-        <FloatingPortal>
-          <div ref={refs.setFloating} style={{ ...floatingStyles, zIndex: 9998 }} {...getFloatingProps()}>
-            <EventPopoverContent event={event} colors={colors} />
-          </div>
-        </FloatingPortal>
-      )}
+      {details}
     </div>
   );
 }
@@ -318,11 +343,19 @@ interface TestCalendarProps {
 }
 
 export function TestCalendar({ className, isMobile = false }: TestCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const preview = useNativePresentation();
+  const native = preview === "motion";
+  const calendarRoot = useRef<HTMLDivElement>(null);
+  const monthTrigger = useRef<HTMLButtonElement>(null);
+  const monthGridId = useId();
+  const [currentMonth, setCurrentMonth] = useNativeViewState("dashboard:calendar-month", () => new Date());
+  const [selectedDate, setSelectedDate] = useNativeViewState<string | null>("dashboard:calendar-date", () => null);
+  const [expanded, setExpanded] = useNativeViewState("dashboard:calendar-expanded", () => false);
   // On a phone the upcoming list runs at its full length, so the page is the
   // only thing that scrolls. It shows the nearest few until asked for the rest.
   const onPhone = useAsSheet();
+  const compactPhone = native && onPhone;
+  const monthOpen = !compactPhone || expanded;
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   // Modal state for CRUD
@@ -349,7 +382,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   });
 
   // Fetch 60 days ahead and dynamic days behind (expands when loading older months)
-  const { data: events = [], isLoading, error, mutate } = useCalendarEvents(60, true, fetchDaysBehind);
+  const { data: events = [], isLoading, isValidating, error, mutate } = useCalendarEvents(60, true, fetchDaysBehind);
 
   // Calculate exam revision date range based on fetchDaysBehind
   const examsDateRange = useMemo(() => {
@@ -374,7 +407,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         mutate(),
         mutateExams(),
       ]);
-    } catch (error) {
+    } catch {
       // Silently fail - calendar will show stale data
     }
   };
@@ -473,17 +506,32 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
   // Navigation handlers
   const goToPrevMonth = () => {
+    if (compactPhone) setExpanded(true);
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const goToNextMonth = () => {
+    if (compactPhone) setExpanded(true);
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
   const goToToday = () => {
+    if (compactPhone) { monthTrigger.current?.focus({ preventScroll: true }); setExpanded(false); }
     setCurrentMonth(new Date());
     setSelectedDate(toDateString(new Date()));
   };
+
+  const selectDate = (date: string, wasSelected: boolean) => {
+    setSelectedDate(wasSelected ? null : date);
+    if (compactPhone) { monthTrigger.current?.focus({ preventScroll: true }); setExpanded(false); }
+  };
+  useCalendarMotion(calendarRoot, native && !error && !(isLoading && events.length === 0), currentMonth.getFullYear() * 12 + currentMonth.getMonth(), selectedDate);
+  const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthControls = <div data-calendar-month-controls className="flex items-center gap-1 flex-shrink-0">
+    <IconButton size="sm" icon={ChevronLeft} label="Previous month" onClick={goToPrevMonth} />
+    <Button size="sm" variant="quiet" onClick={goToToday}>Today</Button>
+    <IconButton size="sm" icon={ChevronRight} label="Next month" onClick={goToNextMonth} />
+  </div>;
 
   // Modal handlers for CRUD
   const handleOpenCreate = (date?: string) => {
@@ -537,8 +585,14 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   // Only show skeleton on initial load (no cached data yet)
   // When loading older months, keepPreviousData keeps existing events visible
   if (isLoading && events.length === 0) {
+    if (native) return <div data-native-paper data-native-depth-surface aria-busy="true" role="status" aria-label="Loading tests and exams" className={cn("bg-paper rounded-xl", previewStyles.calendarLoading, className)}>
+      <div className="h-6 w-36 shimmer-sepia rounded" />
+      <div className="h-8 w-40 shimmer-sepia rounded" />
+      {!onPhone && <div data-calendar-loading-month>{Array.from({ length: 42 }, (_, i) => <div key={i} className="shimmer-sepia rounded" />)}</div>}
+      <div data-calendar-loading-agenda>{Array.from({ length: onPhone ? 5 : 3 }, (_, i) => <div key={i} className="shimmer-sepia rounded" />)}</div>
+    </div>;
     return (
-      <div className={cn(
+      <div data-native-paper data-native-depth-surface className={cn(
         "bg-paper rounded-xl border border-line p-4",
         !isMobile && "paper-texture",
         className
@@ -555,34 +609,33 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     );
   }
 
-  if (error) {
+  if (error && events.length === 0) {
     return (
-      <div className={cn(
+      <div data-native-paper data-native-depth-surface className={cn(
         "bg-paper rounded-xl border border-line p-4",
         !isMobile && "paper-texture",
         className
       )}>
-        <div className="text-center text-red-600 dark:text-red-400">
-          <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-          <p className="text-sm">Failed to load calendar events</p>
-        </div>
+        <NativeRequestError label="Couldn’t load tests and exams" retry={() => { void mutate(); }} loading={!!isValidating} />
       </div>
     );
   }
 
   return (
-    <div className={cn(
+    <div ref={calendarRoot} aria-busy={isValidating || undefined} data-native-calendar={native || undefined} data-calendar-expanded={monthOpen} data-native-paper data-native-depth-surface className={cn(
+      native && previewStyles.calendarPanel,
       "bg-paper rounded-xl border border-line overflow-hidden flex flex-col max-h-[70vh] max-md:max-h-none md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
+      {error && <NativeRequestError label="Couldn’t refresh tests and exams" retry={() => { void mutate(); }} loading={!!isValidating} />}
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line bg-tint">
+      <div data-native-paper-head className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line bg-tint">
         <div className="flex items-center gap-2 min-w-0">
           <PencilLine className="h-4 w-4 flex-shrink-0 text-ink-subtle" aria-hidden="true" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Tests &amp; exams</h3>
           <Link
-            href="/exams"
+            href="/exams" data-calendar-revision aria-label="Revision" title="Revision"
             className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-primary/10 hover:bg-primary/20 text-accent-ink transition-colors"
           >
             <GraduationCap className="h-3 w-3" />
@@ -596,9 +649,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
               icon={Plus}
               onClick={() => handleOpenCreate()}
               className="ml-2 hidden lg:inline-flex"
-              title="Create new calendar event"
+              title="Create new calendar event" data-calendar-create aria-label={native ? "Create new calendar event" : undefined}
             >
-              Add
+              <span>Add</span>
             </Button>
           )}
         </div>
@@ -633,6 +686,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             onClick={handleManualSync}
             disabled={isSyncing}
           />
+          {!native && <>
           <IconButton
             size="sm"
             icon={ChevronLeft}
@@ -653,6 +707,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             label="Next month"
             onClick={goToNextMonth}
           />
+          </>}
         </div>
       </div>
 
@@ -660,11 +715,17 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           classes below), since the tests coming up are what a tutor opens
           this for and the month grid alone filled the first screen. Tapping a
           date still fills the list, which then sits just above the grid. */}
-      {/* Month label */}
-      <div className="flex-shrink-0 text-center py-1 text-sm font-semibold text-gray-800 dark:text-gray-200 max-md:order-2">
-        {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-      </div>
+      {/* The month heading opens the phone grid without adding another toolbar. */}
+      {native ? <div data-calendar-month-bar>
+        {compactPhone ? <button ref={monthTrigger} type="button" aria-expanded={monthOpen} aria-controls={monthGridId}
+          aria-label={`${monthOpen ? "Hide" : "Show"} calendar for ${monthLabel}`} onClick={() => setExpanded(open => !open)}>
+          <span>{monthLabel}</span><ChevronDown size={16} aria-hidden="true" />
+        </button> : <span>{monthLabel}</span>}
+        {monthControls}
+      </div> : <div className="flex-shrink-0 text-center py-1 text-sm font-semibold text-gray-800 dark:text-gray-200 max-md:order-2">{monthLabel}</div>}
 
+      <div id={monthGridId} data-calendar-fold={native || undefined} data-open={monthOpen} aria-hidden={!monthOpen || undefined} inert={!monthOpen} className={native ? previewStyles.calendarFold : "contents"}>
+      <div className={native ? previewStyles.calendarFoldInner : "contents"}>
       {/* Out of sync range warning with load button */}
       {!isMonthInSyncRange && (
         <div className="flex-shrink-0 mx-3 mb-2 max-md:order-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
@@ -680,7 +741,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       )}
 
       {/* Calendar Grid */}
-      <div className="flex-shrink-0 px-3 pb-2 max-md:order-2" role="grid" aria-label="Calendar">
+      <div data-calendar-month-page className="flex-shrink-0 px-3 pb-2 max-md:order-2" role="grid" aria-label="Calendar">
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-1" role="row">
           {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, i) => (
@@ -691,8 +752,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
 
         {/* Date cells */}
-        <div className="grid grid-cols-7 gap-0.5" role="rowgroup">
-          {calendarDates.map((date, i) => {
+        <div data-calendar-days className="grid grid-cols-7 gap-0.5" role="rowgroup">
+          {native && <div data-calendar-selection aria-hidden="true" hidden /> }
+          {calendarDates.map((date) => {
             const dateStr = toDateString(date);
             const isCurrentMonth = date.getMonth() === currentMonthNum;
             const isToday = dateStr === today;
@@ -705,12 +767,13 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
             return (
               <button
-                key={i}
+                key={dateStr}
+                data-calendar-day={native ? dateStr : undefined}
                 role="gridcell"
                 aria-selected={isSelected}
                 aria-current={isToday ? "date" : undefined}
                 aria-label={ariaLabel}
-                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                onClick={() => selectDate(dateStr, isSelected)}
                 title={holiday?.holiday_name}
                 className={cn(
                   "relative h-7 rounded text-sm transition-colors",
@@ -759,8 +822,11 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
       </div>
 
+      </div>
+      </div>
+
       {/* Bottom section - toggles between upcoming and selected date events */}
-      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] max-md:order-1 max-md:flex-none max-md:border-t-0 max-md:border-b-2 max-md:shadow-none">
+      <div data-calendar-agenda-panel className="flex-1 min-h-0 flex flex-col border-t-2 border-line bg-wash shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] max-md:order-1 max-md:flex-none max-md:border-t-0 max-md:border-b-2 max-md:shadow-none">
         {/* Tab header */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line">
           <button
@@ -785,7 +851,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
 
         {/* Content - either upcoming or selected date events */}
-        <div className="flex-1 overflow-y-auto max-md:overflow-visible min-h-0">
+        <div data-calendar-agenda className="flex-1 overflow-y-auto max-md:overflow-visible min-h-0">
           {selectedDate && (selectedDateEvents.length > 0 || selectedDateHoliday) ? (
             /* Show selected date events and/or holiday */
             <div className="p-2 space-y-1.5">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNativeSessionsHref } from "@/components/design-preview/NativeNavigationMemory";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Calendar, Home, Inbox, LayoutGrid, Users, type LucideIcon } from "lucide-react";
@@ -117,6 +118,7 @@ function TabItem({
   expanded?: boolean;
   onClick?: () => void;
 }) {
+  const resolvedHref = useNativeSessionsHref(href ?? "");
   const content = (
     <>
       <span
@@ -145,7 +147,7 @@ function TabItem({
   if (href) {
     return (
       <Link
-        href={href}
+        href={resolvedHref}
         aria-current={current ? "page" : undefined}
         onPointerDown={onPress}
         onPointerCancel={onCancel}

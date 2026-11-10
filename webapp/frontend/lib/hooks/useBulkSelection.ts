@@ -3,10 +3,10 @@
  * Provides toggle, select all, and clear functionality for lists of items.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 
-export function useBulkSelection(allIds: number[]) {
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+export function useBulkSelection(allIds: number[], initialSelection: () => Set<number> = () => new Set()) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(initialSelection);
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {

@@ -177,4 +177,16 @@ describe("useLessonKeys", () => {
     pressOnWindow("j");
     expect(next).not.toHaveBeenCalled();
   });
+
+  it("pauses worksheet commands during a handoff while navigation and focus stay available", () => {
+    let pending = false;
+    const undo = vi.fn(), nextStudent = vi.fn(), toggleFocus = vi.fn(), exit = vi.fn();
+    renderHook(() => useLessonKeys({ ...calm, worksheetPending: () => pending }, { undo, nextStudent, toggleFocus, exit }));
+    pending = true;
+    pressOnWindow("z"); expect(undo).not.toHaveBeenCalled();
+    pressOnWindow("Tab"); pressOnWindow("f"); pressOnWindow("Escape");
+    expect(nextStudent).toHaveBeenCalledOnce(); expect(toggleFocus).toHaveBeenCalledOnce(); expect(exit).toHaveBeenCalledOnce();
+    // Completing the PDF decode/fade does not need to rerender the lesson.
+    pending = false; pressOnWindow("z"); expect(undo).toHaveBeenCalledOnce();
+  });
 });
