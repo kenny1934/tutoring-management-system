@@ -120,7 +120,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
               <span className="font-bold text-accent-ink">
                 {stats.active_students}
               </span>
-              <span className="max-sm:text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+              <span className="max-sm:text-[11px] text-ink-subtle font-medium">
                 Students
               </span>
             </span>
@@ -147,7 +147,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         Active Students ({stats.active_students})
                       </span>
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-ink-subtle">
                         Students with sessions in past/next 14 days
                       </span>
                     </div>
@@ -194,7 +194,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                           onClick={() => setIsStudentsOpen(false)}
                           className="flex items-center gap-2 px-3 py-2 hover:bg-tint transition-colors"
                         >
-                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono flex-shrink-0 whitespace-nowrap">
+                          <span className="text-xs text-ink-subtle font-mono flex-shrink-0 whitespace-nowrap">
                             {selectedLocation === "All Locations" && student.home_location && `${student.home_location}-`}{student.school_student_id || `#${student.id}`}
                           </span>
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
@@ -245,7 +245,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
             <span className="font-bold text-accent-ink">
               {stats.sessions_this_week}
             </span>
-            <span className="max-sm:text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+            <span className="max-sm:text-[11px] text-ink-subtle font-medium">
               This week
             </span>
           </span>
@@ -278,7 +278,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           ) : showConfirmation ? (
             // Confirmation state
             <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500 dark:text-gray-400">Show?</span>
+              <span className="text-xs text-ink-subtle">Show?</span>
               <button
                 onClick={() => { setIsRevenueVisible(true); setShowConfirmation(false); }}
                 className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
@@ -311,7 +311,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
           )}
           </span>
 
-          <span className="max-sm:text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+          <span className="max-sm:text-[11px] text-ink-subtle font-medium">
             This month
           </span>
           </span>

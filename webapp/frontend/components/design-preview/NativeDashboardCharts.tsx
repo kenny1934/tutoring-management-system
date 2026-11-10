@@ -8,23 +8,26 @@ import { useNativePresentation } from "./useNativePresentation";
 import { useNativeViewState } from "./NativeNavigationMemory";
 import styles from "./NativePreview.module.css";
 
-export function NativeDashboardCharts({ isMobile, grade, school }: {
+export function NativeDashboardCharts({ isMobile, grade, school, filter }: {
   isMobile: boolean;
   grade: ReactNode;
   school: ReactNode;
+  filter?: ReactNode;
 }) {
   const [selected, setSelected] = useNativeViewState<"grade" | "school">("dashboard:chart", () => "grade");
   const mode = useNativePresentation();
   const stacked = isMobile && mode === "motion";
   const Card = stacked ? "div" : motion.div;
   return <>
-    {isMobile && <Segmented
-      label="Which chart to show"
-      value={selected}
-      onChange={setSelected}
-      options={[{ value: "grade", label: "By grade" }, { value: "school", label: "By school" }]}
-      className="self-end -mb-2"
-    />}
+    {(isMobile || filter) && <div className={styles.chartToolbar}>
+      {isMobile && <Segmented
+        label="Which chart to show"
+        value={selected}
+        onChange={setSelected}
+        options={[{ value: "grade", label: "By grade" }, { value: "school", label: "By school" }]}
+      />}
+      {filter}
+    </div>}
     <div className={cn("grid gap-4 md:grid-cols-2", styles.chartDeck)} role="region" aria-label="Student analytics" data-native-depth-section data-native-chart-motion={stacked || undefined}>
       {([{ kind: "grade", content: grade }, { kind: "school", content: school }] as const).map(({ kind, content }, index) => {
         const active = selected === kind;

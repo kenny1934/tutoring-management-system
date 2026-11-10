@@ -1,0 +1,109 @@
+.materialWorkspace {
+  --material-edge: color-mix(in srgb, var(--color-ink-strong) 24%, transparent);
+  --material-shadow: 0 12px 26px -22px rgb(35 22 10 / .55), 0 1px 2px rgb(35 22 10 / .08);
+  background: var(--color-raised);
+  border: 1px solid var(--material-edge);
+  border-radius: 5px;
+  box-shadow: var(--material-shadow);
+  isolation: isolate;
+}
+.materialWorkspace [data-material-browser-bar] { background: var(--color-paper); }
+.materialWorkspace [data-material-preview] {
+  background: var(--color-paper);
+  box-shadow: -12px 0 24px -24px rgb(35 22 10 / .6);
+}
+.materialGrid { animation: materialFolderContents 200ms cubic-bezier(.2,.7,.2,1); transform-origin: top left; gap: 24px 16px; padding: 20px 12px; align-content: start; }
+.materialTile {
+  position: relative; display: flex; flex-direction: column; align-items: stretch;
+  gap: 10px; min-width: 0; padding: 12px 8px; cursor: pointer;
+  border-radius: 5px; border: 1px solid transparent;
+  transition: background 160ms, border-color 160ms;
+}
+.materialTile:hover { background: var(--color-paper); }
+.materialTile[data-selected="true"], .materialTile[data-focused="true"] { background: var(--color-wash); border-color: var(--material-edge); }
+.materialTile > span:last-child { font-size: 12px; line-height: 1.5; text-align: left; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.materialTile input, .materialTile button { position: relative; z-index: 2; }
+.materialArtwork { position: relative; height: 94px; width: min(100%, 140px); margin: 0 auto; pointer-events: none; perspective: 600px; }
+.materialFolderBack, .materialFolderFront { position: absolute; inset: 16px 0 2px; border-radius: 3px; background: color-mix(in srgb, var(--color-ink-strong) 30%, var(--color-paper)); }
+.materialFolderBack::before { content: ""; position: absolute; top: -9px; left: 0; width: 42%; height: 12px; border-radius: 3px 5px 0 0; background: inherit; }
+.materialFolderPaper { position: absolute; inset: 13px 9px 7px; background: var(--color-raised); border: 1px solid var(--color-line); border-radius: 2px; transform: rotate(-5deg); transition: transform 240ms cubic-bezier(.2,.7,.2,1); }
+.materialFolderPaper + .materialFolderPaper { inset: 12px 6px 7px 13px; transform: rotate(4deg); }
+.materialFolderFront { inset: 32px 0 2px; background: color-mix(in srgb, var(--color-ink-strong) 19%, var(--color-paper)); border: 1px solid var(--material-edge); box-shadow: 0 3px 5px -4px rgb(35 22 10 / .5), inset 0 1px rgb(255 255 255 / .3); transform-origin: bottom; transition: transform 240ms cubic-bezier(.2,.7,.2,1); }
+.materialTile:hover .materialFolderFront, .materialTile[data-focused="true"] .materialFolderFront { transform: rotateX(-16deg); }
+.materialTile:hover .materialFolderPaper { transform: translateY(-4px) rotate(-7deg); }
+.materialTile:hover .materialFolderPaper + .materialFolderPaper { transform: translateY(-7px) rotate(5deg); }
+.materialFolderFront svg { position: absolute; right: 9px; bottom: 9px; color: var(--color-ink-strong); opacity: .65; }
+.materialFilePaper { position: absolute; inset: 0 27px; background: #fffdfa; border: 1px solid #d9cbbb; border-radius: 2px; box-shadow: 2px 3px 0 -1px var(--color-paper), 2px 3px 0 0 var(--color-line), 0 5px 9px -6px rgb(35 22 10 / .5); display: grid; place-items: center; overflow: hidden; transition: transform 200ms; }
+.materialFilePaper svg { color: #8b6f52; }
+.materialFilePaper img { height: 100%; width: 100%; object-fit: contain; object-position: top; }
+.materialTile:hover .materialFilePaper { transform: translateY(-3px); }
+.materialPdfPreview[data-material-open="true"] { animation: materialPaperOpen 240ms cubic-bezier(.2,.7,.2,1) both; }
+.materialDocument {
+  position: relative; isolation: isolate; border-radius: 3px; border: 1px solid var(--color-line);
+  padding: 18px 16px 14px; background: var(--color-raised); box-shadow: 0 3px 8px -6px rgb(35 22 10 / .4);
+  transition: border-color 160ms, box-shadow 160ms, translate 200ms;
+}
+.materialDocument::after { content: ""; position: absolute; z-index: -1; inset: 4px -3px -4px 3px; border: 1px solid var(--color-line); background: var(--color-paper); border-radius: 2px; pointer-events: none; }
+.materialDocument[data-template="true"] { background: color-mix(in srgb, #8b5cf6 6%, var(--color-raised)); border-color: color-mix(in srgb, #8b5cf6 35%, var(--color-line)); }
+.materialDocument:hover { translate: 0 -2px; box-shadow: var(--material-shadow); }
+.materialDocument[data-previewing="true"] { border-color: var(--color-ink-strong); background: var(--color-paper); box-shadow: var(--material-shadow); }
+.materialDocumentsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 18px; padding: 20px; align-items: start; }
+.materialDocument h3 { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.8em; font-size: 15px; line-height: 1.4; font-weight: 600; margin: 0 0 7px; }
+.materialDocument [data-material-document-copy] { font-size: 13px; line-height: 1.65; min-height: 3.3em; margin-bottom: 14px; }
+.materialDocument [data-material-document-meta] { padding-top: 10px; border-top: 1px solid var(--color-line); }
+.materialRecord { gap: 0; }
+.materialRecordScroller { overflow-anchor: none; }
+.materialRecordAnchor { position: sticky; top: 0; z-index: 10; background: var(--color-paper); border-radius: 5px 5px 0 0; border-bottom: 1px solid var(--color-line-strong); box-shadow: 0 4px 7px -6px rgb(0 0 0 / .4); }
+.materialRecordHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 18px 20px; background: var(--color-paper); border: 1px solid var(--color-line); border-bottom: 0; border-radius: 5px 5px 0 0; }
+.materialRecordIdentity { flex: 1; min-width: 0; }
+.materialRecordName { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.materialRecordName h1 { font-size: 22px; line-height: 1.3; letter-spacing: -.025em; font-weight: 650; color: var(--color-ink-strong); overflow-wrap: anywhere; }
+:global(.dark) .materialRecordName h1 { color: var(--color-foreground); }
+.materialRecordMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 5px; font-size: 12px; color: var(--color-ink-subtle); }
+.materialRecordActions { display: flex; align-items: center; gap: 12px; }
+.materialRecordTabs { display: flex; gap: 2px; overflow-x: auto; background: var(--color-paper); border-inline: 1px solid var(--color-line); padding: 8px 16px 0; scrollbar-width: thin; }
+.materialRecordTabs button { position: relative; display: inline-flex; flex-shrink: 0; gap: 6px; align-items: center; white-space: nowrap; padding: 11px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: 5px 5px 0 0; color: var(--color-ink-subtle); font-size: 13px; font-weight: 500; }
+.materialRecordTabs button[aria-selected="true"] { color: var(--color-ink-strong); z-index: 1; }
+.materialRecordTabs button > :not(.materialRecordTabMarker) { position: relative; z-index: 1; }
+.materialRecordTabMarker { position: absolute; inset: 0; background: var(--color-raised); border: 1px solid var(--color-line); border-bottom: 0; border-radius: 5px 5px 0 0; box-shadow: 0 2px 0 var(--color-raised); pointer-events: none; }
+.materialRecordTabCount { margin-left: 4px; padding: 2px 6px; border-radius: 999px; background: var(--color-tint); color: var(--color-ink-subtle); box-shadow: inset 0 0 0 1px var(--color-line); font-size: 11px; line-height: 1.5; font-weight: 600; font-variant-numeric: tabular-nums; }
+.materialRecordTabs button:hover { color: var(--color-ink-strong); }
+.materialRecordTabs button:focus-visible { outline: 2px solid var(--color-ink-strong); outline-offset: -4px; }
+.materialRecordContent { background: var(--color-raised); border: 1px solid var(--color-line); border-top: 0; border-radius: 0 0 5px 5px; padding: 20px; min-width: 0; }
+.materialRecordContent [data-material-record-details] { gap: 24px; }
+.materialRecordContent [data-material-record-details] > div { background: transparent; box-shadow: none; border-color: transparent; padding: 8px 0 20px; border-radius: 0; border-bottom: 1px solid var(--color-line); }
+.materialRecordEditActions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.materialRecordEditActions[data-editing="true"] .materialRecordSavedSlot { display: none; }
+.materialRecordContent [data-material-record-details] > div > div:first-child { flex-wrap: wrap; gap: 8px; min-height: 28px; }
+.materialRecordSavedSlot { position: relative; display: inline-flex; width: 48px; height: 28px; align-items: center; }
+.materialRecordSaved { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--color-ink-subtle); opacity: 0; translate: 0 2px; transition: opacity 140ms, translate 140ms; }
+.materialRecordSaved[data-visible="true"] { opacity: 1; translate: 0 0; }
+.materialRecordContent [role="tabpanel"]:focus-visible { outline: 2px solid var(--color-line-strong); outline-offset: 4px; }
+@media (max-width: 359px) {
+  .materialRecordSavedSlot { width: 14px; }
+  .materialRecordSavedText { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@keyframes materialFolderContents { from { opacity: .5; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes materialPaperOpen { from { opacity: .5; translate: 12px 0; } to { opacity: 1; translate: 0 0; } }
+@media (max-width: 767px) {
+  .materialGrid { gap: 16px 8px; padding: 16px 4px; }
+  .materialArtwork { height: 78px; }
+  .materialTile { padding: 10px 5px; }
+  .materialFilePaper { inset-inline: 18px; }
+  .materialRecordHeader { padding: 14px 12px; gap: 10px; }
+  .materialRecordName h1 { font-size: 20px; }
+  .materialRecordActions { margin-left: auto; }
+  .materialRecordTabs { padding-inline: 6px; }
+  .materialRecordTabs button { padding: 11px 10px; }
+  .materialRecordContent { padding: 16px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .materialWorkspace *, .materialRecord *, .materialDocument, .materialTile *, .materialReaderSheet * { animation: none !important; transition: none !important; }
+  .materialDocument:hover, .materialTile:hover .materialFilePaper, .materialTile:hover .materialFolderPaper, .materialTile:hover .materialFolderFront { transform: none; translate: none; }
+}
+
+/* The transport copy owns geometry while a reader opens or closes. */
+.materialWorkspace[data-material-journey="true"] [data-material-preview] { animation: none; transition: none; }
+.materialDocumentsGrid { overflow-anchor: none; }
+.materialReaderSheet { position: fixed; inset: 0; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); background: var(--color-paper); }
+.materialReaderSheet [data-material-preview] { animation: none; transition: none; }

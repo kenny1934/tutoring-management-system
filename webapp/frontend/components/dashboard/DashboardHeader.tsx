@@ -115,7 +115,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 "hidden sm:flex items-center gap-2 px-2 @[500px]/header:px-3 py-1.5",
                 "bg-card border border-line rounded-full",
                 "hover:bg-wash transition-colors",
-                "text-gray-500 dark:text-gray-400"
+                "text-ink-subtle"
               )}
             >
               <Search className="h-3.5 w-3.5" />
@@ -216,7 +216,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                           "border border-line-strong dark:border-line"
                         )}
                       >
-                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        <div className="px-3 py-1.5 text-xs font-semibold text-ink-subtle uppercase tracking-wide">
                           Quick Access
                         </div>
                         {usefulTools.map((tool, index) => (
@@ -253,7 +253,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                                 {tool.name}
                               </div>
                               {tool.description && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                                <div className="text-xs text-ink-subtle line-clamp-2">
                                   {tool.description}
                                 </div>
                               )}
@@ -262,7 +262,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                           </a>
                         ))}
                         {usefulTools.length === 0 && (
-                          <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                          <p className="px-3 py-2 text-sm text-ink-subtle">
                             No tools configured
                           </p>
                         )}

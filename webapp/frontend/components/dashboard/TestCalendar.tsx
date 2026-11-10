@@ -221,7 +221,7 @@ function TestItemPopover({
               </div>
               {/* Revision stats */}
               {stats && stats.slots > 0 && (
-                <div data-calendar-event-stats className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
+                <div data-calendar-event-stats className="flex items-center gap-2 text-[11px] text-ink-subtle ml-4 mt-1">
                   <span className="inline-flex items-center gap-0.5" title="Revision slots created">
                     <GraduationCap className="h-3 w-3" />
                     {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
@@ -312,7 +312,7 @@ function TestItemPopover({
       </div>
       {/* Revision stats */}
       {stats && stats.slots > 0 && (
-        <div data-calendar-event-stats className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+        <div data-calendar-event-stats className="flex items-center gap-1.5 mt-1 text-[11px] text-ink-subtle">
           <span className="inline-flex items-center gap-0.5" title="Revision slots created">
             <GraduationCap className="h-2.5 w-2.5" />
             {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
@@ -745,7 +745,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-1" role="row">
           {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, i) => (
-            <div key={i} role="columnheader" className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
+            <div key={i} role="columnheader" className="text-center text-xs font-medium text-ink-subtle py-1">
               {day.charAt(0)}
             </div>
           ))}
@@ -779,7 +779,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                   "relative h-7 rounded text-sm transition-colors",
                   isCurrentMonth
                     ? "text-gray-900 dark:text-gray-100"
-                    : "text-gray-500 dark:text-gray-400",
+                    : "text-ink-subtle",
                   isToday && "font-bold",
                   isSelected && "bg-primary text-white",
                   !isSelected && holiday && "bg-rose-500/10",
@@ -834,7 +834,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             className={cn(
               "text-sm transition-colors",
               selectedDate
-                ? "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-400"
+                ? "text-ink-subtle hover:text-gray-600 dark:hover:text-gray-400"
                 : "text-accent-ink"
             )}
           >
@@ -878,7 +878,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
               {canManageEvents && (
                 <button
                   onClick={() => handleOpenCreate(selectedDate!)}
-                  className="w-full mt-1 py-1.5 text-xs font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-green-400 hover:text-green-700 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors flex items-center justify-center gap-1"
+                  className="w-full mt-1 py-1.5 text-xs font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-ink-subtle hover:border-green-400 hover:text-green-700 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors flex items-center justify-center gap-1"
                 >
                   <Plus className="h-3 w-3" />
                   Add event
@@ -888,7 +888,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           ) : selectedDate && selectedDateEvents.length === 0 && !selectedDateHoliday ? (
             /* Selected date has no events and no holiday */
             <div className="px-3 py-4 text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No events on this date</p>
+              <p className="text-sm text-ink-subtle mb-2">No events on this date</p>
               {canManageEvents && (
                 <Button
                   size="sm"
@@ -902,10 +902,10 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             </div>
           ) : eventsWithDaysUntil.length === 0 ? (
             /* No upcoming events */
-            <div className="flex flex-col items-center justify-center px-3 py-4 text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center justify-center px-3 py-4 text-ink-subtle">
               <NoUpcomingTests className="mb-1 opacity-80" />
               <p className="text-sm font-medium">All caught up!</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">No tests or exams coming up</p>
+              <p className="text-xs text-ink-subtle mt-0.5">No tests or exams coming up</p>
             </div>
           ) : (
             /* Show upcoming list */

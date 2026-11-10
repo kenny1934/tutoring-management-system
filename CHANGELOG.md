@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.1](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.0...v2.4.1) (2026-11-10)
+
+### Improvements
+
+* **Courseware**: browse layered folders and worksheet covers in Grid view, with smoother opening and return to the same position.
+* **Documents**: read paper previews in a desktop pane or a full-height phone reader, with your place and file selection preserved when returning.
+* **Student profiles**: keep student details above the tabs, remember each section’s reading position and see a brief confirmation after saving.
+* **Dashboard**: read small labels and cancelled lessons more clearly in light and dark mode, with aligned chart filters and quieter session controls.
+
+### Bug Fixes
+
+* **Student history**: long session lists appear together without a staggered delay, and student names remain readable in dark mode.
+* **Lesson mode**: empty or unavailable lessons offer a way back, and refresh errors keep an open lesson and its notes visible.
+
 ## [2.4.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.3.2...v2.4.0) (2026-11-10)
 
 ### Improvements

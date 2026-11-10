@@ -68,6 +68,10 @@ import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
 import { type FileSelection, validatePageInput } from "@/components/ui/folder-tree-modal";
+import { FileArtwork } from "@/components/material/FileArtwork";
+import { useFolderJourney } from "@/components/material/useFolderJourney";
+import { usePdfCover } from "@/components/material/usePdfCover";
+import materialStyles from "@/components/material/MaterialWorkspace.module.css";
 import { getPageCount } from "@/lib/pdf-utils";
 import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
 
@@ -849,6 +853,9 @@ function CoursewareBrowserTab() {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
   const contentScrollRef = useRef<HTMLDivElement>(null);
+  const folderRequest = useRef(0);
+  const folderNavigation = useRef(0);
+  const folderJourney = useFolderJourney(contentScrollRef, currentPath, loading || contentsLoading, !!error);
 
   // Network errors
   const [unavailableFolders, setUnavailableFolders] = useState<Set<string>>(new Set());
@@ -877,6 +884,7 @@ function CoursewareBrowserTab() {
   const [previewNode, setPreviewNode] = useState<TreeNode | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const selectedCover = usePdfCover(previewUrl, previewNode?.path ?? null);
   const [zoomIndex, setZoomIndex] = useState(2);
   // Handwriting removal state
   const [cleanedPreviewUrl, setCleanedPreviewUrl] = useState<string | null>(null);
@@ -953,6 +961,7 @@ function CoursewareBrowserTab() {
     basePath: string,
     folderId?: string
   ) => {
+    const request = ++folderRequest.current;
     setContentsLoading(true);
     setError(null);
     const TIMEOUT_MS = 5000;
@@ -965,6 +974,7 @@ function CoursewareBrowserTab() {
         "Connection timeout - drive may be unavailable"
       );
 
+      if (request !== folderRequest.current) return;
       if (!hasPermission) {
         setError("Permission denied. Please grant access in Settings.");
         setContentsLoading(false);
@@ -1020,38 +1030,50 @@ function CoursewareBrowserTab() {
         });
       }
 
+      if (request !== folderRequest.current) return;
       setCurrentContents(contents);
       setDisplayLimit(ITEMS_PER_PAGE);
     } catch (err) {
+      if (request !== folderRequest.current) return;
       const message = err instanceof Error ? err.message : "Failed to load folder contents.";
       setError(message);
       if (folderId && (message.includes("timeout") || message.includes("unavailable"))) {
         setUnavailableFolders((prev) => new Set(prev).add(folderId));
       }
     } finally {
-      setContentsLoading(false);
+      if (request === folderRequest.current) setContentsLoading(false);
     }
   }, []);
 
   // Navigate into a folder
   const navigateInto = useCallback(async (node: TreeNode) => {
     if (node.kind !== "folder" || !node.handle) return;
+    const navigation = ++folderNavigation.current;
     const dirHandle = node.handle as FileSystemDirectoryHandle;
     // At root level, use node.path which has brackets for alias folders
     // For subfolders, use node.name (just the folder name)
     const segment = currentPath.length === 0 ? node.path : node.name;
     const newPath = [...currentPath, segment];
+    folderJourney.enter(node.path, newPath);
     setSearchQuery(""); // Clear search when navigating
     setCurrentPath(newPath);
     setCurrentHandle(dirHandle);
     await loadFolderContents(dirHandle, newPath.join("\\"), node.id);
+    if (navigation !== folderNavigation.current) return;
     if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
-  }, [currentPath, loadFolderContents]);
+  }, [currentPath, loadFolderContents, folderJourney]);
 
   // Navigate via breadcrumb
   const navigateTo = useCallback(async (index: number) => {
+    if (index === currentPath.length - 1) { setSearchQuery(""); return; }
+    const navigation = ++folderNavigation.current;
+    folderRequest.current++;
+    folderJourney.back(index === -1 ? [] : currentPath.slice(0, index + 1));
     setSearchQuery(""); // Clear search when navigating
     if (index === -1) {
+      folderRequest.current++;
+      setContentsLoading(false);
+      setError(null);
       setCurrentPath([]);
       setCurrentHandle(null);
       setCurrentContents(rootFolders);
@@ -1072,15 +1094,17 @@ function CoursewareBrowserTab() {
     for (let i = 1; i < newPath.length; i++) {
       try {
         handle = await handle.getDirectoryHandle(newPath[i]);
+        if (navigation !== folderNavigation.current) return;
       } catch {
         return;
       }
     }
 
+    if (navigation !== folderNavigation.current) return;
     setCurrentPath(newPath);
     setCurrentHandle(handle);
     await loadFolderContents(handle, newPath.join("\\"));
-  }, [currentPath, rootFolders, loadFolderContents]);
+  }, [currentPath, rootFolders, loadFolderContents, folderJourney]);
 
   // Sort nodes
   const sortNodes = useCallback((nodes: TreeNode[]): TreeNode[] => {
@@ -1512,13 +1536,13 @@ function CoursewareBrowserTab() {
   }
 
   return (
-    <div className="h-full flex gap-4 bg-raised rounded-lg border-2 border-line-strong overflow-hidden">
+    <div className={cn("h-full flex gap-0 overflow-hidden", materialStyles.materialWorkspace)}>
       {/* Browser panel */}
       {/* Below md the preview takes over the whole tab (a 40% split leaves
           an unusable sliver on phones); the preview's X brings this back. */}
       <div className={cn("flex flex-col", previewUrl ? "max-md:hidden w-2/5 border-r border-line" : "w-full")}>
         {/* Header: Breadcrumb + Controls */}
-        <div className="p-3 border-b border-line space-y-2">
+        <div data-material-browser-bar className="p-3 border-b border-line space-y-2">
           {/* Row 1: Breadcrumb + View toggle */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-sm flex-1 min-w-0 overflow-x-auto">
@@ -1673,7 +1697,11 @@ function CoursewareBrowserTab() {
         />
 
         {/* Content area */}
-        <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-3">
+        <div ref={contentScrollRef} onFocusCapture={event => {
+          const file = event.target.closest<HTMLElement>("[data-material-file]");
+          const index = sortedContents.findIndex(node => node.path === file?.dataset.materialFile);
+          if (index >= 0) setFocusedIndex(index);
+        }} className="flex-1 overflow-y-auto p-3">
           {/* Pinned summer entry: a virtual folder over the scanned courseware
               drive (not in Paperless or the saved-folder list). */}
           {isAtRoot && hasSummer && !summerOpen && !contentsLoading && (
@@ -1730,6 +1758,8 @@ function CoursewareBrowserTab() {
                 return (
                   <div
                     key={node.id}
+                    data-material-file={node.path}
+                    tabIndex={-1}
                     ref={(el) => { itemRefs.current[index] = el; }}
                     onClick={(e) => handleSingleClick(e, node, index)}
                     onDoubleClick={() => handleDoubleClick(node)}
@@ -1812,7 +1842,7 @@ function CoursewareBrowserTab() {
             </div>
           ) : (
             /* GRID VIEW */
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            <div key={currentPath.join("/")} className={cn("grid grid-cols-3 sm:grid-cols-4", materialStyles.materialGrid)}>
               {displayedContents.map((node, index) => {
                 const isFocused = focusedIndex === index;
                 const isSelected = selections.has(node.path);
@@ -1827,13 +1857,11 @@ function CoursewareBrowserTab() {
                     onDoubleClick={() => handleDoubleClick(node)}
                     onMouseEnter={() => setHoveredPath(node.path)}
                     onMouseLeave={() => setHoveredPath(null)}
-                    className={cn(
-                      "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer transition-all relative group",
-                      "hover:bg-wash border border-transparent",
-                      "hover:border-amber-200 dark:hover:border-amber-700",
-                      isSelected && "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700",
-                      isFocused && !isSelected && "ring-2 ring-amber-400/50 border-amber-200"
-                    )}
+                    data-material-file={node.path}
+                    tabIndex={-1}
+                    data-selected={isSelected || previewNode?.path === node.path}
+                    data-focused={isFocused}
+                    className={cn("group", materialStyles.materialTile)}
                   >
                     {/* Checkbox overlay - visible on hover or when selected */}
                     {node.kind === "file" && (
@@ -1869,12 +1897,7 @@ function CoursewareBrowserTab() {
                       </div>
                     )}
 
-                    {/* Icon */}
-                    {node.kind === "folder" ? (
-                      node.isShared ? <FolderSync className="h-10 w-10 text-green-700" /> : <Folder className="h-10 w-10 text-amber-700" />
-                    ) : (
-                      <FileText className="h-10 w-10 text-red-600" />
-                    )}
+                    <FileArtwork folder={node.kind === "folder"} shared={node.isShared} cover={selectedCover?.source === node.path ? selectedCover.image : null} />
 
                     {/* Name */}
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300 truncate w-full" title={node.name}>

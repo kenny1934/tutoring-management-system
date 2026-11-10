@@ -282,14 +282,14 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       border: "border-red-200 dark:border-red-800",
       icon: "text-red-600",
       text: "text-red-700 dark:text-red-300",
-      badge: "bg-red-500 text-white",
+      badge: "bg-red-700 text-white",
     },
     warning: {
       bg: "bg-orange-50 dark:bg-orange-900/20",
       border: "border-orange-200 dark:border-orange-800",
       icon: "text-orange-700",
       text: "text-orange-700 dark:text-orange-300",
-      badge: "bg-orange-500 text-white",
+      badge: "bg-orange-700 text-white",
     },
   };
 
@@ -300,7 +300,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
 
   // Determine badge color based on severity (red if any danger, orange if only warnings)
   const hasDanger = notifications.some(n => n.severity === 'danger');
-  const badgeColor = hasDanger ? 'bg-red-500' : 'bg-orange-500';
+  const badgeColor = hasDanger ? 'bg-red-700' : 'bg-orange-700';
 
   return (
     <div className="relative">
