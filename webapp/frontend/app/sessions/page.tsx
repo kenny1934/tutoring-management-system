@@ -64,6 +64,10 @@ const BulkExerciseModal = dynamic(
   () => import("@/components/sessions/BulkExerciseModal").then(m => m.BulkExerciseModal),
   { ssr: false }
 );
+const BulkChangeTutorModal = dynamic(
+  () => import("@/components/sessions/BulkChangeTutorModal").then(m => m.BulkChangeTutorModal),
+  { ssr: false }
+);
 const BulkRateModal = dynamic(
   () => import("@/components/sessions/BulkRateModal").then(m => m.BulkRateModal),
   { ssr: false }
@@ -205,7 +209,7 @@ function SessionsPageContent() {
 
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
-  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isReadOnly, isLoading: authLoading } = useAuth();
+  const { isAdmin, user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isReadOnly, isLoading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -555,6 +559,7 @@ function SessionsPageContent() {
   const [selectedIds, setSelectedIds] = useNativeSessionSelection(stateKey, selectedLocation);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [bulkRateModalOpen, setBulkRateModalOpen] = useState(false);
+  const [bulkTutorModalOpen, setBulkTutorModalOpen] = useState(false);
   const [showSelectDropdown, setShowSelectDropdown] = useState(false);
   const [slotDropdownOpen, setSlotDropdownOpen] = useState<string | null>(null);
 
@@ -1445,7 +1450,7 @@ function SessionsPageContent() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in an input, modal open, or command palette open
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (popoverSession || bulkExerciseType || bulkRateModalOpen || quickActionSession || isCommandPaletteOpen) return;
+      if (popoverSession || bulkExerciseType || bulkRateModalOpen || bulkTutorModalOpen || quickActionSession || isCommandPaletteOpen) return;
 
       // Read latest values from refs (avoids needing these as effect deps)
       const currentSessions = sessionsRef.current;
@@ -1654,7 +1659,7 @@ function SessionsPageContent() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, isPendingMakeupsView, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, isPendingMakeupsView, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, bulkTutorModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
@@ -2239,6 +2244,11 @@ function SessionsPageContent() {
                     {selectedIds.size} selected
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {isAdmin && (
+                      <Button size="sm" icon={UserPlus} onClick={() => setBulkTutorModalOpen(true)} disabled={bulkActionLoading !== null}>
+                        Change tutor
+                      </Button>
+                    )}
                     {/* Attendance actions - conditional based on selected sessions */}
                     {bulkActionsAvailable.attended && (
                       <Button
@@ -3057,6 +3067,15 @@ function SessionsPageContent() {
             exerciseType={bulkExerciseType}
             isOpen={true}
             onClose={() => setBulkExerciseType(null)}
+          />
+        )}
+
+        {bulkTutorModalOpen && isAdmin && (
+          <BulkChangeTutorModal
+            sessions={selectedSessions}
+            isOpen
+            onClose={() => setBulkTutorModalOpen(false)}
+            onSaved={clearSelection}
           />
         )}
 

@@ -22,7 +22,7 @@ from datetime import date
 from database import get_db
 from billing.guards import assert_legacy_creation_allowed, assert_legacy_enrollments_mutable, lock_billing_session
 from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
+from schemas import BulkTutorChangeRequest, BulkTutorChangeResponse, SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, today_hk, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
 from services.attendance import mark_attended
@@ -69,6 +69,82 @@ def _is_lesson_number_only_update(request: SessionUpdate) -> bool:
         bool(provided & _LESSON_NUMBER_FIELDS)
         and provided <= _LESSON_NUMBER_ONLY_FIELDS
     )
+
+
+@router.post("/sessions/bulk-change-tutor", response_model=BulkTutorChangeResponse)
+def bulk_change_tutor(
+    request: BulkTutorChangeRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Reassign selected sessions in one transaction, without other session edits.
+
+    Do not call update_session here: its broader scheduling workflow can also
+    change linked records. Only tutor_id and the existing audit fields are set.
+    """
+    from services.departure_guard import check_assignment
+
+    tutor = db.query(Tutor).filter(Tutor.id == request.tutor_id).first()
+    if tutor is None or not tutor.is_active_tutor:
+        raise HTTPException(status_code=400, detail="Choose an active teaching tutor.")
+
+    ids = sorted(set(request.session_ids))
+    sources = db.query(SessionLog.id, SessionLog.student_id).filter(SessionLog.id.in_(ids)).all()
+    missing = sorted(set(ids) - {row.id for row in sources})
+    if missing:
+        raise HTTPException(status_code=404, detail={
+            "message": "Some selected sessions no longer exist. Refresh and select them again.",
+            "session_ids": missing,
+        })
+
+    # Match the existing billing/entitlement lock order across students so two
+    # overlapping batches acquire their locks in the same order.
+    for source in sorted(sources, key=lambda row: (row.student_id or 0, row.id)):
+        lock_billing_session(db, source.id)
+    sessions = db.query(SessionLog).filter(SessionLog.id.in_(ids)).order_by(
+        SessionLog.id
+    ).populate_existing().with_for_update().all()
+    if len(sessions) != len(ids):
+        raise HTTPException(status_code=409, detail="The selection changed. Refresh and try again.")
+
+    changed = [session for session in sessions if session.tutor_id != tutor.id]
+    issues = []
+    for session in changed:
+        try:
+            if not works_at(tutor, session.location, session.session_date):
+                raise HTTPException(status_code=400, detail="This tutor does not cover this branch on this date.")
+            departure_issue = check_assignment(db, tutor.id, session.session_date)
+            if departure_issue:
+                raise HTTPException(status_code=400, detail=departure_issue)
+            if not session.make_up_for_id and session.enrollment_id:
+                assert_legacy_enrollments_mutable(
+                    db, [session.enrollment_id], structural=True, action="review schedule changes"
+                )
+            if session.make_up_for_id or session.session_status == "Make-up Class":
+                assert_makeup_entitlement(db, session, session.session_date)
+        except HTTPException as exc:
+            detail = exc.detail
+            issues.append({
+                "session_id": session.id,
+                "message": detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail),
+            })
+    if issues:
+        raise HTTPException(status_code=409, detail={
+            "message": "No sessions were changed. Review the affected sessions and try again.",
+            "issues": issues,
+        })
+
+    modified_at = hk_now()
+    for session in changed:
+        session.tutor_id = tutor.id
+        session.last_modified_by = admin.user_email
+        session.last_modified_time = modified_at
+    result = BulkTutorChangeResponse(
+        changed_session_ids=[session.id for session in changed],
+        unchanged_session_ids=[session.id for session in sessions if session not in changed],
+    )
+    db.commit()
+    return result
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
