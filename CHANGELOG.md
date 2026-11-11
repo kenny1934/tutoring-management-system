@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.4.3](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.2...v2.4.3) (2026-11-11)
+
+### New Features
+
+* **Session tutor changes**: Admins and Super Admins can select sessions and reassign them to another tutor together, with a review of the selected lessons and checks for branch coverage and availability.
+
 ## [2.4.2](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.1...v2.4.2) (2026-11-11)
 
 ### Improvements
