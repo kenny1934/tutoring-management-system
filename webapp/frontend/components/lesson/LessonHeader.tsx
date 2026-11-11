@@ -26,6 +26,8 @@ interface LessonHeaderProps {
   onExit: () => void;
   /** Who or what the lesson is for, shown after the exit button. */
   info: ReactNode;
+  /** Both lesson views place Exercises and Tools here on a phone. */
+  phoneControls?: ReactNode;
   details: HeaderDetail[];
   syncStatus: ComponentProps<typeof InkSaveStatus>["status"];
   wolframOpen: boolean;
@@ -48,13 +50,13 @@ const headerButton = "min-w-10 h-10 px-2 inline-flex items-center justify-center
  * focus mode first.
  */
 export function LessonHeader({
-  overlay, focus, exitLabel, exitTitle, onExit, info, details, syncStatus,
+  overlay, focus, exitLabel, exitTitle, onExit, info, phoneControls, details, syncStatus,
   wolframOpen, onWolframToggle, canDownloadAll, savingAll, onDownloadAll, print, helpOpen, onHelpToggle,
 }: LessonHeaderProps) {
   const { focusMode, exitFocusMode, toggleFocusMode } = focus;
 
   return (
-    <div className={cn(
+    <div data-native-lesson-header className={cn(
       "relative rounded-2xl bg-gradient-to-br from-[#b89968] via-[#a67c52] to-[#8b6f47] p-1",
       overlay && "shadow-lg rounded-3xl"
     )}>
@@ -76,7 +78,7 @@ export function LessonHeader({
 
         {info}
 
-        <div className="hidden sm:flex items-center gap-2 text-xs text-white/70 font-medium">
+        <div data-native-lesson-details className="hidden sm:flex items-center gap-2 text-xs text-white/70 font-medium">
           {details.map(({ icon: Icon, text }, index) => (
             <Fragment key={index}>
               <span className="text-white/40">&bull;</span>
@@ -88,8 +90,10 @@ export function LessonHeader({
           ))}
         </div>
 
-        <div className="flex-1" />
+        <div className={phoneControls ? "hidden md:block flex-1" : "flex-1"} />
 
+        {phoneControls}
+        <div className={phoneControls ? "hidden md:contents" : "contents"}>
         <InkSaveStatus status={syncStatus} className="hidden md:inline px-1" />
 
         <button
@@ -142,6 +146,7 @@ export function LessonHeader({
         >
           <HelpCircle className="h-5 w-5" />
         </button>
+        </div>
       </div>
     </div>
   );

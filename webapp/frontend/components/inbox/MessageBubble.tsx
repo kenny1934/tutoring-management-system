@@ -455,6 +455,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
 export interface MessageBubbleProps {
   message: Message;
   idx: number;
+  animateEntry?: boolean;
   isOwn: boolean;
   isFirstInGroup: boolean;
   isLastInGroup: boolean;
@@ -479,6 +480,7 @@ export interface MessageBubbleProps {
 const MessageBubble = React.memo(function MessageBubble({
   message: m,
   idx,
+  animateEntry = true,
   isOwn,
   isFirstInGroup,
   isLastInGroup,
@@ -577,7 +579,7 @@ const MessageBubble = React.memo(function MessageBubble({
       )}
       <div
         id={`msg-${m.id}`}
-        style={{ animation: 'message-in 0.2s ease-out both' }}
+        style={animateEntry ? { animation: 'message-in 0.2s ease-out both' } : undefined}
         className={cn(
           "group/msg relative p-3 rounded-2xl transition-shadow",
           m.like_count > 0 && "mb-4",

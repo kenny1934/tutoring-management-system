@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { CheckViewer } from "./CheckViewer";
 import type { HomeworkAnswer } from "./useHomeworkAnswer";
@@ -118,6 +118,8 @@ function renderViewer(overrides: Partial<Parameters<typeof CheckViewer>[0]> = {}
 }
 
 beforeEach(() => {
+  window.history.replaceState({}, "", "/");
+  window.sessionStorage.clear();
   answer = { kind: "ready", path: "[Center]\\ANS\\Sheet1_ANS.pdf", data: new ArrayBuffer(1), pageNumbers: [4, 5] };
   mobile = false;
   retryAnswer.mockClear();
@@ -263,4 +265,65 @@ describe("CheckViewer", () => {
 
 afterEach(() => {
   document.body.style.overflow = "";
+});
+
+
+describe("the lesson homework preview", () => {
+  beforeEach(() => window.history.replaceState({}, "", "/?ui-preview=motion"));
+
+  it("keeps the existing two-file layout and gives each desktop pane a clear label", () => {
+    renderViewer({ lessonPreview: true });
+    expect(screen.getByText("Worksheet")).toBeInTheDocument();
+    expect(screen.getByText("Answers")).toBeInTheDocument();
+    expect(screen.getAllByTestId("pane")).toHaveLength(2);
+  });
+
+  it("answers the lesson host's Back request before it reaches the lesson exit guard", () => {
+    const { onClose } = renderViewer({ lessonPreview: true });
+    const back = new Event("csm-native-lesson-dismiss-overlay", { cancelable: true });
+    expect(window.dispatchEvent(back)).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes a comment before a Back request closes the viewer", () => {
+    const { onClose } = renderViewer({ lessonPreview: true });
+    const comment = screen.getByLabelText("Comment"); comment.focus();
+    window.dispatchEvent(new Event("csm-native-lesson-dismiss-overlay", { cancelable: true }));
+    expect(document.activeElement).not.toBe(comment);
+    expect(onClose).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event("csm-native-lesson-dismiss-overlay", { cancelable: true }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("honours the lesson host even from a retired Original URL", () => {
+    window.history.replaceState({}, "", "/?ui-preview=original");
+    const { onClose } = renderViewer({ lessonPreview: true });
+    expect(window.dispatchEvent(new Event("csm-native-lesson-dismiss-overlay", { cancelable: true }))).toBe(false);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("makes the underlying lesson inert and restores its existing state and opener", async () => {
+    const stage = document.createElement("div"); stage.setAttribute("data-native-wide-lesson", "");
+    const chrome = document.createElement("nav"); chrome.inert = false; document.body.append(chrome);
+    const opener = document.createElement("button"); stage.append(opener); document.body.append(stage); opener.focus();
+    const props = { items: [A], current: A, onNavigate: vi.fn(), onClose: vi.fn(), cache: new Map(), searches: new Map(), lessonPreview: true };
+    const { unmount } = render(<CheckViewer {...props} />);
+    expect(stage.inert).toBe(true);
+    expect(chrome.inert).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+    unmount();
+    expect(stage.inert).not.toBe(true);
+    expect(chrome.inert).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+    stage.remove(); chrome.remove();
+  });
+
+  it("keeps answers first on phones and identifies the selected file", () => {
+    mobile = true;
+    renderViewer({ lessonPreview: true });
+    expect(screen.getByRole("tab", { name: "Answers" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "Worksheet" }));
+    expect(screen.getByRole("tab", { name: "Worksheet" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("pane").dataset.label).toBe("Sheet1");
+  });
 });

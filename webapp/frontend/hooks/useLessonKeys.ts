@@ -29,6 +29,8 @@ export interface LessonKeyState {
    * worksheet's place, so the keys that work on the worksheet wait.
    */
   worksheetHidden?: boolean;
+  /** Read when the key is pressed, since page decoding can finish without rerendering the lesson. */
+  worksheetPending?: () => boolean;
 }
 
 export type LessonKeyEvent = Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey" | "repeat" | "target">;
@@ -95,10 +97,15 @@ function keyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | 
 const WORKSHEET_ACTIONS: ReadonlySet<LessonKeyAction> = new Set<LessonKeyAction>([
   "next", "previous", "nextStudent", "previousStudent", "zoomIn", "zoomOut", "print", "answerKey", "save",
 ]);
+const PENDING_WORKSHEET_ACTIONS: ReadonlySet<LessonKeyAction> = new Set<LessonKeyAction>([
+  "undo", "redo", "pen", "eraser", "lasso", "text", "liftPencil", "zoomIn", "zoomOut",
+  "editClasswork", "editHomework", "homeworkBlock", "print", "answerKey", "save",
+]);
 
 /** The action a key means in a lesson view right now, or null when it means nothing there. */
 export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | null {
   const action = keyAction(e, state);
+  if (action && state.worksheetPending?.() && PENDING_WORKSHEET_ACTIONS.has(action)) return null;
   return action && state.worksheetHidden && WORKSHEET_ACTIONS.has(action) ? null : action;
 }
 

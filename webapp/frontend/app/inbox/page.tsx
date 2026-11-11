@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
+import { useBackToClose } from "@/hooks/useBackToClose";
+import { AnimatePresence } from "framer-motion";
+import { ThreadFrame } from "@/components/inbox/ThreadFrame";
+import { useThreadSelection } from "@/components/inbox/useThreadSelection";
+import { rememberScroll, restoreScroll, focusMaterialSource, type ScrollPlace } from "@/components/material/materialJourney";
+import { inboxId } from "@/lib/inbox-link";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,7 +152,7 @@ const ThreadItem = React.memo(function ThreadItem({
 }: {
   thread: MessageThread;
   isSelected: boolean;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isSentView?: boolean;
   searchQuery?: string;
   pictureMap?: Map<number, string>;
@@ -165,6 +171,7 @@ const ThreadItem = React.memo(function ThreadItem({
 
   return (
     <button
+      data-inbox-thread-source={msg.id}
       onClick={bulkMode ? (onBulkToggle || onClick) : onClick}
       className={cn(
         "w-full text-left p-3 border-b border-line/30 transition-all duration-150 min-h-[64px] lg:min-h-0",
@@ -427,9 +434,32 @@ export default function InboxPage() {
   const tutorId = hasTutor ? effectiveTutorId : null;
   const { data: templates = [], mutate: mutateTemplates } = useMessageTemplates(tutorId ?? undefined);
 
+  const notificationThread = inboxId(searchParams.get("thread"));
+  const notificationMessage = inboxId(searchParams.get("message"));
+  const [notificationLanding, setNotificationLanding] = useState<{ thread: number; message: number | null } | null>(null);
+  const clearNotificationTarget = useCallback(() => {
+    setNotificationLanding(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("thread"); url.searchParams.delete("message");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
   // State
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
-  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
+  useEffect(() => { setSelectedCategory(initialCategory); }, [initialCategory]);
+  const { selectedThread, setSelectedThread, selectionRef: selectedThreadRef, openThread, loadThread } = useThreadSelection(`${tutorId}:${selectedCategory}`);
+  const threadOrigin = useRef<{ source: HTMLElement; scroll: ScrollPlace[]; scope: string; url: string } | null>(null);
+  const returnFrame = useRef(0);
+  const returnToThreadSource = useCallback(() => {
+    cancelAnimationFrame(returnFrame.current);
+    returnFrame.current = requestAnimationFrame(() => {
+      const place = threadOrigin.current;
+      if (!place || selectedThreadRef.current || place.scope !== `${tutorId}:${selectedCategory}` || window.location.href !== place.url) return;
+      restoreScroll(place.scroll);
+      if (!document.querySelector('[role="dialog"]')) focusMaterialSource(place.source);
+    });
+  }, [tutorId, selectedCategory, selectedThreadRef]);
+  useEffect(() => () => cancelAnimationFrame(returnFrame.current), []);
   const [showCompose, setShowCompose] = useState(false);
   const [showWecom, setShowWecom] = useState(false);
   const [optimisticThread, setOptimisticThread] = useState<MessageThread | null>(null);
@@ -762,7 +792,7 @@ export default function InboxPage() {
         setSelectedThread(updatedThread);
       }
     }
-  }, [displayThreads, selectedThreadId]);
+  }, [displayThreads, selectedThreadId, setSelectedThread, selectedThreadRef]);
 
   // Detect mobile
   useEffect(() => {
@@ -787,55 +817,34 @@ export default function InboxPage() {
     return () => { clearTimeout(timer); nav.removeEventListener('scroll', check); ro.disconnect(); };
   }, []);
 
-  // Clear selection when category changes
-  useEffect(() => {
-    setSelectedThread(null);
-    if (isMobile && history.state?.inboxThread) {
-      history.back();
-    }
-  }, [selectedCategory]);
-
-  // Mobile back navigation: push history entry when selecting a thread,
-  // listen for popstate to close the panel on browser back.
-  const closingThreadRef = useRef(false);
-
+  // Shared overlay history keeps a nested compose/media surface above the conversation.
   const handleCloseThread = useCallback(() => {
-    if (closingThreadRef.current) return;
-    closingThreadRef.current = true;
-    setSelectedThread(null);
-    if (isMobile && history.state?.inboxThread) {
-      history.back();
-    }
-    setTimeout(() => { closingThreadRef.current = false; }, 100);
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const handlePopState = () => {
-      if (closingThreadRef.current) return;
-      closingThreadRef.current = true;
-      setSelectedThread(null);
-      setTimeout(() => { closingThreadRef.current = false; }, 100);
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [isMobile]);
+    setSelectedThread(null); clearNotificationTarget();
+  }, [setSelectedThread, clearNotificationTarget]);
+  useBackToClose(isMobile && selectedThread !== null, handleCloseThread);
 
   // Select thread — show immediately, then fetch full thread if replies are missing (client-side categories like reminders/scheduled)
-  const handleSelectThread = useCallback(async (thread: MessageThread) => {
-    setSelectedThread(thread);
-    if (isMobile) {
-      history.pushState({ inboxThread: true }, "");
-    }
-    if (thread.replies.length === 0 && tutorId !== null && !thread.root_message.scheduled_at) {
-      try {
-        const fullThread = await messagesAPI.getThread(thread.root_message.id, tutorId);
-        setSelectedThread(fullThread);
-      } catch (err) {
-        console.error("Failed to load full thread:", err);
-      }
-    }
-  }, [tutorId, isMobile]);
+  const handleSelectThread = useCallback(async (thread: MessageThread, source?: HTMLElement) => {
+    clearNotificationTarget();
+    const opener = source ?? document.querySelector<HTMLElement>(`[data-inbox-thread-source="${thread.root_message.id}"]`);
+    if (opener) threadOrigin.current = { source: opener, scroll: rememberScroll(opener), scope: `${tutorId}:${selectedCategory}`, url: window.location.href };
+    try {
+      await openThread(thread, thread.replies.length === 0 && tutorId !== null && !thread.root_message.scheduled_at
+        ? () => messagesAPI.getThread(thread.root_message.id, tutorId) : undefined);
+    } catch (error) { console.error("Failed to load full thread:", error); }
+  }, [tutorId, selectedCategory, isMobile, openThread, clearNotificationTarget]);
+
+  useEffect(() => {
+    if (!notificationThread || tutorId === null) return;
+    threadOrigin.current = null;
+    const request = new AbortController();
+    void loadThread(async () => {
+      const thread = await messagesAPI.getThread(notificationThread, tutorId);
+      if (!request.signal.aborted) setNotificationLanding({ thread: thread.root_message.id, message: notificationMessage });
+      return thread;
+    }, request.signal).catch(() => { if (!request.signal.aborted) showToast("This conversation could not be opened. Please try again.", "error"); });
+    return () => request.abort();
+  }, [notificationThread, notificationMessage, tutorId, loadThread, showToast]);
 
   // Browser notifications setup (toast is now handled app-wide in Sidebar)
   const { permission: notifPermission, requestPermission, sendNotification } = useBrowserNotifications();
@@ -1043,7 +1052,7 @@ export default function InboxPage() {
     });
 
     pendingSendRef.current = { timer, toastId, data: sendData, tutorId };
-  }, [tutorId, user?.name, showToast, dismissToast]);
+  }, [tutorId, user?.name, showToast, dismissToast, setSelectedThread]);
 
   const handleCreateTemplate = useCallback(async (title: string, content: string) => {
     if (!tutorId) return;
@@ -1113,7 +1122,7 @@ export default function InboxPage() {
       showToast("Failed to update read status", "error");
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
-  }, [tutorId, createReadStatusUpdaters]);
+  }, [tutorId, createReadStatusUpdaters, setSelectedThread]);
 
   const handleMarkUnread = useCallback(async (messageId: number) => {
     if (tutorId === null) return;
@@ -1135,7 +1144,7 @@ export default function InboxPage() {
       showToast("Failed to update read status", "error");
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
-  }, [tutorId, createReadStatusUpdaters]);
+  }, [tutorId, createReadStatusUpdaters, setSelectedThread]);
 
   const handleReply = useCallback((msg: Message) => {
     setReplyTo(msg);
@@ -1189,7 +1198,7 @@ export default function InboxPage() {
       mutate((key) => isThreadsKey(key) || isSentKey(key));
       throw error;
     }
-  }, [tutorId, showToast]);
+  }, [tutorId, showToast, setSelectedThread]);
 
   const handleArchive = useCallback(async (messageId: number) => {
     if (tutorId === null) return;
@@ -1207,7 +1216,7 @@ export default function InboxPage() {
       showToast("Failed to archive message", "error");
       throw error;
     }
-  }, [tutorId, showToast]);
+  }, [tutorId, showToast, setSelectedThread]);
 
   const handleUnarchive = useCallback(async (messageId: number) => {
     if (tutorId === null) return;
@@ -1225,7 +1234,7 @@ export default function InboxPage() {
       showToast("Failed to unarchive message", "error");
       throw error;
     }
-  }, [tutorId, showToast]);
+  }, [tutorId, showToast, setSelectedThread]);
 
   const handlePin = useCallback(async (messageId: number) => {
     if (tutorId === null) return;
@@ -1258,7 +1267,7 @@ export default function InboxPage() {
       showToast("Failed to unstar message", "error");
       throw error;
     }
-  }, [tutorId, showToast, selectedCategory]);
+  }, [tutorId, showToast, selectedCategory, setSelectedThread]);
 
   const handleThreadPin = useCallback(async (messageId: number) => {
     if (tutorId === null) return;
@@ -1355,21 +1364,23 @@ export default function InboxPage() {
     } catch {
       showToast("Failed to cancel scheduled message", "error");
     }
-  }, [tutorId, showToast]);
+  }, [tutorId, showToast, setSelectedThread]);
 
   // Keyboard shortcuts — use refs to avoid re-registering on every state change
-  const selectedThreadRef = useRef(selectedThread);
   const displayThreadsRef = useRef(displayThreads);
   const showShortcutsRef = useRef(showShortcuts);
   const searchQueryRef = useRef(searchQuery);
   const handleComposeRef = useRef(handleCompose);
+  const selectThreadRef = useRef(handleSelectThread);
+  const closeThreadRef = useRef(handleCloseThread);
   useEffect(() => {
-    selectedThreadRef.current = selectedThread;
     displayThreadsRef.current = displayThreads;
     showShortcutsRef.current = showShortcuts;
     searchQueryRef.current = searchQuery;
     handleComposeRef.current = handleCompose;
-  }, [selectedThread, displayThreads, showShortcuts, searchQuery, handleCompose]);
+    selectThreadRef.current = handleSelectThread;
+    closeThreadRef.current = handleCloseThread;
+  }, [selectedThread, displayThreads, showShortcuts, searchQuery, handleCompose, handleSelectThread, handleCloseThread]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1395,7 +1406,7 @@ export default function InboxPage() {
             ? threads.findIndex(t => t.root_message.id === selected.root_message.id)
             : -1;
           const nextIdx = Math.min(currentIdx + 1, threads.length - 1);
-          setSelectedThread(threads[nextIdx]);
+          void selectThreadRef.current(threads[nextIdx]);
           break;
         }
         case "k":
@@ -1404,13 +1415,13 @@ export default function InboxPage() {
           e.preventDefault();
           const curIdx = threads.findIndex(t => t.root_message.id === selected.root_message.id);
           const prevIdx = Math.max(curIdx - 1, 0);
-          setSelectedThread(threads[prevIdx]);
+          void selectThreadRef.current(threads[prevIdx]);
           break;
         }
         case "Enter":
           if (!selected && threads.length > 0) {
             e.preventDefault();
-            setSelectedThread(threads[0]);
+            void selectThreadRef.current(threads[0]);
           }
           break;
         case "Escape":
@@ -1418,7 +1429,7 @@ export default function InboxPage() {
           if (showShortcutsRef.current) {
             setShowShortcuts(false);
           } else if (selected) {
-            setSelectedThread(null);
+            closeThreadRef.current();
           } else if (searchQueryRef.current) {
             setSearchQuery("");
           }
@@ -1435,7 +1446,7 @@ export default function InboxPage() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [setSelectedThread, selectedThreadRef]);
 
   if (isGuest) {
     return (
@@ -1453,7 +1464,7 @@ export default function InboxPage() {
       <PageTransition className="h-full">
         <div className="h-full flex flex-col overflow-hidden gap-1">
           {/* Header */}
-          <div className="flex-shrink-0 mx-1 px-3 pt-3">
+          <div data-inbox-background className="flex-shrink-0 mx-1 px-3 pt-3">
             <PageHeader
               icon={Inbox}
               title="Inbox"
@@ -1515,7 +1526,7 @@ export default function InboxPage() {
           {/* Main content - 3 panel layout */}
           <div className="flex-1 flex overflow-hidden min-h-0 gap-1 p-1 pt-0">
             {/* Left panel - Categories */}
-            <div className={cn(
+            <div data-inbox-background className={cn(
               "h-full flex-shrink-0 bg-raised/90 rounded-lg transition-all duration-200 overflow-hidden relative",
               categoryCollapsed ? "w-12" : "w-48"
             )}>
@@ -1636,7 +1647,7 @@ export default function InboxPage() {
             </div>
 
             {/* Middle panel - Thread list */}
-            <div className={cn(
+            <div data-inbox-background className={cn(
               "flex-1 min-w-0 min-h-0 bg-raised/90 rounded-lg overflow-hidden flex flex-col"
             )}>
               {/* Search bar */}
@@ -1881,7 +1892,7 @@ export default function InboxPage() {
                           key={thread.root_message.id}
                           thread={thread}
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                          onClick={() => handleSelectThread(thread)}
+                          onClick={event => handleSelectThread(thread, event.currentTarget)}
                           pictureMap={tutorPictureMap}
                           draftPreview={draftsMap.get(thread.root_message.id)}
                           onlineTutorIds={onlineTutorIds}
@@ -1899,7 +1910,7 @@ export default function InboxPage() {
                           key={thread.root_message.id}
                           thread={thread}
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                          onClick={() => handleSelectThread(thread)}
+                          onClick={event => handleSelectThread(thread, event.currentTarget)}
                           isSentView={selectedCategory === "sent"}
                           searchQuery={showSearch ? debouncedSearch : undefined}
                           pictureMap={tutorPictureMap}
@@ -1965,19 +1976,14 @@ export default function InboxPage() {
             </div>
 
             {/* Right panel - Thread detail */}
+            <AnimatePresence initial={false} mode="wait">
             {selectedThread && hasTutor ? (
-              <div
-                key={selectedThread.root_message.id}
-                role="region"
-                aria-label="Thread detail"
-                aria-live="polite"
-                className={cn(
-                "h-full rounded-lg overflow-hidden animate-in fade-in duration-150",
-                isMobile ? "fixed inset-0 z-40 md:left-[var(--sidebar-width)] transition-[left] duration-200" : "w-[450px] xl:w-[550px] flex-shrink-0"
-              )}>
+              <ThreadFrame key="thread-detail" mobile={isMobile} onUnmount={returnToThreadSource}>
                 <ErrorBoundary onReset={handleCloseThread}>
                 <ThreadDetailPanel
+                  key={`${tutorId}:${selectedThread.root_message.id}`}
                   thread={selectedThread}
+                  notificationTarget={notificationLanding?.thread === selectedThread.root_message.id ? notificationLanding : null}
                   currentTutorId={effectiveTutorId ?? 0}
                   onClose={handleCloseThread}
                   onReply={handleReply}
@@ -2028,9 +2034,9 @@ export default function InboxPage() {
                   onOptimisticReply={setOptimisticReply}
                 />
                 </ErrorBoundary>
-              </div>
+              </ThreadFrame>
             ) : !isMobile && (
-              <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-raised/90 rounded-lg">
+              <div key="thread-empty" className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-raised/90 rounded-lg">
                 <div className="text-center text-gray-500 dark:text-gray-400">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Select a conversation</p>
@@ -2040,6 +2046,7 @@ export default function InboxPage() {
                 </div>
               </div>
             )}
+            </AnimatePresence>
           </div>
         </div>
       </PageTransition>

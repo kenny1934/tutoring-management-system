@@ -7,6 +7,8 @@ import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, Exter
 import { Button, IconButton, Segmented } from "@/components/controls";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { BulkChangeTutorModal } from "@/components/sessions/BulkChangeTutorModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
@@ -659,6 +661,8 @@ function DayPopover({
   sessionProposalMap,
 }: DayPopoverProps) {
   const { date, sessions, proposedSessions } = dayData;
+  const { isAdmin } = useAuth();
+  const [bulkTutorModalOpen, setBulkTutorModalOpen] = useState(false);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Bulk selection state
@@ -823,6 +827,14 @@ function DayPopover({
           />
         </div>
 
+        {bulkTutorModalOpen && isAdmin && (
+          <BulkChangeTutorModal
+            sessions={selectedSessions}
+            isOpen
+            onClose={() => setBulkTutorModalOpen(false)}
+            onSaved={() => setSelectedIds(new Set())}
+          />
+        )}
         {/* Bulk Action Bar - appears when selections exist */}
         {hasSelection && tab === "list" && (
           <div className="px-3 py-2 border-b border-line bg-paper">
@@ -832,6 +844,9 @@ function DayPopover({
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Attendance actions - conditional based on selected sessions */}
+                {isAdmin && (
+                  <Button size="sm" onClick={() => setBulkTutorModalOpen(true)}>Change tutor</Button>
+                )}
                 {bulkActionsAvailable.attended && (
                   <Button size="sm" icon={CheckCheck} iconClassName="text-green-700 dark:text-green-400" disabled title="Coming soon">
                     <span className="hidden xs:inline">Attended</span>

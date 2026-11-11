@@ -1,5 +1,7 @@
 "use client";
 
+import materialStyles from "@/components/material/MaterialWorkspace.module.css";
+import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Loader2, ZoomIn, ZoomOut, ExternalLink, X, Copy, Check, ScanLine } from "lucide-react";
 import { CalendarPlus } from "lucide-react";
@@ -60,9 +62,9 @@ export function BrowsePdfPreview({
   const [importPdf, setImportPdf] = useState<{ blob: Blob; filename: string; path?: string } | null>(null);
 
   return (
-    <div className="flex-1 flex flex-col p-4 min-w-0">
+    <div data-material-preview data-material-open="true" className={cn("flex-1 flex flex-col p-3 sm:p-4 min-w-0", materialStyles.materialPdfPreview)}>
       {/* Header with title and controls */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <span className="font-medium text-gray-700 dark:text-gray-300 truncate">
           {previewNode?.name}
         </span>

@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import { usePopoverSheet, PopoverShell } from "./usePopoverSheet";
 
-function Harness({ asSheet, onClose }: { asSheet: boolean; onClose: () => void }) {
-  const sheet = usePopoverSheet(asSheet, {}, onClose);
+function Harness({ asSheet, onClose, onCloseStart }: { asSheet: boolean; onClose: () => void; onCloseStart?: () => void }) {
+  const sheet = usePopoverSheet(asSheet, {}, onClose, 9999, onCloseStart);
   return (
     <PopoverShell
       sheet={sheet}
@@ -45,6 +45,16 @@ describe("a popover drawn as a sheet", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a paired transition once before the sheet finishes leaving", async () => {
+    const onClose = vi.fn(), onCloseStart = vi.fn();
+    const { container, getByText } = render(<Harness asSheet onClose={onClose} onCloseStart={onCloseStart} />);
+    fireEvent.click(getByText("Close"));
+    fireEvent.click(backdropOf(container));
+    expect(onCloseStart).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it("keeps the header in the strip that stays at the top as the body scrolls", () => {

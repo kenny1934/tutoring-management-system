@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Map as MapIcon, FileText, Loader2, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scrollAppToTop } from "@/lib/scroll";
+import { useDocumentJourney } from "@/components/material/useDocumentJourney";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { Input, PageHeader, Select, Segmented } from "@/components/controls";
 import { PageTransition } from "@/lib/design-system";
@@ -468,6 +469,14 @@ export default function CurriculumPage() {
   );
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
   const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
+  const topicWorkspace = useRef<HTMLDivElement>(null);
+  const topicSource = useRef<HTMLElement | null>(null);
+  const topicJourney = useDocumentJourney(topicWorkspace, topicFiles?.conceptId ?? null, { sourceSelector: "button, [role=button]", targetSelector: '[data-curriculum-topic-heading="inspector"]', kind: "label" });
+  const openTopicFiles = useCallback((topic: { conceptId: number; name: string }) => {
+    topicJourney.prepareOpen(topic.conceptId, topicSource.current);
+    setTopicFiles(topic);
+  }, [topicJourney]);
+  const closeTopicFiles = useCallback(() => { topicJourney.prepareReturn(); setTopicFiles(null); }, [topicJourney]);
   // Week the tutor jumped to (highlight column + week card on the Gantt).
   const [focusWeek, setFocusWeek] = useState<number | null>(() => {
     const w = parseInt(searchParams.get("week") || "", 10);
@@ -811,6 +820,7 @@ export default function CurriculumPage() {
   return (
     <PageSurface>
       <PageTransition className="flex flex-col gap-3 p-4 sm:p-6">
+        <div ref={topicWorkspace} className="contents" onClickCapture={event => { topicSource.current = (event.target as Element).closest<HTMLElement>('button, [role="button"]'); }}>
         {/* Toolbar. Sticky from sm up only: on phones it wraps to two or
             three rows and would pin that much of the viewport. */}
         <div className="surface-bar relative z-30 sm:sticky sm:top-0">
@@ -1010,7 +1020,7 @@ export default function CurriculumPage() {
                 stream={school ? effectiveStream : null}
                 selectedGrade={school ? effectiveGrade : null}
                 isMobile={isMobile}
-                onOpenFiles={setTopicFiles}
+                onOpenFiles={openTopicFiles}
               />
             )}
           </div>
@@ -1133,7 +1143,7 @@ export default function CurriculumPage() {
                   stream={effectiveStream}
                   expandedLane={expandedLane}
                   setExpandedLane={setExpandedLane}
-                  onTopicFiles={setTopicFiles}
+                  onTopicFiles={openTopicFiles}
                 />
                 <div className="h-2" />
               </div>
@@ -1183,7 +1193,7 @@ export default function CurriculumPage() {
                               aria-label={`Worksheets for ${conceptNameForStream(c, effectiveStream)}`}
                               title="See the worksheets for this topic"
                               onClick={() =>
-                                setTopicFiles({
+                                openTopicFiles({
                                   conceptId: c.concept_id,
                                   name: conceptNameForStream(c, effectiveStream),
                                 })
@@ -1334,7 +1344,7 @@ export default function CurriculumPage() {
                   combos={pacingCombos}
                   maxWeek={pacingMaxWeek}
                   labelStream={pacingLabelStream}
-                  onTopicFiles={setTopicFiles}
+                  onTopicFiles={openTopicFiles}
                 />
               </div>
             </div>
@@ -1343,6 +1353,7 @@ export default function CurriculumPage() {
 
         {topicFiles && (
           <CurriculumTopicFiles
+            inspector
             conceptId={topicFiles.conceptId}
             conceptName={topicFiles.name}
             scope={
@@ -1354,9 +1365,10 @@ export default function CurriculumPage() {
                   }
                 : null
             }
-            onClose={() => setTopicFiles(null)}
+            onClose={closeTopicFiles}
           />
         )}
+        </div>
       </PageTransition>
     </PageSurface>
   );

@@ -1,8 +1,10 @@
 "use client";
 
+import { useReducedMotion } from "framer-motion";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useClickOutside } from "@/lib/hooks";
 import { usePanelSwipe } from "@/lib/usePanelSwipe";
+import { useThreadReadingPosition } from "./useThreadReadingPosition";
 import { useSwipeable } from "@/lib/useSwipeable";
 import { messagesAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,7 @@ function SwipeableMessage({ children, onQuote }: { children: React.ReactNode; on
 
 export interface ThreadDetailPanelProps {
   thread: MessageThread;
+  notificationTarget?: { message: number | null } | null;
   currentTutorId: number;
   onClose: () => void;
   onReply: (msg: Message) => void;
@@ -117,6 +120,7 @@ export interface ThreadDetailPanelProps {
 const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   thread,
   currentTutorId,
+  notificationTarget,
   onClose,
   onReply,
   onSendMessage,
@@ -154,7 +158,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 }: ThreadDetailPanelProps) {
   const { showToast } = useToast();
   const { root_message: msg, replies } = thread;
-  const allMessages = [msg, ...replies.filter(r => r.id > 0)];
+  const allMessages = useMemo(() => [msg, ...replies.filter(r => r.id > 0)], [msg, replies]);
 
   // Scope @mentions to thread participants (senders + recipients)
   const threadMentionUsers = useMemo(() => {
@@ -169,7 +173,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   }, [allMessages, mentionUsers]);
 
   // Edge-only swipe right to close with peeking animation (mobile)
-  const { panelRef, touchHandlers } = usePanelSwipe(isMobile, onClose);
+  const reducedMotion = useReducedMotion();
+  const { panelRef, touchHandlers } = usePanelSwipe(isMobile, onClose, { reducedMotion: !!reducedMotion, managedExit: true });
 
   // Thread search state
   const [threadSearch, setThreadSearch] = useState("");
@@ -212,7 +217,15 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // "Edit as New" geometry state — set when user clicks "Edit as New" in a diagram viewer
   const [externalGeoState, setExternalGeoState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollPositionsRef = useRef<Map<number, number>>(new Map());
+  const readingContent = useRef<HTMLDivElement>(null);
+  const notificationMessageRef = useRef<{ source: typeof notificationTarget; id?: number }>({ source: undefined });
+  if (notificationMessageRef.current.source !== notificationTarget) {
+    notificationMessageRef.current = { source: notificationTarget, id: notificationTarget
+      ? allMessages.find(m => m.id === notificationTarget.message)?.id
+        ?? allMessages.find(m => !m.is_read && m.from_tutor_id !== currentTutorId)?.id
+        ?? allMessages.at(-1)?.id : undefined };
+  }
+  useThreadReadingPosition({ targetId: notificationTarget ? notificationMessageRef.current.id : undefined, scroller: scrollRef, content: readingContent, scope: `${currentTutorId}:${msg.id}`, ready: !(msg.reply_count > 0 && replies.length === 0), animate: !isMobile });
 
   // Capture first unread message ID before auto-mark-read (runs during render, before effects)
   const firstUnreadIdRef = useRef<number | null>(null);
@@ -249,32 +262,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       onOptimisticReply?.(null);
     }
   }, [thread, currentTutorId, optimisticMessage, onOptimisticReply]);
-
-  // Save scroll position when switching away; restore or scroll-to-bottom when opening
-  const prevScrollThreadIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    const prevId = prevScrollThreadIdRef.current;
-    const newId = thread.root_message.id;
-    // Save outgoing thread's scroll position
-    if (prevId !== null && prevId !== newId && scrollRef.current) {
-      scrollPositionsRef.current.set(prevId, scrollRef.current.scrollTop);
-    }
-    prevScrollThreadIdRef.current = newId;
-
-    // Only scroll on thread change (not on every SWR refresh)
-    if (prevId === newId) return;
-    setShowMediaPanel(false);
-
-    setTimeout(() => {
-      if (!scrollRef.current) return;
-      const saved = scrollPositionsRef.current.get(newId);
-      if (saved !== undefined) {
-        scrollRef.current.scrollTo({ top: saved });
-      } else {
-        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-      }
-    }, 100);
-  }, [thread]);
 
   // Mark messages as read when viewing (skip scheduled — not sent yet)
   useEffect(() => {
@@ -403,6 +390,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   return (
     <div
       ref={panelRef}
+      data-inbox-thread={msg.id}
       className={cn("h-full flex flex-col", isMobile ? "bg-raised" : "bg-raised/90")}
       {...touchHandlers}
     >
@@ -626,7 +614,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       )}
 
       {/* Messages */}
-      <div ref={scrollRef} className={cn("flex-1 overflow-y-auto p-4", showMediaPanel && "hidden")} onClick={handleQuoteClick}>
+      <div ref={scrollRef} data-inbox-thread-scroll className={cn("flex-1 overflow-y-auto p-4", showMediaPanel && "hidden")} onClick={handleQuoteClick}>
+        <div ref={readingContent} className="flow-root" data-inbox-message-content>
         {processedMessages.map(({ message: m, isNewDay, msgDate, isFirstInGroup, isLastInGroup }, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
 
@@ -634,6 +623,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             <MessageBubble
               message={m}
               idx={idx}
+              animateEntry={false}
               isOwn={isOwn}
               isFirstInGroup={isFirstInGroup}
               isLastInGroup={isLastInGroup}
@@ -780,6 +770,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             )}
           </div>
         )}
+
+        </div>
 
         {/* Scroll to bottom button — sticky stays pinned to bottom of scroll viewport */}
         <div className={cn(

@@ -1,5 +1,6 @@
 "use client";
 
+import materialStyles from "@/components/material/MaterialWorkspace.module.css";
 import { useRef, useLayoutEffect, useEffect, useState, useCallback } from "react";
 import useSWR from "swr";
 import { X, ExternalLink, FileText, Lock, GitBranch, ListChecks, ScanLine, Star, Plus, Check } from "lucide-react";
@@ -20,6 +21,7 @@ interface DocumentPreviewPaneProps {
   onEditTags?: (id: number) => void;
   /** When true, collapse to zero width with animation (always mounted). */
   collapsed?: boolean;
+  mobile?: boolean;
 }
 
 function SourceFileCopy({ filename }: { filename: string }) {
@@ -41,7 +43,7 @@ function SourceFileCopy({ filename }: { filename: string }) {
   );
 }
 
-export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, onToggleStar, onEditTags, collapsed }: DocumentPreviewPaneProps) {
+export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, onToggleStar, onEditTags, collapsed, mobile = false }: DocumentPreviewPaneProps) {
   const { data: doc, error, isLoading } = useSWR(
     docId !== null ? ["document-preview", docId] : null,
     () => documentsAPI.get(docId!)
@@ -110,15 +112,19 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
 
   return (
     <aside
+      data-material-preview
+      data-material-open={!collapsed && docId !== null}
       className={cn(
-        "hidden lg:flex flex-col shrink-0 h-full overflow-hidden transition-[width] duration-200 ease-out",
+        materialStyles.materialPdfPreview,
+        "flex-col shrink-0 h-full min-h-0 overflow-hidden transition-[width] duration-200 ease-out",
+        mobile ? "flex" : "hidden lg:flex",
         !collapsed && "border-l border-gray-200 dark:border-gray-700/50"
       )}
-      style={{ width: collapsed ? 0 : "20rem" }}
+      style={{ width: mobile ? "100%" : collapsed ? 0 : "20rem" }}
     >
       {docId === null ? (
         /* Empty state */
-        <div className={cn("flex-1 flex flex-col items-center justify-center p-6 text-center", !collapsed && "min-w-[20rem]")}>
+        <div className={cn("flex-1 flex flex-col items-center justify-center p-6 text-center", !collapsed && !mobile && "min-w-[20rem]")}>
           <div className={cn("relative mb-4", !collapsed && "animate-empty-float")}>
             <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-line/50 dark:bg-line/20" />
             <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-wash/70 dark:bg-wash/50" />
@@ -130,7 +136,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
           <p className="text-xs text-gray-300 dark:text-gray-400 mt-1">Select a document to preview</p>
         </div>
       ) : (
-        <div ref={fadeRef} className={cn("flex flex-col h-full", !collapsed && "min-w-[20rem]")}>
+        <div ref={fadeRef} className={cn("flex flex-col h-full", !collapsed && !mobile && "min-w-[20rem]")}>
           {/* Header */}
           <div className="border-b border-line/60 dark:border-line/40 px-3 py-3 shrink-0 bg-gradient-to-b from-[#fef9f3] to-[#fdf4ec] dark:from-[#1c1811] dark:to-[#181410]">
             {/* Top row: open + close */}
@@ -284,7 +290,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
           </div>
 
           {/* Content area */}
-          <div className="flex-1 overflow-y-auto">
+          <div data-material-reader-content={docId} className="flex-1 min-h-0 overflow-y-auto">
             {isLoading ? (
               <div className="p-4 space-y-3">
                 {[85, 70, 95, 60, 80, 90, 65, 75].map((w, i) => (

@@ -1,10 +1,13 @@
 "use client";
 
+import { useDocumentJourney } from "@/components/material/useDocumentJourney";
+import { DocumentReaderSheet } from "@/components/documents/DocumentReaderSheet";
+import materialStyles from "@/components/material/MaterialWorkspace.module.css";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { FileText, Lock, FolderOpen, Trash2, X as XIcon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -31,17 +34,19 @@ import { useDndDocuments, useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Document, DocumentFolder } from "@/types";
 
-function DraggableCard({ doc, selectedIds, disabled, children, className, onClick, onDoubleClick }: {
+function DraggableCard({ doc, selectedIds, disabled, children, className, onClick, onDoubleClick, "data-previewing": previewing }: {
+  "data-previewing"?: boolean;
   doc: Document; selectedIds: Set<number>; disabled: boolean;
   children: React.ReactNode; className?: string; onClick: (e: React.MouseEvent) => void; onDoubleClick?: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
     docId: doc.id, docTitle: doc.title, selectedIds, disabled, idPrefix: "doc-card",
   });
   return (
-    <div ref={setNodeRef} {...dragProps} onClick={onClick} onDoubleClick={onDoubleClick} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
+    <motion.div data-material-doc-id={doc.id} tabIndex={-1} data-template={doc.is_template || undefined} layout={reduceMotion ? false : "position"} transition={{ layout: { duration: .2, ease: [.2, .7, .2, 1] } }} data-previewing={previewing} ref={setNodeRef} {...dragProps} onClick={onClick} onDoubleClick={onDoubleClick} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -103,6 +108,11 @@ export default function DocumentsPage() {
     typeof window !== "undefined" && localStorage.getItem("doc-preview-enabled") === "true"
   );
   const [previewDocId, setPreviewDocId] = useState<number | null>(null);
+  const [readerDocId, setReaderDocId] = useState<number | null>(null);
+  const materialRoot = useRef<HTMLDivElement>(null);
+  const documentJourney = useDocumentJourney(materialRoot, readerDocId);
+  const phoneReader = useIsMobile(1024);
+  const closePreview = useCallback(() => { if (readerDocId !== null) documentJourney.prepareReturn(); setReaderDocId(null); setPreviewDocId(null); }, [documentJourney, readerDocId]);
 
   // --- Selection + expansion ---
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -187,7 +197,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     setExtraDocs([]);
     setMoreExhausted(false);
-    setPreviewDocId(null);
+    setPreviewDocId(null); setReaderDocId(null);
     setSelectedIds(new Set());
   }, [debouncedSearch, isTrashTab, sortIdx, activeTags, activeFolderId, activeTab, showStarred]);
 
@@ -229,6 +239,7 @@ export default function DocumentsPage() {
       if (!onInput) {
         if (e.key === "?") { e.preventDefault(); setShowShortcutHints(prev => !prev); return; }
         if (e.key === "Escape" && showShortcutHintsRef.current) { setShowShortcutHints(false); return; }
+        if (e.key === "Escape" && previewDocIdRef.current !== null) { e.preventDefault(); closePreview(); return; }
         if (e.key === "/") { e.preventDefault(); document.querySelector<HTMLInputElement>('[placeholder*="Search"]')?.focus(); return; }
         if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); setShowCreateModal(true); return; }
         if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.size > 0) {
@@ -250,23 +261,31 @@ export default function DocumentsPage() {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         const nextIdx = currentIdx < visibleIds.length - 1 ? currentIdx + 1 : 0;
+        if (previewEnabled || readerDocId !== null) {
+          documentJourney.prepareOpen(visibleIds[nextIdx], rowEls[nextIdx]);
+          setReaderDocId(visibleIds[nextIdx]);
+        }
         setPreviewDocId(visibleIds[nextIdx]);
         rowEls[nextIdx]?.scrollIntoView({ block: "nearest" });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         const prevIdx = currentIdx > 0 ? currentIdx - 1 : visibleIds.length - 1;
+        if (previewEnabled || readerDocId !== null) {
+          documentJourney.prepareOpen(visibleIds[prevIdx], rowEls[prevIdx]);
+          setReaderDocId(visibleIds[prevIdx]);
+        }
         setPreviewDocId(visibleIds[prevIdx]);
         rowEls[prevIdx]?.scrollIntoView({ block: "nearest" });
       } else if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && currentId !== null) {
         e.preventDefault();
         router.push(`/documents/${currentId}`);
       } else if (e.key === "Escape") {
-        setPreviewDocId(null);
+        closePreview();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [router]);
+  }, [router, documentJourney, closePreview, previewEnabled, readerDocId]);
 
   // --- View callbacks ---
   const toggleViewMode = useCallback((mode: "table" | "grid") => {
@@ -278,7 +297,7 @@ export default function DocumentsPage() {
     setPreviewEnabled((prev) => {
       const next = !prev;
       localStorage.setItem("doc-preview-enabled", String(next));
-      if (!next) setPreviewDocId(null);
+      if (!next) { setPreviewDocId(null); setReaderDocId(null); }
       return next;
     });
   }, []);
@@ -290,12 +309,13 @@ export default function DocumentsPage() {
       return;
     }
     trackDocView(docId);
-    if (previewEnabled && window.matchMedia("(min-width: 1024px)").matches) {
-      setPreviewDocId(docId);
+    if (previewEnabled || window.matchMedia("(max-width: 1023px)").matches) {
+      if (readerDocId !== docId) documentJourney.prepareOpen(docId, (e?.currentTarget instanceof HTMLElement ? e.currentTarget : null) ?? materialRoot.current?.querySelector<HTMLElement>(`[data-material-doc-id="${docId}"], tr[data-doc-id="${docId}"]`));
+      setPreviewDocId(docId); setReaderDocId(docId);
     } else {
       router.push(`/documents/${docId}`);
     }
-  }, [previewEnabled, router]);
+  }, [previewEnabled, readerDocId, documentJourney, router]);
 
   // --- Selection callbacks ---
   const handleToggleSelect = useCallback((id: number) => {
@@ -623,7 +643,7 @@ export default function DocumentsPage() {
             buttons stay in the toolbar inside the card, so this is only the name. */}
         <PageHeader icon={FileText} title="Documents" className="mb-2 sm:mb-3" />
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-        <div className="flex flex-1 min-h-0 bg-raised rounded-xl border border-line shadow-sm overflow-hidden">
+        <div ref={materialRoot} className={cn("flex flex-1 min-h-0 overflow-hidden", materialStyles.materialWorkspace)}>
         {/* Sidebar — desktop */}
         <FolderSidebar
           hidden={isTemplatesTab}
@@ -762,7 +782,7 @@ export default function DocumentsPage() {
                 emptyMessage={emptyMessage}
               />
             ) : (
-              <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={materialStyles.materialDocumentsGrid}>
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-32 rounded-xl bg-wash shimmer-sepia" />
@@ -777,8 +797,10 @@ export default function DocumentsPage() {
                         disabled={!dndEnabled}
                         onClick={(e) => handleDocClick(doc.id, e)}
                         onDoubleClick={() => router.push(`/documents/${doc.id}`)}
+                        data-previewing={readerDocId === doc.id}
                         className={cn(
-                          "group relative rounded-lg border p-3 sm:p-4 cursor-pointer transition-colors",
+                          materialStyles.materialDocument,
+                          "group cursor-pointer",
                           selectedIds.has(doc.id) && "ring-2 ring-primary/50 ring-offset-1",
                           doc.is_archived && !isTrashTab
                             ? "border-dashed border-line-strong bg-paper opacity-60"
@@ -822,9 +844,9 @@ export default function DocumentsPage() {
                         </div>
                         <h3 title={doc.title} className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
                         {doc.content_preview && (
-                          <p className="text-[13px] leading-5 text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">{doc.content_preview}</p>
+                          <p data-material-document-copy className="text-ink-subtle line-clamp-2">{doc.content_preview}</p>
                         )}
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <p data-material-document-meta className="text-xs text-ink-subtle mt-1">
                           {doc.created_by_name}
                           {(isTrashTab ? doc.archived_at : doc.updated_at) && <> · {formatTimeAgo((isTrashTab ? doc.archived_at : doc.updated_at)!)}</>}
                         </p>
@@ -869,15 +891,18 @@ export default function DocumentsPage() {
 
         {/* Preview pane — desktop, inside the card (always mounted for slide animation) */}
         <DocumentPreviewPane
-          docId={previewEnabled ? previewDocId : null}
-          collapsed={!previewEnabled}
-          onClose={() => setPreviewDocId(null)}
+          docId={phoneReader ? null : readerDocId}
+          collapsed={phoneReader || readerDocId === null}
+          onClose={closePreview}
           onOpenEditor={(id) => router.push(`/documents/${id}`)}
           onRename={handleRename}
           onToggleStar={handleToggleStar}
           onEditTags={setTagEditDocId}
         />
         </div>{/* end white card */}
+        {phoneReader && readerDocId !== null && <DocumentReaderSheet onClose={closePreview}>
+          <DocumentPreviewPane mobile docId={readerDocId} onClose={closePreview} onOpenEditor={(id) => router.push(`/documents/${id}`)} onRename={handleRename} onToggleStar={handleToggleStar} onEditTags={setTagEditDocId} />
+        </DocumentReaderSheet>}
         <DragOverlay dropAnimation={null}>
           {activeDragData && (
             <div className="px-3 py-2 bg-raised rounded-lg shadow-lg border border-primary/40 text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2 pointer-events-none">

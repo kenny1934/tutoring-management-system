@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -11,6 +11,10 @@ import {
   useInteractions,
   FloatingPortal,
   useClick,
+  useRole,
+  useListNavigation,
+  useTypeahead,
+  FloatingFocusManager,
 } from "@floating-ui/react";
 import { fitToScreen } from "@/hooks/usePopoverSheet";
 import { ChevronDown, Zap } from "lucide-react";
@@ -47,10 +51,15 @@ const STATUS_OPTIONS: StatusOption[] = [
 interface StatusFilterDropdownProps {
   value: string;
   onChange: (value: string) => void;
+  compactDefaultLabel?: boolean;
 }
 
-export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownProps) {
+export function StatusFilterDropdown({ value, onChange, compactDefaultLabel = false }: StatusFilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const listRef = useRef<Array<HTMLElement | null>>([]);
+  const labelsRef = useRef(STATUS_OPTIONS.map(option => option.label));
+  const selectedIndex = STATUS_OPTIONS.findIndex(option => option.value === value);
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
@@ -67,7 +76,10 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
 
   const click = useClick(context);
   const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
+  const role = useRole(context, { role: "listbox" });
+  const navigation = useListNavigation(context, { listRef, activeIndex, selectedIndex, onNavigate: setActiveIndex, loop: true, focusItemOnOpen: true });
+  const typeahead = useTypeahead(context, { listRef: labelsRef, activeIndex, onMatch: setActiveIndex, enabled: isOpen });
+  const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([click, dismiss, role, navigation, typeahead]);
 
   const selectedOption = STATUS_OPTIONS.find(opt => opt.value === value);
   const isActiveFilter = value === ACTIVE_FILTER;
@@ -80,6 +92,9 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
       <button
         ref={refs.setReference}
         {...getReferenceProps()}
+        title={selectedOption?.label || "Status"}
+        aria-label={`Status: ${selectedOption?.label || value || "All statuses"}`}
+        data-native-filter-active={compactDefaultLabel && !!value || undefined}
         className={cn(
           "flex items-center gap-1.5 px-2 py-1 text-sm",
           "bg-field-fill",
@@ -98,17 +113,19 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
             <SelectedIcon className={cn("h-2.5 w-2.5 text-white", selectedConfig.iconClass)} />
           </span>
         ) : null}
-        <span className="truncate max-w-[100px] sm:max-w-[180px]">{selectedOption?.label || "Status"}</span>
+        <span className="truncate max-w-[100px] sm:max-w-[180px]">{!value && compactDefaultLabel ? <><span className="sm:hidden">Status</span><span className="hidden sm:inline">All statuses</span></> : selectedOption?.label || "Status"}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-accent-ink transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {/* Dropdown menu */}
       {isOpen && (
         <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
           <div
             ref={refs.setFloating}
             style={floatingStyles}
             {...getFloatingProps()}
+            aria-label="Session status"
             className={cn(
               "z-[9999]",
               "bg-raised",
@@ -117,7 +134,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
               "py-1 min-w-[180px] max-h-[300px] overflow-y-auto"
             )}
           >
-            {STATUS_OPTIONS.map((option) => {
+            {STATUS_OPTIONS.map((option, index) => {
               const isActive = option.value === ACTIVE_FILTER;
               const config = option.value && !isActive ? getSessionStatusConfig(option.value) : null;
               const Icon = config?.Icon;
@@ -126,10 +143,11 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
               return (
                 <div key={option.value || "_all"}>
                   <button
-                    onClick={() => {
-                      onChange(option.value);
-                      setIsOpen(false);
-                    }}
+                    ref={node => { listRef.current[index] = node; }}
+                    role="option"
+                    aria-selected={isSelected}
+                    tabIndex={activeIndex === index ? 0 : -1}
+                    {...getItemProps({ onClick: () => { onChange(option.value); setIsOpen(false); } })}
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
                       "hover:bg-gray-100 dark:hover:bg-gray-800",
@@ -159,6 +177,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
               );
             })}
           </div>
+          </FloatingFocusManager>
         </FloatingPortal>
       )}
     </>

@@ -7,6 +7,10 @@ import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { openFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { Button, IconButton } from "@/components/controls";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { useBackToClose } from "@/hooks/useBackToClose";
+import { useAsSheet } from "@/hooks/usePopoverSheet";
+import styles from "./CurriculumJourney.module.css";
 import { useDialogFocus } from "./CurriculumModalShell";
 
 interface CurriculumPdfPreviewProps {
@@ -34,6 +38,9 @@ export function CurriculumPdfPreview({
   const [failed, setFailed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const trapTab = useDialogFocus(panelRef);
+  const { isTopmost } = useOverlayLayer(true);
+  const onPhone = useAsSheet();
+  useBackToClose(onPhone, onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,18 +68,18 @@ export function CurriculumPdfPreview({
   // data-curriculum-overlay marker.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && isTopmost) { e.preventDefault(); e.stopImmediatePropagation(); onClose(); }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, [onClose, isTopmost]);
 
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
       data-curriculum-overlay=""
-      className="fixed inset-0 z-[10010] flex items-center justify-center p-2 sm:p-6 bg-black/50"
+      className={`fixed inset-0 z-[10010] flex items-center justify-center p-2 sm:p-6 bg-black/50 ${styles.pdfBackdrop}`}
       onClick={onClose}
     >
       <div
@@ -82,11 +89,12 @@ export function CurriculumPdfPreview({
         aria-label={`Preview of ${fileLabel}`}
         tabIndex={-1}
         onKeyDown={trapTab}
-        className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden focus:outline-none"
+        className={`bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden focus:outline-none ${styles.pdfPanel}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-line-strong/40 dark:border-line-strong/60">
+        <header className="flex items-center gap-2 px-3 py-2 border-b border-line-strong/40 dark:border-line-strong/60">
           <span
+            data-curriculum-pdf-label
             className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate flex-1"
             title={filePath}
           >
@@ -112,9 +120,9 @@ export function CurriculumPdfPreview({
             onClick={() => openFileFromPathWithFallback(filePath, searchPaperlessByPath)}
           />
           <IconButton icon={X} size="sm" label="Close preview" onClick={onClose} />
-        </div>
+        </header>
 
-        <div className="flex-1 min-h-0 bg-gray-100 dark:bg-gray-900">
+        <div data-curriculum-pdf-content className="flex-1 min-h-0 bg-gray-100 dark:bg-gray-900">
           {blobUrl ? (
             <iframe src={blobUrl} title={fileLabel} className="w-full h-full border-0" />
           ) : (

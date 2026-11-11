@@ -20,12 +20,16 @@ import { RENDER_SCALE } from "@/hooks/useAnnotations";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { useTheme } from "next-themes";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { LessonWorksheetLoading } from "@/components/design-preview/LessonWorksheetLoading";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
+import { announceWorksheetReady } from "@/components/design-preview/worksheetHandoff";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
 /** Format page numbers into compact range notation: [1,3,5,6,7] → "1,3,5-7" */
-function formatCompactPageRange(pages: number[]): string {
+export function formatCompactPageRange(pages: number[]): string {
   if (pages.length === 0) return "";
   if (pages.length === 1) return String(pages[0]);
   const groups: string[] = [];
@@ -205,6 +209,7 @@ interface PdfPageViewerProps {
    * kept, keyed by exercise id. Pass the same map on every render.
    */
   viewStates?: Map<number, PdfViewState>;
+  onViewStateChange?: () => void;
   /**
    * Which saved view in viewStates this viewer uses, when it isn't keyed by
    * exerciseId. The answer key's viewer leaves exerciseId out, because the
@@ -272,11 +277,13 @@ export function PdfPageViewer({
   emptyMessage = "Select an exercise to view",
   emptyAction,
   viewStates,
+  onViewStateChange,
   viewKey,
   coverButton = false,
   trayArea,
   ref,
 }: PdfPageViewerProps) {
+  const preview = useNativePresentation();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [pages, setPages] = useState<RenderedPage[]>([]);
@@ -287,6 +294,7 @@ export function PdfPageViewer({
   const [pdfDarkMode, togglePdfDarkMode] = usePdfDarkMode();
   const pageUrlsRef = useRef<string[]>([]);
   const pagesRef = useRef<RenderedPage[]>([]);
+  const arrivalRef = useRef<{ id: number | undefined; data: ArrayBuffer; pages: RenderedPage[] } | null>(null);
   const zoomRef = useRef(100);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -340,7 +348,8 @@ export function PdfPageViewer({
       inkHidden: inkHiddenRef.current,
       covers: coversRef.current,
     });
-  }, [viewId, viewStates]);
+    onViewStateChange?.();
+  }, [viewId, viewStates, onViewStateChange]);
 
   const setInkHidden = useCallback((hidden: boolean) => {
     inkHiddenRef.current = hidden;
@@ -467,6 +476,7 @@ export function PdfPageViewer({
       pdfBytesRef.current = null;
       setPages([]);
       setProcessError(null);
+      setIsProcessing(false);
       return;
     }
 
@@ -485,6 +495,13 @@ export function PdfPageViewer({
     }
 
     let cancelled = false;
+    let destroyDocument: (() => void) | undefined;
+    const deadline = setTimeout(() => {
+      cancelled = true;
+      destroyDocument?.();
+      setProcessError("The PDF took too long to prepare.");
+      setIsProcessing(false);
+    }, 45_000);
     setIsProcessing(true);
     setProcessError(null);
 
@@ -507,7 +524,10 @@ export function PdfPageViewer({
 
         // Step 2: Render pages in parallel with pdfjs-dist
         const pdfjs = await getPdfJs();
-        const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
+        if (cancelled) return;
+        const task = pdfjs.getDocument({ data: pdfBytes });
+        destroyDocument = () => { destroyDocument = undefined; void task.destroy().catch(() => {}); };
+        const doc = await task.promise;
 
         if (cancelled) {
           doc.destroy();
@@ -529,7 +549,7 @@ export function PdfPageViewer({
             if (canvas.width === 0 || canvas.height === 0) return null;
             const ctx = canvas.getContext("2d");
             if (!ctx) return null;
-            await page.render({ canvasContext: ctx, viewport }).promise;
+            await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
             if (cancelled) return null;
 
@@ -546,6 +566,7 @@ export function PdfPageViewer({
               height: viewport.height / dpr,
             };
           } catch (err) {
+            if (cancelled) return null;
             console.warn("[PdfPageViewer] Page render failed (page", pageNum, "):", err);
             return null;
           }
@@ -555,6 +576,7 @@ export function PdfPageViewer({
         const results = await Promise.all(pageNums.map(renderPage));
 
         doc.destroy();
+        destroyDocument = undefined;
 
         if (cancelled) {
           results.forEach((r) => r && URL.revokeObjectURL(r.url));
@@ -569,6 +591,9 @@ export function PdfPageViewer({
 
         const urls = rendered.map((r) => r.url);
 
+        // A successful second attempt must release the loading state too.
+        // The value 1 is reserved for the brief wait before that retry starts.
+        retryCountRef.current = 2;
         pageUrlsRef.current = urls;
         setPages(rendered);
         renderScaleRef.current = RENDER_SCALE;
@@ -589,6 +614,7 @@ export function PdfPageViewer({
           }
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("[PdfPageViewer] PDF processing failed:", err);
         if (!cancelled) {
           if (retryCountRef.current === 0) {
@@ -603,6 +629,7 @@ export function PdfPageViewer({
           }
         }
       } finally {
+        clearTimeout(deadline);
         // Keep spinner visible while auto-retry is pending (retryCount === 1)
         if (!cancelled && retryCountRef.current !== 1) {
           setIsProcessing(false);
@@ -612,6 +639,8 @@ export function PdfPageViewer({
 
     return () => {
       cancelled = true;
+      clearTimeout(deadline);
+      destroyDocument?.();
     };
   }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick]);
 
@@ -765,7 +794,7 @@ export function PdfPageViewer({
             if (canvas.width === 0 || canvas.height === 0) return null;
             const ctx = canvas.getContext("2d");
             if (!ctx) return null;
-            await (page.render({ canvasContext: ctx, viewport }) as any).promise;
+            await page.render({ canvas, canvasContext: ctx, viewport }).promise;
             const blob = await new Promise<Blob>((resolve, reject) =>
               canvas.toBlob((b) => b ? resolve(b) : reject(new Error("toBlob returned null")), "image/png")
             );
@@ -829,6 +858,16 @@ export function PdfPageViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, exerciseId]);
 
+  useLayoutEffect(() => {
+    if (isLoading || isProcessing || !pdfData || pages.length === 0 || !pageStackRef.current) return;
+    // An outgoing student's pages and a higher-resolution redraw are not a new arrival.
+    const previous = arrivalRef.current;
+    if (previous && previous.id === viewId && previous.data === pdfData) { previous.pages = pages; return; }
+    if (previous?.pages === pages) return;
+    arrivalRef.current = { id: viewId, data: pdfData, pages };
+    if (preview === "motion") return announceWorksheetReady(pageStackRef.current, viewId);
+  }, [preview, isLoading, isProcessing, pdfData, pages, viewId]);
+
   // While a worksheet loads, fails or is missing, the view's own buttons still
   // sit at the top. In focus mode they're the way back, so they can't vanish.
   const withStartBar = (content: ReactNode) => toolbarStart ? (
@@ -840,6 +879,7 @@ export function PdfPageViewer({
 
   // Loading state
   if (isLoading || isProcessing) {
+    if (preview === "motion") return <LessonWorksheetLoading key={viewId} label={exerciseLabel} pages={pageNumbers.length ? formatCompactPageRange(pageNumbers) : undefined} toolbarStart={toolbarStart} toolbarClass={toolbarRow} message={isLoading ? loadingMessage : "Preparing pages"} />;
     // Theme-aware colors for the page-flip animation
     const spine = isDark
       ? 'linear-gradient(to bottom, #a0704b, #7a5535)'
@@ -929,8 +969,9 @@ export function PdfPageViewer({
 
   // Error state
   if (error || processError) {
+    if (preview === "motion") return <LessonWorksheetLoading key={`error-${viewId}`} label={exerciseLabel} pages={pageNumbers.length ? formatCompactPageRange(pageNumbers) : undefined} toolbarStart={toolbarStart} toolbarClass={toolbarRow} error={error || processError} onRetry={onRetry} />;
     return withStartBar(
-      <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
+      <div data-native-pdf-failed className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
           <AlertTriangle className="h-10 w-10 text-amber-700" />
           <p className="text-sm text-ink-subtle">
@@ -978,16 +1019,20 @@ export function PdfPageViewer({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+      <div className={previewStyles.phonePdfTitle}>
+        <span title={exerciseLabel}>{exerciseLabel}</span>
+        {pageNumbers.length > 0 && <small>p{formatCompactPageRange(pageNumbers)}</small>}
+      </div>
       {/* Toolbar. It never wraps: the file name gives way first, then the button labels, and then the row scrolls sideways. */}
-      <div className={cn(toolbarRow, "@container/toolbar")}>
+      <div data-native-pdf-toolbar className={cn(toolbarRow, "@container/toolbar")}>
         {toolbarStart}
         {exerciseLabel && (
-          <span className="min-w-0 truncate text-xs font-medium text-ink-subtle ml-1">
+          <span data-native-pdf-label title={exerciseLabel} className="min-w-0 truncate text-xs font-medium text-ink-subtle ml-1">
             {exerciseLabel}
           </span>
         )}
         {pageNumbers.length > 0 && (
-          <span className="flex-none text-[10px] text-ink-subtle dark:text-[#706050]">
+          <span data-native-pdf-range className="flex-none text-[10px] text-ink-subtle dark:text-[#706050]">
             p{formatCompactPageRange(pageNumbers)}
           </span>
         )}
@@ -1087,6 +1132,7 @@ export function PdfPageViewer({
       {/* Scrollable page container, with the Pen Tray floating over its bottom edge */}
       <div className="relative flex-1 min-h-0 flex flex-col">
       <div
+        data-native-pdf-scroll
         ref={scrollContainerRef}
         {...touchHandlers}
         onScroll={saveView}
@@ -1101,6 +1147,7 @@ export function PdfPageViewer({
         style={{ touchAction: "none", ...zoomStyles(zoom).scroller }}
       >
         <div
+          data-native-pdf-pages
           ref={pageStackRef}
           className="relative flex flex-col gap-4"
           style={{ ...zoomStyles(zoom).stack, transformOrigin: "top left" }}

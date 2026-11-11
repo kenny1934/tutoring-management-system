@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
   ExternalLink,
@@ -83,6 +83,7 @@ function ExerciseItem({
     <div className="group/row flex items-center gap-1">
       <button
         type="button"
+        data-native-lesson-exercise={exercise.id}
         onClick={onClick}
         aria-current={isSelected || undefined}
         className={cn(
@@ -261,6 +262,8 @@ function SessionBlock({
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const exercises = session.exercises || [];
+  const selectedHere = exercises.some(exercise => exercise.id === selectedExerciseId);
+  useEffect(() => { if (selectedHere) setExpanded(true); }, [selectedHere, selectedExerciseId]);
   const cwExercises = useMemo(
     () => exercises.filter(e => e.exercise_type === "CW" || e.exercise_type === "Classwork"),
     [exercises]
@@ -386,7 +389,7 @@ export function LessonExerciseSidebar({
   }
 
   return (
-    <div className="flex flex-col gap-1 py-2 px-1 overflow-y-auto">
+    <div data-native-single-materials className="flex flex-col flex-1 min-h-0 gap-1 py-2 px-1 overflow-y-auto overscroll-contain">
       {/* Last lessons' homework leads: settling it comes before starting on
           today's work, the same order the wide sidebar uses. */}
       {sessionId != null && homeworkToCheck && homeworkToCheck.length > 0 && (

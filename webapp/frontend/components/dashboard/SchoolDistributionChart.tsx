@@ -2,6 +2,8 @@
 
 import { useMemo, memo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import {
   PieChart,
   Pie,
@@ -20,6 +22,11 @@ import { PieChart as PieIcon, BarChart3, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActiveStudent } from "@/types";
 import { CopyDataButton } from "@/components/dashboard/CopyDataButton";
+import { NativeChartPlaceholder } from "@/components/design-preview/NativeChartLoading";
+import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
+import { NativeChartBody, NativeChartLegend, NativeChartPlot } from "@/components/design-preview/NativeChartLegend";
 
 type ViewType = "donut" | "bar" | "radial";
 const STORAGE_KEY = "dashboard-school-chart-view";
@@ -75,13 +82,26 @@ function CustomTooltip({
 function OthersPopover({
   breakdown,
   total,
-  onClose
+  onClose,
+  native = false,
+  onOpen,
 }: {
+  native?: boolean;
+  onOpen?: (school: { name: string }) => void;
   breakdown: Array<{ name: string; value: number }>;
   total: number;
   onClose: () => void;
 }) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const onPhone = useIsMobile();
+  useEffect(() => {
+    if (!native || onPhone) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    popoverRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("keydown", escape); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, [native, onPhone, onClose]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -96,25 +116,45 @@ function OthersPopover({
   const othersTotal = breakdown.reduce((sum, s) => sum + s.value, 0);
   const percentage = total > 0 ? ((othersTotal / total) * 100).toFixed(1) : "0";
 
+  const rows = <div className="divide-y divide-line">
+    {breakdown.map(school => <button type="button" key={school.name}
+      disabled={school.name === "Unknown"}
+      onClick={() => { onClose(); onOpen?.(school); }}
+      className="flex w-full items-start justify-between gap-3 py-3 px-2 text-left text-sm hover:bg-tint disabled:opacity-60">
+      <span className="min-w-0 break-words">{school.name}</span>
+      <span className="shrink-0 tabular-nums text-xs text-gray-500 dark:text-gray-400">{school.value} · {total ? (school.value / total * 100).toFixed(1) : "0"}%</span>
+    </button>)}
+  </div>;
+  if (native && onPhone) return <MobileBottomSheet isOpen onClose={onClose} title="Other schools" modalLabel="Other schools">
+    <div className="px-4 pb-4 text-gray-900 dark:text-gray-100">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{othersTotal} students · {percentage}%</p>
+      {rows}
+    </div>
+  </MobileBottomSheet>;
+
   return (
     <div
       ref={popoverRef}
+      role={native ? "dialog" : undefined}
+      aria-label={native ? "Other schools" : undefined}
+      style={native ? { width: "min(360px, 100%)", maxHeight: 360, top: 8, transform: "translateX(-50%)" } : undefined}
       className="absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-paper border border-line rounded-lg shadow-xl w-[240px] max-h-[280px] overflow-hidden"
     >
       <div className="px-3 py-2 border-b border-line flex items-center justify-between">
         <div>
-          <div className="font-semibold text-gray-900 dark:text-gray-100">Others Breakdown</div>
+          <div className="font-semibold text-gray-900 dark:text-gray-100">{native ? "Other schools" : "Others Breakdown"}</div>
           <div className="text-xs text-gray-500 dark:text-gray-400">{othersTotal} students ({percentage}%)</div>
         </div>
         <button
           onClick={onClose}
+          aria-label="Close schools"
           className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1"
         >
           ×
         </button>
       </div>
-      <div className="p-2 overflow-y-auto max-h-[200px]">
-        <div className="space-y-1">
+      <div className={cn("p-2 overflow-y-auto", native ? "max-h-[280px]" : "max-h-[200px]")}>
+        {native ? rows : <div className="space-y-1">
           {breakdown.map((school, i) => {
             const schoolPct = total > 0 ? ((school.value / total) * 100).toFixed(1) : "0";
             return (
@@ -124,7 +164,7 @@ function OthersPopover({
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -163,12 +203,14 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
   ];
 
   return (
-    <div className="flex items-center gap-0.5 bg-tint rounded-md p-0.5 border border-line">
+    <div role="group" aria-label="School chart type" className="flex items-center gap-0.5 bg-tint rounded-md p-0.5 border border-line">
       {buttons.map(({ type, icon: Icon, label }) => (
         <button
           key={type}
           onClick={() => onChange(type)}
           title={label}
+          aria-label={label}
+          aria-pressed={view === type}
           className={cn(
             "p-1 rounded transition-colors",
             view === type
@@ -184,7 +226,7 @@ function ViewToggle({ view, onChange }: { view: ViewType; onChange: (v: ViewType
 }
 
 interface SchoolDistributionChartProps {
-  students?: ActiveStudent[];
+  students?: Partial<Pick<ActiveStudent, "school">>[];
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -200,8 +242,10 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
   tutorFilterId,
 }: SchoolDistributionChartProps) {
   const router = useRouter();
+  const native = useNativePresentation() === "motion";
   const [viewType, setViewType] = useState<ViewType>("donut");
   const [showOthersPopover, setShowOthersPopover] = useState(false);
+  const [selection, setSelection] = useNativeViewState<string | null>(`dashboard:school-selection:${tutorFilterId ?? "all"}`, () => null);
 
   // Load preference from localStorage on mount
   useEffect(() => {
@@ -245,7 +289,8 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
         value: count,
         fill: COLORS[index % COLORS.length],
       }))
-      .sort((a, b) => b.value - a.value); // Sort by count descending
+      .sort((a, b) => b.value - a.value)
+      .map((entry, index) => ({ ...entry, fill: COLORS[index % COLORS.length] }));
 
     // Capture total unique schools BEFORE aggregation
     const totalSchools = sorted.length;
@@ -271,26 +316,31 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
     };
   }, [students]);
 
+  const selected = native && chartData.some(entry => entry.name === selection) ? selection : null;
+  const opacityFor = (name: string) => selected && selected !== name ? .24 : 1;
+
   // Render chart based on view type
   const renderChart = () => {
     if (viewType === "donut") {
       return (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={native ? "100%" : 200}>
           <PieChart>
             <Pie
+              isAnimationActive={native ? false : undefined}
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={42}
-              outerRadius={72}
+              innerRadius={native ? "52%" : 42}
+              outerRadius={native ? "90%" : 72}
               fill="#8884d8"
+              stroke={native ? "var(--color-paper)" : undefined}
               dataKey="value"
               onClick={handleSliceClick}
               style={{ cursor: "pointer" }}
               paddingAngle={2}
             >
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell key={`cell-${index}`} fill={entry.fill} fillOpacity={opacityFor(entry.name)} />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip total={totalStudents} />} />
@@ -299,7 +349,7 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
               <tspan
                 style={{
                   fontSize: "22px",
-                  fill: "#a0704b",
+                  fill: native ? "var(--color-foreground)" : "#a0704b",
                   fontWeight: 600,
                 }}
               >
@@ -307,7 +357,7 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
               </tspan>
             </text>
             <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle">
-              <tspan style={{ fontSize: "10px", fill: "#8b6f47", fontWeight: 500 }}>
+              <tspan style={{ fontSize: "10px", fill: native ? "var(--color-ink-subtle)" : "#8b6f47", fontWeight: 500 }}>
                 schools
               </tspan>
             </text>
@@ -318,27 +368,28 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
 
     if (viewType === "bar") {
       return (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={native ? "100%" : 200}>
           <BarChart layout="vertical" data={chartData} margin={{ left: 10, right: 20 }}>
             <XAxis type="number" hide />
             <YAxis
               type="category"
               dataKey="name"
               width={70}
-              tick={{ fontSize: 10, fill: "#8b6f47" }}
+              tick={{ fontSize: 10, fill: native ? "var(--color-ink-subtle)" : "#8b6f47" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(value: string) => value.length > 10 ? `${value.slice(0, 10)}…` : value}
             />
             <Tooltip content={<CustomTooltip total={totalStudents} />} cursor={{ fill: "rgba(160, 112, 75, 0.1)" }} />
             <Bar
+              isAnimationActive={native ? false : undefined}
               dataKey="value"
               radius={[0, 4, 4, 0]}
-              onClick={(data) => handleSliceClick(data)}
+              onClick={(data) => handleSliceClick(data.payload)}
               style={{ cursor: "pointer" }}
             >
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell key={`cell-${index}`} fill={entry.fill} fillOpacity={opacityFor(entry.name)} />
               ))}
             </Bar>
           </BarChart>
@@ -348,9 +399,9 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
 
     if (viewType === "radial") {
       // For radial bar, we need data sorted by value for visual clarity
-      const radialData = [...chartData].sort((a, b) => a.value - b.value);
+      const radialData = [...chartData].sort((a, b) => a.value - b.value).map(entry => ({ ...entry, fillOpacity: opacityFor(entry.name) }));
       return (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={native ? "100%" : 200}>
           <RadialBarChart
             cx="50%"
             cy="50%"
@@ -361,9 +412,10 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
             endAngle={0}
           >
             <RadialBar
+              isAnimationActive={native ? false : undefined}
               dataKey="value"
               cornerRadius={4}
-              onClick={(data) => handleSliceClick(data)}
+              onClick={(data) => handleSliceClick(data.payload)}
               style={{ cursor: "pointer" }}
             />
             <Tooltip content={<CustomTooltip total={totalStudents} />} />
@@ -372,13 +424,13 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
               <tspan
                 style={{
                   fontSize: "16px",
-                  fill: "#a0704b",
+                  fill: native ? "var(--color-foreground)" : "#a0704b",
                   fontWeight: 600,
                 }}
               >
                 {totalSchools}
               </tspan>
-              <tspan style={{ fontSize: "10px", fill: "#8b6f47", fontWeight: 500 }}> schools</tspan>
+              <tspan style={{ fontSize: "10px", fill: native ? "var(--color-ink-subtle)" : "#8b6f47", fontWeight: 500 }}> schools</tspan>
             </text>
           </RadialBarChart>
         </ResponsiveContainer>
@@ -389,9 +441,9 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
   };
 
   return (
-    <div>
+    <div data-native-chart="school" data-native-chart-interactive={native || undefined}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 mb-4">
+      <div data-native-chart-header className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
           <SchoolAccent className="w-8 h-6" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">School Distribution</h3>
@@ -413,12 +465,14 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Cached data remains usable if a background refresh fails. */}
+      {error && students.length > 0 && onRetry && <NativeRequestError label="Couldn’t refresh student distribution" retry={onRetry} loading={isLoading} />}
       {isLoading ? (
+        native ? <div role="status" aria-busy="true" aria-label="Loading school distribution"><NativeChartPlaceholder kind="school" /></div> : (
         <div className="h-[250px] flex items-center justify-center">
           <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
-      ) : error ? (
+      )) : error && students.length === 0 ? (
         <div className="h-[250px] flex flex-col items-center justify-center gap-3">
           <div className="text-red-600 dark:text-red-400 text-sm">Failed to load data</div>
           {onRetry && (
@@ -435,23 +489,36 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
           <div className="text-center text-gray-500 dark:text-gray-400 text-sm">No data available</div>
         </div>
       ) : (
-        <div className="relative">
-          {renderChart()}
+        <NativeChartBody enabled={native}>
+          <NativeChartPlot enabled={native} signature={`${viewType}:${chartData.map(entry => `${entry.name}:${entry.value}`).join("|")}`}>
+            {renderChart()}
+          </NativeChartPlot>
           {showOthersPopover && othersBreakdown.length > 0 && (
             <OthersPopover
+              native={native}
+              onOpen={handleSliceClick}
               breakdown={othersBreakdown}
               total={totalStudents}
               onClose={() => setShowOthersPopover(false)}
             />
           )}
-          <CustomLegend
+          {native ? <NativeChartLegend
+            label="School legend"
+            entries={chartData.map(entry => ({ ...entry, color: entry.fill }))}
+            total={totalStudents}
+            selected={selected}
+            onSelect={setSelection}
+            summary={`${totalSchools} schools`}
+            onOpen={selected && selected !== "Unknown" ? () => handleSliceClick({ name: selected }) : undefined}
+            actionLabel={selected === "Others" ? "See schools" : "View students"}
+          /> : <CustomLegend
             payload={chartData.map((entry, index) => ({
               color: COLORS[index % COLORS.length],
               value: entry.name,
               count: entry.value,
             }))}
-          />
-        </div>
+          />}
+        </NativeChartBody>
       )}
     </div>
   );

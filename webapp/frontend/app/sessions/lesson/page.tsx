@@ -1,15 +1,17 @@
 "use client";
 
+import { sameTimeSlot } from "@/lib/time-slots";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSessions, usePageTitle, useUnlistedLessons } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageSurface } from "@/components/layout/PageSurface";
-import { AlertTriangle, ArrowLeft, Users, UserPlus } from "lucide-react";
+import { ArrowLeft, Users, UserPlus } from "lucide-react";
 import { useLocation } from "@/contexts/LocationContext";
 import { Button } from "@/components/controls";
-import type { Session, UnlistedLesson } from "@/types";
+import type { UnlistedLesson } from "@/types";
+import { LessonUnavailable } from "@/components/lesson/LessonUnavailable";
 
 const NO_UNLISTED_LESSONS: UnlistedLesson[] = [];
 
@@ -35,18 +37,18 @@ export default function LessonWidePage() {
   usePageTitle(slot ? `Lesson ${slot}` : "Lesson Mode");
 
   // Fetch all sessions for this tutor + date
-  const { data: allSessions, isLoading, mutate } = useSessions({
+  const { data: allSessions, isLoading, error: sessionsError, mutate } = useSessions({
     date: date || undefined,
     tutor_id: tutorId ? parseInt(tutorId, 10) : undefined,
     limit: 50,
   });
 
   // Students taught in this slot whose lessons aren't in CSM yet
-  const { data: waitingThatDay = NO_UNLISTED_LESSONS, isLoading: waitingLoading, mutate: mutateWaiting } = useUnlistedLessons(
+  const { data: waitingThatDay = NO_UNLISTED_LESSONS, isLoading: waitingLoading, error: waitingError, mutate: mutateWaiting } = useUnlistedLessons(
     date && tutorId ? { status: "waiting", tutor_id: parseInt(tutorId, 10), from_date: date, to_date: date } : null
   );
   const unlistedLessons = useMemo(
-    () => waitingThatDay.filter((lesson) => lesson.time_slot === slot),
+    () => waitingThatDay.filter((lesson) => sameTimeSlot(lesson.time_slot, slot)),
     [waitingThatDay, slot],
   );
 
@@ -54,7 +56,7 @@ export default function LessonWidePage() {
   // kept with one of them, so a student marked absent part way through the
   // lesson never moves it.
   const slotSessionIds = useMemo(
-    () => (allSessions && slot ? allSessions.filter((s) => s.time_slot === slot).map((s) => s.id) : []),
+    () => (allSessions && slot ? allSessions.filter((s) => sameTimeSlot(s.time_slot, slot)).map((s) => s.id) : []),
     [allSessions, slot],
   );
 
@@ -62,25 +64,24 @@ export default function LessonWidePage() {
   const sessions = useMemo(() => {
     if (!allSessions || !slot) return [];
     return allSessions.filter(
-      (s) => s.time_slot === slot
+      (s) => sameTimeSlot(s.time_slot, slot)
         && s.session_status !== "Cancelled"
         && !s.session_status.includes("Pending Make-up")
         && !s.session_status.includes("Make-up Booked")
     );
   }, [allSessions, slot]);
 
+  const returnParams = new URLSearchParams();
+  if (date) returnParams.set("date", date);
+  if (tutorId) returnParams.set("tutor", tutorId);
+  const returnHref = `/sessions${returnParams.size ? `?${returnParams}` : ""}`;
+
   // Validation
   if (!date || !slot || !tutorId) {
     return (
       <PageSurface fullHeight>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <AlertTriangle className="h-10 w-10 text-amber-700" />
-            <p className="text-sm text-ink-subtle">
-              Missing required parameters. Open lesson mode from the sessions page.
-            </p>
-          </div>
-        </div>
+        <LessonUnavailable slot={slot} returnHref={returnHref}
+          message="Missing required parameters. Open lesson mode from the sessions page." />
       </PageSurface>
     );
   }
@@ -125,21 +126,17 @@ export default function LessonWidePage() {
   }
 
   if (sessions.length === 0 && unlistedLessons.length === 0) {
+    const unavailable = Boolean(sessionsError || waitingError);
     return (
       <PageSurface fullHeight>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <AlertTriangle className="h-10 w-10 text-amber-700" />
-            <p className="text-sm text-ink-subtle">
-              No sessions found for this time slot.
-            </p>
-            {!isReadOnly && (
-              <Button size="sm" variant="secondary" icon={UserPlus} onClick={() => setAddingUnlisted(true)}>
-                Add a student who isn't listed
-              </Button>
-            )}
-          </div>
-        </div>
+        <LessonUnavailable slot={slot} returnHref={returnHref}
+          message={unavailable ? "Unable to load this lesson. Return to sessions and try again." : "No sessions found for this time slot."}>
+          {!unavailable && !isReadOnly && (
+            <Button size="sm" variant="secondary" icon={UserPlus} onClick={() => setAddingUnlisted(true)}>
+              Add a student who isn&apos;t listed
+            </Button>
+          )}
+        </LessonUnavailable>
         {addingUnlisted && (
           <TaughtLessonModal
             isOpen
@@ -161,6 +158,7 @@ export default function LessonWidePage() {
     <PageSurface fullHeight>
       <LessonWideMode
         sessions={sessions}
+        initialSessionId={Number(searchParams.get("lesson_session")) || undefined}
         slotSessionIds={slotSessionIds}
         date={date}
         slot={slot}

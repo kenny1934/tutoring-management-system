@@ -1,51 +1,48 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 
-/**
- * Hook for edge-swipe-to-dismiss on mobile panels.
- * Detects swipes starting within 30px of the left edge and dismisses
- * the panel with a slide-out animation when dragged past 120px.
- */
-export function usePanelSwipe(isMobile: boolean, onClose: () => void) {
+/** Edge swipes leave vertical scrolling alone and cancel cleanly on navigation. */
+export function usePanelSwipe(isMobile: boolean, onClose: () => void, options: { reducedMotion?: boolean; managedExit?: boolean } = {}) {
+  const { reducedMotion = false, managedExit = false } = options;
   const panelRef = useRef<HTMLDivElement>(null);
-  const swipeState = useRef({ x: 0, y: 0, active: false });
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    const x = e.touches[0].clientX;
-    if (x > 30) return;
-    swipeState.current = { x, y: e.touches[0].clientY, active: false };
+  const swipeState = useRef<{ x: number; y: number; active: boolean } | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    swipeState.current = null;
+    if (panelRef.current) { panelRef.current.style.transform = ""; panelRef.current.style.transition = ""; }
+  }, [isMobile, reducedMotion]);
+  const reset = useCallback(() => {
+    swipeState.current = null;
+    if (panelRef.current) {
+      panelRef.current.style.transition = reducedMotion ? "none" : "transform .2s ease-out";
+      panelRef.current.style.transform = "translateX(0)";
+    }
+  }, [reducedMotion]);
+  const onTouchStart = useCallback((event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    swipeState.current = touch.clientX <= 30 ? { x: touch.clientX, y: touch.clientY, active: false } : null;
   }, []);
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (swipeState.current.x === 0) return;
-    const dx = e.touches[0].clientX - swipeState.current.x;
-    const dy = e.touches[0].clientY - swipeState.current.y;
-    if (!swipeState.current.active && Math.abs(dx) > Math.abs(dy) && dx > 10) {
-      swipeState.current.active = true;
-    }
-    if (!swipeState.current.active || !panelRef.current) return;
-    const clamped = Math.max(0, dx);
-    panelRef.current.style.transform = `translateX(${clamped}px)`;
-    panelRef.current.style.transition = 'none';
+  const onTouchMove = useCallback((event: React.TouchEvent) => {
+    const start = swipeState.current;
+    if (!start || !panelRef.current) return;
+    const dx = event.touches[0].clientX - start.x, dy = event.touches[0].clientY - start.y;
+    if (!start.active && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { swipeState.current = null; return; }
+    if (!start.active && dx > 10 && dx > Math.abs(dy)) start.active = true;
+    if (!start.active) return;
+    panelRef.current.style.transition = "none";
+    panelRef.current.style.transform = `translateX(${Math.max(0, dx)}px)`;
   }, []);
-
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!swipeState.current.active || !panelRef.current) {
-      swipeState.current = { x: 0, y: 0, active: false };
-      return;
-    }
-    const dx = e.changedTouches[0].clientX - swipeState.current.x;
-    if (dx > 120) {
-      panelRef.current.style.transition = 'transform 0.25s ease-out';
-      panelRef.current.style.transform = 'translateX(100%)';
-      setTimeout(onClose, 250);
-    } else {
-      panelRef.current.style.transition = 'transform 0.2s ease-out';
-      panelRef.current.style.transform = 'translateX(0)';
-    }
-    swipeState.current = { x: 0, y: 0, active: false };
-  }, [onClose]);
-
-  const touchHandlers = isMobile ? { onTouchStart, onTouchMove, onTouchEnd } : {};
-
+  const onTouchEnd = useCallback((event: React.TouchEvent) => {
+    const start = swipeState.current;
+    if (!start?.active || !panelRef.current) { swipeState.current = null; return; }
+    const dx = event.changedTouches[0].clientX - start.x;
+    swipeState.current = null;
+    if (dx <= 120) { reset(); return; }
+    if (managedExit || reducedMotion) { onClose(); return; }
+    panelRef.current.style.transition = "transform .25s ease-out";
+    panelRef.current.style.transform = "translateX(100%)";
+    closeTimer.current = setTimeout(onClose, 250);
+  }, [managedExit, reducedMotion, onClose, reset]);
+  const touchHandlers = isMobile ? { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: reset } : {};
   return { panelRef, touchHandlers };
 }

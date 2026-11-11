@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Calendar, MapPin, Users,
-  LayoutList, Home,
+  LayoutList, Home, MoreHorizontal, Download, Sigma, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHideBottomBar } from "@/lib/app-chrome";
@@ -19,12 +19,20 @@ import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentStrip, stripLabel } from "./StudentStrip";
-import type { PdfViewerHandle } from "./PdfPageViewer";
+import type { PdfViewerHandle, PdfViewState } from "./PdfPageViewer";
 import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { TaughtLessonModal } from "@/components/sessions/TaughtLessonModal";
 import { motion } from "framer-motion";
+import { cancelLessonFrameNavigation, closeLessonFrame, connectLessonFrame, dismissLessonOverlay, lessonFrameToken } from "@/components/design-preview/lessonFrame";
+import { useWorksheetHandoff } from "@/components/design-preview/useWorksheetHandoff";
+import { useLessonPhoneSurface } from "@/components/design-preview/useLessonPhoneSurface";
+import { useLessonMotion } from "@/components/design-preview/useLessonMotion";
+import { useLessonResumeEntry, useLessonResumeScope } from "@/components/design-preview/LessonResumeMemory";
+import { lessonClassKey, lessonTarget } from "@/components/design-preview/lessonResume";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
 import { usePrintExercise } from "@/hooks/usePrintExercise";
@@ -95,6 +103,8 @@ function describeForZip(entry: StudentExerciseEntry): AnnotatedExercise | null {
 // --- Props ---
 
 interface LessonWideModeProps {
+  /** The Dashboard session that opened this class, when using the design preview. */
+  initialSessionId?: number;
   sessions: Session[];
   /** Every lesson in the slot, whatever its status. The slot's own Draft is kept with one of them. */
   slotSessionIds: number[];
@@ -110,8 +120,16 @@ interface LessonWideModeProps {
 const SHORTCUTS = lessonShortcuts("multi-student");
 const NO_UNLISTED_LESSONS: UnlistedLesson[] = [];
 
-export function LessonWideMode({
-  sessions,
+export function LessonWideMode(props: LessonWideModeProps) {
+  const { memory } = useLessonResumeScope();
+  const { selectedLocation } = useLocation();
+  const location = props.sessions[0]?.location || props.unlistedLessons?.[0]?.location || selectedLocation;
+  const key = lessonClassKey(props.date, props.slot, props.tutorId, location) + (memory?.scope ?? "");
+  return <LessonWideWorkspace key={key} {...props} />;
+}
+
+function LessonWideWorkspace({
+  sessions, initialSessionId,
   slotSessionIds,
   date,
   slot,
@@ -122,38 +140,82 @@ export function LessonWideMode({
 }: LessonWideModeProps) {
   // A lesson needs all of a phone's height, so the bottom bar steps aside.
   useHideBottomBar();
+  const preview = useNativePresentation();
+  const nativeStage = useRef<HTMLDivElement>(null);
+  const { prepare: prepareWorksheet, isPending: isWorksheetPending } = useWorksheetHandoff(nativeStage, preview === "motion");
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 
-  // --- Sidebar mode ---
-  const [addingUnlisted, setAddingUnlisted] = useState(false);
-  const [editingUnlisted, setEditingUnlisted] = useState<UnlistedLesson | null>(null);
-  const [sidebarMode, setSidebarMode] = useState<"by-student" | "by-file">("by-student");
+  // All student exercise entries (flat list)
+  const allEntries = useMemo<StudentExerciseEntry[]>(() => {
+    const entries: StudentExerciseEntry[] = [];
+    for (const session of sessions) {
+      if (!session.exercises?.length) continue;
+      for (const exercise of session.exercises) {
+        entries.push({
+          session,
+          exercise,
+          studentName: session.student_name || `Student #${session.student_id}`,
+          studentId: session.school_student_id || null,
+          grade: session.grade || null,
+          langStream: session.lang_stream || null,
+        });
+      }
+    }
+    return entries;
+  }, [sessions]);
 
-  // --- Selection state ---
-  // selectedEntry tracks both which exercise AND which student
-  const [selectedEntry, setSelectedEntryState] = useState<StudentExerciseEntry | null>(null);
-  // A worksheet of a student who isn't in CSM yet, shown in the listed one's
-  // place. It has no lesson to keep ink with, so while it's on screen there is
-  // no open exercise for the ink and the Draft, and picking anything else puts
-  // it away again.
-  const [recordEntry, setRecordEntry] = useState<StudentExerciseEntry | null>(null);
-  const setSelectedEntry = useCallback((entry: StudentExerciseEntry | null) => {
-    setRecordEntry(null);
-    setSelectedEntryState(entry);
-  }, []);
-  const openExercise = recordEntry ? null : selectedEntry?.exercise ?? null;
   const recordEntriesByLesson = useMemo(
     () => unlistedLessons.map((lesson) => ({ lesson, entries: unlistedLessonEntries(lesson) })),
     [unlistedLessons],
   );
+  const resumeTargets = useMemo(() => [
+    ...allEntries.map(e => lessonTarget(e.session.id, e.exercise)),
+    ...recordEntriesByLesson.flatMap(r => r.entries.map(e => lessonTarget(e.session.id, e.exercise, true))),
+  ], [allEntries, recordEntriesByLesson]);
+  const classKey = lessonClassKey(date, slot, tutorId, sessions[0]?.location || unlistedLessons[0]?.location || selectedLocation);
+  const { entry: resume, ready: resumeReady } = useLessonResumeEntry(classKey, resumeTargets, Boolean(preview));
+  const restored = preview === "motion" ? resume.initial(resumeTargets, initialSessionId) : undefined;
+
+  // --- Sidebar mode ---
+  const [addingUnlisted, setAddingUnlisted] = useState(false);
+  const [editingUnlisted, setEditingUnlisted] = useState<UnlistedLesson | null>(null);
+  const [sidebarMode, setSidebarMode] = useState<"by-student" | "by-file">(() => preview === "motion" ? resume.mode : "by-student");
+
+  // --- Selection state ---
+  // selectedEntry tracks both which exercise AND which student
+  const [selectedEntry, setSelectedEntryState] = useState<StudentExerciseEntry | null>(() => restored && !restored.record ? allEntries.find(e => e.session.id === restored.sessionId && e.exercise.id === restored.exerciseId) ?? null : null);
+  // A worksheet of a student who isn't in CSM yet, shown in the listed one's
+  // place. It has no lesson to keep ink with, so while it's on screen there is
+  // no open exercise for the ink and the Draft, and picking anything else puts
+  // it away again.
+  const [recordEntry, setRecordEntryState] = useState<StudentExerciseEntry | null>(() => restored?.record ? recordEntriesByLesson.flatMap(r => r.entries).find(e => e.session.id === restored.sessionId && e.exercise.id === restored.exerciseId) ?? null : null);
+  const setRecordEntry = useCallback((entry: StudentExerciseEntry | null) => {
+    prepareWorksheet(entry?.exercise.pdf_name ? entry.exercise.id : null);
+    setRecordEntryState(entry);
+  }, [prepareWorksheet]);
+  const setSelectedEntry = useCallback((entry: StudentExerciseEntry | null) => {
+    if (recordEntry || selectedEntry?.exercise.id !== entry?.exercise.id) {
+      prepareWorksheet(entry?.exercise.pdf_name ? entry.exercise.id : null);
+    }
+    setRecordEntryState(null);
+    setSelectedEntryState(entry);
+  }, [prepareWorksheet, recordEntry, selectedEntry?.exercise.id]);
+  const openExercise = recordEntry ? null : selectedEntry?.exercise ?? null;
+
+  useEffect(() => {
+    const entry = recordEntry ?? selectedEntry;
+    if (preview !== "motion" || !resumeReady || !entry) return;
+    const target = lessonTarget(entry.session.id, entry.exercise, !!recordEntry);
+    if (resumeTargets.some(t => t.sessionId === target.sessionId && t.exerciseId === target.exerciseId && t.record === target.record && t.source === target.source)) resume.remember(target, sidebarMode);
+  }, [preview, resumeReady, resume, resumeTargets, selectedEntry, recordEntry, sidebarMode]);
 
   // A record that has been filled in, deleted or changed takes its worksheet off screen.
   useEffect(() => {
     if (recordEntry && !recordEntriesByLesson.some((r) => r.entries.some((e) => e.exercise.id === recordEntry.exercise.id && e.exercise.pdf_name === recordEntry.exercise.pdf_name))) {
       setRecordEntry(null);
     }
-  }, [recordEntry, recordEntriesByLesson]);
+  }, [recordEntry, recordEntriesByLesson, setRecordEntry]);
 
   // --- The open worksheet's file, loaded through the one cache everything in this view shares ---
   const pdfCache = usePdfCache();
@@ -166,6 +228,13 @@ export function LessonWideMode({
   // --- Mobile ---
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
+  const [phoneToolsOpen, setPhoneToolsOpen] = useState(false);
+  useEffect(() => {
+    if (!isMobile) { setMobileExerciseListOpen(false); setPhoneToolsOpen(false); }
+  }, [isMobile]);
+  const phoneLesson = preview === "motion" && isMobile;
+  const phoneSheetOpen = phoneLesson && (mobileExerciseListOpen || phoneToolsOpen);
+  useLessonPhoneSurface(nativeStage, phoneLesson, phoneSheetOpen);
 
   // --- Exercise editor, for one student's classwork or homework ---
   const { editing, openEditor: handleEditExercises, closeEditor: handleExerciseModalClose } = useExerciseEditor(onSessionDataChange);
@@ -192,29 +261,11 @@ export function LessonWideMode({
   // --- Focus mode, which phones don't get ---
   const focus = useFocusMode(!isMobile);
   const { focusMode, hoverSidebar, setHoverSidebar, exitFocusMode, toggleFocusMode } = focus;
+  useLessonMotion(nativeStage, preview === "motion", focusMode);
 
   // --- Wolfram, the print menu and the shortcut help ---
   const panels = useLessonPanels();
   const compassPencil = useCompassPencilKey();
-
-  // All student exercise entries (flat list)
-  const allEntries = useMemo<StudentExerciseEntry[]>(() => {
-    const entries: StudentExerciseEntry[] = [];
-    for (const session of sessions) {
-      if (!session.exercises?.length) continue;
-      for (const exercise of session.exercises) {
-        entries.push({
-          session,
-          exercise,
-          studentName: session.student_name || `Student #${session.student_id}`,
-          studentId: session.school_student_id || null,
-          grade: session.grade || null,
-          langStream: session.lang_stream || null,
-        });
-      }
-    }
-    return entries;
-  }, [sessions]);
 
   // The slot's own Draft is kept with one of its lessons, as a preview's ink
   // is. It's the one with the lowest id of every lesson in the slot, cancelled
@@ -303,6 +354,8 @@ export function LessonWideMode({
   const homeworkSessionIds = useMemo(() => sessions.map(s => s.id), [sessions]);
   const { bySession: homeworkBySession } = useHomeworkToCheck(homeworkSessionIds);
   const handleHomeworkMarked = useHomeworkMarked();
+  // These views outlive the phone materials sheet and the desktop focus sidebar.
+  const [homeworkViews] = useState(() => ({ worksheet: new Map<number, PdfViewState>(), answer: new Map<number, PdfViewState>() }));
 
   // Slot-wide progress, so a tutor can see at a glance what is left to check.
   const homeworkProgress = useMemo(() => {
@@ -339,13 +392,14 @@ export function LessonWideMode({
   // --- Auto-select first entry ---
   // A slot with no listed work opens on the first worksheet of a student not in CSM yet.
   useEffect(() => {
-    if (allEntries.length > 0 && !selectedEntry) {
-      setSelectedEntry(allEntries[0]);
+    if (!resumeReady) return;
+    if (allEntries.length > 0 && !selectedEntry && !recordEntry) {
+      setSelectedEntry((preview === "motion" && initialSessionId ? allEntries.find(entry => entry.session.id === initialSessionId) : null) ?? allEntries[0]);
     } else if (allEntries.length === 0 && !recordEntry) {
       const first = recordEntriesByLesson.find((r) => r.entries.length > 0)?.entries[0];
       if (first) setRecordEntry(first);
     }
-  }, [allEntries, selectedEntry, recordEntry, recordEntriesByLesson, setSelectedEntry]);
+  }, [allEntries, selectedEntry, recordEntry, recordEntriesByLesson, setSelectedEntry, setRecordEntry, preview, initialSessionId, resumeReady]);
 
   // --- Printing ---
   // Each exercise prints with its own student's stamp.
@@ -423,9 +477,11 @@ export function LessonWideMode({
   // the sessions page, so the button never does nothing.
   const router = useRouter();
   const closeTab = useCallback(() => {
+    resume.flush();
+    if (closeLessonFrame()) return;
     window.close();
     if (!window.closed) router.push("/sessions");
-  }, [router]);
+  }, [router, resume]);
   // A lesson's own Draft is saved as its sheets on their own. Besides the
   // slot's, a student's lesson can have one from the one-student view, which
   // is named after the student.
@@ -450,6 +506,19 @@ export function LessonWideMode({
     zipName: ["Annotations", date, slot].filter(Boolean).join("_"),
     leave: closeTab,
   });
+  const frameExit = useRef<() => void>(() => {});
+  frameExit.current = () => {
+    if (dismissLessonOverlay()) return;
+    if (phoneLesson && mobileExerciseListOpen) { setMobileExerciseListOpen(false); return; }
+    if (phoneLesson && phoneToolsOpen) { setPhoneToolsOpen(false); return; }
+    void handleExitAttempt();
+  };
+  const frameNavigate = useRef<() => void>(() => {});
+  frameNavigate.current = () => {
+    if (dismissLessonOverlay()) { cancelLessonFrameNavigation(); return; }
+    void handleExitAttempt();
+  };
+  useEffect(() => connectLessonFrame(() => frameExit.current(), nativeStage.current, () => frameNavigate.current()), []);
 
   // --- Moving between students ---
   // Each student remembers the worksheet they were last on, so going back to
@@ -482,7 +551,8 @@ export function LessonWideMode({
       ? theirs.find(e => e.exercise.pdf_name === current.pdf_name && exerciseKind(e.exercise) === exerciseKind(current))
       : undefined;
     if (sameFile) return sameFile;
-    const last = lastEntryBySessionRef.current.get(session.id);
+    const last = lastEntryBySessionRef.current.get(session.id)
+      ?? theirs.find(e => e.exercise.id === resume.last.get(session.id)?.exerciseId);
     return (last && theirs.find(e => e.exercise.id === last.exercise.id)) || theirs[0];
   };
 
@@ -557,7 +627,7 @@ export function LessonWideMode({
         setSelectedEntry(allEntries[nextIdx]);
       }
     }
-  }, [selectedEntry, allEntries, fileGroups, sidebarMode]);
+  }, [selectedEntry, allEntries, fileGroups, sidebarMode, setSelectedEntry]);
 
   // --- Keys ---
   // The key table is shared with the one-student view, in useLessonKeys. An
@@ -570,11 +640,12 @@ export function LessonWideMode({
   const recordShown = lessonDraftOpen ? null : recordEntry;
   useLessonKeys(
     {
-      blocked: !!editing || !!bulkAssignType || showExitConfirm,
+      blocked: !!editing || !!bulkAssignType || showExitConfirm || phoneSheetOpen,
       ...panels.keyState,
       drawing: tools.drawingEnabled,
       focusMode,
       worksheetHidden: lessonDraftOpen,
+      worksheetPending: isWorksheetPending,
     },
     {
       ...panels.keyHandlers,
@@ -623,15 +694,17 @@ export function LessonWideMode({
     <LessonHeader
       overlay={isOverlay}
       focus={focus}
-      exitLabel="Close lesson tab"
-      exitTitle="Close lesson tab"
+      exitLabel={lessonFrameToken() ? "Exit lesson mode" : "Close lesson tab"}
+      exitTitle={lessonFrameToken() ? "Return to previous screen" : "Close lesson tab"}
       onExit={handleExitAttempt}
       info={
-        <div className="flex items-center gap-2 min-w-0">
+        <div data-native-lesson-info className="flex items-center gap-2 min-w-0">
           <Users className="h-4 w-4 text-white/70 flex-shrink-0" />
-          <span className="text-sm font-bold text-white/90 truncate">
+          {phoneLesson ? <span className={previewStyles.phoneLessonIdentity}>
+            <strong title={tutorName}>{tutorName}</strong><span>{slot}</span>
+          </span> : <span className="text-sm font-bold text-white/90 truncate">
             {tutorName ? `${tutorName} · ${slot}` : slot}
-          </span>
+          </span>}
           <span className="hidden sm:inline text-xs text-white/50">
             ({studentCount} student{studentCount !== 1 ? "s" : ""})
           </span>
@@ -651,6 +724,10 @@ export function LessonWideMode({
           )}
         </div>
       }
+      phoneControls={phoneLesson ? <div className={previewStyles.phoneLessonControls}>
+        <button type="button" onClick={event => { event.currentTarget.focus({ preventScroll: true }); setMobileExerciseListOpen(true); }} aria-label="Exercise list" aria-expanded={mobileExerciseListOpen} title="Exercises"><LayoutList size={20} /></button>
+        <button type="button" onClick={event => { event.currentTarget.focus({ preventScroll: true }); setPhoneToolsOpen(true); }} aria-label="Lesson tools" aria-expanded={phoneToolsOpen} title="Lesson tools"><MoreHorizontal size={20} /></button>
+      </div> : undefined}
       details={headerDetails}
       syncStatus={syncStatus}
       wolframOpen={panels.wolframOpen}
@@ -714,6 +791,7 @@ export function LessonWideMode({
     onBulkAssign: handleBulkAssign,
     printing,
     homeworkBySession,
+    homeworkViews,
     onHomeworkMarked: handleHomeworkMarked,
     lessonDraft: lessonDraftRow,
     onAddUnlisted: () => setAddingUnlisted(true),
@@ -731,11 +809,15 @@ export function LessonWideMode({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      ref={nativeStage}
+      data-native-wide-lesson
+      data-native-focus={focusMode}
+      initial={preview === "motion" && lessonFrameToken() ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="flex flex-col flex-1 min-h-0 relative"
+      className={cn("flex flex-col flex-1 min-h-0 relative", previewStyles.lessonStage)}
+      data-native-preview={preview ?? undefined}
     >
       {/* Header */}
       {!focusMode && renderHeader()}
@@ -754,7 +836,9 @@ export function LessonWideMode({
 
         {/* The open exercise, with its Draft and its answer key */}
         <LessonViewerArea
+          readingState={preview ? resume : undefined}
           isMobile={isMobile}
+          contextRevealed={(focusMode && hoverSidebar) || mobileExerciseListOpen || phoneToolsOpen}
           // Whose worksheet this is, in large letters, with arrows to the next student.
           // The slot's own Draft is nobody's, so it has no strip.
           top={recordShown ? (
@@ -817,7 +901,7 @@ export function LessonWideMode({
       )}
 
       {/* Mobile: Floating exercise list button */}
-      {isMobile && (
+      {isMobile && !phoneLesson && (
         <button
           onClick={() => setMobileExerciseListOpen(true)}
           className={cn(
@@ -837,6 +921,10 @@ export function LessonWideMode({
           isOpen={mobileExerciseListOpen}
           onClose={() => setMobileExerciseListOpen(false)}
           title="Exercises"
+          modalLabel={phoneLesson ? "Exercises" : undefined}
+          backManaged={phoneLesson && !!lessonFrameToken()}
+          className={phoneLesson ? previewStyles.phoneMaterialsSheet : undefined}
+          onCloseStart={phoneLesson ? () => setMobileExerciseListOpen(false) : undefined}
         >
           <LessonWideSidebar
             {...sidebarProps}
@@ -851,6 +939,13 @@ export function LessonWideMode({
           />
         </MobileBottomSheet>
       )}
+
+      {phoneLesson && <MobileBottomSheet isOpen={phoneToolsOpen} onClose={() => setPhoneToolsOpen(false)} onCloseStart={() => setPhoneToolsOpen(false)} title="Lesson tools" modalLabel="Lesson tools" backManaged={!!lessonFrameToken()} className={previewStyles.phoneToolsSheet}>
+        <button type="button" onClick={() => { setPhoneToolsOpen(false); panels.toggleWolfram(); }}><Sigma size={20} />Wolfram Alpha</button>
+        <button type="button" disabled={isSavingAll || !hasAnyAnnotations()} onClick={() => { setPhoneToolsOpen(false); void downloadAllInk(); }}><Download size={20} />Download all ink as PDFs</button>
+        <button type="button" disabled={printing.id !== null} onClick={() => { setPhoneToolsOpen(false); handleBulkPrint("CW"); }}><Printer size={20} />Print all CW</button>
+        <button type="button" disabled={printing.id !== null} onClick={() => { setPhoneToolsOpen(false); handleBulkPrint("HW"); }}><Printer size={20} />Print all HW</button>
+      </MobileBottomSheet>}
 
       {addingUnlisted && (
         <TaughtLessonModal
@@ -899,7 +994,7 @@ export function LessonWideMode({
           isOpen
           isSaving={isSavingAll}
           unsentInk
-          onCancel={stay}
+          onCancel={() => { stay(); cancelLessonFrameNavigation(); }}
           onSaveAndExit={saveAllAndExit}
           onExit={exitAnyway}
         />

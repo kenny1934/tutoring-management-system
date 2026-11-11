@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookCheck, MessageSquare, Paperclip } from "lucide-react";
+import { BookCheck, Check, Loader2, MessageSquare, Paperclip, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { homeworkAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -12,7 +12,7 @@ import { getPageLabel } from "@/lib/lesson-utils";
 import { assignedLabel } from "@/lib/homework-utils";
 import { canOpenInCheckViewer } from "@/lib/homework-check";
 import { useCheckViewer } from "./CheckViewerProvider";
-import { HOMEWORK_STATES } from "./homework-status";
+import { HOMEWORK_STATES, homeworkState } from "./homework-status";
 import { useHomeworkAttachments } from "./useHomeworkAttachments";
 import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
 import { Textarea } from "@/components/controls";
@@ -30,6 +30,8 @@ interface HomeworkCheckRowProps {
    * with its button for opening the viewer.
    */
   inCheckViewer?: boolean;
+  /** Larger marking controls and explicit save feedback in the lesson design preview. */
+  enhanced?: boolean;
 }
 
 export function HomeworkCheckRow({
@@ -38,11 +40,13 @@ export function HomeworkCheckRow({
   readOnly,
   onMarked,
   inCheckViewer,
+  enhanced,
 }: HomeworkCheckRowProps) {
   const { showToast } = useToast();
   const checkViewer = useCheckViewer();
   const [state, setState] = useState(homework);
   const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<"idle" | "saved" | "failed">("idle");
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState(homework.tutor_comments || "");
   const commentRef = useRef<HTMLTextAreaElement>(null);
@@ -63,6 +67,7 @@ export function HomeworkCheckRow({
       previous: HomeworkCompletion
     ) => {
       setSaving(true);
+      setSaveResult("idle");
       try {
         const saved = await homeworkAPI.mark(sessionId, homework.session_exercise_id, {
           completion_status: updates.completion_status,
@@ -71,8 +76,10 @@ export function HomeworkCheckRow({
         });
         setState(saved);
         setComment(saved.tutor_comments || "");
+        setSaveResult("saved");
         onMarked?.(saved);
       } catch {
+        setSaveResult("failed");
         setState(previous);
         setComment(previous.tutor_comments || "");
         showToast("Could not save homework check", "error");
@@ -91,7 +98,7 @@ export function HomeworkCheckRow({
   };
 
   const handleRating = (rating: number) => {
-    if (readOnly) return;
+    if (readOnly || (enhanced && saving)) return;
     const previous = state;
     const emoji = rating > 0 ? ratingToEmoji(rating) : "";
     setState({ ...state, homework_rating: emoji || undefined });
@@ -137,7 +144,11 @@ export function HomeworkCheckRow({
   const canOpen = !!checkViewer && canOpenInCheckViewer(state);
 
   return (
-    <div className={cn(inCheckViewer ? "py-2" : "py-1.5", saving && "opacity-70")}>
+    <div data-native-check-marking={enhanced || undefined} data-saving={saving || undefined} data-save-result={enhanced ? saveResult : undefined} className={cn(inCheckViewer ? "py-2" : "py-1.5", saving && !enhanced && "opacity-70")}>
+      {enhanced && <div data-native-check-feedback>
+        <span>{homeworkState(currentStatus).longLabel}</span>
+        <span role="status" aria-live="polite">{saving ? <><Loader2 size={14} className="animate-spin" />Saving…</> : saveResult === "saved" ? <><Check size={14} />Saved</> : saveResult === "failed" ? <><TriangleAlert size={14} />Could not save</> : readOnly ? "Read only" : null}</span>
+      </div>}
       {/* What was assigned */}
       {!inCheckViewer && (
         <div className="flex items-baseline gap-1.5 min-w-0">
@@ -163,7 +174,7 @@ export function HomeworkCheckRow({
           {canOpen && (
             <button
               type="button"
-              onClick={() => checkViewer?.open({ homework: state, sessionId })}
+              onClick={event => { event.currentTarget.focus({ preventScroll: true }); checkViewer?.open({ homework: state, sessionId }); }}
               title="Open the worksheet with its answers"
               className="ml-auto self-center flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium text-accent-ink hover:bg-primary/10 dark:text-[#d4a574] dark:hover:bg-[#d4a574]/10 transition-colors"
             >
@@ -199,6 +210,7 @@ export function HomeworkCheckRow({
                 disabled={readOnly || saving}
                 aria-pressed={active}
                 title={label}
+                aria-label={label}
                 className={cn(
                   "flex items-center justify-center h-6 w-6 rounded transition-colors",
                   active
@@ -213,15 +225,15 @@ export function HomeworkCheckRow({
           })}
         </div>
 
-        <StarRating
+        <fieldset disabled={enhanced && saving} className="contents"><StarRating
           rating={parseStarRating(state.homework_rating)}
-          size="sm"
+          size={enhanced ? "md" : "sm"}
           onChange={readOnly ? undefined : handleRating}
-        />
+        /></fieldset>
         <button
           type="button"
           onClick={() => setCommentOpen((open) => !open)}
-          disabled={readOnly}
+          disabled={readOnly || (enhanced && saving)}
           title={state.tutor_comments || "Add a comment"}
           aria-label={hasComment ? "Edit the comment" : "Add a comment"}
           aria-expanded={commentOpen}

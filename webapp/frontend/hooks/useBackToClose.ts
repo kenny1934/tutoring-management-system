@@ -35,6 +35,22 @@ const SETTLE_MS = 300;
 let lastId = 0;
 const openIds = new Set<number>();
 let skipsStaleEntries = false;
+const historyOwners = new Set<{ key: string; value: string }>();
+
+/** A guarded workspace above a sheet temporarily owns Back and its history entry. */
+export function protectOverlayHistory(key: string, value: string) {
+  const owner = { key, value }; historyOwners.add(owner);
+  return () => { historyOwners.delete(owner); };
+}
+
+export function hasStaleOverlayHistory() {
+  const id = entryId();
+  return id !== undefined && !openIds.has(id);
+}
+
+function currentEntryIsProtected() {
+  return [...historyOwners].some(owner => window.history.state?.[owner.key] === owner.value);
+}
 
 function onTouchScreen() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
@@ -51,6 +67,7 @@ function skipStaleEntries() {
   if (skipsStaleEntries) return;
   skipsStaleEntries = true;
   window.addEventListener("popstate", () => {
+    if (historyOwners.size) return;
     const id = entryId();
     if (id !== undefined && !openIds.has(id)) window.history.back();
   });
@@ -74,6 +91,19 @@ export function useBackToClose(open: boolean, onBack: () => void) {
     skipStaleEntries();
     const id = ++lastId;
     let popped = false;
+    let navigating = false;
+    const openedAt = window.location.href;
+    // A Next link can still be loading when the close timer fires. Removing
+    // its source history entry then cancels that navigation. Keep the closed
+    // entry for the existing stale-entry handler to skip on the way back.
+    const onLink = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin === window.location.origin && (destination.pathname !== window.location.pathname || destination.search !== window.location.search)) navigating = true;
+    };
+    document.addEventListener("click", onLink, true);
     const push = () => window.history.pushState({ [KEY]: id }, "");
     openIds.add(id);
     push();
@@ -97,9 +127,10 @@ export function useBackToClose(open: boolean, onBack: () => void) {
     return () => {
       window.removeEventListener("popstate", onPopState);
       openIds.delete(id);
-      if (popped) return;
+      if (popped) { document.removeEventListener("click", onLink, true); return; }
       window.setTimeout(() => {
-        if (entryId() === id) window.history.back();
+        document.removeEventListener("click", onLink, true);
+        if (!navigating && window.location.href === openedAt && entryId() === id && !currentEntryIsProtected()) window.history.back();
       }, SETTLE_MS);
     };
   }, [open]);

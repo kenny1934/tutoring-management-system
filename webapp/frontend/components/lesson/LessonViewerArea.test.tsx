@@ -19,11 +19,13 @@ vi.mock("./DraftPane", () => ({
 // PdfPageViewer needs a canvas that jsdom doesn't have. The stub shows the
 // name it was handed, and a worksheet called "Crashes" throws as pdf.js can.
 // It also keeps the props each viewer was last given, by that name.
-const { viewerProps } = vi.hoisted(() => ({ viewerProps: new Map<string | undefined, Record<string, unknown>>() }));
+const { viewerProps, rendererFailure } = vi.hoisted(() => ({ rendererFailure: { active: true }, viewerProps: new Map<string | undefined, Record<string, unknown>>() }));
 vi.mock("./PdfPageViewer", () => ({
+  toolbarRow: "toolbar",
+  formatCompactPageRange: (pages: number[]) => pages.join(","),
   PdfPageViewer: (props: { exerciseLabel?: string }) => {
     viewerProps.set(props.exerciseLabel, props);
-    if (props.exerciseLabel === "Crashes") throw new Error("pdf.js gave up");
+    if (props.exerciseLabel === "Crashes" && rendererFailure.active) throw new Error("pdf.js gave up");
     return <p>{props.exerciseLabel}</p>;
   },
 }));
@@ -77,11 +79,21 @@ function renderArea(overrides: Partial<AreaProps> = {}) {
     worksheetRef: null,
     ...overrides,
   };
-  render(<LessonViewerArea {...props} />);
-  return props;
+  const view = render(<LessonViewerArea {...props} />);
+  return { ...props, rerender: view.rerender };
 }
 
 describe("LessonViewerArea", () => {
+  it("keeps worksheet views and annotations as its context layer opens and closes", () => {
+    const props = renderArea({ contextRevealed: false });
+    const initial = viewerProps.get("Linear equations 3")!;
+    props.rerender(<LessonViewerArea {...props} contextRevealed />);
+    expect(viewerProps.get("Linear equations 3")!.viewStates).toBe(initial.viewStates);
+    expect(viewerProps.get("Linear equations 3")!.annotations).toBe(props.ink.annotations);
+    props.rerender(<LessonViewerArea {...props} contextRevealed={false} />);
+    expect(viewerProps.get("Linear equations 3")!.viewStates).toBe(initial.viewStates);
+  });
+
   it("shows the worksheet, with whatever the view puts above it", () => {
     renderArea({ top: <p>Chan Tai Man</p> });
     expect(screen.getByText("Chan Tai Man")).toBeInTheDocument();
@@ -110,8 +122,25 @@ describe("LessonViewerArea", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const props = renderArea({ exerciseLabel: "Crashes" });
     expect(screen.getByText("Something went wrong rendering the PDF")).toBeInTheDocument();
+    expect(screen.getByText("Something went wrong rendering the PDF").closest("[data-native-pdf-failed]")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(props.pdf.retry).toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("clears a renderer failure on retry while retaining the file and focus controls", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const props = renderArea({ exerciseLabel: "Crashes", toolbarStart: <button>Leave focus</button> });
+    expect(screen.getByRole("alert")).toHaveTextContent("Something went wrong rendering the PDF");
+    expect(screen.getByRole("button", { name: "Leave focus" })).toBeEnabled();
+    rendererFailure.active = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(props.pdf.retry).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Crashes")).toBeInTheDocument();
+    rendererFailure.active = true;
+
     vi.restoreAllMocks();
   });
 

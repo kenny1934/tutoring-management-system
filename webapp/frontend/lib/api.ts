@@ -758,6 +758,11 @@ export const enrollmentsAPI = {
 
 // Sessions API
 export const sessionsAPI = {
+  bulkChangeTutor: (sessionIds: number[], tutorId: number) =>
+    fetchAPI<{ changed_session_ids: number[]; unchanged_session_ids: number[] }>("/sessions/bulk-change-tutor", {
+      method: "POST",
+      body: JSON.stringify({ session_ids: sessionIds, tutor_id: tutorId }),
+    }),
   getAll: (filters?: SessionFilters) => {
     const params = new URLSearchParams();
     // Support both single date and date range filters
@@ -1223,7 +1228,8 @@ export const paperlessAPI = {
     searchMode: PaperlessSearchMode = "all",
     tagIds?: number[],
     tagMatchMode: PaperlessTagMatchMode = "all",
-    offset: number = 0
+    offset: number = 0,
+    signal?: AbortSignal
   ) => {
     const params = new URLSearchParams({
       query,
@@ -1235,7 +1241,7 @@ export const paperlessAPI = {
       params.append("tag_ids", tagIds.join(","));
       params.append("tag_match_mode", tagMatchMode);
     }
-    return fetchAPI<PaperlessSearchResponse>(`/paperless/search?${params}`);
+    return fetchAPI<PaperlessSearchResponse>(`/paperless/search?${params}`, signal ? { signal } : undefined);
   },
 
   getTags: () => {

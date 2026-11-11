@@ -1,6 +1,8 @@
 "use client";
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PopoverShell, usePopoverSheet } from "@/hooks/usePopoverSheet";
@@ -17,6 +19,10 @@ interface MobileBottomSheetProps {
    */
   header?: (close: () => void) => ReactNode;
   className?: string;
+  /** Opt into a named modal sheet with keyboard focus and its own overlay layer. */
+  modalLabel?: string;
+  backManaged?: boolean;
+  onCloseStart?: () => void;
 }
 
 const NO_FLOATING_STYLES = {};
@@ -52,6 +58,9 @@ export function MobileBottomSheet({
   title,
   header,
   className,
+  modalLabel,
+  backManaged = false,
+  onCloseStart,
 }: MobileBottomSheetProps) {
   // Whether the sheet is on screen, which outlasts isOpen by the length of
   // the slide down.
@@ -65,7 +74,46 @@ export function MobileBottomSheet({
     if (isOpenRef.current) onClose();
   }, [onClose]);
 
-  const sheet = usePopoverSheet(true, NO_FLOATING_STYLES, finish, 101);
+  const visible = isOpen || shown;
+  const surface = useRef<HTMLElement | null>(null);
+  const layer = useOverlayLayer(visible && !!modalLabel, { lockScroll: true });
+  const sheet = usePopoverSheet(true, NO_FLOATING_STYLES, finish, modalLabel ? layer.zIndex : 101, onCloseStart, backManaged);
+  const setSurface = useCallback((node: HTMLElement | null) => { surface.current = node; }, []);
+
+  useEffect(() => {
+    if (!visible || !modalLabel || !surface.current) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = surface.current;
+    const first = dialog.querySelector<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]');
+    (first ?? dialog).focus({ preventScroll: true });
+    // An immediate close also removes the lesson's inert state in this effect pass.
+    // Wait for that cleanup, and leave focus with any newer dialog that took it.
+    return () => queueMicrotask(() => {
+      const active = document.activeElement;
+      if (previous?.isConnected && (active === document.body || !active || dialog.contains(active))) previous.focus({ preventScroll: true });
+    });
+  }, [visible, modalLabel]);
+
+  const closeModal = sheet.close;
+  useEffect(() => {
+    if (!visible || !modalLabel || !layer.isTopmost) return;
+    // A chosen answer can become disabled and leave focus on body. The named
+    // sheet still owns Escape and keeps the next Tab inside its surface.
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeModal(); }
+      if (event.key === "Tab" && surface.current) {
+        const dialog = surface.current;
+        const targets = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')].filter(node => node.getClientRects().length > 0);
+        const first = targets[0], last = targets[targets.length - 1], active = document.activeElement;
+        if (!first) { event.preventDefault(); dialog.focus(); }
+        else if (!dialog.contains(active)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+        else if (event.shiftKey && (active === first || active === dialog)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [visible, modalLabel, layer.isTopmost, closeModal]);
 
   useEffect(() => {
     if (isOpen) setShown(true);
@@ -76,12 +124,14 @@ export function MobileBottomSheet({
 
   if (!isOpen && !shown) return null;
 
-  return (
+  const content = (
     <div className="md:hidden">
       <PopoverShell
         sheet={sheet}
-        floatingRef={noFloatingRef}
-        floatingProps={NO_FLOATING_STYLES}
+        floatingRef={modalLabel ? setSurface : noFloatingRef}
+        floatingProps={modalLabel ? {
+          role: "dialog", "aria-modal": true, "aria-label": modalLabel, tabIndex: -1,
+        } : NO_FLOATING_STYLES}
         inset={false}
         className={cn(
           "w-full bg-background rounded-t-2xl shadow-2xl",
@@ -107,4 +157,5 @@ export function MobileBottomSheet({
       </PopoverShell>
     </div>
   );
+  return modalLabel && typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }

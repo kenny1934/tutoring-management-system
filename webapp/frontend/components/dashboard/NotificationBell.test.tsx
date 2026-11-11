@@ -1,4 +1,4 @@
-import { fireEvent, render, renderHook, screen, within } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, within, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotificationBell } from './NotificationBell';
 import { useNavigation } from '@/components/layout/useNavigation';
@@ -28,6 +28,14 @@ beforeEach(() => {
 });
 
 describe('renewal and collection reminders', () => {
+  it('returns focus to the bell after dismissal even when it was opened without focus', async () => {
+    render(<NotificationBell pendingPayments={99} showOverduePayments location="MSA" />);
+    const bell = screen.getByRole('button', { name: '5 notifications' });
+    fireEvent.click(bell); await screen.findByRole('dialog', { name: 'Notifications' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(bell).toHaveFocus());
+  });
+
   it('uses canonical task counts once and preserves taught lessons separately', () => {
     mocks.taught.mockReturnValue({ data: { count: 4 } });
     render(<NotificationBell pendingPayments={99} showOverduePayments location="MSA" />);

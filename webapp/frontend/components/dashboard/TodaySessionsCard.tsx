@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef, memo } from "react";
+import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
+import { useNativeNavigationMemory, useNativeSessionsHref, useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useSessions, useProposalsInDateRange, useNowMinutes } from "@/lib/hooks";
@@ -11,6 +13,7 @@ import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSession
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
 import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -47,7 +50,11 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
   const todayString = toDateString(new Date());
+  const memory = useNativeNavigationMemory();
+  const stateKey = `dashboard:sessions:${todayString}:${tutorId ?? "all"}`;
+  const sessionsHref = useNativeSessionsHref(`/sessions?date=${todayString}`);
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
+  const detailSource = useRef<HTMLElement | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [taughtLessonOpen, setTaughtLessonOpen] = useState(false);
@@ -55,7 +62,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
 
   // Fetch ALL sessions for today (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
-  const { data: allSessions = [], isLoading } = useSessions({
+  const { data: allSessions = [], isLoading, error, isValidating, mutate: retrySessions } = useSessions({
     date: todayString,
     location: selectedLocation === "All Locations" ? undefined : selectedLocation,
     limit: 500,  // Ensure all daily sessions are fetched (default is 100)
@@ -116,14 +123,14 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const listScrollRef = useRef<HTMLDivElement>(null);
   const hasAutoScrolledRef = useRef(false);
   useEffect(() => {
-    if (hasAutoScrolledRef.current || isLoading || !nowPosition) return;
+    if (hasAutoScrolledRef.current || isLoading || !nowPosition || memory?.getPlace("/")?.inner["dashboard-sessions"] !== undefined) return;
     const container = listScrollRef.current;
     const target = container?.querySelector<HTMLElement>(`[data-slot="${CSS.escape(nowPosition.timeSlot)}"]`);
     if (!container || !target) return;
     hasAutoScrolledRef.current = true;
     const offset = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
     container.scrollTop = Math.max(0, offset - 4);
-  }, [isLoading, nowPosition]);
+  }, [isLoading, nowPosition, memory]);
 
   // Bulk selection state
   const {
@@ -132,7 +139,16 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     selectIds,
     clearSelection,
     hasSelection,
-  } = useBulkSelection(allSessionIds);
+  } = useBulkSelection(allSessionIds, () => new Set(memory?.get<number[]>(stateKey) ?? []));
+  const selectionScope = useRef({ memory, stateKey });
+  useEffect(() => {
+    if (selectionScope.current.memory !== memory || selectionScope.current.stateKey !== stateKey) {
+      selectionScope.current = { memory, stateKey };
+      selectIds(memory?.get<number[]>(stateKey) ?? []);
+      return;
+    }
+    memory?.set(stateKey, [...selectedIds]);
+  }, [memory, stateKey, selectedIds, selectIds]);
 
   // On a phone the list runs at its full length, so the page is the only
   // thing that scrolls and a swipe on the card moves the page. The time slots
@@ -140,7 +156,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   // the card opening at what is happening now, which is the job the inner
   // scroll does on a wider screen. Once the day is over, every slot folds.
   const onPhone = useAsSheet();
-  const [showEarlier, setShowEarlier] = useState(false);
+  const [showEarlier, setShowEarlier] = useNativeViewState(`${stateKey}:earlier`, () => false);
   const firstCurrentSlot = nowPosition
     ? groupedSessions.findIndex((g) => g.timeSlot === nowPosition.timeSlot)
     : groupedSessions.length;
@@ -258,10 +274,10 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     }
   }, [selectedSessions, showToast]);
 
-  if (isLoading) {
+  if (isLoading && allSessions.length === 0) {
     return (
-      <div className={cn(
-        "bg-paper rounded-xl border border-line overflow-hidden",
+      <div data-native-paper data-native-depth-surface aria-busy="true" role="status" aria-label="Loading today’s sessions" className={cn(
+        "bg-paper rounded-xl border border-line overflow-hidden md:h-[clamp(420px,60vh,560px)]",
         !isMobile && "paper-texture",
         className
       )}>
@@ -279,17 +295,17 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
 
   return (
     <HomeworkCountsProvider>
-    <div className={cn(
+    <div data-native-paper data-native-depth-surface aria-busy={isValidating || undefined} className={cn(
       "bg-paper rounded-xl border border-line overflow-hidden flex flex-col md:max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-line bg-tint flex-shrink-0">
+      <div data-native-paper-head className="px-4 py-3 border-b border-line bg-tint flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 flex-shrink-0 text-ink-subtle" aria-hidden="true" />
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today's sessions</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today&apos;s sessions</h3>
           </div>
           <div className="flex items-center gap-1.5">
             {/* A student taught today who has no lesson in CSM yet */}
@@ -350,7 +366,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                     {hasSelection && (
                       <button
                         onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-red-600 dark:text-red-400"
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-tint text-red-700 dark:text-red-300"
                       >
                         Clear selection
                       </button>
@@ -364,12 +380,13 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
       </div>
 
       {/* Sessions List */}
-      <div ref={listScrollRef} className="flex-1 overflow-y-auto max-md:overflow-visible min-h-0">
-        {groupedSessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+      <div ref={listScrollRef} data-native-scroll="dashboard-sessions" className="flex-1 overflow-y-auto max-md:overflow-visible min-h-0">
+        {error && <NativeRequestError label={allSessions.length ? "Couldn’t refresh today’s sessions" : "Couldn’t load today’s sessions"} retry={() => { void retrySessions(); }} loading={isValidating} />}
+        {error && allSessions.length === 0 ? null : groupedSessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-ink-subtle">
             <NoSessionsToday className="mb-2 opacity-80" />
             <p className="text-sm font-medium">No sessions today</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Time for a coffee break!</p>
+            <p className="text-xs text-ink-subtle mt-1">Time for a coffee break!</p>
           </div>
         ) : (
           <div className="divide-y divide-line">
@@ -410,7 +427,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   <span className="text-xs font-semibold text-accent-ink">
                     {group.timeSlot}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-xs text-ink-subtle">
                     ({group.sessions.filter(isCountableSession).length}{group.proposedSessions.length > 0 && ` + ${group.proposedSessions.length} proposed`})
                   </span>
                   {isCurrentSlot && <NowChip compact />}
@@ -475,6 +492,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                           isSelected={selectedIds.has(session.id)}
                           onToggleSelect={() => toggleSelect(session.id)}
                           onRowClick={(e) => {
+                            detailSource.current = e.currentTarget.closest<HTMLElement>("[data-native-session-row]");
                             setClickPosition({ x: e.clientX, y: e.clientY });
                             setPopoverSession(session);
                           }}
@@ -517,7 +535,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   size="sm"
                   variant="secondary"
                   icon={CheckCheck}
-                  iconClassName="text-green-700 dark:text-green-400"
+                  iconClassName="text-green-800 dark:text-green-300"
                   loading={bulkActionLoading === 'attended'}
                   onClick={() => handleBulkAction('attended')}
                   disabled={bulkActionLoading !== null}
@@ -532,7 +550,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   size="sm"
                   variant="secondary"
                   icon={UserX}
-                  iconClassName="text-red-600 dark:text-red-400"
+                  iconClassName="text-red-700 dark:text-red-300"
                   loading={bulkActionLoading === 'no-show'}
                   onClick={() => handleBulkAction('no-show')}
                   disabled={bulkActionLoading !== null}
@@ -622,20 +640,20 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
           /* Regular Stats Footer */
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-green-700 dark:text-green-400">
+              <span className="text-green-800 dark:text-green-300">
                 <span className="font-semibold">{stats.completed}</span> done
               </span>
               <span className="text-sky-700 dark:text-sky-400">
                 <span className="font-semibold">{stats.upcoming}</span> upcoming
               </span>
               {stats.cancelled > 0 && (
-                <span className="text-red-600 dark:text-red-400">
+                <span className="text-red-700 dark:text-red-300">
                   <span className="font-semibold">{stats.cancelled}</span> cancelled
                 </span>
               )}
             </div>
             <Link
-              href={`/sessions?date=${todayString}`}
+              href={sessionsHref}
               className="flex items-center gap-1 text-sm text-accent-ink hover:underline"
             >
               View all
@@ -652,6 +670,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
           isOpen={!!popoverSession}
           onClose={() => setPopoverSession(null)}
           clickPosition={clickPosition}
+          transitionSource={detailSource.current}
         />
       )}
 
@@ -715,8 +734,10 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
         "px-3 py-2 cursor-pointer hover:bg-tint/60 transition-colors",
         isAlternate && "bg-tint/30 dark:bg-tint/30",
         isSelected && "bg-amber-50 dark:bg-amber-900/20",
-        isCancelledEnrollment && "opacity-50"
+        isCancelledEnrollment && "opacity-90"
       )}
+      data-native-session-row
+      tabIndex={-1}
       onClick={onRowClick}
     >
       {/* Main row: Checkbox + Info + Status */}
@@ -729,24 +750,24 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           {isSelected ? (
             <CheckSquare className="h-4 w-4 text-accent-ink" />
           ) : (
-            <Square className="h-4 w-4 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+            <Square className="h-4 w-4 text-ink-subtle hover:text-gray-600 dark:hover:text-gray-300" />
           )}
         </button>
 
         {/* Left: Student info */}
-        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+        <div data-native-session-identity className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
           {/* School ID + Name */}
           <span className={cn(
             "text-sm font-medium truncate",
             isCancelledEnrollment
-              ? "text-gray-500 dark:text-gray-400"
+              ? "text-ink-subtle"
               : isUnpaid
-                ? "text-red-600 dark:text-red-400"
+                ? "text-red-700 dark:text-red-300"
                 : "text-gray-900 dark:text-gray-100",
-            config.strikethrough && "line-through opacity-60"
+            config.strikethrough && "line-through"
           )}>
             {session.school_student_id && (
-              <span className="text-gray-500 dark:text-gray-400 mr-1">
+              <span className="text-ink-subtle mr-1">
                 {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
               </span>
             )}
@@ -766,14 +787,14 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
 
           {/* School badge */}
           {session.school && (
-            <span className="hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
               {session.school}
             </span>
           )}
 
           {/* Payment indicator */}
           {isCancelledEnrollment && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-ink-subtle font-medium">
               Cancelled
             </span>
           )}
@@ -821,7 +842,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
         // the same places on both.
         maxVisible={onPhone ? 3 : undefined}
         onMore={onRowClick}
-        className="mt-1.5 ml-6"
+        className={cn("mt-1.5 ml-6", previewStyles.rowActions)}
       />
     </div>
   );
@@ -862,7 +883,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
           {/* School ID + Name */}
           <span className="text-sm font-medium truncate text-gray-700 dark:text-gray-300">
             {proposedSession.school_student_id && (
-              <span className="text-gray-500 dark:text-gray-400 mr-1">
+              <span className="text-ink-subtle mr-1">
                 {selectedLocation === "All Locations" && proposedSession.location && `${proposedSession.location}-`}{proposedSession.school_student_id}
               </span>
             )}
@@ -878,13 +899,13 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
 
           {/* School badge */}
           {proposedSession.school && (
-            <span className="hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
               {proposedSession.school}
             </span>
           )}
 
           {/* PROPOSED badge */}
-          <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-600">
+          <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-600">
             Proposed
           </span>
         </div>
@@ -892,7 +913,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
         {/* Right: Tutor */}
         <div className="flex-shrink-0 flex items-center gap-2">
           {proposedSession.tutor_name && (
-            <span className="text-[11px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
+            <span className="text-[11px] text-ink-subtle max-w-[60px] truncate">
               <TutorLink tutorId={proposedSession.tutor_id} tutorName={proposedSession.tutor_name} />
             </span>
           )}

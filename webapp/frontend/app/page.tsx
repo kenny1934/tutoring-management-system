@@ -12,11 +12,11 @@ import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selecto
 // Lazy load chart components - Recharts adds ~30kb to bundle
 const GradeDistributionChart = dynamic(
   () => import("@/components/dashboard/GradeDistributionChart").then(mod => mod.GradeDistributionChart),
-  { ssr: false, loading: () => <div className="h-64 shimmer-sepia rounded-lg" /> }
+  { ssr: false, loading: () => <NativeChartLoading kind="grade" /> }
 );
 const SchoolDistributionChart = dynamic(
   () => import("@/components/dashboard/SchoolDistributionChart").then(mod => mod.SchoolDistributionChart),
-  { ssr: false, loading: () => <div className="h-64 shimmer-sepia rounded-lg" /> }
+  { ssr: false, loading: () => <NativeChartLoading kind="school" /> }
 );
 import { TodaySessionsCard } from "@/components/dashboard/TodaySessionsCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
@@ -27,15 +27,20 @@ import { LazySection } from "@/components/ui/lazy-section";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Segmented } from "@/components/controls";
+import { NativeChartLoading } from "@/components/design-preview/NativeChartLoading";
+import { NativeDashboardCharts } from "@/components/design-preview/NativeDashboardCharts";
+import { NativeDashboardPreview } from "@/components/design-preview/NativeDashboardPreview";
+import previewStyles from "@/components/design-preview/NativePreview.module.css";
+import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
 
 export default function DashboardPage() {
+  const nativeMode = useNativePresentation();
   const { user, impersonatedTutor, isGuest, canViewAdminPages } = useAuth();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const [isMobile, setIsMobile] = useState(false);
-  // On a phone the two charts share one card, and this picks which it shows.
-  const [phoneChart, setPhoneChart] = useState<"grade" | "school">("grade");
 
   // Determine effective tutor ID based on view mode and impersonation
   // When impersonating a specific tutor, use their ID
@@ -47,9 +52,9 @@ export default function DashboardPage() {
   // Admin-only chart filter: narrows the analytics charts to a single tutor.
   // Hidden for non-admins and in my-view (where effectiveTutorId already filters).
   const showAdminTutorFilter = canViewAdminPages && viewMode !== 'my-view';
-  const [chartTutorId, setChartTutorId] = useState<TutorValue>(ALL_TUTORS);
+  const [chartTutorId, setChartTutorId] = useNativeViewState<TutorValue>("dashboard:chart-tutor", () => ALL_TUTORS);
 
-  const { data: stats, isLoading, error } = useDashboardStats(selectedLocation, effectiveTutorId, !isGuest);
+  const { data: stats, isLoading, error, isValidating, mutate: retryStats } = useDashboardStats(selectedLocation, effectiveTutorId, !isGuest);
 
   // Fetch ALL students once (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
@@ -100,7 +105,7 @@ export default function DashboardPage() {
   // Note: We don't block on isLoading - let child components render and fetch data in parallel
   // This eliminates the waterfall pattern where stats had to complete before other fetches started
 
-  if (error) {
+  if (error && !nativeMode) {
     return (
       <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
@@ -123,9 +128,12 @@ export default function DashboardPage() {
 
   return (
     <PageSurface>
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 xl:p-8 overflow-x-hidden">
+      <NativeDashboardPreview>
+      <PageTransition data-native-stack className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 xl:p-8 overflow-x-hidden">
+        {error && <NativeRequestError label="Couldn’t load dashboard totals" retry={() => { void retryStats(); }} loading={isValidating} />}
         {/* Dashboard Header with branding, welcome, and quick links */}
         <motion.div
+          data-native-layer="welcome"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -142,8 +150,9 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Today's Sessions + Test Calendar */}
-        <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Today's schedule">
+        <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Today's schedule" data-native-flow="schedule">
           <motion.div
+            data-native-layer="schedule"
             className="min-w-0"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -159,6 +168,8 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
             id="tests-calendar"
+            data-native-layer="tests"
+            data-native-flow-enter
           >
             <CompactErrorBoundary>
               <TestCalendar isMobile={isMobile} />
@@ -166,47 +177,23 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
+        <div data-native-flow="analytics" data-native-flow-enter className={previewStyles.analyticsGroup}>
         {/* Distribution Charts */}
-        {showAdminTutorFilter && (
-          <div className="flex items-center justify-end gap-2 -mb-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-paper border border-line text-xs font-medium text-ink-strong shadow-sm">
-              Filter charts:
-            </span>
-            <TutorSelector
-              value={chartTutorId}
-              onChange={setChartTutorId}
-              location={selectedLocation}
-              showAllTutors
-            />
-          </div>
-        )}
-        {/* On a phone each chart needs the full width, and two of them came to
-            about 500px of glancing material between today's tests and the
-            recent activity. There they take turns in one card instead. */}
-        {isMobile && (
-          <Segmented
-            label="Which chart to show"
-            value={phoneChart}
-            onChange={setPhoneChart}
-            options={[
-              { value: "grade", label: "By grade" },
-              { value: "school", label: "By school" },
-            ]}
-            className="self-end -mb-2"
-          />
-        )}
-        <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Student analytics">
-          {(!isMobile || phoneChart === "grade") && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.3, ease: "easeOut" }}
-            className={cn(
-              "relative min-w-0 bg-paper rounded-xl border border-line p-4 sm:p-6",
-              !isMobile && "paper-texture"
-            )}
-          >
-            <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
+        <NativeDashboardCharts
+          isMobile={isMobile}
+          filter={showAdminTutorFilter && (
+            <div className={previewStyles.chartScope} role="group" aria-label="Chart tutor filter">
+              <span className="text-xs text-ink-subtle max-sm:sr-only">Tutor</span>
+              <TutorSelector
+                value={chartTutorId}
+                onChange={setChartTutorId}
+                location={selectedLocation}
+                showAllTutors
+              />
+            </div>
+          )}
+          grade={
+            <LazySection fallback={<NativeChartLoading kind="grade" />}>
               <CompactErrorBoundary>
                 <GradeDistributionChart
                   students={chartStudents}
@@ -217,19 +204,9 @@ export default function DashboardPage() {
                 />
               </CompactErrorBoundary>
             </LazySection>
-          </motion.div>
-          )}
-          {(!isMobile || phoneChart === "school") && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.3, ease: "easeOut" }}
-            className={cn(
-              "relative min-w-0 bg-paper rounded-xl border border-line p-4 sm:p-6",
-              !isMobile && "paper-texture"
-            )}
-          >
-            <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
+          }
+          school={
+            <LazySection fallback={<NativeChartLoading kind="school" />}>
               <CompactErrorBoundary>
                 <SchoolDistributionChart
                   students={chartStudents}
@@ -240,13 +217,18 @@ export default function DashboardPage() {
                 />
               </CompactErrorBoundary>
             </LazySection>
-          </motion.div>
-          )}
+          }
+        />
+
         </div>
 
         {/* Activity Feed (hidden for guests — endpoint is guest-blocked) */}
         {!isGuest && (
           <motion.div
+            data-native-layer="activity"
+            data-native-flow="activity"
+            data-native-flow-enter
+            data-native-depth-section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
@@ -259,6 +241,7 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </PageTransition>
+      </NativeDashboardPreview>
     </PageSurface>
   );
 }

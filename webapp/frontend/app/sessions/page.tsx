@@ -2,6 +2,9 @@
 
 import { sameTimeSlot } from "@/lib/time-slots";
 
+import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
+import { useNativeNavigationMemory, useNativeSessionSelection, useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
+import { nativePageKey } from "@/components/design-preview/nativeNavigationMemory";
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, useUnlistedLessons, useNowMinutes, useEmploymentOverrun, preloadCurriculumSuggestions } from "@/lib/hooks";
@@ -13,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal, UnlistedLesson } from "@/types";
 import Link from "next/link";
-import { Calendar, CalendarDays, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, Presentation, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserPlus } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserPlus } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { MakeupEligibilityNotice } from "@/components/sessions/MakeupEligibilityNotice";
@@ -22,8 +25,9 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Select, PageHeader } from "@/components/controls";
-import { useDaySwipe } from "@/hooks/useDaySwipe";
-import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
+import { NativeSessionsPresentation, NativeSessionResults, NativeSessionsViewSwitcher, SessionsDaySwipe } from "@/components/design-preview/NativeSessionsPresentation";
+import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
+import { type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
@@ -60,6 +64,10 @@ const BulkExerciseModal = dynamic(
   () => import("@/components/sessions/BulkExerciseModal").then(m => m.BulkExerciseModal),
   { ssr: false }
 );
+const BulkChangeTutorModal = dynamic(
+  () => import("@/components/sessions/BulkChangeTutorModal").then(m => m.BulkChangeTutorModal),
+  { ssr: false }
+);
 const BulkRateModal = dynamic(
   () => import("@/components/sessions/BulkRateModal").then(m => m.BulkRateModal),
   { ssr: false }
@@ -83,6 +91,8 @@ const TaughtLessonModal = dynamic(
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
+import { NativeLessonPreview } from "@/components/design-preview/NativeLessonPreview";
+import { SlotLessonLink } from "@/components/design-preview/SlotLessonLink";
 import { LessonNudge } from "@/components/sessions/LessonNudge";
 import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { sessionsAPI } from "@/lib/api";
@@ -146,9 +156,6 @@ const PENDING_MAKEUP_STATUSES = [
   "Weather Cancelled - Pending Make-up",
 ];
 
-/** Stable empty selection so clearing an already-empty one bails out of a render. */
-const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
-
 // Filters that choose their own dates to fetch. Neither has a single day to
 // point a date picker at, and neither has a window a proposal overlay could
 // line up with, so both of those controls stand down.
@@ -190,17 +197,19 @@ const UNDER_BARS = "sessions-under-bars";
 export default function SessionsPage() {
   return (
     <HomeworkCountsProvider>
-      <SessionsPageContent />
+      <NativeLessonPreview><SessionsPageContent /></NativeLessonPreview>
     </HomeworkCountsProvider>
   );
 }
 
 function SessionsPageContent() {
+  const nativeMode = useNativePresentation();
+  const navigationMemory = useNativeNavigationMemory();
   usePageTitle("Sessions");
 
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
-  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isReadOnly, isLoading: authLoading } = useAuth();
+  const { isAdmin, user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isReadOnly, isLoading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -316,9 +325,9 @@ function SessionsPageContent() {
     }
     // Apply tutor from URL (for client-side navigation, e.g., session popover link)
     const urlTutor = searchParams.get('tutor');
-    if (urlTutor) {
+    if (urlTutor || (navigationMemory && navigationMemory.pop.key === nativePageKey(`/sessions?${searchParams}`))) {
       if (urlTutor !== tutorFilter) {
-        setTutorFilter(urlTutor);
+        setTutorFilter(urlTutor || "");
       }
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -385,6 +394,9 @@ function SessionsPageContent() {
 
   // SWR hooks for data fetching with caching
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
+  const hasLoadedSessions = useRef(false);
+  useEffect(() => { if (!loading) hasLoadedSessions.current = true; }, [loading]);
+  const keepListToolbar = nativeMode === "motion" && viewMode === "list" && hasLoadedSessions.current;
   const { data: allTutors = EMPTY_TUTORS } = useTutors();
 
   // Who the page's tutor controls may name. Normally that is whoever can still
@@ -533,10 +545,21 @@ function SessionsPageContent() {
     }
   }, [sessions, popoverSession]);
 
+  const stateParams = new URLSearchParams({ view: viewMode });
+  if (specialFilter) stateParams.set("filter", specialFilter);
+  else {
+    stateParams.set("date", toDateString(selectedDate));
+    if (statusFilter) stateParams.set("status", statusFilter);
+  }
+  if (tutorFilter) stateParams.set("tutor", tutorFilter);
+  for (const [key, value] of Object.entries(encodeSummerFilter(effectiveSummerFilter))) stateParams.set(key, value);
+  const stateKey = nativePageKey(`/sessions?${stateParams}`);
+
   // Bulk selection state
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useNativeSessionSelection(stateKey, selectedLocation);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [bulkRateModalOpen, setBulkRateModalOpen] = useState(false);
+  const [bulkTutorModalOpen, setBulkTutorModalOpen] = useState(false);
   const [showSelectDropdown, setShowSelectDropdown] = useState(false);
   const [slotDropdownOpen, setSlotDropdownOpen] = useState<string | null>(null);
 
@@ -559,11 +582,11 @@ function SessionsPageContent() {
   const [isScrolledPastThreshold, setIsScrolledPastThreshold] = useState(false);
 
   // Collapse state for time slot groups
-  const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
+  const [collapsedSlots, setCollapsedSlots] = useNativeViewState<Set<string>>(`${stateKey}:collapsed`, () => new Set());
   const [copiedSlot, setCopiedSlot] = useState<string | null>(null);
 
   // Lazy loading: how many sessions to show per tier in pending-makeups view
-  const [tierShowCount, setTierShowCount] = useState<Record<string, number>>({});
+  const [tierShowCount, setTierShowCount] = useNativeViewState<Record<string, number>>(`${stateKey}:tiers`, () => ({}));
   const pendingMakeupsInitialized = useRef(false);
 
   const toggleSlot = (timeSlot: string) => {
@@ -712,17 +735,18 @@ function SessionsPageContent() {
       params.set(key, value);
     }
 
+    params.delete('ui-preview');
     const newUrl = `/sessions?${params.toString()}`;
     // Only call replaceState if URL actually changed — Next.js 15 patches
     // history.replaceState which triggers useSearchParams updates, creating a loop
     if (newUrl !== `${window.location.pathname}${window.location.search}`) {
-      window.history.replaceState(null, '', newUrl);
+      window.history.replaceState(window.history.state, '', newUrl);
     }
-  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter, effectiveSummerFilter]);
+  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter, effectiveSummerFilter, nativeMode]);
 
   // Restore scroll position when returning to list view (after data loads)
   useEffect(() => {
-    if (viewMode !== 'list' || loading) return;
+    if (navigationMemory || viewMode !== 'list' || loading) return;
 
     const savedPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
     if (savedPosition && scrollContainerRef.current) {
@@ -734,7 +758,7 @@ function SessionsPageContent() {
         sessionStorage.removeItem(SCROLL_POSITION_KEY);
       });
     }
-  }, [viewMode, loading]);
+  }, [viewMode, loading, navigationMemory]);
 
   // Track scroll position to move ? button above scroll-to-top when needed
   useEffect(() => {
@@ -853,12 +877,6 @@ function SessionsPageContent() {
   // across the list on a phone.
   const shiftDay = (days: number) =>
     setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days));
-  const daySwipeArrow = useDaySwipe(scrollContainerRef, {
-    // The list only exists once the first load is done, so the swipe waits for it.
-    enabled: viewMode === "list" && !isDatelessView && !loading,
-    onPrevious: () => shiftDay(-1),
-    onNext: () => shiftDay(1),
-  });
   const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
   const nowPosition = useMemo(() => {
     if (!nowIndicatorLive) return null;
@@ -875,10 +893,10 @@ function SessionsPageContent() {
   useEffect(() => {
     if (autoScrollDecidedRef.current || viewMode !== "list" || loading || sessions.length === 0) return;
     autoScrollDecidedRef.current = true;
-    if (!nowPosition || searchParams.get('slot') || sessionStorage.getItem(SCROLL_POSITION_KEY)) return;
+    if (!nowPosition || searchParams.get('slot') || sessionStorage.getItem(SCROLL_POSITION_KEY) || navigationMemory?.getPlace(stateKey)) return;
     const { timeSlot } = nowPosition;
     requestAnimationFrame(() => scrollToSlot(timeSlot));
-  }, [viewMode, loading, sessions.length, nowPosition, searchParams, scrollToSlot]);
+  }, [viewMode, loading, sessions.length, nowPosition, searchParams, scrollToSlot, navigationMemory, stateKey]);
 
   // What the day grid is allowed to draw.
   //
@@ -1036,7 +1054,7 @@ function SessionsPageContent() {
       }
       return next;
     });
-  }, []);
+  }, [setSelectedIds]);
 
   const toggleSelectAll = useCallback(() => {
     setSelectedIds(prev => {
@@ -1045,7 +1063,7 @@ function SessionsPageContent() {
       }
       return new Set(visibleSessionIds);
     });
-  }, [visibleSessionIds]);
+  }, [visibleSessionIds, setSelectedIds]);
 
   // Get selection state for a timeslot (none, partial, all)
   const getSlotSelectionState = useCallback((sessionsInSlot: Session[]): 'none' | 'partial' | 'all' => {
@@ -1070,7 +1088,7 @@ function SessionsPageContent() {
       }
       return next;
     });
-  }, []);
+  }, [setSelectedIds]);
 
   // Select only markable sessions (Scheduled, Trial Class, Make-up Class)
   const selectMarkableOnly = useCallback(() => {
@@ -1080,7 +1098,7 @@ function SessionsPageContent() {
       return;
     }
     setSelectedIds(new Set(markableIds));
-  }, [sessions, showToast]);
+  }, [sessions, showToast, setSelectedIds]);
 
   // Select only markable sessions within a specific timeslot
   const selectMarkableInSlot = useCallback((sessionsInSlot: Session[]) => {
@@ -1094,7 +1112,7 @@ function SessionsPageContent() {
       markableIds.forEach(id => next.add(id));
       return next;
     });
-  }, [showToast]);
+  }, [showToast, setSelectedIds]);
 
   // Select only attended sessions (for CW/HW/rating actions)
   const selectAttendedOnly = useCallback(() => {
@@ -1104,7 +1122,7 @@ function SessionsPageContent() {
       return;
     }
     setSelectedIds(new Set(attendedIds));
-  }, [sessions, showToast]);
+  }, [sessions, showToast, setSelectedIds]);
 
   // Select only attended sessions within a specific timeslot
   const selectAttendedInSlot = useCallback((sessionsInSlot: Session[]) => {
@@ -1118,11 +1136,11 @@ function SessionsPageContent() {
       attendedIds.forEach(id => next.add(id));
       return next;
     });
-  }, [showToast]);
+  }, [showToast, setSelectedIds]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
-  }, []);
+  }, [setSelectedIds]);
 
   // Handler for action buttons to update loading state
   // Note: This is called by SessionActionButtons which manages its own loadingAction internally.
@@ -1408,14 +1426,6 @@ function SessionsPageContent() {
   const hasSelection = selectedIds.size > 0;
 
 
-  // Clear selection when filters change. specialFilter is in here so rows
-  // selected in the normal list do not survive a jump to the pending make-ups
-  // view, which has no selection UI to clear them with. Bails when nothing is
-  // selected, which is the common case — a fresh Set would re-render every row.
-  useEffect(() => {
-    setSelectedIds(prev => (prev.size === 0 ? prev : new Set(EMPTY_SELECTION)));
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, summerFilter, specialFilter]);
-
   // Close select dropdowns on outside click
   useEffect(() => {
     if (!showSelectDropdown && !slotDropdownOpen) return;
@@ -1440,7 +1450,7 @@ function SessionsPageContent() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in an input, modal open, or command palette open
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (popoverSession || bulkExerciseType || bulkRateModalOpen || quickActionSession || isCommandPaletteOpen) return;
+      if (popoverSession || bulkExerciseType || bulkRateModalOpen || bulkTutorModalOpen || quickActionSession || isCommandPaletteOpen) return;
 
       // Read latest values from refs (avoids needing these as effect deps)
       const currentSessions = sessionsRef.current;
@@ -1649,7 +1659,7 @@ function SessionsPageContent() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, isPendingMakeupsView, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, isPendingMakeupsView, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, bulkTutorModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
@@ -1708,16 +1718,18 @@ function SessionsPageContent() {
     if (pendingMakeupsInitialized.current) return;
     pendingMakeupsInitialized.current = true;
 
+    if (navigationMemory?.get(`${stateKey}:makeups-initialized`)) return;
+    navigationMemory?.set(`${stateKey}:makeups-initialized`, true);
     // Collapse all tiers except the first (critical) and reset pagination
     setTierShowCount({});
     const toCollapse = groupedByUrgencyTier.slice(1).map(([tier]) => `tier-${tier}`);
     if (toCollapse.length > 0) {
       setCollapsedSlots(new Set(toCollapse));
     }
-  }, [groupedByUrgencyTier]);
+  }, [groupedByUrgencyTier, navigationMemory, stateKey, setCollapsedSlots, setTierShowCount]);
 
 
-  if (loading) {
+  if (loading && !keepListToolbar) {
     return (
       <PageSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
         <PageTransition className={cn(
@@ -1958,7 +1970,7 @@ function SessionsPageContent() {
     );
   }
 
-  if (error) {
+  if (error && !(nativeMode && viewMode === "list")) {
     return (
       <PageSurface>
         <PageTransition className="flex h-full items-center justify-center p-8">
@@ -1966,12 +1978,23 @@ function SessionsPageContent() {
             <div className="text-center">
               <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Oops!</p>
               <p className="text-sm text-gray-900 dark:text-gray-100">Error: {error instanceof Error ? error.message : "Failed to load sessions"}</p>
+              {nativeMode && <Button className="mt-3" loading={sessionsValidating} onClick={() => { void mutateSessions(); }}>Try again</Button> }
             </div>
           </StickyNote>
         </PageTransition>
       </PageSurface>
     );
   }
+
+  const defaultTutorFilter = roleViewMode === "my-view" ? effectiveUserId : "";
+  const hasToolbarFilters = !!effectiveStatusFilter || tutorFilter !== defaultTutorFilter || isSummerFilterActive(effectiveSummerFilter);
+  const resetToolbarFilters = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const control = event.currentTarget.closest("[data-native-session-filters]")?.querySelector<HTMLElement>('[role="combobox"], select');
+    setStatusFilter("");
+    setTutorFilter(defaultTutorFilter);
+    setSummerFilter(EMPTY_SUMMER_FILTER);
+    requestAnimationFrame(() => { if (control?.isConnected) control.focus({ preventScroll: true }); });
+  };
 
   // Toolbar content (shared between animated and non-animated versions)
   const toolbarContent = (
@@ -1980,8 +2003,8 @@ function SessionsPageContent() {
       // The name has always been left off on phones, where the toolbar needs
       // the room, but screen readers still hear it.
       title={<span className="max-sm:sr-only">Sessions</span>}
-      titleExtra={countableSessionCount > 0 && (
-        <span className="min-w-[16px] h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full bg-accent-ink text-white">
+      titleExtra={!loading && countableSessionCount > 0 && (
+        <span data-native-session-count aria-label={`${countableSessionCount} sessions`} className="min-w-[16px] h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full bg-accent-ink text-white">
           {countableSessionCount}
         </span>
       )}
@@ -1994,7 +2017,7 @@ function SessionsPageContent() {
       {!isPendingMakeupsView && (
         <>
           <div className="h-6 w-px bg-line hidden sm:block" />
-          <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
+          <NativeSessionsViewSwitcher currentView={viewMode} onViewChange={setViewMode} />
         </>
       )}
 
@@ -2004,7 +2027,7 @@ function SessionsPageContent() {
       {/* Date Picker (list view only; the other views carry their own navigation).
           The pending make-ups window is fixed at 120 days, so no date to pick. */}
       {viewMode === "list" && !isDatelessView && (
-        <div className="flex items-center gap-2">
+        <div data-native-session-date className="flex items-center gap-2">
           <div className="flex items-center">
             <IconButton label="The day before" icon={ChevronLeft} onClick={() => shiftDay(-1)} className="max-sm:h-10 max-sm:w-10" />
             <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
@@ -2037,12 +2060,12 @@ function SessionsPageContent() {
           edge) ran off the screen. Kept together, the tutor dropdown narrows
           to make room instead, and the control stays at the right end of the
           row where its menu has space to open. */}
-      <div className="flex min-w-0 flex-auto items-center gap-x-2.5">
+      <div data-native-session-filters className="flex min-w-0 flex-auto items-center gap-x-2.5">
       {/* Compact Status Filter with color indicators. Hidden in the pending
           make-ups view, where the mode pins the status set and the dropdown
           would sit there inert. */}
       {!isPendingMakeupsView && (
-        <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+        <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} compactDefaultLabel={nativeMode === "motion"} />
       )}
 
       {/* Compact Tutor Filter — kept everywhere, including the pending make-ups
@@ -2051,9 +2074,11 @@ function SessionsPageContent() {
         value={tutorFilter}
         onChange={(e) => setTutorFilter(e.target.value)}
         aria-label="Tutor"
+        data-native-filter-active={nativeMode === "motion" && tutorFilter !== defaultTutorFilter || undefined}
+        title={nativeMode === "motion" ? tutorOptions.find(tutor => String(tutor.id) === tutorFilter)?.tutor_name || "All tutors" : undefined}
         className="font-medium max-w-[min(16rem,60vw)] sm:max-w-none truncate"
       >
-        <option value="">Tutor</option>
+        <option value="">{nativeMode === "motion" ? "All tutors" : "Tutor"}</option>
         <TutorOptions tutors={tutorOptions} location={selectedLocation} />
       </Select>
 
@@ -2070,6 +2095,12 @@ function SessionsPageContent() {
 
       <div className="flex-1" />
 
+      <div data-native-session-selection className="flex shrink-0 items-center gap-1">
+      {nativeMode === "motion" && hasToolbarFilters && (
+        <button type="button" data-native-session-reset aria-label="Reset session filters"
+          title={`Reset filters for ${roleViewMode === "my-view" ? "My view" : "Centre view"}`}
+          onClick={resetToolbarFilters}>Reset</button>
+      )}
       {/* Select All checkbox with dropdown (list view only). Every attendance
           bulk action needs a Scheduled, Trial or Make-up Class row, which no
           pending make-up is, so the control has nothing to offer there. */}
@@ -2134,6 +2165,7 @@ function SessionsPageContent() {
         </div>
       )}
       </div>
+      </div>
     </PageHeader>
   );
 
@@ -2162,9 +2194,10 @@ function SessionsPageContent() {
   if (viewMode === "list") {
     return (
       <>
+      <NativeSessionsPresentation>
       <PageSurface fullHeight>
-        {daySwipeArrow}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+        <SessionsDaySwipe containerRef={scrollContainerRef} enabled={!isDatelessView && !loading} onPrevious={() => shiftDay(-1)} onNext={() => shiftDay(1)} />
+        <div ref={scrollContainerRef} data-native-scroll="sessions-list" className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 sm:gap-3 p-4 sm:p-6">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
             <div ref={setToolbarElement} className={toolbarStickyClasses}>
@@ -2211,6 +2244,11 @@ function SessionsPageContent() {
                     {selectedIds.size} selected
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {isAdmin && (
+                      <Button size="sm" icon={UserPlus} onClick={() => setBulkTutorModalOpen(true)} disabled={bulkActionLoading !== null}>
+                        Change tutor
+                      </Button>
+                    )}
                     {/* Attendance actions - conditional based on selected sessions */}
                     {bulkActionsAvailable.attended && (
                       <Button
@@ -2307,6 +2345,8 @@ function SessionsPageContent() {
               </div>
             )}
 
+            <NativeSessionResults date={selectedDateString} filterKey={`${statusFilter}|${tutorFilter}|${selectedLocation}|${JSON.stringify(encodeSummerFilter(summerFilter))}`} ready={!error && !loading && !sessionsValidating}>
+            {error ? <NativeRequestError label="Couldn’t load sessions" retry={() => { void mutateSessions(); }} loading={sessionsValidating} /> : loading ? <div role="status" className="flex min-h-40 items-center justify-center gap-2 text-sm text-ink-subtle"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Loading sessions...</div> : (<>
             {/* List view content */}
             {(groupedByUrgencyTier ? groupedByUrgencyTier.length === 0 : groupedSessions.length === 0) ? (
               <div className="flex justify-center py-12">
@@ -2452,7 +2492,7 @@ function SessionsPageContent() {
                                 return (
                                   <motion.div
                                     key={session.id}
-                                    initial={{ opacity: 0, x: -20 }}
+                                    initial={nativeMode === "motion" ? false : { opacity: 0, x: -20 }}
                                     animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
                                     transition={{
                                       delay: isMobile || seenSlotsRef.current.has(tierKey) ? 0 : Math.min(groupIndex * 0.03 + sessionIndex * 0.02, 0.2),
@@ -2460,6 +2500,8 @@ function SessionsPageContent() {
                                       ease: "easeOut"
                                     }}
                                     onClick={(e) => handleCardClick(session, e)}
+                              data-native-session-row
+                              tabIndex={-1}
                                     title="Click for quick view"
                                     ref={(el) => {
                                       if (el) cardRefsMap.current.set(session.id, el);
@@ -2476,7 +2518,7 @@ function SessionsPageContent() {
                                     {/* Main content */}
                                     <div className="flex-1 p-2 sm:p-3 min-w-0">
                                       <div className="flex items-start justify-between gap-2">
-                                        <div className="space-y-1 flex-1 min-w-0">
+                                        <div data-native-session-identity className="space-y-1 flex-1 min-w-0">
                                           {/* Student name + badges */}
                                           <div className="flex items-center gap-1.5 flex-wrap" style={{ opacity: statusConfig.opacity ?? 1 }}>
                                             <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
@@ -2636,6 +2678,7 @@ function SessionsPageContent() {
                     {/* Outer div is clean sticky container; inner div has visual effects */}
                     <div className={cn(UNDER_BARS, "sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")}>
                       <div
+                        data-native-lesson-slot
                         onClick={() => toggleSlot(slotKey)}
                         className="surface-bar relative border-b-2 border-accent-ink/50 hover:border-accent-ink px-3 py-2 cursor-pointer transition-colors"
                       >
@@ -2728,24 +2771,13 @@ function SessionsPageContent() {
                                 timeSlot={timeSlot}
                                 tutorId={tutorFilter}
                               >
-                                <Button
-                                  size="sm"
-                                  icon={Presentation}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const params = new URLSearchParams({
-                                      date: groupDate,
-                                      slot: timeSlot,
-                                      tutor_id: tutorFilter,
-                                    });
-                                    window.open(`/sessions/lesson?${params.toString()}`, '_blank');
-                                  }}
-                                  title="Open lesson mode for this time slot"
-                                  aria-label="Lesson mode"
-                                >
-                                  {/* On a phone the button is its icon, so the time beside it keeps one line. */}
-                                  <span className="max-sm:hidden">Lesson</span>
-                                </Button>
+                                <SlotLessonLink
+                                  date={groupDate}
+                                  slot={timeSlot}
+                                  tutorId={tutorFilter}
+                                  tutor={allTutors.find(tutor => String(tutor.id) === tutorFilter)?.tutor_name ?? sessionsInSlot[0]?.tutor_name ?? ""}
+                                  location={selectedLocation !== "All Locations" ? selectedLocation : [...new Set(sessionsInSlot.map(session => session.location).filter(Boolean))].join(" / ")}
+                                />
                               </LessonNudge>
                             )}
                             {!isReadOnly && (
@@ -2815,7 +2847,7 @@ function SessionsPageContent() {
                             )}
                             {classHeader && <SummerClassHeader classInfo={classHeader} />}
                             <motion.div
-                              initial={{ opacity: 0, x: -20 }}
+                              initial={nativeMode === "motion" ? false : { opacity: 0, x: -20 }}
                               animate={{
                                 opacity: session.enrollment_payment_status === 'Cancelled' ? 0.5 : 1,
                                 x: 0
@@ -2828,6 +2860,8 @@ function SessionsPageContent() {
                                 ease: "easeOut"
                               }}
                               onClick={(e) => handleCardClick(session, e)}
+                              data-native-session-row
+                              tabIndex={-1}
                               title="Click for quick view"
                               ref={(el) => {
                                       if (el) cardRefsMap.current.set(session.id, el);
@@ -2857,7 +2891,7 @@ function SessionsPageContent() {
                               <div className="flex-1 p-2 sm:p-3 min-w-0">
                                 <div className="flex items-start justify-between gap-2" style={{ opacity: statusConfig.opacity ?? 1 }}>
                                   {/* Left side - Session info */}
-                                  <div className="space-y-1 flex-1 min-w-0">
+                                  <div data-native-session-identity className="space-y-1 flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <p className={cn(
                                         "flex items-center gap-1.5 min-w-0 w-full sm:w-auto",
@@ -3004,6 +3038,8 @@ function SessionsPageContent() {
                 })}
               </>
             )}
+            </>)}
+            </NativeSessionResults>
           </div>
 
           <ScrollToTopButton />
@@ -3016,6 +3052,7 @@ function SessionsPageContent() {
             isOpen={!!popoverSession}
             onClose={() => setPopoverSession(null)}
             clickPosition={popoverClickPosition}
+            transitionSource={cardRefsMap.current.get(popoverSession.id) ?? null}
             tutorFilter={tutorFilter}
             onNavigate={saveScrollPosition}
             sessionProposalMap={sessionProposalMap}
@@ -3030,6 +3067,15 @@ function SessionsPageContent() {
             exerciseType={bulkExerciseType}
             isOpen={true}
             onClose={() => setBulkExerciseType(null)}
+          />
+        )}
+
+        {bulkTutorModalOpen && isAdmin && (
+          <BulkChangeTutorModal
+            sessions={selectedSessions}
+            isOpen
+            onClose={() => setBulkTutorModalOpen(false)}
+            onSaved={clearSelection}
           />
         )}
 
@@ -3181,13 +3227,15 @@ function SessionsPageContent() {
           )}
         </AnimatePresence>
       </PageSurface>
+      </NativeSessionsPresentation>
       </>
     );
   }
 
-  // Non-list views (weekly, daily, monthly)
+  // Non-list views share the same phone toolbar treatment.
   return (
     <>
+    <NativeSessionsPresentation>
     <PageSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
         "flex flex-col gap-2 sm:gap-3 p-4 sm:p-6",
@@ -3260,6 +3308,7 @@ function SessionsPageContent() {
 
       </PageTransition>
     </PageSurface>
+    </NativeSessionsPresentation>
     </>
   );
 }
