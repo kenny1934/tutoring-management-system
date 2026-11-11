@@ -73,6 +73,7 @@ class CouponBalance(BaseModel):
     issues: list[CouponIssue] = Field(default_factory=list)
     uses: list[CouponUseDetail] = Field(default_factory=list)
     can_verify: bool = False
+    kms_managed: bool = Field(default=False, exclude_if=lambda v: not v)
     legacy_display: dict | None = None
 
 

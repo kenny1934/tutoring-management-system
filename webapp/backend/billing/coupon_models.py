@@ -85,3 +85,51 @@ class CouponOperation(Base):
     payload_hash = Column(String(64), nullable=False)
     result = Column(JSON, nullable=False)
     created_at = Column(DateTime, nullable=False, default=utc_now)
+
+
+class KmsCouponCheck(Base):
+    """Immutable source evidence for previews, separate from usable stock."""
+    __tablename__ = 'billing_kms_coupon_checks'
+    sequence = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String(36), nullable=False, unique=True)
+    branch = Column(String(3), nullable=False, index=True)
+    fetched_at = Column(DateTime, nullable=False)
+    source_sha256 = Column(String(64), nullable=False)
+    snapshot = Column(JSON, nullable=False)
+    previous_id = Column(String(36), ForeignKey('billing_kms_coupon_checks.id'))
+    created_by = Column(Integer, ForeignKey('tutors.id', ondelete='SET NULL'))
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+
+class KmsCouponVerification(Base):
+    __tablename__ = 'billing_kms_coupon_verifications'
+    verification_id = Column(String(36), ForeignKey('billing_coupon_verifications.id'), primary_key=True)
+    student_id = Column(Integer, ForeignKey('students.id'), nullable=False, index=True)
+    company_id = Column(String(40), nullable=False)
+    check_id = Column(String(36), ForeignKey('billing_kms_coupon_checks.id'), nullable=False)
+    snapshot = Column(JSON, nullable=False)
+
+
+class KmsCouponRedemption(Base):
+    __tablename__ = 'billing_kms_coupon_redemptions'
+    branch = Column(String(3), primary_key=True)
+    number = Column(String(80).with_variant(VARCHAR(80, collation='utf8mb4_bin'), 'mysql'), primary_key=True)
+    use_id = Column(String(36), ForeignKey('billing_coupon_uses.id'), nullable=False, unique=True)
+    student_id = Column(Integer, ForeignKey('students.id'), nullable=False, index=True)
+    check_id = Column(String(36), ForeignKey('billing_kms_coupon_checks.id'), nullable=False)
+    value = Column(Integer, nullable=False)
+    expires_on = Column(Date, nullable=False)
+    coupon = Column(JSON, nullable=False)
+
+
+class KmsCouponLock(Base):
+    __tablename__ = 'billing_kms_coupon_locks'
+    branch = Column(String(3), primary_key=True)
+
+
+class KmsCouponSeenUsed(Base):
+    """A source-reported Used number can never become new stock again."""
+    __tablename__ = 'billing_kms_coupon_seen_used'
+    branch = Column(String(3), primary_key=True)
+    number = Column(String(80).with_variant(VARCHAR(80, collation='utf8mb4_bin'), 'mysql'), primary_key=True)
+    check_id = Column(String(36), ForeignKey('billing_kms_coupon_checks.id'), nullable=False)

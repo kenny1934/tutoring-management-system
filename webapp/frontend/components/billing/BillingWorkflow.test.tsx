@@ -381,3 +381,15 @@ describe('combined payment collection', () => {
     expect(screen.queryByRole('button', { name: 'Record payment' })).not.toBeInTheDocument();
   });
 });
+
+
+it('keeps non-coupon receipts optional after payment', async () => {
+  mocks.payment.mockResolvedValue({ ...payment(), status: 'Paid', can_copy: false, payment_date: '2026-10-18', received_method: 'cash', coupon_status: 'none' });
+  render(<BillingPayments inline canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+  const summary = await screen.findByText('Add KMS receipt (optional)');
+  expect(summary.closest('details')).not.toHaveAttribute('open');
+  expect(screen.queryByText('KMS receipt pending')).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Coupon receipt' })).not.toBeInTheDocument();
+  fireEvent.click(summary);
+  expect(screen.getByLabelText('Issued KMS receipt reference')).toBeInTheDocument();
+});

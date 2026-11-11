@@ -10,6 +10,8 @@ from database import get_db
 from models import Tutor
 from billing import coupon_accounting as accounting, coupon_imports
 from billing.coupon_schemas import CouponBalance, CouponImportConfirm, CouponImportReview, CouponVerificationConfirm, CouponVerificationRequest, CouponVerificationReview
+from billing import kms_preview, kms_apply
+from billing.kms_schemas import KmsCheckRequest, KmsCheckReview, KmsPreviewStatus, KmsApplyRequest, KmsApplyResult
 from routers.billing import today
 from routers.billing_drafts import authorise_student, translated
 from routers.billing_workflow import write_action
@@ -55,3 +57,32 @@ def read_coupon_import(import_id: UUID, _user: Tutor = Depends(require_admin_wri
 def confirm_coupon_import(import_id: UUID, data: CouponImportConfirm,
                           user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
     return write_action(db, user, lambda actor: coupon_imports.apply_import(db, import_id, data, actor, as_of=today()))
+
+
+@router.get('/billing/kms-coupons/status', response_model=KmsPreviewStatus)
+def kms_coupon_status(_user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    return translated(lambda: kms_preview.status(db))
+
+
+@router.post('/billing/kms-coupons/check', response_model=KmsCheckReview)
+def check_kms_coupons(data: KmsCheckRequest, user: Tutor = Depends(require_admin_write),
+                      db: Session = Depends(get_db)):
+    # Only source evidence is saved. No coupon-account or payment writer runs.
+    return translated(lambda: _check_kms_coupons(db, user, data.branch))
+
+
+def _check_kms_coupons(db, user, branch):
+    with kms_preview.check_guard(branch, db):
+        return write_action(db, user, lambda actor: kms_preview.check_kms(db, branch, actor))
+
+
+@router.get('/billing/kms-coupons/checks/{check_id}', response_model=KmsCheckReview)
+def read_kms_coupon_check(check_id: UUID, _user: Tutor = Depends(require_admin_write),
+                          db: Session = Depends(get_db)):
+    return translated(lambda: kms_preview.review_check(db, kms_preview.find_check(db, check_id)))
+
+
+@router.post('/billing/kms-coupons/checks/{check_id}/apply', response_model=KmsApplyResult)
+def apply_kms_coupon_check(check_id: UUID, data: KmsApplyRequest,
+                           user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    return write_action(db, user, lambda actor: kms_apply.apply_check(db, check_id, data, actor, as_of=today()))

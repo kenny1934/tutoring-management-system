@@ -87,7 +87,7 @@ def _parsed_rows(raw_rows):
     if len(raw_rows) >= 3:
         title, _ = raw_rows[0]
         headers, _ = raw_rows[1]
-        if (re.fullmatch(r'MS[AB] / \d{4}-\d{2}-\d{2}', str(title[0] or '').strip())
+        if (re.fullmatch(r'MS[AB] / \d{4}-\d{1,2}-\d{2}', str(title[0] or '').strip())
                 and [str(value or '').strip() for value in headers[:14]] == KMS_HEADERS):
             metadata.update({0, 1})
             footer, formula = raw_rows[-1]
@@ -136,6 +136,8 @@ def _students(db, branch, company_ids):
 
 
 def review_import(db, imported, *, as_of):
+    if isinstance(imported.parsed_rows, dict):
+        raise DraftConflict('Use KMS coupons to review this E-Coupon source.')
     if not storage_enabled():
         raise DraftConflict('Coupon imports are not available yet.')
     if imported.applied_review:
@@ -181,6 +183,12 @@ def review_import(db, imported, *, as_of):
                     row.issues.append(issue('SAME_DAY_SOURCE_REVIEW', 'Confirm that this is the latest KMS export for this date.'))
         seen.add(company)
         rows.append(row)
+    from . import kms_stock
+    managed = kms_stock.managed_ids(db, ids)
+    for row in rows:
+        if row.student and row.student.id in managed:
+            row.status = 'invalid'
+            row.issues.append(issue('KMS_SYNC_REQUIRED', 'Update this student through KMS coupons.'))
     counts = {status: sum(r.status == status for r in rows) for status in ('changed', 'unchanged', 'unmatched', 'invalid')}
     payload = {'id': imported.id, 'branch': imported.branch, 'observed_on': imported.observed_on,
         'source_sha256': imported.source_sha256, 'rows': [r.model_dump(mode='json') for r in rows],
@@ -216,6 +224,8 @@ def find_import(db, import_id):
     row = db.query(CouponImport).filter_by(id=str(import_id)).first()
     if row is None:
         raise DraftNotFound('Coupon import not found.')
+    if isinstance(row.parsed_rows, dict):
+        raise DraftConflict('Use KMS coupons to review this E-Coupon source.')
     return row
 
 

@@ -33,8 +33,9 @@ def receipt_env(workflow_env, monkeypatch):
     return workflow_env
 
 
-def paid(client, *, student_id=101, source_id=11, key='receipt-payment', reference=None):
-    value = payment(client, student_id=student_id, source_id=source_id, key=key)
+def paid(client, *, student_id=101, source_id=11, key='receipt-payment', reference=None, coupon=True):
+    value = payment(client, student_id=student_id, source_id=source_id, key=key,
+        coupon={'kind': 'ordinary', 'value': 300, 'verified': True, 'available_count': 1, 'expires_on': '2027-06-30'} if coupon else None)
     response = client.post(f"/api/billing/payments/{value['id']}/paid", json={
         'expected_version': value['version'], 'idempotency_key': key+'-paid',
         'payment_date': '2026-10-17', 'amount': value['review']['period']['total_fee'],
@@ -62,15 +63,24 @@ def record_receipt(client, value, *, reference='KMS-SYNTHETIC-001', key='receipt
         'expected_version': value['version'], 'idempotency_key': key, 'receipt_reference': reference})
 
 
-def test_paid_without_coupon_or_receipt_has_one_compact_task(receipt_env):
+def test_paid_without_coupon_or_receipt_needs_no_follow_up(receipt_env):
     client, db, _actor = receipt_env
+    value = paid(client, coupon=False)
+    assert receipts(client)['total'] == count(client)['count'] == 0
+    stored = db.get(BillingPayment, value['id'])
+    assert stored.status == 'Paid' and not stored.receipt_reference
+    assert stored.received_amount == value['review']['period']['total_fee']
+
+
+def test_paid_coupon_receipt_remains_one_compact_task(receipt_env):
+    client, _db, _actor = receipt_env
     value = paid(client)
     result = receipts(client)
     assert result['total'] == count(client)['count'] == 1
     row = result['rows'][0]
     assert row['payment_id'] == value['id'] and row['student']['id'] == 101
     assert row['received_amount'] == value['review']['period']['total_fee']
-    assert row['received_method'] == value['received_method'] and row['coupon_value'] == 0
+    assert row['received_method'] == value['received_method'] and row['coupon_value'] == 300
     assert row['total_amount'] == value['review']['period']['total_fee']
     assert not row['needs_checking'] and not row['issues']
     assert 'snapshot' not in json.dumps(result) and 'message' not in row
@@ -95,10 +105,10 @@ def test_nonblank_receipt_closes_task_but_whitespace_is_still_outstanding(receip
 
 
 def test_combined_two_line_payment_stays_one_task(receipt_env):
-    from tests.test_billing_workflow import confirmed, next_review, pay_payload
+    from tests.test_billing_workflow import confirmed, coupon_payload, pay_payload
     client, db, _actor = receipt_env
     second_class(db)
-    payload = next_review(client, [11, 12])
+    payload = coupon_payload(client, ids=(11, 12))
     _draft, _request, value = confirmed(client, payload=payload)
     result = client.post(f"/api/billing/payments/{value['id']}/paid", json=pay_payload(value))
     assert result.status_code == 200, result.text

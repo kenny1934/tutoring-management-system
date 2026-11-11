@@ -23,6 +23,6 @@ describe('all outstanding KMS receipts', () => {
     mocks.receipts.mockResolvedValue({ ...response(), total: 26 }); render(<BillingReceiptsQueue tutorId={7} search="student" searchPending={false} />, { wrapper: Wrapper }); await screen.findByRole('button', { name: 'Next' }); fireEvent.click(screen.getByRole('button', { name: 'Next' })); await waitFor(() => expect(mocks.receipts).toHaveBeenLastCalledWith({ location: undefined, tutor_id: 7, search: 'student', offset: 25, limit: 25 }));
   });
   it('reports disabled storage without pretending the count is zero', async () => {
-    mocks.receipts.mockResolvedValue({ ...response(), storage_available: false, writes_available: false, rows: [], total: 0 }); render(<BillingReceiptsQueue search="" searchPending={false} />, { wrapper: Wrapper }); await screen.findByText('KMS receipt follow-up is not available yet.'); expect(screen.queryByText('No KMS receipts are outstanding.')).not.toBeInTheDocument();
+    mocks.receipts.mockResolvedValue({ ...response(), storage_available: false, writes_available: false, rows: [], total: 0 }); render(<BillingReceiptsQueue search="" searchPending={false} />, { wrapper: Wrapper }); await screen.findByText('KMS receipt follow-up is not available yet.'); expect(screen.queryByText('No coupon receipts need checking.')).not.toBeInTheDocument();
   });
 });

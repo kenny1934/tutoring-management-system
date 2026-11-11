@@ -19,7 +19,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 # MySQL as SQL. Use a full stop in prose. The run aborts and rolls back if that
 # happens, so the cost is a confusing syntax error rather than a half-applied
 # migration, but the file has to be written around it.
-MIGRATIONS = ['189_makeup_participation.sql', '190_billing_autopay_runs.sql', '191_billing_coupon_accounting.sql']
+MIGRATIONS = ['193_kms_coupon_previews.sql', '194_kms_coupon_application.sql']
 
 def main():
     migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")

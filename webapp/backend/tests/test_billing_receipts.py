@@ -6,7 +6,7 @@ from sqlalchemy import event
 
 from billing.models import BillingPayment
 from tests.test_billing_drafts import env as draft_env
-from tests.test_billing_workflow import env as workflow_env, confirmed, pay_payload
+from tests.test_billing_workflow import env as workflow_env, confirmed, pay_payload, coupon_payload
 
 
 @pytest.fixture
@@ -20,8 +20,8 @@ def records(workflow_env, monkeypatch):
     return client, db, user
 
 
-def paid_payment(client):
-    _, _, payment = confirmed(client)
+def paid_payment(client, *, coupon=True):
+    _, _, payment = confirmed(client, payload=coupon_payload(client) if coupon else None)
     result = client.post(f"/api/billing/payments/{payment['id']}/paid", json=pay_payload(payment))
     assert result.status_code == 200, result.text
     return result.json()
@@ -105,3 +105,26 @@ def test_invalid_teaching_location_is_not_a_receipt_scope(records):
     client, _, _ = records
     assert client.get('/api/billing/receipts', params={'location': 'Various'}).status_code == 422
     assert client.get('/api/billing/receipts/count', params={'location': 'Various'}).status_code == 422
+
+
+@pytest.mark.parametrize('value', [0, -1])
+def test_payments_without_coupon_deductions_need_no_receipt_follow_up(records, value):
+    client, db, _ = records
+    paid = paid_payment(client, coupon=False)
+    payment = db.get(BillingPayment, paid['id'])
+    payment.coupon_value = value
+    db.commit()
+    assert client.get('/api/billing/receipts').json()['total'] == 0
+    assert client.get('/api/billing/receipts/count').json()['count'] == 0
+    assert payment.status == 'Paid' and not payment.receipt_reference
+
+
+def test_optional_receipt_can_still_be_saved_for_a_payment_without_coupon(records):
+    client, db, _ = records
+    paid = paid_payment(client, coupon=False)
+    response = client.post(f"/api/billing/payments/{paid['id']}/receipt", json={
+        'expected_version': paid['version'], 'idempotency_key': 'optional-receipt',
+        'receipt_reference': 'OPTIONAL-KMS-001'})
+    assert response.status_code == 200, response.text
+    assert response.json()['receipt_reference'] == 'OPTIONAL-KMS-001'
+    assert client.get('/api/billing/receipts/count').json()['count'] == 0
