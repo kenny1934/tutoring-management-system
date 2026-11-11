@@ -841,6 +841,18 @@ class RateSessionRequest(BaseModel):
     notes: Optional[str] = Field(None, max_length=2000)
 
 
+class BulkTutorChangeRequest(BaseModel):
+    """Only tutor reassignment is accepted by the bulk action."""
+    model_config = {"extra": "forbid"}
+    session_ids: List[int] = Field(..., min_length=1, max_length=500)
+    tutor_id: int = Field(..., gt=0)
+
+
+class BulkTutorChangeResponse(BaseModel):
+    changed_session_ids: List[int]
+    unchanged_session_ids: List[int]
+
+
 class SessionUpdate(BaseModel):
     """Schema for updating session fields"""
     session_date: Optional[date] = None

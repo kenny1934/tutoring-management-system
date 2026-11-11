@@ -758,6 +758,11 @@ export const enrollmentsAPI = {
 
 // Sessions API
 export const sessionsAPI = {
+  bulkChangeTutor: (sessionIds: number[], tutorId: number) =>
+    fetchAPI<{ changed_session_ids: number[]; unchanged_session_ids: number[] }>("/sessions/bulk-change-tutor", {
+      method: "POST",
+      body: JSON.stringify({ session_ids: sessionIds, tutor_id: tutorId }),
+    }),
   getAll: (filters?: SessionFilters) => {
     const params = new URLSearchParams();
     // Support both single date and date range filters
