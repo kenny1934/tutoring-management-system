@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import useSWR, { useSWRConfig } from 'swr';
 import { AlertCircle, CalendarCheck, CalendarRange, CheckCircle2, Clock, Copy, CreditCard, Eye, FilePenLine, History, Landmark, ListTodo, ReceiptText, RefreshCw, Send, UserPlus, X } from 'lucide-react';
-import { Badge, Button, Field, IconButton, Input, PageHeader, buttonClasses } from '@/components/controls';
+import { Badge, Button, Field, IconButton, Input, Select, PageHeader, buttonClasses } from '@/components/controls';
 import { PageSurface } from '@/components/layout/PageSurface';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import { StudentInfoBadges } from '@/components/ui/student-info-badges';
@@ -49,7 +49,7 @@ const URGENCY_GROUPS = [
 ] as const;
 
 const EMPTY: Record<BillingQueueView, string> = {
-  receipts: 'No KMS receipts are outstanding.',
+  receipts: 'No coupon receipts need checking.',
   all: 'There are no enrollment tasks for this collection month.',
   prepare: 'No enrollments need preparing for this collection month.',
   send: 'No fee messages are waiting to be sent.',
@@ -195,10 +195,12 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   const [stage, setStage] = useState<BillingQueueView>(initialStage);
   const [collapsed, setCollapsed] = useState<Set<BillingQueueUrgency>>(() => new Set());
   const [month, setMonth] = useState(initialCollectionMonth);
+  const [sort, setSort] = useState<'expiry' | 'student_id'>('expiry');
+  const queueSort = stage === 'prepare' ? sort : undefined;
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 250).trim();
   const searchPending = search.trim() !== debouncedSearch;
-  const scope = JSON.stringify([billingDraftAuthScope(auth), location, tutorId, month, stage, debouncedSearch]);
+  const scope = JSON.stringify([billingDraftAuthScope(auth), location, tutorId, month, stage, debouncedSearch, queueSort]);
   const workspaceTrigger = useRef<HTMLButtonElement | null>(null);
   const [workspace, setWorkspace] = useState<{ scope: string; row: BillingQueueRow; action?: BillingRenewalAction } | null>(null);
   const selectedWorkspace = workspace?.scope === scope ? workspace : null;
@@ -233,7 +235,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   const stageCounts = !counts.error && counts.data && (!month || counts.data.collection_month === month) ? counts.data : undefined;
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     enabled && stage !== 'receipts' ? ['billing-renewal-queue', scope, offset] : null,
-    () => billingAPI.queue({ collection_month: month || undefined, stage: stage === 'all' || stage === 'receipts' ? undefined : stage, search: debouncedSearch || undefined, location, tutor_id: tutorId, offset, limit }),
+    () => billingAPI.queue({ collection_month: month || undefined, stage: stage === 'all' || stage === 'receipts' ? undefined : stage, sort: queueSort, search: debouncedSearch || undefined, location, tutor_id: tutorId, offset, limit }),
     { keepPreviousData: false, refreshInterval },
   );
   const { data: waitingTaught } = useUnlistedWaitingCount(enabled, location);
@@ -322,6 +324,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     } />
     <div className="flex flex-wrap items-end gap-3">
       {stage !== 'receipts' && <Field label="Collection month" id={`${tabId}-month`} className="w-44"><Input type="month" value={month || serverMonth.current} onChange={event => setMonth(event.target.value)} /></Field>}
+      {stage === 'prepare' && <Field label="Sort by" id={`${tabId}-sort`} className="w-44"><Select value={sort} onChange={event => setSort(event.target.value as 'expiry' | 'student_id')}><option value="expiry">Expiry date</option><option value="student_id">Student ID</option></Select></Field>}
       <Field label="Find a student" id={`${tabId}-search`} className="min-w-52 flex-1"><Input value={search} placeholder="Name or student number" onChange={event => setSearch(event.target.value)} /></Field>
       <Button size="sm" icon={UserPlus} onClick={onShowTaught}>Taught but not in CSM yet{' '}{waitingTaught && <Badge>{waitingTaught.count}</Badge>}</Button>
     </div>

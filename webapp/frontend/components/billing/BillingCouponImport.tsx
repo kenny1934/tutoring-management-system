@@ -12,14 +12,15 @@ import { billingAPI } from '@/lib/billing-api';
 import { formatShortDate, plural } from '@/lib/formatters';
 import type { BillingBankBranch, BillingCouponImport } from '@/types/billing';
 import { BillingDraftFocus, billingDraftAuthScope } from './BillingDraftReview';
+import { BillingKmsCouponPreviewButton } from './BillingKmsCouponPreview';
 
-export function BillingCouponImportButton({ defaultBranch, storageAvailable, writesAvailable, onChanged }: { defaultBranch?: string; storageAvailable: boolean; writesAvailable: boolean; onChanged?: () => void }) {
+export function BillingCouponImportButton({ defaultBranch, storageAvailable, writesAvailable, onChanged, manualFallback = true }: { defaultBranch?: string; storageAvailable: boolean; writesAvailable: boolean; onChanged?: () => void; manualFallback?: boolean }) {
   const auth = useAuth();
   const scope = billingDraftAuthScope(auth);
   const [open, setOpen] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   if (!auth.isAdmin || auth.isReadOnly) return null;
-  return <><Button ref={trigger} size="sm" icon={Upload} disabled={!storageAvailable || !writesAvailable} onClick={() => setOpen(scope)}>{defaultBranch === 'MSA' || defaultBranch === 'MSB' ? `Import ${defaultBranch} KMS list` : 'Import KMS list'}</Button>{open === scope && storageAvailable && writesAvailable && <ImportDialog key={scope} defaultBranch={defaultBranch} trigger={trigger} onClose={() => setOpen(null)} onChanged={onChanged} />}</>;
+  return <><BillingKmsCouponPreviewButton defaultBranch={defaultBranch} storageAvailable={storageAvailable} />{manualFallback && <><Button ref={trigger} size="sm" icon={Upload} disabled={!storageAvailable || !writesAvailable} onClick={() => setOpen(scope)}>{defaultBranch === 'MSA' || defaultBranch === 'MSB' ? `Import ${defaultBranch} KMS list` : 'Import KMS list'}</Button>{open === scope && storageAvailable && writesAvailable && <ImportDialog key={scope} defaultBranch={defaultBranch} trigger={trigger} onClose={() => setOpen(null)} onChanged={onChanged} />}</>}</>;
 }
 
 function ImportDialog({ defaultBranch, trigger, onClose, onChanged }: { defaultBranch?: string; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void; onChanged?: () => void }) {

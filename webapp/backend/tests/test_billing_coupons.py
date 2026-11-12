@@ -279,11 +279,13 @@ def test_cancelled_consumed_legacy_use_does_not_replenish_old_source(env):
     assert any(i['code'] == 'COUPON_SOURCE_REVIEW' for i in current['issues'])
 
 
-def test_known_kms_metadata_and_verified_footer_are_not_student_records():
+@pytest.mark.parametrize('branch', ['MSA', 'MSB'])
+@pytest.mark.parametrize('report_date', ['2027-01-01', '2027-1-01', '2027-2-01', '2026-11-01'])
+def test_known_kms_metadata_and_verified_footer_are_not_student_records(branch, report_date):
     from billing.coupon_imports import KMS_HEADERS, parse_workbook
     book = Workbook()
     sheet = book.active
-    sheet.append(['MSA / 2027-01-01'])  # This cutoff is not the observed-on date.
+    sheet.append([f'{branch} / {report_date}'])  # This cutoff is not the observed-on date.
     sheet.append(KMS_HEADERS)
     sheet.append(['MSA0021', 'Synthetic', '', '', '', '', '', '', '', '', 1])
     sheet.append(['MSA0022', 'Synthetic', '', '', '', '', '', '', '', '', 2])

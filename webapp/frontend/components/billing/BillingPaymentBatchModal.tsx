@@ -193,7 +193,6 @@ function PaymentBatchContent({ targets, action, writesAvailable, trigger, onClos
         </article>;
       })}</div>
       {chosen.length > 0 && <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={acknowledged} disabled={busy || !writable} onChange={event => setAcknowledged(event.target.checked)} />{action === 'sent' ? 'The selected fee messages have been sent.' : 'The full amounts shown have been received.'}</label>}
-      {action === 'paid' && <p className="text-xs text-ink-subtle">Record the KMS receipt numbers in the KMS receipts tab after issuing them.</p>}
     </div></BillingDraftFocus>
   </Modal>;
 }

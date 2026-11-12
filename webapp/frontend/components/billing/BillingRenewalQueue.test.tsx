@@ -685,3 +685,17 @@ describe('enrollment renewal queue', () => {
     expect(mocks.queue).not.toHaveBeenCalled();
   });
 });
+
+it('defaults To prepare to expiry and offers student ID sorting only for that tab', async () => {
+  show({ initialStage: 'prepare' });
+  const sort = await screen.findByLabelText('Sort by');
+  expect(sort).toHaveValue('expiry');
+  await waitFor(() => expect(mocks.queue.mock.lastCall?.[0]).toMatchObject({ stage: 'prepare', sort: 'expiry' }));
+  fireEvent.change(sort, { target: { value: 'student_id' } });
+  await waitFor(() => expect(mocks.queue.mock.lastCall?.[0]).toMatchObject({ stage: 'prepare', sort: 'student_id', offset: 0 }));
+  fireEvent.click(screen.getByRole('tab', { name: /To send/ }));
+  await waitFor(() => expect(mocks.queue.mock.lastCall?.[0]).toMatchObject({ stage: 'send', sort: undefined }));
+  expect(screen.queryByLabelText('Sort by')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: /To prepare/ }));
+  expect(await screen.findByLabelText('Sort by')).toHaveValue('student_id');
+});

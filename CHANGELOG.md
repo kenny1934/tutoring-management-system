@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.4](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.3...v2.4.4) (2026-11-12)
+
+### Improvements
+
+* **KMS coupons**: Keep coupon availability up to date from KMS automatically. Clear updates are applied and conflicting records remain available for admin review.
+* **Coupon receipts**: Link clear KMS coupon receipts to recorded payments automatically. Payments without coupons no longer need a copied receipt number in CSM.
+* **Enrollment renewals**: Show the earliest expiry first in To prepare, with an option to sort by student ID.
+
 ## [2.4.3](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.2...v2.4.3) (2026-11-11)
 
 ### New Features

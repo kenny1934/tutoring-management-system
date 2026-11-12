@@ -30,7 +30,7 @@ export const billingAPI = {
   options: () => fetchAPI<BillingOptions>('/billing/options'),
   intakeContext: (studentId: number, params: { trial_enrollment_id?: number; trial_session_id?: number; tutor_id?: number } = {}, signal?: AbortSignal) =>
     fetchAPI<BillingIntakeContext>(`/billing/students/${studentId}/intake-context?${queryString(params)}`, { signal }),
-  queue: (params: { collection_month?: string; stage?: BillingQueueStage; search?: string; location?: string; tutor_id?: number; offset?: number; limit?: number } = {}) =>
+  queue: (params: { collection_month?: string; stage?: BillingQueueStage; sort?: 'expiry' | 'student_id'; search?: string; location?: string; tutor_id?: number; offset?: number; limit?: number } = {}) =>
     fetchAPI<BillingQueueResponse>(`/billing/queue?${queryString(params)}`),
   queueCounts: (params: { collection_month?: string; location?: string; tutor_id?: number } = {}) =>
     fetchAPI<BillingQueueCounts>(`/billing/queue/counts?${queryString(params)}`),

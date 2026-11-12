@@ -105,8 +105,14 @@ describe("native activity history", () => {
     const scroller = dialog.querySelector<HTMLElement>('[data-native-scroll="activity-history"]')!;
     scroller.scrollTop = 240; fireEvent.scroll(scroller);
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(trigger).toHaveFocus(); expect(main.inert).not.toBe(true); expect(main.scrollTop).toBe(180);
+    // AnimatePresence removes its exiting surface before onExitComplete unmounts
+    // the history owner. Focus and scroll locks return in that owner's cleanup.
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus(); expect(main.inert).not.toBe(true);
+      expect(document.body.style.overflow).not.toBe("hidden");
+    });
+    expect(main.scrollTop).toBe(180);
     expect(mocks.values.get("dashboard:activity-history:All Locations:17:place")).toEqual({ top: 240, id: "session-7", offset: 0 });
     fireEvent.click(trigger);
     const reopened = await screen.findByRole("dialog", { name: "All activity" });

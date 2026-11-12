@@ -1,4 +1,7 @@
 """Scoped, read-only renewal worklist and its canonical reminder counts."""
+from datetime import date
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -45,6 +48,7 @@ def get_queue(
     collection_month: str | None = Query(default=None, pattern=MONTH_PATTERN),
     stage: QueueStage | None = None,
     search: str | None = Query(default=None, max_length=200),
+    sort: Literal['expiry', 'student_id'] = 'expiry',
     location: str | None = Query(default=None, max_length=100),
     tutor_id: int | None = Query(default=None, gt=0),
     offset: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=200),
@@ -57,6 +61,12 @@ def get_queue(
         term = search.strip().casefold()
         rows = [r for r in rows if term in r.student.student_name.casefold()
                 or term in (r.student.school_student_id or '').casefold()]
+    if stage == 'prepare' and sort == 'expiry':
+        # Keep the urgency sections, then show the first class that expires.
+        rows.sort(key=lambda row: (URGENCY_ORDER[row.urgency],
+            min((enrollment.effective_end_date for enrollment in row.current_enrollments
+                 if enrollment.effective_end_date is not None), default=date.max),
+            student_number_order(row.student)))
     urgency_counts = BillingQueueUrgencyCounts()
     for row in rows:
         setattr(urgency_counts, row.urgency, getattr(urgency_counts, row.urgency) + 1)

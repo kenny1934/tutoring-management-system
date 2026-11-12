@@ -494,6 +494,7 @@ export interface BillingCouponGroup {
   usable_count: number | null;
 }
 export interface BillingCouponBalance {
+  kms_managed?: boolean;
   student_id: number;
   storage_available: boolean;
   writes_available: boolean;

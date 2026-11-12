@@ -23,6 +23,7 @@ def outstanding_query(db, *, tutor_id=None, location=None):
         BillingAccount, BillingAccount.id == BillingPayment.account_id,
     ).join(Student, Student.id == BillingAccount.student_id).filter(
         BillingPayment.status == 'Paid',
+        BillingPayment.coupon_value > 0,
         or_(BillingPayment.receipt_reference.is_(None), length == whitespace_length),
     )
     owned = db.query(BillingPaymentLine.id).join(

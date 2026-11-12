@@ -94,7 +94,8 @@ def _facts(db, ids, *, current=False):
             source = legacy.get(row.enrollment_id)
             if source and row.student_id == source.student_id:
                 legacy_dates.setdefault(row.enrollment_id, []).append(row.session_date)
-    return accounts, observations, verifications, uses, payments, legacy, legacy_dates
+    from . import kms_stock
+    return accounts, observations, verifications, uses, payments, legacy, legacy_dates, kms_stock.facts(db, ids)
 
 
 def _use_state(use, payments, legacy):
@@ -238,6 +239,12 @@ def _balance(student_id, facts, *, as_of):
             group.usable_count = 0
         group.usable_count = max(0, group.usable_count)
     result.groups = sorted(groups.values(), key=lambda g: (g.expires_on, g.value, g.kind))
+    from . import kms_stock
+    kms_problems, managed = kms_stock.balance_issues(student_id, facts, result, as_of=as_of)
+    problems.extend(kms_problems)
+    if managed:
+        result.can_verify = False
+        result.kms_managed = True
     # A trustworthy zero observation needs no denomination or expiry details.
     # It cannot, however, identify or clear any outstanding coupon commitment.
     safe_zero = bool(observed and observed.remaining_count == 0 and not unaccounted_uses
@@ -280,6 +287,8 @@ def review_verification(db, student_id, data, *, as_of, current=False):
     account = accounts.get(student_id)
     observed = observations.get(account.observation_id) if account else None
     errors = []
+    if len(facts) > 7 and facts[7] and student_id in facts[7]['managed']:
+        errors.append(issue('KMS_SYNC_REQUIRED', 'Update this student’s coupons from KMS.'))
     if not observed or observed.id != data.observation_id or observed.student_id != student_id:
         errors.append(issue('OBSERVATION_CHANGED', 'Refresh the current KMS observation.'))
     if data.expected_version != (account.version if account else 0):

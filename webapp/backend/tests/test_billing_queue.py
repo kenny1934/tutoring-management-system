@@ -722,3 +722,28 @@ def test_queue_explains_gap_on_unselected_historical_timetable(env):
     assert detail['date'] == '2026-09-19' and detail['weekday'] == 'Sat'
     assert detail['enrollment_id'] == 12 and not detail['selected']
     assert detail['before']['enrollment_id'] == detail['after']['enrollment_id'] == 12
+
+
+def test_prepare_expiry_sort_precedes_pagination_and_can_use_student_id(env, monkeypatch):
+    from billing.schemas import BillingQueueRow
+    from routers import billing_queue
+    client, _, _ = env
+    template = BillingQueueRow.model_validate(only_row(client))
+    def entry(student_id, expiry_dates, urgency='week'):
+        row = template.model_copy(deep=True)
+        row.key = f'student-{student_id}'
+        row.student.id = student_id
+        row.student.school_student_id = str(student_id)
+        row.stage = 'prepare'
+        row.urgency = urgency
+        enrollment = template.current_enrollments[0]
+        row.current_enrollments = [enrollment.model_copy(update={'effective_end_date': value}) for value in expiry_dates]
+        return row
+    rows = [entry(2, [date(2026, 12, 19)]), entry(30, [date(2026, 12, 12), date(2026, 11, 7)]),
+            entry(1, [None]), entry(40, [date(2026, 12, 26)], 'now')]
+    monkeypatch.setattr(billing_queue, 'build_queue', lambda *args, **kwargs: rows.copy())
+    result = queue(client, stage='prepare', limit=2)
+    assert [r['student']['id'] for r in result['rows']] == [40, 30]
+    assert result['total'] == 4
+    assert [r['student']['id'] for r in queue(client, stage='prepare', offset=2)['rows']] == [2, 1]
+    assert [r['student']['id'] for r in queue(client, stage='prepare', sort='student_id')['rows']] == [40, 1, 2, 30]
