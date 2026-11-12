@@ -21,7 +21,7 @@ import type { BillingContextBasis, BillingDraftDetail, BillingIntakeRequest, Bil
 import { Badge, Button, Field, Input, PageHeader, Select, Textarea } from '@/components/controls';
 import { PageSurface } from '@/components/layout/PageSurface';
 import { BillingCouponPanel } from './BillingCouponPanel';
-import { BillingRenewalCoupon, matchingRenewalCoupon, type RenewalCouponSelection } from './BillingRenewalCoupon';
+import { BillingRenewalCoupon, availableRenewalCoupons, matchingRenewalCoupon, suggestRenewalCoupon, type RenewalCouponSelection } from './BillingRenewalCoupon';
 import { BillingChecks } from './BillingChecks';
 import { PaymentJourney } from './PaymentJourney';
 import { BillingEditorDialog } from './BillingEditorDialog';
@@ -100,6 +100,10 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     studentId: draftContext?.studentId ?? -1, version: -1, group: { key: '__initial', kind: initialRequest.coupon.kind,
       value: initialRequest.coupon.value, expires_on: initialRequest.coupon.expires_on || '', quantity: 0, usable_count: null },
   } : null);
+  // Once an admin makes a choice, including No coupon, never replace it automatically.
+  const [renewalCouponSuggested, setRenewalCouponSuggested] = useState(
+    !routineRenewal || !draftContext || !!initialRequest?.coupon || !!revisionTarget
+  );
   const [couponBalanceVersion, setCouponBalanceVersion] = useState<number | null>(null);
   const couponVersion = JSON.stringify([couponSnapshot ?? null, couponBalanceVersion]);
   const [verifiedCouponVersion, setVerifiedCouponVersion] = useState(couponVersion);
@@ -215,16 +219,31 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   const renewalReady = renewalTutorsReady && (!renewalChanged || !!renewalReason.trim());
   const renewalDetailsBlocked = sourceBlocked || reviewBusy || (routineRenewal && !!draftContext && !renewalSource);
   const currentKey = JSON.stringify({ request, sourceVersion, intake: intakeRequest, intakeReady, renewal: renewalChange });
-  const preview = !sourceBlocked && !needsRebase && result?.key === currentKey ? result.data : null;
+  const awaitingRenewalCoupon = !renewalCouponSuggested && (renewalCouponChecking || renewalCouponFailed
+    || availableRenewalCoupons(renewalCouponBalance).length > 0);
+  const preview = !awaitingRenewalCoupon && !sourceBlocked && !needsRebase && result?.key === currentKey ? result.data : null;
   const error = !sourceBlocked && !needsRebase && failure?.key === currentKey ? failure.message : null;
 
   useEffect(() => {
     if (!enabled || !options || !request || sourceBlocked || needsRebase) return;
+    if (!renewalCouponSuggested && (renewalCouponChecking || renewalCouponFailed)) return;
     const key = currentKey;
     const controller = new AbortController();
     setResult(previous => previous?.key === key ? previous : null);
     setFailure(null);
     const timer = setTimeout(() => {
+      if (!renewalCouponSuggested && renewalCouponBalance && availableRenewalCoupons(renewalCouponBalance).length) {
+        suggestRenewalCoupon(renewalCouponBalance, request, focusedPeriodNumber,
+          (scenario, signal) => billingAPI.preview(scenario, signal), controller.signal).then(selection => {
+          if (controller.signal.aborted) return;
+          setRenewalCoupon(selection);
+          setRenewalCouponSnapshot(currentCouponSnapshot);
+          setRenewalCouponSuggested(true);
+        }).catch((error: unknown) => {
+          if (!controller.signal.aborted) setFailure({ key, message: error instanceof Error ? error.message : 'Could not check which coupon fits this enrollment.' });
+        });
+        return;
+      }
       const methods: BillingMethod[] = focused && !compareSchedules ? [request.payment_method] : request.payment_method === 'autopay' ? ['autopay', 'manual'] : ['manual', 'autopay'];
       Promise.all(methods.map(async payment_method => [payment_method,
         await billingAPI.preview({ ...request, payment_method }, controller.signal)] as const)).then(entries => {
@@ -238,7 +257,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       });
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [enabled, options, request, attempt, sourceBlocked, needsRebase, currentKey, focused, compareSchedules]);
+  }, [enabled, options, request, attempt, sourceBlocked, needsRebase, currentKey, focused, compareSchedules, renewalCouponSuggested, renewalCouponBalance, renewalCouponChecking, renewalCouponFailed, focusedPeriodNumber, currentCouponSnapshot]);
 
   function updateSlot(index: number, change: Partial<BillingSlot>) {
     if (change.location && !selectableBranch(change.location)) change = { ...change, location: '' };
@@ -437,7 +456,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       const day = weekdayForDate(event.target.value);
       if (day && slots.length === 1) updateSlot(0, { weekday: day });
     }} /></Field>{!intake && draftContext ? <BillingRenewalCoupon studentId={draftContext.studentId} balance={renewalCouponBalance} checking={renewalCouponChecking} failed={renewalCouponFailed}
-      selection={renewalSelection} disabled={renewalDetailsBlocked} onSelect={value => { setRenewalCoupon(value); setRenewalCouponSnapshot(JSON.stringify(couponSnapshot ?? null)); setCombineCoupon(false); }} onRetry={() => { void renewalCouponState.mutate(); }}
+      selection={renewalSelection} suggesting={awaitingRenewalCoupon} disabled={renewalDetailsBlocked} onSelect={value => { setRenewalCouponSuggested(true); setRenewalCoupon(value); setRenewalCouponSnapshot(JSON.stringify(couponSnapshot ?? null)); setCombineCoupon(false); }} onRetry={() => { void renewalCouponState.mutate(); }}
       combine={combineCoupon} canCombine={canCombineRenewalCoupon} onCombine={setCombineCoupon} /> : null}</div>
     {intake && <Button size="sm" variant="quiet" disabled={renewalDetailsBlocked} onClick={() => {
       setSlots(current => current.length === 1 ? [...current, { weekday: BILLING_DAYS[(BILLING_DAYS.indexOf(current[0].weekday) + 2) % 7], location: current[0].location }] : current.slice(0, 1));
@@ -461,7 +480,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     </div>}
     {materialsChanged && <Field label="Reason for materials adjustment" id="intake-materials-reason"><Textarea id="intake-materials-reason" rows={2} disabled={sourceBlocked || reviewBusy || !isAdmin} value={materialsReason} maxLength={500} onChange={event => setMaterialsReason(event.target.value)} /></Field>}
     {(deduction === 'coupon' || !!renewalCoupon) && draftContext && <BillingRenewalCoupon studentId={draftContext.studentId} balance={renewalCouponBalance} checking={renewalCouponChecking} failed={renewalCouponFailed}
-      selection={renewalSelection} disabled={sourceBlocked || reviewBusy} onSelect={value => { setRenewalCoupon(value); setDeduction(value ? 'coupon' : 'none'); setRenewalCouponSnapshot(JSON.stringify(couponSnapshot ?? null)); setCombineCoupon(false); }} onRetry={() => { void renewalCouponState.mutate(); }}
+      selection={renewalSelection} disabled={sourceBlocked || reviewBusy} onSelect={value => { setRenewalCouponSuggested(true); setRenewalCoupon(value); setDeduction(value ? 'coupon' : 'none'); setRenewalCouponSnapshot(JSON.stringify(couponSnapshot ?? null)); setCombineCoupon(false); }} onRetry={() => { void renewalCouponState.mutate(); }}
       combine={combineCoupon} canCombine={false} onCombine={setCombineCoupon} />}
   </section>;
 

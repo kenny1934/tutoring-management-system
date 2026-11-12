@@ -52,12 +52,62 @@ beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: false, isGuest: false });
   mocks.preview.mockReset().mockResolvedValue(response());
   mocks.review.mockReset();
-  mocks.coupons = undefined; mocks.checkingCoupons = false; mocks.couponError = undefined;
+  mocks.coupons = { student_id: 4, storage_available: true, writes_available: true, version: 1,
+    observation: null, checked_at: null, checked_by: null, reserved_count: 0, receipt_pending_count: 0,
+    used_awaiting_sync_count: 0, usable_count: 0, groups: [], issues: [], uses: [], can_verify: true };
+  mocks.checkingCoupons = false; mocks.couponError = undefined;
   mocks.tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }, { id: 13, tutor_name: 'Tutor Other', default_location: 'MSB' }];
 });
 afterEach(() => vi.useRealTimers());
 
 describe('enrollment fee preview', () => {
+  it('preselects the earliest eligible coupon and respects an explicit No coupon afterwards', async () => {
+    mocks.coupons = { ...mocks.coupons!, observation: { id: 'obs', remaining_count: 2, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
+      checked_at: '2026-11-01', usable_count: 2, groups: [
+        { key: 'later', kind: 'ordinary', value: 300, expires_on: '2027-06-30', quantity: 1, usable_count: 1 },
+        { key: 'earlier', kind: 'ordinary', value: 200, expires_on: '2026-12-31', quantity: 1, usable_count: 1 },
+      ] };
+    mocks.preview.mockImplementation(async (scenario: BillingPreviewRequest) => {
+      const data = response(); data.periods[0].deductions = scenario.coupon ? [{ kind: scenario.coupon.kind, amount: scenario.coupon.value }] : [];
+      return data;
+    });
+    const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    const props = { focused: true, initialRequest: initial, renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }, draftContext: { studentId: 4, basis: 'include_pending' as const, selectedEnrollmentIds: [7], sourceFingerprint: 'source' } };
+    const view = renderBase(<BillingPreview {...props} />);
+    expect(mocks.review).not.toHaveBeenCalled();
+    await calculate();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('earlier');
+    expect(mocks.review).not.toHaveBeenCalled();
+    await calculate();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ coupon: expect.objectContaining({ value: 200 }) }) }) }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
+    await calculate();
+    mocks.coupons = { ...mocks.coupons, version: 2 };
+    view.rerender(<BillingPreview {...props} />);
+    await calculate();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('');
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'later' } });
+    await calculate();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('later');
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: expect.objectContaining({ value: 300 }) }), expect.any(AbortSignal));
+  });
+
+  it.each(['loading', 'failed'])('waits for coupon evidence before pricing a renewal (%s)', async state => {
+    mocks.coupons = undefined;
+    mocks.checkingCoupons = state === 'loading';
+    mocks.couponError = state === 'failed' ? new Error('Offline') : undefined;
+    const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate();
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(mocks.review).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('__suggesting');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+  });
+
   it('uses a verified ledger coupon for renewal without editable KMS fields and invalidates changed evidence', async () => {
     mocks.coupons = { student_id: 4, storage_available: true, writes_available: true, version: 3,
       observation: { id: 'obs', remaining_count: 2, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },

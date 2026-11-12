@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button, Field, Select } from '@/components/controls';
 import { formatMOP, formatShortDate } from '@/lib/formatters';
-import type { BillingCouponBalance, BillingCouponGroup } from '@/types/billing';
+import type { BillingCouponBalance, BillingCouponGroup, BillingPreviewRequest, BillingPreviewResponse } from '@/types/billing';
 
 export interface RenewalCouponSelection {
   studentId: number;
@@ -14,7 +14,31 @@ export interface RenewalCouponSelection {
 /** Only fresh, reconciled ledger stock can be offered for a renewal. */
 export function availableRenewalCoupons(balance?: BillingCouponBalance) {
   if (!balance?.storage_available || !balance.observation || !balance.checked_at || !(balance.usable_count && balance.usable_count > 0)) return [];
-  return balance.groups.filter(group => group.usable_count != null && group.usable_count > 0);
+  return balance.groups.filter(group => group.usable_count != null && group.usable_count > 0)
+    .sort((a, b) => a.expires_on.localeCompare(b.expires_on) || a.key.localeCompare(b.key));
+}
+
+/** Ask the fee calculator so expiry, short payments and staff vouchers follow the same rules as publishing. */
+export async function suggestRenewalCoupon(
+  balance: BillingCouponBalance,
+  request: BillingPreviewRequest,
+  periodNumber: number,
+  calculate: (request: BillingPreviewRequest, signal: AbortSignal) => Promise<BillingPreviewResponse>,
+  signal: AbortSignal,
+): Promise<RenewalCouponSelection | null> {
+  for (const group of availableRenewalCoupons(balance)) {
+    if (signal.aborted) return null;
+    const result = await calculate({ ...request, trial_deduction: false, coupon: {
+      kind: group.kind, value: group.value, expires_on: group.expires_on,
+      available_count: group.usable_count, verified: true, combine_next_month: false,
+    } }, signal);
+    if (signal.aborted) return null;
+    const period = result.periods.find(item => item.number === periodNumber);
+    if (period?.deductions.some(item => item.kind === group.kind && item.amount === group.value)) {
+      return { studentId: balance.student_id, version: balance.version, group: { ...group } };
+    }
+  }
+  return null;
 }
 
 export function matchingRenewalCoupon(balance: BillingCouponBalance | undefined, selection: RenewalCouponSelection | null, checking: boolean) {
@@ -23,13 +47,14 @@ export function matchingRenewalCoupon(balance: BillingCouponBalance | undefined,
     && group.value === selection.group.value && group.expires_on === selection.group.expires_on && group.usable_count === selection.group.usable_count) ?? null;
 }
 
-export function BillingRenewalCoupon({ studentId, balance, checking, failed, selection, disabled, onSelect, onRetry, combine, canCombine, onCombine }: {
+export function BillingRenewalCoupon({ studentId, balance, checking, failed, selection, disabled, suggesting = false, onSelect, onRetry, combine, canCombine, onCombine }: {
   studentId: number;
   balance?: BillingCouponBalance;
   checking: boolean;
   failed: boolean;
   selection: RenewalCouponSelection | null;
   disabled?: boolean;
+  suggesting?: boolean;
   onSelect: (value: RenewalCouponSelection | null) => void;
   onRetry: () => void;
   combine: boolean;
@@ -41,11 +66,12 @@ export function BillingRenewalCoupon({ studentId, balance, checking, failed, sel
   const selected = matchingRenewalCoupon(studentBalance, selection, checking || failed);
   const unavailable = !checking && !failed && !groups.length;
   return <section aria-label="Renewal coupon" className="space-y-2 text-xs">
-    <Field label="Coupon" id="renewal-coupon"><Select id="renewal-coupon" value={selected?.key ?? (selection ? '__changed' : '')} disabled={disabled} onChange={event => {
+    <Field label="Coupon" id="renewal-coupon"><Select id="renewal-coupon" value={selected?.key ?? (selection ? '__changed' : suggesting ? '__suggesting' : '')} disabled={disabled} onChange={event => {
       if (event.target.value && (checking || failed)) return;
       const group = groups.find(item => item.key === event.target.value);
       onSelect(group && studentBalance ? { studentId, version: studentBalance.version, group: { ...group } } : null);
     }}>
+      {!selection && suggesting && <option value="__suggesting" disabled>{failed ? 'Select coupon' : 'Checking coupons…'}</option>}
       {selection && !selected && <option value="__changed" disabled>Select coupon again</option>}
       <option value="">No coupon</option>
       {groups.map(group => <option key={group.key} value={group.key} disabled={checking || failed}>{formatMOP(group.value, 0)} {group.kind === 'staff' ? 'staff voucher' : 'coupon'} · expires {formatShortDate(group.expires_on)} · {group.usable_count} available</option>)}

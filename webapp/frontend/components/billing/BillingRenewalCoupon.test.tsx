@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { BillingCouponBalance } from '@/types/billing';
-import { availableRenewalCoupons, BillingRenewalCoupon, matchingRenewalCoupon, type RenewalCouponSelection } from './BillingRenewalCoupon';
+import type { BillingCouponBalance, BillingPreviewRequest, BillingPreviewResponse } from '@/types/billing';
+import { availableRenewalCoupons, BillingRenewalCoupon, matchingRenewalCoupon, suggestRenewalCoupon, type RenewalCouponSelection } from './BillingRenewalCoupon';
 
 function balance(overrides: Partial<BillingCouponBalance> = {}): BillingCouponBalance {
   return { student_id: 4, storage_available: true, writes_available: true, version: 3,
@@ -80,5 +80,56 @@ describe('routine renewal coupon choice', () => {
     const data = balance({ groups: [{ ...balance().groups[0], kind: 'staff', value: 500 }] });
     view.rerender(<BillingRenewalCoupon {...input} balance={data} selection={selected(data)} canCombine />);
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+});
+
+
+describe('automatic renewal coupon suggestion', () => {
+  const request: BillingPreviewRequest = { first_lesson_date: '2026-12-01', mode: 'regular', payment_method: 'manual',
+    slots: [{ weekday: 'Tue' }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
+  function stock() {
+    return balance({ usable_count: 3, groups: [
+      { key: 'later300', kind: 'ordinary', value: 300, expires_on: '2027-06-30', quantity: 1, usable_count: 1 },
+      { key: 'earlier200', kind: 'ordinary', value: 200, expires_on: '2026-12-31', quantity: 1, usable_count: 1 },
+      { key: 'held', kind: 'ordinary', value: 300, expires_on: '2026-11-30', quantity: 1, usable_count: 0 },
+    ] });
+  }
+  function calculated(scenario: BillingPreviewRequest, usedPeriod = 1): BillingPreviewResponse {
+    return { periods: [{ number: usedPeriod, deductions: scenario.coupon
+      ? [{ kind: scenario.coupon.kind, amount: scenario.coupon.value }] : [] }] } as BillingPreviewResponse;
+  }
+  it('uses the earliest expiry and its actual value without extending the payment', async () => {
+    const data = stock(); const originalOrder = data.groups.map(group => group.key);
+    const calculate = vi.fn(async (scenario: BillingPreviewRequest) => calculated(scenario));
+    const suggestion = await suggestRenewalCoupon(data, request, 1, calculate, new AbortController().signal);
+    expect(suggestion).toMatchObject({ studentId: 4, version: 3, group: { key: 'earlier200', value: 200 } });
+    expect(calculate).toHaveBeenCalledOnce();
+    expect(calculate.mock.calls[0][0]).toMatchObject({ coupon: { verified: true, combine_next_month: false, value: 200 } });
+    expect(data.groups.map(group => group.key)).toEqual(originalOrder);
+  });
+  it('skips an expired or ineligible coupon according to the calculator', async () => {
+    const calculate = vi.fn(async (scenario: BillingPreviewRequest) => calculated(scenario.coupon?.value === 200 ? { ...scenario, coupon: null } : scenario));
+    expect(await suggestRenewalCoupon(stock(), request, 1, calculate, new AbortController().signal))
+      .toMatchObject({ group: { key: 'later300', value: 300 } });
+    expect(calculate).toHaveBeenCalledTimes(2);
+  });
+  it('keeps coupons for later if a short payment cannot use them', async () => {
+    const calculate = vi.fn(async (scenario: BillingPreviewRequest) => calculated(scenario, 2));
+    expect(await suggestRenewalCoupon(stock(), request, 1, calculate, new AbortController().signal)).toBeNull();
+  });
+  it('can select an eligible staff voucher for the focused payment', async () => {
+    const data = balance({ groups: [{ key: 'staff', kind: 'staff', value: 500, expires_on: '2027-06-30', quantity: 1, usable_count: 1 }] });
+    expect(await suggestRenewalCoupon(data, request, 2, async scenario => calculated(scenario, 2), new AbortController().signal))
+      .toMatchObject({ group: { kind: 'staff', value: 500 } });
+  });
+  it('does not interpret a failed calculation as No coupon', async () => {
+    await expect(suggestRenewalCoupon(stock(), request, 1, async () => { throw new Error('Offline'); }, new AbortController().signal))
+      .rejects.toThrow('Offline');
+  });
+  it('discards a suggestion if the admin changes details during calculation', async () => {
+    const controller = new AbortController();
+    expect(await suggestRenewalCoupon(stock(), request, 1, async scenario => {
+      controller.abort(); return calculated(scenario);
+    }, controller.signal)).toBeNull();
   });
 });
