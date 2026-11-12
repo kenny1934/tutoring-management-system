@@ -4,9 +4,9 @@ import { SWRConfig } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
 import { BillingPreview } from './BillingPreview';
-import type { BillingDraftReview, BillingDraftReviewRequest, BillingMethod, BillingPeriod, BillingPreviewRequest, BillingPreviewResponse } from '@/types/billing';
+import type { BillingCouponBalance, BillingDraftReview, BillingDraftReviewRequest, BillingMethod, BillingPeriod, BillingPreviewRequest, BillingPreviewResponse } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ preview: vi.fn(), draftReview: vi.fn(), saveDraft: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn() }));
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), draftReview: vi.fn(), saveDraft: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), couponBalance: vi.fn() }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true, isLoading: false, isGuest: false }) }));
 vi.mock('@/lib/hooks', () => ({ usePageTitle: vi.fn() }));
@@ -69,6 +69,15 @@ function currentPayment() {
 }
 beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
+  const coupons: BillingCouponBalance = {
+    student_id: 4, storage_available: true, writes_available: true, version: 1,
+    observation: { id: 'observation', remaining_count: 0, observed_on: '2026-11-12',
+      processed_at: '2026-11-12', source_filename: 'fixture.xls' },
+    reserved_count: 0, receipt_pending_count: 0, used_awaiting_sync_count: 0,
+    usable_count: 0, groups: [], checked_at: '2026-11-12', checked_by: 'Fixture',
+    issues: [], uses: [], can_verify: true,
+  };
+  mocks.couponBalance.mockResolvedValue(coupons);
   mocks.preview.mockImplementation(async (request: BillingPreviewRequest) => calculation(request));
   mocks.draftReview.mockImplementation(async (_id: number, request: BillingDraftReviewRequest) => reviewed(request));
   mocks.saveDraft.mockResolvedValue({ id: 'draft-1', revision: 1 });
