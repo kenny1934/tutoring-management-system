@@ -59,7 +59,7 @@ describe('routine renewal coupon choice', () => {
     const input = props(); render(<BillingRenewalCoupon {...input} balance={data} selection={selected(data)} canCombine />);
     expect(screen.getByRole('combobox')).toHaveValue('__changed');
     expect(screen.queryByRole('option', { name: /300.*coupon/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Include next month' })).toBeDisabled();
     expect(screen.getByText('Coupon details changed. Select a coupon again.')).toBeVisible();
     expect(screen.getByRole('link')).toHaveAttribute('href', '/students/4#student-coupons');
   });
@@ -71,16 +71,74 @@ describe('routine renewal coupon choice', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
     expect(input.onSelect).toHaveBeenCalledWith(null);
   });
-  it('shows optional month combination only for a selected ordinary coupon when applicable', () => {
-    const input = props(); const view = render(<BillingRenewalCoupon {...input} selection={selected()} canCombine />);
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Include next month to reach 4 sessions' }));
-    expect(input.onCombine).toHaveBeenCalledWith(true);
-    view.rerender(<BillingRenewalCoupon {...input} selection={selected()} canCombine={false} />);
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    const data = balance({ groups: [{ ...balance().groups[0], kind: 'staff', value: 500 }] });
-    view.rerender(<BillingRenewalCoupon {...input} balance={data} selection={selected(data)} canCombine />);
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  it('keeps the month control visible with its unavailable reason', () => {
+    render(<BillingRenewalCoupon {...props()} combineLabel="Include January" combineReason="This enrollment already covers January." />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Include January' });
+    expect(checkbox).toBeDisabled();
+    expect(checkbox.closest('label')).toHaveClass('text-ink-subtle');
+    expect(checkbox).toHaveAccessibleDescription('This enrollment already covers January.');
+    expect(screen.getByText('This enrollment already covers January.')).toBeVisible();
   });
+
+  it.each(['ordinary', 'staff'] as const)('shows an enabled offer without requiring a selected %s coupon', kind => {
+    const data = balance({ groups: [{ ...balance().groups[0], kind, value: kind === 'staff' ? 500 : 300 }] });
+    const input = props();
+    const view = render(<BillingRenewalCoupon {...input} balance={data} canCombine />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Include next month' });
+    expect(checkbox).toBeEnabled();
+    fireEvent.click(checkbox);
+    expect(input.onCombine).toHaveBeenCalledWith(true);
+    view.rerender(<BillingRenewalCoupon {...input} balance={data} selection={selected(data)} canCombine />);
+    expect(screen.getByRole('checkbox')).toBeEnabled();
+    view.rerender(<BillingRenewalCoupon {...input} balance={data} selection={selected(data)} canCombine={false} combineReason="Keep this enrollment's end date." />);
+    expect(screen.getByRole('checkbox')).toBeDisabled();
+    expect(screen.getByRole('checkbox')).toHaveAccessibleDescription("Keep this enrollment's end date.");
+  });
+
+  it('allows unchecking an included month even when no new combination offer remains', () => {
+    const input = props();
+    const view = render(<BillingRenewalCoupon {...input} selection={selected()} combine canCombine={false} />);
+    expect(screen.getByRole('checkbox')).toBeChecked();
+    expect(screen.getByRole('checkbox')).toBeEnabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(input.onCombine).toHaveBeenCalledWith(false);
+    view.rerender(<BillingRenewalCoupon {...input} selection={selected()} combine canCombine={false} disabled />);
+    expect(screen.getByRole('checkbox')).toBeDisabled();
+  });
+
+  it.each(['checking', 'failed', 'stale', 'unverified', 'foreign'] as const)('holds the month control while coupon evidence is %s', state => {
+    const input = props();
+    const data = state === 'stale' ? balance({ version: 4 }) : state === 'unverified' ? balance({ checked_at: null })
+      : state === 'foreign' ? balance({ student_id: 5 }) : balance();
+    render(<BillingRenewalCoupon {...input} balance={data} checking={state === 'checking'} failed={state === 'failed'}
+      selection={selected()} combine canCombine />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Include next month' });
+    expect(checkbox).toBeDisabled();
+    fireEvent.click(checkbox);
+    expect(input.onCombine).not.toHaveBeenCalled();
+  });
+
+  it('explains a missing default next to the coupon field without inventing fee rules', () => {
+    const message = 'This enrollment has 3 sessions. Coupons require at least 4.';
+    render(<BillingRenewalCoupon {...props()} feedback={{ tone: 'info', message }} />);
+    const explanation = screen.getByText(message);
+    expect(explanation).toBeVisible();
+    expect(explanation).toHaveClass('text-ink-subtle');
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveAccessibleDescription(message);
+  });
+
+  it('shows a compact amber warning for a selected coupon that was not applied', () => {
+    const message = 'Coupon not applied. This enrollment has too few sessions.';
+    const { container } = render(<BillingRenewalCoupon {...props()} selection={selected()}
+      feedback={{ tone: 'warning', message }} combineReason='Keep this enrollment until December.' />);
+    const warning = screen.getByRole('status');
+    expect(warning).toHaveTextContent(message);
+    expect(warning).toHaveClass('text-amber-800');
+    expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveAccessibleDescription(message);
+    expect(container.textContent).not.toContain('·');
+    expect(container.textContent).not.toContain('•');
+  });
+
 });
 
 

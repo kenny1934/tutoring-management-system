@@ -86,7 +86,7 @@ describe('enrollment fee preview', () => {
     view.rerender(<BillingPreview {...props} />);
     await calculate();
     expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('');
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ coupon: null }) }) }));
     fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'later' } });
     await calculate();
     expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('later');
@@ -105,7 +105,92 @@ describe('enrollment fee preview', () => {
     expect(screen.getByRole('combobox', { name: 'Coupon' })).toHaveValue('__suggesting');
     fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
     await calculate();
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ coupon: null }) }) }));
+  });
+
+  it('explains three-session ineligibility and explicitly includes January without changing Autopay', async () => {
+    mocks.coupons = { ...mocks.coupons!, observation: { id: 'obs', remaining_count: 2, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
+      checked_at: '2026-11-01', usable_count: 2, groups: [
+        { key: 'later300', kind: 'ordinary', value: 300, expires_on: '2027-06-30', quantity: 1, usable_count: 1 },
+        { key: 'earlier200', kind: 'ordinary', value: 200, expires_on: '2026-12-31', quantity: 1, usable_count: 1 },
+      ] };
+    mocks.preview.mockImplementation(async (scenario: BillingPreviewRequest) => {
+      const data = response(); const combined = !!scenario.coupon?.combine_next_month && !!scenario.coupon.allow_transition_combination;
+      const count = combined ? 8 : 3; const discount = combined ? scenario.coupon!.value : 0;
+      data.payment_method = scenario.payment_method;
+      data.periods[0] = { ...data.periods[0], kind: 'transition', first_lesson_date: '2026-12-05', coverage_from: '2026-12-05',
+        coverage_through: combined ? '2027-01-31' : '2026-12-31', last_lesson_date: combined ? '2027-01-30' : '2026-12-19',
+        lesson_count: count, gross_tuition: count * 400, total_fee: count * 400 - discount,
+        tuition_after_deductions: count * 400 - discount, deductions: discount ? [{ kind: 'ordinary', amount: discount }] : [],
+        counts_by_month: [{ month: '2026-12', lessons: 3 }, ...(combined ? [{ month: '2027-01', lessons: 5 }] : [])] };
+      data.coupon_options = scenario.coupon ? [{ period_number: 1, applied: combined, reason: combined ? null : 'min_sessions', minimum_sessions: 4,
+        can_include_next_month: true, include_next_month_reason: null, include_next_month: '2027-01-01', next_month_included: combined }] : [];
+      data.skipped_collections = combined ? [{ month: '2026-12', covered_by_period: 1, reason: 'January is already included.' }] : [];
+      return data;
+    });
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-12-05', mode: 'transition', payment_method: 'autopay', slots: [{ weekday: 'Sat', time_slot: '16:15 - 17:45', location: 'MSB' }], materials_fee: 0, trial_deduction: false, mandate_ready: true };
+    renderBase(<BillingPreview focused initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate(); await calculate();
+    const coupon = screen.getByRole('combobox', { name: 'Coupon' });
+    expect(coupon).toHaveValue('');
+    expect(screen.getByText('This enrollment has 3 sessions. At least 4 are required.')).toBeVisible();
+    const include = screen.getByRole('checkbox', { name: 'Include January' });
+    expect(include).toBeVisible(); expect(include).toBeEnabled(); expect(include).not.toBeChecked();
+    fireEvent.click(include); await calculate();
+    expect(coupon).toHaveValue('earlier200'); expect(include).toBeChecked();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({
+      reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ payment_method: 'autopay', coupon: expect.objectContaining({ value: 200, combine_next_month: true, allow_transition_combination: true }) }) }),
+      calculation: expect.objectContaining({ periods: [expect.objectContaining({ coverage_through: '2027-01-31', lesson_count: 8, total_fee: 3000 })], skipped_collections: [expect.objectContaining({ month: '2026-12' })] }),
+    }));
+    expect(screen.queryByText(/Coupon not applied/)).not.toBeInTheDocument();
+    fireEvent.click(include); await calculate();
+    expect(include).not.toBeChecked(); expect(coupon).toHaveValue('earlier200');
+    expect(screen.getByText('Coupon not applied. This enrollment has 3 sessions. At least 4 are required.')).toBeVisible();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ calculation: expect.objectContaining({ periods: [expect.objectContaining({ lesson_count: 3, total_fee: 1200 })] }) }));
+    fireEvent.change(coupon, { target: { value: '' } }); await calculate();
+    expect(coupon).toHaveValue('');
+    expect(screen.queryByText(/Coupon not applied/)).not.toBeInTheDocument();
+  });
+
+  it('includes February for a later regular period without opting December into January', async () => {
+    mocks.coupons = { ...mocks.coupons!, observation: { id: 'obs', remaining_count: 1, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' }, checked_at: '2026-11-01', usable_count: 1,
+      groups: [{ key: 'staff', kind: 'staff', value: 500, expires_on: '2027-06-30', quantity: 1, usable_count: 1 }] };
+    mocks.preview.mockImplementation(async (scenario: BillingPreviewRequest) => {
+      const data = response(); const combined = !!scenario.coupon?.combine_next_month && !scenario.coupon.allow_transition_combination;
+      data.periods = [
+        { ...data.periods[0], kind: 'transition', number: 1, first_lesson_date: '2026-12-05', coverage_from: '2026-12-05', coverage_through: '2026-12-31', lesson_count: 3, deductions: [], total_fee: 1200 },
+        { ...data.periods[0], kind: 'regular', number: 2, first_lesson_date: '2027-01-02', coverage_from: '2027-01-02', coverage_through: combined ? '2027-02-28' : '2027-01-31', lesson_count: combined ? 9 : 5, deductions: combined ? [{ kind: 'staff', amount: 500 }] : [], total_fee: combined ? 3100 : 2000 },
+      ];
+      data.coupon_options = scenario.coupon ? [
+        { period_number: 1, applied: false, reason: 'min_sessions', minimum_sessions: 6, can_include_next_month: true, include_next_month_reason: null, include_next_month: '2027-01-01', next_month_included: false },
+        { period_number: 2, applied: combined, reason: combined ? null : 'two_months', minimum_sessions: null, can_include_next_month: true, include_next_month_reason: null, include_next_month: '2027-02-01', next_month_included: combined },
+      ] : [];
+      return data;
+    });
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-12-05', mode: 'transition', payment_method: 'autopay', slots: [{ weekday: 'Sat' }], materials_fee: 0, trial_deduction: false, mandate_ready: true };
+    renderBase(<BillingPreview focused focusedPeriodNumber={2} initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate(); await calculate();
+    const include = screen.getByRole('checkbox', { name: 'Include February' }); expect(include).toBeEnabled();
+    fireEvent.click(include); await calculate();
+    expect(include).toBeChecked();
+    const last = mocks.review.mock.lastCall![0];
+    expect(last.reviewRequest.period_number).toBe(2);
+    expect(last.reviewRequest.scenario.coupon).toMatchObject({ kind: 'staff', combine_next_month: true });
+    expect(last.reviewRequest.scenario.coupon).not.toHaveProperty('allow_transition_combination');
+    expect(last.calculation.periods[0]).toMatchObject({ coverage_through: '2026-12-31', lesson_count: 3, total_fee: 1200 });
+    expect(last.calculation.periods[1]).toMatchObject({ coverage_through: '2027-02-28', lesson_count: 9, total_fee: 3100 });
+  });
+
+  it('preserves an old saved transition scenario whose combination belongs to a later regular period', async () => {
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-12-05', mode: 'transition', payment_method: 'autopay', slots: [{ weekday: 'Sat' }], materials_fee: 0, trial_deduction: false, mandate_ready: true,
+      coupon: { kind: 'staff', value: 500, expires_on: '2027-06-30', available_count: 1, verified: true, combine_next_month: true } };
+    render(<BillingPreview embedded initialRequest={initial} />);
+    await calculate();
+    expect(screen.getByRole('checkbox', { name: 'Include the next month if needed for this coupon' })).toBeChecked();
+    for (const [request] of mocks.preview.mock.calls) {
+      expect(request.coupon.combine_next_month).toBe(true);
+      expect(request.coupon).not.toHaveProperty('allow_transition_combination');
+    }
   });
 
   it('uses a verified ledger coupon for renewal without editable KMS fields and invalidates changed evidence', async () => {
@@ -127,7 +212,7 @@ describe('enrollment fee preview', () => {
     expect(screen.queryByLabelText('Coupon expiry')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Remaining coupon count')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Checked in KMS')).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: /Include next month/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Include next month/ })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Manage student coupons' })).toHaveAttribute('href', '/students/4#student-coupons');
     const callsBeforeStudentChange = mocks.preview.mock.calls.length;
     view.rerender(<BillingPreview {...props} draftContext={{ ...props.draftContext, studentId: 5 }} />);
@@ -153,7 +238,7 @@ describe('enrollment fee preview', () => {
     expect(mocks.preview).toHaveBeenCalledTimes(callsBeforeCheck);
     fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
     await calculate();
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ coupon: null }) }) }));
     fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'ordinary' } });
     await calculate();
     const callsBeforeImport = mocks.preview.mock.calls.length;
@@ -174,32 +259,36 @@ describe('enrollment fee preview', () => {
     expect(screen.getByRole('combobox', { name: 'Coupon' })).toBeEnabled();
     fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: '' } });
     await calculate();
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: null }), expect.any(AbortSignal));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ coupon: null }) }) }));
   });
 
   it.each([
-    { kind: 'regular', lessons: 3, couponKind: 'ordinary' as const, visible: true },
-    { kind: 'regular', lessons: 4, couponKind: 'ordinary' as const, visible: false },
-    { kind: 'transition', lessons: 3, couponKind: 'ordinary' as const, visible: false },
-    { kind: 'legacy', lessons: 3, couponKind: 'ordinary' as const, visible: false },
-    { kind: 'regular', lessons: 3, couponKind: 'staff' as const, visible: false },
-  ])('offers optional coupon month combination only where applicable: %j', async ({ kind, lessons, couponKind, visible }) => {
+    { kind: 'regular', lessons: 3, couponKind: 'ordinary' as const, enabled: true },
+    { kind: 'regular', lessons: 4, couponKind: 'ordinary' as const, enabled: false },
+    { kind: 'transition', lessons: 3, couponKind: 'ordinary' as const, enabled: true },
+    { kind: 'legacy', lessons: 3, couponKind: 'ordinary' as const, enabled: false },
+    { kind: 'regular', lessons: 3, couponKind: 'staff' as const, enabled: true },
+  ])('always shows month inclusion and enables only eligible offers: %j', async ({ kind, lessons, couponKind, enabled }) => {
     mocks.coupons = { student_id: 4, storage_available: true, writes_available: true, version: 3,
       observation: { id: 'obs', remaining_count: 1, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
       reserved_count: 0, receipt_pending_count: 0, used_awaiting_sync_count: 0, usable_count: 1,
       groups: [{ key: 'selected', kind: couponKind, value: couponKind === 'staff' ? 500 : 300, expires_on: '2027-06-30', quantity: 1, usable_count: 1 }],
       checked_at: '2026-11-01', checked_by: 'Fixture', issues: [], uses: [], can_verify: true };
     const result = response(); result.periods[0] = { ...result.periods[0], kind, lesson_count: lessons };
+    result.coupon_options = [{ period_number: 1, applied: false, reason: 'min_sessions', minimum_sessions: 4,
+      can_include_next_month: enabled, include_next_month_reason: enabled ? null : kind === 'legacy' ? 'legacy' : 'already_eligible',
+      include_next_month: '2026-12-01', next_month_included: false }];
     mocks.preview.mockResolvedValue(result);
     const initial = { first_lesson_date: '2026-11-10', mode: 'regular' as const, payment_method: 'autopay' as const, slots: [{ weekday: 'Tue' as const }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
     renderBase(<BillingPreview focused initialRequest={initial} renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
     await calculate();
     fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'selected' } });
     await calculate();
-    const control = screen.queryByRole('checkbox', { name: 'Include next month to reach 4 sessions' });
-    expect(!!control).toBe(visible);
+    const control = screen.getByRole('checkbox', { name: 'Include December' });
+    expect(control).toBeVisible();
+    if (enabled) expect(control).toBeEnabled(); else expect(control).toBeDisabled();
     expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: expect.objectContaining({ combine_next_month: false }) }), expect.any(AbortSignal));
-    if (control) {
+    if (enabled) {
       fireEvent.click(control);
       await calculate();
       expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ coupon: expect.objectContaining({ combine_next_month: true }) }), expect.any(AbortSignal));

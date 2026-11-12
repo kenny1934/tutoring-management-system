@@ -364,3 +364,47 @@ def test_known_available_group_still_allows_review_save_and_copy(env):
     assert saved.status_code == 200 and saved.json()['can_copy'], saved.text
     fresh = client.get(f"/api/billing/drafts/{saved.json()['id']}")
     assert fresh.status_code == 200 and fresh.json()['can_copy']
+
+
+@pytest.mark.parametrize('explicit_transition_option', [False, True])
+def test_transition_coupon_option_preserves_saved_scenarios_and_finite_stock(env, explicit_transition_option):
+    from models import Holiday
+    from tests.test_billing_queue import coverage
+    client, db, _ = env
+    source = db.get(Enrollment, 11)
+    source.assigned_day = 'Sat'
+    coverage(db, date(2026, 11, 28), start=date(2026, 10, 24))
+    db.add(Holiday(holiday_date=date(2026, 12, 26), holiday_name='Synthetic closure'))
+    db.commit()
+    observed(client)
+    response, _, _ = checked(client)
+    assert response.status_code == 200, response.text
+    request = coupon_payload(client)
+    request['scenario']['payment_method'] = 'autopay'
+    request['scenario']['mandate_ready'] = True
+    request['scenario']['coupon']['combine_next_month'] = True
+    if explicit_transition_option:
+        request['scenario']['coupon']['allow_transition_combination'] = True
+    draft, _, value = confirmed(client, payload=request, method='autopay', ready=True)
+    period = value['review']['period']
+    assert period['first_lesson_date'] == '2026-12-05'
+    assert period['coverage_through'] == ('2027-01-31' if explicit_transition_option else '2026-12-31')
+    assert period['lesson_count'] == (8 if explicit_transition_option else 3)
+    assert period['total_fee'] == (2900 if explicit_transition_option else 1200)
+    assert period['collection']['method'] == 'autopay'
+    assert client.get('/api/billing/students/101/preferences').json()['payment_method'] == 'autopay'
+    current = balance(client)
+    assert current['reserved_count'] == int(explicit_transition_option)
+    assert current['usable_count'] == 1 - int(explicit_transition_option)
+    assert db.query(CouponUse).filter_by(payment_id=value['id']).count() == int(explicit_transition_option)
+    assert 'coupon_options' not in period
+    if explicit_transition_option:
+        assert value['review']['scenario']['coupon']['allow_transition_combination']
+    else:
+        # Older stored requests had combine_next_month=True but no transition
+        # opt-in. Their saved amount, dates, review and confirmation stay valid.
+        assert 'allow_transition_combination' not in draft['review']['scenario']['coupon']
+    reread = client.get(f"/api/billing/payments/{value['id']}")
+    assert reread.status_code == 200, reread.text
+    assert reread.json()['review']['review_hash'] == draft['review']['review_hash']
+    assert db.get(Enrollment, value['lines'][0]['enrollment_id']).payment_status == 'Pending Payment'

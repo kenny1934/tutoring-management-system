@@ -26,6 +26,7 @@ export interface BillingPreviewRequest {
     expires_on: string | null;
     available_count: number | null;
     combine_next_month: boolean;
+    allow_transition_combination?: boolean;
   } | null;
 }
 
@@ -182,7 +183,19 @@ export interface BillingGapEvidence {
   nearby_lessons: BillingGapLesson[];
 }
 
+export interface BillingPreviewCouponOption {
+  period_number: number;
+  applied: boolean;
+  reason: 'min_sessions' | 'two_months' | 'expired' | 'unverified' | 'unavailable' | 'already_used' | null;
+  minimum_sessions: number | null;
+  can_include_next_month: boolean;
+  include_next_month_reason: 'already_eligible' | 'legacy' | 'adjusted' | 'year_end' | 'still_ineligible' | 'expired' | 'unverified' | 'unavailable' | 'already_used' | 'already_combined' | null;
+  include_next_month: string | null;
+  next_month_included: boolean;
+}
+
 export interface BillingPreviewResponse {
+  coupon_options?: BillingPreviewCouponOption[];
   policy_version: string;
   regular_end_date: string;
   makeup_end_date: string;

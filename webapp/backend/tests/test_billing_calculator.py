@@ -518,3 +518,125 @@ def test_all_future_lesson_identities_allocated_exactly_once(closures, mode, sta
     assert all(sum(p.counts_by_slot) == p.lesson_count for p in result.periods)
     assert data.model_dump(mode='json') == before
     assert result.is_preview and not result.creates_records
+
+
+@pytest.mark.parametrize('mode,start,days,kind,expected', [
+    ('transition', '2026-12-05', ('Sat',), 'ordinary', '3164ecdde1519e266444bb9f26775363d656ac1b79ce910ed06ed917cbb7104c'),
+    ('regular', '2026-12-04', ('Fri',), 'ordinary', 'db81f8e95252d33d6557666dc1abafc337ac46f1c1e1174404a8e6bf16269587'),
+    ('new_student', '2026-11-10', ('Tue', 'Thu'), 'staff', '7534962283c477c096905c9e28c04cf1860ce6a6d25851465b6f8e21b9f07e32'),
+])
+def test_existing_saved_coupon_calculations_keep_their_original_serialisation(closures, mode, start, days, kind, expected):
+    import hashlib
+    import json
+    selected = coupon(combine_next_month=True)
+    selected.update(kind=kind, value=500 if kind == 'staff' else 300)
+    scenario = request(start, days, mode=mode, payment_method='autopay', coupon=selected)
+    assert 'allow_transition_combination' not in scenario.model_dump(mode='json')['coupon']
+    result = preview_billing(scenario, closures)
+    data = {'scenario': scenario.model_dump(mode='json'),
+            'calculation': result.model_dump(mode='json', exclude={'coupon_options'})}
+    # These digests were generated from the released calculator before this opt-in.
+    assert hashlib.sha256(json.dumps(data, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == expected
+
+
+@pytest.mark.parametrize('method', ['autopay', 'manual'])
+def test_explicit_transition_coupon_option_includes_january_and_preserves_method(closures, method):
+    result = preview_billing(request('2026-12-05', ('Sat',), mode='transition', payment_method=method,
+        coupon=coupon(combine_next_month=True, allow_transition_combination=True)), closures)
+    first, following = result.periods[:2]
+    assert first.coverage_through == date(2027, 1, 31)
+    assert first.lesson_count == 8 and first.total_fee == 2900
+    assert first.collection.method == following.collection.method == method
+    assert first.collection.notice_from == date(2026, 11, 12)
+    assert first.collection.notice_to == date(2026, 11, 18)
+    assert following.first_lesson_date == date(2027, 2, 13)
+    assert any(s.month == '2026-12' and s.covered_by_period == 1 for s in result.skipped_collections)
+    if method == 'autopay':
+        assert following.collection.debit_from == date(2027, 1, 20)
+        assert following.collection.debit_to == date(2027, 1, 22)
+        assert following.coverage_through == date(2027, 2, 28)
+    else:
+        assert following.coverage_through == date(2027, 3, 31)
+        assert following.collection.due_before_lesson == date(2027, 2, 13)
+    option = result.coupon_options[0]
+    assert option.applied and option.reason is None and option.minimum_sessions == 4
+    assert option.can_include_next_month and option.next_month_included
+    assert option.include_next_month == date(2027, 1, 1)
+    assert result.coupon_options[1].reason == 'already_used'
+
+
+def test_short_transition_exposes_eligible_next_month_without_changing_coverage(closures):
+    result = preview_billing(request('2026-12-05', ('Sat',), mode='transition', payment_method='autopay', coupon=coupon()), closures)
+    assert result.periods[0].coverage_through == date(2026, 12, 31)
+    option = result.coupon_options[0]
+    assert not option.applied and option.reason == 'min_sessions' and option.minimum_sessions == 4
+    assert option.can_include_next_month and option.include_next_month == date(2027, 1, 1)
+    assert not option.next_month_included
+
+
+def test_transition_staff_option_keeps_its_six_session_floor(closures):
+    selected = coupon(combine_next_month=True, allow_transition_combination=True)
+    selected.update(kind='staff', value=500)
+    result = preview_billing(request('2026-12-05', ('Sat',), mode='transition', payment_method='autopay', coupon=selected), closures)
+    assert result.periods[0].lesson_count == 8 and result.periods[0].total_fee == 2700
+    assert result.coupon_options[0].minimum_sessions == 6 and result.coupon_options[0].applied
+
+
+def test_regular_staff_option_explains_two_month_rule(closures):
+    selected = coupon()
+    selected.update(kind='staff', value=500)
+    result = preview_billing(request('2027-01-02', ('Sat',), mode='regular', payment_method='autopay', coupon=selected), closures)
+    option = result.coupon_options[0]
+    assert option.reason == 'two_months' and option.minimum_sessions is None
+    assert option.can_include_next_month and option.include_next_month == date(2027, 2, 1)
+    assert not option.next_month_included
+
+
+@pytest.mark.parametrize('changes,reason', [
+    ({'verified': False}, 'unverified'),
+    ({'available_count': 0}, 'unavailable'),
+    ({'expires_on': date(2026, 11, 19)}, 'expired'),
+])
+def test_transition_cannot_extend_for_an_unusable_coupon(closures, changes, reason):
+    selected = coupon(combine_next_month=True, allow_transition_combination=True)
+    selected.update(changes)
+    result = preview_billing(request('2026-12-05', ('Sat',), mode='transition', payment_method='autopay', coupon=selected), closures)
+    assert result.periods[0].coverage_through == date(2026, 12, 31)
+    assert not result.periods[0].deductions
+    option = result.coupon_options[0]
+    assert not option.can_include_next_month and option.include_next_month_reason == reason
+
+
+def test_transition_option_never_extends_an_already_eligible_payment(closures):
+    result = preview_billing(request('2026-12-01', ('Tue',), mode='transition', payment_method='autopay',
+        coupon=coupon(combine_next_month=True, allow_transition_combination=True)), closures)
+    assert result.periods[0].coverage_through == date(2026, 12, 31)
+    option = result.coupon_options[0]
+    assert option.applied and not option.next_month_included
+    assert not option.can_include_next_month and option.include_next_month_reason == 'already_eligible'
+
+
+def test_legacy_six_session_payment_keeps_its_existing_dates(closures):
+    result = preview_billing(request('2026-10-10', ('Sat',), mode='transition', payment_method='autopay',
+        coupon=coupon(combine_next_month=True, allow_transition_combination=True)), closures)
+    assert result.periods[0].kind == 'legacy' and result.periods[0].lesson_count == 6
+    option = result.coupon_options[0]
+    assert not option.next_month_included and not option.can_include_next_month
+    assert option.include_next_month_reason == 'legacy'
+
+
+def test_adjusted_first_period_cannot_also_be_extended_by_coupon(closures):
+    result = preview_billing(request('2026-12-05', ('Sat',), mode='transition', payment_method='autopay',
+        adjustment={'through': '2026-12-31', 'reason': 'Synthetic approved shorter period'},
+        coupon=coupon(combine_next_month=True, allow_transition_combination=True)), closures, allow_adjustment=True)
+    assert result.periods[0].coverage_through == date(2026, 12, 31)
+    assert result.coupon_options[0].include_next_month_reason == 'adjusted'
+    assert not result.coupon_options[0].next_month_included
+
+
+def test_final_teaching_period_cannot_include_another_month(closures):
+    result = preview_billing(request('2027-06-19', ('Sat',), mode='regular', payment_method='autopay',
+        coupon=coupon(combine_next_month=True, allow_transition_combination=True)), closures)
+    assert len(result.periods) == 1 and result.periods[0].coverage_through == date(2027, 7, 4)
+    assert result.coupon_options[0].include_next_month_reason == 'year_end'
+    assert not result.coupon_options[0].next_month_included
