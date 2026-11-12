@@ -64,6 +64,59 @@ beforeEach(() => {
 });
 
 describe('enrollment renewal queue', () => {
+  it('keeps warnings in preparation and filters them without changing the tab counts', async () => {
+    const warning = { ...row(), origin: 'projection' as const, draft_id: null, needs_checking: true,
+      issues: [{ code: 'CURRENT_ENROLLMENT_UNPAID', message: 'Current enrollment unpaid.', period: null }] };
+    const clean = { ...row(), key: 'student-5-renewal', student: { ...row().student, id: 5, student_name: 'Student Five' }, needs_checking: false };
+    mocks.queue.mockImplementation(({ needs_checking }) => Promise.resolve(response(needs_checking ? [warning] : [warning, clean])));
+    show({ initialStage: 'prepare' });
+    expect(await screen.findAllByRole('article')).toHaveLength(2);
+    expect(screen.queryByRole('tab', { name: /Needs attention/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Show' })).toHaveValue('all');
+    expect(screen.getByText('Current enrollment unpaid', { selector: 'summary span' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Renew' })).toBeEnabled();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Show' }), { target: { value: 'checking' } });
+    await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(1));
+    expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ stage: 'prepare', needs_checking: true, offset: 0 }));
+    expect(screen.getByRole('tab', { name: 'To prepare 8' })).toHaveAttribute('aria-selected', 'true');
+    expect(mocks.queueCounts).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('tab', { name: /Awaiting payment/ }));
+    await waitFor(() => expect(mocks.queue.mock.lastCall![0]).toMatchObject({ stage: 'awaiting_payment', needs_checking: undefined }));
+    expect(screen.queryByRole('combobox', { name: 'Show' })).not.toBeInTheDocument();
+  });
+
+  it('opens old attention links in the preparation checks filter', async () => {
+    show({ initialStage: 'attention' });
+    await screen.findByRole('article');
+    expect(screen.getByRole('tab', { name: /To prepare/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('combobox', { name: 'Show' })).toHaveValue('checking');
+    expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ stage: 'prepare', needs_checking: true }));
+  });
+
+  it('retains the selected renewal when the same student also has two payment tasks', async () => {
+    const renewal = { ...row(), key: 'student-4-renewal', origin: 'projection' as const, draft_id: null };
+    const pending = { ...row(), key: 'student-4-awaiting_payment', origin: 'payment' as const,
+      stage: 'awaiting_payment' as const, draft_id: null, payment_id: 'payment-1', payment_ids: ['payment-1'] };
+    const send = { ...pending, key: 'student-4-send', stage: 'send' as const, payment_id: 'payment-2', payment_ids: ['payment-2'] };
+    mocks.options.mockResolvedValue({ draft_storage_available: true, workflow_available: true, workflow_writes_available: true });
+    mocks.queue.mockResolvedValue(response([renewal, pending, send]));
+    show();
+    const cards = await screen.findAllByRole('article');
+    expect(cards).toHaveLength(3);
+    expect(screen.getByText('All tasks · 3 tasks · MSA')).toBeVisible();
+    expect(screen.getByText('1–3 of 3 tasks')).toBeVisible();
+    fireEvent.click(within(cards[0]).getByRole('checkbox', { name: 'Select Synthetic Student' }));
+    await waitFor(() => expect(screen.getByText('1 selected')).toBeVisible());
+    expect(within(cards[1]).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(cards[2]).queryByRole('checkbox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Batch renew' }));
+    expect(mocks.batch.mock.lastCall![0].rows).toEqual([renewal]);
+    fireEvent.click(screen.getByRole('button', { name: 'Close batch' }));
+    await waitFor(() => expect(screen.getByText('1 selected')).toBeVisible());
+    expect(within(cards[0]).getByRole('checkbox')).toBeChecked();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('puts the counted KMS receipts tab after Awaiting payment and keeps its query independent of month', async () => {
     mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 }); mocks.receipts.mockResolvedValue({ as_of: '2026-10-21', storage_available: true, writes_available: true, total: 0, rows: [], offset: 0, limit: 25 });
     show({ initialCollectionMonth: '2027-02' }); const receiptTab = await screen.findByRole('tab', { name: 'KMS receipts 9' }); const tabs = screen.getAllByRole('tab'); expect(tabs.indexOf(receiptTab)).toBe(tabs.findIndex(tab => tab.textContent?.includes('Awaiting payment')) + 1); fireEvent.click(receiptTab); await screen.findByText('All outstanding · 0 receipts · MSA'); expect(screen.queryByLabelText('Collection month')).not.toBeInTheDocument(); expect(mocks.receipts).toHaveBeenCalledWith({ location: 'MSA', tutor_id: undefined, search: undefined, offset: 0, limit: 25 }); expect(mocks.queue.mock.calls.every(([query]) => query.stage !== 'receipts')).toBe(true); fireEvent.click(screen.getByRole('tab', { name: /To prepare/ })); expect(await screen.findByLabelText('Collection month')).toHaveValue('2027-02');
@@ -76,7 +129,7 @@ describe('enrollment renewal queue', () => {
     expect(screen.getByRole('tab', { name: 'To prepare 8' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'To send 4' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Awaiting payment 6' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Needs attention 2' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Needs attention/ })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'No payment this run 9' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'KMS receipts 9' })).toHaveAttribute('aria-selected', 'true');
     expect(mocks.queue).not.toHaveBeenCalled();
@@ -373,7 +426,7 @@ describe('enrollment renewal queue', () => {
     expect(screen.queryByRole('article', { name: 'Synthetic Student renewal' })).not.toBeInTheDocument();
     await act(async () => fireEvent.click(section));
     expect(screen.getByRole('article', { name: 'Synthetic Student renewal' })).toBeInTheDocument();
-    expect(screen.getByText('1–4 of 30')).toBeInTheDocument();
+    expect(screen.getByText('1–4 of 30 tasks')).toBeInTheDocument();
   });
 
   it('shows authoritative stage counts and opens the exact saved draft', async () => {
@@ -389,19 +442,19 @@ describe('enrollment renewal queue', () => {
     expect(screen.getByRole('tab', { name: 'To prepare 8' })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tab', { name: 'To send 4' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Awaiting payment 6' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Needs attention 2' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Needs attention/ })).not.toBeInTheDocument();
     expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ stage: undefined, location: 'MSA', collection_month: undefined, offset: 0 }));
   });
 
-  it('shows attention work on the default view even when nothing needs preparing', async () => {
-    const data = response([{ ...row(), stage: 'attention' }]); data.counts.prepare = 0; data.counts.total = 21;
+  it('keeps a warning visible with the renewal on the default view', async () => {
+    const data = response([{ ...row(), stage: 'prepare', needs_checking: true, issues: [{ code: 'CURRENT_ENROLLMENT_UNPAID', message: 'Current enrollment unpaid.', period: null }] }]); data.counts.prepare = 2; data.counts.total = 21;
     mocks.queue.mockResolvedValue(data);
     mocks.queueCounts.mockResolvedValue(counts('2026-11', data.counts));
     show();
     const card = await screen.findByRole('article');
     expect(screen.getByRole('tab', { name: 'All tasks 12' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'To prepare 0' })).toBeInTheDocument();
-    expect(within(card).getByText('Needs attention')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'To prepare 2' })).toBeInTheDocument();
+    expect(within(card).getByText('Current enrollment unpaid', { selector: 'summary span' })).toBeInTheDocument();
     expect(within(card).getByRole('button', { name: 'Review draft' })).toBeInTheDocument();
   });
 
@@ -418,9 +471,9 @@ describe('enrollment renewal queue', () => {
   });
 
   it('opens combined payments and retains each linked record for an attention task', async () => {
-    const data = { ...row(), stage: 'attention' as const, origin: 'payment' as const, overdue: true, draft_id: null, payment_ids: ['payment-a', 'payment-b'], enrollment_ids: [7, 8, 9], action_url: '/billing/students/4?view=payments' };
+    const data = { ...row(), stage: 'awaiting_payment' as const, needs_checking: true, origin: 'payment' as const, overdue: true, draft_id: null, payment_ids: ['payment-a', 'payment-b'], enrollment_ids: [7, 8, 9], action_url: '/billing/students/4?view=payments' };
     mocks.queue.mockResolvedValue(response([data]));
-    show({ initialStage: 'attention' });
+    show({ initialStage: 'awaiting_payment' });
     const card = await screen.findByRole('article', { name: 'Synthetic Student renewal' });
     expect(within(card).getByText('Overdue')).toBeInTheDocument();
     expect(within(card).getByRole('button', { name: 'Review enrollments' })).toBeInTheDocument();
@@ -580,7 +633,7 @@ describe('enrollment renewal queue', () => {
   });
 
   it('keeps a saved attention draft easy to identify and review', async () => {
-    mocks.queue.mockResolvedValue(response([{ ...row(), stage: 'attention', issues: [{ code: 'DRAFT_REVIEW', message: 'Review this saved draft.', period: null }] }]));
+    mocks.queue.mockResolvedValue(response([{ ...row(), stage: 'prepare', needs_checking: true, issues: [{ code: 'DRAFT_REVIEW', message: 'Review this saved draft.', period: null }] }]));
     show({ initialStage: 'attention' });
     const card = await screen.findByRole('article');
     expect(within(card).queryByText('Draft saved')).not.toBeInTheDocument();
@@ -589,7 +642,7 @@ describe('enrollment renewal queue', () => {
   });
 
   it('preserves links for one combined payment alongside an unlinked enrollment', async () => {
-    mocks.queue.mockResolvedValue(response([{ ...row(), origin: 'payment', stage: 'attention', draft_id: null, payment_id: null, payment_ids: ['combined-1'], enrollment_ids: [7, 8, 9] }]));
+    mocks.queue.mockResolvedValue(response([{ ...row(), origin: 'payment', stage: 'awaiting_payment', needs_checking: true, draft_id: null, payment_id: null, payment_ids: ['combined-1'], enrollment_ids: [7, 8, 9] }]));
     show({ initialStage: 'attention' });
     const card = await screen.findByRole('article');
     fireEvent.click(within(card).getByText('Linked payments and enrollments'));

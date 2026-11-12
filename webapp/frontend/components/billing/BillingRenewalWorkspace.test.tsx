@@ -125,15 +125,27 @@ describe('familiar renewal workspace', () => {
     expect(screen.queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument();
   });
 
-  it('does not offer another renewal for an actual unpaid or legacy task', () => {
-    const view = show({ ...row(), origin: 'payment', stage: 'awaiting_payment', payment_id: 'pending-1' });
+  it.each(['payment', 'legacy'] as const)('opens renewal from an unpaid %s enrollment without replacing its payment action', origin => {
+    show({ ...row(), origin, stage: 'awaiting_payment', renewal_available: true, payment_id: origin === 'payment' ? 'pending-1' : null });
+    expect(screen.getByRole('button', { name: 'Renew' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open existing payment' }));
+    expect(screen.getByLabelText('Renewal form')).toHaveTextContent('exact-payment');
+    fireEvent.click(screen.getByRole('button', { name: 'Renew' }));
+    expect(screen.getByLabelText('Renewal form')).toHaveTextContent('Next enrollment');
+    expect(screen.getByRole('heading', { name: 'Create renewal' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close renewal panel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open existing payment' }));
+    expect(screen.getByLabelText('Renewal form')).toHaveTextContent('exact-payment');
+    expect(mocks.detail).toHaveBeenLastCalledWith(expect.objectContaining({ showRenewalActions: origin === 'legacy' }));
+  });
+
+  it.each(['payment', 'legacy'] as const)('keeps %s debt follow-up without Renew when no current regular renewal is available', origin => {
+    show({ ...row(), origin, stage: 'awaiting_payment', renewal_available: false,
+      payment_id: origin === 'payment' ? 'historical-payment' : null });
     expect(screen.queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open existing payment' }));
     expect(screen.getByLabelText('Renewal form')).toHaveTextContent('exact-payment');
-    view.unmount();
-    show({ ...row(), origin: 'legacy', stage: 'attention' });
     expect(screen.queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument();
-    expect(mocks.detail).toHaveBeenLastCalledWith(expect.objectContaining({ showRenewalActions: true }));
   });
 
   it('does not offer Renew after the teaching year is fully covered', () => {

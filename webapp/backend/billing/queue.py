@@ -1,6 +1,6 @@
-"""One read-only renewal task per student, built from batched evidence.
+"""Read-only preparation and payment tasks built from batched evidence.
 
-Recorded unpaid work always takes precedence over another projected renewal.
+An unpaid enrollment stays a collection task while its next renewal is prepared.
 Draft snapshots can help staff find their work, but their detail page must
 revalidate them before enrollment creation or message copying.
 """
@@ -112,6 +112,27 @@ def apply_window(row, *, as_of, through, actual=False):
     return apply_urgency(row, as_of=as_of)
 
 
+def apply_pending_window(row, *, as_of, through):
+    """Keep the payment action visible when the enrollment also needs checking."""
+    stage = row.stage
+    apply_window(row, as_of=as_of, through=through, actual=True)
+    if row.stage == 'attention':
+        row.needs_checking = True
+        row.stage = stage
+    return row
+
+
+def preparation_task(row):
+    """Warnings describe a preparation task instead of moving it to another list."""
+    row.key = f'student-{row.student.id}-renewal'
+    row.needs_checking = row.stage == 'attention' or any(
+        i.code not in {'PAYMENT_PREFERENCE_REQUIRED', 'DRAFT_REVIEW'} for i in row.issues)
+    if row.stage == 'attention':
+        row.stage = 'prepare'
+    row.renewal_available = row.stage != 'no_payment' or row.first_lesson_date is not None
+    return row
+
+
 def base_row(context, **values):
     return BillingQueueRow(
         key=f'student-{context.student.id}', student=context.student,
@@ -198,7 +219,7 @@ def pending_rows(context, payments, payment_enrollments, linked_ids, deadlines, 
             note='Awaiting payment' if payment.sent_at else 'Send the fee message',
         )
         row.action_url += f'?view=payments&payment={payment.id}'
-        rows.append(apply_window(row, as_of=as_of, through=through, actual=True))
+        rows.append(apply_pending_window(row, as_of=as_of, through=through))
     for block in context.source_blocks:
         if block.payment_status not in PENDING or block.enrollment_id in linked_ids:
             continue
@@ -214,14 +235,14 @@ def pending_rows(context, payments, payment_enrollments, linked_ids, deadlines, 
         )
         row.action_url = f'/enrollments/{block.enrollment_id}'
         if first is None:
-            row.stage = 'attention'
+            row.needs_checking = True
             row.issues = [issue('MISSING_ORIGINALS', 'Check the enrollment dates.')]
             row.note = 'Check the enrollment dates'
-        rows.append(apply_window(row, as_of=as_of, through=through, actual=True))
+        rows.append(apply_pending_window(row, as_of=as_of, through=through))
     structural = structural_checks(context)
     if structural:
         for row in rows:
-            row.stage = 'attention'
+            row.needs_checking = True
             row.ready_now = True
             row.issues = structural
             row.note = 'Check the enrollment records'
@@ -235,7 +256,8 @@ def combine_pending(context, rows):
     candidates = relevant or rows
     first = min(candidates, key=lambda r: (r.due_date or date.max, r.enrollment_ids))
     row = first.model_copy(deep=True)
-    row.stage = 'attention' if relevant else 'no_payment'
+    row.stage = first.stage if relevant else 'no_payment'
+    row.needs_checking = True
     row.origin = 'payment' if any(r.origin == 'payment' for r in rows) else 'legacy'
     row.payment_id = None
     row.draft_id = None
@@ -528,6 +550,11 @@ def build_queue(db, *, as_of, collection_month, holidays, tutor_id=None, locatio
         return []
     contexts = load_contexts(db, ids, holidays, as_of=as_of, basis='include_pending', policy=policy,
                              isolate_invalid=True)
+    # Earlier-year and non-Regular debt is retained below, but cannot create a
+    # new regular-course forecast on its own.
+    renewable_ids = {sid for sid, context in contexts.items()
+                     if any(b.payment_status != 'Cancelled' for b in context.source_blocks)
+                     or context.selected_enrollment_ids or context.suggested_request}
     deadlines = pending_history(db, contexts, holidays)
     payments = defaultdict(list)
     payment_enrollments = defaultdict(list)
@@ -553,28 +580,48 @@ def build_queue(db, *, as_of, collection_month, holidays, tutor_id=None, locatio
         if student_id in ids and draft.id not in confirmed_drafts and revision.snapshot.get('state') != 'discarded':
             drafts[student_id].append((draft, revision))
     rows = []
+    renewal_available = {}
     for context in contexts.values():
         pending = pending_rows(context, payments[context.student.id], payment_enrollments,
                                linked_ids, deadlines, as_of, through)
         if pending:
-            rows.append(combine_pending(context, pending))
-        else:
-            first = intake_draft_row(context, drafts[context.student.id], holidays, as_of, through, policy)
-            if first is not None:
-                rows.append(first)
-            else:
-                row = projection_row(context, holidays, as_of, through, policy)
-                rows.append(apply_draft(context, row, drafts[context.student.id], holidays, as_of, through, policy))
+            # A newly created, unsent renewal stays in To send while an older
+            # enrollment remains in payment follow-up.
+            for stage in ('send', 'awaiting_payment', 'no_payment'):
+                group = [r for r in pending if r.stage == stage]
+                if group:
+                    follow_up = combine_pending(context, group)
+                    follow_up.key = f'student-{context.student.id}-{stage}'
+                    rows.append(follow_up)
+        first = intake_draft_row(context, drafts[context.student.id], holidays, as_of, through, policy)
+        if first is None and pending and context.student.id not in renewable_ids:
+            continue
+        if first is None:
+            first = apply_draft(context, projection_row(context, holidays, as_of, through, policy),
+                                drafts[context.student.id], holidays, as_of, through, policy)
+        first = preparation_task(first)
+        renewal_available[context.student.id] = first.renewal_available
+        if pending and first.stage != 'no_payment':
+            first.issues.append(issue('CURRENT_ENROLLMENT_UNPAID', 'Current enrollment unpaid.'))
+            first.needs_checking = True
+        if not pending or first.stage != 'no_payment':
+            rows.append(first)
     # A recorded stop holds unconfirmed renewals. Existing unpaid payments
     # remain collection tasks and are never cancelled by a participation action.
     from services.makeup_entitlement import participation_states_for_students
     participation = participation_states_for_students(db, ids, as_of=as_of)
     for row in rows:
         status = participation.get(row.student.id)
+        row.renewal_available = renewal_available.get(row.student.id, False) and status not in {'Paused', 'Left'}
         if status in {'Paused', 'Left'} and row.origin in {'projection', 'draft'} and not row.payment_ids:
             row.stage = 'no_payment'
             row.ready_now = False
             row.note = 'Student paused' if status == 'Paused' else 'Student has left'
+    # Debt remains visible when participation stops, but a held renewal must
+    # not add another no-payment card for the same student.
+    debt_students = {r.student.id for r in rows if r.origin in {'payment', 'legacy'}}
+    rows = [r for r in rows if not (r.student.id in debt_students
+            and r.origin in {'projection', 'draft'} and r.stage == 'no_payment')]
     attach_current_enrollments(db, rows, contexts, linked_ids, as_of)
     return rows
 

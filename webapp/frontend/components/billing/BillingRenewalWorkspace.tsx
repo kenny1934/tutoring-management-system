@@ -55,8 +55,9 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
   function open(next: BillingRenewalAction) { if (busy) return; setAction(next); setPanelAction(next); setTab('renewal'); }
   function renew() {
     if (busy) return;
-    if (action) { setTab('renewal'); return; }
-    open(panelAction ?? (row.origin === 'draft' && row.draft_id ? { kind: 'draft', id: row.draft_id } : { kind: 'renew' }));
+    if (created) return;
+    if (action?.kind === 'renew' || action?.kind === 'draft') { setTab('renewal'); return; }
+    open(row.origin === 'draft' && row.draft_id ? { kind: 'draft', id: row.draft_id } : { kind: 'renew' });
   }
   function closePanel() {
     if (busy) return;
@@ -84,7 +85,8 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
     setTab(next); document.getElementById(`${id}-${next}-tab`)?.focus();
   }
   const panelTitle = panelAction?.kind === 'payment' ? created ? multipleCreated ? 'New enrollments' : 'New enrollment' : 'Payment' : panelAction?.kind === 'draft' ? 'Saved draft' : 'Create renewal';
-  const canRenew = row.origin !== 'payment' && row.origin !== 'legacy' && panelAction?.kind !== 'payment' && !(row.stage === 'no_payment' && row.first_lesson_date === null);
+  const canRenew = !created && ((row.origin !== 'payment' && row.origin !== 'legacy') || row.renewal_available === true)
+    && !(row.stage === 'no_payment' && row.first_lesson_date === null);
   const knownIds = enrollments.map(item => item.enrollment_id);
   const previousIds = new Set([...knownIds, ...row.enrollment_ids]);
   const ids = [...new Set([...previousIds, ...createdIds, ...(enrollmentId ? [enrollmentId] : [])])];

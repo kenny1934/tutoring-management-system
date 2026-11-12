@@ -134,7 +134,7 @@ def test_multiple_intake_drafts_stay_one_student_task_and_require_a_choice(env):
     intake_draft(client, key='first-choice')
     intake_draft(client, key='second-choice')
     rows = only_intake(client)
-    assert len(rows) == 1 and rows[0]['stage'] == 'attention'
+    assert len(rows) == 1 and rows[0]['stage'] == 'prepare' and rows[0]['needs_checking']
     assert 'MULTIPLE_DRAFTS' in {i['code'] for i in rows[0]['issues']}
 
 

@@ -176,17 +176,17 @@ def test_missing_preference_is_a_preparation_step_with_no_assumed_fee(env, month
     assert result['counts']['attention'] == result['counts']['send'] == 0
 
 
-def test_real_source_problem_stays_in_attention_with_missing_preference(env):
+def test_real_source_problem_stays_in_prepare_with_checking_filter(env):
     client, session, _ = env
     session.delete(session.get(SessionLog, 112))
     session.commit()
     row = only_row(client, stage='attention')
-    assert row['stage'] == 'attention'
+    assert row['stage'] == 'prepare' and row['needs_checking']
     assert any(i['code'] == 'ORIGINAL_COUNT_REVIEW' for i in row['issues'])
-    assert queue(client, stage='prepare')['rows'] == []
+    assert queue(client, stage='prepare', needs_checking=True)['rows'][0]['key'] == row['key']
 
 
-def test_saved_draft_with_changed_calendar_stays_in_attention(env):
+def test_saved_draft_with_changed_calendar_stays_in_prepare_for_checking(env):
     client, session, _ = env
     _, draft = saved(client)
     session.add(Holiday(holiday_date=date(2026, 12, 12), holiday_name='Changed calendar'))
@@ -194,7 +194,7 @@ def test_saved_draft_with_changed_calendar_stays_in_attention(env):
     row = only_row(client, stage='attention')
     assert row['draft_id'] == draft['id']
     assert any(i['code'] == 'STALE_DRAFT' for i in row['issues'])
-    assert queue(client, stage='prepare')['rows'] == []
+    assert queue(client, stage='prepare', needs_checking=True)['rows'][0]['key'] == row['key']
 
 
 def test_prepaid_month_does_not_raise_missing_preference_task_early(env, monkeypatch):
@@ -218,7 +218,7 @@ def test_gap_before_future_paid_coverage_remains_actionable_now(workflow_env, mo
     session.commit()
     on_day(monkeypatch, date(2026, 12, 12))
     row = only_row(client, '2026-12')
-    assert row['stage'] == 'attention' and row['ready_now'] and not row['overdue']
+    assert row['stage'] == 'prepare' and row['needs_checking'] and row['ready_now'] and not row['overdue']
     assert any(i['code'] == 'PAID_COVERAGE_GAP' for i in row['issues'])
     if not has_draft:
         assert row['total_fee'] is None and row['first_lesson_date'] is None
@@ -293,7 +293,7 @@ def test_actual_autopay_without_bank_setup_requires_attention(workflow_env):
     coverage(session, date(2026, 11, 27))
     choose_method(client, method='autopay', ready=False)
     row = only_row(client)
-    assert row['payment_method'] == 'autopay' and row['stage'] == 'attention'
+    assert row['payment_method'] == 'autopay' and row['stage'] == 'prepare' and row['needs_checking']
     assert any(i['code'] == 'MANDATE_NOT_READY' for i in row['issues'])
 
 
@@ -308,7 +308,7 @@ def test_twice_weekly_manual_is_one_monthly_student_row(workflow_env, monkeypatc
     assert row['first_lesson_date'] == '2027-02-05' and row['coverage_through'] == '2027-02-28'
     assert row['lesson_count'] == 8 and row['payment_method'] == 'manual'
     assert set(row['enrollment_ids']) == {11, 12}
-    assert row['stage'] == 'attention'  # Two continuing classes still need confirmation.
+    assert row['stage'] == 'prepare' and row['needs_checking']  # Two classes still need confirmation.
     assert queue(client, '2027-01')['counts']['total'] == 1
 
 
@@ -329,9 +329,12 @@ def test_multiple_unpaid_legacy_records_are_one_attention_row_with_all_ids(env, 
     first = legacy_pending(session)
     second = legacy_pending(session, source_id=first, sent=True, start=date(2026, 12, 25))
     on_day(monkeypatch, date(2026, 12, 1))
-    row = only_row(client, '2026-12')
-    assert row['stage'] == 'attention' and set(row['enrollment_ids']) == {first, second}
-    assert queue(client, '2026-12')['counts']['total'] == 1
+    result = queue(client, '2026-12')
+    assert result['counts']['total'] == 2
+    tasks = {row['stage']: row for row in result['rows']}
+    assert tasks['send']['enrollment_ids'] == [first] and tasks['send']['overdue']
+    assert tasks['awaiting_payment']['enrollment_ids'] == [second]
+    assert len({row['key'] for row in result['rows']}) == 2
 
 
 @pytest.mark.parametrize('day,overdue', [(12, False), (13, True), (14, True)])
@@ -341,7 +344,7 @@ def test_manual_debt_is_overdue_on_first_lesson_day(env, monkeypatch, day, overd
     on_day(monkeypatch, date(2026, 11, day))
     row = only_row(client)
     assert row['overdue'] is overdue
-    assert row['stage'] == ('attention' if overdue else 'awaiting_payment')
+    assert row['stage'] == 'awaiting_payment' and row['needs_checking'] == overdue
     counts = queue(client)['counts']
     assert counts['overdue'] == int(overdue) and counts['actionable'] == 0
 
@@ -434,7 +437,7 @@ def test_autopay_debt_overdue_starts_after_debit_window(workflow_env, monkeypatc
     on_day(monkeypatch, date(2026, 11, day))
     row = only_row(client)
     assert row['overdue'] is overdue
-    assert row['stage'] == ('attention' if overdue else 'send')
+    assert row['stage'] == 'send' and row['needs_checking'] == overdue
 
 
 @pytest.mark.parametrize('as_of', [date(2026, 12, 1), date(2027, 3, 1)])
@@ -444,7 +447,7 @@ def test_missing_past_sessions_require_review_but_are_not_recorded_overdue_debt(
     on_day(monkeypatch, as_of)
     month = as_of.strftime('%Y-%m')
     row = only_row(client, month)
-    assert row['stage'] == 'attention' and not row['overdue']
+    assert row['stage'] == 'prepare' and row['needs_checking'] and not row['overdue']
     assert queue(client, month)['counts']['overdue'] == 0
 
 
@@ -539,7 +542,7 @@ def test_invalid_lesson_owner_stays_scoped_and_does_not_hide_other_students(env)
     session.commit()
     rows = {r['student']['id']: r for r in queue(client)['rows']}
     assert set(rows) == {101, 102}
-    assert rows[101]['stage'] == 'attention'
+    assert rows[101]['stage'] == 'prepare' and rows[101]['needs_checking']
     assert any(i['code'] == 'SOURCE_OWNERSHIP_REVIEW' for i in rows[101]['issues'])
     assert rows[101]['lesson_count'] is None and rows[101]['total_fee'] is None
     assert not any(i['code'] == 'SOURCE_OWNERSHIP_REVIEW' for i in rows[102]['issues'])
@@ -558,9 +561,10 @@ def test_invalid_owner_on_unpaid_record_requires_review_before_sending(workflow_
     lesson = session.query(SessionLog).filter_by(enrollment_id=pending_id).first()
     lesson.student_id = 102
     session.commit()
-    rows = {r['student']['id']: r for r in queue(client)['rows']}
-    assert rows[101]['stage'] == 'attention'
-    assert any(i['code'] == 'SOURCE_OWNERSHIP_REVIEW' for i in rows[101]['issues'])
+    rows = [r for r in queue(client)['rows'] if r['student']['id'] == 101]
+    follow_up, = [r for r in rows if r['origin'] in {'legacy', 'payment'}]
+    assert follow_up['stage'] == 'send' and follow_up['needs_checking']
+    assert any(i['code'] == 'SOURCE_OWNERSHIP_REVIEW' for i in follow_up['issues'])
 
 
 @pytest.mark.parametrize('kind', ['Cancelled', 'One-Time', 'Summer', 'outside_year'])
@@ -601,11 +605,12 @@ def test_outstanding_old_or_other_course_payment_is_retained_once(env, monkeypat
     session.commit()
     on_day(monkeypatch, date(2026, 12, 1))
     result = queue(client, '2026-12')
-    assert len(result['rows']) == 1 and result['counts']['total'] == 1
-    row = result['rows'][0]
+    assert len(result['rows']) == result['counts']['total'] == (2 if current_regular else 1)
+    row, = [r for r in result['rows'] if r['origin'] == 'legacy']
     assert row['origin'] == 'legacy' and row['enrollment_ids'] == [identity]
-    assert row['overdue'] and row['stage'] == 'attention'
+    assert row['overdue'] and row['stage'] == 'awaiting_payment' and row['needs_checking']
     assert row['total_fee'] is None and result['counts']['overdue'] == 1
+    assert row['renewal_available'] == current_regular
 
 
 def test_multiple_legacy_only_records_link_to_an_existing_enrollment(env):
@@ -634,7 +639,7 @@ def test_gap_evidence_matches_queue_context_and_blocked_draft_review(env):
     moved.session_date = date(2026, 10, 17)
     session.commit()
     row = only_row(client)
-    assert row['stage'] == 'attention' and row['ready_now'] and not row['overdue']
+    assert row['stage'] == 'prepare' and row['needs_checking'] and row['ready_now'] and not row['overdue']
     assert row['total_fee'] is None and row['first_lesson_date'] is None
     gap_issue = next(issue for issue in row['issues'] if issue['code'] == 'PAID_COVERAGE_GAP')
     detail, = gap_issue['gap_evidence']
@@ -658,7 +663,7 @@ def test_gap_evidence_matches_queue_context_and_blocked_draft_review(env):
     request['confirmed_checks'] = ['PAID_COVERAGE_GAP']
     assert client.post('/api/billing/students/101/draft-review', json=request).status_code == 422
     counts = client.get('/api/billing/queue/counts').json()
-    assert counts['attention'] == counts['actionable'] == 1 and counts['overdue'] == 0
+    assert counts['prepare'] == counts['actionable'] == 1 and counts['attention'] == counts['overdue'] == 0
 
 
 def test_queue_cancelled_original_is_visible_without_becoming_paid_coverage(env):
@@ -669,7 +674,7 @@ def test_queue_cancelled_original_is_visible_without_becoming_paid_coverage(env)
                            session_status='Scheduled', financial_status='Paid'))
     session.commit()
     row = only_row(client)
-    assert row['stage'] == 'attention' and row['total_fee'] is None
+    assert row['stage'] == 'prepare' and row['needs_checking'] and row['total_fee'] is None
     assert not any(issue['code'] == 'ORIGINAL_COUNT_REVIEW' for issue in row['issues'])
     gap_issue = next(issue for issue in row['issues'] if issue['code'] == 'PAID_COVERAGE_GAP')
     detail, = gap_issue['gap_evidence']
@@ -689,8 +694,10 @@ def test_queue_gap_identifies_existing_unpaid_enrollment_and_keeps_its_task(env)
     for lesson in session.query(SessionLog).filter_by(enrollment_id=later_id):
         lesson.financial_status = 'Paid'
     session.commit()
-    row = only_row(client)
-    assert row['origin'] == 'legacy' and row['stage'] == 'attention'
+    result = queue(client)
+    row, = [r for r in result['rows'] if r['origin'] == 'legacy']
+    assert row['stage'] == 'send' and row['needs_checking']
+    assert any(r['origin'] == 'projection' and r['stage'] == 'prepare' for r in result['rows'])
     assert row['enrollment_ids'] == [pending_id]
     assert row['total_fee'] is None and row['payment_id'] is None
     gap_issue = next(issue for issue in row['issues'] if issue['code'] == 'PAID_COVERAGE_GAP')
@@ -716,7 +723,7 @@ def test_queue_explains_gap_on_unselected_historical_timetable(env):
                                session_status='Attended', financial_status='Paid'))
     session.commit()
     row = only_row(client)
-    assert row['stage'] == 'attention' and row['enrollment_ids'] == [11]
+    assert row['stage'] == 'prepare' and row['needs_checking'] and row['enrollment_ids'] == [11]
     gap_issue = next(issue for issue in row['issues'] if issue['code'] == 'PAID_COVERAGE_GAP')
     detail, = gap_issue['gap_evidence']
     assert detail['date'] == '2026-09-19' and detail['weekday'] == 'Sat'
@@ -747,3 +754,149 @@ def test_prepare_expiry_sort_precedes_pagination_and_can_use_student_id(env, mon
     assert result['total'] == 4
     assert [r['student']['id'] for r in queue(client, stage='prepare', offset=2)['rows']] == [2, 1]
     assert [r['student']['id'] for r in queue(client, stage='prepare', sort='student_id')['rows']] == [40, 1, 2, 30]
+
+
+def december_renewal_source(session):
+    source = session.get(Enrollment, 11)
+    source.assigned_day = 'Sat'
+    coverage(session, date(2026, 10, 17), start=date(2026, 9, 12))
+    session.add(Holiday(holiday_date=date(2026, 12, 26), holiday_name='Synthetic closure'))
+    session.commit()
+    return legacy_pending(session, sent=True, start=date(2026, 10, 24))
+
+
+def test_unpaid_current_enrollment_and_december_renewal_are_independent_tasks(workflow_env, monkeypatch):
+    client, session, _ = workflow_env
+    pending = december_renewal_source(session)
+    choose_method(client, method='autopay', ready=True)
+    on_day(monkeypatch, date(2026, 11, 12))
+    result = queue(client)
+    assert len(result['rows']) == 2
+    follow_up, = [r for r in result['rows'] if r['origin'] == 'legacy']
+    renewal, = [r for r in result['rows'] if r['origin'] == 'projection']
+    assert follow_up['stage'] == 'awaiting_payment' and follow_up['overdue']
+    assert renewal['stage'] == 'prepare' and renewal['needs_checking']
+    assert renewal['renewal_available'] and follow_up['renewal_available']
+    assert renewal['first_lesson_date'] == '2026-12-05' and renewal['coverage_through'] == '2026-12-31'
+    assert renewal['collection']['notice_from'] == '2026-11-12'
+    assert renewal['collection']['notice_to'] == '2026-11-18'
+    assert renewal['lesson_count'] == 3 and renewal['total_fee'] == 1200
+    assert 'CURRENT_ENROLLMENT_UNPAID' in {i['code'] for i in renewal['issues']}
+    assert renewal['key'] == 'student-101-renewal' and follow_up['key'] == 'student-101-awaiting_payment'
+    assert session.get(Enrollment, pending).payment_status == 'Pending Payment'
+    assert result['counts']['prepare'] == result['counts']['awaiting_payment'] == 1
+    assert result['counts']['overdue'] == result['counts']['actionable'] == 1
+    assert result['counts']['attention'] == 0
+    earlier = queue(client, '2026-10')
+    assert len(earlier['rows']) == 1 and earlier['rows'][0]['origin'] == 'legacy'
+
+
+def test_publish_renewal_before_current_payment_preserves_both_message_actions(workflow_env, monkeypatch):
+    from routers import billing, billing_drafts, billing_workflow
+    from tests.test_billing_workflow import confirmation
+    client, session, _ = workflow_env
+    pending = december_renewal_source(session)
+    choose_method(client, method='autopay', ready=True)
+    for module in (billing, billing_drafts, billing_workflow):
+        monkeypatch.setattr(module, 'today', lambda: date(2026, 11, 12))
+    on_day(monkeypatch, date(2026, 11, 12))
+    source = client.get('/api/billing/students/101/context', params={'basis': 'include_pending'}).json()
+    payload = {'scenario': source['suggested_request'], 'basis': 'include_pending',
+               'selected_enrollment_ids': source['selected_enrollment_ids'],
+               'expected_source_fingerprint': source['source_fingerprint'], 'period_number': 1,
+               'confirmed_checks': ['CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED']}
+    draft, confirm = confirmation(client, payload=payload)
+    response = client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=confirm)
+    assert response.status_code == 200, response.text
+    payment = response.json()
+    result = queue(client)
+    assert len(result['rows']) == 2
+    assert not any(r['origin'] in {'projection', 'draft'} for r in result['rows'])
+    tasks = {r['stage']: r for r in result['rows']}
+    assert tasks['awaiting_payment']['enrollment_ids'] == [pending]
+    assert tasks['send']['payment_id'] == payment['id']
+    assert tasks['send']['first_lesson_date'] == '2026-12-05'
+    assert session.get(Enrollment, pending).payment_status == 'Pending Payment'
+    response = client.post(f"/api/billing/payments/{payment['id']}/sent", json={
+        'expected_version': payment['version'], 'idempotency_key': 'sent-december-renewal', 'language': 'zh',
+    })
+    assert response.status_code == 200, response.text
+    follow_up = only_row(client)
+    assert follow_up['stage'] == 'awaiting_payment' and follow_up['needs_checking']
+    assert set(follow_up['enrollment_ids']) == {pending, payment['lines'][0]['enrollment_id']}
+    assert follow_up['payment_ids'] == [payment['id']]
+    assert session.get(Enrollment, pending).payment_status == 'Pending Payment'
+
+
+@pytest.mark.parametrize('status', ['Paused', 'Left'])
+def test_participation_stop_retains_debt_without_offering_renewal(workflow_env, monkeypatch, status):
+    from services import makeup_entitlement
+    client, session, _ = workflow_env
+    pending = december_renewal_source(session)
+    choose_method(client, method='autopay', ready=True)
+    on_day(monkeypatch, date(2026, 11, 12))
+    monkeypatch.setattr(makeup_entitlement, 'participation_states_for_students', lambda *args, **kwargs: {101: status})
+    row = only_row(client)
+    assert row['origin'] == 'legacy' and row['stage'] == 'awaiting_payment'
+    assert row['enrollment_ids'] == [pending] and not row['renewal_available']
+
+
+def test_needs_checking_filter_runs_before_pagination_and_preserves_scope_counts(workflow_env, monkeypatch):
+    client, session, _ = workflow_env
+    december_renewal_source(session)
+    choose_method(client, method='autopay', ready=True)
+    source102 = student_source(session, 102, school_id='2')
+    coverage(session, date(2026, 11, 27), enrollment_id=source102, start=date(2026, 10, 2))
+    choose_method(client, 102, method='autopay', ready=True)
+    on_day(monkeypatch, date(2026, 11, 12))
+    result = queue(client, stage='prepare', needs_checking=True, limit=1)
+    assert result['total'] == 1 and result['rows'][0]['student']['id'] == 101
+    assert result['urgency_counts']['week'] == 1
+    assert result['counts']['prepare'] == 2 and result['counts']['awaiting_payment'] == 1
+    clear = queue(client, stage='prepare', needs_checking=False, limit=1)
+    assert clear['total'] == 1 and clear['rows'][0]['student']['id'] == 102
+    assert clear['counts'] == result['counts']
+    assert queue(client, stage='prepare', needs_checking=True, offset=1, limit=1)['rows'] == []
+
+
+@pytest.mark.parametrize('kind', ['Summer', 'Trial', 'Regular'])
+def test_cancelled_current_course_does_not_forecast_from_historical_debt(env, kind):
+    client, session, _ = env
+    pending = legacy_pending(session, sent=True)
+    session.get(Enrollment, 11).payment_status = 'Cancelled'
+    history = session.get(Enrollment, pending)
+    history.enrollment_type = kind
+    if kind == 'Regular':
+        history.first_lesson_date = date(2025, 10, 3)
+        for index, lesson in enumerate(session.query(SessionLog).filter_by(enrollment_id=pending).order_by(SessionLog.id)):
+            lesson.session_date = date(2025, 10, 3) + timedelta(weeks=index)
+    session.commit()
+    row = only_row(client)
+    assert row['origin'] == 'legacy' and row['enrollment_ids'] == [pending]
+    assert row['stage'] == 'awaiting_payment' and not row['renewal_available']
+    assert queue(client, stage='prepare')['rows'] == []
+
+
+def test_future_renewal_can_open_from_existing_payment_without_early_preparation_task(workflow_env, monkeypatch):
+    client, session, _ = workflow_env
+    pending = december_renewal_source(session)
+    choose_method(client, method='autopay', ready=True)
+    on_day(monkeypatch, date(2026, 10, 15))
+    row = only_row(client, '2026-10')
+    assert row['origin'] == 'legacy' and row['enrollment_ids'] == [pending]
+    assert row['renewal_available']
+    assert queue(client, '2026-10', stage='prepare')['rows'] == []
+
+
+def test_unpaid_full_year_does_not_offer_another_renewal(workflow_env, monkeypatch):
+    client, session, _ = workflow_env
+    source = session.get(Enrollment, 11)
+    coverage(session, date(2027, 7, 2), start=date(2026, 9, 4))
+    source.payment_status = 'Pending Payment'
+    source.fee_message_sent = True
+    session.commit()
+    choose_method(client, method='autopay', ready=True)
+    on_day(monkeypatch, date(2026, 11, 12))
+    row = only_row(client)
+    assert row['origin'] == 'legacy' and not row['renewal_available']
+    assert queue(client, stage='prepare')['rows'] == []

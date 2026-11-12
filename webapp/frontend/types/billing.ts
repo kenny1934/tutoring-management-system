@@ -383,6 +383,8 @@ export interface BillingQueueEnrollment {
 
 export interface BillingQueueRow {
   key: string;
+  needs_checking?: boolean;
+  renewal_available?: boolean;
   student: BillingStudent;
   stage: BillingQueueStage;
   origin: 'projection' | 'draft' | 'payment' | 'legacy';

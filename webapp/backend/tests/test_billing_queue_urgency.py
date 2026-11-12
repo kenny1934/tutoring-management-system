@@ -119,7 +119,7 @@ def test_structural_gap_asks_to_check_dates_instead_of_claiming_started_unpaid_l
     session.commit()
     on_day(monkeypatch, date(2026, 12, 1))
     row = only_row(client, '2026-12')
-    assert row['stage'] == 'attention' and row['first_lesson_date'] is None
+    assert row['stage'] == 'prepare' and row['needs_checking'] and row['first_lesson_date'] is None
     assert any(issue['code'] == 'PAID_COVERAGE_GAP' for issue in row['issues'])
     assert row['urgency'] == 'check_dates'
     assert row['action_kind'] is row['action_from'] is row['action_by'] is None
@@ -200,7 +200,7 @@ def test_combined_debts_preserve_most_urgent_component_even_with_later_due_date(
     context = SimpleNamespace(student=manual.student, issues=[], selected_enrollment_ids=[11])
     combined = service.combine_pending(context, [manual, cycle])
     assert combined.urgency == urgency and combined.action_by == deadline
-    assert combined.stage == 'attention' and not combined.overdue
+    assert combined.stage == manual.stage and combined.needs_checking and not combined.overdue
     assert combined.enrollment_ids == [11, 12]
     assert combined.total_fee is combined.lesson_count is combined.collection is None
 
@@ -248,10 +248,10 @@ def test_urgency_sort_and_counts_apply_to_full_filtered_result_before_pagination
     assert searched['urgency_counts'] == {'now': 1, 'week': 0, 'check_dates': 0, 'later': 0}
     assert searched['counts'] == all_rows['counts']
     prepared = queue(client, stage='prepare', limit=1)
-    assert prepared['urgency_counts'] == {'now': 0, 'week': 0, 'check_dates': 0, 'later': 1}
+    assert prepared['urgency_counts'] == expected
     assert prepared['counts'] == all_rows['counts']
-    # The completed sources need continuation confirmation. Their workflow
-    # stage remains independent of how soon the next lessons need a decision.
+    # The completed sources stay in preparation while the checking filter
+    # retains the same urgency grouping and the legacy attention query works.
     attention = queue(client, stage='attention', limit=1)
     assert attention['urgency_counts'] == {'now': 2, 'week': 2, 'check_dates': 1, 'later': 0}
     assert [row['student']['id'] for row in attention['rows']] == [106]

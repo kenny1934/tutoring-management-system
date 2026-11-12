@@ -31,6 +31,7 @@ const CHECKS: Record<string, Check> = {
   MATERIALS_UNCONFIRMED: { label: 'Confirm materials fee', severity: 'blocking' },
   SHORT_FIRST_TRIAL_REVIEW: { label: 'Confirm trial deduction', severity: 'blocking' },
   FIRST_PAYMENT_BELOW_MINIMUM: { label: 'Fewer than 6 sessions', severity: 'warning' },
+  CURRENT_ENROLLMENT_UNPAID: { label: 'Current enrollment unpaid', severity: 'warning' },
   TIMETABLE_CHANGE_REVIEW: { label: 'Choose next class', severity: 'warning' },
   OFF_SLOT_ORIGINALS: { label: 'Timetable differs', severity: 'warning' },
   CONTINUING_SLOTS_REVIEW: { label: 'Check twice-weekly classes', severity: 'warning' },

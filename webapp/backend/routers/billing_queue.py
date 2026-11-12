@@ -47,6 +47,7 @@ def get_queue(
     request: Request,
     collection_month: str | None = Query(default=None, pattern=MONTH_PATTERN),
     stage: QueueStage | None = None,
+    needs_checking: bool | None = None,
     search: str | None = Query(default=None, max_length=200),
     sort: Literal['expiry', 'student_id'] = 'expiry',
     location: str | None = Query(default=None, max_length=100),
@@ -56,7 +57,13 @@ def get_queue(
 ):
     as_of, month, rows = scoped_rows(request, user, db, collection_month, location, tutor_id)
     counts = queue_counts(rows)
-    rows = [r for r in rows if (r.stage == stage if stage else r.stage != 'no_payment')]
+    if stage == 'attention':
+        # Older deep links can still find warnings after the stage tabs change.
+        rows = [r for r in rows if r.needs_checking and r.stage != 'no_payment']
+    else:
+        rows = [r for r in rows if (r.stage == stage if stage else r.stage != 'no_payment')]
+    if needs_checking is not None:
+        rows = [r for r in rows if r.needs_checking == needs_checking]
     if search and search.strip():
         term = search.strip().casefold()
         rows = [r for r in rows if term in r.student.student_name.casefold()
