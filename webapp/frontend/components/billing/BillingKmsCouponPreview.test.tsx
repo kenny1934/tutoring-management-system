@@ -4,9 +4,13 @@ import { BillingKmsCouponPreviewButton } from './BillingKmsCouponPreview';
 import { BillingCouponImportButton } from './BillingCouponImport';
 import type { KmsCheckReview, KmsCoupon, KmsStudentReview } from '@/types/kms-coupons';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), status: vi.fn(), check: vi.fn(), review: vi.fn(), apply: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), status: vi.fn(), check: vi.fn(), review: vi.fn(), apply: vi.fn(), enrollmentLink: vi.fn(), legacyReceipt: vi.fn(), paymentEditor: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/lib/kms-coupons-api', () => ({ kmsCouponsAPI: mocks }));
+vi.mock('./BillingCouponEnrollmentLink', () => ({ BillingCouponEnrollmentLink: (props: { enrollmentId: number; studentId: number }) => <button onClick={() => mocks.enrollmentLink(props)}>Enrollment #{props.enrollmentId}</button> }));
+vi.mock('./BillingLegacyCouponReceipt', () => ({ BillingLegacyCouponReceipt: (props: { studentId: number; useId: string; onSaved: () => void; onBusyChange: (busy: boolean) => void }) => <button onClick={() => mocks.legacyReceipt(props)}>Record receipt</button> }));
+vi.mock('./BillingPayments', () => ({ BillingPayments: (props: { studentId: number; initialPaymentId: string; mode: string }) => { mocks.paymentEditor(props); return <p>Receipt editor</p>; } }));
+
 
 function coupon(number: string, overrides: Partial<KmsCoupon> = {}): KmsCoupon {
   return { number, company_id: 'MSA0021', value: 300, state: 'active', issued_on: '2026-06-10', expires_on: '2027-06-30', used_on: null, receipt_reference: null, ...overrides };
@@ -33,7 +37,7 @@ async function open(defaultBranch?: string) {
 beforeEach(() => {
   Object.values(mocks).forEach(mock => mock.mockReset());
   mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true, isReadOnly: false });
-  mocks.status.mockResolvedValue({ enabled: true, branches: ['MSA', 'MSB'], latest: [] });
+  mocks.status.mockResolvedValue({ enabled: true, historical_receipts_enabled: true, branches: ['MSA', 'MSB'], latest: [] });
   mocks.check.mockResolvedValue(result()); mocks.review.mockResolvedValue(result());
   mocks.apply.mockResolvedValue(applied());
 });
@@ -229,4 +233,60 @@ it('shows an automatic receipt proposal before updating without a separate confi
   expect(within(dialog).getByText('Receipt AUTO-R1 · CP# CP-B')).toBeVisible();
   expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
   expect(mocks.apply).not.toHaveBeenCalled();
+});
+
+
+it('opens the linked enrollment and records a legacy receipt directly within its KMS review', async () => {
+  const held = ready({ update: { review_hash: 'd'.repeat(64), ready_count: 0, held_count: 1, unchanged_count: 0, can_apply: false, issues: [] }, students: [student({
+    update_status: 'review', update_issues: [{ code: 'KMS_SYNC_RECEIPT', message: 'Record the KMS receipt for this enrollment.' }],
+    uses: [{ use_id: 'legacy-use', payment_id: null, legacy_enrollment_id: 77, enrollment_ids: [77], payment_date: '2026-11-09', value: 300,
+      receipt_reference: null, state: 'awaiting_receipt', result: 'awaiting_receipt', coupon_number: null }],
+  })] });
+  mocks.check.mockResolvedValue(held); mocks.review.mockResolvedValue(ready());
+  const { dialog } = await open('MSA');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Read from KMS' }));
+  await within(dialog).findByRole('button', { name: 'Check (1)' });
+  fireEvent.click(within(dialog).getByText('MSA0021'));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Enrollment #77' }));
+  expect(mocks.enrollmentLink).toHaveBeenCalledWith(expect.objectContaining({ enrollmentId: 77, studentId: 101 }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Record receipt' }));
+  const props = mocks.legacyReceipt.mock.lastCall![0];
+  expect(props).toMatchObject({ studentId: 101, useId: 'legacy-use' });
+  act(() => props.onBusyChange(true));
+  expect(within(dialog).getByRole('button', { name: 'Close' })).toBeDisabled();
+  expect(within(dialog).getByLabelText('Find student in KMS check')).toBeDisabled();
+  act(() => props.onBusyChange(false));
+  act(() => props.onSaved());
+  await within(dialog).findByText('Receipt recorded.');
+  await waitFor(() => expect(mocks.review).toHaveBeenCalledWith(held.id, expect.any(AbortSignal)));
+  expect(within(dialog).getByRole('button', { name: 'Check (0)' })).toHaveAttribute('aria-pressed', 'true');
+  expect(mocks.check).toHaveBeenCalledTimes(1);
+});
+
+it('opens the existing receipt editor for a new-scheme payment from the KMS review', async () => {
+  mocks.check.mockResolvedValue(ready({ students: [student({ update_status: 'ready', available_after: 1,
+    uses: [{ use_id: 'new-use', payment_id: 'payment-1', legacy_enrollment_id: null, enrollment_ids: [88], value: 300,
+      receipt_reference: null, state: 'awaiting_receipt', result: 'awaiting_receipt', coupon_number: null }],
+  })] }));
+  const { dialog } = await open('MSA');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Read from KMS' }));
+  await within(dialog).findByRole('button', { name: 'Update 1 student' });
+  fireEvent.click(within(dialog).getByText('MSA0021'));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Record receipt' }));
+  await screen.findByRole('dialog', { name: 'Payment' });
+  expect(mocks.paymentEditor.mock.lastCall![0]).toMatchObject({ studentId: 101, initialPaymentId: 'payment-1', mode: 'receipt', canWrite: true });
+});
+
+it('keeps legacy enrollment inspection available before receipt recording is enabled', async () => {
+  mocks.status.mockResolvedValue({ enabled: true, branches: ['MSA'], latest: [] });
+  mocks.check.mockResolvedValue(ready({ students: [student({ update_status: 'ready', available_after: 0,
+    uses: [{ use_id: 'legacy-disabled', payment_id: null, legacy_enrollment_id: 77, enrollment_ids: [77], value: 300,
+      receipt_reference: null, state: 'awaiting_receipt', result: 'awaiting_receipt', coupon_number: null }],
+  })] }));
+  const { dialog } = await open('MSA');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Read from KMS' }));
+  await within(dialog).findByRole('button', { name: 'Update 1 student' });
+  fireEvent.click(within(dialog).getByText('MSA0021'));
+  expect(within(dialog).getByRole('button', { name: 'Enrollment #77' })).toBeVisible();
+  expect(within(dialog).queryByRole('button', { name: 'Record receipt' })).not.toBeInTheDocument();
 });

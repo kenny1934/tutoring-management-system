@@ -59,6 +59,7 @@ interface EnrollmentDetailPopoverProps {
   clickPosition: { x: number; y: number } | null;
   onNavigate?: () => void;
   onStatusChange?: () => void;
+  zIndex?: number;
 }
 
 export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
@@ -68,6 +69,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   clickPosition,
   onNavigate,
   onStatusChange,
+  zIndex = 9999,
 }: EnrollmentDetailPopoverProps) {
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {
@@ -109,7 +111,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   });
 
   // On a phone the popover is a sheet along the bottom of the screen.
-  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose);
+  const sheet = usePopoverSheet(asSheet, floatingStyles, onClose, zIndex);
 
   // Use setPositionReference for virtual references
   useEffect(() => {

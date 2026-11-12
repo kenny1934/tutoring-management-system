@@ -14,3 +14,10 @@ describe('coupon and KMS API scope', () => {
     billingAPI.recordReceipt('p/1', { receipt_reference: 'KMS-0001', expected_version: 3, idempotency_key: 'ordinary' }); expect(JSON.parse(request.mock.lastCall![1].body)).toEqual({ receipt_reference: 'KMS-0001', expected_version: 3, idempotency_key: 'ordinary' }); billingAPI.recordReceipt('p/1', { receipt_reference: 'KMS-0001', expected_version: 3, idempotency_key: 'coupon', coupon_selected: true, coupon_used_on: '2026-10-20', acknowledge_duplicate_receipt: true }); expect(request.mock.lastCall![0]).toBe('/billing/payments/p%2F1/receipt'); expect(JSON.parse(request.mock.lastCall![1].body)).toEqual(expect.objectContaining({ coupon_selected: true, coupon_used_on: '2026-10-20', acknowledge_duplicate_receipt: true }));
   });
 });
+
+it('records a legacy coupon receipt without using the payment mutation route', () => {
+  const signal = new AbortController().signal;
+  const body = { expected_version: 3, idempotency_key: 'legacy-proof', receipt_reference: 'OLD-1', coupon_used_on: '2026-10-13', coupon_selected: true };
+  billingAPI.recordLegacyCouponReceipt(4, 'old/use', body, signal);
+  expect(request.mock.lastCall).toEqual(['/billing/students/4/coupon-uses/old%2Fuse/receipt', { method: 'POST', body: JSON.stringify(body), signal }]);
+});

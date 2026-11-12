@@ -118,7 +118,7 @@ class KmsCouponRedemption(Base):
     student_id = Column(Integer, ForeignKey('students.id'), nullable=False, index=True)
     check_id = Column(String(36), ForeignKey('billing_kms_coupon_checks.id'), nullable=False)
     value = Column(Integer, nullable=False)
-    expires_on = Column(Date, nullable=False)
+    expires_on = Column(Date, nullable=True)
     coupon = Column(JSON, nullable=False)
 
 

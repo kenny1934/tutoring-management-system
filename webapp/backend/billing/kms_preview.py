@@ -87,7 +87,8 @@ def status(db):
             source = KmsSnapshot.model_validate(row.snapshot)
             latest.append(KmsCheckSummary(id=row.id, branch=branch, fetched_at=source.fetched_at,
                                           active_count=source.active_count))
-    return KmsPreviewStatus(enabled=True, branches=[b for b in ('MSA', 'MSB') if credentials(b)], latest=latest)
+    from . import kms_stock
+    return KmsPreviewStatus(enabled=True, historical_receipts_enabled=kms_stock.historical_receipts_enabled(), branches=[b for b in ('MSA', 'MSB') if credentials(b)], latest=latest)
 
 
 def find_check(db, check_id):
@@ -160,8 +161,8 @@ def review_check(db, row, *, with_update=True):
                 change='expired' if coupon.expires_on < as_of and not now else 'missing', previous=coupon))
 
     # Also include CSM students with outstanding uses, even if KMS has no row.
-    from models import Student, StudentCoupon
-    from .models import BillingAccount, BillingPayment
+    from models import Enrollment, Student, StudentCoupon
+    from .models import BillingAccount, BillingPayment, BillingPaymentLine
     outstanding = db.query(Student.home_location, Student.school_student_id).join(
         CouponUse, CouponUse.student_id == Student.id).filter(
         Student.home_location == source.branch, CouponUse.state != 'released',
@@ -188,6 +189,14 @@ def review_check(db, row, *, with_update=True):
     ids = {s.id for students in matches.values() for s in students}
     ledger_facts = accounting._facts(db, ids) if ids else None
     balances = {sid: accounting._balance(sid, ledger_facts, as_of=as_of) for sid in ids}
+    payment_enrollments = defaultdict(list)
+    if ledger_facts and ledger_facts[4]:
+        for payment_id, enrollment_id, owner in db.query(
+            BillingPaymentLine.payment_id, Enrollment.id, Enrollment.student_id).join(
+            Enrollment, Enrollment.id == BillingPaymentLine.enrollment_id).filter(
+            BillingPaymentLine.payment_id.in_(ledger_facts[4])).order_by(Enrollment.id).all():
+            if ledger_facts[4][payment_id][1] == owner:
+                payment_enrollments[payment_id].append(enrollment_id)
     prior_counts = Counter(c.company_id for c in previous.coupons if c.state == 'active') if previous else None
     reviews = []
     for company_id, changes in grouped.items():
@@ -249,7 +258,9 @@ def review_check(db, row, *, with_update=True):
                     warn('RECEIPT_NOT_FOUND', 'The CSM coupon receipt was not found in the KMS usage years checked.')
                 uses.append(KmsUseMatch(use_id=use.id, payment_id=use.payment_id,
                     legacy_enrollment_id=use.legacy_enrollment_id, value=use.value,
-                    receipt_reference=use.receipt_reference, state=use.state, result=result, coupon_number=number))
+                    receipt_reference=use.receipt_reference, state=use.state, result=result, coupon_number=number,
+                    enrollment_ids=([use.legacy_enrollment_id] if use.legacy_enrollment_id else payment_enrollments[use.payment_id]),
+                    payment_date=use.payment_date))
             available = Counter((c.value, c.expires_on) for c in active if c.expires_on >= as_of)
             if any(available[group] < count for group, count in reservations.items()):
                 warn('RESERVATION_SHORTFALL', 'KMS has fewer matching coupons than CSM has reserved.')
