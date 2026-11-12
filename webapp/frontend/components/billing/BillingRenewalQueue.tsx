@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import useSWR, { useSWRConfig } from 'swr';
-import { AlertCircle, CalendarCheck, CalendarRange, CheckCircle2, Clock, Copy, CreditCard, Eye, FilePenLine, History, Landmark, ListTodo, ReceiptText, RefreshCw, Send, UserPlus, X } from 'lucide-react';
+import { CalendarCheck, CalendarRange, CheckCircle2, Clock, Copy, CreditCard, Eye, FilePenLine, History, Landmark, ListTodo, ReceiptText, RefreshCw, Send, UserPlus, X } from 'lucide-react';
 import { Badge, Button, Field, IconButton, Input, Select, PageHeader, buttonClasses } from '@/components/controls';
 import { PageSurface } from '@/components/layout/PageSurface';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
@@ -36,11 +36,10 @@ const STAGES = [
   { value: 'prepare', label: 'To prepare', icon: FilePenLine, colour: 'text-ink-subtle' },
   { value: 'send', label: 'To send', icon: Send, colour: 'text-blue-700 dark:text-blue-300' },
   { value: 'awaiting_payment', label: 'Awaiting payment', icon: CreditCard, colour: 'text-amber-800 dark:text-amber-300' },
-  { value: 'attention', label: 'Needs attention', icon: AlertCircle, colour: 'text-red-700 dark:text-red-300' },
 ] as const;
 
 export type BillingQueueView = 'all' | 'receipts' | BillingQueueStage;
-const VIEWS = [{ value: 'all', label: 'All tasks', icon: ListTodo, colour: 'text-ink-subtle' }, ...STAGES.slice(0, 3), { value: 'receipts', label: 'KMS receipts', icon: ReceiptText, colour: 'text-ink-subtle' }, ...STAGES.slice(3), { value: 'no_payment', label: 'No payment this run', icon: CalendarCheck, colour: 'text-ink-subtle' }] as const;
+const VIEWS = [{ value: 'all', label: 'All tasks', icon: ListTodo, colour: 'text-ink-subtle' }, ...STAGES, { value: 'receipts', label: 'KMS receipts', icon: ReceiptText, colour: 'text-ink-subtle' }, { value: 'no_payment', label: 'No payment this run', icon: CalendarCheck, colour: 'text-ink-subtle' }] as const;
 const URGENCY_GROUPS = [
   { value: 'now', label: 'Needs action now', colour: 'red' },
   { value: 'week', label: 'This week', colour: 'orange' },
@@ -192,15 +191,17 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   const { mutate: refreshCache } = useSWRConfig();
   const receiptScope = JSON.stringify([billingDraftAuthScope(auth), location, tutorId]);
   const receiptCount = useSWR(enabled ? ['billing-receipts-count', receiptScope] : null, () => billingAPI.receiptCount({ location, tutor_id: tutorId }), { keepPreviousData: false });
-  const [stage, setStage] = useState<BillingQueueView>(initialStage);
+  const [stage, setStage] = useState<Exclude<BillingQueueView, 'attention'>>(initialStage === 'attention' ? 'prepare' : initialStage);
+  const [preparationFilter, setPreparationFilter] = useState<'all' | 'checking'>(initialStage === 'attention' ? 'checking' : 'all');
   const [collapsed, setCollapsed] = useState<Set<BillingQueueUrgency>>(() => new Set());
   const [month, setMonth] = useState(initialCollectionMonth);
   const [sort, setSort] = useState<'expiry' | 'student_id'>('expiry');
   const queueSort = stage === 'prepare' ? sort : undefined;
+  const needsChecking = stage === 'prepare' && preparationFilter === 'checking' ? true : undefined;
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 250).trim();
   const searchPending = search.trim() !== debouncedSearch;
-  const scope = JSON.stringify([billingDraftAuthScope(auth), location, tutorId, month, stage, debouncedSearch, queueSort]);
+  const scope = JSON.stringify([billingDraftAuthScope(auth), location, tutorId, month, stage, debouncedSearch, queueSort, needsChecking]);
   const workspaceTrigger = useRef<HTMLButtonElement | null>(null);
   const [workspace, setWorkspace] = useState<{ scope: string; row: BillingQueueRow; action?: BillingRenewalAction } | null>(null);
   const selectedWorkspace = workspace?.scope === scope ? workspace : null;
@@ -235,12 +236,12 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
   const stageCounts = !counts.error && counts.data && (!month || counts.data.collection_month === month) ? counts.data : undefined;
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     enabled && stage !== 'receipts' ? ['billing-renewal-queue', scope, offset] : null,
-    () => billingAPI.queue({ collection_month: month || undefined, stage: stage === 'all' || stage === 'receipts' ? undefined : stage, sort: queueSort, search: debouncedSearch || undefined, location, tutor_id: tutorId, offset, limit }),
+    () => billingAPI.queue({ collection_month: month || undefined, stage: stage === 'all' || stage === 'receipts' ? undefined : stage, sort: queueSort, needs_checking: needsChecking, search: debouncedSearch || undefined, location, tutor_id: tutorId, offset, limit }),
     { keepPreviousData: false, refreshInterval },
   );
   const { data: waitingTaught } = useUnlistedWaitingCount(enabled, location);
   const current = stage !== 'receipts' && !searchPending ? data : undefined;
-  const selectedIds = new Set(selectedRows.map(row => row.student.id));
+  const selectedKeys = new Set(selectedRows.map(row => row.key));
   const listPanel = useRef<HTMLElement | null>(null);
   const tabId = useId();
   const tabBar = useRef<HTMLDivElement>(null);
@@ -262,30 +263,30 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     if (preferences) setSelection(previous => ({ ...previous, rows: previous.rows.filter(row => row.student.id !== preferences.student_id) }));
     void invalidateRenewalQueueCache(refreshCache);
   }
-  function selectStage(next: BillingQueueView) { setStage(next); }
+  function selectStage(next: Exclude<BillingQueueView, 'attention'>) { setStage(next); }
   function selectable(row: BillingQueueRow) {
     const action = canBatchRenew(row) ? 'renew' : queuePaymentBatchAction(row);
     return !error && !!action && (!selectionAction || selectionAction === action);
   }
   function toggleBatch(row: BillingQueueRow) {
-    setSelection({ scope: batchScope, rows: selectedIds.has(row.student.id) ? selectedRows.filter(value => value.student.id !== row.student.id) : [...selectedRows, row] });
+    setSelection({ scope: batchScope, rows: selectedKeys.has(row.key) ? selectedRows.filter(value => value.key !== row.key) : [...selectedRows, row] });
   }
   function toggleSection(rows: BillingQueueRow[]) {
     const eligible = rows.filter(selectable);
-    const sectionIds = new Set(eligible.map(row => row.student.id));
-    const allChecked = eligible.every(row => selectedIds.has(row.student.id));
-    setSelection({ scope: batchScope, rows: allChecked ? selectedRows.filter(row => !sectionIds.has(row.student.id))
-      : [...selectedRows, ...eligible.filter(row => !selectedIds.has(row.student.id))] });
+    const sectionKeys = new Set(eligible.map(row => row.key));
+    const allChecked = eligible.every(row => selectedKeys.has(row.key));
+    setSelection({ scope: batchScope, rows: allChecked ? selectedRows.filter(row => !sectionKeys.has(row.key))
+      : [...selectedRows, ...eligible.filter(row => !selectedKeys.has(row.key))] });
   }
   function closeBatch(items?: BillingBatchItem[]) {
     setBatchOpen(null);
-    const results = new Map(items?.map(item => [item.row.student.id, item]));
-    const latest = new Map(current?.rows.map(row => [row.student.id, row]));
+    const results = new Map(items?.map(item => [item.row.key, item]));
+    const latest = new Map(current?.rows.map(row => [row.key, row]));
     const retained = selectedRows.flatMap(row => {
-      const item = results.get(row.student.id);
+      const item = results.get(row.key);
       if (item?.outcome?.kind === 'created' || item?.draft?.confirmed_payment_id) return [];
       if (item?.draft) return [{ ...row, origin: 'draft' as const, draft_id: item.draft.id }];
-      const fresh = latest.get(row.student.id);
+      const fresh = latest.get(row.key);
       return fresh ? canBatchRenew(fresh) ? [fresh] : [] : [row];
     });
     setSelection({ scope: batchScope, rows: retained });
@@ -324,6 +325,7 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
     } />
     <div className="flex flex-wrap items-end gap-3">
       {stage !== 'receipts' && <Field label="Collection month" id={`${tabId}-month`} className="w-44"><Input type="month" value={month || serverMonth.current} onChange={event => setMonth(event.target.value)} /></Field>}
+      {stage === 'prepare' && <Field label="Show" id={`${tabId}-checking`} className="w-44"><Select value={preparationFilter} onChange={event => setPreparationFilter(event.target.value as 'all' | 'checking')}><option value="all">All</option><option value="checking">Needs checking</option></Select></Field>}
       {stage === 'prepare' && <Field label="Sort by" id={`${tabId}-sort`} className="w-44"><Select value={sort} onChange={event => setSort(event.target.value as 'expiry' | 'student_id')}><option value="expiry">Expiry date</option><option value="student_id">Student ID</option></Select></Field>}
       <Field label="Find a student" id={`${tabId}-search`} className="min-w-52 flex-1"><Input value={search} placeholder="Name or student number" onChange={event => setSearch(event.target.value)} /></Field>
       <Button size="sm" icon={UserPlus} onClick={onShowTaught}>Taught but not in CSM yet{' '}{waitingTaught && <Badge>{waitingTaught.count}</Badge>}</Button>
@@ -339,26 +341,26 @@ export function BillingRenewalQueue({ initialStage = 'all', initialCollectionMon
       {stage !== 'receipts' && (isLoading || searchPending) && <p role="status" className="py-6 text-sm text-ink-subtle">Loading renewals…</p>}
       {stage !== 'receipts' && error && !searchPending && <div role="alert" className="rounded border border-red-300 p-4 text-sm"><p>{error instanceof Error ? error.message : 'Could not load enrollment renewals.'}</p>{data && <p className="mt-1 text-xs">These records could not be refreshed. Retry before continuing.</p>}<Button size="sm" className="mt-2" onClick={() => mutate()}>Retry</Button></div>}
       {current && <>
-        <p className="text-xs text-ink-subtle">{title} · {plural(current.total, 'student')}{location ? ` · ${location}` : ''}</p>
+        <p className="text-xs text-ink-subtle">{title} · {plural(current.total, stage === 'all' ? 'task' : 'student')}{location ? ` · ${location}` : ''}</p>
         {current.rows.length ? URGENCY_GROUPS.map(group => {
           const rows = current.rows.filter(row => (row.stage === 'no_payment' ? 'later' : row.urgency ?? 'check_dates') === group.value);
           if (!rows.length) return null;
           const selectableRows = canSelect ? rows.filter(selectable) : [];
           return <CollapsibleSection key={group.value} id={`${tabId}-urgency-${group.value}`} label={group.label} colorTheme={group.colour}
-            showCheckbox={selectedRows.length > 0 && selectableRows.length > 0} isAllChecked={selectableRows.length > 0 && selectableRows.every(row => selectedIds.has(row.student.id))}
-            isSomeChecked={selectableRows.some(row => selectedIds.has(row.student.id))} onCheckboxClick={event => { event.stopPropagation(); toggleSection(rows); }}
+            showCheckbox={selectedRows.length > 0 && selectableRows.length > 0} isAllChecked={selectableRows.length > 0 && selectableRows.every(row => selectedKeys.has(row.key))}
+            isSomeChecked={selectableRows.some(row => selectedKeys.has(row.key))} onCheckboxClick={event => { event.stopPropagation(); toggleSection(rows); }}
             annotation={selectedRows.length > 0 && selectableRows.length > 0 && (current.urgency_counts?.[group.value] ?? rows.length) > rows.length ? `${rows.length} on this page` : undefined}
             count={current.urgency_counts?.[group.value] ?? rows.length} isCollapsed={collapsed.has(group.value)} onToggle={() => setCollapsed(previous => {
               const next = new Set(previous); if (next.has(group.value)) next.delete(group.value); else next.add(group.value); return next;
             })}>
             {rows.map(row => <QueueCard key={`${scope}:${row.key}`} row={row} asOf={current.as_of} showLocation={selectedLocation === 'All Locations'} showStage={stage === 'all'} selected={selectedWorkspace?.row.key === row.key}
               workflowAvailable={!!options?.workflow_available} workflowWritesAvailable={!!options?.workflow_writes_available} preferencesWritable={!!options?.preferences_writes_available} refreshFailed={!!error} onSettingsSaved={refreshQueue}
-              batchSelected={selectedIds.has(row.student.id)} showCheckboxes={selectedRows.length > 0} onBatchToggle={canSelect && selectable(row) ? () => toggleBatch(row) : undefined}
+              batchSelected={selectedKeys.has(row.key)} showCheckboxes={selectedRows.length > 0} onBatchToggle={canSelect && selectable(row) ? () => toggleBatch(row) : undefined}
               feeExpanded={feePanel?.scope === feeScope && feePanel.key === row.key} onToggleFee={() => setFeePanel(previous => previous?.scope === feeScope && previous.key === row.key ? null : { scope: feeScope, key: row.key })}
               onOpen={(value, trigger, action) => { workspaceTrigger.current = trigger; setWorkspace({ scope, row: value, action }); }} />)}
           </CollapsibleSection>;
         }) : <p className="rounded border border-line p-5 text-sm">{debouncedSearch ? 'No students match this search.' : EMPTY[stage]}</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><p className="text-ink-subtle">{current.total ? `${current.offset + 1}–${Math.min(current.offset + current.rows.length, current.total)} of ${current.total}` : '0 students'}</p><div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><p className="text-ink-subtle">{current.total ? `${current.offset + 1}–${Math.min(current.offset + current.rows.length, current.total)} of ${plural(current.total, stage === 'all' ? 'task' : 'student')}` : stage === 'all' ? '0 tasks' : '0 students'}</p><div className="flex gap-2">
           <Button size="sm" disabled={offset === 0} onClick={() => setPage({ scope, offset: Math.max(0, offset - limit) })}>Previous</Button>
           <Button size="sm" disabled={offset + limit >= current.total} onClick={() => setPage({ scope, offset: offset + limit })}>Next</Button>
         </div></div>

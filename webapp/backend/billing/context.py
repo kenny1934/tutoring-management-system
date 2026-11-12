@@ -179,6 +179,56 @@ def build_student_context(
             current = by_block.get(current.renewed_from_enrollment_id)
         return False
 
+    def proven_timetable_handover(previous, current):
+        # A paid enrollment need not exist at the new time yet. Actual original
+        # lessons can prove a continuous weekly handover when unpaid enrollments
+        # are deliberately retained. Keep more complicated schedules in review.
+        previous_key, current_key = slot_key(previous), slot_key(current)
+        if (basis != 'include_pending' or len(groups) != 2
+                or previous_key == current_key or previous_key[0] != current_key[0]
+                or current_key[0] not in DAYS):
+            return False
+
+        def continuous_dates(key):
+            dates = []
+            ranges = []
+            for source in groups[key]:
+                rows = original_rows[source.id]
+                if (source.payment_status not in SETTLED | PENDING or not rows
+                        or source.lessons_paid != len(rows)
+                        or len(all_original_rows[source.id]) != len(rows)
+                        or source.first_lesson_date != min(row.session_date for row in rows)):
+                    return None
+                if any(DAYS[row.session_date.weekday()] != key[0]
+                       or row.time_slot is None or row.time_slot.strip() != key[1]
+                       or row.location is None or row.location.strip() != key[2]
+                       or not policy.academic_start <= row.session_date <= policy.regular_end
+                       for row in rows):
+                    return None
+                dates.extend(row.session_date for row in rows)
+                ranges.append((min(row.session_date for row in rows), max(row.session_date for row in rows)))
+            ranges.sort()
+            if any(left[1] >= right[0] for left, right in zip(ranges, ranges[1:])):
+                return None
+            if len(dates) != len(set(dates)):
+                return None
+            recorded = set(dates)
+            day = min(recorded)
+            while day <= max(recorded):
+                if day not in recorded and day not in holidays:
+                    return None
+                day += timedelta(days=7)
+            return recorded
+
+        previous_dates = continuous_dates(previous_key)
+        current_dates = continuous_dates(current_key)
+        if not previous_dates or not current_dates or max(previous_dates) >= min(current_dates):
+            return False
+        next_date = max(previous_dates) + timedelta(days=7)
+        while next_date in holidays and next_date not in current_dates:
+            next_date += timedelta(days=7)
+        return next_date == min(current_dates)
+
     if selected_enrollment_ids is not None:
         if not 1 <= len(selected_enrollment_ids) <= 2 or len(set(selected_enrollment_ids)) != len(selected_enrollment_ids):
             raise ValueError('Choose one or two different enrollments for the next payment.')
@@ -201,7 +251,7 @@ def build_student_context(
                 related = is_successor(candidate, selected[0]) or is_successor(selected[0], candidate)
                 if weeks & primary_weeks and not related:
                     selected.append(candidate)
-                elif weeks:
+                elif weeks and not proven_timetable_handover(candidate, selected[0]):
                     flag('TIMETABLE_CHANGE_REVIEW', 'Another timetable has upcoming lessons. Confirm which class the student will attend.')
     if len(selected) > 1:
         flag('CONTINUING_SLOTS_REVIEW', 'Check whether the student will attend both classes each week or is changing class.')
@@ -284,8 +334,10 @@ def build_student_context(
                                key=lambda r: (r.session_date, r.id))
         paid_end = max(paid_dates, default=None)
         retained_end = max(retained_dates, default=None)
-        if key in selected_keys and not paid_dates and any(
-                e.payment_status in SETTLED and slot_key(e) != key for e in active):
+        other_paid = [e for e in active if e.payment_status in SETTLED and slot_key(e) != key]
+        if (key in selected_keys and not paid_dates and other_paid
+                and not (len(selected) == 1 and all(proven_timetable_handover(previous, b)
+                                                 for previous in other_paid))):
             flag('TIMETABLE_CHANGE_REVIEW', 'Paid lessons use another timetable. Confirm when the student changed class and check for any unpaid lessons.')
         roots = original_rows[b.id]
         openings = sorted({r.session_date for e in group for r in original_rows[e.id]

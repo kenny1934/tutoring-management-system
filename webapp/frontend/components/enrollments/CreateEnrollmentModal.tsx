@@ -141,7 +141,7 @@ export function CreateEnrollmentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [preparedIntake, setPreparedIntake] = useState<{ data: BillingIntakeContext; authScope: string } | undefined>();
-  const intakeOperation = useRef<AbortController | null>(null);
+  const intakeOperation = useRef<{ sourceKey: string; controller: AbortController } | null>(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [intakeBusy, setIntakeBusy] = useState(false);
   const [intakeCreated, setIntakeCreated] = useState(false);
@@ -434,8 +434,17 @@ export function CreateEnrollmentModal({
   const intakeSourceKey = JSON.stringify([isOpen, billingDraftAuthScope(auth), student?.id, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, enrollmentType, effectiveRenewalLinkId, convertFromTrial?.enrollment_id, convertFromTrial?.session_id]);
   const currentIntakeSource = useRef(intakeSourceKey); currentIntakeSource.current = intakeSourceKey;
   useEffect(() => {
-    setPreviewLoading(false);
-    return () => intakeOperation.current?.abort();
+    // A preview may start at the new source's commit before passive cleanup.
+    // The old source must neither cancel that request nor clear its busy state.
+    const operation = intakeOperation.current;
+    if (operation?.sourceKey !== intakeSourceKey) setPreviewLoading(false);
+    return () => {
+      const pending = intakeOperation.current;
+      if (pending?.sourceKey === intakeSourceKey) {
+        pending.controller.abort();
+        intakeOperation.current = null;
+      }
+    };
   }, [intakeSourceKey]);
 
   // Check if first lesson date matches selected day of week
@@ -454,7 +463,9 @@ export function CreateEnrollmentModal({
     if (!enrollmentData || billingHref || previewLoading) return;
     if (newPolicyRegular) {
       const key = intakeSourceKey;
-      const abort = new AbortController(); intakeOperation.current?.abort(); intakeOperation.current = abort;
+      const abort = new AbortController();
+      intakeOperation.current?.controller.abort();
+      intakeOperation.current = { sourceKey: key, controller: abort };
       setPreviewLoading(true); setPreviewError(null);
       try {
         const context = await billingAPI.intakeContext(enrollmentData.student_id, {
@@ -466,7 +477,10 @@ export function CreateEnrollmentModal({
       } catch (error) {
         if (!abort.signal.aborted && currentIntakeSource.current === key) setPreviewError(formatError(error, 'Could not prepare the enrollment preview.'));
       } finally {
-        if (currentIntakeSource.current === key) setPreviewLoading(false);
+        if (intakeOperation.current?.controller === abort) {
+          intakeOperation.current = null;
+          if (currentIntakeSource.current === key) setPreviewLoading(false);
+        }
       }
       return;
     }

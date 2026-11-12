@@ -681,3 +681,157 @@ def test_upcoming_records_and_concurrent_classes_use_the_remaining_teaching_year
     assert 'CONTINUATION_UNCONFIRMED' not in codes(result)
     assert 'CONTINUING_SLOTS_REVIEW' in codes(result)
     assert len(result.suggested_request.slots) == 2
+
+
+# A new time can have real unpaid enrollment evidence before its first payment.
+# These fixtures reproduce a clean Saturday handover without a manual override.
+def handover_evidence():
+    old = block(first='2026-09-05', day='Sat', assigned_time='10:00 - 11:30')
+    new = block(2, first='2026-10-24', day='Sat', assigned_time='16:15 - 17:45',
+                payment_status='Pending Payment', fee_message_sent=True)
+    old_dates = [date(2026, 9, 5), date(2026, 9, 12), date(2026, 9, 19),
+                 date(2026, 9, 26), date(2026, 10, 10), date(2026, 10, 17)]
+    recorded = [replace(row, session_date=day, session_status='Attended')
+                for row, day in zip(roots(old), old_dates)]
+    recorded += roots(new, statuses=['Attended', 'Scheduled', 'Attended', 'Scheduled', 'Scheduled', 'Scheduled'])
+    return [old, new], recorded
+
+
+def handover_context(blocks, lessons, *, basis='include_pending', as_of=date(2026, 11, 12), **kwargs):
+    return build_student_context(STUDENT, blocks, lessons, {date(2026, 10, 3)},
+                                 as_of=as_of, basis=basis, **kwargs)
+
+
+@pytest.mark.parametrize('linked', [False, True])
+@pytest.mark.parametrize('as_of', [date(2026, 10, 1), date(2026, 11, 12)])
+def test_complete_nonoverlapping_timetable_handover_retains_pending_enrollment(linked, as_of):
+    sources, recorded = handover_evidence()
+    if linked:
+        sources[1] = replace(sources[1], renewed_from_enrollment_id=1)
+    recorded = [replace(row, session_status='Scheduled') if row.session_date >= as_of else row
+                for row in recorded]
+    result = handover_context(sources, recorded, as_of=as_of)
+    assert result.selected_enrollment_ids == [2]
+    assert result.suggested_request.first_lesson_date == date(2026, 12, 5)
+    assert result.suggested_request.slots[0].time_slot == '16:15 - 17:45'
+    assert candidate(result, 1).last_paid_original_date == date(2026, 10, 17)
+    assert candidate(result, 2).last_paid_original_date is None
+    assert candidate(result, 2).last_retained_original_date == date(2026, 11, 28)
+    assert {'PENDING_BILLS', 'SENT_BILL_REVIEW', 'PENDING_COVERAGE_ASSUMED'} <= codes(result)
+    assert not {'TIMETABLE_CHANGE_REVIEW', 'CONTINUING_SLOTS_REVIEW',
+                'PAID_COVERAGE_GAP', 'CONDITIONAL_COVERAGE_GAP'} & codes(result)
+    assert len(result.source_blocks) == 2
+
+
+def test_paid_only_does_not_treat_an_unpaid_timetable_handover_as_settled():
+    sources, recorded = handover_evidence()
+    result = handover_context(sources, recorded, basis='paid_only')
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+    assert candidate(result, 2).last_retained_original_date is None
+    assert result.suggested_request.first_lesson_date == date(2026, 10, 24)
+    assert 'PENDING_COVERAGE_ASSUMED' not in codes(result)
+
+
+def test_timetable_handover_with_originals_on_both_times_at_the_boundary_stays_in_review():
+    sources, recorded = handover_evidence()
+    sources[0] = replace(sources[0], lessons_paid=7)
+    recorded.append(replace(recorded[5], id=999, session_date=date(2026, 10, 24)))
+    result = handover_context(sources, recorded)
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+    assert candidate(result, 1).last_paid_original_date == date(2026, 10, 24)
+
+
+def test_timetable_handover_does_not_infer_the_unmapped_week_between_enrollments():
+    sources, recorded = handover_evidence()
+    sources[1] = replace(sources[1], first_lesson_date=date(2026, 10, 31))
+    recorded = [row for row in recorded if row.enrollment_id == 1] + roots(sources[1])
+    result = handover_context(sources, recorded)
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+
+
+@pytest.mark.parametrize('enrollment_id,missing,expected_gap', [
+    (1, date(2026, 10, 10), 'PAID_COVERAGE_GAP'),
+    (2, date(2026, 11, 7), 'CONDITIONAL_COVERAGE_GAP'),
+])
+def test_timetable_handover_keeps_internal_gaps_visible(enrollment_id, missing, expected_gap):
+    sources, recorded = handover_evidence()
+    sources = [replace(source, lessons_paid=5) if source.id == enrollment_id else source for source in sources]
+    recorded = [row for row in recorded if not (row.enrollment_id == enrollment_id and row.session_date == missing)]
+    result = handover_context(sources, recorded)
+    assert {'TIMETABLE_CHANGE_REVIEW', expected_gap} <= codes(result)
+    details = [gap for issue in result.issues if issue.code == expected_gap for gap in issue.gap_evidence]
+    assert any(detail.date == missing for detail in details)
+
+
+@pytest.mark.parametrize('changes', [dict(time_slot='09:00 - 10:30'), dict(location='OTHER'),
+                                   dict(time_slot=None), dict(location=None)])
+def test_timetable_handover_requires_actual_matching_session_timetables(changes):
+    sources, recorded = handover_evidence()
+    recorded[-1] = replace(recorded[-1], **changes)
+    result = handover_context(sources, recorded)
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+    if all(value is not None for value in changes.values()):
+        assert 'OFF_SLOT_ORIGINALS' in codes(result)
+
+
+def test_a_future_return_to_the_old_slot_does_not_prove_a_one_way_handover():
+    sources, recorded = handover_evidence()
+    future = block(3, first='2026-11-21', day='Sat', assigned_time='10:00 - 11:30')
+    result = handover_context([*sources, future], [*recorded, *roots(future)])
+    assert {'CONTINUING_SLOTS_REVIEW', 'TIMETABLE_CHANGE_REVIEW'} & codes(result)
+    assert set(result.selected_enrollment_ids) == {2, 3}
+    assert candidate(result, 3).last_paid_original_date == date(2026, 12, 26)
+
+
+def test_a_third_concurrent_class_does_not_get_absorbed_into_a_timetable_handover():
+    sources, recorded = handover_evidence()
+    other = block(3, first='2026-11-03', day='Tue')
+    result = handover_context([*sources, other], [*recorded, *roots(other)])
+    assert 'CONTINUING_SLOTS_REVIEW' in codes(result)
+    assert set(result.selected_enrollment_ids) == {2, 3}
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+
+
+def test_timetable_handover_does_not_accept_inconsistent_enrollment_boundaries():
+    sources, recorded = handover_evidence()
+    sources[1] = replace(sources[1], first_lesson_date=date(2026, 10, 23))
+    result = handover_context(sources, recorded)
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+
+
+def test_cancelled_originals_do_not_supply_timetable_handover_proof():
+    sources, recorded = handover_evidence()
+    recorded.append(replace(recorded[5], id=999, session_date=date(2026, 10, 24), session_status='Cancelled'))
+    result = handover_context(sources, recorded)
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+
+
+def test_timetable_handover_proof_and_fingerprint_do_not_depend_on_input_order():
+    sources, recorded = handover_evidence()
+    result = handover_context(sources, recorded)
+    reordered = handover_context(list(reversed(sources)), list(reversed(recorded)))
+    assert result.source_fingerprint == reordered.source_fingerprint
+    assert result.selected_enrollment_ids == reordered.selected_enrollment_ids
+    assert codes(result) == codes(reordered)
+
+
+def test_interleaved_enrollments_at_the_old_time_do_not_prove_a_simple_handover():
+    sources, recorded = handover_evidence()
+    old_rows = [row for row in recorded if row.enrollment_id == 1]
+    first = replace(sources[0], lessons_paid=3)
+    interleaved = replace(first, id=3, first_lesson_date=old_rows[1].session_date)
+    recorded = [*old_rows[::2], *(replace(row, enrollment_id=3) for row in old_rows[1::2]),
+                *(row for row in recorded if row.enrollment_id == 2)]
+    result = handover_context([first, interleaved, sources[1]], recorded)
+    assert 'PAID_COVERAGE_GAP' not in codes(result)
+    assert 'ORIGINAL_COUNT_REVIEW' not in codes(result)
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+
+
+def test_a_weekday_change_still_needs_review_even_if_the_two_blocks_do_not_overlap():
+    old = block()
+    new = block(2, first='2026-11-11', day='Wed', payment_status='Pending Payment',
+                renewed_from_enrollment_id=1)
+    result = context([old, new], [*roots(old), *roots(new)], basis='include_pending')
+    assert 'TIMETABLE_CHANGE_REVIEW' in codes(result)
+    assert candidate(result, 2).last_paid_original_date is None

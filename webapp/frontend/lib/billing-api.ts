@@ -32,7 +32,7 @@ export const billingAPI = {
     fetchAPI<BillingIntakeContext>(`/billing/students/${studentId}/intake-context?${queryString(params)}`, { signal }),
   recordLegacyCouponReceipt: (studentId: number, useId: string, data: { expected_version: number; idempotency_key: string; receipt_reference: string; coupon_used_on: string; coupon_selected: boolean }, signal?: AbortSignal) =>
     fetchAPI<BillingCouponBalance>(`/billing/students/${studentId}/coupon-uses/${encodeURIComponent(useId)}/receipt`, { method: 'POST', body: JSON.stringify(data), signal }),
-  queue: (params: { collection_month?: string; stage?: BillingQueueStage; sort?: 'expiry' | 'student_id'; search?: string; location?: string; tutor_id?: number; offset?: number; limit?: number } = {}) =>
+  queue: (params: { collection_month?: string; stage?: BillingQueueStage; needs_checking?: boolean; sort?: 'expiry' | 'student_id'; search?: string; location?: string; tutor_id?: number; offset?: number; limit?: number } = {}) =>
     fetchAPI<BillingQueueResponse>(`/billing/queue?${queryString(params)}`),
   queueCounts: (params: { collection_month?: string; location?: string; tutor_id?: number } = {}) =>
     fetchAPI<BillingQueueCounts>(`/billing/queue/counts?${queryString(params)}`),

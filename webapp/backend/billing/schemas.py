@@ -402,6 +402,8 @@ class BillingQueueRow(BaseModel):
     key: str
     student: BillingStudent
     stage: QueueStage
+    needs_checking: bool = False
+    renewal_available: bool = False
     origin: Literal['projection', 'draft', 'payment', 'legacy']
     payment_method: PaymentMethod | None = None
     recorded_payment_method: PaymentMethod | None = None
