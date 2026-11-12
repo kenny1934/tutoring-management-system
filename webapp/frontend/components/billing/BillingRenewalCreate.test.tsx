@@ -139,6 +139,34 @@ describe('direct renewal creation', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('shows every blocking reason beside the action and clears them after a valid review', () => {
+    const reasons = ['Record bank authorisation in Payment plan first.', 'Check the lesson dates.'];
+    const { props, rerender, create } = setup({ review: { ...review, message: { ...review.message, blocked_reasons: [...reasons, reasons[0]] } } });
+    const button = screen.getByRole('button', { name: 'Create enrollment' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(reasons.join(' '));
+    expect(screen.getAllByText(reasons[0])).toHaveLength(1);
+    expect(screen.getByRole('status')).toBeVisible();
+    fireEvent.click(button);
+    expect(create).not.toHaveBeenCalled();
+    rerender(<BillingRenewalCreate {...props} review={review} />);
+    expect(button).toBeEnabled();
+    expect(button).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByText(reasons[0])).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { change: { review: null }, reason: 'Checking enrollment details…' },
+    { change: { review: null, reviewUnavailableReason: 'Save the payment plan first.' }, reason: 'Save the payment plan first.' },
+    { change: { review: { ...review, period: { ...review.period, total_fee: null } } }, reason: 'Confirm the materials charge to calculate the total fee.' },
+    { change: { canWrite: false }, reason: 'Enrollment creation is not available right now.' },
+    { change: { storageAvailable: false }, reason: 'Enrollment creation is not available right now.' },
+  ] satisfies { change: Partial<Props>; reason: string }[])('explains the disabled action: $reason', ({ change, reason }) => {
+    setup(change);
+    expect(screen.getByRole('button', { name: 'Create enrollment' })).toHaveAccessibleDescription(reason);
+    expect(screen.getByText(reason)).toBeVisible();
+  });
+
   it.each([
     { name: 'no review', change: { review: null } },
     { name: 'blocked review', change: { review: { ...review, message: { ...review.message, blocked_reasons: ['Check dates'] } } } },

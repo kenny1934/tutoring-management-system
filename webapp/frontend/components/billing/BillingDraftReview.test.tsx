@@ -95,9 +95,29 @@ describe('payment draft review', () => {
     render(<SWRConfig value={{ provider: () => new Map() }}><BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable preferencesAvailable
       directCreation={{ creator: { create } as unknown as BillingRenewalCreator, canWrite: true, onCreated: vi.fn() }} /></SWRConfig>);
     expect(await screen.findByText('Save the payment plan above before creating the enrollment.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create enrollment' })).toHaveAccessibleDescription('Save the payment plan above before creating the enrollment.');
     const button = screen.getByRole('button', { name: 'Create enrollment' });
     expect(button).toBeDisabled();
     fireEvent.click(button);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('explains missing bank authorisation beside Create without opening the fee message', async () => {
+    const data = review();
+    data.message.blocked_reasons = [
+      'Check bank authorisation and the setup deadline before using these debit dates.',
+      'Confirm bank authorisation before preparing an autopay fee message.',
+    ];
+    mocks.review.mockResolvedValue(data);
+    const create = vi.fn();
+    render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable
+      directCreation={{ creator: { create } as unknown as BillingRenewalCreator, canWrite: true, onCreated: vi.fn() }} />);
+    const action = await screen.findByRole('button', { name: 'Create enrollment' });
+    expect(action).toBeDisabled();
+    expect(action).toHaveAccessibleDescription('Record bank authorisation in Payment plan above.');
+    expect(screen.getAllByText('Record bank authorisation in Payment plan above.')).toHaveLength(1);
+    expect(screen.queryByRole('region', { name: 'Fee message preview' })).not.toBeInTheDocument();
+    fireEvent.click(action);
     expect(create).not.toHaveBeenCalled();
   });
 

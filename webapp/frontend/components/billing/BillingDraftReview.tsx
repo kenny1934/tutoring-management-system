@@ -302,6 +302,8 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
   const messageToggle = <Button size="sm" variant="secondary" disabled={busy || !review} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessagePreview(messageOpen ? null : baseKey)}>{messageOpen ? 'Hide fee message' : 'Preview fee message'}</Button>;
   const unsavedPlan = !!directCreation && !!preferences.data && preferences.data.payment_method !== reviewRequest.scenario.payment_method;
   const createAction = directCreation && <BillingRenewalCreate creator={directCreation.creator} authScope={billingDraftAuthScope(auth)} studentId={studentId} review={preferences.error || unsavedPlan ? null : review} request={request} note={note} revisionTarget={revisionTarget}
+    reviewUnavailableReason={unsavedPlan ? 'Save the payment plan above before creating the enrollment.'
+      : preferences.error ? 'Retry payment settings above.' : currentFailure ? 'Retry the enrollment review above.' : undefined}
     canWrite={directCreation.canWrite} storageAvailable={storageAvailable} onCreated={directCreation.onCreated} onBusyChange={setCreating} onStale={onStaleReview} />;
   const body = <div className="space-y-5" aria-busy={!review && !!displayedReview}>
     {presentation?.inDialog && <Button ref={back} icon={ArrowLeft} variant="quiet" disabled={busy} onClick={() => close()}>Back to payment details</Button>}
@@ -314,8 +316,7 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
       {auth.isAdmin && <div className="space-y-2">
         {showNote && noteFields}
         {summaryPresentation === 'renewal' ? <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2">{!note && <Button size="sm" variant="quiet" disabled={busy || !review} onClick={() => setNoteEditor(showNote ? null : baseKey)}>{showNote ? 'Hide note' : 'Add note'}</Button>}{messageToggle}</div><div className="ml-auto">{createAction || saveAction}</div></div> : saveAction}
-        {unsavedPlan && <p role="status" className="text-xs text-amber-800 dark:text-amber-300">Save the payment plan above before creating the enrollment.</p>}
-        {!storageAvailable && <p className="text-xs text-ink-subtle">{directCreation ? 'Enrollment creation is not available yet.' : 'Saving drafts is not available yet.'}</p>}
+        {!storageAvailable && !directCreation && <p className="text-xs text-ink-subtle">Saving drafts is not available yet.</p>}
       </div>}
       {summaryPresentation === 'renewal' && <>
         {!auth.isAdmin && messageToggle}
