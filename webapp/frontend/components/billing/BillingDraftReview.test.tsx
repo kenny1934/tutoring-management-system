@@ -114,8 +114,8 @@ describe('payment draft review', () => {
       directCreation={{ creator: { create } as unknown as BillingRenewalCreator, canWrite: true, onCreated: vi.fn() }} />);
     const action = await screen.findByRole('button', { name: 'Create enrollment' });
     expect(action).toBeDisabled();
-    expect(action).toHaveAccessibleDescription('Record bank authorisation in Payment plan above.');
-    expect(screen.getAllByText('Record bank authorisation in Payment plan above.')).toHaveLength(1);
+    expect(action).toHaveAccessibleDescription('Bank authorisation needed.');
+    expect(screen.getAllByText('Bank authorisation needed.')).toHaveLength(1);
     expect(screen.queryByRole('region', { name: 'Fee message preview' })).not.toBeInTheDocument();
     fireEvent.click(action);
     expect(create).not.toHaveBeenCalled();

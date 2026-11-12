@@ -51,7 +51,7 @@ describe("named modal sheets", () => {
     expect(within(dialog).getByLabelText("Close")).toHaveFocus();
     fireEvent.keyDown(dialog, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("still handles Escape after a disabled answer leaves focus on the document", async () => {
@@ -62,7 +62,7 @@ describe("named modal sheets", () => {
     answer.setAttribute("disabled", ""); answer.blur();
     fireEvent.keyDown(document.body, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("captures the opener before the lesson becomes inert", async () => {
