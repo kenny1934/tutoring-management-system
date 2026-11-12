@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useLayoutEffect } from 'react';
 import type { Student, TrialListItem } from '@/types';
 import { CreateEnrollmentModal } from './CreateEnrollmentModal';
 
-const mocks = vi.hoisted(() => ({ student: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), intakeContext: vi.fn(), renewal: vi.fn() }));
+const mocks = vi.hoisted(() => ({ student: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), intakeContext: vi.fn(), renewal: vi.fn(), studentReady: vi.fn() }));
 const tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }, { id: 13, tutor_name: 'Tutor MSB', default_location: 'MSB' }];
 const options = { first_payment_from: '2026-10-30', workflow_writes_available: true };
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true }) }));
@@ -15,7 +16,10 @@ vi.mock('@/lib/api', () => ({ studentsAPI: { getById: mocks.student, getCoupon: 
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { options: vi.fn(), intakeContext: mocks.intakeContext } }));
 vi.mock('swr', () => ({ default: (key: unknown) => ({ data: !key ? undefined : key === 'discounts' ? [] : Array.isArray(key) ? mocks.renewal() : options, isLoading: false, mutate: vi.fn() }) }));
 vi.mock('@/components/ui/modal', () => ({ Modal: ({ isOpen, children, footer }: { isOpen: boolean; children: React.ReactNode; footer: React.ReactNode }) => isOpen ? <div>{children}{footer}</div> : null }));
-vi.mock('@/components/ui/student-search', () => ({ StudentSearch: ({ value, onChange }: { value: Student | null; onChange: (value: Student) => void }) => <div><span>{value?.student_name}</span><button onClick={() => onChange({ id: 6, student_name: 'Student Six', home_location: 'MSB' } as Student)}>Choose MSB student</button></div> }));
+vi.mock('@/components/ui/student-search', () => ({ StudentSearch: ({ value, onChange }: { value: Student | null; onChange: (value: Student) => void }) => {
+  useLayoutEffect(() => { if (value) mocks.studentReady(); }, [value]);
+  return <div><span>{value?.student_name}</span><button onClick={() => onChange({ id: 6, student_name: 'Student Six', home_location: 'MSB' } as Student)}>Choose MSB student</button></div>;
+} }));
 vi.mock('@/components/ui/student-info-badges', () => ({ StudentInfoBadges: () => <span>Student badges</span> }));
 vi.mock('@/components/billing/BillingEnrollmentIntake', () => ({ BillingEnrollmentIntake: (props: unknown) => { mocks.intake(props); return <span>Reviewed intake</span>; } }));
 
@@ -23,6 +27,7 @@ const student = { id: 4, student_name: 'Student Four', home_location: 'MSA', is_
 const trial = { enrollment_id: 70, session_id: 71, student_id: 4, student_name: 'Student Four', tutor_id: 9, tutor_name: 'Tutor Nine', session_date: '2026-10-23', time_slot: '16:45 - 18:15', location: 'MSA', session_status: 'Attended', trial_status: 'pending' } as TrialListItem;
 beforeEach(() => {
   options.workflow_writes_available = true;
+  mocks.studentReady.mockReset();
   mocks.intakeContext.mockReset().mockImplementation(async (id, params) => ({ student: { ...student, id }, source_fingerprint: 'source', trial: params.trial_enrollment_id ? { enrollment_id: params.trial_enrollment_id, session_id: params.trial_session_id } : null }));
   vi.clearAllMocks(); mocks.student.mockReset().mockResolvedValue(student); mocks.renewal.mockReturnValue(undefined);
   mocks.preview.mockResolvedValue({ sessions: [], conflicts: [], warnings: [], potential_renewals: [] });
@@ -74,6 +79,51 @@ describe('existing enrollment form under the new fee scheme', () => {
     view.rerender(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
     await screen.findByText('Student Four');
     expect(screen.queryByText('Reviewed intake')).not.toBeInTheDocument();
+  });
+
+  it.each(['success', 'failure'])('keeps source ownership for a preview started at the student-prefill commit (%s)', async outcome => {
+    let finish!: (value: unknown) => void;
+    let fail!: (reason: unknown) => void;
+    mocks.intakeContext.mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; fail = reject; }));
+    // Start at commit before the previous source's passive cleanup runs. A late
+    // cleanup must not abort the operation belonging to the newly loaded source.
+    mocks.studentReady.mockImplementation(() => screen.getByRole('button', { name: 'Preview fees' }).click());
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    expect(mocks.intakeContext).toHaveBeenCalledOnce();
+    const signal = mocks.intakeContext.mock.calls[0][2] as AbortSignal;
+    expect(signal.aborted).toBe(false);
+    expect(screen.getByLabelText('Location')).toBeDisabled();
+    if (outcome === 'success') {
+      await act(async () => finish({ student, source_fingerprint: 'prepared', trial: { enrollment_id: 70, session_id: 71 } }));
+    } else {
+      await act(async () => fail(new Error('Connection interrupted.')));
+      expect(await screen.findByText('Connection interrupted.')).toBeInTheDocument();
+      expect(screen.getByLabelText('Location')).toBeEnabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    }
+    expect(await screen.findByText('Reviewed intake')).toBeInTheDocument();
+  });
+
+  it('cancels the old source during a trial switch without cancelling the next source', async () => {
+    let finishOld!: (value: unknown) => void;
+    mocks.intakeContext.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+    const view = render(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={trial} />);
+    await screen.findByText('Student Four');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    const oldSignal = mocks.intakeContext.mock.calls[0][2] as AbortSignal;
+    const nextTrial = { ...trial, student_id: 5, enrollment_id: 80, session_id: 81 };
+    mocks.student.mockResolvedValueOnce({ ...student, id: 5, student_name: 'Student Five' });
+    view.rerender(<CreateEnrollmentModal isOpen onClose={vi.fn()} convertFromTrial={nextTrial} />);
+    await screen.findByText('Student Five');
+    expect(oldSignal.aborted).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview fees' }));
+    expect(await screen.findByText('Reviewed intake')).toBeInTheDocument();
+    await act(async () => finishOld({ student, source_fingerprint: 'late', trial: { enrollment_id: 70, session_id: 71 } }));
+    expect(mocks.intake).toHaveBeenLastCalledWith(expect.objectContaining({ studentId: 5,
+      trialEnrollmentId: 80, trialSessionId: 81, initialContext: expect.objectContaining({
+        data: expect.objectContaining({ student: expect.objectContaining({ id: 5 }) }),
+      }) }));
   });
 
   it('keeps the form visible and disabled until the next preview is prepared', async () => {
