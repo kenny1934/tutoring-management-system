@@ -146,3 +146,12 @@ class CouponImportConfirm(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=64)
     acknowledge_unmatched: bool = False
     acknowledge_same_day: bool = False
+
+
+class CouponLegacyReceiptRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    expected_version: int = Field(ge=0)
+    idempotency_key: str = Field(min_length=1, max_length=64)
+    receipt_reference: str = Field(min_length=1, max_length=100)
+    coupon_used_on: date
+    coupon_selected: Literal[True]

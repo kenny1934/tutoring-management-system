@@ -12,6 +12,9 @@ import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import type { BillingBankBranch } from '@/types/billing';
 import type { KmsCheckReview, KmsCouponChange, KmsPreviewStatus, KmsStudentReview, KmsApplyResult } from '@/types/kms-coupons';
 import { BillingDraftFocus, billingDraftAuthScope } from './BillingDraftReview';
+import { BillingCouponEnrollmentLink } from './BillingCouponEnrollmentLink';
+import { BillingLegacyCouponReceipt } from './BillingLegacyCouponReceipt';
+import { BillingPayments } from './BillingPayments';
 
 type Filter = 'active' | 'changes' | 'review' | 'used' | 'unmatched' | 'all';
 const changeLabels = { active: 'Active', new: 'New', changed: 'Changed', used: 'Used', expired: 'Expired', missing: 'Not listed' } as const;
@@ -43,6 +46,17 @@ function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string
   const [selected, setSelected] = useState<BillingBankBranch>(defaultBranch === 'MSB' ? 'MSB' : 'MSA');
   const [busy, setBusy] = useState<string | null>('Loading KMS checks…');
   const [failure, setFailure] = useState<string | null>(null);
+  const [receiptNotice, setReceiptNotice] = useState<string | null>(null);
+  const receiptNoticeElement = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    if (receiptNotice) {
+      receiptNoticeElement.current?.focus({ preventScroll: true });
+      receiptNoticeElement.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [receiptNotice]);
+  const [busyUse, setBusyUse] = useState<string | null>(null);
+  const [payment, setPayment] = useState<{ studentId: number; id: string; receipt: boolean } | null>(null);
+  const paymentTrigger = useRef<HTMLButtonElement | null>(null);
   const [filter, setFilter] = useState<Filter>('active');
   const [search, setSearch] = useState('');
   const [applied, setApplied] = useState<Partial<Record<BillingBankBranch, KmsApplyResult>>>({});
@@ -62,9 +76,10 @@ function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string
     return () => { active.current = false; operation.current?.abort(); };
   }, []);
 
-  async function perform(id?: string) {
+  async function perform(id?: string, preserveView = false) {
     if (running.current || !status?.enabled || busy) return;
     running.current = true; setFailure(null);
+    if (!preserveView) setReceiptNotice(null);
     const controller = new AbortController(); operation.current = controller;
     try {
       const branches: BillingBankBranch[] = branch === 'both' ? ['MSA', 'MSB'] : [branch as BillingBankBranch];
@@ -74,7 +89,7 @@ function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string
         if (!active.current || controller.signal.aborted) return;
         if ((!id && next.branch !== target) || (id && next.id !== id)) throw new Error('The KMS check changed. Open it again.');
         setReviews(previous => ({ ...previous, [next.branch]: next }));
-        setSelected(next.branch); setFilter(next.update ? (next.update.ready_count ? 'active' : next.update.held_count ? 'review' : 'all') : next.review_count ? 'review' : 'active');
+        setSelected(next.branch); if (!preserveView) setFilter(next.update ? (next.update.ready_count ? 'active' : next.update.held_count ? 'review' : 'all') : next.review_count ? 'review' : 'active');
         setApplied(previous => ({ ...previous, [next.branch]: undefined }));
         setStatus(previous => previous ? { ...previous, latest: [...previous.latest.filter(r => r.branch !== next.branch), next] } : previous);
       }
@@ -87,8 +102,14 @@ function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string
   }
   const review = reviews[selected];
   const applying = busy === 'Updating coupons…';
+  const blocked = !!busy || busyUse !== null;
+  function receiptSaved() {
+    setReceiptNotice('Receipt recorded.');
+    void mutate(key => Array.isArray(key) && ['billing-coupons', 'student-coupon', 'billing-student-context', 'billing-receipts', 'billing-receipts-count', 'billing-renewal-queue', 'billing-payment', 'billing-payments'].includes(key[0]));
+    if (review) void perform(review.id, true);
+  }
   async function applyUpdates() {
-    if (running.current || busy || !review?.update?.can_apply) return;
+    if (running.current || blocked || !review?.update?.can_apply) return;
     running.current = true; setBusy('Updating coupons…'); setFailure(null);
     const controller = new AbortController(); operation.current = controller;
     const signature = JSON.stringify([review.id, review.update.review_hash]);
@@ -128,19 +149,20 @@ function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string
     if (filter === 'all') return true;
     return row.coupons.some(c => couponMatches(c, filter));
   }) ?? [];
-  return <Modal isOpen title="KMS coupons" size="xl" onClose={onClose} persistent={applying} footer={<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-ink-subtle">{review?.update ? `${review.branch} · ${plural(review.update.ready_count, 'student')} ready${review.update.held_count ? ` · ${review.update.held_count} ${review.update.held_count === 1 ? 'needs' : 'need'} checking` : ''}` : 'Preview only. CSM coupon balances stay unchanged.'}</span><div className="flex gap-2"><Button size="sm" disabled={applying} onClick={onClose}>Close</Button>{!!review?.update?.ready_count && <Button size="sm" variant="primary" loading={applying} disabled={!!busy || !review.update.can_apply} onClick={() => { void applyUpdates(); }}>Update {plural(review.update.ready_count, 'student')}</Button>}</div></div>}><BillingDraftFocus trigger={trigger}><div className="space-y-4">
-    <div className="flex flex-wrap items-end gap-3"><Field label="KMS branch" id="kms-preview-branch" className="w-44"><Select value={branch} disabled={!!busy} onChange={e => setBranch(e.target.value)}><option value="both">Both branches</option><option>MSA</option><option>MSB</option></Select></Field><Button size="sm" variant={review?.update ? 'secondary' : 'primary'} icon={RefreshCw} loading={!!busy && !applying} disabled={!!busy || !canRead} onClick={() => { void perform(); }}>Read from KMS</Button></div>
+  return <><Modal isOpen title="KMS coupons" size="xl" onClose={onClose} persistent={applying || busyUse !== null} footer={<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-ink-subtle">{review?.update ? `${review.branch} · ${plural(review.update.ready_count, 'student')} ready${review.update.held_count ? ` · ${review.update.held_count} ${review.update.held_count === 1 ? 'needs' : 'need'} checking` : ''}` : 'Preview only. CSM coupon balances stay unchanged.'}</span><div className="flex gap-2"><Button size="sm" disabled={applying || busyUse !== null} onClick={onClose}>Close</Button>{!!review?.update?.ready_count && <Button size="sm" variant="primary" loading={applying} disabled={blocked || !review.update.can_apply} onClick={() => { void applyUpdates(); }}>Update {plural(review.update.ready_count, 'student')}</Button>}</div></div>}><BillingDraftFocus trigger={trigger}><div className="space-y-4">
+    <div className="flex flex-wrap items-end gap-3"><Field label="KMS branch" id="kms-preview-branch" className="w-44"><Select value={branch} disabled={blocked} onChange={e => setBranch(e.target.value)}><option value="both">Both branches</option><option>MSA</option><option>MSB</option></Select></Field><Button size="sm" variant={review?.update ? 'secondary' : 'primary'} icon={RefreshCw} loading={!!busy && !applying} disabled={blocked || !canRead} onClick={() => { void perform(); }}>Read from KMS</Button></div>
     {busy && <p role="status" className="text-sm text-ink-subtle">{busy}</p>}
     {failure && <div role="alert" className="rounded border border-red-300 p-3 text-sm">{failure}</div>}
+    {receiptNotice && <p ref={receiptNoticeElement} tabIndex={-1} role="status" className="text-sm font-medium text-accent-ink">{receiptNotice}</p>}
     {applied[selected] && <p role="status" className="text-sm font-medium text-accent-ink">Updated {plural(applied[selected]!.updated_count, 'student')}.</p>}
     {review?.update?.issues.map(issue => <p key={issue.code} className="text-sm text-amber-800 dark:text-amber-300">{issue.message}</p>)}
     {status && !status.enabled && <p className="text-sm">KMS coupon checks have not been enabled yet.</p>}
     {status?.enabled && !canRead && !busy && <p className="text-sm text-ink-subtle">The selected KMS accounts have not been configured.</p>}
-    {!review && !!status?.latest.length && <div className="divide-y divide-line rounded border border-line">{status.latest.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><div><span className="font-medium">{item.branch}</span><span className="ml-2 text-ink-subtle">{timestamp(item.fetched_at)}</span><p className="mt-1 text-xs">{plural(item.active_count, 'active coupon')}</p></div><Button size="sm" disabled={!!busy} onClick={() => { setSelected(item.branch); void perform(item.id); }}>View check</Button></div>)}</div>}
-    {Object.keys(reviews).length > 1 && <Segmented label="KMS check branch" value={selected} onChange={setSelected} options={(['MSA', 'MSB'] as const).filter(b => reviews[b]).map(value => ({ value, label: value, disabled: !!busy }))} />}
+    {!review && !!status?.latest.length && <div className="divide-y divide-line rounded border border-line">{status.latest.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><div><span className="font-medium">{item.branch}</span><span className="ml-2 text-ink-subtle">{timestamp(item.fetched_at)}</span><p className="mt-1 text-xs">{plural(item.active_count, 'active coupon')}</p></div><Button size="sm" disabled={blocked} onClick={() => { setSelected(item.branch); void perform(item.id); }}>View check</Button></div>)}</div>}
+    {Object.keys(reviews).length > 1 && <Segmented label="KMS check branch" value={selected} onChange={next => { if (!blocked) { setSelected(next); setReceiptNotice(null); } }} options={(['MSA', 'MSB'] as const).filter(b => reviews[b]).map(value => ({ value, label: value, disabled: blocked }))} />}
     {review && <>
       <div className="flex flex-wrap items-start justify-between gap-2 rounded border border-line bg-wash p-3 text-xs"><div><p className="font-medium">{review.branch} · Checked {timestamp(review.fetched_at)}</p><p className="mt-1 text-ink-subtle">{review.previous_fetched_at ? `Compared with ${timestamp(review.previous_fetched_at)}` : 'First check. Coupon numbers are now recorded for comparison.'}</p></div><Badge>{plural(review.active_count, 'active coupon')}</Badge></div>
-      <div className="flex flex-wrap items-center justify-between gap-3"><Segmented label="KMS coupon results" className="max-w-full flex-wrap" value={filter} onChange={setFilter} options={review.update ? [
+      <div className="flex flex-wrap items-center justify-between gap-3"><Segmented label="KMS coupon results" className="max-w-full flex-wrap" value={filter} onChange={next => { if (!blocked) setFilter(next); }} options={review.update ? [
         { value: 'active', label: `Updates (${review.update.ready_count})` },
         { value: 'review', label: `Check (${review.update.held_count})` },
         { value: 'all', label: 'All coupons' },
@@ -150,14 +172,20 @@ function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string
         { value: 'review', label: `Check (${review.review_count})` },
         { value: 'used', label: `Used (${review.used_count})` },
         ...(review.unmatched_count ? [{ value: 'unmatched' as const, label: `Unmatched (${review.unmatched_count})` }] : []),
-      ]} /><Input aria-label="Find student in KMS check" placeholder="Find student" className="w-full sm:w-48" value={search} onChange={e => setSearch(e.target.value)} /></div>
+      ]} /><Input aria-label="Find student in KMS check" placeholder="Find student" className="w-full sm:w-48" value={search} disabled={blocked} onChange={e => setSearch(e.target.value)} /></div>
       {filter === 'used' && <p className="text-xs text-ink-subtle">KMS usage years checked: {review.used_years.join(', ')}.</p>}
-      <div className="space-y-2">{visible.map(row => <StudentRow key={`${review.id}-${row.company_id}-${filter}`} row={row} filter={filter} />)}{!visible.length && <p className="py-5 text-sm text-ink-subtle">No students in this view.</p>}</div>
+      <div className="space-y-2">{visible.map(row => <StudentRow key={`${review.id}-${row.company_id}-${filter}`} row={row} filter={filter} legacyReceiptsAvailable={!!status?.historical_receipts_enabled} disabled={!!busy} busyUse={busyUse}
+        onBusyChange={(useId, value) => { if (value) setReceiptNotice(null); setBusyUse(current => value ? useId : current === useId ? null : current); }} onReceiptSaved={receiptSaved} onEnrollmentChanged={() => { if (review) void perform(review.id, true); }}
+        onOpenPayment={(id, receipt, trigger) => { if (!blocked && row.student) { paymentTrigger.current = trigger; setReceiptNotice(null); setPayment({ studentId: row.student.id, id, receipt }); } }} />)}{!visible.length && <p className="py-5 text-sm text-ink-subtle">No students in this view.</p>}</div>
     </>}
-  </div></BillingDraftFocus></Modal>;
+  </div></BillingDraftFocus></Modal>{payment && <Modal isOpen title="Payment" size="xl" persistent={busyUse === 'payment'} onClose={() => { if (busyUse !== 'payment') setPayment(null); }}><BillingDraftFocus trigger={paymentTrigger}><BillingPayments inline studentId={payment.studentId} initialPaymentId={payment.id} mode={payment.receipt ? 'receipt' : 'payment'} canWrite onChanged={() => { if (review) void perform(review.id, true); }} onReceiptSaved={receiptSaved} onBusyChange={value => { if (value) setReceiptNotice(null); setBusyUse(value ? 'payment' : null); }} /></BillingDraftFocus></Modal>}</>;
 }
 
-function StudentRow({ row, filter }: { row: KmsStudentReview; filter: Filter }) {
+function StudentRow({ row, filter, legacyReceiptsAvailable, disabled, busyUse, onBusyChange, onReceiptSaved, onEnrollmentChanged, onOpenPayment }: {
+  row: KmsStudentReview; filter: Filter; legacyReceiptsAvailable: boolean; disabled: boolean; busyUse: string | null;
+  onBusyChange: (useId: string, busy: boolean) => void; onReceiptSaved: () => void; onEnrollmentChanged: () => void;
+  onOpenPayment: (paymentId: string, receipt: boolean, trigger: HTMLButtonElement) => void;
+}) {
   const coupons = row.coupons.filter(c => filter === 'all' ? c.listed_active || c.newly_used || ['changed', 'missing', 'expired'].includes(c.change) : couponMatches(c, filter));
   const history = filter === 'all' ? row.coupons.filter(c => c.coupon.state === 'used' && !coupons.includes(c)) : [];
   const issues = row.update_status ? row.update_issues ?? [] : row.issues;
@@ -168,7 +196,7 @@ function StudentRow({ row, filter }: { row: KmsStudentReview; filter: Filter }) 
     {!!issues.length && <ul className="space-y-1 text-xs text-amber-800 dark:text-amber-300">{issues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
     <div className="grid gap-2 sm:grid-cols-2">{coupons.map(change => <CouponCard key={`${change.coupon.number}-${change.change}`} change={change} />)}</div>
     {!!history.length && <details className="text-xs"><summary className="cursor-pointer text-ink-subtle">{plural(history.length, 'used coupon')}</summary><div className="mt-2 grid gap-2 sm:grid-cols-2">{history.map(change => <CouponCard key={change.coupon.number} change={change} />)}</div></details>}
-    {!!row.uses.length && <div className="space-y-2 text-xs"><p className="font-medium">CSM enrollments</p>{row.uses.map(use => <div key={use.use_id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-line p-2"><div><p>{formatMOP(use.value, 0)}{use.legacy_enrollment_id ? ` · Enrollment #${use.legacy_enrollment_id}` : ''}</p>{use.receipt_reference && <p className="mt-1 break-all text-ink-subtle">Receipt {use.receipt_reference}{use.coupon_number ? ` · CP# ${use.coupon_number}` : ''}</p>}</div><Badge tone={['matched', 'link_receipt'].includes(use.result) ? 'success' : use.result === 'review' ? 'warning' : 'neutral'}>{useLabels[use.result]}</Badge></div>)}</div>}
+    {!!row.uses.length && <div className="space-y-2 text-xs"><p className="font-medium">CSM enrollments</p>{row.uses.map(use => <div key={use.use_id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-line p-2"><div className="min-w-0 space-y-1"><p>{formatMOP(use.value, 0)} coupon</p>{row.student && <div className="flex flex-wrap gap-2">{(use.enrollment_ids ?? (use.legacy_enrollment_id ? [use.legacy_enrollment_id] : [])).map(id => <BillingCouponEnrollmentLink key={id} enrollmentId={id} studentId={row.student!.id} disabled={disabled || busyUse !== null} onChanged={onEnrollmentChanged} />)}</div>}{use.payment_date && <p className="text-ink-subtle">{use.legacy_enrollment_id ? 'CSM payment entry' : 'Paid'} {formatShortDate(use.payment_date)}</p>}{use.receipt_reference && <p className="break-all text-ink-subtle">Receipt {use.receipt_reference}{use.coupon_number ? ` · CP# ${use.coupon_number}` : ''}</p>}</div><div className="flex flex-wrap items-center gap-2"><Badge tone={['matched', 'link_receipt'].includes(use.result) ? 'success' : use.result === 'review' ? 'warning' : 'neutral'}>{useLabels[use.result]}</Badge>{use.payment_id && <Button size="sm" disabled={disabled || busyUse !== null} onClick={event => onOpenPayment(use.payment_id!, use.state === 'awaiting_receipt' && !use.receipt_reference, event.currentTarget)}>{use.state === 'awaiting_receipt' && !use.receipt_reference ? 'Record receipt' : 'Payment details'}</Button>}</div>{legacyReceiptsAvailable && row.student && use.legacy_enrollment_id && use.state === 'awaiting_receipt' && !use.receipt_reference && <div className="w-full"><BillingLegacyCouponReceipt embedded studentId={row.student.id} useId={use.use_id} disabled={disabled || (busyUse !== null && busyUse !== use.use_id)} onBusyChange={value => onBusyChange(use.use_id, value)} onSaved={onReceiptSaved} /></div>}</div>)}</div>}
   </div></details>;
 }
 

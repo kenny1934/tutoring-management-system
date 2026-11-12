@@ -25,7 +25,7 @@ export interface KmsStudentReview {
   previous_count: number | null;
   csm_count: number | null;
   coupons: KmsCouponChange[];
-  uses: { use_id: string; payment_id: string | null; legacy_enrollment_id: number | null; value: number; receipt_reference: string | null; state: string; result: 'reserved' | 'awaiting_receipt' | 'matched' | 'link_receipt' | 'review'; coupon_number: string | null }[];
+  uses: { use_id: string; payment_id: string | null; legacy_enrollment_id: number | null; value: number; receipt_reference: string | null; state: string; result: 'reserved' | 'awaiting_receipt' | 'matched' | 'link_receipt' | 'review'; coupon_number: string | null; enrollment_ids?: number[]; payment_date?: string | null }[];
   issues: { code: string; message: string }[];
   update_status?: 'ready' | 'unchanged' | 'review' | 'unmatched';
   update_issues?: { code: string; message: string }[];
@@ -60,6 +60,7 @@ export interface KmsApplyResult {
   review: KmsCheckReview;
 }
 export interface KmsPreviewStatus {
+  historical_receipts_enabled?: boolean;
   enabled: boolean;
   branches: BillingBankBranch[];
   latest: KmsCheckSummary[];

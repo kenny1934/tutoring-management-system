@@ -76,6 +76,8 @@ class KmsUseMatch(BaseModel):
     state: Literal['reserved', 'awaiting_receipt', 'receipt_recorded', 'released']
     result: Literal['reserved', 'awaiting_receipt', 'matched', 'link_receipt', 'review']
     coupon_number: str | None = None
+    enrollment_ids: list[int] = Field(default_factory=list)
+    payment_date: date | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class KmsStudentReview(BaseModel):
@@ -130,6 +132,7 @@ class KmsCheckSummary(BaseModel):
 
 
 class KmsPreviewStatus(BaseModel):
+    historical_receipts_enabled: bool = Field(default=False, exclude_if=lambda v: not v)
     enabled: bool
     branches: list[Literal['MSA', 'MSB']]
     latest: list[KmsCheckSummary] = Field(default_factory=list)

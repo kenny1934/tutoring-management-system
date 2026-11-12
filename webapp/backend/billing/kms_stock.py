@@ -22,6 +22,10 @@ def writes_enabled():
     return storage_enabled() and coupon_writes() and os.getenv('BILLING_KMS_APPLY_ENABLED', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
+def historical_receipts_enabled():
+    return writes_enabled() and os.getenv('BILLING_KMS_HISTORICAL_RECEIPTS_ENABLED', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def lock_branch(db, branch):
     row = db.query(KmsCouponLock).filter_by(branch=branch).populate_existing().with_for_update().first()
     if row is None:
@@ -93,7 +97,12 @@ def financial_issues(use, ledger_facts):
         problems.append(problem)
     paid = ledger_facts[4].get(use.payment_id) if use.payment_id else None
     legacy = ledger_facts[5].get(use.legacy_enrollment_id) if use.legacy_enrollment_id else None
-    paid_on = paid[0].payment_date if paid else legacy.payment_date if legacy else None
+    # Legacy Mark paid dates can be entry dates, later than the actual receipt.
+    paid_on = paid[0].payment_date if paid else None
+    if use.payment_id is not None and use.legacy_enrollment_id is not None:
+        problems.append(CouponIssue(code='KMS_SYNC_SOURCE', message='Check which enrollment owns this coupon use.'))
+    if paid and use.expires_on is None:
+        problems.append(CouponIssue(code='KMS_SYNC_EXPIRY', message='Check the saved coupon expiry for this payment.'))
     deduction = paid[0].coupon_value if paid else int(legacy.discount.discount_value) if legacy and legacy.discount else None
     if deduction != use.value:
         problems.append(CouponIssue(code='KMS_SYNC_PAYMENT_VALUE', message='The coupon deduction differs from its CSM enrollment.'))
@@ -118,7 +127,7 @@ def use_issues(use, source_coupon, ledger_facts):
         problems.append(CouponIssue(code='KMS_SYNC_RECEIPT', message='The KMS coupon use differs from the CSM receipt.'))
     paid = ledger_facts[4].get(use.payment_id) if use.payment_id else None
     legacy = ledger_facts[5].get(use.legacy_enrollment_id) if use.legacy_enrollment_id else None
-    paid_on = paid[0].payment_date if paid else legacy.payment_date if legacy else None
+    paid_on = paid[0].payment_date if paid else None
     if paid_on and source_coupon.used_on and source_coupon.used_on < paid_on:
         problems.append(CouponIssue(code='KMS_SYNC_PAYMENT_DATE', message='The KMS coupon use is before the recorded payment.'))
     if use.expires_on and source_coupon.used_on and source_coupon.used_on > use.expires_on:

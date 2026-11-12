@@ -10,7 +10,8 @@ from database import get_db
 from models import Tutor
 from billing import coupon_accounting as accounting, coupon_imports
 from billing.coupon_schemas import CouponBalance, CouponImportConfirm, CouponImportReview, CouponVerificationConfirm, CouponVerificationRequest, CouponVerificationReview
-from billing import kms_preview, kms_apply
+from billing import kms_preview, kms_apply, legacy_coupon_receipts
+from billing.coupon_schemas import CouponLegacyReceiptRequest
 from billing.kms_schemas import KmsCheckRequest, KmsCheckReview, KmsPreviewStatus, KmsApplyRequest, KmsApplyResult
 from routers.billing import today
 from routers.billing_drafts import authorise_student, translated
@@ -86,3 +87,12 @@ def read_kms_coupon_check(check_id: UUID, _user: Tutor = Depends(require_admin_w
 def apply_kms_coupon_check(check_id: UUID, data: KmsApplyRequest,
                            user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
     return write_action(db, user, lambda actor: kms_apply.apply_check(db, check_id, data, actor, as_of=today()))
+
+
+@router.post('/billing/students/{student_id}/coupon-uses/{use_id}/receipt', response_model=CouponBalance)
+def record_legacy_coupon_receipt(student_id: int, use_id: UUID, data: CouponLegacyReceiptRequest,
+                                 request: Request, user: Tutor = Depends(require_admin_write),
+                                 db: Session = Depends(get_db)):
+    authorise_student(db, student_id, request, user, allow_intake=True)
+    return write_action(db, user, lambda actor: legacy_coupon_receipts.record_receipt(
+        db, student_id, use_id, data, actor, as_of=today()))

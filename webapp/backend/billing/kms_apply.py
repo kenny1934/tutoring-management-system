@@ -149,11 +149,11 @@ def assess(db, row, review, facts, *, as_of):
                         expiry = earlier.expires_on
                         if used.used_on < earlier.issued_on:
                             warn('KMS_SYNC_DATE', 'The coupon was used before its issue date.')
-                if not expiry:
+                if not expiry and not (use.payment_id is None and legacy is not None and kms_stock.historical_receipts_enabled()):
                     warn('KMS_SYNC_EXPIRY', 'Check the expiry of the earlier coupon use.')
-                elif used.used_on > expiry:
+                elif expiry and used.used_on > expiry:
                     warn('KMS_SYNC_EXPIRY', 'The KMS coupon was used after its saved expiry.')
-                paid_on = payment[0].payment_date if payment else legacy.payment_date if legacy else None
+                paid_on = payment[0].payment_date if payment else None
                 if expiry and paid_on and paid_on > expiry:
                     warn('KMS_SYNC_EXPIRY', 'Check the coupon expiry and payment date.')
                 if used.used_on > as_of:
