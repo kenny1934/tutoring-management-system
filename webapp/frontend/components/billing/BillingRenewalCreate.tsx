@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
-import { CalendarPlus } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { AlertCircle, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/controls';
 import { useAuth } from '@/contexts/AuthContext';
 import type { BillingRenewalCreator } from '@/lib/billing-renewal-create';
@@ -9,11 +9,11 @@ import type { BillingDraftReview, BillingDraftReviewRequest, BillingPaymentDetai
 
 // These server checks describe the same required action. Keep it visible once.
 const creationReasonLabels: Record<string, string> = {
-  'Check bank authorisation and the setup deadline before using these debit dates.': 'Record bank authorisation in Payment plan above.',
-  'Confirm bank authorisation before preparing an autopay fee message.': 'Record bank authorisation in Payment plan above.',
+  'Check bank authorisation and the setup deadline before using these debit dates.': 'Bank authorisation needed.',
+  'Confirm bank authorisation before preparing an autopay fee message.': 'Bank authorisation needed.',
 };
 
-export function BillingRenewalCreate({ creator, authScope, studentId, review, request, note, revisionTarget, canWrite, storageAvailable, onCreated, onBusyChange, onStale, reviewUnavailableReason }: {
+export function BillingRenewalCreate({ creator, authScope, studentId, review, request, note, revisionTarget, canWrite, storageAvailable, onCreated, onBusyChange, onStale, reviewUnavailableReason, secondaryActions }: {
   creator: BillingRenewalCreator;
   authScope: string;
   studentId: number;
@@ -27,6 +27,7 @@ export function BillingRenewalCreate({ creator, authScope, studentId, review, re
   onBusyChange?: (busy: boolean) => void;
   onStale?: () => void;
   reviewUnavailableReason?: string;
+  secondaryActions?: ReactNode;
 }) {
   const auth = useAuth();
   const reasonId = useId();
@@ -68,11 +69,15 @@ export function BillingRenewalCreate({ creator, authScope, studentId, review, re
     : !review ? [reviewUnavailableReason || 'Checking enrollment details…']
     : [...new Set([...review.message.blocked_reasons.map(reason => creationReasonLabels[reason] || reason),
       ...(review.period.total_fee === null ? ['Confirm the materials charge to calculate the total fee.'] : [])])];
-  return <div className="max-w-sm space-y-2">
-    {!busy && reasons.length > 0 && <div id={reasonId} role="status" className="text-left text-xs text-amber-800 dark:text-amber-300">
+  return <div className="min-w-0 space-y-2">
+    {!busy && reasons.length > 0 && <div id={reasonId} role="status" className="flex items-start gap-1.5 text-left text-xs text-amber-800 dark:text-amber-300">
+      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {reasons.length === 1 ? <p>{reasons[0]}</p> : <ul className="list-disc space-y-1 pl-4">{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
     </div>}
-    <Button icon={CalendarPlus} variant="primary" loading={busy} disabled={!allowed || busy} aria-describedby={!busy && reasons.length ? reasonId : undefined} onClick={create}>Create {multiple ? 'enrollments' : 'enrollment'}</Button>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      {secondaryActions}
+      <div className="ml-auto shrink-0"><Button icon={CalendarPlus} variant="primary" loading={busy} disabled={!allowed || busy} aria-describedby={!busy && reasons.length ? reasonId : undefined} onClick={create}>Create {multiple ? 'enrollments' : 'enrollment'}</Button></div>
+    </div>
     {failure?.key === key && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{failure.text}</p>}
   </div>;
 }

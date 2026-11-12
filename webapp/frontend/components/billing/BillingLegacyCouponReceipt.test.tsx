@@ -59,7 +59,7 @@ describe('legacy coupon receipt entry', () => {
     await open(); await fill();
     fireEvent.click(screen.getByRole('button', { name: 'Record KMS receipt' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Receipt recorded.');
-    expect(screen.getByRole('status')).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveFocus());
     expect(mocks.recordLegacyCouponReceipt).toHaveBeenCalledWith(4, 'use-1', {
       expected_version: 3, idempotency_key: expect.any(String), receipt_reference: 'KMS-123', coupon_used_on: '2026-11-09', coupon_selected: true,
     }, expect.any(AbortSignal));

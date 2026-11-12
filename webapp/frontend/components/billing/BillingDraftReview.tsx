@@ -300,8 +300,10 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
   const noteFields = <><Label htmlFor={`draft-note-${displayedReview?.review_hash}`}>{directCreation ? 'Enrollment note' : 'Draft note'}</Label><Textarea id={`draft-note-${displayedReview?.review_hash}`} value={note} maxLength={5000} disabled={busy} onChange={event => setNote({ key: baseKey, text: event.target.value })} /></>;
   const saveAction = <Button icon={Save} disabled={!review || !storageAvailable || busy || savedContent === contentKey} onClick={save}>{savedContent === contentKey ? 'Saved' : saveLabel ?? (revisionTarget ? 'Save revision' : 'Save draft')}</Button>;
   const messageToggle = <Button size="sm" variant="secondary" disabled={busy || !review} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessagePreview(messageOpen ? null : baseKey)}>{messageOpen ? 'Hide fee message' : 'Preview fee message'}</Button>;
+  const reviewActions = <div className="flex flex-wrap items-center gap-2">{!note && <Button size="sm" variant="quiet" disabled={busy || !review} onClick={() => setNoteEditor(showNote ? null : baseKey)}>{showNote ? 'Hide note' : 'Add note'}</Button>}{messageToggle}</div>;
   const unsavedPlan = !!directCreation && !!preferences.data && preferences.data.payment_method !== reviewRequest.scenario.payment_method;
   const createAction = directCreation && <BillingRenewalCreate creator={directCreation.creator} authScope={billingDraftAuthScope(auth)} studentId={studentId} review={preferences.error || unsavedPlan ? null : review} request={request} note={note} revisionTarget={revisionTarget}
+    secondaryActions={summaryPresentation === 'renewal' ? reviewActions : undefined}
     reviewUnavailableReason={unsavedPlan ? 'Save the payment plan above before creating the enrollment.'
       : preferences.error ? 'Retry payment settings above.' : currentFailure ? 'Retry the enrollment review above.' : undefined}
     canWrite={directCreation.canWrite} storageAvailable={storageAvailable} onCreated={directCreation.onCreated} onBusyChange={setCreating} onStale={onStaleReview} />;
@@ -315,7 +317,7 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
       {summaryPresentation !== 'renewal' && <BillingDraftMessage review={displayedReview} canCopy={!!review && review.period.total_fee !== null} onCopy={copy} busy={busy || !review} feedback={activeCopyFeedback?.value} onLanguageChange={() => setCopyFeedback(null)} />}
       {auth.isAdmin && <div className="space-y-2">
         {showNote && noteFields}
-        {summaryPresentation === 'renewal' ? <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2">{!note && <Button size="sm" variant="quiet" disabled={busy || !review} onClick={() => setNoteEditor(showNote ? null : baseKey)}>{showNote ? 'Hide note' : 'Add note'}</Button>}{messageToggle}</div><div className="ml-auto">{createAction || saveAction}</div></div> : saveAction}
+        {summaryPresentation === 'renewal' ? createAction || <div className="flex flex-wrap items-center justify-between gap-2">{reviewActions}<div className="ml-auto">{saveAction}</div></div> : saveAction}
         {!storageAvailable && !directCreation && <p className="text-xs text-ink-subtle">Saving drafts is not available yet.</p>}
       </div>}
       {summaryPresentation === 'renewal' && <>
