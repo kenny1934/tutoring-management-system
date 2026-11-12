@@ -11,7 +11,7 @@ import calendar
 from constants import BASE_FEE_PER_LESSON
 from .schemas import (
     BillingPreviewPeriod, BillingPreviewRequest, BillingPreviewResponse,
-    CollectionWindow, PeriodCount, PreviewDeduction, PreviewIssue, PreviewLesson,
+    CollectionWindow, PeriodCount, PreviewCouponOption, PreviewDeduction, PreviewIssue, PreviewLesson,
     SkippedCollection,
 )
 
@@ -123,6 +123,7 @@ def preview_billing(
     monthly = request.payment_method == 'autopay' or len(request.slots) > 1
     remaining = list(events)
     periods: list[BillingPreviewPeriod] = []
+    coupon_options: list[PreviewCouponOption] = []
     coupon = request.coupon
     coupon_used = False
     coupon_combined = False
@@ -145,8 +146,8 @@ def preview_billing(
             explanation += ' The session end date for the first payment has been adjusted.'
             review('ADMIN_ADJUSTMENT', 'An admin must confirm the session end date and reason before collecting this payment.', number)
 
-        # Coupon choice is explicit. A short transition never adds months just
-        # to make an ordinary coupon fit. Later regular periods can be prepaid.
+        # A transition can add a month only with the new explicit opt-in.
+        # Old saved scenarios keep their original dates and review hashes.
         def qualifies(lessons):
             if coupon.kind == 'ordinary':
                 return len(lessons) >= policy.ordinary_minimum
@@ -159,12 +160,67 @@ def preview_billing(
                       else (e.date.year, e.date.month) for e in lessons}
             return len(months) >= 2
 
-        if coupon and not coupon_used and not coupon_combined and not transition and kind != 'legacy' and coupon.combine_next_month:
-            eligible = qualifies(covered)
-            if not eligible and boundary < policy.regular_end and not (number == 1 and request.adjustment):
-                boundary = period_end(next_month(boundary), 1, policy)
-                covered = [e for e in remaining if e.date <= boundary]
-                coupon_combined = True
+        method = 'manual' if manual else request.payment_method
+        payment_latest = (previous_month(covered[0].date).replace(day=22)
+                          if method == 'autopay' else covered[0].date)
+        if transition and method == 'autopay':
+            payment_latest = policy.pilot_from.replace(day=22)
+        base_boundary = boundary
+        used_earlier = coupon_used
+        combined_here = False
+
+        def minimum_sessions(lessons):
+            if coupon.kind == 'ordinary':
+                return policy.ordinary_minimum
+            initial_transition = first and policy.transition_from <= lessons[0].date <= policy.transition_end
+            return 6 if transition or kind == 'legacy' or initial_transition else None
+
+        def coupon_reason(lessons):
+            if used_earlier:
+                return 'already_used'
+            if not coupon.verified or coupon.expires_on is None or coupon.available_count is None:
+                return 'unverified'
+            if coupon.available_count == 0:
+                return 'unavailable'
+            if not qualifies(lessons):
+                return 'min_sessions' if minimum_sessions(lessons) is not None else 'two_months'
+            if coupon.expires_on < payment_latest:
+                return 'expired'
+            return None
+
+        next_boundary = period_end(next_month(boundary), 1, policy) if boundary < policy.regular_end else None
+        next_covered = [e for e in remaining if e.date <= next_boundary] if next_boundary else []
+        include_reason = None
+        if coupon:
+            if used_earlier:
+                include_reason = 'already_used'
+            elif coupon_combined:
+                include_reason = 'already_combined'
+            elif kind == 'legacy':
+                include_reason = 'legacy'
+            elif number == 1 and request.adjustment:
+                include_reason = 'adjusted'
+            elif qualifies(covered):
+                include_reason = 'already_eligible'
+            elif next_boundary is None:
+                include_reason = 'year_end'
+            else:
+                candidate_reason = coupon_reason(next_covered)
+                if candidate_reason in {'min_sessions', 'two_months'}:
+                    include_reason = 'still_ineligible'
+                else:
+                    include_reason = candidate_reason
+
+        if coupon and not coupon_used and not coupon_combined and kind != 'legacy' and coupon.combine_next_month:
+            transition_allowed = not transition or coupon.allow_transition_combination
+            # Preserve existing regular saved scenarios exactly. New transition
+            # opt-ins must make the selected coupon usable with one extra month.
+            eligible_extension = not transition or include_reason is None
+            if (transition_allowed and eligible_extension and not qualifies(covered)
+                    and next_boundary is not None and not (number == 1 and request.adjustment)):
+                boundary = next_boundary
+                covered = next_covered
+                coupon_combined = combined_here = True
                 explanation += ' The next month is included for the coupon option selected.'
 
         deductions = []
@@ -182,11 +238,6 @@ def preview_billing(
                     review('COUPON_UNAVAILABLE', 'The entered coupon count is 0. No coupon is deducted.')
             elif eligible:
                 # Eligibility depends on the payment date, not its last lesson.
-                method = 'manual' if manual else request.payment_method
-                payment_latest = (previous_month(covered[0].date).replace(day=22)
-                                  if method == 'autopay' else covered[0].date)
-                if transition and method == 'autopay':
-                    payment_latest = policy.pilot_from.replace(day=22)
                 if coupon.expires_on >= payment_latest:
                     deductions.append(PreviewDeduction(kind=coupon.kind, amount=coupon.value))
                     coupon_used = True
@@ -240,6 +291,16 @@ def preview_billing(
             collection=collection, adjustment_reason=reason,
             requires_review=len(issues) > issue_start or any(i.period == number for i in issues),
         ))
+        if coupon:
+            coupon_options.append(PreviewCouponOption(
+                period_number=number,
+                applied=any(d.kind == coupon.kind for d in deductions),
+                reason=coupon_reason(covered), minimum_sessions=minimum_sessions(covered),
+                can_include_next_month=include_reason is None,
+                include_next_month_reason=include_reason,
+                include_next_month=next_month(base_boundary) if next_boundary else None,
+                next_month_included=combined_here,
+            ))
         identities = {(e.date, e.slot) for e in covered}
         remaining = [e for e in remaining if (e.date, e.slot) not in identities]
 
@@ -306,6 +367,6 @@ def preview_billing(
     return BillingPreviewResponse(
         policy_version=policy.version, regular_end_date=policy.regular_end,
         makeup_end_date=policy.makeup_end, payment_method=request.payment_method, monthly=monthly,
-        periods=periods, skipped_collections=skipped, excluded_holidays=sorted(excluded),
+        periods=periods, coupon_options=coupon_options, skipped_collections=skipped, excluded_holidays=sorted(excluded),
         issues=issues, requires_review=bool(issues),
     )

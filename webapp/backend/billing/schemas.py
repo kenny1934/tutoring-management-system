@@ -42,6 +42,9 @@ class PreviewCoupon(BaseModel):
     expires_on: date | None = None
     available_count: int | None = Field(default=None, ge=0)
     combine_next_month: bool = False
+    # Older saved scenarios may already contain combine_next_month=True even
+    # though transition periods ignored it. Require a new explicit opt-in.
+    allow_transition_combination: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @model_validator(mode='after')
     def validate_kind(self):
@@ -167,6 +170,17 @@ class SkippedCollection(BaseModel):
     reason: str
 
 
+class PreviewCouponOption(BaseModel):
+    period_number: int
+    applied: bool
+    reason: Literal['min_sessions', 'two_months', 'expired', 'unverified', 'unavailable', 'already_used'] | None = None
+    minimum_sessions: int | None = None
+    can_include_next_month: bool
+    include_next_month_reason: Literal['already_eligible', 'legacy', 'adjusted', 'year_end', 'still_ineligible', 'expired', 'unverified', 'unavailable', 'already_used', 'already_combined'] | None = None
+    include_next_month: date | None = None
+    next_month_included: bool = False
+
+
 class BillingPreviewResponse(BaseModel):
     policy_version: str
     regular_end_date: date
@@ -174,6 +188,7 @@ class BillingPreviewResponse(BaseModel):
     payment_method: PaymentMethod
     monthly: bool
     periods: list[BillingPreviewPeriod]
+    coupon_options: list[PreviewCouponOption] = Field(default_factory=list, exclude_if=lambda value: not value)
     skipped_collections: list[SkippedCollection]
     excluded_holidays: list[date]
     issues: list[PreviewIssue]
