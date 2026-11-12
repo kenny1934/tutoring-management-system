@@ -290,6 +290,8 @@ class TestTheRegistryStaysHonest:
         ("billing_coupon_verifications", "checked_by"),
         ("billing_draft_revisions", "created_by"),
         ("billing_drafts", "created_by"),
+        # KMS source evidence records who fetched it, not future teaching work.
+        ("billing_kms_coupon_checks", "created_by"),
         ("billing_operations", "actor_id"),
         ("billing_payments", "created_by"),
         ("makeup_participation_events", "actor_id"),
@@ -340,6 +342,26 @@ class TestTheRegistryStaysHonest:
         ("tutor_assistants", "assistant_tutor_id"),
         ("tutor_assistants", "lead_tutor_id"),
     }
+
+    def test_kms_source_evidence_keeps_its_author_after_departure(self, db_session):
+        from datetime import datetime
+        from uuid import uuid4
+        from billing.coupon_models import KmsCouponCheck
+
+        tutor = _tutor(db_session)
+        evidence = {'branch': 'MSB', 'coupons': [{'number': 'SYNTHETIC-CP', 'value': 300}]}
+        row = KmsCouponCheck(id=str(uuid4()), branch='MSB', fetched_at=datetime(2026, 8, 15, 8),
+                             source_sha256='a' * 64, snapshot=evidence, created_by=tutor.id)
+        db_session.add(row)
+        db_session.commit()
+        sequence = row.sequence
+        author = tutor.id
+
+        _mark_departed(db_session, tutor, LAST_DAY)
+        db_session.expire_all()
+        saved = db_session.get(KmsCouponCheck, sequence)
+        assert saved.created_by == author
+        assert saved.snapshot == evidence
 
     def test_every_tutor_foreign_key_is_guarded_or_named_as_authorship(self):
         from database import Base
