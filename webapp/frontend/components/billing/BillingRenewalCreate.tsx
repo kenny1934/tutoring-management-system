@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { AlertCircle, CalendarPlus } from 'lucide-react';
+import { BillingIssueRecords } from './BillingIssueRecords';
 import { Button } from '@/components/controls';
 import { useAuth } from '@/contexts/AuthContext';
 import type { BillingRenewalCreator } from '@/lib/billing-renewal-create';
@@ -74,6 +75,7 @@ export function BillingRenewalCreate({ creator, authScope, studentId, review, re
       <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {reasons.length === 1 ? <p>{reasons[0]}</p> : <ul className="list-disc space-y-1 pl-4">{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
     </div>}
+    {!busy && review && <BillingIssueRecords studentId={review.student?.id} records={review.issues?.filter(issue => review.message.blocked_reasons.includes(issue.message)).flatMap(issue => issue.record_evidence ?? [])} />}
     <div className="flex flex-wrap items-center justify-between gap-2">
       {secondaryActions}
       <div className="ml-auto shrink-0"><Button icon={CalendarPlus} variant="primary" loading={busy} disabled={!allowed || busy} aria-describedby={!busy && reasons.length ? reasonId : undefined} onClick={create}>Create {multiple ? 'enrollments' : 'enrollment'}</Button></div>

@@ -39,6 +39,19 @@ beforeEach(() => {
 });
 
 describe('direct renewal creation', () => {
+  it('shows the exact conflicting session with an enrollment control beside the blocked action', () => {
+    mocks.auth.mockReturnValue({ isAdmin: true, isReadOnly: false, user: { id: 1 }, isLoading: false, effectiveRole: 'Admin' });
+    const reason = 'These new sessions are already recorded.';
+    setup({ review: { ...review, student: { id: 4 } as BillingDraftReview['student'],
+      message: { ...review.message, blocked_reasons: [reason] },
+      issues: [{ code: 'EXISTING_ORIGINALS_OVERLAP', period: 1, message: reason, blocks_creation: true,
+        record_evidence: [{ enrollment_id: 22, session_id: 220, date: '2026-12-11', time_slot: '18:25 - 19:55', location: 'MSA' }] }],
+    } });
+    expect(screen.getByRole('button', { name: 'Create enrollment' })).toBeDisabled();
+    expect(screen.getByText('Dec 11, 2026 18:25 - 19:55 @ MSA')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Enrollment #22' })).toBeEnabled();
+  });
+
   it('creates the reviewed enrollment directly with the exact snapshot and revision target', async () => {
     const revisionTarget = { id: 'draft-1', current_revision: 2 };
     const { create, props } = setup({ revisionTarget });

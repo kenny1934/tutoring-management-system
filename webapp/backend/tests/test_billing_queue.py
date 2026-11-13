@@ -217,11 +217,14 @@ def test_gap_before_future_paid_coverage_remains_actionable_now(workflow_env, mo
     session.query(SessionLog).filter_by(enrollment_id=11, session_date=date(2026, 12, 4)).delete()
     session.commit()
     on_day(monkeypatch, date(2026, 12, 12))
-    row = only_row(client, '2026-12')
-    assert row['stage'] == 'prepare' and row['needs_checking'] and row['ready_now'] and not row['overdue']
+    row = only_row(client, '2026-12', **({} if has_draft else {'stage': 'no_payment'}))
     assert any(i['code'] == 'PAID_COVERAGE_GAP' for i in row['issues'])
-    if not has_draft:
-        assert row['total_fee'] is None and row['first_lesson_date'] is None
+    if has_draft:
+        assert row['stage'] == 'prepare' and row['needs_checking'] and row['ready_now'] and not row['overdue']
+    else:
+        # A historical gap does not invent an earlier collection for prepaid lessons.
+        assert row['stage'] == 'no_payment' and not row['ready_now'] and not row['overdue']
+        assert row['first_lesson_date'] is not None and row['total_fee'] is not None
 
 
 @pytest.mark.parametrize('method,paid_through,month,next_first,next_end', [
@@ -633,14 +636,15 @@ def test_collection_month_validation(env, value):
     assert client.get('/api/billing/queue/counts', params={'collection_month': value}).status_code == 422
 
 
-def test_gap_evidence_matches_queue_context_and_blocked_draft_review(env):
+def test_gap_evidence_matches_queue_context_and_advisory_draft_review(env):
     client, session, _ = env
     moved = session.get(SessionLog, 112)
     moved.session_date = date(2026, 10, 17)
     session.commit()
     row = only_row(client)
     assert row['stage'] == 'prepare' and row['needs_checking'] and row['ready_now'] and not row['overdue']
-    assert row['total_fee'] is None and row['first_lesson_date'] is None
+    assert row['first_lesson_date'] is not None
+    assert row['total_fee'] is None  # No payment preference is recorded in this fixture.
     gap_issue = next(issue for issue in row['issues'] if issue['code'] == 'PAID_COVERAGE_GAP')
     detail, = gap_issue['gap_evidence']
     assert detail['date'] == '2026-10-16' and detail['kind'] == 'timetable_difference'
@@ -657,9 +661,9 @@ def test_gap_evidence_matches_queue_context_and_blocked_draft_review(env):
     response = client.post('/api/billing/students/101/draft-review', json=request)
     assert response.status_code == 200, response.text
     review = response.json()
-    assert next(issue for issue in review['issues'] if issue['code'] == 'PAID_COVERAGE_GAP') == gap_issue
-    assert review['message']['zh'] is None and review['message']['en'] is None
-    assert gap_issue['message'] in review['message']['blocked_reasons']
+    assert next(issue for issue in review['issues'] if issue['code'] == 'PAID_COVERAGE_GAP') == {**gap_issue, 'blocks_creation': False}
+    assert review['message']['zh'] and review['message']['en']
+    assert not review['message']['blocked_reasons']
     request['confirmed_checks'] = ['PAID_COVERAGE_GAP']
     assert client.post('/api/billing/students/101/draft-review', json=request).status_code == 422
     counts = client.get('/api/billing/queue/counts').json()
@@ -697,7 +701,8 @@ def test_queue_gap_identifies_existing_unpaid_enrollment_and_keeps_its_task(env)
     result = queue(client)
     row, = [r for r in result['rows'] if r['origin'] == 'legacy']
     assert row['stage'] == 'send' and row['needs_checking']
-    assert any(r['origin'] == 'projection' and r['stage'] == 'prepare' for r in result['rows'])
+    # The unpaid follow-up stays visible without inventing a renewal for prepaid coverage.
+    assert not any(r['origin'] == 'projection' for r in result['rows'])
     assert row['enrollment_ids'] == [pending_id]
     assert row['total_fee'] is None and row['payment_id'] is None
     gap_issue = next(issue for issue in row['issues'] if issue['code'] == 'PAID_COVERAGE_GAP')

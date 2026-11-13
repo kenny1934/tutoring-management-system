@@ -112,17 +112,17 @@ def test_unknown_preference_with_started_lessons_is_urgent_without_financial_ove
     assert not row['overdue'] and queue(client)['counts']['overdue'] == 0
 
 
-def test_structural_gap_asks_to_check_dates_instead_of_claiming_started_unpaid_lessons(workflow_env, monkeypatch):
+def test_historical_gap_keeps_real_renewal_date_and_urgency(workflow_env, monkeypatch):
     client, session, _ = workflow_env
     choose_method(client)
     session.get(SessionLog, 112).session_date += timedelta(days=1)
     session.commit()
     on_day(monkeypatch, date(2026, 12, 1))
     row = only_row(client, '2026-12')
-    assert row['stage'] == 'prepare' and row['needs_checking'] and row['first_lesson_date'] is None
+    assert row['stage'] == 'prepare' and row['needs_checking'] and row['first_lesson_date'] == '2026-11-13'
     assert any(issue['code'] == 'PAID_COVERAGE_GAP' for issue in row['issues'])
-    assert row['urgency'] == 'check_dates'
-    assert row['action_kind'] is row['action_from'] is row['action_by'] is None
+    assert row['urgency'] == 'now' and row['action_kind'] == 'renewal'
+    assert row['action_from'] == row['action_by'] == '2026-11-13'
     assert not row['overdue']
 
 
@@ -238,7 +238,7 @@ def test_urgency_sort_and_counts_apply_to_full_filtered_result_before_pagination
     on_day(monkeypatch, date(2026, 11, 4))
     all_rows = queue(client)
     assert [row['student']['id'] for row in all_rows['rows']] == [106, 103, 105, 102, 104, 101]
-    expected = {'now': 2, 'week': 2, 'check_dates': 1, 'later': 1}
+    expected = {'now': 2, 'week': 2, 'check_dates': 0, 'later': 2}
     assert all_rows['urgency_counts'] == expected
     for offset, identities in [(0, [106, 103]), (2, [105, 102]), (4, [104, 101])]:
         page = queue(client, offset=offset, limit=2)
@@ -253,7 +253,7 @@ def test_urgency_sort_and_counts_apply_to_full_filtered_result_before_pagination
     # The completed sources stay in preparation while the checking filter
     # retains the same urgency grouping and the legacy attention query works.
     attention = queue(client, stage='attention', limit=1)
-    assert attention['urgency_counts'] == {'now': 2, 'week': 2, 'check_dates': 1, 'later': 0}
+    assert attention['urgency_counts'] == {'now': 2, 'week': 2, 'check_dates': 0, 'later': 1}
     assert [row['student']['id'] for row in attention['rows']] == [106]
     assert attention['counts'] == all_rows['counts']
     branch = queue(client, location='MSB')

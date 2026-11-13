@@ -1,5 +1,6 @@
 """Contracts shared by the calculator and its non-writing API."""
 from datetime import date, datetime
+from datetime import date as EvidenceDate
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -104,11 +105,25 @@ class BillingGapEvidence(BaseModel):
     nearby_lessons: list[BillingGapLesson] = Field(default_factory=list)
 
 
+class BillingRecordEvidence(BaseModel):
+    enrollment_id: int | None = None
+    session_id: int | None = None
+    date: EvidenceDate | None = None
+    time_slot: str | None = None
+    location: str | None = None
+    expected_weekday: str | None = None
+    expected_time_slot: str | None = None
+    expected_location: str | None = None
+    note: str | None = None
+
+
 class PreviewIssue(BaseModel):
     code: str
     message: str
     period: int | None = None
     gap_evidence: list[BillingGapEvidence] = Field(default_factory=list)
+    record_evidence: list[BillingRecordEvidence] = Field(default_factory=list, exclude_if=lambda value: not value)
+    blocks_creation: bool | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class PreviewLesson(BaseModel):

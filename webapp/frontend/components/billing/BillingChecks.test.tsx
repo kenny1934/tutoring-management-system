@@ -6,6 +6,18 @@ import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import type { BillingGapEvidence, BillingGapLesson } from '@/types/billing';
 
 describe('billing presentation checks', () => {
+  it('shows concrete historical differences as notes without blocking language', () => {
+    render(<BillingChecks presentation="renewal" issues={[{
+      code: 'OFF_SLOT_ORIGINALS', message: 'Session timetable differs.', period: null, blocks_creation: false,
+      record_evidence: [{ enrollment_id: 22, session_id: 220, date: '2026-09-04', time_slot: '16:45 - 18:15', location: 'MSA', expected_weekday: 'Fri', expected_time_slot: '18:25 - 19:55', expected_location: 'MSA' }],
+    }]} />);
+    expect(screen.queryByText('Check before creating')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Enrollment notes' })).toBeVisible();
+    expect(screen.getByText('Sep 4, 2026 16:45 - 18:15 @ MSA')).toBeVisible();
+    expect(screen.getByText('Enrollment: Fri 18:25 - 19:55 @ MSA')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Enrollment #22' })).toHaveAttribute('href', '/enrollments/22');
+  });
+
   it('keeps renewal risks visible with one complete explanations section', () => {
     render(<BillingChecks presentation="renewal" issues={[
       { code: 'CONTINUATION_UNCONFIRMED', message: 'Confirm these classes will continue.', period: null },

@@ -330,14 +330,22 @@ def test_unverified_coupon_blocks_copy_even_though_gross_total_is_known(env):
     assert result['message']['zh'] is None
 
 
-def test_source_defect_cannot_be_confirmed_away(env):
-    client, session, _ = env
+@pytest.mark.parametrize('role', ['Admin', 'Tutor'])
+def test_historical_source_discrepancy_is_advisory_only_for_admin_renewal(env, role):
+    client, session, user = env
     session.query(SessionLog).filter_by(id=110).update({'location': 'DIFFERENT'})
     session.commit()
-    payload = review_request(client, confirmed_checks=['CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED'])
+    user.role = role
+    payload = review_request(client, confirmed_checks=[])
     _, result = reviewed(client, payload)
-    assert any(i['code'] == 'OFF_SLOT_ORIGINALS' for i in result['issues'])
-    assert result['message']['zh'] is None
+    issue = next(issue for issue in result['issues'] if issue['code'] == 'OFF_SLOT_ORIGINALS')
+    if role == 'Admin':
+        assert issue['blocks_creation'] is False
+        assert result['message']['blocked_reasons'] == []
+        assert result['message']['zh']
+    else:
+        assert issue['blocks_creation'] is True
+        assert result['message']['zh'] is None
 
 
 def test_tutor_cannot_forge_another_tutor_scope(env):

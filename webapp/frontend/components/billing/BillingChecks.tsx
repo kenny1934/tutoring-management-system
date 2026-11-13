@@ -2,6 +2,7 @@
 
 import { AlertCircle, Info } from 'lucide-react';
 import Link from 'next/link';
+import { BillingIssueRecords } from './BillingIssueRecords';
 import { Badge } from '@/components/controls';
 import { formatShortDate } from '@/lib/formatters';
 import type { BillingGapEvidence, BillingGapLesson } from '@/types/billing';
@@ -59,12 +60,13 @@ function GapDates({ evidence }: { evidence: BillingGapEvidence[] }) {
 }
 
 /** Short labels remain visible; complete explanations are available on demand. */
-export function BillingChecks({ issues, compact = false, maxVisible = 2, presentation = 'default', representedByControls = [] }: {
+export function BillingChecks({ issues, compact = false, maxVisible = 2, presentation = 'default', representedByControls = [], studentId }: {
   issues: BillingIssue[];
   compact?: boolean;
   maxVisible?: number;
   presentation?: 'default' | 'renewal';
   representedByControls?: readonly string[];
+  studentId?: number;
 }) {
   const ordered = displayedIssues(issues);
   if (!ordered.length) return null;
@@ -72,10 +74,10 @@ export function BillingChecks({ issues, compact = false, maxVisible = 2, present
   const renewalAttention = attention.filter(issue => !representedByControls.includes(issue.code));
   if (presentation === 'renewal') return <section aria-label="Renewal checks" className="space-y-2 rounded-md border border-line p-3 text-xs">
     {renewalAttention.length > 0 && <>
-      <h4 className="font-semibold">Check before creating</h4>
+      <h4 className="font-semibold">{renewalAttention.some(issue => issue.blocks_creation !== false) ? 'Check before creating' : 'Enrollment notes'}</h4>
       <ul className="space-y-1.5">{renewalAttention.map(issue => <li key={`${issue.code}:${issue.period ?? ''}:${issue.message}`} className="flex items-start gap-2">
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
-        <span>{issue.code === 'CONTINUATION_UNCONFIRMED' ? 'Confirm the student is continuing.' : issue.code === 'UNPAID_PAST_DATES' ? 'Check the past lesson dates.' : billingCheck(issue.code).label}</span>
+        <div className="min-w-0 space-y-1"><span>{issue.code === 'CONTINUATION_UNCONFIRMED' ? issue.blocks_creation === false ? 'No upcoming sessions recorded' : 'Confirm the student is continuing.' : issue.code === 'UNPAID_PAST_DATES' ? 'Check the past lesson dates.' : billingCheck(issue.code).label}</span>{issue.blocks_creation !== true && <BillingIssueRecords records={issue.record_evidence} studentId={studentId} />}</div>
       </li>)}</ul>
     </>}
     <details>
@@ -83,6 +85,7 @@ export function BillingChecks({ issues, compact = false, maxVisible = 2, present
       <ul className="mt-3 space-y-3 border-t border-line pt-3">{ordered.map(issue => <li key={`${issue.code}:${issue.period ?? ''}:${issue.message}`} className="space-y-1 leading-relaxed">
         <p className="font-medium">{billingCheck(issue.code).label}{issue.period ? ` · Payment ${issue.period}` : ''}</p>
         <p className="text-ink-subtle">{issue.message}</p>
+        {issue.blocks_creation === true && <BillingIssueRecords records={issue.record_evidence} studentId={studentId} />}
         {!!issue.gap_evidence?.length && <GapDates evidence={issue.gap_evidence} />}
       </li>)}</ul>
     </details>
@@ -106,7 +109,7 @@ export function BillingChecks({ issues, compact = false, maxVisible = 2, present
         const Icon = check.severity === 'info' ? Info : AlertCircle;
         return <li key={`${issue.code}:${issue.period ?? ''}:${issue.message}`} className="flex gap-2 text-xs leading-relaxed">
           <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
-          <div className="min-w-0 flex-1"><span className="font-semibold">{check.label}{issue.period ? ` · Payment ${issue.period}` : ''}</span><p className="mt-0.5 text-ink-subtle">{issue.message}</p>{!!issue.gap_evidence?.length && <GapDates evidence={issue.gap_evidence} />}</div>
+          <div className="min-w-0 flex-1"><BillingIssueRecords records={issue.record_evidence} studentId={studentId} /><span className="font-semibold">{check.label}{issue.period ? ` · Payment ${issue.period}` : ''}</span><p className="mt-0.5 text-ink-subtle">{issue.message}</p>{!!issue.gap_evidence?.length && <GapDates evidence={issue.gap_evidence} />}</div>
         </li>;
       })}
     </ul>
