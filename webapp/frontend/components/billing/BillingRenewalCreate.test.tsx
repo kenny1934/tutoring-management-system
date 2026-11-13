@@ -48,7 +48,7 @@ describe('direct renewal creation', () => {
         record_evidence: [{ enrollment_id: 22, session_id: 220, date: '2026-12-11', time_slot: '18:25 - 19:55', location: 'MSA' }] }],
     } });
     expect(screen.getByRole('button', { name: 'Create enrollment' })).toBeDisabled();
-    expect(screen.getByText('Dec 11, 2026 18:25 - 19:55 @ MSA')).toBeVisible();
+    expect(screen.getByText('Fri, Dec 11, 2026 18:25 - 19:55 @ MSA')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Enrollment #22' })).toBeEnabled();
   });
 

@@ -13,7 +13,7 @@ describe('billing presentation checks', () => {
     }]} />);
     expect(screen.queryByText('Check before creating')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Enrollment notes' })).toBeVisible();
-    expect(screen.getByText('Sep 4, 2026 16:45 - 18:15 @ MSA')).toBeVisible();
+    expect(screen.getByText('Fri, Sep 4, 2026 16:45 - 18:15 @ MSA')).toBeVisible();
     expect(screen.getByText('Enrollment: Fri 18:25 - 19:55 @ MSA')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Enrollment #22' })).toHaveAttribute('href', '/enrollments/22');
   });
