@@ -159,6 +159,18 @@ export interface BillingPeriod {
   requires_review: boolean;
 }
 
+export interface BillingRecordEvidence {
+  enrollment_id?: number | null;
+  session_id?: number | null;
+  date?: string | null;
+  time_slot?: string | null;
+  location?: string | null;
+  expected_weekday?: string | null;
+  expected_time_slot?: string | null;
+  expected_location?: string | null;
+  note?: string | null;
+}
+
 export interface BillingGapLesson {
   session_id: number;
   enrollment_id: number;
@@ -204,7 +216,7 @@ export interface BillingPreviewResponse {
   periods: BillingPeriod[];
   skipped_collections: { month: string; covered_by_period: number; reason: string }[];
   excluded_holidays: string[];
-  issues: { code: string; message: string; period: number | null; gap_evidence?: BillingGapEvidence[] }[];
+  issues: { code: string; message: string; period: number | null; gap_evidence?: BillingGapEvidence[]; record_evidence?: BillingRecordEvidence[]; blocks_creation?: boolean | null }[];
   requires_review: boolean;
   is_preview: boolean;
   creates_records: boolean;

@@ -3,6 +3,7 @@
 The account row serialises draft writes. It remains inactive, and these services
 never create enrolments, sessions, payments or coupon reservations.
 """
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -18,7 +19,7 @@ from .messages import MESSAGE_TEMPLATE_VERSION, prepare_fee_messages
 from .models import BillingAccount, BillingDraft, BillingDraftRevision
 from .schemas import (
     BillingDraftDetail, BillingDraftDiscardRequest, BillingDraftHistory, BillingDraftReview, BillingDraftReviewRequest,
-    BillingDraftSaveRequest, BillingDraftSummary, PreviewIssue,
+    BillingDraftSaveRequest, BillingDraftSummary, BillingRecordEvidence, PreviewIssue,
 )
 
 POLICY = BillingPolicy()
@@ -32,9 +33,27 @@ INFORMATIONAL_CALCULATION = {
 }
 CONFIRMABLE = {'CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES', 'RENEWAL_START_GAP'}
 
+# These describe recorded history, not a defect in the configured new lessons.
+# Admins can renew while retaining the evidence for review. New-session overlap,
+# ownership, input, bank and coupon checks are enforced separately.
+ADVISORY_RENEWAL_SOURCE = {
+    'MAKEUP_CHAIN_REVIEW', 'MISSING_ORIGINALS', 'ORIGINAL_COUNT_REVIEW',
+    'INCOMPLETE_SCHEDULE', 'PAYMENT_STATUS_REVIEW', 'OFF_SLOT_ORIGINALS',
+    'COVERAGE_AFTER_YEAR_END', 'OVERLAPPING_ORIGINALS', 'TIMETABLE_CHANGE_REVIEW',
+    'CONTINUING_SLOTS_REVIEW', 'SUCCESSOR_SLOTS_SELECTED', 'TOO_MANY_SLOT_CANDIDATES',
+    'CONTINUATION_UNCONFIRMED', 'PAID_COVERAGE_GAP', 'CONDITIONAL_COVERAGE_GAP',
+    'UNSUPPORTED_SCHEDULE', 'PRE_YEAR_COVERAGE_REVIEW', 'PARTIAL_SLOT_FORECAST',
+}
+ADVISORY_RENEWAL_CALCULATION = {
+    'CONTINUING_SLOTS_REVIEW', 'STAGGERED_COVERAGE',
+    'LEGACY_MULTISLOT_REVIEW', 'COMBINED_TRANSITION_REVIEW',
+}
+
 
 class DraftConflict(ValueError):
-    pass
+    def __init__(self, message, *, record_evidence=None):
+        super().__init__(message)
+        self.record_evidence = list(record_evidence or [])
 
 
 class DraftNotFound(ValueError):
@@ -136,7 +155,11 @@ def review_renewal_change(db, data, context, period, holidays, policy, block, is
             block('RENEWAL_SOURCE_REVIEW', 'Check the end of the existing enrollment before changing this renewal.')
             continue
         if any(lesson.slot == index and lesson.date <= expected for lesson in period.lessons):
-            block('RENEWAL_START_BEFORE_COVERAGE', 'Renewed sessions must start after the existing enrollment ends.')
+            issues.append(PreviewIssue(code='RENEWAL_START_BEFORE_COVERAGE', period=period.number,
+                message='The configured start is before the recorded enrollment end.',
+                blocks_creation=False, record_evidence=[BillingRecordEvidence(
+                    enrollment_id=source_id, date=expected, time_slot=candidate.time_slot, location=candidate.location,
+                    note='Recorded enrollment end.')]))
         source_key = ((candidate.weekday or '')[:3], (candidate.time_slot or '').strip(), (candidate.location or '').strip())
         target_key = (slot.weekday, slot.time_slot.strip(), slot.location.strip())
         if source_key != target_key:
@@ -152,16 +175,21 @@ def review_renewal_change(db, data, context, period, holidays, policy, block, is
                 omitted.append((current, index))
             current += timedelta(days=7)
     if earliest and data.scenario.first_lesson_date < min(earliest):
-        block('RENEWAL_START_BEFORE_COVERAGE', f'The earliest lesson on the renewed timetable is {min(earliest)}. Choose that date or a later lesson.')
+        issues.append(PreviewIssue(code='RENEWAL_START_BEFORE_COVERAGE', period=period.number,
+            message=f'The recorded coverage suggests a next lesson on {min(earliest)}. The configured start is {data.scenario.first_lesson_date}.',
+            blocks_creation=False, record_evidence=[BillingRecordEvidence(
+                enrollment_id=source_id, date=selected[source_id].last_retained_original_date,
+                time_slot=selected[source_id].time_slot, location=selected[source_id].location,
+                note='Recorded enrollment end.') for source_id in change.source_enrollment_ids]))
     if changes:
         issues.append(PreviewIssue(code='RENEWAL_DETAILS_CHANGED', period=period.number,
             message=' '.join(changes) + ' Reason: ' + change.reason))
     if omitted:
-        dates = ', '.join(f'{day} (class {index + 1})' for day, index in sorted(omitted))
-        message = 'These regular session dates are omitted from the new enrollment: ' + dates + '. Check the start date and the reason for changing it.'
-        issues.append(PreviewIssue(code='RENEWAL_START_GAP', period=period.number, message=message))
-        if 'RENEWAL_START_GAP' not in confirmed:
-            block('RENEWAL_START_GAP', message)
+        issues.append(PreviewIssue(code='RENEWAL_START_GAP', period=period.number,
+            message='The configured start omits earlier session dates.', blocks_creation=False,
+            record_evidence=[BillingRecordEvidence(enrollment_id=change.source_enrollment_ids[index],
+                date=day, time_slot=data.scenario.slots[index].time_slot, location=data.scenario.slots[index].location,
+                note='Omitted from the new enrollment.') for day, index in sorted(omitted)]))
     return tutors
 
 
@@ -192,20 +220,36 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
     if data.period_number > len(calculation.periods):
         raise ValueError('Choose a payment present in this calculation.')
     period = calculation.periods[data.period_number - 1]
-    issues = list(source_issues) + list(calculation.issues)
+    admin_renewal = admin and not data.intake
+    source_issues = [issue.model_copy(update={'blocks_creation': False})
+                     if admin_renewal and issue.code in ADVISORY_RENEWAL_SOURCE else issue
+                     for issue in source_issues]
+    calculation_issues = [issue.model_copy(update={'blocks_creation': False})
+                          if admin_renewal and issue.code in ADVISORY_RENEWAL_CALCULATION else issue
+                          for issue in calculation.issues]
+    issues = list(source_issues) + calculation_issues
     reasons = []
     confirmed = set(data.confirmed_checks)
 
-    def block(code, message):
+    def block(code, message, *, record_evidence=None):
         if message not in reasons:
             reasons.append(message)
-        if not any(i.code == code for i in issues):
-            issues.append(PreviewIssue(code=code, message=message, period=period.number))
+        existing = next((issue for issue in issues if issue.code == code), None)
+        if existing is None:
+            issues.append(PreviewIssue(code=code, message=message, period=period.number,
+                                       blocks_creation=True, record_evidence=record_evidence or []))
+        else:
+            existing.blocks_creation = True
+            if record_evidence:
+                existing.record_evidence.extend(BillingRecordEvidence.model_validate(record) for record in record_evidence)
+
 
     for issue in source_issues:
-        if issue.code not in INFORMATIONAL_SOURCE and issue.code not in confirmed:
+        if issue.blocks_creation is not False and issue.code not in INFORMATIONAL_SOURCE and issue.code not in confirmed:
             block(issue.code, issue.message)
-    for issue in calculation.issues:
+    for issue in calculation_issues:
+        if issue.blocks_creation is False:
+            continue
         if issue.period is not None and issue.period != period.number:
             continue
         if issue.code in INFORMATIONAL_CALCULATION or issue.code in confirmed:
@@ -254,27 +298,37 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
     if data.renewal:
         renewal_tutors = review_renewal_change(db, data, context, period, holidays, policy, block, issues, confirmed, tutors=locked_renewal_tutors)
 
+    existing = defaultdict(list)
     if data.intake:
-        existing = {(r.session_date, (r.time_slot or '').strip(), (r.location or '').strip())
-                    for r in db.query(SessionLog).join(Enrollment, Enrollment.id == SessionLog.enrollment_id).filter(
-                        Enrollment.student_id == student_id, Enrollment.payment_status != 'Cancelled',
-                        SessionLog.make_up_for_id.is_(None), SessionLog.session_status != 'Cancelled',
-                    ).all()}
+        for row in db.query(SessionLog).join(Enrollment, Enrollment.id == SessionLog.enrollment_id).filter(
+                Enrollment.student_id == student_id, Enrollment.payment_status != 'Cancelled',
+                SessionLog.make_up_for_id.is_(None), SessionLog.session_status != 'Cancelled').all():
+            key = (row.session_date, (row.time_slot or '').strip(), (row.location or '').strip())
+            existing[key].append(BillingRecordEvidence(enrollment_id=row.enrollment_id,
+                session_id=row.id, date=row.session_date, time_slot=row.time_slot, location=row.location))
     else:
-        existing = {(r.date, (r.time_slot or b.time_slot or '').strip(), (r.location or b.location or '').strip())
-                    for b in context.source_blocks if b.payment_status != 'Cancelled' for r in b.originals}
-    if any((lesson.date, lesson.time_slot.strip(), lesson.location.strip()) in existing for lesson in period.lessons):
-        block('EXISTING_ORIGINALS_OVERLAP', 'Some sessions are already in an enrollment. Check that enrollment before preparing another fee message.')
-    if data.renewal and not any(issue.code == 'EXISTING_ORIGINALS_OVERLAP' for issue in issues):
+        for source in context.source_blocks:
+            if source.payment_status == 'Cancelled':
+                continue
+            for row in source.originals:
+                time = (row.time_slot or source.time_slot or '').strip()
+                location = (row.location or source.location or '').strip()
+                existing[(row.date, time, location)].append(BillingRecordEvidence(
+                    enrollment_id=source.enrollment_id, session_id=row.id,
+                    date=row.date, time_slot=time, location=location))
+    duplicates = [record for lesson in period.lessons
+                  for record in existing[(lesson.date, lesson.time_slot.strip(), lesson.location.strip())]]
+    if duplicates:
+        block('EXISTING_ORIGINALS_OVERLAP', 'These new sessions are already recorded.', record_evidence=duplicates)
+    if not duplicates:
         # The reviewed message must not promise overlapping lessons. Claims
-        # are checked when workflow storage is available and rechecked under
-        # financial locks at confirmation. Draft-only storage remains compatible
-        # with migration187 without the financial claim tables.
+        # are rechecked under financial locks at confirmation. Draft-only
+        # storage remains compatible without the financial claim tables.
         from .workflow import check_lesson_conflicts, workflow_storage_enabled
         try:
             check_lesson_conflicts(db, student_id, period.lessons, include_claims=workflow_storage_enabled())
         except DraftConflict as error:
-            block('RENEWAL_SESSION_CONFLICT', str(error))
+            block('RENEWAL_SESSION_CONFLICT', str(error), record_evidence=error.record_evidence)
     if period.number > 1:
         block('FUTURE_PAYMENT_PREVIEW', 'This later payment depends on earlier payments being confirmed. Prepare the student’s next payment first.')
     if period.collection.method == 'autopay' and not scenario.mandate_ready:

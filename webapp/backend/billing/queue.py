@@ -14,7 +14,7 @@ from sqlalchemy import and_, or_
 from models import Enrollment, Holiday, SessionLog, Tutor
 from .calculator import BillingPolicy, month_end, preview_billing
 from .context import PENDING
-from .drafts import CONFIRMABLE, INFORMATIONAL_CALCULATION, INFORMATIONAL_SOURCE, digest, storage_enabled
+from .drafts import ADVISORY_RENEWAL_SOURCE, CONFIRMABLE, INFORMATIONAL_CALCULATION, INFORMATIONAL_SOURCE, digest, storage_enabled
 from .evidence import academic_source_filter, load_contexts
 from .models import BillingAccount, BillingDraft, BillingDraftRevision, BillingPayment, BillingPaymentLine
 from .schemas import (
@@ -143,7 +143,7 @@ def base_row(context, **values):
 
 def projection_row(context, holidays, as_of, through, policy):
     checks = [i for i in context.issues if i.code not in INFORMATIONAL_SOURCE]
-    structural = structural_checks(context)
+    structural = [i for i in structural_checks(context) if i.code not in ADVISORY_RENEWAL_SOURCE]
     if structural:
         return base_row(context, stage='attention', origin='projection', ready_now=True,
                         payment_method=context.recorded_payment_method,

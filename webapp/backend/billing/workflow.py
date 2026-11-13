@@ -161,19 +161,24 @@ def check_lesson_conflicts(db, student_id, lessons, *, include_claims=True):
             if row.session_date == lesson.date:
                 other_start, other_end = time_range(row.time_slot)
                 if start < other_end and other_start < end:
-                    raise DraftConflict(f'The student already has a lesson at this time on {lesson.date:%Y/%m/%d}.')
+                    raise DraftConflict(
+                        f'The student already has a lesson at this time on {lesson.date:%Y/%m/%d}: {row.time_slot} @ {row.location}, Enrollment #{row.enrollment_id}.',
+                        record_evidence=[{'enrollment_id': row.enrollment_id, 'session_id': row.id, 'date': row.session_date, 'time_slot': row.time_slot, 'location': row.location}])
         for day, other_start, other_end in proposed:
             if day == lesson.date and start < other_end and other_start < end:
-                raise DraftConflict('The two classes overlap. Check their times before creating enrollments.')
+                raise DraftConflict(f'The two classes overlap on {day:%Y/%m/%d}: {other_start // 60:02}:{other_start % 60:02}–{other_end // 60:02}:{other_end % 60:02} and {lesson.time_slot}.',
+                    record_evidence=[{'date': day, 'time_slot': f'{other_start // 60:02}:{other_start % 60:02} - {other_end // 60:02}:{other_end % 60:02}', 'note': 'Other proposed class'}, {'date': lesson.date, 'time_slot': lesson.time_slot, 'location': lesson.location, 'note': 'Proposed class'}])
         proposed.append((lesson.date, start, end))
     if not include_claims:
         return
     claims = db.query(BillingLessonClaim).filter(BillingLessonClaim.student_id == student_id,
                                                 BillingLessonClaim.lesson_date.in_(dates)).all()
-    if any((claim.lesson_date, claim.time_slot, claim.location) ==
-           (lesson.date, canonical_time(lesson.time_slot), lesson.location.strip())
-           for claim in claims for lesson in lessons):
-        raise DraftConflict('Some lessons already belong to a confirmed payment. Open that payment instead.')
+    matches = [claim for claim in claims if any((claim.lesson_date, claim.time_slot, claim.location) ==
+               (lesson.date, canonical_time(lesson.time_slot), lesson.location.strip()) for lesson in lessons)]
+    if matches:
+        first = matches[0]
+        raise DraftConflict(f'A confirmed payment already covers {first.lesson_date:%Y/%m/%d} at {first.time_slot} @ {first.location}, Enrollment #{first.enrollment_id}.',
+            record_evidence=[{'enrollment_id': claim.enrollment_id, 'session_id': claim.session_id, 'date': claim.lesson_date, 'time_slot': claim.time_slot, 'location': claim.location} for claim in matches])
 
 
 def payment_rows(db, payment):

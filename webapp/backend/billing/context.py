@@ -68,13 +68,16 @@ def build_student_context(
 ) -> StudentBillingContext:
     issues = []
 
-    def flag(code, message, *, gap_evidence=None):
+    def flag(code, message, *, gap_evidence=None, record_evidence=None):
         existing = next((i for i in issues if i.code == code), None)
         if existing is None:
             existing = PreviewIssue(code=code, message=message)
             issues.append(existing)
         if gap_evidence:
             existing.gap_evidence.extend(gap_evidence)
+        if record_evidence:
+            from .schemas import BillingRecordEvidence
+            existing.record_evidence.extend(BillingRecordEvidence(**record) for record in record_evidence)
 
     if any(b.student_id != student.id for b in blocks) or any(s.student_id != student.id for s in lessons):
         raise ValueError('Use enrollments and lessons belonging to this student.')
@@ -95,19 +98,19 @@ def build_student_context(
         seen = set()
         while current.make_up_for_id is not None:
             if current.id in seen:
-                flag('MAKEUP_CHAIN_REVIEW', 'A makeup links back to itself. Check its original lesson and linked makeups.')
+                flag('MAKEUP_CHAIN_REVIEW', 'A makeup links back to itself. Check its original lesson and linked makeups.', record_evidence=[{'enrollment_id': lesson.enrollment_id, 'session_id': lesson.id, 'date': lesson.session_date, 'time_slot': lesson.time_slot, 'location': lesson.location}])
                 break
             seen.add(current.id)
             parent = by_id.get(current.make_up_for_id)
             if parent is None:
-                flag('MAKEUP_CHAIN_REVIEW', 'A makeup has no matching original lesson in these records. Check the lesson link.')
+                flag('MAKEUP_CHAIN_REVIEW', 'A makeup has no matching original lesson in these records. Check the lesson link.', record_evidence=[{'enrollment_id': lesson.enrollment_id, 'session_id': lesson.id, 'date': lesson.session_date, 'time_slot': lesson.time_slot, 'location': lesson.location}])
                 break
             if parent.student_id != current.student_id or parent.enrollment_id != current.enrollment_id:
-                flag('MAKEUP_CHAIN_REVIEW', 'A makeup and its original belong to different students or enrollments. Check both records.')
+                flag('MAKEUP_CHAIN_REVIEW', 'A makeup and its original belong to different students or enrollments. Check both records.', record_evidence=[{'enrollment_id': lesson.enrollment_id, 'session_id': lesson.id, 'date': lesson.session_date, 'time_slot': lesson.time_slot, 'location': lesson.location}])
             current = parent
         else:
             if current.session_status == 'Cancelled' and lesson.make_up_for_id and lesson.session_status != 'Cancelled':
-                flag('MAKEUP_CHAIN_REVIEW', 'A makeup is linked to a cancelled lesson. Check whether it should still be booked.')
+                flag('MAKEUP_CHAIN_REVIEW', 'A makeup is linked to a cancelled lesson. Check whether it should still be booked.', record_evidence=[{'enrollment_id': lesson.enrollment_id, 'session_id': lesson.id, 'date': lesson.session_date, 'time_slot': lesson.time_slot, 'location': lesson.location}])
             if ('Pending Make-up' in lesson.session_status and current.session_status != 'Cancelled'
                     and current.enrollment_id in by_block
                     and by_block[current.enrollment_id].payment_status != 'Cancelled'):
@@ -139,25 +142,25 @@ def build_student_context(
         if b.payment_status == 'Cancelled':
             continue
         if not roots:
-            flag('MISSING_ORIGINALS', 'An enrollment has no regular lesson records. Check its sessions before collecting fees.')
+            flag('MISSING_ORIGINALS', 'No session records.', record_evidence=[{'enrollment_id': b.id}])
         if b.lessons_paid != len(roots):
-            flag('ORIGINAL_COUNT_REVIEW', 'The enrollment’s session count does not match its lesson records. Check cancelled or changed lessons.')
+            flag('ORIGINAL_COUNT_REVIEW', 'Session count differs.', record_evidence=[{'enrollment_id': b.id, 'note': f'{len(roots)} sessions recorded; enrollment says {b.lessons_paid}.'}])
         if not b.first_lesson_date or slot_key(b)[0] not in DAYS:
-            flag('INCOMPLETE_SCHEDULE', 'An enrollment needs a valid first lesson date and weekday. Check its timetable.')
+            flag('INCOMPLETE_SCHEDULE', 'Enrollment timetable is incomplete.', record_evidence=[{'enrollment_id': b.id, 'date': b.first_lesson_date, 'time_slot': b.assigned_time, 'location': b.location, 'note': f'Weekday: {b.assigned_day or "not recorded"}.'}])
         if b.payment_status not in SETTLED | PENDING:
-            flag('PAYMENT_STATUS_REVIEW', 'An enrollment has an unknown payment status. Check whether it has been paid.')
+            flag('PAYMENT_STATUS_REVIEW', 'Payment status needs checking.', record_evidence=[{'enrollment_id': b.id, 'note': f'Recorded status: {b.payment_status}.'}])
         for root in roots:
             if (DAYS[root.session_date.weekday()] != slot_key(b)[0]
                     or (root.time_slot is not None and root.time_slot.strip() != slot_key(b)[1])
                     or (root.location is not None and root.location.strip() != slot_key(b)[2])):
-                flag('OFF_SLOT_ORIGINALS', 'Some lessons do not match the enrollment’s timetable. Confirm the class to use for the next payment.')
+                flag('OFF_SLOT_ORIGINALS', 'Session timetable differs.', record_evidence=[{'enrollment_id': b.id, 'session_id': root.id, 'date': root.session_date, 'time_slot': root.time_slot, 'location': root.location, 'expected_weekday': slot_key(b)[0], 'expected_time_slot': slot_key(b)[1], 'expected_location': slot_key(b)[2]}])
             if root.session_date > policy.regular_end:
-                flag('COVERAGE_AFTER_YEAR_END', 'A regular lesson falls after the teaching year ends. Check its date.')
+                flag('COVERAGE_AFTER_YEAR_END', 'Session is after the teaching year.', record_evidence=[{'enrollment_id': b.id, 'session_id': root.id, 'date': root.session_date, 'time_slot': root.time_slot, 'location': root.location, 'note': f'Teaching year ends {policy.regular_end}.'}])
 
     # Repeated roots at the same actual slot can represent duplicate renewals.
     positions = Counter((s.session_date, s.time_slot, s.location) for b in active for s in original_rows[b.id])
     if any(n > 1 for n in positions.values()):
-        flag('OVERLAPPING_ORIGINALS', 'More than one regular lesson is recorded at the same date, time and branch. Check for duplicate enrollments.')
+        flag('OVERLAPPING_ORIGINALS', 'Existing enrollments contain duplicate sessions.', record_evidence=[{'enrollment_id': b.id, 'session_id': r.id, 'date': r.session_date, 'time_slot': r.time_slot, 'location': r.location} for b in active for r in original_rows[b.id] if positions[(r.session_date, r.time_slot, r.location)] > 1])
 
     def sort_block(b):
         return (b.first_lesson_date or date.min, b.id)
@@ -406,6 +409,18 @@ def build_student_context(
             )
     if any(c.selected and c.first_uncovered_date is None for c in candidates) and slots:
         flag('PARTIAL_SLOT_FORECAST', 'A next payment could not be calculated for every selected class. Check each class’s enrollments.')
+
+    # Timetable-selection warnings should identify the actual enrollments too.
+    schedule_checks = {'TIMETABLE_CHANGE_REVIEW', 'CONTINUING_SLOTS_REVIEW',
+                       'SUCCESSOR_SLOTS_SELECTED', 'TOO_MANY_SLOT_CANDIDATES',
+                       'CONTINUATION_UNCONFIRMED', 'PARTIAL_SLOT_FORECAST'}
+    for issue in issues:
+        if issue.code in schedule_checks and not issue.record_evidence:
+            from .schemas import BillingRecordEvidence
+            issue.record_evidence = [BillingRecordEvidence(
+                enrollment_id=b.id, date=max((r.session_date for r in original_rows[b.id]), default=b.first_lesson_date),
+                time_slot=b.assigned_time, location=b.location,
+            ) for b in representatives]
 
     fingerprint_data = {
         'student': student.model_dump(mode='json'), 'basis': basis, 'as_of': as_of,

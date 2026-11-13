@@ -35,6 +35,17 @@ beforeEach(() => {
 async function open() { fireEvent.click(screen.getByRole('button', { name: 'Review payment' })); return await screen.findByRole('textbox', { name: 'Chinese fee message' }); }
 
 describe('payment draft review', () => {
+  it('does not require a historical continuation acknowledgement when the server marks it advisory', async () => {
+    const data = review();
+    data.issues = [{ code: 'CONTINUATION_UNCONFIRMED', message: 'No upcoming sessions.', period: null, blocks_creation: false }];
+    mocks.review.mockResolvedValue(data);
+    render(<BillingDraftReview inline summaryPresentation="renewal" studentId={4} reviewRequest={request()} storageAvailable
+      directCreation={{ creator: { create: vi.fn() } as unknown as BillingRenewalCreator, canWrite: true, onCreated: vi.fn() }} />);
+    expect(await screen.findByRole('button', { name: 'Create enrollment' })).toBeEnabled();
+    expect(screen.queryByRole('checkbox', { name: 'The student is continuing lessons.' })).not.toBeInTheDocument();
+    expect(screen.getByText('No upcoming sessions recorded')).toBeVisible();
+  });
+
   it('keeps the renewal layout mounted while an acknowledgement is rechecked', async () => {
     const data = review();
     const req = request();

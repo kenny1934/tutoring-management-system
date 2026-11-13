@@ -110,21 +110,26 @@ def test_coverage_markers_and_scheme_remain_authoritative(env):
     assert {'SOURCE_COVERAGE_MISMATCH','SCENARIO_POLICY_MISMATCH'} <= {i['code'] for i in v['issues']}
     assert v['message']['blocked_reasons']
 
-def test_changed_time_does_not_allow_start_before_retained_coverage(env):
+def test_recorded_coverage_start_comparison_is_advisory_for_configured_admin_renewal(env):
     client,session,_=env;p=renewal(client,first='2026-11-05')
     assert any(i['code']=='RENEWAL_START_BEFORE_COVERAGE' for i in review(client,p)['issues'])
     preference(client)
     c=client.get('/api/billing/students/101/context',params={'basis':'include_pending','selected_enrollment_ids':11}).json();p['expected_source_fingerprint']=c['source_fingerprint']
     draft,data=confirmation(client,payload=p)
-    assert client.post(f"/api/billing/drafts/{draft['id']}/confirm",json=data).status_code==422
-    assert session.query(Enrollment).count()==1 and session.query(BillingPayment).count()==0
+    result=client.post(f"/api/billing/drafts/{draft['id']}/confirm",json=data)
+    assert result.status_code==200,result.text
+    assert result.json()['review']['period']['first_lesson_date']=='2026-11-12'
+    assert session.query(Enrollment).count()==2 and session.query(BillingPayment).count()==1
 
-def test_postponed_start_requires_exact_omitted_date_confirmation(env):
+def test_postponed_admin_start_keeps_exact_omitted_dates_without_extra_confirmation(env):
     client,_,_=env;p=renewal(client,first='2026-11-26');before=review(client,p)
     issue=next(i for i in before['issues'] if i['code']=='RENEWAL_START_GAP')
-    assert '2026-11-12' in issue['message'] and '2026-11-19' in issue['message'] and before['message']['blocked_reasons']
-    p['confirmed_checks'].append('RENEWAL_START_GAP');after=review(client,p)
-    assert not after['message']['blocked_reasons'] and before['review_hash']!=after['review_hash']
+    assert [row['date'] for row in issue['record_evidence']]==['2026-11-12','2026-11-19']
+    assert all(row['enrollment_id']==11 for row in issue['record_evidence'])
+    assert issue['blocks_creation'] is False and not before['message']['blocked_reasons']
+    assert 'RENEWAL_START_GAP' not in p['confirmed_checks']
+    _,_,payment=confirmed(client,payload=p)
+    assert payment['review']['period']['first_lesson_date']=='2026-11-26'
 
 @pytest.mark.parametrize('field,value',[('time_slot','nonsense'),('location','Various'),('location','UNKNOWN')])
 def test_target_schedule_needs_supported_branch_and_valid_time(env,field,value):
@@ -169,7 +174,7 @@ def test_unrelated_student_lesson_overlap_blocks_preview_and_confirmation(env):
     assert r.status_code==422 and 'already has a lesson' in r.text
     assert session.query(BillingPayment).count()==0 and session.query(Enrollment).count()==2
 
-def test_pending_same_class_coverage_cannot_be_bypassed_by_changing_weekday(env):
+def test_pending_coverage_is_retained_when_admin_configures_an_earlier_start(env):
     from datetime import timedelta
     client,session,_=env
     session.add(Enrollment(id=12,student_id=101,tutor_id=1,assigned_day='Fri',assigned_time='16:00 - 17:30',location='MSA',lessons_paid=6,first_lesson_date=date(2026,11,13),payment_status='Pending Payment',enrollment_type='Regular',renewed_from_enrollment_id=11,is_new_student=False))
@@ -178,7 +183,9 @@ def test_pending_same_class_coverage_cannot_be_bypassed_by_changing_weekday(env)
     session.commit();p=renewal(client)
     assert p['scenario']['slots'][0]['covered_through']=='2026-12-18'
     v=review(client,p)
-    assert any(i['code']=='RENEWAL_START_BEFORE_COVERAGE' for i in v['issues']) and v['message']['blocked_reasons']
+    issue=next(i for i in v['issues'] if i['code']=='RENEWAL_START_BEFORE_COVERAGE')
+    assert issue['blocks_creation'] is False and not v['message']['blocked_reasons']
+    assert v['period']['first_lesson_date']=='2026-12-24'
     assert session.get(Enrollment,12).payment_status=='Pending Payment' and session.query(SessionLog).filter_by(enrollment_id=12).count()==6
 
 def test_branch_change_keeps_old_branch_and_future_source_lineage(env):
