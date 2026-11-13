@@ -27,6 +27,7 @@ interface StudentInfoBadgesProps {
   nameTitle?: string;
   /** Link the name itself when no onNameClick handler is supplied. */
   nameHref?: string;
+  nameTarget?: "_blank";
   /** Optional click handler on the name. When set, the name renders as a
    *  button; otherwise it stays a plain span. */
   onNameClick?: () => void;
@@ -50,6 +51,7 @@ export function StudentInfoBadges({
   compact = false,
   nameTitle,
   nameHref,
+  nameTarget,
   onNameClick,
   gradeIsEntering = false,
 }: StudentInfoBadgesProps) {
@@ -93,7 +95,7 @@ export function StudentInfoBadges({
           {student.student_name}
         </button>
       ) : nameHref ? (
-        <Link href={nameHref} className={nameClass} title={nameTitle}>
+        <Link href={nameHref} target={nameTarget} rel={nameTarget === "_blank" ? "noopener noreferrer" : undefined} className={nameClass} title={nameTitle}>
           {student.student_name}
         </Link>
       ) : (

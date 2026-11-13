@@ -44,7 +44,8 @@ def intake_request(client, *, trial=True):
     context = response.json()
     scenario = context['suggested_request'] or {
         'first_lesson_date': '2026-11-10', 'slots': [{'weekday': 'Tue', 'time_slot': '16:00 - 17:30', 'location': 'MSA'}],
-        'mode': 'new_student', 'payment_method': 'manual', 'materials_fee': context['materials_fee'],
+        'mode': 'new_student' if context['is_new_student'] else 'returning_student',
+        'payment_method': 'manual', 'materials_fee': context['materials_fee'],
     }
     return {'scenario': scenario, 'expected_source_fingerprint': context['source_fingerprint'],
             'intake': {'trial_enrollment_id': 21 if trial else None,

@@ -322,10 +322,10 @@ export function ScheduleChangeReviewModal({
 
           {/* Unchangeable Sessions */}
           {hasUnchangeableSessions && (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="border border-line rounded-lg overflow-hidden">
+              <div className="px-3 py-2 border-b border-line bg-wash">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-gray-500" />
+                  <AlertCircle className="h-4 w-4 text-ink-subtle" />
                   <span className="font-medium text-sm text-foreground">
                     Cannot Change ({preview.unchangeable_sessions.length} sessions)
                   </span>
@@ -333,9 +333,9 @@ export function ScheduleChangeReviewModal({
               </div>
               <div className="max-h-[150px] overflow-y-auto">
                 <table className="w-full text-xs">
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  <tbody className="divide-y divide-line">
                     {preview.unchangeable_sessions.map((session) => (
-                      <tr key={session.session_id} className="bg-gray-50/50 dark:bg-gray-800/50">
+                      <tr key={session.session_id} className="bg-wash/50">
                         <td className="px-3 py-1.5 font-medium">
                           {formatShortDate(session.session_date)}
                         </td>
@@ -346,7 +346,7 @@ export function ScheduleChangeReviewModal({
                           {session.tutor_name}
                         </td>
                         <td className="px-3 py-1.5">
-                          <span className="text-gray-500 dark:text-gray-400 italic">
+                          <span className="text-ink-subtle italic">
                             {session.reason}
                           </span>
                         </td>
@@ -360,8 +360,8 @@ export function ScheduleChangeReviewModal({
 
           {/* Updatable Sessions */}
           {hasUpdatableSessions ? (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
+            <div className="border border-line rounded-lg overflow-hidden">
+              <div className="px-3 py-2 border-b border-line bg-green-50 dark:bg-green-900/20">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-700 dark:text-green-400" />
                   <span className="font-medium text-sm text-green-700 dark:text-green-300">
@@ -371,7 +371,7 @@ export function ScheduleChangeReviewModal({
               </div>
               <div className="max-h-[200px] overflow-y-auto">
                 <table className="w-full text-xs">
-                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-[60]">
+                  <thead className="bg-wash sticky top-0 z-[60]">
                     <tr>
                       <th className="px-3 py-1.5 text-left font-medium text-foreground/70">Current</th>
                       <th className="px-3 py-1.5 text-center font-medium text-foreground/70 w-8"></th>
@@ -380,7 +380,7 @@ export function ScheduleChangeReviewModal({
                       <th className="px-3 py-1.5 text-center font-medium text-foreground/70 w-16">Adjust</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  <tbody className="divide-y divide-line">
                     {preview.updatable_sessions.map((session) => {
                       const sessionHasOverride = hasOverride(session.session_id);
                       const effectiveDate = getEffectiveDate(session);
@@ -501,7 +501,7 @@ export function ScheduleChangeReviewModal({
                                       <button
                                         type="button"
                                         onClick={() => clearOverride(session.session_id)}
-                                        className="w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1 border-t border-gray-200 dark:border-gray-700"
+                                        className="w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1 border-t border-line"
                                       >
                                         Reset to calculated
                                       </button>
@@ -529,7 +529,7 @@ export function ScheduleChangeReviewModal({
               </div>
             </div>
           ) : (
-            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+            <div className="bg-wash border border-line rounded-lg p-4 text-center">
               <CheckCircle2 className="h-8 w-8 text-green-700 mx-auto mb-2" />
               <p className="text-sm text-foreground/70">
                 No future sessions need to be updated.
@@ -542,7 +542,7 @@ export function ScheduleChangeReviewModal({
 
           {/* Summary info */}
           {preview.updatable_sessions.length > 0 && (
-            <div className="text-xs text-foreground/60 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+            <div className="text-xs text-foreground/60 pt-2 border-t border-line space-y-1">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />

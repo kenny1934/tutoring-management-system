@@ -2,6 +2,7 @@
 from datetime import date, datetime
 from datetime import date as EvidenceDate
 from typing import Literal
+from constants import REGISTRATION_FEE
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .student_schemas import BillingStudent
@@ -9,7 +10,7 @@ from .coupon_schemas import CouponBalance
 
 Weekday = Literal['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 PaymentMethod = Literal['manual', 'autopay']
-PreviewMode = Literal['new_student', 'transition', 'regular']
+PreviewMode = Literal['new_student', 'returning_student', 'transition', 'regular']
 
 
 class PreviewSlot(BaseModel):
@@ -70,12 +71,12 @@ class BillingPreviewRequest(BaseModel):
     def validate_choices(self):
         if self.trial_deduction and self.coupon:
             raise ValueError('The trial deduction cannot be combined with a coupon.')
-        if self.trial_deduction and self.mode != 'new_student':
+        if self.trial_deduction and self.mode not in {'new_student', 'returning_student'}:
             raise ValueError('The trial deduction belongs to the first enrollment payment.')
         keys = [(s.weekday, s.time_slot.strip(), s.location.strip()) for s in self.slots]
         if len(set(keys)) != len(keys):
             raise ValueError('Each weekly slot must be different.')
-        if self.mode == 'new_student' and any(s.covered_through for s in self.slots):
+        if self.mode in {'new_student', 'returning_student'} and any(s.covered_through for s in self.slots):
             raise ValueError('Use an existing-student preview to enter previous coverage.')
         return self
 
@@ -330,6 +331,7 @@ class BillingIntakeContext(BaseModel):
     is_new_student: bool
     materials_fee: int | None
     materials_basis: str
+    standard_materials_fee: int = Field(default=REGISTRATION_FEE, ge=0, le=10000)
     issues: list[PreviewIssue]
     coupon_snapshot: ImportedCouponSnapshot | None
     recorded_payment_method: PaymentMethod | None = None
@@ -511,7 +513,7 @@ class BillingDraftReviewRequest(BaseModel):
     @model_validator(mode='after')
     def validate_review_source(self):
         if self.renewal:
-            if self.intake or self.scenario.mode == 'new_student' or self.period_number != 1:
+            if self.intake or self.scenario.mode in {'new_student', 'returning_student'} or self.period_number != 1:
                 raise ValueError('Renewal changes apply only to the next continuing enrollment.')
             mapped = self.renewal.source_enrollment_ids
             if len(mapped) != len(self.scenario.slots) or len(mapped) != len(self.selected_enrollment_ids) or set(mapped) != set(self.selected_enrollment_ids):
@@ -521,8 +523,8 @@ class BillingDraftReviewRequest(BaseModel):
                 raise ValueError('An intake does not select continuing enrollments.')
             if len(self.intake.slots) != len(self.scenario.slots):
                 raise ValueError('Choose a tutor for every weekly class.')
-            if self.scenario.mode != 'new_student' or self.period_number != 1:
-                raise ValueError('An intake prepares the first new-student payment.')
+            if self.scenario.mode not in {'new_student', 'returning_student'} or self.period_number != 1:
+                raise ValueError('An intake prepares the first payment when a student joins or returns.')
         elif not self.selected_enrollment_ids:
             raise ValueError('Choose the continuing enrollment before reviewing a renewal.')
         return self
@@ -701,3 +703,17 @@ class BillingPaymentDetail(BaseModel):
     review_issues: list[str]
     batch_action_issue: str | None = None
     history: list[BillingPaymentHistory]
+
+
+class BillingGlobalSettingsResponse(BaseModel):
+    materials_fee: int = Field(ge=0, le=10000)
+    version: int = Field(ge=0)
+    storage_available: bool
+    writes_available: bool
+
+
+class BillingGlobalSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    materials_fee: int = Field(ge=0, le=10000, strict=True)
+    expected_version: int = Field(ge=0)
+    idempotency_key: str = Field(min_length=1, max_length=64, pattern=r'^\S+$')

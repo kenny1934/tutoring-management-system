@@ -1,5 +1,7 @@
 "use client";
 
+import { EnrollmentDetailSkeleton } from "@/components/enrollments/EnrollmentDetailSkeleton";
+
 import { TimeRangeInput } from "@/components/controls/TimeRangeInput";
 import { normaliseTimeSlot, parseTimeRange, sameTimeSlot } from "@/lib/time-slots";
 
@@ -590,29 +592,7 @@ export default function EnrollmentDetailPage() {
     return { completed, scheduled, pendingMakeup, total: enrollmentSessions.length };
   }, [enrollmentSessions]);
 
-  if (enrollmentLoading) {
-    return (
-      <PageSurface fullHeight>
-        <PageTransition className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
-          {/* Header Skeleton */}
-          <div className={cn(
-            "flex items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-4 py-3",
-            !isMobile && "paper-texture"
-          )}>
-            <div className="h-8 w-8 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            <div className="h-6 w-40 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-          </div>
-
-          {/* Content Skeleton */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
-            <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
-          </div>
-        </PageTransition>
-      </PageSurface>
-    );
-  }
+  if (enrollmentLoading) return <EnrollmentDetailSkeleton />;
 
   if (enrollmentError || !enrollment) {
     return (

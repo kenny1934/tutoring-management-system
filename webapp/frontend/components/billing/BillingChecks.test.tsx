@@ -6,6 +6,14 @@ import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import type { BillingGapEvidence, BillingGapLesson } from '@/types/billing';
 
 describe('billing presentation checks', () => {
+  it('treats a returning manual first collection as information', () => {
+    expect(billingCheck('RETURNING_FIRST_MANUAL')).toEqual({ label: 'First payment is manual', severity: 'info' });
+    render(<BillingChecks presentation="renewal" issues={[{ code: 'RETURNING_FIRST_MANUAL', message: 'The notice deadline has passed.', period: 1 }]} />);
+    expect(screen.queryByText('Check before creating')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Enrollment notes'));
+    expect(screen.getByText('The notice deadline has passed.')).toBeVisible();
+  });
+
   it('shows concrete historical differences as notes without blocking language', () => {
     render(<BillingChecks presentation="renewal" issues={[{
       code: 'OFF_SLOT_ORIGINALS', message: 'Session timetable differs.', period: null, blocks_creation: false,

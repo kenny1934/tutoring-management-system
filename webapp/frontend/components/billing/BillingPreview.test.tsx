@@ -6,7 +6,7 @@ import type { BillingCouponBalance, BillingPreviewRequest, BillingPreviewRespons
 const mocks = vi.hoisted(() => ({ preview: vi.fn(), auth: vi.fn(), params: vi.fn(), review: vi.fn(), coupons: undefined as BillingCouponBalance | undefined, checkingCoupons: false, couponError: undefined as Error | undefined, tutors: [] as { id: number; tutor_name: string; default_location: string; is_active_tutor?: boolean; departure_effective_on?: string }[] }));
 const options = {
   academic_start: '2026-09-01', first_payment_from: '2026-10-30', regular_end: '2027-07-04', makeup_end: '2027-06-30',
-  unit_fee: 400, first_minimum: 6, ordinary_coupon_minimum: 4, policy_version: 'test',
+  unit_fee: 400, standard_materials_fee: 100, first_minimum: 6, ordinary_coupon_minimum: 4, policy_version: 'test',
 };
 vi.mock('./BillingCouponPanel', () => ({ BillingCouponPanel: () => null }));
 vi.mock('next/navigation', () => ({ useSearchParams: mocks.params }));
@@ -472,20 +472,19 @@ describe('enrollment fee preview', () => {
     await calculate();
     fireEvent.change(screen.getByLabelText('First lesson date'), { target: { value: '2026-11-17' } });
     fireEvent.change(screen.getByLabelText('Tutor'), { target: { value: '12' } });
-    fireEvent.change(screen.getByLabelText('Materials'), { target: { value: '0' } });
-    fireEvent.change(screen.getByLabelText('Reason for materials adjustment'), { target: { value: 'Materials waived.' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
     view.rerender(<BillingPreview {...props} sourceLoading />);
     expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
     const freshProps = { ...props, initialRequest: { ...initial, payment_method: 'autopay' as const }, sourceKey: 'new-preference', draftContext: { ...props.draftContext, sourceFingerprint: 'new-preference' } };
     view.rerender(<BillingPreview {...freshProps} />);
     expect(screen.getByLabelText('First lesson date')).toHaveValue('2026-11-17');
     expect(screen.getByLabelText('Tutor')).toHaveValue('12');
-    expect(screen.getByLabelText('Materials')).toHaveValue(0);
-    expect(screen.getByLabelText('Reason for materials adjustment')).toHaveValue('Materials waived.');
+    expect(screen.getByRole('checkbox', { name: /Charge materials fee/ })).not.toBeChecked();
+    expect(screen.queryByLabelText('Reason for materials adjustment')).not.toBeInTheDocument();
     await calculate();
     expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ expected_source_fingerprint: 'new-preference',
       scenario: expect.objectContaining({ first_lesson_date: '2026-11-17', payment_method: 'autopay', materials_fee: 0, adjustment: { through: '2026-11-30', reason: 'Approved shorter first period.' } }),
-      intake: expect.objectContaining({ slots: [{ tutor_id: 12, renewed_from_enrollment_id: 70 }], materials_override_reason: 'Materials waived.' }) }) }));
+      intake: expect.objectContaining({ slots: [{ tutor_id: 12, renewed_from_enrollment_id: 70 }], materials_override_reason: null }) }) }));
   });
 
   it('keeps the intake tutor mapping aligned and withholds review until every class has a tutor', async () => {
@@ -504,17 +503,107 @@ describe('enrollment fee preview', () => {
     expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ intake: expect.objectContaining({ slots: [{ tutor_id: 9, renewed_from_enrollment_id: 70 }, { tutor_id: 12 }] }) }) }));
   });
 
-  it('requires an admin reason before reviewing a materials waiver and preserves it with the exact payment', async () => {
+  it('waives or restores the standard materials fee without asking for a reason', async () => {
     mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
     renderBase(<BillingPreview focused embedded initialRequest={{ first_lesson_date: '2026-11-10', mode: 'new_student', payment_method: 'manual', slots: [{ weekday: 'Tue' }], materials_fee: 100, trial_deduction: false, mandate_ready: false }}
       intake={{ slots: [{ tutor_id: 9 }] }} defaultMaterialsFee={100} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [], sourceFingerprint: 'source' }} />);
     await calculate();
-    fireEvent.change(screen.getByLabelText('Materials'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
     await calculate();
+    expect(screen.queryByLabelText('Reason for materials adjustment')).not.toBeInTheDocument();
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ materials_fee: 0 }), intake: { slots: [{ tutor_id: 9 }], materials_override_reason: null } }) }));
+  });
+
+  it('keeps fee choices when the staff member changes the schedule on the previous step', async () => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-11-10', mode: 'new_student', payment_method: 'manual',
+      slots: [{ weekday: 'Tue', time_slot: '16:45 - 18:15', location: 'MSA' }], materials_fee: 100, trial_deduction: true, mandate_ready: false };
+    const props = { focused: true, embedded: true, initialRequest: initial, intake: { slots: [{ tutor_id: 9 }] }, standardMaterialsFee: 100,
+      sourceKey: 'same-student', intakeScheduleKey: 'original-schedule', draftContext: { studentId: 4, basis: 'include_pending' as const, selectedEnrollmentIds: [], sourceFingerprint: 'same-student' } };
+    const view = renderBase(<BillingPreview {...props} />);
+    await calculate();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Discount' }), { target: { value: 'none' } });
+    await calculate();
+    view.rerender(<BillingPreview {...props} intakeScheduleKey="changed-schedule" intake={{ slots: [{ tutor_id: 12 }] }}
+      initialRequest={{ ...initial, first_lesson_date: '2026-11-17', slots: [{ weekday: 'Tue', time_slot: '19:00 - 20:30', location: 'MSB' }] }} />);
     expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Reason for materials adjustment'), { target: { value: 'Materials waived for this intake.' } });
     await calculate();
-    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({ scenario: expect.objectContaining({ materials_fee: 0 }), intake: { slots: [{ tutor_id: 9 }], materials_override_reason: 'Materials waived for this intake.' } }) }));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({
+      scenario: expect.objectContaining({ first_lesson_date: '2026-11-17', materials_fee: 0, trial_deduction: false,
+        slots: [expect.objectContaining({ time_slot: '19:00 - 20:30', location: 'MSB' })] }),
+      intake: expect.objectContaining({ slots: [{ tutor_id: 12 }] }),
+    }) }));
+    expect(screen.getByRole('checkbox', { name: /Charge materials fee/ })).not.toBeChecked();
+    expect(screen.getByRole('combobox', { name: 'Discount' })).toHaveValue('none');
+  });
+
+  it('updates untouched materials and returning mode when verified source history changes', async () => {
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-11-10', mode: 'new_student', payment_method: 'manual', slots: [{ weekday: 'Tue' }], materials_fee: 100, trial_deduction: false, mandate_ready: false };
+    const props = { focused: true, embedded: true, initialRequest: initial, intake: { slots: [{ tutor_id: 9 }] }, standardMaterialsFee: 100,
+      sourceKey: 'new', draftContext: { studentId: 4, basis: 'include_pending' as const, selectedEnrollmentIds: [], sourceFingerprint: 'new' } };
+    const view = renderBase(<BillingPreview {...props} />);
+    await calculate();
+    view.rerender(<BillingPreview {...props} sourceKey="configured" standardMaterialsFee={125} initialRequest={{ ...initial, materials_fee: 125 }} />);
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ materials_fee: 125 }), expect.any(AbortSignal));
+    view.rerender(<BillingPreview {...props} sourceKey="returning" initialRequest={{ ...initial, mode: 'returning_student', materials_fee: 0 }} />);
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'returning_student', materials_fee: 0 }), expect.any(AbortSignal));
+    expect(screen.getByRole('checkbox', { name: /Charge materials fee/ })).not.toBeChecked();
+  });
+
+  it('uses the configured materials amount and blocks a stale arbitrary amount until corrected', async () => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    renderBase(<BillingPreview focused embedded standardMaterialsFee={125} defaultMaterialsFee={100}
+      initialRequest={{ first_lesson_date: '2026-11-10', mode: 'new_student', payment_method: 'manual', slots: [{ weekday: 'Tue' }], materials_fee: 100, trial_deduction: false, mandate_ready: false }}
+      intake={{ slots: [{ tutor_id: 9 }] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [], sourceFingerprint: 'source' }} />);
+    await calculate();
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(mocks.review).not.toHaveBeenCalled();
+    expect(screen.getAllByText('Choose whether to charge the materials fee.').length).toBeGreaterThan(0);
+    const charge = screen.getByRole('checkbox', { name: /Charge materials fee.*125/ });
+    fireEvent.click(charge);
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ materials_fee: 0 }), expect.any(AbortSignal));
+    fireEvent.click(charge);
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ materials_fee: 125 }), expect.any(AbortSignal));
+    expect(screen.queryByRole('spinbutton', { name: /Materials/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reason for materials adjustment')).not.toBeInTheDocument();
+  });
+
+  it('lets a returning student explicitly include January for an eligible coupon', async () => {
+    mocks.coupons = { ...mocks.coupons!, observation: { id: 'obs', remaining_count: 1, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
+      checked_at: '2026-11-01', usable_count: 1, groups: [{ key: 'ordinary', kind: 'ordinary', value: 200, expires_on: '2027-06-30', quantity: 1, usable_count: 1 }] };
+    mocks.preview.mockImplementation(async (scenario: BillingPreviewRequest) => {
+      const data = response(); const combined = !!scenario.coupon?.combine_next_month && !!scenario.coupon.allow_transition_combination;
+      data.periods[0] = { ...data.periods[0], kind: 'transition', lesson_count: combined ? 8 : 3, coverage_through: combined ? '2027-01-31' : '2026-12-31' };
+      data.coupon_options = scenario.coupon ? [{ period_number: 1, applied: combined, reason: combined ? null : 'min_sessions', minimum_sessions: 4,
+        can_include_next_month: !combined, include_next_month_reason: combined ? 'already_eligible' : null, include_next_month: '2027-01-01', next_month_included: combined }] : [];
+      return data;
+    });
+    renderBase(<BillingPreview focused embedded standardMaterialsFee={100} defaultMaterialsFee={0}
+      initialRequest={{ first_lesson_date: '2026-12-05', mode: 'returning_student', payment_method: 'autopay', slots: [{ weekday: 'Sat' }], materials_fee: 0, trial_deduction: false, mandate_ready: true }}
+      intake={{ slots: [{ tutor_id: 9 }] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [], sourceFingerprint: 'source' }} />);
+    await calculate();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Discount' }), { target: { value: 'coupon' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Coupon' }), { target: { value: 'ordinary' } });
+    await calculate();
+    const include = screen.getByRole('checkbox', { name: 'Include January' });
+    expect(include).toBeEnabled(); fireEvent.click(include); await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'returning_student', payment_method: 'autopay', coupon: expect.objectContaining({ combine_next_month: true, allow_transition_combination: true }) }), expect.any(AbortSignal));
+    expect(include).toBeChecked();
+  });
+
+  it('keeps a returning student trial deduction with zero materials and calendar coverage', async () => {
+    renderBase(<BillingPreview focused embedded standardMaterialsFee={100} defaultMaterialsFee={0}
+      initialRequest={{ first_lesson_date: '2026-12-05', mode: 'returning_student', payment_method: 'autopay', slots: [{ weekday: 'Sat' }], materials_fee: 0, trial_deduction: true, mandate_ready: true }}
+      intake={{ trial_enrollment_id: 70, trial_session_id: 71, slots: [{ tutor_id: 9 }] }} draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [], sourceFingerprint: 'source' }} />);
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'returning_student', materials_fee: 0, trial_deduction: true, payment_method: 'autopay' }), expect.any(AbortSignal));
+    expect(screen.getByRole('combobox', { name: 'Discount' })).toHaveValue('trial');
+    expect(screen.getByRole('checkbox', { name: /Charge materials fee/ })).not.toBeChecked();
   });
 
   it('focuses one exact reviewed period and keeps editing inside the renewal pane', async () => {
@@ -549,7 +638,8 @@ describe('enrollment fee preview', () => {
     expect(within(dialog).getByText('2 coupons')).toBeVisible();
     expect(within(dialog).getByText('Check KMS before use.')).toBeVisible();
     fireEvent.change(screen.getByLabelText('First regular lesson'), { target: { value: '2026-11-10' } });
-    fireEvent.change(screen.getByLabelText('Materials charge'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
     await waitFor(() => expect(screen.getByLabelText('Payment journey')).toBeInTheDocument());
     fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -558,7 +648,7 @@ describe('enrollment fee preview', () => {
     expect(screen.queryByText('Payment settings')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Edit preview' }));
     expect(screen.getByLabelText('First regular lesson')).toHaveValue('2026-11-10');
-    expect(screen.getByLabelText('Materials charge')).toHaveValue(0);
+    expect(screen.getByRole('checkbox', { name: /Charge materials fee/ })).not.toBeChecked();
     expect(screen.queryByText('Checked in KMS')).not.toBeInTheDocument();
   });
 
@@ -605,24 +695,22 @@ describe('enrollment fee preview', () => {
     expect(within(screen.getByLabelText('Selected payment details')).getByText('$1,900')).toBeInTheDocument();
   });
 
-  it('requires a materials amount when source changes reveal a first enrollment', async () => {
+  it('requires a materials choice when a refreshed source has an unknown fee', async () => {
     const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const,
       materials_fee: 0, trial_deduction: false, mandate_ready: false, slots: [{ weekday: 'Tue' as const }] };
     const view = render(<BillingPreview embedded initialRequest={initial} sourceKey="existing" />);
     await calculate();
-    const unknown = response(); unknown.periods[0].materials_fee = null; unknown.periods[0].total_fee = null;
-    mocks.preview.mockResolvedValue(unknown);
+    mocks.preview.mockClear();
     const first = { ...initial, mode: 'new_student' as const, materials_fee: null };
     view.rerender(<BillingPreview embedded initialRequest={first} sourceKey="first-enrollment" />);
-    expect(screen.getByLabelText('Materials charge')).toHaveValue(null);
     await calculate();
     expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'new_student', materials_fee: null }), expect.any(AbortSignal));
-    expect(screen.getAllByText('Total to confirm').length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByLabelText('Materials charge'), { target: { value: '200' } });
+    expect(screen.getAllByText('Choose whether to charge the materials fee.').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
     view.rerender(<BillingPreview embedded initialRequest={{ ...first, first_lesson_date: '2026-11-17' }} sourceKey="updated-first-enrollment" />);
-    expect(screen.getByLabelText('Materials charge')).toHaveValue(200);
+    expect(screen.getByRole('checkbox', { name: /Charge materials fee/ })).toBeChecked();
     await calculate();
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ materials_fee: 200 }), expect.any(AbortSignal));
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ materials_fee: 100 }), expect.any(AbortSignal));
   });
 
   it('invalidates coupon verification when a newer import changes the available evidence', async () => {
@@ -744,7 +832,8 @@ describe('enrollment fee preview', () => {
     render(<BillingPreview />);
     expect(mocks.preview).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('First regular lesson'), { target: { value: '2026-11-10' } });
-    fireEvent.change(screen.getByLabelText('Materials charge'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
     fireEvent.change(screen.getByLabelText('Discount'), { target: { value: 'trial' } });
     await calculate();
     expect(mocks.preview.mock.calls[0][0]).toMatchObject({
@@ -760,7 +849,7 @@ describe('enrollment fee preview', () => {
   it('hides a stale result as soon as its inputs change', async () => {
     render(<BillingPreview />);
     fireEvent.change(screen.getByLabelText('First regular lesson'), { target: { value: '2026-11-10' } });
-    fireEvent.change(screen.getByLabelText('Materials charge'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
     await calculate();
     expect(within(screen.getByLabelText('Selected payment details')).getByText('$2,250')).toBeInTheDocument();
     mocks.preview.mockReturnValue(new Promise(() => {}));

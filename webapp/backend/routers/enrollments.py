@@ -1741,6 +1741,7 @@ def get_my_students(
 def get_trials(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (for tutor-specific view)"),
+    student_id: Optional[int] = Query(None, ge=1, description="Filter by student ID"),
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1768,6 +1769,9 @@ def get_trials(
             Enrollment.payment_status != 'Cancelled'
         )
     )
+
+    if student_id is not None:
+        query = query.filter(Enrollment.student_id == student_id)
 
     if location:
         query = query.filter(Enrollment.location == location)

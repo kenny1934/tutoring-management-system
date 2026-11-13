@@ -680,8 +680,8 @@ export const enrollmentsAPI = {
     return fetchAPI<RenewalCountsResponse>(`/enrollments/renewal-counts${buildLocationQuery({}, location)}`);
   },
 
-  getTrials: (params?: { location?: string; tutor_id?: number }) => {
-    return fetchAPI<TrialListItem[]>(`/enrollments/trials${buildLocationQuery({}, params?.location, params?.tutor_id)}`);
+  getTrials: (params?: { location?: string; tutor_id?: number; student_id?: number }) => {
+    return fetchAPI<TrialListItem[]>(`/enrollments/trials${buildLocationQuery({ student_id: params?.student_id }, params?.location, params?.tutor_id)}`);
   },
 
   getDetail: (id: number) => {

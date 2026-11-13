@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, type MouseEvent } from "react";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { QUICK_LINK, QUICK_LINK_BADGE, QUICK_LINK_CHEVRON } from "./quick-link-style";
 import { formatDateCompact } from "@/lib/formatters";
+import { useSession } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
@@ -27,7 +30,6 @@ import {
   Loader2,
   Phone,
   ArrowRight,
-  ExternalLink,
 } from "lucide-react";
 import {
   useFloating,
@@ -48,125 +50,52 @@ interface TrialsQuickLinkProps {
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
 
-// Compact trial card for scheduled trials - links to session detail
-function ScheduledTrialCard({
-  trial,
-  onClose,
-}: {
-  trial: TrialListItem;
-  onClose: () => void;
-}) {
+type OpenTrialSession = (trial: TrialListItem, event: MouseEvent<HTMLButtonElement>) => void;
+
+function TrialSummary({ trial, onOpenSession }: { trial: TrialListItem; onOpenSession: OpenTrialSession }) {
   const sessionDate = new Date(trial.session_date + 'T00:00:00');
   const isToday = new Date().toDateString() === sessionDate.toDateString();
+  const isPast = trial.trial_status !== 'scheduled' && sessionDate < new Date() && !isToday;
+  return <>
+    <div className="mb-1"><StudentInfoBadges nameHref={`/students/${trial.student_id}`} student={{
+      student_id: trial.student_id, student_name: trial.student_name, school_student_id: trial.school_student_id,
+      grade: trial.grade, lang_stream: trial.lang_stream, school: trial.school, home_location: trial.location,
+    }} /></div>
+    <button type="button" onClick={event => onOpenSession(trial, event)} aria-label={`View trial session for ${trial.student_name}`}
+      className="flex min-h-8 w-full flex-wrap items-center gap-x-1.5 text-left text-xs text-ink-subtle hover:text-accent-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
+      <Calendar className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <span className={cn(isToday && "text-blue-600 dark:text-blue-400 font-medium", isPast && "text-red-600 dark:text-red-400")}>
+        {formatDateCompact(trial.session_date)}{isToday && " (Today)"}
+      </span><span>{trial.time_slot}</span>
+    </button>
+    <div className="flex items-center gap-1.5 text-xs text-ink-subtle mt-0.5">
+      <User className="h-3 w-3 shrink-0" aria-hidden="true" /><TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} />
+      <MapPin className="ml-1 h-3 w-3 shrink-0" aria-hidden="true" /><span>{trial.location}</span>
+    </div>
+  </>;
+}
 
-  return (
-    <Link
-      href={`/sessions/${trial.session_id}`}
-      onClick={onClose}
-      className="block px-3 py-2.5 hover:bg-paper dark:hover:bg-paper transition-colors border-b border-line/50 last:border-b-0"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          {/* Student info */}
-          <div className="mb-1">
-            <StudentInfoBadges
-              student={{
-                student_id: trial.student_id,
-                student_name: trial.student_name,
-                school_student_id: trial.school_student_id,
-                grade: trial.grade,
-                lang_stream: trial.lang_stream,
-                school: trial.school,
-                home_location: trial.location,
-              }}
-            />
-          </div>
-
-          {/* Session details */}
-          <div className="flex items-center gap-1.5 text-xs text-foreground/60">
-            <Calendar className="h-3 w-3 flex-shrink-0" />
-            <span
-              className={cn(
-                isToday && "text-blue-600 dark:text-blue-400 font-medium"
-              )}
-            >
-              {formatDateCompact(trial.session_date)}
-              {isToday && " (Today)"}
-            </span>
-            <span className="text-foreground/30">•</span>
-            <span>{trial.time_slot}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-xs text-foreground/60 mt-0.5">
-            <User className="h-3 w-3 flex-shrink-0" />
-            <TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} />
-            <span className="text-foreground/30">•</span>
-            <MapPin className="h-3 w-3 flex-shrink-0" />
-            <span>{trial.location}</span>
-          </div>
-        </div>
-        <ExternalLink className="h-3.5 w-3.5 text-foreground/40 flex-shrink-0 mt-0.5" />
-      </div>
-    </Link>
-  );
+function ScheduledTrialCard({ trial, onOpenSession }: { trial: TrialListItem; onOpenSession: OpenTrialSession }) {
+  return <div className="px-3 py-2.5 border-b border-line/50 last:border-b-0"><TrialSummary trial={trial} onOpenSession={onOpenSession} /></div>;
 }
 
 // Compact trial card for awaiting conversion - with action buttons
 function AwaitingTrialCard({
   trial,
   onRecordContact,
+  onOpenSession,
   onConvert,
   isAdmin,
 }: {
   trial: TrialListItem;
+  onOpenSession: OpenTrialSession;
   onRecordContact: (studentId: number) => void;
   onConvert: (trial: TrialListItem) => void;
   isAdmin: boolean;
 }) {
-  const sessionDate = new Date(trial.session_date + 'T00:00:00');
-  const isToday = new Date().toDateString() === sessionDate.toDateString();
-  const isPast = sessionDate < new Date() && !isToday;
-
   return (
     <div className="px-3 py-2.5 border-b border-line/50 last:border-b-0">
-      {/* Student info */}
-      <div className="mb-1">
-        <StudentInfoBadges
-          student={{
-            student_id: trial.student_id,
-            student_name: trial.student_name,
-            school_student_id: trial.school_student_id,
-            grade: trial.grade,
-            lang_stream: trial.lang_stream,
-            school: trial.school,
-            home_location: trial.location,
-          }}
-        />
-      </div>
-
-      {/* Session details */}
-      <div className="flex items-center gap-1.5 text-xs text-foreground/60">
-        <Calendar className="h-3 w-3 flex-shrink-0" />
-        <span
-          className={cn(
-            isToday && "text-blue-600 dark:text-blue-400 font-medium",
-            isPast && "text-red-600 dark:text-red-400"
-          )}
-        >
-          {formatDateCompact(trial.session_date)}
-          {isToday && " (Today)"}
-        </span>
-        <span className="text-foreground/30">•</span>
-        <span>{trial.time_slot}</span>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-xs text-foreground/60 mt-0.5">
-        <User className="h-3 w-3 flex-shrink-0" />
-        <TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} />
-        <span className="text-foreground/30">•</span>
-        <MapPin className="h-3 w-3 flex-shrink-0" />
-        <span>{trial.location}</span>
-      </div>
+      <TrialSummary trial={trial} onOpenSession={onOpenSession} />
 
       {/* Action buttons */}
       <div className="flex gap-2 mt-2">
@@ -199,6 +128,20 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { selectedLocation } = useLocation();
   const { isAdmin, effectiveRole } = useAuth();
+  const { showError } = useToast();
+  const [sessionSelection, setSessionSelection] = useState<{ id: number; position: { x: number; y: number } } | null>(null);
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useSession(sessionSelection?.id);
+  useEffect(() => {
+    if (!sessionSelection || !sessionError) return;
+    setSessionSelection(null);
+    showError('Could not load the trial session. Please try again.');
+  }, [sessionSelection, sessionError, showError]);
+  const handleOpenSession: OpenTrialSession = (trial, event) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setSessionSelection({ id: trial.session_id, position: event.detail === 0
+      ? { x: bounds.left, y: bounds.bottom } : { x: event.clientX, y: event.clientY } });
+    setIsOpen(false);
+  };
 
   // Modal state
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -373,7 +316,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
                           <ScheduledTrialCard
                             key={trial.enrollment_id}
                             trial={trial}
-                            onClose={handleClose}
+                            onOpenSession={handleOpenSession}
                           />
                         ))}
                         {scheduledTrials.length > 5 && (
@@ -394,6 +337,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
                           <AwaitingTrialCard
                             key={trial.enrollment_id}
                             trial={trial}
+                            onOpenSession={handleOpenSession}
                             onRecordContact={handleRecordContact}
                             onConvert={handleConvert}
                             isAdmin={isAdmin}
@@ -422,6 +366,11 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
           </FloatingPortal>
         )}
       </div>
+
+      {sessionSelection && <SessionDetailPopover session={session?.id === sessionSelection.id ? session : null}
+        isOpen isLoading={sessionLoading} clickPosition={sessionSelection.position}
+        onClose={() => { setSessionSelection(null); const trigger = refs.domReference.current; if (trigger instanceof HTMLElement) trigger.focus(); }}
+        onNavigate={() => setSessionSelection(null)} />}
 
       {/* Record Contact Modal */}
       <RecordContactModal

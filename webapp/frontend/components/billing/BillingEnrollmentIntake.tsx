@@ -37,7 +37,7 @@ export interface BillingEnrollmentIntakeProps {
 export function BillingEnrollmentIntake(props: BillingEnrollmentIntakeProps) {
   const auth = useAuth();
   const scope = JSON.stringify([props.studentId, props.trialEnrollmentId, props.trialSessionId, props.initialDraftId,
-    props.initialContext?.data.source_fingerprint, props.initialFirstLessonDate, props.initialSlots, props.initialIntakeSlots, billingDraftAuthScope(auth)]);
+    props.initialContext?.data.source_fingerprint, billingDraftAuthScope(auth)]);
   return <IntakeContent key={scope} {...props} scope={scope} />;
 }
 
@@ -72,6 +72,11 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
   const [formBusy, setFormBusy] = useState(false);
   const busy = settingsBusy || formBusy;
   useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
+  useEffect(() => {
+    const refresh = () => setRetry(value => value + 1);
+    window.addEventListener('billing-settings-updated', refresh);
+    return () => window.removeEventListener('billing-settings-updated', refresh);
+  }, []);
 
   useEffect(() => {
     if (!enabled || preparedKey.current === contextKey) return;
@@ -102,9 +107,9 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
   const mappings = initialIntakeSlots ?? (trial ? [{ tutor_id: trial.tutor_id, renewed_from_enrollment_id: trial.enrollment_id }] : []);
   const intake: BillingIntakeRequest = revision?.review.intake ?? { trial_enrollment_id: trial?.enrollment_id ?? null,
     trial_session_id: trial?.session_id ?? null, slots: mappings };
-  const scenario: BillingPreviewRequest = revision ? { ...revision.review.scenario, payment_method: plan,
+  const scenario: BillingPreviewRequest = revision ? { ...revision.review.scenario, mode: context.is_new_student ? 'new_student' : 'returning_student', payment_method: plan,
     coupon: revision.review.scenario.coupon ? { ...revision.review.scenario.coupon, verified: false } : null } : {
-    first_lesson_date: firstDate, slots, mode: 'new_student', payment_method: plan, materials_fee: context.materials_fee,
+    first_lesson_date: firstDate, slots, mode: context.is_new_student ? 'new_student' : 'returning_student', payment_method: plan, materials_fee: context.materials_fee,
     trial_deduction: !!trial, mandate_ready: !!context.mandate_ready,
   };
   const canPreview = !!scenario.first_lesson_date && scenario.slots.length > 0 && intake.slots.length === scenario.slots.length;
@@ -132,9 +137,9 @@ function IntakeContent({ studentId, trialEnrollmentId, trialSessionId, initialFi
       {action.kind === 'preview' && <>
         {!canPreview ? <><p className="text-sm">Choose the actual first lesson and weekly classes in the enrollment form.</p><BillingChecks issues={context.issues} /></> : <BillingPreview key={generation} embedded focused initialRequest={scenario}
           renewalCreator={creator.current} onEnrollmentCreated={created}
-          sourceKey={context.source_fingerprint} contextIssues={context.issues} couponSnapshot={context.coupon_snapshot}
+          sourceKey={context.source_fingerprint} intakeScheduleKey={JSON.stringify([initialFirstLessonDate, initialSlots, initialIntakeSlots])} contextIssues={context.issues} couponSnapshot={context.coupon_snapshot}
           sourceLoading={loading || (contextPending && !failure)} sourceError={failure ?? undefined} onRetrySource={() => setRetry(value => value + 1)}
-          intake={intake} intakeTutors={tutors} defaultMaterialsFee={context.materials_fee} materialsBasis={context.materials_basis}
+          intake={intake} intakeTutors={tutors} defaultMaterialsFee={context.materials_fee} standardMaterialsFee={context.standard_materials_fee} materialsBasis={context.materials_basis}
           draftContext={{ studentId, basis: 'include_pending', selectedEnrollmentIds: [], sourceFingerprint: context.source_fingerprint }}
           revisionTarget={revision ? { id: revision.id, current_revision: revision.current_revision } : undefined}
           onCancelRevision={() => { setRevision(null); setGeneration(value => value + 1); }}

@@ -27,7 +27,7 @@ def intake_draft(client, *, trial=False, key='intake-queue', tutor=1):
     assert response.status_code == 200, response.text
     context = response.json()
     review = {
-        'scenario': {'mode': 'new_student', 'payment_method': 'manual', 'first_lesson_date': '2026-11-03',
+        'scenario': {'mode': 'new_student' if context['is_new_student'] else 'returning_student', 'payment_method': 'manual', 'first_lesson_date': '2026-11-03',
                      'slots': [{'weekday': 'Tue', 'time_slot': '16:00 - 17:30', 'location': 'MSA'}],
                      'materials_fee': context['materials_fee'], 'trial_deduction': trial},
         'intake': {**params, 'slots': [{'tutor_id': tutor}]},

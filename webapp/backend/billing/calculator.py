@@ -60,10 +60,13 @@ def preview_billing(
     *,
     policy: BillingPolicy = BillingPolicy(),
     allow_adjustment: bool = False,
+    onboarding_as_of: date | None = None,
 ) -> BillingPreviewResponse:
+    if request.mode == 'returning_student' and onboarding_as_of is None:
+        raise ValueError('A returning enrollment needs the server onboarding date.')
     if not policy.academic_start <= request.first_lesson_date <= policy.regular_end:
         raise ValueError('Choose a first lesson within this teaching year.')
-    if request.mode == 'new_student' and request.first_lesson_date < policy.transition_from:
+    if request.mode in {'new_student', 'returning_student'} and request.first_lesson_date < policy.transition_from:
         raise ValueError('The new scheme does not apply to this start date. Use the old six-session renewal.')
     if DAYS[request.first_lesson_date.weekday()] not in {s.weekday for s in request.slots}:
         raise ValueError('Choose a first lesson date that matches a selected weekday.')
@@ -86,7 +89,7 @@ def preview_billing(
     def review(code: str, message: str, number: int | None = None):
         issues.append(PreviewIssue(code=code, message=message, period=number))
 
-    if request.materials_fee is None and request.mode == 'new_student':
+    if request.materials_fee is None and request.mode in {'new_student', 'returning_student'}:
         review('MATERIALS_UNCONFIRMED', 'Enter the materials fee, or 0 if waived, to show the total.', 1)
     if request.mode == 'new_student' and request.coupon:
         review('TRIAL_COUPON_CHOICE', 'This preview uses a coupon, so the $150 trial deduction is not applied. Check separately whether it can be used later.')
@@ -160,6 +163,42 @@ def preview_billing(
                       else (e.date.year, e.date.month) for e in lessons}
             return len(months) >= 2
 
+        if request.mode == 'returning_student' and number == 1 and request.payment_method == 'autopay':
+            previous = policy.pilot_from.replace(day=1) if transition else previous_month(covered[0].date)
+            notice_deadline = previous.replace(day=18)
+            debit_from, debit_to = previous.replace(day=20), previous.replace(day=22)
+            manual_reason = ('Bank authorisation is not ready.' if not request.mandate_ready
+                             else 'The first lesson starts before the debit run finishes.' if debit_to >= covered[0].date
+                             else 'The first bank run is before the Autopay pilot.' if debit_from < policy.pilot_from
+                             else 'The notice deadline has passed.' if onboarding_as_of > notice_deadline
+                             else 'The bank run has already started.' if onboarding_as_of > debit_from
+                             else None)
+            if manual or manual_reason:
+                manual = True
+                extra_months = []
+                # A late-month return must not leave the next month's debit in
+                # the past or before this first manual payment is due. This is
+                # calendar coverage, without the new-student six-session floor.
+                while kind != 'legacy' and boundary < policy.regular_end:
+                    later = [event for event in remaining if event.date > boundary]
+                    if not later:
+                        break
+                    next_first = later[0].date
+                    next_run = previous_month(next_first)
+                    ready_on = max(onboarding_as_of, covered[0].date)
+                    if (next_run.replace(day=18) >= ready_on
+                            and next_run.replace(day=20) >= policy.pilot_from
+                            and next_run.replace(day=22) < next_first):
+                        break
+                    boundary = period_end(next_month(boundary), 1, policy)
+                    covered = [event for event in remaining if event.date <= boundary]
+                    extra_months.append(boundary.strftime('%B'))
+                manual_reason = manual_reason or 'This first payment is collected manually during the transition.'
+                if extra_months:
+                    manual_reason += ' It also includes ' + ', '.join(extra_months) + ' before the next available bank collection.'
+                    explanation += ' The first manual payment includes the months before the next available bank collection.'
+                review('RETURNING_FIRST_MANUAL', manual_reason, number)
+
         method = 'manual' if manual else request.payment_method
         payment_latest = (previous_month(covered[0].date).replace(day=22)
                           if method == 'autopay' else covered[0].date)
@@ -224,8 +263,9 @@ def preview_billing(
                 explanation += ' The next month is included for the coupon option selected.'
 
         deductions = []
+        returning_first = request.mode == 'returning_student' and number == 1
         short_trial = first and request.trial_deduction and len(covered) < policy.first_minimum
-        if first and request.trial_deduction and not short_trial:
+        if (first or returning_first) and request.trial_deduction and not short_trial:
             deductions.append(PreviewDeduction(kind='trial', amount=150))
         if coupon and not coupon_used:
             eligible = qualifies(covered)
@@ -264,7 +304,7 @@ def preview_billing(
             window = (collection.debit_from, collection.debit_to)
             if collection.debit_to >= covered[0].date:
                 review('COLLECTION_BEFORE_LESSON', 'The debit window ends on or after the first lesson. Arrange earlier manual payment if needed.', number)
-        if kind not in ('first', 'legacy', 'adjusted_manual'):
+        if kind not in ('first', 'legacy', 'adjusted_manual') and not (returning_first and method == 'manual'):
             previous = policy.pilot_from.replace(day=1) if transition else previous_month(covered[0].date)
             collection.notice_from = previous.replace(day=12)
             collection.notice_to = previous.replace(day=18)
@@ -280,7 +320,7 @@ def preview_billing(
         discount = sum(d.amount for d in deductions)
         if discount > gross:
             raise ValueError('The discount is larger than this payment’s tuition. Check the discount amount.')
-        materials = request.materials_fee if number == 1 and request.mode == 'new_student' else 0
+        materials = request.materials_fee if number == 1 and request.mode in {'new_student', 'returning_student'} else 0
         periods.append(BillingPreviewPeriod(
             number=number, kind=kind, explanation=explanation, coverage_from=covered[0].date,
             coverage_through=boundary, first_lesson_date=covered[0].date, last_lesson_date=covered[-1].date,
@@ -309,7 +349,8 @@ def preview_billing(
         while sum(e.date <= boundary for e in remaining) < policy.first_minimum and boundary < policy.regular_end:
             boundary = period_end(next_month(boundary), 1, policy)
         take(boundary, 'first', 'The first payment is manual. It normally covers at least six sessions through month-end.', manual=True, first=True)
-    elif remaining and request.mode == 'transition':
+    elif remaining and (request.mode == 'transition' or (request.mode == 'returning_student'
+                                                       and remaining[0].date <= policy.transition_end)):
         while remaining and remaining[0].date < policy.transition_from:
             legacy = []
             for slot in range(len(request.slots)):
@@ -353,6 +394,9 @@ def preview_billing(
             target_month = {(e.date, e.slot) for e in events
                             if e.date.year == current.year and e.date.month == current.month}
             after_joining = request.mode != 'new_student' or p.number != 1 or run_end >= request.first_lesson_date
+            if request.mode == 'returning_student' and p.number == 1:
+                committed_on = p.collection.debit_to if p.collection.method == 'autopay' else p.first_lesson_date
+                after_joining = run_end >= max(onboarding_as_of, committed_on)
             if target_month and target_month <= identities and after_joining and run_end >= policy.pilot_from:
                 skipped.append(SkippedCollection(month=month, covered_by_period=p.number,
                                                   reason=f'{current:%B %Y} is already included in payment {p.number}.'))

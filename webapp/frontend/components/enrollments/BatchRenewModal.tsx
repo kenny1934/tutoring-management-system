@@ -369,7 +369,7 @@ export function BatchRenewModal({
                           initial="initial"
                           animate="animate"
                           exit="exit"
-                          className="flex items-start gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-sm"
+                          className="flex items-start gap-2 px-3 py-2 rounded-lg bg-wash text-sm"
                         >
                           {/* Override checkbox for overridable items */}
                           {item.overridable && (
@@ -378,7 +378,7 @@ export function BatchRenewModal({
                               checked={overriddenIds.has(item.enrollment_id)}
                               onChange={() => handleToggleOverride(item.enrollment_id)}
                               whileTap={{ scale: 0.9 }}
-                              className="mt-1 h-4 w-4 rounded border-gray-300 text-accent-ink focus:ring-primary cursor-pointer transition-transform"
+                              className="mt-1 h-4 w-4 rounded border-field text-accent-ink focus:ring-primary cursor-pointer transition-transform"
                               title="Override and include in renewal"
                             />
                           )}
@@ -513,7 +513,7 @@ export function BatchRenewModal({
             {finalEligible.length > 0 && (
               <motion.div
                 layout
-                className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pt-2 border-t border-gray-200 dark:border-gray-700"
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pt-2 border-t border-line"
               >
                 <label htmlFor="batch-renew-lessons" className="text-sm text-foreground/70">
                   Lessons per renewal:
@@ -630,7 +630,7 @@ export function BatchRenewModal({
 
       {/* Footer */}
       {(step === "results" || step === "done") && (
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-t border-line bg-wash">
           {step === "results" && (
             <>
               <Button onClick={handleClose}>

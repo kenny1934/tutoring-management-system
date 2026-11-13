@@ -190,7 +190,7 @@ export function Modal({
         </h2>
         <button
           onClick={onClose}
-          className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center justify-center"
+          className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 rounded-md hover:bg-wash transition-colors flex items-center justify-center"
           aria-label="Close modal"
         >
           <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
@@ -203,7 +203,7 @@ export function Modal({
 
       {/* Footer */}
       {footer && (
-        <div className={cn("flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-wash overflow-hidden", asSheet ? "pb-[calc(0.5rem+env(safe-area-inset-bottom))]" : "rounded-b-lg")}>
+        <div className={cn("flex shrink-0 items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-line bg-wash overflow-hidden", asSheet ? "pb-[calc(0.5rem+env(safe-area-inset-bottom))]" : "rounded-b-lg")}>
           <div className="w-full">{footer}</div>
         </div>
       )}

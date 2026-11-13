@@ -272,7 +272,7 @@ export function FileSearchModal({
 
           {/* Progress indicator */}
           {batchSearchingCount > 0 && (
-            <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-line">
               <Loader2 className="h-5 w-5 text-amber-700 animate-spin shrink-0" />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 Searching... ({batchTotalCount - batchSearchingCount}/{batchTotalCount} complete)
@@ -316,18 +316,18 @@ export function FileSearchModal({
             <p className="font-medium mb-1">Why search?</p>
             <p className="text-blue-600 dark:text-blue-400 text-xs">
               Browsers cannot access file paths from dropped files for security reasons.
-              We're searching for "<span className="font-mono">{filename}</span>" in Shelv.
+              We&apos;re searching for &quot;<span className="font-mono">{filename}</span>&quot; in Shelv.
             </p>
           </div>
         </div>
 
         {/* Local folders toggle */}
-        <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+        <label className="flex items-center gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-wash transition-colors">
           <input
             type="checkbox"
             checked={searchLocalFolders}
             onChange={(e) => handleLocalToggle(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
+            className="w-4 h-4 rounded border-field text-amber-700 focus:ring-amber-500"
           />
           <div className="flex-1">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -344,7 +344,7 @@ export function FileSearchModal({
 
         {/* Search progress */}
         {isSearching && progress && progress.phase !== "done" && (
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-line">
             <Loader2 className="h-5 w-5 text-amber-700 animate-spin shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -429,7 +429,7 @@ export function FileSearchModal({
         )}
 
         {/* Help text */}
-        <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-line">
           Click a result to use that file path.
         </div>
       </div>
@@ -454,10 +454,10 @@ function ResultRow({
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-all text-left",
-        "bg-white dark:bg-gray-800",
+        "bg-raised-2",
         isSelected
           ? "border-green-400 dark:border-green-500 bg-green-50 dark:bg-green-900/20"
-          : "border-gray-200 dark:border-gray-700",
+          : "border-line",
         "hover:border-amber-400 dark:hover:border-amber-500",
         "hover:bg-amber-50 dark:hover:bg-amber-900/20",
         "focus:outline-none focus:ring-2 focus:ring-amber-400"
@@ -513,7 +513,7 @@ function BatchFileRow({
         ? "border-red-200 dark:border-red-800"
         : state.selectedPath
         ? "border-green-200 dark:border-green-800"
-        : "border-gray-200 dark:border-gray-700"
+        : "border-line"
     )}>
       {/* Header - filename being searched */}
       <div
@@ -523,7 +523,7 @@ function BatchFileRow({
             ? "bg-red-50 dark:bg-red-900/20"
             : state.selectedPath
             ? "bg-green-50 dark:bg-green-900/10"
-            : "bg-gray-50 dark:bg-gray-800/50"
+            : "bg-wash"
         )}
       >
         {/* Status indicator */}
@@ -557,7 +557,7 @@ function BatchFileRow({
         {!state.isSearching && !state.error && hasMultipleResults && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="text-xs px-2 py-1 rounded border border-field hover:bg-wash transition-colors"
           >
             {isExpanded ? "Hide" : `${sortedResults.length} results`}
           </button>
@@ -566,7 +566,7 @@ function BatchFileRow({
 
       {/* Expandable results list */}
       {isExpanded && sortedResults.length > 0 && (
-        <div className="border-t border-gray-200 dark:border-gray-700 p-2 space-y-1 max-h-40 overflow-y-auto bg-white dark:bg-gray-800">
+        <div className="border-t border-line p-2 space-y-1 max-h-40 overflow-y-auto bg-raised-2">
           {sortedResults.map((result, index) => (
             <ResultRow
               key={index}

@@ -85,7 +85,7 @@ def intake_request(client, *, trial=True, **changes):
     assert response.status_code == 200, response.text
     context = response.json()
     scenario = deepcopy(context['suggested_request']) or {}
-    scenario.update(first_lesson_date='2026-10-30', mode='new_student', payment_method='manual',
+    scenario.update(first_lesson_date='2026-10-30', mode='new_student' if context['is_new_student'] else 'returning_student', payment_method='manual',
                     slots=[{'weekday': 'Fri', 'time_slot': '16:00 - 17:30', 'location': 'MSA'}],
                     materials_fee=context['materials_fee'], trial_deduction=trial, mandate_ready=False)
     source = {'slots': [{'tutor_id': 1}]}
@@ -274,20 +274,18 @@ def test_failed_confirmation_rolls_back_every_intake_teaching_row(intake_records
     assert session.query(BillingPayment).count() == 0 and session.query(BillingPaymentLine).count() == 0
 
 
-def test_materials_override_requires_admin_reason_and_survives_reopening(intake_records):
+def test_admin_materials_checkbox_needs_no_reason_and_survives_reopening(intake_records):
     client, _, user = intake_records
     payload = intake_request(client)
     payload['scenario']['materials_fee'] = 0
-    _, missing_reason = reviewed_intake(client, payload)
-    assert missing_reason['message']['blocked_reasons']
-    payload['intake']['materials_override_reason'] = 'Materials were already supplied during the trial.'
     _, adjusted = reviewed_intake(client, payload)
     assert not adjusted['message']['blocked_reasons']
     assert adjusted['period']['materials_fee'] == 0
     _, draft = saved_intake(client, payload)
     reopened = client.get(f"/api/billing/drafts/{draft['id']}")
     assert reopened.status_code == 200, reopened.text
-    assert reopened.json()['review']['intake']['materials_override_reason'] == payload['intake']['materials_override_reason']
+    assert reopened.json()['review']['intake'].get('materials_override_reason') is None
+    assert reopened.json()['review']['period']['materials_fee'] == 0
     user.role = 'Tutor'
     response = client.post('/api/billing/students/102/draft-review', json=payload)
     assert response.status_code == 200, response.text

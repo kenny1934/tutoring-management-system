@@ -1171,14 +1171,14 @@ function LegacyRenewalsPage({ onBackToQueue, initialTaught }: { onBackToQueue?: 
           {(isLoading || renewalsLoading) ? (
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                <div key={i} className="animate-pulse rounded-lg border border-line bg-raised p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
-                      <div className="h-3 w-48 bg-gray-100 dark:bg-gray-800 rounded" />
-                      <div className="h-3 w-24 bg-gray-100 dark:bg-gray-800 rounded" />
+                      <div className="h-4 w-32 bg-tint rounded" />
+                      <div className="h-3 w-48 bg-wash rounded" />
+                      <div className="h-3 w-24 bg-wash rounded" />
                     </div>
-                    <div className="h-8 w-8 bg-gray-100 dark:bg-gray-800 rounded-full" />
+                    <div className="h-8 w-8 bg-wash rounded-full" />
                   </div>
                 </div>
               ))}

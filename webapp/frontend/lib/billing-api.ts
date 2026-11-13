@@ -1,7 +1,7 @@
 import { fetchAPI, fetchResponse } from '@/lib/api';
 import type { BillingContextBasis, BillingDraftDetail, BillingDraftReview, BillingDraftReviewRequest, BillingDraftSaveRequest, BillingDraftSummary, BillingOptions, BillingPreviewRequest, BillingPreviewResponse, BillingRosterResponse, StudentBillingContext, BillingPreferences, BillingPaymentDetail, BillingRecordPaymentRequest, BillingQueueCounts, BillingQueueResponse, BillingQueueStage } from '@/types/billing';
 import type { BillingIntakeContext, BillingAutopayResponse, BillingAutopayStage, BillingAutopayExportScope, BillingAutopayExportPreview, BillingBankRunList, BillingBankRunDetail, BillingBankResultReview } from '@/types/billing';
-import type { BillingReceiptTasks, BillingReceiptCount } from '@/types/billing';
+import type { BillingSettings, BillingReceiptTasks, BillingReceiptCount } from '@/types/billing';
 import type { BillingCouponBalance, BillingCouponVerification, BillingCouponReview, BillingCouponImport, BillingBankBranch } from '@/types/billing';
 
 function queryString(values: Record<string, string | number | boolean | number[] | undefined>) {
@@ -27,6 +27,9 @@ export const billingAPI = {
     fetchAPI<BillingReceiptTasks>(`/billing/receipts?${queryString(params)}`),
   receiptCount: (params: { location?: string; tutor_id?: number } = {}) =>
     fetchAPI<BillingReceiptCount>(`/billing/receipts/count?${queryString(params)}`),
+  settings: (signal?: AbortSignal) => fetchAPI<BillingSettings>('/billing/settings', { signal }),
+  saveSettings: (data: { materials_fee: number; expected_version: number; idempotency_key: string }, signal?: AbortSignal) =>
+    fetchAPI<BillingSettings>('/billing/settings', { method: 'PUT', body: JSON.stringify(data), signal }),
   options: () => fetchAPI<BillingOptions>('/billing/options'),
   intakeContext: (studentId: number, params: { trial_enrollment_id?: number; trial_session_id?: number; tutor_id?: number } = {}, signal?: AbortSignal) =>
     fetchAPI<BillingIntakeContext>(`/billing/students/${studentId}/intake-context?${queryString(params)}`, { signal }),

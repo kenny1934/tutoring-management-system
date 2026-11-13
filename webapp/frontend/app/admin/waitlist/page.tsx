@@ -1,5 +1,7 @@
 "use client";
 
+import { SkeletonBlock } from "@/components/layout/SkeletonBlock";
+
 import { useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
@@ -852,19 +854,15 @@ export default function AdminWaitlistPage() {
 
           {/* Table */}
           {authLoading || isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="p-4 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-                >
-                  <div className="flex gap-4">
-                    <div className="h-4 w-32 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    <div className="h-4 w-20 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    <div className="h-4 w-24 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                  </div>
-                </div>
-              ))}
+            <div role="status" aria-label="Loading waitlist" aria-busy="true" className="flex-1 min-h-0 overflow-y-auto">
+              <table aria-hidden="true" className="w-full table-fixed text-sm">
+                <thead className="bg-paper dark:bg-raised"><tr className="border-b border-line">{['', 'hidden md:table-cell', '', 'hidden sm:table-cell', 'hidden lg:table-cell', '', '', ''].map((visibility, index) =>
+                  <th key={index} className={cn('px-3 py-2', visibility)}><SkeletonBlock className="h-3 w-full max-w-20" /></th>
+                )}</tr></thead>
+                <tbody>{[0, 1, 2, 3, 4].map(row => <tr key={row} className="border-b border-line">{['', 'hidden md:table-cell', '', 'hidden sm:table-cell', 'hidden lg:table-cell', '', '', ''].map((visibility, index) =>
+                  <td key={index} className={cn('px-3 py-3', visibility)}><SkeletonBlock className="h-4 w-full max-w-24" /></td>
+                )}</tr>)}</tbody>
+              </table>
             </div>
           ) : entries && entries.length > 0 ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
