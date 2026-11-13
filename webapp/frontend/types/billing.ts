@@ -1,6 +1,6 @@
 export type BillingWeekday = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
 export type BillingMethod = 'manual' | 'autopay';
-export type BillingMode = 'new_student' | 'transition' | 'regular';
+export type BillingMode = 'new_student' | 'returning_student' | 'transition' | 'regular';
 
 export interface BillingSlot {
   weekday: BillingWeekday;
@@ -30,6 +30,13 @@ export interface BillingPreviewRequest {
   } | null;
 }
 
+export interface BillingSettings {
+  materials_fee: number;
+  version: number;
+  storage_available: boolean;
+  writes_available: boolean;
+}
+
 export interface BillingOptions {
   as_of?: string;
   test_date?: string | null;
@@ -47,6 +54,7 @@ export interface BillingOptions {
   regular_end: string;
   makeup_end: string;
   unit_fee: number;
+  standard_materials_fee?: number;
   first_minimum: number;
   ordinary_coupon_minimum: number;
   policy_version: string;
@@ -259,6 +267,7 @@ export interface BillingIntakeContext {
     session_status: string;
   };
   is_new_student: boolean;
+  standard_materials_fee?: number;
   materials_fee: number | null;
   materials_basis: string;
   suggested_request: BillingPreviewRequest | null;

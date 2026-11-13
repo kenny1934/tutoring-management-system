@@ -1,5 +1,9 @@
-import type { BillingWeekday } from '@/types/billing';
+import type { BillingMode, BillingWeekday } from '@/types/billing';
 import { formatShortDate } from '@/lib/formatters';
+
+export function isEnrollmentIntakeMode(mode: BillingMode): boolean {
+  return mode === 'new_student' || mode === 'returning_student';
+}
 
 export const BILLING_DAYS: BillingWeekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 

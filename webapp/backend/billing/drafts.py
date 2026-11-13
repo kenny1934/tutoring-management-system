@@ -29,7 +29,7 @@ INFORMATIONAL_SOURCE = {
 }
 INFORMATIONAL_CALCULATION = {
     'COVERAGE_ASSUMED', 'ADMIN_ADJUSTMENT', 'TRIAL_COUPON_CHOICE',
-    'COUPON_SAVED', 'SAVED_COUPON_EXPIRY', 'FIRST_AUTOPAY_TIMING',
+    'COUPON_SAVED', 'SAVED_COUPON_EXPIRY', 'FIRST_AUTOPAY_TIMING', 'RETURNING_FIRST_MANUAL',
 }
 CONFIRMABLE = {'CONTINUING_SLOTS_REVIEW', 'CONTINUATION_UNCONFIRMED', 'HOLIDAY_OPENING_ASSUMED', 'UNPAID_PAST_DATES', 'RENEWAL_START_GAP'}
 
@@ -216,7 +216,8 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
     if check_fingerprint and context.source_fingerprint != data.expected_source_fingerprint:
         raise DraftConflict('Student records have changed. Refresh records and review this payment again.')
     scenario = data.scenario
-    calculation = preview_billing(scenario, holidays, policy=policy, allow_adjustment=admin)
+    calculation = preview_billing(scenario, holidays, policy=policy, allow_adjustment=admin,
+                                  onboarding_as_of=as_of if scenario.mode == 'returning_student' else None)
     if data.period_number > len(calculation.periods):
         raise ValueError('Choose a payment present in this calculation.')
     period = calculation.periods[data.period_number - 1]
@@ -270,7 +271,7 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
         if not data.renewal and (len(selected) != len(scenario.slots) or actual_keys != set(expected_keys)):
             block('SCENARIO_SOURCE_MISMATCH', 'These classes do not match the selected enrollments. Check the timetable in Edit preview.')
     if data.intake:
-        if period.collection.method != 'manual':
+        if context.is_new_student and period.collection.method != 'manual':
             block('INTAKE_FIRST_PAYMENT_MANUAL', 'The first enrollment must be collected manually.')
     elif context.suggested_request is None:
         block('SOURCE_FORECAST_UNAVAILABLE', 'The next payment cannot be calculated from these enrollments. Check their timetable and session dates.')

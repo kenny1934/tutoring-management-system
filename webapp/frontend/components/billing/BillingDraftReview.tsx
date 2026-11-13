@@ -74,7 +74,9 @@ export function BillingDraftSummaryContent({ review, calculation, presentation =
   const firstRuleId = useId();
   const period = review.period;
   const manualUnderAutopay = review.scenario.payment_method === 'autopay' && period.collection.method === 'manual';
-  const manualReason = manualUnderAutopay ? manualCollectionReasons[period.kind] : undefined;
+  const manualReason = manualUnderAutopay
+    ? review.issues.find(issue => issue.code === 'RETURNING_FIRST_MANUAL' && issue.period === period.number)?.message ?? manualCollectionReasons[period.kind]
+    : undefined;
   // This is forecast information only. Saved reviews do not contain a future schedule.
   // A changed review must never inherit dates from an older calculation.
   const matchingCalculation = calculation?.policy_version === review.policy_version
@@ -307,7 +309,7 @@ export function BillingDraftReview({ studentId, reviewRequest, storageAvailable,
     reviewUnavailableReason={unsavedPlan ? 'Save the payment plan above before creating the enrollment.'
       : preferences.error ? 'Retry payment settings above.' : currentFailure ? 'Retry the enrollment review above.' : undefined}
     canWrite={directCreation.canWrite} storageAvailable={storageAvailable} onCreated={directCreation.onCreated} onBusyChange={setCreating} onStale={onStaleReview} />;
-  const body = <div className="space-y-5" aria-busy={!review && !!displayedReview}>
+  const body = <div className="space-y-5" data-billing-review-ready={!!displayedReview} aria-busy={!review && !!displayedReview}>
     {presentation?.inDialog && <Button ref={back} icon={ArrowLeft} variant="quiet" disabled={busy} onClick={() => close()}>Back to payment details</Button>}
     {!displayedReview && !currentFailure && <p role="status" className="text-sm text-ink-subtle">Checking payment details…</p>}
     {failure?.key === requestKey && !withheldCopyReview && <div role="alert" className="space-y-2 text-sm text-red-700 dark:text-red-300"><p>{failure.message}</p>{!review && <Button size="sm" onClick={() => { setFailure(null); setCopyFeedback(null); setRetry(value => value + 1); }}>Retry review</Button>}</div>}

@@ -1,10 +1,11 @@
 """Additive storage for reviewed drafts, with no teaching or payment state."""
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.mysql import VARCHAR
 
 from database import Base
+from constants import REGISTRATION_FEE
 
 
 def utc_now():
@@ -123,4 +124,26 @@ class BillingOperation(Base):
     result = Column(JSON, nullable=False)
     actor_id = Column(Integer, ForeignKey('tutors.id', ondelete='SET NULL'), nullable=True)
     actor_name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+
+class BillingGlobalSettings(Base):
+    __tablename__ = 'billing_global_settings'
+    __table_args__ = (CheckConstraint('id = 1', name='chk_billing_settings_singleton'),
+                      CheckConstraint('materials_fee BETWEEN 0 AND 10000', name='chk_billing_materials_amount'))
+    id = Column(Integer, primary_key=True)
+    materials_fee = Column(Integer, nullable=False, default=REGISTRATION_FEE)
+    version = Column(Integer, nullable=False, default=1)
+    updated_by = Column(Integer, nullable=True)
+    updated_at = Column(DateTime, nullable=False, default=utc_now)
+
+
+class BillingSettingsOperation(Base):
+    __tablename__ = 'billing_settings_operations'
+    idempotency_key = Column(String(64).with_variant(VARCHAR(64, collation='utf8mb4_bin'), 'mysql'), primary_key=True)
+    # Keep the immutable actor identity even if the tutor record is later removed.
+    actor_id = Column(Integer, nullable=False)
+    actor_name = Column(String(100), nullable=False)
+    payload_hash = Column(String(64), nullable=False)
+    result = Column(JSON, nullable=False)
     created_at = Column(DateTime, nullable=False, default=utc_now)

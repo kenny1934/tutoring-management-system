@@ -81,6 +81,16 @@ describe('payment draft review', () => {
     expect(screen.queryByRole('textbox', { name: 'Chinese fee message' })).not.toBeInTheDocument();
   });
 
+  it('explains a returning manual collection without applying the first-ever six-lesson rule', () => {
+    const returning = review(); returning.scenario.mode = 'returning_student'; returning.scenario.payment_method = 'autopay';
+    returning.issues = [{ code: 'RETURNING_FIRST_MANUAL', message: 'The notice deadline has passed.', period: 1 }];
+    render(<BillingDraftSummaryContent review={returning} presentation="renewal" />);
+    expect(screen.getAllByText('The notice deadline has passed.')[0]).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'First payment rule' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/at least six lessons/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Check before creating')).not.toBeInTheDocument();
+  });
+
   it('opens and closes the first-payment rule by tapping and keyboard', async () => {
     const first = review(); first.period.kind = 'first';
     render(<BillingDraftSummaryContent review={first} presentation="renewal" />);

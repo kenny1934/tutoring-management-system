@@ -21,6 +21,7 @@ import {
   Circle,
   RefreshCw,
   ClipboardList,
+  X,
 } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import useSWR from "swr";
@@ -98,7 +99,7 @@ export function CreateEnrollmentModal({
   onBusyChange,
   standalone = true,
   trialMode = false,
-  convertFromTrial,
+  convertFromTrial: externalConvertFromTrial,
   prefillStudent,
   prefillTutorId,
   fromTaughtLesson,
@@ -111,6 +112,16 @@ export function CreateEnrollmentModal({
   // Form state
   const branchStudent = useRef<number | null>(null);
   const [student, setStudent] = useState<Student | null>(null);
+  const scheduleEdited = useRef(false);
+  const authScope = billingDraftAuthScope(auth);
+  const [chosenTrial, setChosenTrial] = useState<{ authScope: string; trial: TrialListItem } | null>(null);
+  const chosenTrialMatches = !!chosenTrial && chosenTrial.authScope === authScope && isOpen
+    && !trialMode && !renewFromId && !fromTaughtLesson
+    && (!prefillStudent || prefillStudent.id === chosenTrial.trial.student_id)
+    && (!student || student.id === chosenTrial.trial.student_id);
+  const linkedTrial = !externalConvertFromTrial && chosenTrialMatches ? chosenTrial?.trial : undefined;
+  const convertFromTrial = externalConvertFromTrial ?? linkedTrial;
+  useEffect(() => { scheduleEdited.current = false; }, [isOpen, prefillStudent?.id, authScope]);
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [assignedDay, setAssignedDay] = useState<string>("Mon");
   const [assignedTime, setAssignedTime] = useState<string>(WEEKDAY_TIME_SLOTS[0]);
@@ -151,6 +162,9 @@ export function CreateEnrollmentModal({
   const newPolicyRegular = enrollmentType === 'Regular' && !!firstLessonDate && !!billingOptions.data
     && !!billingOptions.data.workflow_writes_available
     && firstLessonDate >= billingOptions.data.first_payment_from;
+  const calendarRegularForm = newPolicyRegular || (enrollmentType === 'Regular' && !firstLessonDate
+    && !!billingOptions.data?.workflow_writes_available && !!billingOptions.data.as_of
+    && billingOptions.data.as_of >= billingOptions.data.first_payment_from);
 
   // Fetch tutors (only active teaching staff)
   const { data: tutors = [] } = useActiveTutors();
@@ -177,6 +191,35 @@ export function CreateEnrollmentModal({
   const billingHref = renewalData?.billing_managed ? billingPaymentHref(renewalData.student_id) : billingRedirect;
   useEffect(() => setBillingRedirect(null), [student?.id, isOpen]);
 
+  const trialScope = JSON.stringify([authScope, student?.id]);
+  const checkTrials = !!auth.user && !auth.isGuest && isOpen && !!student && enrollmentType === 'Regular'
+    && !trialMode && !renewFromId && !fromTaughtLesson && !convertFromTrial && !intakeOpen && !preview && !isSuccess;
+  const attendedTrials = useSWR<TrialListItem[]>(checkTrials ? ['student-trials', trialScope] : null,
+    () => enrollmentsAPI.getTrials({ student_id: student!.id, tutor_id: billingDraftTutorId(auth) }),
+    { keepPreviousData: false });
+  const eligibleTrials = (attendedTrials.error ? [] : attendedTrials.data ?? []).filter(trial => trial.student_id === student?.id
+    && trial.enrollment_id > 0 && trial.session_id > 0 && trial.tutor_id > 0
+    && (trial.session_status === 'Attended' || trial.session_status === 'Attended (Make-up)')
+    && (trial.trial_status === 'pending' || trial.trial_status === 'attended')
+    && trial.payment_status !== 'Cancelled' && !trial.subsequent_enrollment_id)
+    .sort((a, b) => b.session_date.localeCompare(a.session_date) || b.session_id - a.session_id);
+  const [trialChoice, setTrialChoice] = useState<{ scope: string; key: string } | null>(null);
+  const selectedTrial = eligibleTrials.find(trial => trialChoice?.scope === trialScope
+    && `${trial.enrollment_id}:${trial.session_id}` === trialChoice.key) ?? eligibleTrials[0];
+
+  useEffect(() => {
+    if (!chosenTrial || (!externalConvertFromTrial && chosenTrialMatches)) return;
+    setChosenTrial(null);
+    if (externalConvertFromTrial) return;
+    // A changed student or staff scope must not inherit the trial link or credit.
+    setStudent(prefillStudent ?? null);
+    setSelectedRenewalLinkId(null); setDiscountId(null); setPreparedIntake(undefined);
+    setIntakeOpen(false); setIntakeCreated(false); setPreview(null); setPreviewError(null);
+    setTutorId(prefillTutorId ?? null); setFirstLessonDate('');
+    setLocation(studentLocation(prefillStudent, selectedLocation));
+    setUseCustomTime(false); setCustomTimeStart(''); setCustomTimeEnd('');
+  }, [chosenTrial, chosenTrialMatches, externalConvertFromTrial, prefillStudent, prefillTutorId, selectedLocation]);
+
   // Type for day names from DAY_NAMES constant
   type DayName = typeof DAY_NAMES[number];
 
@@ -202,6 +245,8 @@ export function CreateEnrollmentModal({
     if (!isOpen) {
       // Reset on close
       setStudent(null);
+      setChosenTrial(null);
+      setTrialChoice(null);
       branchStudent.current = null;
       setTutorId(null);
       setAssignedDay("Mon");
@@ -261,10 +306,10 @@ export function CreateEnrollmentModal({
 
   // Pre-fill tutor from props (used from student detail page to carry over from latest enrollment)
   useEffect(() => {
-    if (prefillTutorId && isOpen && !convertFromTrial && !renewFromId) {
+    if (prefillTutorId && isOpen && !externalConvertFromTrial && !renewFromId) {
       setTutorId(prefillTutorId);
     }
-  }, [prefillTutorId, isOpen, convertFromTrial, renewFromId]);
+  }, [prefillTutorId, isOpen, externalConvertFromTrial, renewFromId]);
 
   // Pre-fill from a lesson taught but not in CSM yet. When this is also a
   // renewal, it waits for the renewal data and then overrides it.
@@ -284,19 +329,20 @@ export function CreateEnrollmentModal({
     return () => { active = false; };
   }, [fromTaughtLesson, isOpen, renewFromId, renewalData]);
 
-  // Pre-fill form when converting trial to regular
+  // Direct conversion entry points initialise their own source. The inline
+  // shortcut updates the current form without clearing the selected student.
   useEffect(() => {
-    if (convertFromTrial && isOpen) {
+    if (externalConvertFromTrial && isOpen) {
       let active = true;
       // Fetch full student data
       setStudent(null);
-      studentsAPI.getById(convertFromTrial.student_id).then((s) => { if (active) setStudent(s); }).catch(() => { if (active) setPreviewError('Could not load the student. Open the trial again.'); });
-      setTutorId(convertFromTrial.tutor_id);
-      setLocation(convertFromTrial.location);
+      studentsAPI.getById(externalConvertFromTrial.student_id).then((s) => { if (active) setStudent(s); }).catch(() => { if (active) setPreviewError('Could not load the student. Open the trial again.'); });
+      setTutorId(externalConvertFromTrial.tutor_id);
+      setLocation(externalConvertFromTrial.location);
       // Parse day from session date
-      const sessionDate = new Date(convertFromTrial.session_date);
+      const sessionDate = new Date(externalConvertFromTrial.session_date);
       setAssignedDay(DAY_NAMES[sessionDate.getDay()]);
-      setAssignedTime(convertFromTrial.time_slot);
+      setAssignedTime(externalConvertFromTrial.time_slot);
       // Calculate next occurrence of this day after trial
       const nextDate = new Date(sessionDate);
       nextDate.setDate(nextDate.getDate() + 7); // Start with next week
@@ -305,10 +351,10 @@ export function CreateEnrollmentModal({
       setEnrollmentType("Regular");
       setLessonsPaid(6);
       // Link as renewal from the trial enrollment
-      setSelectedRenewalLinkId(convertFromTrial.enrollment_id);
+      setSelectedRenewalLinkId(externalConvertFromTrial.enrollment_id);
       return () => { active = false; };
     }
-  }, [convertFromTrial, isOpen]);
+  }, [externalConvertFromTrial, isOpen]);
 
   // Auto-select trial discount ($150) when converting from trial
   useEffect(() => {
@@ -531,7 +577,7 @@ export function CreateEnrollmentModal({
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;
 
-  const titleText = convertFromTrial
+  const titleText = externalConvertFromTrial
     ? "Convert Trial to Regular"
     : trialMode
       ? "New Trial Enrollment"
@@ -557,7 +603,7 @@ export function CreateEnrollmentModal({
       size="xl"
       standalone={standalone}
       footer={
-        billingHref ? <Button onClick={onClose}>Close</Button> : intakeOpen ? <div className="flex justify-end gap-3">
+        billingHref ? <Button onClick={onClose}>Close</Button> : intakeOpen ? <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
           {!intakeCreated && <Button disabled={intakeBusy} onClick={() => setIntakeOpen(false)}>Back to enrollment details</Button>}
           <Button variant={intakeCreated ? 'primary' : 'secondary'} disabled={intakeBusy} onClick={() => { if (intakeCreated) onSuccess?.(); onClose(); }}>{intakeCreated ? 'Done' : 'Close'}</Button>
         </div> : isSuccess ? (
@@ -597,11 +643,12 @@ export function CreateEnrollmentModal({
       }
     >
       <fieldset disabled={previewLoading} aria-busy={previewLoading} className="min-w-0">
-      {billingHref ? <div className="space-y-3 py-4"><p className="text-sm">Review this student’s next enrollment in Billing.</p><Link className="text-sm font-medium text-accent-ink hover:underline" href={billingHref} onClick={onClose}>Open payment journey</Link></div> : intakeOpen && student && tutorId ? <BillingEnrollmentIntake
+      {preparedIntake && student && tutorId && <div hidden={!intakeOpen} inert={!intakeOpen}><BillingEnrollmentIntake
         studentId={student.id} initialContext={preparedIntake} trialEnrollmentId={convertFromTrial?.enrollment_id} trialSessionId={convertFromTrial?.session_id}
         initialFirstLessonDate={firstLessonDate} initialSlots={[{ weekday: assignedDay as import('@/types/billing').BillingWeekday, time_slot: effectiveTimeSlot, location }]}
         initialIntakeSlots={[{ tutor_id: tutorId, renewed_from_enrollment_id: effectiveRenewalLinkId ?? null }]}
-        onBusyChange={setIntakeBusy} onCreated={() => { setIntakeCreated(true); invalidateAfterEnrollmentCreate({ studentId: student.id, location }); }} /> : isSuccess ? (
+        onBusyChange={setIntakeBusy} onCreated={() => { setIntakeCreated(true); invalidateAfterEnrollmentCreate({ studentId: student.id, location }); }} /></div>}
+      {billingHref ? <div className="space-y-3 py-4"><p className="text-sm">Review this student’s next enrollment in Billing.</p><Link className="text-sm font-medium text-accent-ink hover:underline" href={billingHref} onClick={onClose}>Open payment journey</Link></div> : intakeOpen ? null : isSuccess ? (
         /* Success Screen */
         <div className="flex flex-col items-center justify-center py-8 sm:py-12 gap-3 sm:gap-4">
           <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-700" />
@@ -658,7 +705,37 @@ export function CreateEnrollmentModal({
           {/* Student */}
           <div className="md:col-span-2">
             <Label>Student <span className="text-red-600">*</span></Label>
-            <StudentSearch value={student} onChange={next => { setStudent(next); if (next) setLocation(studentLocation(next, selectedLocation)); }} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent || !!fromTaughtLesson} location={location} />
+            <StudentSearch value={student} onChange={next => { scheduleEdited.current = false; setStudent(next); if (next) setLocation(studentLocation(next, selectedLocation)); }} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent || !!fromTaughtLesson} location={location} />
+            {checkTrials && attendedTrials.error && <div role="status" className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-subtle"><span>Could not check attended trials.</span><Button size="sm" variant="quiet" onClick={() => { void attendedTrials.mutate(); }}>Retry trials</Button></div>}
+            {(checkTrials || linkedTrial) && (linkedTrial || selectedTrial) && <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-wash px-3 py-2">
+              {!linkedTrial && eligibleTrials.length > 1 ? <div className="min-w-0 flex-1"><Label htmlFor="create-enrollment-attended-trial">Attended trial</Label><Select id="create-enrollment-attended-trial" disabled={!!attendedTrials.isValidating} value={`${selectedTrial.enrollment_id}:${selectedTrial.session_id}`} onChange={event => setTrialChoice({ scope: trialScope, key: event.target.value })}>
+                {eligibleTrials.map(trial => <option key={`${trial.enrollment_id}:${trial.session_id}`} value={`${trial.enrollment_id}:${trial.session_id}`}>{formatProposalDate(trial.session_date)} {trial.time_slot} @ {trial.location} / {trial.tutor_name}</option>)}
+              </Select></div> : <div className="min-w-0 text-xs"><p className="font-medium">Attended trial</p><p className="mt-0.5 text-ink-subtle">{formatProposalDate((linkedTrial || selectedTrial).session_date)} {(linkedTrial || selectedTrial).time_slot}</p><p className="text-ink-subtle">{(linkedTrial || selectedTrial).tutor_name} @ {(linkedTrial || selectedTrial).location}</p></div>}
+              <div className="flex items-center gap-2">
+              {linkedTrial && <span role="status" aria-label="Trial linked" className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-ink"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />Linked</span>}
+              <Button size="sm" variant={linkedTrial ? 'quiet' : 'secondary'} icon={linkedTrial ? X : RefreshCw} className={linkedTrial ? 'h-7 w-7 p-0' : undefined} title={linkedTrial ? 'Remove trial link' : undefined} aria-label={linkedTrial ? 'Remove trial link' : undefined} disabled={!linkedTrial && !!attendedTrials.isValidating} onClick={() => {
+                if (linkedTrial) {
+                  setChosenTrial(null); setSelectedRenewalLinkId(null); setDiscountId(null);
+                  setPreparedIntake(undefined); setPreview(null); setPreviewError(null);
+                  return;
+                }
+                if (attendedTrials.isValidating || attendedTrials.error) return;
+                setChosenTrial({ authScope, trial: selectedTrial });
+                setSelectedRenewalLinkId(selectedTrial.enrollment_id);
+                if (!scheduleEdited.current) {
+                  const date = new Date(`${selectedTrial.session_date}T00:00:00`);
+                  setTutorId(selectedTrial.tutor_id); setLocation(selectedTrial.location);
+                  setAssignedDay(DAY_NAMES[date.getDay()]); setAssignedTime(selectedTrial.time_slot);
+                  date.setDate(date.getDate() + 7);
+                  setFirstLessonDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
+                  setUseCustomTime(false); setCustomTimeStart(''); setCustomTimeEnd('');
+                  setLessonsPaid(6);
+                }
+                setEnrollmentType('Regular');
+                setPreview(null); setPreviewError(null); setPreparedIntake(undefined); setIntakeOpen(false);
+              }}>{linkedTrial ? <span className="sr-only">Remove</span> : 'Convert trial'}</Button>
+              </div>
+            </div>}
           </div>
 
           {/* Tutor */}
@@ -668,7 +745,7 @@ export function CreateEnrollmentModal({
               <Select
                 id="create-enrollment-tutor"
                 value={tutorId || ""}
-                onChange={(e) => setTutorId(e.target.value ? parseInt(e.target.value) : null)}
+                onChange={(e) => { scheduleEdited.current = true; setTutorId(e.target.value ? parseInt(e.target.value) : null); }}
               >
                 <option value="">Select tutor...</option>
                 {locationTutors.map((t) => (
@@ -686,7 +763,7 @@ export function CreateEnrollmentModal({
               <Select
                 id="create-enrollment-location"
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                onChange={(e) => { scheduleEdited.current = true; setLocation(e.target.value); }}
                 className="pl-10"
               >
                 <option value="MSA">MSA</option>
@@ -704,6 +781,7 @@ export function CreateEnrollmentModal({
                 id="create-enrollment-day"
                 value={assignedDay}
                 onChange={(e) => {
+                  scheduleEdited.current = true;
                   const day = e.target.value;
                   setAssignedDay(day);
                   const times: readonly string[] = day === 'Sat' || day === 'Sun' ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
@@ -728,7 +806,7 @@ export function CreateEnrollmentModal({
                   <Select
                     id="create-enrollment-time"
                     value={assignedTime}
-                    onChange={(e) => setAssignedTime(e.target.value)}
+                    onChange={(e) => { scheduleEdited.current = true; setAssignedTime(e.target.value); }}
                     className="pl-10"
                   >
                     {assignedTime && !(availableTimeSlots as readonly string[]).includes(assignedTime) && <option value={assignedTime}>{assignedTime}</option>}
@@ -739,7 +817,7 @@ export function CreateEnrollmentModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setUseCustomTime(true)}
+                  onClick={() => { scheduleEdited.current = true; setUseCustomTime(true); }}
                   className="text-xs text-accent-ink hover:underline"
                 >
                   Use custom time
@@ -794,7 +872,7 @@ export function CreateEnrollmentModal({
               id="create-enrollment-first-date"
               type="date"
               value={firstLessonDate}
-              onChange={(e) => setFirstLessonDate(e.target.value)}
+              onChange={(e) => { scheduleEdited.current = true; setFirstLessonDate(e.target.value); }}
               required
               aria-required="true"
               aria-describedby={dayMismatchWarning ? "first-lesson-date-warning" : undefined}
@@ -810,7 +888,7 @@ export function CreateEnrollmentModal({
           </div>
 
           {/* Lessons Paid */}
-          {!newPolicyRegular && <div>
+          {!calendarRegularForm && <div>
             <Label htmlFor="create-enrollment-lessons">Number of lessons</Label>
             <Input
               id="create-enrollment-lessons"
@@ -834,7 +912,7 @@ export function CreateEnrollmentModal({
           </div>}
 
           {/* Discount */}
-          {!newPolicyRegular && <div>
+          {!calendarRegularForm && <div>
             <Label htmlFor="create-enrollment-discount">Discount</Label>
             <div className="relative">
               <Select
@@ -859,14 +937,14 @@ export function CreateEnrollmentModal({
           </div>}
 
           {/* New Student - not applicable to Trial enrollments */}
-          {enrollmentType !== 'Trial' && !newPolicyRegular && (
+          {enrollmentType !== 'Trial' && !calendarRegularForm && (
             <div className="flex items-center">
               <label className="flex items-center gap-2 text-sm text-foreground/70 cursor-pointer pt-6">
                 <input
                   type="checkbox"
                   checked={isNewStudent === true}
                   onChange={(e) => setIsNewStudent(e.target.checked)}
-                  className="rounded border-gray-300 text-accent-ink focus:ring-primary"
+                  className="rounded border-field text-accent-ink focus:ring-primary"
                 />
                 New Student (+$100 reg fee)
               </label>
@@ -874,7 +952,7 @@ export function CreateEnrollmentModal({
           )}
 
           {/* Enrollment Type - hidden when in trial mode or converting from trial */}
-          {!trialMode && !convertFromTrial && (
+          {!trialMode && !externalConvertFromTrial && (
             <div className="md:col-span-2">
               <Label>Enrollment type</Label>
               <Segmented
@@ -882,6 +960,7 @@ export function CreateEnrollmentModal({
                 options={ENROLLMENT_TYPES.map((type) => ({
                   value: type,
                   label: type,
+                  disabled: !!linkedTrial && type !== "Regular",
                   icon: Circle,
                   iconClassName: cn("h-2 w-2", ENROLLMENT_TYPE_DOTS[type]),
                 }))}
@@ -970,8 +1049,8 @@ export function CreateEnrollmentModal({
           )}
 
           {/* Session Preview Table */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
+          <div className="border border-line rounded-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-line bg-wash flex items-center justify-between">
               <span className="font-medium text-sm text-foreground">Session Preview</span>
               <span className="text-xs text-foreground/60">
                 {preview.sessions.filter((s) => !s.is_holiday).length} sessions
@@ -979,14 +1058,14 @@ export function CreateEnrollmentModal({
             </div>
             <div className="overflow-x-auto max-h-[240px] overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                <thead className="bg-wash sticky top-0">
                   <tr>
                     <th className="px-3 py-1.5 text-left font-medium text-foreground/70 text-xs">#</th>
                     <th className="px-3 py-1.5 text-left font-medium text-foreground/70 text-xs">Date</th>
                     <th className="px-3 py-1.5 text-left font-medium text-foreground/70 text-xs">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody className="divide-y divide-line">
                   {preview.sessions.map((session, index) => (
                     <tr
                       key={index}
@@ -1020,7 +1099,7 @@ export function CreateEnrollmentModal({
                 </tbody>
               </table>
             </div>
-            <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="px-3 py-2 border-t border-line bg-wash">
               <span className="text-xs text-foreground/60">
                 End date:{" "}
                 <span className="font-medium text-foreground">

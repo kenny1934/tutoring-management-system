@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.4.5](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.4...v2.4.5) (2026-11-13)
+
+### Improvements
+
+* **Enrollment creation**: Link an attended trial from the normal enrollment form and keep your schedule and fee choices when reviewing or going back.
+* **Materials fee**: Include or waive the standard materials fee with one checkbox. Admins can configure the standard amount in Enrollment settings on Payment plans.
+* **Enrollment previews**: Read custom start and end times clearly on phones, with steadier session and fee updates.
+* **Student profiles**: Aligned card spacing and updated loading placeholders across profiles, enrollment details, sessions, Documents and Waitlist.
+* **Trial links**: Open students and session details directly from the dashboard Trials dropdown. Student names in the renewal details pane open their profiles in a new tab.
+
+### Bug Fixes
+
+* **Returning students**: Previous non-Trial enrollments now correctly use returning-student coverage without the six-lesson first-payment minimum. Autopay is available when the next collection can complete before lessons start.
+* **Enrollment appearance**: Selected students and enrollment controls now follow the app’s theme in light and dark mode.
+
 ## [2.4.4](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.3...v2.4.4) (2026-11-12)
 
 ### Improvements

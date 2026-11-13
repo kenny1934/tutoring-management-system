@@ -43,7 +43,7 @@ describe('legacy coupon receipt entry', () => {
     show(); expect(mocks.couponBalance).not.toHaveBeenCalled();
     await open();
     expect(mocks.couponBalance).toHaveBeenCalledWith(4, undefined, expect.any(AbortSignal));
-    expect(screen.getByLabelText('Issued KMS receipt reference')).toHaveFocus();
+    await waitFor(() => expect(screen.getByLabelText('Issued KMS receipt reference')).toHaveFocus());
     expect(screen.getByText(/Enrollment #22 · CSM payment entry/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Record KMS receipt' })).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Issued KMS receipt reference'), { target: { value: 'KMS-123' } });

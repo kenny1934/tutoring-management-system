@@ -19,6 +19,7 @@ import { StudentInfoBadges } from '@/components/ui/student-info-badges';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import { BillingChecks } from './BillingChecks';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
+import { BillingEnrollmentSettings } from './BillingEnrollmentSettings';
 import { BillingPlanControl } from './BillingPlanControl';
 import { BillingPreferenceBatchModal } from './BillingPreferenceBatchModal';
 import { billingDraftAuthScope } from './BillingDraftReview';
@@ -155,6 +156,7 @@ export function BillingRoster() {
     <PageHeader title="Payment plans" icon={CalendarRange} actions={<div className="flex flex-wrap items-center gap-2">
       <Link href="/admin/renewals" className={buttonClasses({ size: 'sm', variant: 'secondary' })}>Renewals</Link>
       <Link href="/billing/preview" className={buttonClasses({ size: 'sm', variant: 'primary' })}><Calculator className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Preview enrollment fees</Link>
+      <BillingEnrollmentSettings />
       <span aria-hidden="true" className="mx-1 h-4 border-l border-line" /><IconButton size="sm" label="Refresh records" title="Refresh" icon={RefreshCw} iconClassName={isValidating ? 'animate-spin' : undefined} disabled={isValidating || searchPending} onClick={() => { void mutate(); }} />
     </div>} />
     <div className="grid gap-3 sm:grid-cols-2"><Field label="Find a student" id="billing-search"><Input value={search} placeholder="Name or student number" onChange={event => setSearch(event.target.value)} /></Field>

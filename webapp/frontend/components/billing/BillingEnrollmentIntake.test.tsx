@@ -41,6 +41,19 @@ describe('reviewed first enrollment', () => {
     expect(mocks.context).toHaveBeenCalledOnce();
   });
 
+  it('keeps the fee workspace mounted when the original schedule changes', async () => {
+    const initialContext = { data: context(), authScope: billingDraftAuthScope(mocks.auth()) };
+    const view = render(<BillingEnrollmentIntake studentId={4} initialContext={initialContext} initialFirstLessonDate="2026-11-10" />);
+    const workspace = screen.getByText('Intake journey');
+    view.rerender(<BillingEnrollmentIntake studentId={4} initialContext={initialContext} initialFirstLessonDate="2026-11-17" />);
+    expect(screen.getByText('Intake journey')).toBe(workspace);
+    expect(mocks.context).not.toHaveBeenCalled();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({
+      initialRequest: expect.objectContaining({ first_lesson_date: '2026-11-17' }),
+      intakeScheduleKey: JSON.stringify(['2026-11-17', undefined, undefined]),
+    }));
+  });
+
   it('does not reuse a prepared source after the effective staff role changes', () => {
     const initialContext = { data: context(), authScope: billingDraftAuthScope(mocks.auth()) };
     const view = render(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} initialContext={initialContext} />);
@@ -69,7 +82,17 @@ describe('reviewed first enrollment', () => {
     mocks.context.mockResolvedValue({ ...context(), trial: null, is_new_student: false, materials_fee: 0 });
     render(<BillingEnrollmentIntake studentId={4} initialFirstLessonDate="2026-11-17" initialSlots={[{ weekday: 'Tue' }]} initialIntakeSlots={[{ tutor_id: 9 }]} />);
     await screen.findByText('Intake journey');
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ initialRequest: expect.objectContaining({ materials_fee: 0, trial_deduction: false }) }));
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ initialRequest: expect.objectContaining({ mode: 'returning_student', materials_fee: 0, trial_deduction: false }) }));
+  });
+
+  it('refreshes verified materials settings without discarding edited enrollment details', async () => {
+    render(<BillingEnrollmentIntake studentId={4} trialEnrollmentId={70} trialSessionId={71} />);
+    await screen.findByText('Intake journey');
+    fireEvent.change(screen.getByLabelText('Synthetic intake choice'), { target: { value: 'Chosen tutor and time' } });
+    mocks.context.mockResolvedValue({ ...context(), source_fingerprint: 'new-materials-setting', standard_materials_fee: 125, materials_fee: 125 });
+    await act(async () => window.dispatchEvent(new Event('billing-settings-updated')));
+    expect(screen.getByLabelText('Synthetic intake choice')).toHaveValue('Chosen tutor and time');
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ standardMaterialsFee: 125, sourceKey: 'new-materials-setting', sourceLoading: false }));
   });
 
   it('does not advance an early proposed start date to the cutover', async () => {
@@ -169,7 +192,7 @@ describe('reviewed first enrollment', () => {
     const draft = { id: 'draft-returning', current_revision: 2, review: { scenario: { ...context().suggested_request!, materials_fee: 0, trial_deduction: false }, intake: { slots: [{ tutor_id: 12 }] } } } as BillingDraftDetail;
     act(() => mocks.saved.mock.lastCall![0].onRevise(draft));
     await screen.findByText('Intake journey');
-    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ intake: draft.review.intake, initialRequest: expect.objectContaining(draft.review.scenario) }));
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ intake: draft.review.intake, initialRequest: expect.objectContaining({ ...draft.review.scenario, mode: 'returning_student' }) }));
     view.rerender(<BillingEnrollmentIntake studentId={4} initialDraftId="draft-second" />);
     await screen.findByText('Exact saved draft');
     expect(mocks.saved).toHaveBeenLastCalledWith(expect.objectContaining({ initialDraftId: 'draft-second' }));

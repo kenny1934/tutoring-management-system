@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Share, Check, Send, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
+import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, FileText, Copy, Share, Check, Send, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
-import Link from "next/link";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import useSWR from "swr";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -19,7 +18,7 @@ import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDeta
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Button, IconButton, buttonClasses } from "@/components/controls";
+import { Button, IconButton } from "@/components/controls";
 import type { Enrollment, Session } from "@/types";
 
 interface EnrollmentDetailModalProps {
@@ -297,6 +296,8 @@ export function EnrollmentDetailModal({
                     school: detail.school,
                     home_location: detail.home_location,
                   }}
+                  nameHref={`/students/${detail.student_id}`}
+                  nameTarget="_blank"
                   showLocationPrefix={selectedLocation === "All Locations"}
                 />
               </div>
@@ -548,18 +549,8 @@ export function EnrollmentDetailModal({
       {detail && (
         <div className={cn(
           "flex flex-wrap items-center gap-2 border-t border-line bg-wash rounded-b-lg",
-          compact ? "justify-end px-2 py-2 sm:px-3" : "justify-between px-3 py-2 sm:px-4 sm:py-3"
+          compact ? "justify-end px-2 py-2 sm:px-3" : "justify-end px-3 py-2 sm:px-4 sm:py-3"
         )}>
-          {!compact && (
-            <Link
-              href={`/students/${detail.student_id}`}
-              className={buttonClasses({ variant: "quiet" })}
-            >
-              <ExternalLink className="h-4 w-4 text-ink-subtle" aria-hidden="true" />
-              Student history
-            </Link>
-          )}
-
           {/* Right side actions - buttons expand on hover (desktop), wrap on mobile */}
           <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Renewal workflow actions */}

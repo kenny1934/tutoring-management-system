@@ -306,11 +306,11 @@ export default function StudentsPage() {
           {/* Toolbar Skeleton */}
           <div className={toolbarStickyClasses}>
             <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-3">
-              <div className="h-[18px] w-[18px] bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-              <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-              <div className="h-7 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-              <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
-              <div className="ml-auto h-5 w-16 bg-amber-200/50 rounded-full animate-pulse" />
+              <div className="h-[18px] w-[18px] bg-tint rounded animate-pulse" />
+              <div className="h-5 w-20 bg-tint rounded animate-pulse" />
+              <div className="h-7 w-32 bg-tint rounded animate-pulse" />
+              <div className="h-7 w-20 bg-tint rounded animate-pulse hidden sm:block" />
+              <div className="ml-auto h-5 w-16 bg-tint rounded-full animate-pulse" />
             </div>
           </div>
 
@@ -323,12 +323,12 @@ export default function StudentsPage() {
               )}>
                 <div className="flex-1 p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                    <div className="h-4 w-14 bg-tint rounded animate-pulse" />
+                    <div className="h-5 w-32 bg-tint rounded animate-pulse" />
                   </div>
-                  <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-3 w-20 bg-tint rounded animate-pulse" />
                 </div>
-                <div className="w-10 sm:w-12 bg-gray-300 dark:bg-gray-600 animate-pulse" />
+                <div className="w-10 sm:w-12 bg-tint animate-pulse" />
               </div>
             ))}
           </div>

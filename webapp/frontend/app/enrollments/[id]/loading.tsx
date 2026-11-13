@@ -1,1 +1,1 @@
-export { PageSkeleton as default } from "@/components/layout/PageSkeleton";
+export { EnrollmentDetailSkeleton as default } from "@/components/enrollments/EnrollmentDetailSkeleton";

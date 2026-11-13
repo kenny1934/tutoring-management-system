@@ -1,0 +1,8 @@
+.cards { --profile-card-inset: 20px; }
+.cards > :is(div, section) {
+  min-width: 0;
+  padding-inline: var(--profile-card-inset);
+}
+@media (min-width: 640px) {
+  .cards { --profile-card-inset: 24px; }
+}

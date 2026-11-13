@@ -102,7 +102,7 @@ def _snapshot_checks(student, request, period, unit_fee):
     check(period.total_fee is not None, 'Confirm the final payable total before preparing a fee message.')
     if period.materials_fee is not None:
         check(_whole_amount(period.materials_fee), 'Confirm the materials fee amount before preparing a fee message.')
-        expected_materials = request.materials_fee if request.mode == 'new_student' and period.number == 1 else 0
+        expected_materials = request.materials_fee if request.mode in {'new_student', 'returning_student'} and period.number == 1 else 0
         check(period.materials_fee == expected_materials,
               'The materials fee does not match the reviewed payment settings.')
         if period.total_fee is not None:

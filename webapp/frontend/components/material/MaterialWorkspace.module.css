@@ -71,7 +71,7 @@
 .materialRecordTabs button:focus-visible { outline: 2px solid var(--color-ink-strong); outline-offset: -4px; }
 .materialRecordContent { background: var(--color-raised); border: 1px solid var(--color-line); border-top: 0; border-radius: 0 0 5px 5px; padding: 20px; min-width: 0; }
 .materialRecordContent [data-material-record-details] { gap: 24px; }
-.materialRecordContent [data-material-record-details] > div { background: transparent; box-shadow: none; border-color: transparent; padding: 8px 0 20px; border-radius: 0; border-bottom: 1px solid var(--color-line); }
+.materialRecordContent [data-material-record-details] > div { background: transparent; box-shadow: none; border-color: transparent; padding-block: 8px 20px; border-radius: 0; border-bottom: 1px solid var(--color-line); }
 .materialRecordEditActions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .materialRecordEditActions[data-editing="true"] .materialRecordSavedSlot { display: none; }
 .materialRecordContent [data-material-record-details] > div > div:first-child { flex-wrap: wrap; gap: 8px; min-height: 28px; }

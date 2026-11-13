@@ -4,7 +4,6 @@ from datetime import timedelta
 from sqlalchemy import or_
 
 from models import Enrollment, SessionLog, Student, StudentCoupon, Tutor
-from constants import REGISTRATION_FEE
 from .calculator import BillingPolicy, DAYS
 from .schemas import (
     BillingIntakeContext, BillingIntakeTrial, BillingPreviewRequest, BillingStudent,
@@ -91,7 +90,10 @@ def intake_source(db, student_id, *, as_of, trial_enrollment_id=None, trial_sess
         from .workflow import get_preferences
         preference = get_preferences(db, student_id, policy)
         method, mandate, preference_version = preference.payment_method, preference.mandate_ready, preference.version
-    materials = REGISTRATION_FEE if is_new else 0
+    from .settings import get_settings
+    materials_settings = get_settings(db, lock=True)
+    standard_materials = materials_settings.materials_fee
+    materials = standard_materials if is_new else 0
     basis = ('First regular enrollment: the standard materials fee applies.' if is_new
              else 'The student has an earlier enrollment. No new-student materials fee is added.')
     suggested = None
@@ -102,7 +104,7 @@ def intake_source(db, student_id, *, as_of, trial_enrollment_id=None, trial_sess
         suggested = BillingPreviewRequest(
             first_lesson_date=first, slots=[PreviewSlot(weekday=DAYS[first.weekday()],
                                                       time_slot=trial.time_slot, location=trial.location)],
-            mode='new_student', payment_method=method or 'manual', materials_fee=materials,
+            mode='new_student' if is_new else 'returning_student', payment_method=method or 'manual', materials_fee=materials,
             trial_deduction=not issues, mandate_ready=bool(mandate),
         )
     evidence = {
@@ -121,10 +123,13 @@ def intake_source(db, student_id, *, as_of, trial_enrollment_id=None, trial_sess
         'materials_fee': materials, 'is_new_student': is_new,
         'preference': [method, mandate, preference_version], 'policy': vars(policy),
     }
+    if materials_settings.storage_available:
+        evidence['materials_policy'] = {'amount': standard_materials, 'version': materials_settings.version}
     stable_hash = digest(evidence)
     context = BillingIntakeContext(
         student=identity, source_fingerprint=digest([stable_hash, as_of]), trial=trial,
-        is_new_student=is_new, materials_fee=materials, materials_basis=basis, issues=issues,
+        is_new_student=is_new, materials_fee=materials, materials_basis=basis,
+        standard_materials_fee=standard_materials, issues=issues,
         coupon_snapshot=coupon_snapshot, recorded_payment_method=method, mandate_ready=mandate,
         suggested_request=suggested,
     )
@@ -144,6 +149,13 @@ def review_intake_source(db, student_id, data, *, as_of, admin, policy=BillingPo
 
     def issue(code, message):
         issues.append(PreviewIssue(code=code, message=message))
+
+    expected_mode = 'new_student' if context.is_new_student else 'returning_student'
+    if data.scenario.mode != expected_mode:
+        issue('INTAKE_BILLING_MODE', 'Refresh the enrollment type from this student’s recorded history.')
+    if (expected_mode == 'returning_student' and data.scenario.payment_method == 'autopay'
+            and data.scenario.mandate_ready != bool(context.mandate_ready)):
+        issue('INTAKE_BANK_AUTHORISATION', 'Bank authorisation changed. Refresh the payment plan.')
 
     tutors = db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_([s.tutor_id for s in source.slots])).order_by(Tutor.id).all()
     tutor_ids = {t.id for t in tutors}
@@ -165,11 +177,10 @@ def review_intake_source(db, student_id, data, *, as_of, admin, policy=BillingPo
         issue('INTAKE_TRIAL_REQUIRED', 'Choose the attended trial before applying its $150 deduction.')
     if data.scenario.first_lesson_date < as_of and 'UNPAID_PAST_DATES' not in data.confirmed_checks:
         issue('UNPAID_PAST_DATES', 'The first payment includes past sessions. Check attendance before collecting fees.')
-    if data.scenario.materials_fee != context.materials_fee:
-        if not source.materials_override_reason:
-            issue('INTAKE_MATERIALS_REASON', 'Explain the materials fee change before preparing this enrollment.')
-        if not admin:
-            issue('INTAKE_MATERIALS_ADMIN', 'Ask an admin to approve a materials fee change.')
+    if data.scenario.materials_fee not in {0, context.standard_materials_fee}:
+        issue('INTAKE_MATERIALS_AMOUNT', 'Use the configured materials fee or leave it off.')
+    elif data.scenario.materials_fee != context.materials_fee and not admin:
+        issue('INTAKE_MATERIALS_ADMIN', 'Ask an admin to change whether materials are included.')
     links = []
     for slot in source.slots:
         link_id = slot.renewed_from_enrollment_id

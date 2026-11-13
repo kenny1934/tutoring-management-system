@@ -1,5 +1,7 @@
 "use client";
 
+import { SkeletonBlock } from "@/components/layout/SkeletonBlock";
+
 import { useDocumentJourney } from "@/components/material/useDocumentJourney";
 import { DocumentReaderSheet } from "@/components/documents/DocumentReaderSheet";
 import materialStyles from "@/components/material/MaterialWorkspace.module.css";
@@ -785,7 +787,12 @@ export default function DocumentsPage() {
               <div className={materialStyles.materialDocumentsGrid}>
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-32 rounded-xl bg-wash shimmer-sepia" />
+                    <div key={i} aria-hidden="true" className={materialStyles.materialDocument}>
+                      <SkeletonBlock className="mb-3 ml-auto h-4 w-4" />
+                      <SkeletonBlock className="mb-3 h-10 w-4/5" />
+                      <div className="space-y-2"><SkeletonBlock className="h-3 w-full" /><SkeletonBlock className="h-3 w-3/4" /></div>
+                      <div data-material-document-meta className="mt-3"><SkeletonBlock className="h-3 w-24" /></div>
+                    </div>
                   ))
                 ) : documents?.length ? (
                   documents.map((doc, i) => {

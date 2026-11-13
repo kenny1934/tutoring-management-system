@@ -33,7 +33,7 @@ export function StudentSearch({ value, onChange, disabled, location }: StudentSe
   return (
     <div className="relative">
       {value ? (
-        <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+        <div className="flex items-center gap-2 px-3 py-2 border border-field rounded-lg bg-field-fill">
           <div className="flex-1">
             <StudentInfoBadges
               student={{
@@ -70,7 +70,7 @@ export function StudentSearch({ value, onChange, disabled, location }: StudentSe
             disabled={disabled}
           />
           {isOpen && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-raised-2 border border-line rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {isLoading ? (
                 <div className="p-3 text-center text-foreground/60">
                   <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
@@ -88,7 +88,7 @@ export function StudentSearch({ value, onChange, disabled, location }: StudentSe
                       setSearch("");
                       setIsOpen(false);
                     }}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="w-full px-3 py-2 text-left hover:bg-wash"
                   >
                     <StudentInfoBadges
                       student={{

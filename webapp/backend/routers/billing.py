@@ -6,14 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from auth.dependencies import get_current_user, get_effective_role, resolve_viewed_tutor_id
+from auth.dependencies import get_current_user, get_effective_role, resolve_viewed_tutor_id, require_admin_write
 from billing.calculator import BillingPolicy, preview_billing, previous_month
 from billing.clock import today, test_date
 from billing.evidence import load_contexts, source_student_ids
 from billing.schemas import (
     BillingPreviewRequest, BillingPreviewResponse, BillingRosterPeriod,
     BillingRosterResponse, BillingRosterRow, ContextBasis, StudentBillingContext,
-    BillingIntakeContext, BillingPreferenceCounts,
+    BillingIntakeContext, BillingPreferenceCounts, BillingGlobalSettingsResponse, BillingGlobalSettingsUpdate,
 )
 from database import get_db
 from models import Enrollment, Holiday, Student, Tutor
@@ -45,13 +45,15 @@ def holiday_dates(db: Session) -> set:
 
 
 @router.get('/billing/options')
-def get_billing_options(request: Request, user: Tutor = Depends(get_current_user)):
+def get_billing_options(request: Request, user: Tutor = Depends(get_current_user), db: Session = Depends(get_db)):
     from billing.drafts import storage_enabled
     from billing.workflow import preferences_writes_enabled, workflow_enabled, workflow_storage_enabled
     from billing.queue import queue_available
     from billing.coupon_accounting import storage_enabled as coupon_storage_enabled, writes_enabled as coupon_writes_enabled
 
     preview_role(request, user)
+    from billing.settings import get_settings
+    enrollment_settings = get_settings(db)
     return {
         'as_of': today(),
         'test_date': test_date(),
@@ -60,6 +62,7 @@ def get_billing_options(request: Request, user: Tutor = Depends(get_current_user
         'regular_end': POLICY.regular_end,
         'makeup_end': POLICY.makeup_end,
         'unit_fee': POLICY.unit_fee,
+        'standard_materials_fee': enrollment_settings.materials_fee,
         'first_minimum': POLICY.first_minimum,
         'ordinary_coupon_minimum': POLICY.ordinary_minimum,
         'policy_version': POLICY.version,
@@ -75,6 +78,20 @@ def get_billing_options(request: Request, user: Tutor = Depends(get_current_user
     }
 
 
+@router.get('/billing/settings', response_model=BillingGlobalSettingsResponse)
+def get_enrollment_settings(_user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    from billing.settings import get_settings
+    return get_settings(db)
+
+
+@router.put('/billing/settings', response_model=BillingGlobalSettingsResponse)
+def update_enrollment_settings(data: BillingGlobalSettingsUpdate,
+                               user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    from billing.settings import update_settings
+    from routers.billing_workflow import write_action
+    return write_action(db, user, lambda actor: update_settings(db, data, actor))
+
+
 @router.post('/billing/preview', response_model=BillingPreviewResponse)
 def get_billing_preview(
     data: BillingPreviewRequest,
@@ -85,7 +102,8 @@ def get_billing_preview(
     role = preview_role(request, user)
     try:
         return preview_billing(data, holiday_dates(db), policy=POLICY,
-                               allow_adjustment=role in {'Admin', 'Super Admin'})
+                               allow_adjustment=role in {'Admin', 'Super Admin'},
+                               onboarding_as_of=today() if data.mode == 'returning_student' else None)
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error
     except ValueError as error:

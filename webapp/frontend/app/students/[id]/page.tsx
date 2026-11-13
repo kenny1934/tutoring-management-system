@@ -1,5 +1,8 @@
 "use client";
 
+import { StudentProfileSkeleton } from "@/components/students/StudentProfileSkeleton";
+
+import profileLayout from "@/components/students/StudentProfileLayout.module.css";
 import { BillingCouponPanel } from '@/components/billing/BillingCouponPanel';
 import React, { useEffect, useState, useMemo, useCallback, useRef, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -398,94 +401,7 @@ export default function StudentDetailPage() {
     }
   };
 
-  if (studentLoading) {
-    return (
-      <PageSurface fullHeight>
-        <PageTransition className="flex flex-col gap-3 p-4 sm:p-6 xl:p-8">
-          {/* Header Skeleton */}
-          <div className={cn(
-            "flex flex-wrap items-center gap-3 bg-paper border-2 border-line-strong rounded-lg px-3 sm:px-4 py-2",
-            !isMobile && "paper-texture"
-          )}>
-            {/* Back button */}
-            <div className="h-8 w-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse" />
-            {/* Student ID */}
-            <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            {/* Name */}
-            <div className="h-6 w-32 sm:w-40 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            {/* Grade badge */}
-            <div className="h-5 w-12 bg-blue-100 dark:bg-blue-900/50 rounded animate-pulse" />
-            {/* School badge (hidden on mobile) */}
-            <div className="h-5 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
-            <div className="flex-1" />
-            {/* Enrollment count */}
-            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            {/* Progress button */}
-            <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse hidden sm:block" />
-          </div>
-
-          {/* Tabs Skeleton - 6 tabs */}
-          <div className="flex gap-1 overflow-x-auto pb-1">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div
-                key={i}
-                className={cn(
-                  "h-9 rounded-full animate-pulse",
-                  i === 1 ? "w-24 bg-primary" : "w-24 bg-gray-200 dark:bg-gray-700"
-                )}
-              />
-            ))}
-          </div>
-
-          {/* Content Skeleton - Profile tab style with cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Personal Info Card */}
-            <div className={cn(
-              "bg-raised border border-line rounded-lg p-4",
-              !isMobile && "paper-texture"
-            )}>
-              <div className="h-5 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex justify-between">
-                    <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Academic Info Card */}
-            <div className={cn(
-              "bg-raised border border-line rounded-lg p-4",
-              !isMobile && "paper-texture"
-            )}>
-              <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex justify-between">
-                    <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Enrollments Card - spans full width */}
-            <div className={cn(
-              "lg:col-span-2 bg-raised border border-line rounded-lg p-4",
-              !isMobile && "paper-texture"
-            )}>
-              <div className="h-5 w-36 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
-              <div className="space-y-3">
-                {[1, 2].map(i => (
-                  <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
-                ))}
-              </div>
-            </div>
-          </div>
-        </PageTransition>
-      </PageSurface>
-    );
-  }
+  if (studentLoading) return <StudentProfileSkeleton />;
 
   if (studentError || !student) {
     return (
@@ -911,10 +827,10 @@ function ProfileTab({
     <div className="space-y-4">
       {student.handover_prospect && <HandoverFromP6Card prospect={student.handover_prospect} />}
 
-      <div data-material-record-details className="grid gap-4 md:grid-cols-2">
+      <div data-material-record-details className={cn("grid gap-4 md:grid-cols-2", profileLayout.cards)}>
       {/* Personal Info Card */}
       <div className={cn(
-        "bg-raised border border-line rounded-lg p-4 transition-all",
+        "bg-raised border border-line rounded-lg min-w-0 p-5 sm:p-6 transition-all",
         !isMobile && "paper-texture",
         isEditingPersonal && "ring-2 ring-amber-400"
       )}>
@@ -976,7 +892,7 @@ function ProfileTab({
 
       {/* Academic Info Card */}
       <div className={cn(
-        "bg-raised border border-line rounded-lg p-4 transition-all",
+        "bg-raised border border-line rounded-lg min-w-0 p-5 sm:p-6 transition-all",
         !isMobile && "paper-texture",
         isEditingAcademic && "ring-2 ring-amber-400"
       )}>
@@ -1038,7 +954,7 @@ function ProfileTab({
       {/* Discounts & Coupons Card - loading skeleton */}
       {couponLoading && (
         <div className={cn(
-          "bg-raised border border-line rounded-lg p-4 md:col-span-2",
+          "bg-raised border border-line rounded-lg min-w-0 p-5 sm:p-6 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
           <div className="flex items-center gap-2 mb-3">
@@ -1052,7 +968,7 @@ function ProfileTab({
       {/* Discounts & Coupons Card - show for admins or if has coupons/staff referral */}
       {!couponLoading && (couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
         <div className={cn(
-          "bg-raised border border-line rounded-lg p-4 md:col-span-2 transition-all",
+          "bg-raised border border-line rounded-lg min-w-0 p-5 sm:p-6 md:col-span-2 transition-all",
           !isMobile && "paper-texture",
           isEditingStaffReferral && "ring-2 ring-amber-400"
         )}>
@@ -1485,13 +1401,13 @@ function ContactsEditor({ contacts, onChange }: { contacts: StudentContact[]; on
 function InfoRow({ label, value, icon: Icon, mono }: { label: string; value?: string | null; icon?: React.ElementType; mono?: boolean }) {
   if (!value) return null;
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+    <div className="flex items-start justify-between gap-3">
+      <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
         {Icon && <Icon className="h-3 w-3" />}
         {label}
       </span>
       <span className={cn(
-        "text-sm text-gray-900 dark:text-gray-100",
+        "min-w-0 text-right text-sm text-gray-900 dark:text-gray-100 [overflow-wrap:anywhere]",
         mono && "font-mono"
       )}>
         {value}

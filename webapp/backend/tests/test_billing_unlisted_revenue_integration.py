@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
-from billing.models import BillingLessonClaim, BillingPayment, BillingPaymentLine
+from billing.models import BillingGlobalSettings, BillingLessonClaim, BillingPayment, BillingPaymentLine
 from models import Enrollment, SessionExercise, SessionLog, StudentCoupon, TutorMemo, TutorMessage
 from tests.test_billing_drafts import env as draft_env
 from tests.test_billing_workflow import (
@@ -102,15 +102,17 @@ def export_fixture(session, payment, path):
 
 
 @pytest.mark.parametrize('materials', [0, 37, 100])
-def test_actual_two_class_intake_keeps_trial_deduction_and_materials_outside_tutor_revenue(intake_records, tmp_path, materials):
+def test_actual_two_class_intake_keeps_trial_deduction_and_materials_outside_tutor_revenue(intake_records, tmp_path, monkeypatch, materials):
     client, session, _ = intake_records
+    if materials == 37:
+        monkeypatch.setenv('BILLING_SETTINGS_STORAGE_ENABLED', 'true')
+        session.add(BillingGlobalSettings(id=1, materials_fee=37, version=1))
+        session.commit()
     setup_preference(client)
     payload = intake_request(client)
     payload['scenario']['slots'].append({'weekday':'Sat','time_slot':'10:00 - 11:30','location':'MSA'})
     payload['intake']['slots'].append({'tutor_id':2})
     payload['scenario']['materials_fee'] = materials
-    if materials != 100:
-        payload['intake']['materials_override_reason'] = 'Materials already supplied in this synthetic acceptance case.'
     _, draft = saved_intake(client, payload)
     response = client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=confirmation_data(draft))
     assert response.status_code == 200, response.text
