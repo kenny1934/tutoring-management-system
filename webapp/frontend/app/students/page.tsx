@@ -8,7 +8,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
-import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag, Plus } from "lucide-react";
+import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag, Plus, SlidersHorizontal } from "lucide-react";
 import { PageSurface } from "@/components/layout/PageSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
@@ -35,9 +35,12 @@ import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { Button, IconButton, Input, PageHeader, Select, Segmented } from "@/components/controls";
 
+import toolbarStyles from "./StudentsToolbar.module.css";
+
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
 const STUDENTS_PER_PAGE = 50;
+const EMPTY_STUDENTS: Student[] = [];
 
 export default function StudentsPage() {
   usePageTitle("Students");
@@ -63,6 +66,7 @@ export default function StudentsPage() {
     return page ? parseInt(page) : 1;
   });
   const [isMobile, setIsMobile] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // View mode state: 'all' (default student list) or 'my' (tutor's students)
   const [viewMode, setViewMode] = useState<'all' | 'my'>(() => {
@@ -203,7 +207,8 @@ export default function StudentsPage() {
   }, [allTutors, tutorIdFilter]);
 
   // SWR hook for data fetching
-  const { data: students = [], error, isLoading: loading } = useStudents(filters);
+  const { data: studentData, error, isLoading: loading } = useStudents(filters);
+  const students = studentData ?? EMPTY_STUDENTS;
 
   // Categorize students by match type when searching
   const categorizedStudents = useMemo(() => {
@@ -293,24 +298,30 @@ export default function StudentsPage() {
 
   // Calculate if there might be more pages
   const hasMorePages = students.length === STUDENTS_PER_PAGE;
+  const activeFilterCount = [gradeFilter, schoolFilter, tutorIdFilter, langStreamFilter, sortOption !== "id_desc"].filter(Boolean).length;
 
   // The header sticks to the top while the list scrolls under it, so
   // surface-bar puts the page's colour behind it (or a strip of paper on the
   // wood desk) or the cards would show through.
   const toolbarStickyClasses = "sticky top-0 z-30 surface-bar pt-1";
 
-  if (loading) {
+  if (loading && studentData === undefined) {
     return (
       <PageSurface fullHeight>
         <PageTransition className="flex flex-col gap-2 sm:gap-3 p-4 sm:p-6 xl:p-8">
           {/* Toolbar Skeleton */}
           <div className={toolbarStickyClasses}>
-            <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-3">
-              <div className="h-[18px] w-[18px] bg-tint rounded animate-pulse" />
-              <div className="h-5 w-20 bg-tint rounded animate-pulse" />
-              <div className="h-7 w-32 bg-tint rounded animate-pulse" />
-              <div className="h-7 w-20 bg-tint rounded animate-pulse hidden sm:block" />
-              <div className="ml-auto h-5 w-16 bg-tint rounded-full animate-pulse" />
+            <div className={cn("border-b border-line pb-3", toolbarStyles.loadingToolbar)} aria-hidden="true">
+              <div className={toolbarStyles.loadingHeading}>
+                <div className="h-[18px] w-[18px] bg-tint rounded animate-pulse" />
+                <div className="h-5 w-20 bg-tint rounded animate-pulse" />
+              </div>
+              <div className={cn("h-9 w-36 bg-tint rounded animate-pulse", toolbarStyles.loadingView)} />
+              {viewMode === "all" && <div className={toolbarStyles.loadingFields}>
+                <div className={cn("h-10 bg-tint rounded animate-pulse", toolbarStyles.loadingSearch)} />
+                <div className={cn("h-10 w-20 bg-tint rounded animate-pulse", toolbarStyles.loadingFilter)} />
+              </div>}
+              <div className={cn("h-10 w-10 bg-tint rounded animate-pulse", toolbarStyles.loadingAction)} />
             </div>
           </div>
 
@@ -371,6 +382,7 @@ export default function StudentsPage() {
           <PageHeader
             icon={Users}
             title="Students"
+            className={toolbarStyles.header}
             actions={
               <Button
                 variant="primary"
@@ -379,15 +391,18 @@ export default function StudentsPage() {
                 onClick={() => setAddStudentModalOpen(true)}
                 disabled={!isAdmin}
                 aria-label="Add student"
+                className={toolbarStyles.addStudent}
                 title={!isAdmin ? "Admin access required" : undefined}
               >
                 <span className="hidden sm:inline">Add student</span>
               </Button>
             }
           >
+            <div className={toolbarStyles.controls} data-view={viewMode}>
             {/* View Toggle */}
             <Segmented
               label="Which students"
+              className={toolbarStyles.viewSwitch}
               value={viewMode}
               onChange={setViewMode}
               options={[
@@ -398,6 +413,7 @@ export default function StudentsPage() {
 
             {/* Tutor Selector - only in "My Students" view */}
             {viewMode === 'my' && (
+              <div className={toolbarStyles.tutor}>
               <TutorSelector
                 value={selectedTutorId}
                 onChange={setSelectedTutorId}
@@ -405,13 +421,14 @@ export default function StudentsPage() {
                 allowClear
                 showAllTutors
               />
+              </div>
             )}
 
             {/* Filters - only in "All" view */}
             {viewMode === 'all' && (
-              <>
+              <div className={toolbarStyles.allControls}>
                 {/* Search Input */}
-            <div className="relative flex-1 min-w-[140px] max-w-xs">
+            <div className={cn("relative", toolbarStyles.search)}>
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
               <Input
                 size="sm"
@@ -427,6 +444,19 @@ export default function StudentsPage() {
               />
             </div>
 
+            <Button
+              size="sm"
+              icon={SlidersHorizontal}
+              className={toolbarStyles.filterToggle}
+              aria-label={activeFilterCount ? `Filters (${activeFilterCount} active)` : "Filters"}
+              aria-expanded={filtersOpen}
+              aria-controls="student-list-filters"
+              onClick={() => setFiltersOpen(open => !open)}
+            >
+              Filters
+              {activeFilterCount > 0 && <span className={toolbarStyles.filterCount} aria-hidden="true">{activeFilterCount}</span>}
+            </Button>
+            <div id="student-list-filters" className={toolbarStyles.filters} data-open={filtersOpen}>
             {/* Grade Filter */}
             <Select
               size="sm"
@@ -444,7 +474,7 @@ export default function StudentsPage() {
             </Select>
 
             {/* School Filter - Autocomplete */}
-            <div className="relative hidden sm:block">
+            <div className={cn("relative", toolbarStyles.school)}>
               <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
               <Input
                 size="sm"
@@ -502,7 +532,7 @@ export default function StudentsPage() {
             </div>
 
             {/* Sort Dropdown */}
-            <div className="hidden sm:block">
+            <div className={toolbarStyles.sort}>
             <Select
               size="sm"
               aria-label="Sort by"
@@ -515,6 +545,8 @@ export default function StudentsPage() {
               <option value="name_desc">Name Z-A</option>
               <option value="school_asc">School A-Z</option>
             </Select>
+            </div>
+
             </div>
 
             {/* Tutor filter chip — appears when navigated here from a dashboard chart with a tutor selected */}
@@ -545,8 +577,9 @@ export default function StudentsPage() {
                 </button>
               </span>
             )}
-              </>
+              </div>
             )}
+            </div>
           </PageHeader>
           </div>
 

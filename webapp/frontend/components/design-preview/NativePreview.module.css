@@ -895,7 +895,7 @@
   .dashboard[data-native-preview="motion"] [data-native-chart-header] > div:first-child { gap: 6px; }
   .dashboard[data-native-preview="motion"] [data-native-chart-header] > div:first-child > svg { width: 20px; height: 20px; }
   .dashboard[data-native-preview="motion"] [data-native-chart-header] h3 { font-size: 14px; }
-  .dashboard[data-native-preview="motion"] [data-native-chart-header] button { min-width: 28px; min-height: 40px; }
+  .dashboard[data-native-preview="motion"] [data-native-chart-header] button { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 40px; }
   .chartLegendRows { column-gap: 12px; }
   .chartLegendRow { min-height: 36px; }
 }
