@@ -1,0 +1,54 @@
+.controls, .allControls, .filters, .tutor, .loadingFields { display: contents; }
+.search { flex: 1; min-width: 140px; max-width: 320px; }
+.filterToggle { display: none; }
+.loadingToolbar, .loadingHeading { display: flex; align-items: center; gap: 10px; }
+.loadingSearch { flex: 1; max-width: 320px; }
+.loadingAction { margin-left: auto; }
+
+@media (max-width: 767px) {
+  .loadingToolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto 40px; gap: 8px; }
+  .loadingHeading { grid-column: 1; grid-row: 1; min-height: 40px; }
+  .loadingHeading > div:first-child { display: none; }
+  .loadingAction { grid-column: 3; grid-row: 1; }
+  .loadingView { grid-column: 2; grid-row: 1; width: 134px; }
+  .loadingFields { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) 88px; gap: 8px; }
+  .loadingSearch { max-width: none; }
+  .loadingFilter { width: 100%; }
+  .header { display: grid; grid-template-columns: auto minmax(0, 1fr) 40px; gap: 8px; padding-bottom: 8px; }
+  .header > div:first-child { display: contents; }
+  .header > div:first-child > svg { display: none; }
+  .header > div:first-child > h1 { grid-column: 1; grid-row: 1; font-size: 16px; }
+  .header > div:last-child { position: static; grid-column: 3; grid-row: 1; }
+  .addStudent { width: 40px; min-height: 40px; padding: 0; }
+  .addStudent > span { display: none; }
+  .controls { display: contents; }
+  .allControls {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    min-width: 0;
+  }
+  .viewSwitch { grid-column: 2; grid-row: 1; justify-self: end; }
+  .viewSwitch > button { min-height: 32px; padding-inline: 8px; justify-content: center; }
+  .search { min-width: 0; max-width: none; }
+  .search input { height: 40px; font-size: 16px; }
+  .filterToggle { display: inline-flex; min-height: 40px; }
+  .filterCount { display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding-inline: 3px; border-radius: 8px; background: var(--color-tint); font-size: 11px; }
+  .filters { display: none; }
+  .filters[data-open="true"] {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+  .filters select, .filters input { height: 40px; width: 100%; font-size: 16px; }
+  .school { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
+  .school > div { width: 100%; }
+  .school > button { min-width: 32px; min-height: 36px; display: grid; place-items: center; right: 0; }
+  .school > div > button { min-height: 40px; }
+  .sort { grid-column: 2; grid-row: 1; min-width: 0; }
+  .tutor { display: block; grid-column: 1 / -1; min-width: 0; }
+  .tutor > button { min-height: 40px; max-width: 100%; }
+  .allControls > span { grid-column: 1 / -1; max-width: 100%; }
+}
