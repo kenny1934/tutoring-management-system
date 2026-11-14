@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.6](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.5...v2.4.6) (2026-11-14)
+
+### Improvements
+
+* **Ultrawide dashboard**: View sessions, the calendar and charts in three columns when there is enough space. The first chart aligns with the session and calendar cards, while the second chart uses more of the screen height.
+* **Dashboard spacing**: Keep the Daily Puzzle question beside its heading and group chart controls, session status and activity details so they are easier to scan on wide screens.
+
 ## [2.4.5](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.4...v2.4.5) (2026-11-13)
 
 ### Improvements

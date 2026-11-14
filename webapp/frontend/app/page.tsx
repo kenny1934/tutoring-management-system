@@ -149,6 +149,7 @@ export default function DashboardPage() {
           />
         </motion.div>
 
+        <div className={previewStyles.dashboardWorkspace} data-native-dashboard-workspace>
         {/* Today's Sessions + Test Calendar */}
         <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Today's schedule" data-native-flow="schedule">
           <motion.div
@@ -240,6 +241,7 @@ export default function DashboardPage() {
             </CompactErrorBoundary>
           </motion.div>
         )}
+        </div>
       </PageTransition>
       </NativeDashboardPreview>
     </PageSurface>
