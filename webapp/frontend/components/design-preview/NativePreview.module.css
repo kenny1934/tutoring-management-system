@@ -360,7 +360,9 @@
   .dashboard[data-native-preview="motion"] div[data-native-desktop-puzzle] {
     display: block;
     position: relative;
-    width: calc(100% - 48px);
+    width: min(640px, 100%);
+    max-width: 100%;
+    margin-right: 0;
     min-height: 64px;
     opacity: 1;
   }
@@ -378,8 +380,8 @@
 }
 .puzzleMeasure > [data-native-puzzle-content] > div:first-child,
 .puzzleMeasure > [data-native-puzzle-content] > p { margin-bottom: 0; }
-.puzzleMeasure > [data-native-puzzle-content] > p { text-align: right; overflow-wrap: anywhere; }
-.puzzleMeasure > [data-native-puzzle-content] > div:last-child { grid-column: 1 / -1; justify-content: flex-end; }
+.puzzleMeasure > [data-native-puzzle-content] > p { text-align: left; overflow-wrap: anywhere; }
+.puzzleMeasure > [data-native-puzzle-content] > div:last-child { grid-column: 2; justify-content: flex-start; }
 .puzzleMeasure button { max-width: 100%; overflow-wrap: anywhere; }
 .puzzleTrigger {
   display: grid;
@@ -955,4 +957,124 @@ a.activityEntry:hover { --color-ink-subtle: var(--color-ink-strong); background:
 :global(.dark) .activityIcon[data-activity-type="session_cancelled"] { color: #ed9d8c; }
 @container (max-width: 649px) {
   .activityList:not([data-activity-history]) .activityMeta > span { display: none; }
+}
+
+/* The dashboard uses its available width, including space released by the sidebar. */
+.dashboard[data-native-preview="motion"] [data-native-stack] {
+  container: dashboard / inline-size;
+}
+.dashboardWorkspace { display: contents; }
+
+@container dashboard (min-width: 1920px) {
+  .dashboard[data-native-preview="motion"] .dashboardWorkspace {
+    display: grid;
+    grid-template-columns: minmax(608px, 1.45fr) minmax(416px, 1fr) minmax(448px, 1.15fr);
+    gap: 28px 24px;
+    align-items: start;
+    min-width: 0;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-flow="schedule"] {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    grid-template-columns: subgrid;
+    align-items: start;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-flow="analytics"] {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    display: grid;
+    grid-template-rows: subgrid;
+    row-gap: 28px;
+    position: relative;
+    min-width: 0;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-flow="activity"] {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    min-width: 0;
+    margin-top: 0;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-chart-header] {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-flow="analytics"] > .chartToolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  /* The first chart shares the cards' row; the second can use the extra screen height. */
+  .dashboard[data-native-preview="motion"] .chartPanel {
+    display: flex;
+    flex-direction: column;
+    min-height: clamp(360px, calc((100dvh - 320px) / 2), 800px);
+  }
+  .dashboard[data-native-preview="motion"] .chartPanel > [data-native-chart-interactive] {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+  .dashboard[data-native-preview="motion"] .chartBody {
+    flex: 1;
+    max-width: 1200px;
+    grid-template-columns: minmax(200px, .95fr) minmax(0, 1.05fr);
+    align-items: center;
+  }
+  .dashboard[data-native-preview="motion"] .chartPlot {
+    width: min(100%, clamp(240px, calc((100dvh - 420px) / 2), 600px));
+    height: auto;
+    aspect-ratio: 1;
+    justify-self: center;
+  }
+  .dashboard[data-native-preview="motion"] .chartLegendRow { min-height: 40px; padding-block: 8px; }
+  .dashboard[data-native-preview="motion"] .chartReadout { min-height: 48px; }
+
+  .dashboard[data-native-preview="motion"] .activityHeading { justify-content: flex-start; gap: 24px; }
+  .dashboard[data-native-preview="motion"] .activityEntry {
+    grid-template-columns: 18px minmax(160px, 420px) minmax(200px, 560px) var(--activity-meta-width);
+    column-gap: 16px;
+    justify-content: start;
+  }
+  .dashboard[data-native-preview="motion"] .activityMeta { text-align: left; }
+  .dashboard[data-native-preview="motion"] .chartDeck {
+    display: contents;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-layer="grade"] {
+    grid-row: 1;
+    min-height: 0;
+    align-self: stretch;
+    border-bottom: 1px solid var(--color-line, #dbc9b5);
+  }
+  .dashboard[data-native-preview="motion"] [data-native-flow="analytics"]:has(> .chartToolbar) [data-native-layer="grade"] {
+    padding-top: 50px;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-layer="grade"] .chartPlot {
+    max-width: 400px;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-layer="school"] {
+    border-left: 0;
+    grid-row: 2;
+    border-top: 0;
+    padding-left: 0;
+    padding-top: 0;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-header] {
+    grid-template-columns: minmax(0, 880px) minmax(0, 640px) minmax(0, 1fr);
+  }
+  .dashboard[data-native-preview="motion"] [data-native-actions] {
+    width: fit-content;
+    max-width: 100%;
+    justify-self: start;
+  }
+  .dashboard[data-native-preview="motion"] [data-native-session-identity] { flex: 0 1 auto; }
+  .dashboard[data-native-preview="motion"] [data-native-summary] { grid-column: 1; }
+  .dashboard[data-native-preview="motion"] [data-native-puzzle] {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
