@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from constants import NON_ACTIVE_SESSION_STATUSES
 from models import Enrollment, Holiday, SessionLog, Student, StudentCoupon, Tutor
 from .calculator import BillingPolicy, preview_billing
 from .evidence import load_contexts
@@ -154,12 +155,6 @@ def review_renewal_change(db, data, context, period, holidays, policy, block, is
         if expected is None:
             block('RENEWAL_SOURCE_REVIEW', 'Check the end of the existing enrollment before changing this renewal.')
             continue
-        if any(lesson.slot == index and lesson.date <= expected for lesson in period.lessons):
-            issues.append(PreviewIssue(code='RENEWAL_START_BEFORE_COVERAGE', period=period.number,
-                message='The configured start is before the recorded enrollment end.',
-                blocks_creation=False, record_evidence=[BillingRecordEvidence(
-                    enrollment_id=source_id, date=expected, time_slot=candidate.time_slot, location=candidate.location,
-                    note='Recorded enrollment end.')]))
         source_key = ((candidate.weekday or '')[:3], (candidate.time_slot or '').strip(), (candidate.location or '').strip())
         target_key = (slot.weekday, slot.time_slot.strip(), slot.location.strip())
         if source_key != target_key:
@@ -216,7 +211,16 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
     if check_fingerprint and context.source_fingerprint != data.expected_source_fingerprint:
         raise DraftConflict('Student records have changed. Refresh records and review this payment again.')
     scenario = data.scenario
-    calculation = preview_billing(scenario, holidays, policy=policy, allow_adjustment=admin,
+    early_start = bool(data.renewal and context.suggested_request
+                       and scenario.first_lesson_date < context.suggested_request.first_lesson_date)
+    # Keep the recorded coverage on the reviewed request. An explicit earlier
+    # date generates proposed lessons that must pass the same booking checks.
+    calculation_scenario = scenario
+    if early_start:
+        calculation_scenario = scenario.model_copy(update={
+            'slots': [slot.model_copy(update={'covered_through': None}) for slot in scenario.slots],
+        })
+    calculation = preview_billing(calculation_scenario, holidays, policy=policy, allow_adjustment=admin,
                                   onboarding_as_of=as_of if scenario.mode == 'returning_student' else None)
     if data.period_number > len(calculation.periods):
         raise ValueError('Choose a payment present in this calculation.')
@@ -312,6 +316,10 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
             if source.payment_status == 'Cancelled':
                 continue
             for row in source.originals:
+                if early_start and row.status in NON_ACTIVE_SESSION_STATUSES:
+                    # A moved original records the entitlement, while its
+                    # actual make-up is checked at that lesson's time below.
+                    continue
                 time = (row.time_slot or source.time_slot or '').strip()
                 location = (row.location or source.location or '').strip()
                 existing[(row.date, time, location)].append(BillingRecordEvidence(
@@ -330,6 +338,8 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
             check_lesson_conflicts(db, student_id, period.lessons, include_claims=workflow_storage_enabled())
         except DraftConflict as error:
             block('RENEWAL_SESSION_CONFLICT', str(error), record_evidence=error.record_evidence)
+    if early_start and period.first_lesson_date < as_of and 'UNPAID_PAST_DATES' not in confirmed:
+        block('UNPAID_PAST_DATES', 'The first payment includes past sessions. Check attendance before collecting fees.')
     if period.number > 1:
         block('FUTURE_PAYMENT_PREVIEW', 'This later payment depends on earlier payments being confirmed. Prepare the student’s next payment first.')
     if period.collection.method == 'autopay' and not scenario.mandate_ready:
@@ -353,7 +363,7 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
             if (balance is None or balance.student_id != student_id or balance.usable_count is None
                     or balance.usable_count < 1 or group is None or group.usable_count < 1):
                 block('COUPON_STOCK_REVIEW', 'Choose an available checked coupon group before preparing this fee message.')
-    message = prepare_fee_messages(context.student, scenario, period, policy.unit_fee, blocked_reasons=reasons)
+    message = prepare_fee_messages(context.student, calculation_scenario, period, policy.unit_fee, blocked_reasons=reasons)
     source_evidence = intake_evidence or evidence_hash(db, context)
     if data.renewal and data.renewal.tutor_ids is not None:
         source_evidence = digest([source_evidence, [list(tutor) for tutor in renewal_tutors or []]])

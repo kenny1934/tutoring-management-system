@@ -46,6 +46,39 @@ const assertNotSaved = () => {
   expect(mocks.close).not.toHaveBeenCalled();
 };
 
+describe("exercise modal backdrop", () => {
+  it("keeps unsaved changes open without sending the backdrop click to the session row", async () => {
+    const openSession = vi.fn();
+    render(<div onClick={openSession}>
+      <ConfirmProvider>
+        <ExerciseModal session={session} exerciseType="CW" isOpen onClose={mocks.close} />
+      </ConfirmProvider>
+    </div>);
+    fireEvent.click(screen.getAllByRole("button", { name: /Add classwork/i })[0]);
+    fireEvent.click(screen.getByRole("dialog").previousElementSibling!);
+    expect(await screen.findByText("You have unsaved changes. Discard them?")).toBeVisible();
+    expect(openSession).not.toHaveBeenCalled();
+    expect(mocks.close).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it.each(["CW", "HW"] as const)("closes %s without opening its parent session row", async (exerciseType) => {
+    const openSession = vi.fn();
+    render(<div onClick={openSession}>
+      <ConfirmProvider>
+        <ExerciseModal session={session} exerciseType={exerciseType} isOpen onClose={mocks.close} />
+      </ConfirmProvider>
+    </div>);
+    const dialog = screen.getByRole("dialog");
+    const backdrop = dialog.previousElementSibling;
+    expect(backdrop).toBeInstanceOf(HTMLElement);
+    fireEvent.click(backdrop!);
+    await waitFor(() => expect(mocks.close).toHaveBeenCalledTimes(1));
+    expect(openSession).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+});
+
 describe("saving exercises with a tutor mismatch", () => {
   it("waits for explicit confirmation before changing the cache, closing or saving", async () => {
     show();

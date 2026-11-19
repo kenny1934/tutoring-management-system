@@ -27,11 +27,16 @@ def paid(db, enrollment, actor, *, as_of):
     return action(lambda: accounting.record_legacy_paid(db, enrollment, actor, as_of=as_of))
 
 
-def guard_edit(db, enrollment, update):
+def guard_edit(db, enrollment, update, *, actor=None):
     if not accounting.storage_enabled():
         return
     db.query(Student.id).filter_by(id=enrollment.student_id).with_for_update().first()
     db.refresh(enrollment, with_for_update=True)
+    if (actor is not None and enrollment.payment_status == 'Paid'
+            and 'discount_id' in update and update['discount_id'] is None
+            and update.get('payment_status', 'Paid') == 'Paid' and ordinary_coupon(enrollment)):
+        action(lambda: accounting.remove_incorrect_legacy_discount(db, enrollment, actor))
+        return
     if (enrollment.payment_status == 'Paid' and 'discount_id' in update
             and update['discount_id'] != enrollment.discount_id):
         raise HTTPException(status_code=409, detail='Review the recorded payment before changing its discount.')

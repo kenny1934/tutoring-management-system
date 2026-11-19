@@ -353,7 +353,7 @@ describe('enrollment fee preview', () => {
     fireEvent.change(tutor, { target: { value: '12' } });
     await calculate();
     expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Parent requested a tutor change.' } });
+    fireEvent.change(screen.getByLabelText('Reason for change (required)'), { target: { value: 'Parent requested a tutor change.' } });
     await calculate();
     expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({
       renewal: { source_enrollment_ids: [7], tutor_ids: [12], reason: 'Parent requested a tutor change.' },
@@ -373,14 +373,14 @@ describe('enrollment fee preview', () => {
     expect(screen.queryByText('Weekly class')).not.toBeInTheDocument();
     expect(screen.queryByText('Special arrangements')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Next enrollment' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Reason for change')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reason for change (required)')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add second weekly class' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Enter a custom timetable')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Day of week'), { target: { value: 'Mon' } });
     expect(screen.getByLabelText('First lesson date')).toHaveValue('2026-11-16');
     await calculate();
     expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Parent requested Monday next period.' } });
+    fireEvent.change(screen.getByLabelText('Reason for change (required)'), { target: { value: 'Parent requested Monday next period.' } });
     await calculate();
     expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ summaryPresentation: 'renewal', reviewRequest: expect.objectContaining({
       scenario: expect.objectContaining({ first_lesson_date: '2026-11-16', slots: [expect.objectContaining({ weekday: 'Mon', covered_through: '2026-11-03' })] }),
@@ -389,17 +389,60 @@ describe('enrollment fee preview', () => {
     expect(screen.queryByLabelText('Existing coverage through')).not.toBeInTheDocument();
   });
 
+  it('previews an earlier renewal while keeping recorded coverage in the draft review', async () => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial: BillingPreviewRequest = {
+      first_lesson_date: '2026-12-02', mode: 'transition', payment_method: 'manual',
+      slots: [{ weekday: 'Wed', time_slot: '16:45 - 18:15', location: 'MSA', covered_through: '2026-11-25' }],
+      materials_fee: 0, trial_deduction: false, mandate_ready: false,
+    };
+    renderBase(<BillingPreview focused embedded initialRequest={initial}
+      contextIssues={[{ code: 'CONTINUATION_UNCONFIRMED', message: 'No upcoming lessons are recorded.', period: null }]}
+      renewalSource={{ scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] }}
+      draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: [7], sourceFingerprint: 'source' }} />);
+    await calculate();
+    const reviewed = screen.getByText('Review period 1');
+    const calculationPanel = reviewed.parentElement!;
+    vi.spyOn(calculationPanel, 'getBoundingClientRect').mockReturnValue({ height: 600 } as DOMRect);
+    await act(async () => reviewed.setAttribute('data-billing-review-ready', 'true'));
+
+    const firstLessonDate = screen.getByLabelText('First lesson date');
+    firstLessonDate.focus();
+    fireEvent.change(firstLessonDate, { target: { value: '2026-11-18' } });
+    const reason = screen.getByRole('textbox', { name: 'Reason for change (required)' });
+    expect(firstLessonDate).toHaveFocus();
+    expect(reason).toBeRequired();
+    expect(reason).toHaveAttribute('aria-invalid', 'true');
+    expect(reason).toHaveAccessibleDescription('Enter a reason to continue to the renewal review.');
+    await calculate();
+    expect(calculationPanel.style.minHeight).toBe('');
+    expect(calculationPanel).toBeEmptyDOMElement();
+    fireEvent.change(reason, { target: { value: 'Original lessons were moved.' } });
+    await calculate();
+    expect(reason).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText('Enter a reason to continue to the renewal review.')).not.toBeInTheDocument();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({
+      first_lesson_date: '2026-11-18', slots: [expect.objectContaining({ covered_through: null })],
+    }), expect.any(AbortSignal));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({
+      scenario: expect.objectContaining({
+        first_lesson_date: '2026-11-18', slots: [expect.objectContaining({ covered_through: '2026-11-25' })],
+      }),
+      renewal: { source_enrollment_ids: [7], reason: 'Original lessons were moved.' },
+    }) }));
+  });
+
   it('resets edited renewal details when fresh source records replace their timetable', async () => {
     mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
     const initial = { first_lesson_date: '2026-11-10', mode: 'transition' as const, payment_method: 'manual' as const, slots: [{ weekday: 'Tue' as const, time_slot: '16:45 - 18:15', location: 'MSA', covered_through: '2026-11-03' }], materials_fee: 0, trial_deduction: false, mandate_ready: false };
     const props={ focused: true, embedded: true, initialRequest: initial, sourceKey: 'one', renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Tutor Nine'] }, draftContext: { studentId: 4, basis: 'include_pending' as const, selectedEnrollmentIds: [7], sourceFingerprint: 'one' } };
     const view=renderBase(<BillingPreview {...props} />);
     fireEvent.change(screen.getByLabelText('First lesson date'),{target:{value:'2026-11-17'}});
-    fireEvent.change(screen.getByLabelText('Reason for change'),{target:{value:'Old local edit'}});
+    fireEvent.change(screen.getByLabelText('Reason for change (required)'),{target:{value:'Old local edit'}});
     const fresh={...initial,first_lesson_date:'2026-11-24'};
     view.rerender(<BillingPreview {...props} sourceKey="two" initialRequest={fresh} renewalSource={{...props.renewalSource,scenario:fresh}} draftContext={{...props.draftContext,sourceFingerprint:'two'}} />);
     expect(screen.getByLabelText('First lesson date')).toHaveValue('2026-11-24');
-    expect(screen.queryByLabelText('Reason for change')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reason for change (required)')).not.toBeInTheDocument();
     await calculate();
     expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({reviewRequest:expect.objectContaining({expected_source_fingerprint:'two',scenario:expect.objectContaining({first_lesson_date:'2026-11-24'})})}));
   });

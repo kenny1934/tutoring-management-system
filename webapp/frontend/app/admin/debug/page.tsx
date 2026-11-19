@@ -40,10 +40,10 @@ export default function DebugPanelPage() {
 
   // Group tables by priority ranges
   const priorityGroups = [
-    { label: "Priority Tables", min: 0, max: 9, color: "bg-red-500", accent: "priority-accent-red" },
-    { label: "Reference Tables", min: 10, max: 19, color: "bg-amber-500", accent: "priority-accent-amber" },
-    { label: "Supporting Tables", min: 20, max: 29, color: "bg-blue-500", accent: "priority-accent-blue" },
-    { label: "Other Tables", min: 30, max: 999, color: "bg-gray-400", accent: "priority-accent-gray" },
+    { label: "Priority Tables", min: 0, max: 9, color: "bg-red-500" },
+    { label: "Reference Tables", min: 10, max: 19, color: "bg-amber-500" },
+    { label: "Supporting Tables", min: 20, max: 29, color: "bg-blue-500" },
+    { label: "Other Tables", min: 30, max: 999, color: "bg-gray-400" },
   ];
 
   return (
@@ -137,13 +137,7 @@ export default function DebugPanelPage() {
                           <Link
                             key={table.name}
                             href={`/admin/debug/${table.name}`}
-                            className={cn(
-                              "p-4 rounded-xl border transition-all",
-                              "bg-raised dark:bg-raised border-line",
-                              "hover:shadow-md hover:border-primary dark:hover:border-[#a0704b]",
-                              "paper-texture",
-                              group.accent
-                            )}
+                            className="block min-w-0 rounded-lg bg-raised p-4 transition-colors hover:bg-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2">

@@ -87,7 +87,8 @@ export function BillingDraftSummaryContent({ review, calculation, presentation =
     .sort((a, b) => a.number - b.number)[0] : undefined;
   const checks = review.issues.filter(issue => (issue.period === null || issue.period === period.number)
     && !review.confirmed_checks.includes(issue.code as BillingConfirmableCheck)
-    && !(issue.code === 'MANDATE_NOT_READY' && period.collection.method === 'manual'));
+    && !(issue.code === 'MANDATE_NOT_READY' && period.collection.method === 'manual')
+    && !(presentation === 'renewal' && issue.code === 'CONTINUATION_UNCONFIRMED' && issue.blocks_creation === false));
   return <div className="space-y-3">
     {presentation === 'renewal' && period.kind === 'first' && <div className="space-y-2">
       <div className="flex items-center gap-1"><p className="text-sm font-medium">First payment: {period.lesson_count} lessons through {formatShortDate(period.coverage_through)}.</p><button type="button" aria-label="First payment rule" aria-expanded={firstRuleOpen} aria-controls={firstRuleId} onClick={() => setFirstRuleOpen(value => !value)} onKeyDown={event => {

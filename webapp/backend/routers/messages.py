@@ -1121,7 +1121,15 @@ async def get_message_threads(
             joinedload(TutorMessage.to_tutor)
         )
     )
-    root_messages = query.order_by(TutorMessage.created_at.desc()).offset(offset).limit(limit).all()
+    # Pin ordering must happen before pagination so older pinned chats are
+    # included on the first page. Each tutor has their own pin list.
+    pinned_by_tutor = db.query(ThreadPin.id).filter(
+        ThreadPin.message_id == TutorMessage.id,
+        ThreadPin.tutor_id == tutor_id,
+    ).exists()
+    root_messages = query.order_by(
+        pinned_by_tutor.desc(), TutorMessage.created_at.desc(), TutorMessage.id.desc(),
+    ).offset(offset).limit(limit).all()
 
     if not root_messages:
         return PaginatedThreadsResponse(

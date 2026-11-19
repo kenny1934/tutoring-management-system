@@ -35,11 +35,13 @@ function RenewalScheduleSelect({ icon: Icon, ...props }: ComponentProps<typeof S
 }
 
 /** Reserve the last reviewed height while new dates and fees are checked. */
-function CalculationPanel({ intake, children }: { intake: boolean; children: ReactNode }) {
+function CalculationPanel({ intake, preserveHeight, children }: { intake: boolean; preserveHeight: boolean; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = panel.current;
     if (!element) return;
+    element.style.minHeight = '';
+    if (!preserveHeight) return;
     let reviewedHeight = 0;
     const update = () => {
       if (!element.getBoundingClientRect().height) return;
@@ -54,8 +56,8 @@ function CalculationPanel({ intake, children }: { intake: boolean; children: Rea
     resize?.observe(element);
     update();
     return () => { mutations.disconnect(); resize?.disconnect(); };
-  }, []);
-  return <div ref={panel} className={intake ? "min-h-[22rem] min-w-0 flex-[1_1_22rem] space-y-4" : "min-w-0 space-y-4"}>{children}</div>;
+  }, [preserveHeight]);
+  return <div ref={panel} className={intake ? "min-h-[22rem] min-w-0 flex-[1_1_22rem] space-y-4" : "min-w-0 space-y-4 empty:hidden"}>{children}</div>;
 }
 
 function selectableBranch(location: string) {
@@ -158,6 +160,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
   const [renewalReason, setRenewalReason] = useState(renewalSource?.reason || '');
   const [editorView, setEditorView] = useState<'details' | 'adjustments'>('details');
   const editorId = useId();
+  const renewalReasonId = useId();
   const editorRoot = useRef<HTMLDivElement | null>(null);
   const [customTimetable, setCustomTimetable] = useState(false);
   const editorTrigger = useRef<HTMLButtonElement | null>(null);
@@ -262,11 +265,21 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     || JSON.stringify(slots.map(slot => [slot.weekday, slot.time_slot?.trim(), slot.location?.trim()]))
       !== JSON.stringify(renewalSource.scenario.slots.map(slot => [slot.weekday, slot.time_slot?.trim(), slot.location?.trim()])));
   const renewalChange = renewalChanged && renewalSource ? { source_enrollment_ids: renewalSource.enrollmentIds, ...(renewalTutorsChanged ? { tutor_ids: renewalTutorIds } : {}), reason: renewalReason.trim() } : undefined;
-  const renewalReady = renewalTutorsReady && (!renewalChanged || !!renewalReason.trim());
+  const renewalReasonMissing = renewalChanged && !renewalReason.trim();
+  const renewalReady = renewalTutorsReady && !renewalReasonMissing;
+  const renewalContextIssues = routineRenewal
+    ? contextIssues.filter(issue => issue.code !== 'CONTINUATION_UNCONFIRMED' || issue.blocks_creation === true)
+    : contextIssues;
+  const earlyRenewalStart = !!renewalSource && firstDate < renewalSource.scenario.first_lesson_date;
+  const previewPayment = useCallback((scenario: BillingPreviewRequest, signal: AbortSignal) => billingAPI.preview(
+    // The draft review keeps the original coverage and checks the proposed booking dates.
+    earlyRenewalStart ? { ...scenario, slots: scenario.slots.map(slot => ({ ...slot, covered_through: null })) } : scenario,
+    signal,
+  ), [earlyRenewalStart]);
   const renewalDetailsBlocked = sourceBlocked || reviewBusy || (routineRenewal && !!draftContext && !renewalSource);
-  const currentKey = JSON.stringify({ request, sourceVersion, intake: intakeRequest, intakeReady, renewal: renewalChange });
+  const currentKey = JSON.stringify({ request, sourceVersion, intake: intakeRequest, intakeReady, renewal: renewalChange, earlyRenewalStart });
   const couponOffersKey = request && renewalCouponBalance ? JSON.stringify({
-    scenario: { ...request, coupon: null }, sourceVersion, studentId: draftContext?.studentId,
+    scenario: { ...request, coupon: null }, sourceVersion, earlyRenewalStart, studentId: draftContext?.studentId,
     auth: billingDraftAuthScope(auth), version: renewalCouponBalance.version, snapshot: currentCouponSnapshot,
     period: focusedPeriodNumber,
   }) : null;
@@ -287,7 +300,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     const timer = setTimeout(() => {
       if (!renewalCouponSuggested && renewalCouponBalance && availableRenewalCoupons(renewalCouponBalance).length) {
         inspectRenewalCoupons(renewalCouponBalance, request, focusedPeriodNumber,
-          (scenario, signal) => billingAPI.preview(scenario, signal), controller.signal).then(offers => {
+          previewPayment, controller.signal).then(offers => {
           if (controller.signal.aborted) return;
           if (couponOffersKey) setCouponOffers({ key: couponOffersKey, data: offers });
           setCouponOffersFailure(null);
@@ -301,7 +314,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       }
       const methods: BillingMethod[] = focused && !compareSchedules ? [request.payment_method] : request.payment_method === 'autopay' ? ['autopay', 'manual'] : ['manual', 'autopay'];
       Promise.all(methods.map(async payment_method => [payment_method,
-        await billingAPI.preview({ ...request, payment_method }, controller.signal)] as const)).then(entries => {
+        await previewPayment({ ...request, payment_method }, controller.signal)] as const)).then(entries => {
         const data = Object.fromEntries(entries) as Record<BillingMethod, BillingPreviewResponse>;
         if (!controller.signal.aborted) {
           setResult({ key, data });
@@ -312,7 +325,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       });
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [enabled, options, request, attempt, sourceBlocked, needsRebase, currentKey, focused, compareSchedules, renewalCouponSuggested, renewalCouponBalance, renewalCouponChecking, renewalCouponFailed, focusedPeriodNumber, currentCouponSnapshot, couponOffersKey]);
+  }, [enabled, options, request, attempt, sourceBlocked, needsRebase, currentKey, focused, compareSchedules, renewalCouponSuggested, renewalCouponBalance, renewalCouponChecking, renewalCouponFailed, focusedPeriodNumber, currentCouponSnapshot, couponOffersKey, previewPayment]);
 
   // An explicit No coupon choice stays unchanged while dates or ledger stock refresh.
   // We still check whether an optional extra month can make a coupon usable.
@@ -324,14 +337,14 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     const controller = new AbortController();
     const timer = setTimeout(() => {
       inspectRenewalCoupons(renewalCouponBalance, request, focusedPeriodNumber,
-        (scenario, signal) => billingAPI.preview(scenario, signal), controller.signal).then(data => {
+        previewPayment, controller.signal).then(data => {
         if (!controller.signal.aborted) { setCouponOffers({ key: couponOffersKey, data }); setCouponOffersFailure(null); }
       }).catch(() => { if (!controller.signal.aborted) setCouponOffersFailure(couponOffersKey); });
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [enabled, routineRenewal, renewalCouponSuggested, selectedRenewalCoupon, request, couponOffersKey,
     renewalCouponBalance, renewalCouponChecking, renewalCouponFailed, sourceBlocked, needsRebase,
-    couponOffers?.key, focusedPeriodNumber, attempt]);
+    couponOffers?.key, focusedPeriodNumber, attempt, previewPayment]);
 
   function updateSlot(index: number, change: Partial<BillingSlot>) {
     if (change.location && !selectableBranch(change.location)) change = { ...change, location: '' };
@@ -561,7 +574,11 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       setIntakeSlots(current => current.length === 1 ? [...current, { tutor_id: 0 }] : current.slice(0, 1));
     }}>{slots.length === 1 ? 'Add second weekly class' : 'Remove second weekly class'}</Button>}
     {tutorRoster.error && <div role="alert" className="text-sm"><p>Could not load tutors.</p><Button size="sm" onClick={() => { void tutorRoster.mutate(); }}>Retry tutors</Button></div>}
-    {renewalChanged && <Field label="Reason for change" id="renewal-change-reason"><Textarea id="renewal-change-reason" rows={2} maxLength={500} disabled={sourceBlocked || reviewBusy} value={renewalReason} onChange={event => setRenewalReason(event.target.value)} /></Field>}
+    {renewalChanged && <Field label="Reason for change (required)" id={renewalReasonId}
+      error={renewalReasonMissing ? <span role="status">Enter a reason to continue to the renewal review.</span> : undefined}>
+      <Textarea required rows={2} maxLength={500} disabled={sourceBlocked || reviewBusy} value={renewalReason}
+        onChange={event => setRenewalReason(event.target.value)} />
+    </Field>}
 
   </section>;
 
@@ -610,16 +627,16 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     return <div className="space-y-4" aria-label={intake ? "First enrollment calculation" : "Renewal calculation"}>
       {revisionTarget && <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Revision {revisionTarget.current_revision + 1}</h3><Button size="sm" variant="quiet" onClick={onCancelRevision}>Cancel revision</Button></div>}
       {sourceFailure}{policyError}{calculationError}
-      <div className={intake ? "flex min-w-0 flex-wrap items-start gap-5" : "space-y-4"}>
+      <div className={intake ? "flex min-w-0 flex-wrap items-start gap-5" : "flex flex-col gap-4"}>
       <div className={intake ? "min-w-0 flex-[1_1_19rem] space-y-4" : "space-y-4"}>{renewalEditor}{intakeFees}</div>
-      <CalculationPanel intake={!!intake}>
-      {!hasReview && <BillingChecks issues={contextIssues} presentation="renewal" />}
+      <CalculationPanel intake={!!intake} preserveHeight={renewalReady}>
+      {!hasReview && <BillingChecks issues={renewalContextIssues} presentation="renewal" />}
       {!request && <p className="text-sm text-ink-subtle">{renewalCoupon && !selectedRenewalCoupon ? 'Check coupons or select No coupon to continue.' : 'Complete the enrollment details to calculate its fee.'}</p>}
       {intake && !intakeReady && materialsValid && <p role="status" className="text-sm text-ink-subtle">Choose a tutor for each class.</p>}
-      {!renewalReady && <p role="status" className="text-xs text-ink-subtle">{renewalTutorsReady ? 'Enter a reason to review the changed enrollment.' : 'Select a tutor for each class.'}</p>}
+      {!renewalTutorsReady && <p role="status" className="text-xs text-ink-subtle">Select a tutor for each class.</p>}
       {sourceLoading && <p role="status" className="text-sm text-ink-subtle">Refreshing enrollment records…</p>}
-      {!sourceBlocked && request && options && !preview && !error && <p role="status" className="flex items-center gap-2 text-sm text-ink-subtle"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Updating sessions and fees…</p>}
-      {preview && !period && <p className="text-sm text-ink-subtle">No payment is needed for this period.</p>}
+      {renewalReady && !sourceBlocked && request && options && !preview && !error && <p role="status" className="flex items-center gap-2 text-sm text-ink-subtle"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Updating sessions and fees…</p>}
+      {renewalReady && preview && !period && <p className="text-sm text-ink-subtle">No payment is needed for this period.</p>}
       {hasReview && period && draftContext && request && <BillingDraftReview inline summaryPresentation="renewal" onBusyChange={reviewBusyChanged} key={`${currentKey}:${method}:${period.number}`}
         studentId={draftContext.studentId} calculation={preview?.[method]}
         directCreation={renewalCreator && onEnrollmentCreated ? { creator: renewalCreator, canWrite: !!options?.workflow_writes_available, onCreated: onEnrollmentCreated } : undefined}

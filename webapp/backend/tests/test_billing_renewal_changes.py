@@ -118,7 +118,7 @@ def test_recorded_coverage_start_comparison_is_advisory_for_configured_admin_ren
     draft,data=confirmation(client,payload=p)
     result=client.post(f"/api/billing/drafts/{draft['id']}/confirm",json=data)
     assert result.status_code==200,result.text
-    assert result.json()['review']['period']['first_lesson_date']=='2026-11-12'
+    assert result.json()['review']['period']['first_lesson_date']=='2026-11-05'
     assert session.query(Enrollment).count()==2 and session.query(BillingPayment).count()==1
 
 def test_postponed_admin_start_keeps_exact_omitted_dates_without_extra_confirmation(env):
@@ -174,7 +174,7 @@ def test_unrelated_student_lesson_overlap_blocks_preview_and_confirmation(env):
     assert r.status_code==422 and 'already has a lesson' in r.text
     assert session.query(BillingPayment).count()==0 and session.query(Enrollment).count()==2
 
-def test_pending_coverage_is_retained_when_admin_configures_an_earlier_start(env):
+def test_early_start_preserves_pending_enrollment_on_a_different_weekday(env):
     from datetime import timedelta
     client,session,_=env
     session.add(Enrollment(id=12,student_id=101,tutor_id=1,assigned_day='Fri',assigned_time='16:00 - 17:30',location='MSA',lessons_paid=6,first_lesson_date=date(2026,11,13),payment_status='Pending Payment',enrollment_type='Regular',renewed_from_enrollment_id=11,is_new_student=False))
@@ -185,8 +185,46 @@ def test_pending_coverage_is_retained_when_admin_configures_an_earlier_start(env
     v=review(client,p)
     issue=next(i for i in v['issues'] if i['code']=='RENEWAL_START_BEFORE_COVERAGE')
     assert issue['blocks_creation'] is False and not v['message']['blocked_reasons']
-    assert v['period']['first_lesson_date']=='2026-12-24'
+    assert v['period']['first_lesson_date']=='2026-11-12'
     assert session.get(Enrollment,12).payment_status=='Pending Payment' and session.query(SessionLog).filter_by(enrollment_id=12).count()==6
+
+def test_early_renewal_can_use_a_moved_slot_after_confirming_past_dates(env, monkeypatch):
+    from routers import billing, billing_drafts, billing_workflow
+
+    client, session, _ = env
+    for router in (billing, billing_drafts, billing_workflow):
+        monkeypatch.setattr(router, 'today', lambda: date(2026, 11, 7))
+    payload = renewal(client, first='2026-11-06', weekday='Fri', time='16:00 - 17:30')
+    value = review(client, payload)
+    assert any(issue['code'] == 'EXISTING_ORIGINALS_OVERLAP' for issue in value['issues'])
+
+    original = session.get(SessionLog, 115)
+    original.session_status = 'Rescheduled - Make-up Booked'
+    makeup = SessionLog(
+        id=116, student_id=101, enrollment_id=11, tutor_id=1,
+        session_date=date(2026, 10, 29), time_slot='16:00 - 17:30', location='MSA',
+        session_status='Attended (Make-up)', financial_status='Paid', make_up_for_id=original.id,
+    )
+    session.add(makeup)
+    session.flush()
+    original.rescheduled_to_id = makeup.id
+    session.commit()
+
+    payload = renewal(client, first='2026-11-06', weekday='Fri', time='16:00 - 17:30')
+    value = review(client, payload)
+    assert value['period']['first_lesson_date'] == '2026-11-06'
+    assert {i['code'] for i in value['issues'] if i.get('blocks_creation')} == {'UNPAID_PAST_DATES'}
+    assert value['message']['blocked_reasons'] and not value['message']['en']
+
+    payload['confirmed_checks'].append('UNPAID_PAST_DATES')
+    before = source_snapshot(session)
+    _, _, payment = confirmed(client, payload=payload)
+    assert payment['can_copy'] and not payment['review']['message']['blocked_reasons']
+    new = session.get(Enrollment, payment['lines'][0]['enrollment_id'])
+    assert new.first_lesson_date == date(2026, 11, 6)
+    assert new.renewed_from_enrollment_id == 11
+    assert source_snapshot(session) == before
+
 
 def test_branch_change_keeps_old_branch_and_future_source_lineage(env):
     client,session,_=env;p=renewal(client);p['scenario']['slots'][0]['location']='MSB'
