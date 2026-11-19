@@ -5,33 +5,33 @@ const changelogData = [
     "date": "2026-11-19",
     "sections": [
       {
-        "title": "Bug Fixes",
+        "title": "Improvements",
         "items": [
           {
-            "description": "**Earlier renewals** can start on dates freed by rescheduled lessons after checking for duplicate bookings. Past lesson dates require confirmation."
+            "description": "**Mobile sheets**: Removed the decorative upper border."
           },
           {
-            "description": "**Renewal editing** clearly marks the required reason for a changed date or timetable, removes unnecessary scrolling while it is blank, and omits the advisory continuation warning from the renewal form."
-          },
-          {
-            "description": "**Exercise modals** prevent backdrop clicks from opening the session details underneath."
-          },
-          {
-            "description": "**Pinned chats** appear before newer unpinned chats when the inbox first loads."
-          },
-          {
-            "description": "**Legacy discounts** can be removed from paid enrollments when they have no checked coupon or receipt evidence. The correction restores the tuition total and records the released coupon commitment."
+            "description": "**Debug panel cards**: Replaced outlines and coloured top accents with plain surfaces and hover shading."
           }
         ]
       },
       {
-        "title": "Improvements",
+        "title": "Bug Fixes",
         "items": [
           {
-            "description": "**Mobile sheets** have a plain upper edge."
+            "description": "**Earlier renewals**: Allow an earlier start when rescheduled lessons leave the proposed dates free, with duplicate-booking checks and confirmation of past lesson dates."
           },
           {
-            "description": "**Debug panel cards** use simple surfaces and hover shading."
+            "description": "**Renewal editing**: Clearly mark the required reason for a changed date or timetable, remove unnecessary scrolling while it is blank, and omit the advisory continuation warning from the renewal form."
+          },
+          {
+            "description": "**Exercise modals**: Prevent backdrop clicks from opening the session details underneath."
+          },
+          {
+            "description": "**Pinned chats**: Show pinned chats before newer unpinned chats when the inbox first loads."
+          },
+          {
+            "description": "**Legacy discounts**: Allow removal of incorrectly assigned discounts from paid enrollments when they have no checked coupon or receipt evidence, restore the tuition total and record the correction."
           }
         ]
       }
