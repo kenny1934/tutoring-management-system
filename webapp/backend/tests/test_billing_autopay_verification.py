@@ -58,9 +58,12 @@ def add_source(db, *, student_id=102, source_id=21, tutor_id=2, location='MSB',
 @pytest.fixture
 def records(workflow_env, monkeypatch):
     from routers import billing, billing_autopay, billing_drafts, billing_workflow
+    from billing import workflow
     client, db, user = workflow_env
     for routes in (billing, billing_autopay, billing_drafts, billing_workflow):
         monkeypatch.setattr(routes, 'today', lambda: NOW)
+    # Fee-message timestamps must follow the same simulated day as the run.
+    monkeypatch.setattr(workflow, 'event_time', lambda: datetime(NOW.year, NOW.month, NOW.day, 4))
     monkeypatch.setenv('MAKEUP_ENTITLEMENT_ENABLED', 'false')
     monkeypatch.setenv('MAKEUP_ENTITLEMENT_STORAGE_ENABLED', 'false')
     client.app.include_router(billing_autopay.router, prefix='/api')
