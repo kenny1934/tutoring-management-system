@@ -156,7 +156,7 @@ export function Modal({
         "relative",
         "bg-paper",
         "border-2 border-line-strong",
-        asSheet ? "rounded-t-2xl rounded-b-none border-x-0 border-b-0 shadow-2xl" : "rounded-lg shadow-2xl paper-texture",
+        asSheet ? "rounded-t-2xl rounded-b-none border-0 shadow-2xl" : "rounded-lg shadow-2xl paper-texture",
         // In standalone mode, use max-h; in side-by-side, fill parent height.
         // dvh, not vh, so a phone's browser bar doesn't hide the bottom.
         standalone ? (asSheet ? "max-h-[92dvh]" : "max-h-[90dvh]") : "h-full",
@@ -224,6 +224,8 @@ export function Modal({
     <AnimatePresence>
       {isOpen && (
         <div
+          // Portal events also bubble through the React owner (for example a session row).
+          onClick={(event) => event.stopPropagation()}
           style={{ zIndex }}
           className={cn(
             "fixed inset-0 md:left-[var(--sidebar-width,72px)] flex justify-center transition-[left] duration-350",

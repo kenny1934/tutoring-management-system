@@ -51,7 +51,7 @@ export function fitToScreen(padding = 8, cap = Infinity) {
  * room for a phone's home bar.
  */
 const SHEET_CLASS =
-  "w-full rounded-t-2xl rounded-b-none border-x-0 border-b-0 max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]";
+  "w-full rounded-t-2xl rounded-b-none border-0 max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]";
 
 /**
  * On a phone, a popover that shows the details of something tapped becomes a

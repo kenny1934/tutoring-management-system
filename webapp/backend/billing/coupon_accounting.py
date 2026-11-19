@@ -108,6 +108,10 @@ def _use_state(use, payments, legacy):
         return use.state, issue('COUPON_SOURCE_REVIEW', 'Check the payment linked to this coupon.')
     status = payment.status if payment else enrollment.payment_status
     if use.state == 'released':
+        if (enrollment is not None and use.payment_id is None
+                and enrollment.discount_id is None and not use.receipt_reference
+                and not use.accounted_observation_id):
+            return 'released', None
         if status == 'Paid' or use.receipt_reference:
             return ('receipt_recorded' if use.receipt_reference else 'awaiting_receipt'), issue(
                 'COUPON_SOURCE_REVIEW', 'The enrollment was reopened after its coupon reservation was released.')
@@ -497,3 +501,37 @@ def release_legacy_reservation(db, enrollment, *, as_of=None):
     account.version += 1
     db.flush()
     return True
+
+
+def remove_incorrect_legacy_discount(db, enrollment, actor):
+    """Release an unverified legacy commitment when an admin removes its discount."""
+    require_writes()
+    account = lock_student(db, enrollment.student_id)
+    from .models import BillingPaymentLine
+    from .coupon_models import KmsCouponRedemption
+    if db.query(BillingPaymentLine.payment_id).filter_by(enrollment_id=enrollment.id).with_for_update().first():
+        raise DraftConflict('Open this enrollment’s Billing payment to review its discount.')
+    use = db.query(CouponUse).filter_by(legacy_enrollment_id=enrollment.id).with_for_update().first()
+    if use is not None:
+        if (use.student_id != enrollment.student_id or use.payment_id is not None
+                or use.state not in {'reserved', 'awaiting_receipt'} or use.receipt_reference
+                or use.coupon_used_on or use.receipt_recorded_at or use.accounted_observation_id
+                or use.verification_id or use.group_key
+                or db.query(KmsCouponRedemption.use_id).filter_by(use_id=use.id).with_for_update().first()):
+            raise DraftConflict('This coupon has checked stock or receipt evidence. Review its KMS records before removing the discount.')
+        use.state = 'released'
+    result = {
+        'enrollment_id': enrollment.id, 'student_id': enrollment.student_id,
+        'previous_discount_id': enrollment.discount_id,
+        'previous_discount_value': int(enrollment.discount.discount_value),
+        'previous_revenue_total': str(enrollment.revenue_total),
+        'discount_id': None, 'coupon_use_id': use.id if use else None,
+        'coupon_state': 'released' if use else None,
+    }
+    db.add(CouponOperation(
+        student_id=enrollment.student_id, actor_id=actor.id,
+        idempotency_key=str(uuid4()), kind='legacy_discount_removed',
+        payload_hash=digest(result), result=result,
+    ))
+    account.version += 1
+    db.flush()

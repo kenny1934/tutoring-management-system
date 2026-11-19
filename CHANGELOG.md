@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.4.7](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.6...v2.4.7) (2026-11-19)
+
+### Bug Fixes
+
+* **Earlier renewals** can start on dates freed by rescheduled lessons after checking for duplicate bookings. Past lesson dates require confirmation.
+* **Renewal editing** clearly marks the required reason for a changed date or timetable, removes unnecessary scrolling while it is blank, and omits the advisory continuation warning from the renewal form.
+* **Exercise modals** prevent backdrop clicks from opening the session details underneath.
+* **Pinned chats** appear before newer unpinned chats when the inbox first loads.
+* **Legacy discounts** can be removed from paid enrollments when they have no checked coupon or receipt evidence. The correction restores the tuition total and records the released coupon commitment.
+
+### Improvements
+
+* **Mobile sheets** have a plain upper edge.
+* **Debug panel cards** use simple surfaces and hover shading.
+
 ## [2.4.6](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.5...v2.4.6) (2026-11-14)
 
 ### Improvements

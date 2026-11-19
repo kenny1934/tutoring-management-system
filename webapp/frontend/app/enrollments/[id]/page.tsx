@@ -182,8 +182,14 @@ export default function EnrollmentDetailPage() {
     // legacy rows editable instead of tripping the backend guard).
     const effectiveLessons = editForm.lessons_paid ?? enrollment.lessons_paid ?? 0;
     const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
+    // Payment edits should send changed payment fields so an unchanged
+    // timetable does not trigger the structural enrollment checks.
+    const paymentFields = ["payment_status", "lessons_paid", "payment_date", "is_new_student"] as const;
+    const paymentChanges = Object.fromEntries(paymentFields
+      .filter(field => editForm[field] !== enrollment[field])
+      .map(field => [field, editForm[field]]));
     const updateData = isEditingPayment
-      ? { ...editForm, discount_id: effectiveLessons < minLessonsForDiscount(selectedDiscount) ? null : selectedDiscountId }
+      ? { ...paymentChanges, discount_id: effectiveLessons < minLessonsForDiscount(selectedDiscount) ? null : selectedDiscountId }
       : editForm;
     try {
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);

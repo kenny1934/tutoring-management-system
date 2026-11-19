@@ -2357,7 +2357,7 @@ async def update_enrollment(
     update_data = enrollment_update.model_dump(exclude_unset=True)
     if update_data.get("assigned_time") == "Various" and enrollment.assigned_time != "Various":
         raise HTTPException(status_code=422, detail="Enter a valid start and end time.")
-    coupon_legacy.guard_edit(db, enrollment, update_data)
+    coupon_legacy.guard_edit(db, enrollment, update_data, actor=admin)
     assert_legacy_enrollments_mutable(
         db, [enrollment_id],
         structural=bool(set(update_data) & {
