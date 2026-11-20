@@ -5,6 +5,7 @@ amounts cannot be recovered from the current fee-message formatter, so this
 reader never presents a regenerated quote as a previously issued bill.
 """
 from collections import defaultdict
+from dataclasses import replace
 from datetime import date, timedelta, timezone
 
 from sqlalchemy import and_, or_, select
@@ -46,6 +47,60 @@ def source_student_ids(db: Session, policy: BillingPolicy, *, tutor_id=None, loc
     return query.distinct()
 
 
+def verified_skipped_lessons(db, blocks):
+    """Only confirmed, internally consistent payment snapshots explain omissions.
+
+    The request/review JSON already persists the date and reason. No synthetic
+    lesson, holiday or make-up record is needed for a lesson that was not sold.
+    """
+    from .workflow import payment_integrity, workflow_storage_enabled
+    if not workflow_storage_enabled() or not blocks:
+        return {}
+    from .models import BillingLessonClaim, BillingPayment, BillingPaymentLine
+    from .schemas import BillingDraftReview
+    payments = {}
+    for payment in db.query(BillingPayment).join(
+            BillingPaymentLine, BillingPaymentLine.payment_id == BillingPayment.id,
+    ).filter(BillingPaymentLine.enrollment_id.in_([block.id for block in blocks])).all():
+        if payment.status == 'Cancelled':
+            continue
+        try:
+            if any(slot.get('skipped_lessons') for slot in payment.snapshot['review']['scenario']['slots']):
+                payments[payment.id] = payment
+        except (AttributeError, TypeError, KeyError):
+            continue
+    if not payments:
+        return {}
+    rows = defaultdict(list)
+    for line, enrollment, name in db.query(BillingPaymentLine, Enrollment, Tutor.tutor_name).join(
+            Enrollment, Enrollment.id == BillingPaymentLine.enrollment_id).join(
+            Tutor, Tutor.id == Enrollment.tutor_id).filter(BillingPaymentLine.payment_id.in_(payments)).all():
+        rows[line.payment_id].append((line, enrollment, name))
+    claims = defaultdict(list)
+    for claim, lesson in db.query(BillingLessonClaim, SessionLog).join(
+            SessionLog, SessionLog.id == BillingLessonClaim.session_id).filter(
+            BillingLessonClaim.payment_id.in_(payments)).all():
+        claims[claim.payment_id].append((claim, lesson))
+    sessions = defaultdict(list)
+    for lesson in db.query(SessionLog).filter(SessionLog.enrollment_id.in_(
+            [enrollment.id for group in rows.values() for _, enrollment, _ in group])).all():
+        sessions[lesson.enrollment_id].append(lesson)
+    result = {}
+    for payment_id, payment in payments.items():
+        group = sorted(rows[payment_id], key=lambda row: row[0].slot_index)
+        try:
+            review = BillingDraftReview.model_validate(payment.snapshot['review'])
+            if payment_integrity(db, payment, review, group, preloaded_claims=claims[payment_id],
+                    preloaded_sessions=[lesson for _, enrollment, _ in group for lesson in sessions[enrollment.id]]):
+                continue
+            for line, enrollment, _ in group:
+                result[enrollment.id] = tuple(lesson for lesson in review.scenario.slots[line.slot_index].skipped_lessons
+                    if lesson.date <= review.period.coverage_through)
+        except (ValueError, TypeError, KeyError, IndexError):
+            continue  # Inconsistent evidence must not hide a real coverage gap.
+    return result
+
+
 def load_contexts(db: Session, student_ids: list[int], holidays: set[date], *,
                   as_of: date, basis='paid_only', selected=None,
                   policy: BillingPolicy = BillingPolicy(), isolate_invalid=False):
@@ -77,6 +132,9 @@ def load_contexts(db: Session, student_ids: list[int], holidays: set[date], *,
         data['fee_message_sent'] = bool(data['fee_message_sent'])
         data['is_new_student'] = bool(data['is_new_student'])
         by_student[row.student_id].append(EvidenceBlock(**data))
+    skips = verified_skipped_lessons(db, blocks)
+    for student_id, own_blocks in by_student.items():
+        by_student[student_id] = [replace(block, skipped_lessons=skips.get(block.id, ())) for block in own_blocks]
     lessons = defaultdict(list)
     if blocks:
         rows = db.query(

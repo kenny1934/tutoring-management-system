@@ -40,6 +40,22 @@ function rows() {
 }
 
 describe('renewal session preview', () => {
+  it('shows a saved ad hoc omission and reason without numbering or charging it, including the final date', () => {
+    const value = review([lesson('2026-12-04'), lesson('2026-12-18')]);
+    value.scenario.slots[0].skipped_lessons = [
+      { date: '2026-12-11', reason: 'Christmas party' },
+      { date: '2026-12-25', reason: 'Private event' },
+      { date: '2027-01-01', reason: 'Later period' },
+    ];
+    render(<RenewalSessionPreview review={value} />);
+    expect(rows()).toEqual([
+      ['1', 'Fri, Dec 4, 2026', 'OK'], ['-', 'Fri, Dec 11, 2026', 'Skipped: Christmas party'],
+      ['2', 'Fri, Dec 18, 2026', 'OK'], ['-', 'Fri, Dec 25, 2026', 'Skipped: Private event'],
+    ]);
+    expect(screen.getByText('2 sessions')).toBeInTheDocument();
+    expect(screen.queryByText('Skipped: Later period')).not.toBeInTheDocument();
+  });
+
   it('keeps the old numbered date/status layout and shows skipped holidays without charging them', () => {
     const value = review();
     render(<RenewalSessionPreview review={value} calculation={calculation(value, ['2026-12-25', '2026-12-08', '2027-01-01', '2026-11-27'])} />);

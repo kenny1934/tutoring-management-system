@@ -23,6 +23,7 @@ import type { BillingContextBasis, BillingDraftDetail, BillingIntakeRequest, Bil
 import { Badge, Button, Field, Input, PageHeader, Select, Textarea } from '@/components/controls';
 import { PageSurface } from '@/components/layout/PageSurface';
 import { BillingCouponPanel } from './BillingCouponPanel';
+import { SkippedLessonsEditor } from './SkippedLessonsEditor';
 import { BillingRenewalCoupon, availableRenewalCoupons, matchingRenewalCoupon, type RenewalCouponSelection } from './BillingRenewalCoupon';
 import { inspectRenewalCoupons, renewalCouponFeedback, renewalCouponMonthLabel, renewalCouponCombineReason, type RenewalCouponOptions } from './renewal-coupon-options';
 import { BillingChecks } from './BillingChecks';
@@ -243,6 +244,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
     if (!routineCreation && couponSelected && deduction !== 'staff' && (!Number.isInteger(Number(couponValue)) || Number(couponValue) <= 0)) return null;
     if (!routineCreation && couponSelected && couponCount !== '' && (!Number.isInteger(Number(couponCount)) || Number(couponCount) < 0)) return null;
     if (slots.some(slot => slot.holiday_exceptions?.some(day => !weekdayForDate(day)))) return null;
+    if (slots.some(slot => slot.skipped_lessons?.some(lesson => !weekdayForDate(lesson.date) || !lesson.reason.trim()))) return null;
     return {
       first_lesson_date: firstDate, slots: isEnrollmentIntakeMode(mode) ? slots.map(slot => ({ ...slot, covered_through: null })) : slots, mode, payment_method: method,
       materials_fee: isEnrollmentIntakeMode(mode) ? (materials === '' ? null : Number(materials)) : 0,
@@ -348,7 +350,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
 
   function updateSlot(index: number, change: Partial<BillingSlot>) {
     if (change.location && !selectableBranch(change.location)) change = { ...change, location: '' };
-    setSlots(current => current.map((slot, i) => i === index ? { ...slot, ...(routineRenewal && change.weekday && change.weekday !== slot.weekday ? { holiday_exceptions: [] } : {}), ...change } : slot));
+    setSlots(current => current.map((slot, i) => i === index ? { ...slot, ...(routineRenewal && change.weekday && change.weekday !== slot.weekday ? { holiday_exceptions: [] } : {}), ...(change.weekday && change.weekday !== slot.weekday ? { skipped_lessons: [] } : {}), ...change } : slot));
   }
 
   if (authLoading) return <p className="p-6">Loading…</p>;
@@ -422,6 +424,9 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
         <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={combineCoupon} onChange={e => { setCombineCoupon(e.target.checked); setTransitionCombination(e.target.checked && couponPeriod?.kind === 'transition'); }} />Include the next month if needed for this coupon</label>
       </fieldset>}
     </section>;
+
+  const skippedLessonsEditor = isAdmin && <SkippedLessonsEditor slots={slots} onChange={updateSlot}
+    disabled={sourceBlocked || reviewBusy} from={firstDate} through={options?.regular_end} />;
 
   const dateExceptions = <section className="space-y-3 border-t border-line pt-4" aria-labelledby="preview-adjustments">
       <h3 id="preview-adjustments" className="text-sm font-semibold">Date exceptions</h3>
@@ -507,6 +512,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={mandateReady} onChange={e => setMandateReady(e.target.checked)} />Compare with autopay setup complete</label>
     </section>
     {dateExceptions}
+    {skippedLessonsEditor}
     </div>
   </div>;
 
@@ -573,6 +579,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       setSlots(current => current.length === 1 ? [...current, { weekday: BILLING_DAYS[(BILLING_DAYS.indexOf(current[0].weekday) + 2) % 7], location: current[0].location }] : current.slice(0, 1));
       setIntakeSlots(current => current.length === 1 ? [...current, { tutor_id: 0 }] : current.slice(0, 1));
     }}>{slots.length === 1 ? 'Add second weekly class' : 'Remove second weekly class'}</Button>}
+    {skippedLessonsEditor}
     {tutorRoster.error && <div role="alert" className="text-sm"><p>Could not load tutors.</p><Button size="sm" onClick={() => { void tutorRoster.mutate(); }}>Retry tutors</Button></div>}
     {renewalChanged && <Field label="Reason for change (required)" id={renewalReasonId}
       error={renewalReasonMissing ? <span role="status">Enter a reason to continue to the renewal review.</span> : undefined}>

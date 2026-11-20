@@ -60,6 +60,8 @@ def _snapshot_checks(student, request, period, unit_fee):
             check(False, 'A payment lesson refers to a class outside the reviewed timetable.')
             continue
         slot = request.slots[lesson.slot]
+        check(lesson.date not in {skipped.date for skipped in slot.skipped_lessons},
+              'A skipped lesson is still included in this payment. Review the session dates.')
         counts_by_slot[lesson.slot] += 1
         check(lesson.weekday == slot.weekday == _DAYS[lesson.date.weekday()],
               'A payment lesson date does not match its reviewed class weekday.')

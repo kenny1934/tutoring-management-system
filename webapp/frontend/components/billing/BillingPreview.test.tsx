@@ -61,6 +61,34 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('enrollment fee preview', () => {
+  it.each(['renewal', 'intake'] as const)('includes an ad hoc skip and reason in the %s review, and removing it restores normal pricing input', async mode => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-12-03', mode: mode === 'intake' ? 'new_student' : 'transition',
+      payment_method: 'manual', slots: [{ weekday: 'Thu', time_slot: '18:30 - 20:00', location: 'MSA' }], materials_fee: 100, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused embedded initialRequest={initial}
+      {...(mode === 'renewal' ? { renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] } }
+        : { intake: { slots: [{ tutor_id: 9 }] } })}
+      draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: mode === 'renewal' ? [7] : [], sourceFingerprint: 'source' }} />);
+    await calculate();
+    fireEvent.click(screen.getByText('Skip lesson dates'));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip a lesson' }));
+    fireEvent.change(screen.getByLabelText('Skipped lesson date'), { target: { value: '2026-12-10' } });
+    const beforeReason = mocks.preview.mock.calls.length;
+    await calculate();
+    expect(mocks.preview.mock.calls.length).toBe(beforeReason);
+    fireEvent.change(screen.getByLabelText('Reason for skipping'), { target: { value: 'Christmas party' } });
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ slots: [expect.objectContaining({
+      skipped_lessons: [{ date: '2026-12-10', reason: 'Christmas party' }],
+    })] }), expect.any(AbortSignal));
+    expect(mocks.review).toHaveBeenLastCalledWith(expect.objectContaining({ reviewRequest: expect.objectContaining({
+      scenario: expect.objectContaining({ slots: [expect.objectContaining({ skipped_lessons: [{ date: '2026-12-10', reason: 'Christmas party' }] })] }),
+    }) }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove skipped date' }));
+    await calculate();
+    expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ slots: [expect.objectContaining({ skipped_lessons: [] })] }), expect.any(AbortSignal));
+  });
+
   it('preselects the earliest eligible coupon and respects an explicit No coupon afterwards', async () => {
     mocks.coupons = { ...mocks.coupons!, observation: { id: 'obs', remaining_count: 2, observed_on: '2026-11-01', processed_at: '2026-11-01', source_filename: 'fixture.xls' },
       checked_at: '2026-11-01', usable_count: 2, groups: [

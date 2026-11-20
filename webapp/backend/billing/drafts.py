@@ -147,7 +147,7 @@ def review_renewal_change(db, data, context, period, holidays, policy, block, is
         time_range(slot.time_slot)
         if slot.location.strip() not in set(SECONDARY_LOCATION_TO_CODE.values()):
             raise ValueError('Choose a supported teaching branch for the renewed class.')
-        expected = candidate.last_retained_original_date
+        expected = candidate.covered_through or candidate.last_retained_original_date
         if expected is None and candidate.first_uncovered_date:
             expected = candidate.first_uncovered_date - timedelta(days=1)
         if slot.covered_through != expected:
@@ -225,6 +225,13 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
     if data.period_number > len(calculation.periods):
         raise ValueError('Choose a payment present in this calculation.')
     period = calculation.periods[data.period_number - 1]
+    skip_start = (calculation.periods[data.period_number - 2].coverage_through + timedelta(days=1)
+                  if data.period_number > 1 else scenario.first_lesson_date)
+    if any(not skip_start <= lesson.date <= period.coverage_through
+           for slot in scenario.slots for lesson in slot.skipped_lessons):
+        raise ValueError('Skip only lessons in the payment being created. Review later dates with their own renewal.')
+    if any(slot.skipped_lessons and not period.counts_by_slot[index] for index, slot in enumerate(scenario.slots)):
+        raise ValueError('Keep at least one charged lesson in each class, or review its enrollment separately.')
     admin_renewal = admin and not data.intake
     source_issues = [issue.model_copy(update={'blocks_creation': False})
                      if admin_renewal and issue.code in ADVISORY_RENEWAL_SOURCE else issue
@@ -287,14 +294,13 @@ def review_draft(db: Session, student_id: int, data: BillingDraftReviewRequest, 
         for slot in ([] if data.renewal else scenario.slots):
             candidate = expected_keys.get((slot.weekday, slot.time_slot.strip(), slot.location.strip()))
             if candidate:
-                expected = candidate.last_retained_original_date
+                expected = candidate.covered_through or candidate.last_retained_original_date
                 actual = slot.covered_through
                 if scenario.mode == 'new_student':
                     expected = None
                 elif expected is None:
                     expected = candidate.first_uncovered_date
                     if expected:
-                        from datetime import timedelta
                         expected -= timedelta(days=1)
                 if actual != expected:
                     block('SOURCE_COVERAGE_MISMATCH', 'Previous coverage does not match the selected enrollments. Check the dates in Edit preview.')

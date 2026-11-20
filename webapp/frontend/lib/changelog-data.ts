@@ -8,6 +8,9 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
+            "description": "**Skipped lesson dates**: Omit individual lessons when creating or renewing an enrollment, with fees, payment grouping and future renewals updated automatically."
+          },
+          {
             "description": "**Student list**: Use compact search and filter controls on phones, with an active filter count and steadier loading placeholders."
           },
           {

@@ -75,6 +75,21 @@ def preview_billing(
         raise ValueError('Only dates marked as holidays can be added as holiday classes.')
     if any(DAYS[d.weekday()] != request.slots[i].weekday for d, i in exceptions):
         raise ValueError('Each holiday class must match that class’s weekday.')
+    skips = {(lesson.date, index) for index, slot in enumerate(request.slots) for lesson in slot.skipped_lessons}
+    if skips and not allow_adjustment:
+        raise PermissionError('Ask an admin to skip a lesson before creating the enrollment.')
+    for slot in request.slots:
+        if len({lesson.date for lesson in slot.skipped_lessons}) != len(slot.skipped_lessons):
+            raise ValueError('Each skipped lesson date must be different within its class.')
+        for lesson in slot.skipped_lessons:
+            if not max(request.first_lesson_date, policy.transition_from) <= lesson.date <= policy.regular_end:
+                raise ValueError('Choose a skipped lesson within the calendar billing dates of this enrollment.')
+            if slot.covered_through and lesson.date <= slot.covered_through:
+                raise ValueError('A skipped lesson cannot change dates already covered by an enrollment.')
+            if DAYS[lesson.date.weekday()] != slot.weekday:
+                raise ValueError('Each skipped lesson must match its class’s weekday.')
+            if lesson.date in holidays or lesson.date in slot.holiday_exceptions:
+                raise ValueError('Holiday dates use the holiday settings and cannot also be skipped.')
     if request.adjustment and not allow_adjustment:
         raise PermissionError('Ask an admin to adjust the sessions covered by the first payment.')
     if request.adjustment:
@@ -112,7 +127,9 @@ def preview_billing(
         first = max(request.first_lesson_date, slot.covered_through + timedelta(days=1)) if slot.covered_through else request.first_lesson_date
         current = first + timedelta(days=(DAYS.index(slot.weekday) - first.weekday()) % 7)
         while current <= policy.regular_end:
-            if current in holidays and (current, index) not in exceptions:
+            if (current, index) in skips:
+                pass  # The unpaid omission creates neither an original nor a make-up entitlement.
+            elif current in holidays and (current, index) not in exceptions:
                 excluded.add(current)
             else:
                 events.append(PreviewLesson(date=current, slot=index, weekday=slot.weekday,
@@ -360,6 +377,8 @@ def preview_billing(
             legacy.sort(key=lambda e: (e.date, e.slot))
             if len(request.slots) > 1:
                 review('LEGACY_MULTISLOT_REVIEW', 'The old scheme charges six sessions per enrollment. Check both classes and the date of the following payment.')
+            if any(day <= legacy[-1].date for day, _ in skips):
+                raise ValueError('Skipped lessons are available for calendar billing, not six-session blocks.')
             take(legacy[-1].date, 'legacy', 'Use the old six-session renewal for each enrollment before the new scheme starts.', manual=True, selected=legacy)
         if remaining and remaining[0].date < policy.pilot_from:
             take(policy.transition_end, 'adjusted_manual', 'One manual payment covers sessions through December, avoiding another payment soon afterwards.', manual=True, transition=True)
