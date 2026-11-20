@@ -13,7 +13,7 @@ from .calculator import BillingPolicy, DAYS
 from .schemas import (
     BillingGapEvidence, BillingGapLesson, BillingPreviewRequest, BillingSourceBlock, BillingStudent, ContextBasis,
     ContinuingSlotCandidate, ImportedCouponSnapshot, PreviewIssue, PreviewSlot,
-    RecordedOriginalLesson, StudentBillingContext,
+    RecordedOriginalLesson, SkippedLesson, StudentBillingContext,
 )
 
 SETTLED = {'Paid', 'Waived'}
@@ -36,6 +36,7 @@ class EvidenceBlock:
     renewed_from_enrollment_id: int | None = None
     is_new_student: bool = False
     tutor_name: str = ''
+    skipped_lessons: tuple[SkippedLesson, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -127,7 +128,7 @@ def build_student_context(
     for b in sorted(blocks, key=lambda b: (b.first_lesson_date or date.min, b.id), reverse=True):
         roots = sorted(original_rows[b.id], key=lambda r: (r.session_date, r.id))
         sources.append(BillingSourceBlock(
-            enrollment_id=b.id, tutor_id=b.tutor_id, tutor_name=b.tutor_name,
+            enrollment_id=b.id, tutor_id=b.tutor_id, tutor_name=b.tutor_name, skipped_lessons=list(b.skipped_lessons),
             weekday=b.assigned_day, time_slot=b.assigned_time, location=b.location,
             first_lesson_date=b.first_lesson_date, lessons_recorded=b.lessons_paid,
             payment_status=b.payment_status, payment_date=b.payment_date,
@@ -335,8 +336,12 @@ def build_student_context(
         retained_dates = [r.session_date for r in retained_rows]
         evidence_rows = sorted((r for e in evidence_groups[key] for r in all_original_rows[e.id]),
                                key=lambda r: (r.session_date, r.id))
+        paid_skips = {lesson.date for e in group if e.payment_status in SETTLED for lesson in e.skipped_lessons}
+        retained_skips = {lesson.date for e in group if e.payment_status in SETTLED or
+                          (basis == 'include_pending' and e.payment_status in PENDING) for lesson in e.skipped_lessons}
+        # A trailing omission belongs to this period, so it must not be sold on renewal.
         paid_end = max(paid_dates, default=None)
-        retained_end = max(retained_dates, default=None)
+        retained_end = max([*retained_dates, *retained_skips], default=None)
         other_paid = [e for e in active if e.payment_status in SETTLED and slot_key(e) != key]
         if (key in selected_keys and not paid_dates and other_paid
                 and not (len(selected) == 1 and all(proven_timetable_handover(previous, b)
@@ -345,9 +350,9 @@ def build_student_context(
         roots = original_rows[b.id]
         openings = sorted({r.session_date for e in group for r in original_rows[e.id]
                            if r.session_date in holidays and DAYS[r.session_date.weekday()] == key[0]})
-        for coverage_rows, code, message in (
-            (paid_rows, 'PAID_COVERAGE_GAP', 'Check these dates against the paid enrollments.'),
-            (retained_rows if basis == 'include_pending' else [], 'CONDITIONAL_COVERAGE_GAP',
+        for coverage_rows, intentional_skips, code, message in (
+            (paid_rows, paid_skips, 'PAID_COVERAGE_GAP', 'Check these dates against the paid enrollments.'),
+            (retained_rows if basis == 'include_pending' else [], retained_skips, 'CONDITIONAL_COVERAGE_GAP',
              'Check these dates against the paid and unpaid enrollments.'),
         ):
             dates = {r.session_date for r in coverage_rows}
@@ -358,7 +363,7 @@ def build_student_context(
                 current += timedelta(days=(DAYS.index(key[0]) - current.weekday()) % 7)
                 gaps = []
                 while current < max(dates):
-                    if current not in dates and (current not in holidays or current in openings):
+                    if current not in dates and current not in intentional_skips and (current not in holidays or current in openings):
                         gaps.append(gap_detail(current, key, b, coverage_rows, evidence_rows))
                     current += timedelta(days=7)
                 if gaps:
@@ -374,7 +379,8 @@ def build_student_context(
         candidates.append(ContinuingSlotCandidate(
             enrollment_id=b.id, weekday=b.assigned_day, time_slot=b.assigned_time, location=b.location,
             tutor_name=b.tutor_name, selected=key in selected_keys,
-            last_paid_original_date=paid_end, last_retained_original_date=retained_end,
+            last_paid_original_date=paid_end, last_retained_original_date=max(retained_dates, default=None),
+            covered_through=retained_end if retained_skips else None,
             first_uncovered_date=first,
         ))
         supported = len(b.assigned_time or '') <= 100 and len(b.location or '') <= 100

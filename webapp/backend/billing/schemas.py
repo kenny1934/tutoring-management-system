@@ -13,6 +13,19 @@ PaymentMethod = Literal['manual', 'autopay']
 PreviewMode = Literal['new_student', 'returning_student', 'transition', 'regular']
 
 
+class SkippedLesson(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    date: EvidenceDate
+    reason: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode='after')
+    def require_reason(self):
+        self.reason = self.reason.strip()
+        if not self.reason:
+            raise ValueError('Explain why this lesson is being skipped.')
+        return self
+
+
 class PreviewSlot(BaseModel):
     model_config = ConfigDict(extra='forbid')
     weekday: Weekday
@@ -21,6 +34,8 @@ class PreviewSlot(BaseModel):
     # Explicit scenario input, never inferred as verified payment coverage.
     covered_through: date | None = None
     holiday_exceptions: list[date] = Field(default_factory=list, max_length=30)
+    skipped_lessons: list[SkippedLesson] = Field(default_factory=list, max_length=30,
+                                               exclude_if=lambda value: not value)
 
 
 class CoverageAdjustment(BaseModel):
@@ -233,6 +248,7 @@ class RecordedOriginalLesson(BaseModel):
 
 
 class BillingSourceBlock(BaseModel):
+    skipped_lessons: list[SkippedLesson] = Field(default_factory=list, exclude_if=lambda value: not value)
     enrollment_id: int
     tutor_id: int
     tutor_name: str
@@ -252,6 +268,7 @@ class BillingSourceBlock(BaseModel):
 
 
 class ContinuingSlotCandidate(BaseModel):
+    covered_through: date | None = Field(default=None, exclude_if=lambda value: value is None)
     enrollment_id: int
     weekday: str | None
     time_slot: str | None

@@ -8,6 +8,7 @@ export interface BillingSlot {
   location?: string;
   covered_through?: string | null;
   holiday_exceptions?: string[];
+  skipped_lessons?: { date: string; reason: string }[];
 }
 
 export interface BillingPreviewRequest {
@@ -277,6 +278,7 @@ export interface BillingIntakeContext {
   coupon_snapshot: StudentBillingContext['coupon_snapshot'];
 }
 export interface BillingSourceBlock {
+  skipped_lessons?: { date: string; reason: string }[];
   enrollment_id: number;
   tutor_id: number;
   tutor_name: string;
@@ -295,6 +297,7 @@ export interface BillingSourceBlock {
   makeup_dates: string[];
 }
 export interface BillingSlotCandidate {
+  covered_through?: string | null;
   enrollment_id: number;
   weekday: string | null;
   time_slot: string | null;

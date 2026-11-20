@@ -4,6 +4,7 @@
 
 ### Improvements
 
+* **Skipped lesson dates**: Omit individual lessons when creating or renewing an enrollment, with fees, payment grouping and future renewals updated automatically.
 * **Student list**: Use compact search and filter controls on phones, with an active filter count and steadier loading placeholders.
 * **Renewal coupons**: Suggest the earliest eligible coupon, explain eligibility and offer optional January prepayment when it allows a coupon to be used.
 * **KMS receipts**: Review historical coupon receipts and link them to the correct enrollment without changing existing payment records.

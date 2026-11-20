@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import type { BillingDraftReview, BillingPeriod, BillingPreviewResponse, BillingWeekday } from '@/types/billing';
 
 type Lesson = BillingPeriod['lessons'][number];
-type PreviewRow = Lesson & { skipped: boolean };
+type PreviewRow = Lesson & { skipped: boolean; skipReason?: string };
 const WEEKDAYS: BillingWeekday[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function calendarDate(value: string) {
@@ -48,6 +48,17 @@ function previewRows(review: BillingDraftReview, calculation?: BillingPreviewRes
       });
     }
   }
+  const previous = calculation?.periods.find(period => period.number === review.period.number - 1);
+  const start = review.period.number === 1 ? review.scenario.first_lesson_date
+    : previous ? after(previous.coverage_through) : review.period.coverage_from;
+  review.scenario.slots.forEach((slot, index) => {
+    for (const lesson of slot.skipped_lessons || []) {
+      if (!start || lesson.date < start || lesson.date > review.period.coverage_through
+        || (slot.covered_through && lesson.date <= slot.covered_through)) continue;
+      rows.push({ date: lesson.date, slot: index, weekday: slot.weekday, time_slot: slot.time_slot || '',
+        location: slot.location || '', holiday_exception: false, skipped: true, skipReason: lesson.reason });
+    }
+  });
   return rows.sort((a, b) => a.date.localeCompare(b.date)
     || a.time_slot.localeCompare(b.time_slot) || a.slot - b.slot);
 }
@@ -83,7 +94,7 @@ export function RenewalSessionPreview({ review, calculation }: {
             <td className="whitespace-nowrap px-3 py-1.5 align-top font-medium">{formatProposalDate(row.date)}</td>
             {hasClasses && <td className="px-3 py-1.5 align-top">{row.time_slot || 'To confirm'}{row.location && ` @ ${row.location}`}</td>}
             <td className="px-3 py-1.5 align-top">
-              {row.skipped ? <span className="text-amber-800 dark:text-amber-300">Holiday skipped</span>
+              {row.skipped ? <span className="text-amber-800 dark:text-amber-300">{row.skipReason ? `Skipped: ${row.skipReason}` : 'Holiday skipped'}</span>
                 : row.holiday_exception ? <span className="text-amber-800 dark:text-amber-300">Holiday class{conflicts && <span className="block text-ink-subtle">Check schedule</span>}</span>
                 : conflicts ? <span className="text-ink-subtle">Check schedule</span>
                 : <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400"><CheckCircle2 className="h-3 w-3" aria-hidden="true" />OK</span>}
