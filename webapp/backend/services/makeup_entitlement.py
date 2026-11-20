@@ -296,20 +296,19 @@ def _build_intervals(facts, student_id):
         else:
             weekday = (enrollment.assigned_day or '')[:3]
             schedule = (weekday, (enrollment.assigned_time or '').strip(), (enrollment.location or '').strip())
-            if (weekday not in DAYS or any((DAYS[s.session_date.weekday()], (s.time_slot or '').strip(),
-                    (s.location or '').strip()) != schedule for s in originals)):
-                problems.append('The paid enrollment’s continuing timetable needs review.')
-                continue
-            # The ordinary gap before the next weekly lesson is continuity,
-            # while paid_through remains the last actual prepaid lesson.
-            recorded_dates = facts['original_dates_by_schedule'].get((student_id, *schedule), [])
-            next_index = bisect_right(recorded_dates, through)
-            next_due = through + timedelta(days=7)
-            while next_due in facts['holidays']:
-                next_due += timedelta(days=7)
-            if next_index < len(recorded_dates):
-                next_due = min(next_due, recorded_dates[next_index])
-            continuity = min(next_due - timedelta(days=1), POLICY.regular_end)
+            # Individual lesson moves do not invalidate settled coverage. The
+            # timetable only establishes the ordinary gap until the next lesson;
+            # without a weekday, retain the actual paid dates without adding one.
+            if weekday in DAYS:
+                recorded_dates = facts['original_dates_by_schedule'].get((student_id, *schedule), [])
+                next_index = bisect_right(recorded_dates, through)
+                days_until_next = (DAYS.index(weekday) - through.weekday()) % 7 or 7
+                next_due = through + timedelta(days=days_until_next)
+                while next_due in facts['holidays']:
+                    next_due += timedelta(days=7)
+                if next_index < len(recorded_dates):
+                    next_due = min(next_due, recorded_dates[next_index])
+                continuity = min(next_due - timedelta(days=1), POLICY.regular_end)
         intervals.append({'enrollment_id': enrollment.id, 'payment_id': payment_id,
             'from': start, 'through': through, 'continuity': continuity, 'paid_on': enrollment.payment_date})
     return intervals, problems
@@ -344,6 +343,23 @@ def _paid(facts, student_id, as_of):
     return result
 
 
+def _prepaid_start(facts, student_id, enrollment_id, intervals, as_of):
+    """Recognise a paid future start without covering a continuing student's gap."""
+    source = next((item for item in intervals if item['enrollment_id'] == enrollment_id
+                   and item['from'] > as_of), None)
+    if source is None:
+        return None
+    for enrollment in facts['enrollments_by_student'].get(student_id, []):
+        if enrollment.enrollment_type != 'Regular' or enrollment.payment_status == 'Cancelled':
+            continue
+        originals = [s for s in facts['sessions_by_enrollment'].get(enrollment.id, [])
+                     if s.make_up_for_id is None and s.session_status != 'Cancelled']
+        if (not enrollment.first_lesson_date or enrollment.first_lesson_date <= as_of
+                or any(s.session_date <= as_of for s in originals)):
+            return None
+    return source
+
+
 def _eligibility(facts, session, *, as_of, target_date=None):
     root, error = _root(facts, session)
     enrollment = facts['enrollments'].get(session.enrollment_id)
@@ -374,9 +390,11 @@ def _eligibility(facts, session, *, as_of, target_date=None):
         return block('needs_review', 'MAKEUP_SOURCE_REVIEW', 'The original lesson or enrollment was cancelled or reassigned.')
     if as_of > POLICY.makeup_end or root.session_date > POLICY.makeup_end or (target_date and target_date > POLICY.makeup_end):
         return block('expired', 'MAKEUP_YEAR_ENDED', 'Regular-course makeups must take place by 30 June of their original teaching year.')
-    if enrollment.payment_status not in SETTLED or root.financial_status not in SETTLED:
-        return block('payment_required', 'MAKEUP_SOURCE_UNPAID', 'Record payment for the original enrollment before booking its makeup.')
-    if enrollment.id not in {item['enrollment_id'] for item in intervals}:
+    # Moving an unpaid lesson preserves the debt on its original enrollment.
+    # It does not need settled coverage today or create any new paid coverage.
+    unpaid_source = (root.financial_status == 'Unpaid'
+                     and enrollment.payment_status in SETTLED | {'Pending Payment', 'Overdue'})
+    if not unpaid_source and enrollment.id not in {item['enrollment_id'] for item in intervals}:
         return block('needs_review', 'MAKEUP_PAYMENT_REVIEW', 'The original enrollment’s paid lesson records need review.')
     ancestry = _ancestry_ids(facts, session)
     descendants = [s for s in _descendants(facts, session.student_id, root.id) if s.id != session.id]
@@ -393,10 +411,18 @@ def _eligibility(facts, session, *, as_of, target_date=None):
         return block('paused' if blocked_state.status == 'Paused' else 'left', 'MAKEUP_PARTICIPATION_REQUIRED',
                      'This student is paused. Confirm their paid return before booking.' if blocked_state.status == 'Paused'
                      else 'This student has left. Confirm their paid return before booking.')
-    if not current_paid:
-        if payment_problems:
-            return block('needs_review', 'MAKEUP_PAYMENT_REVIEW', payment_problems[0])
-        return block('payment_required', 'MAKEUP_CURRENT_PAYMENT_REQUIRED', 'The next regular enrollment needs payment before another makeup can be booked.')
+    if not current_paid and not unpaid_source:
+        prepaid_start = _prepaid_start(facts, session.student_id, enrollment.id, intervals, as_of)
+        if prepaid_start and (target_date is None or target_date <= prepaid_start['through']):
+            # Payment for this source already exists. Booking before the first
+            # course starts does not require another enrollment covering today.
+            # Earlier rescheduling of a paid first lesson remains permitted.
+            paid_through = prepaid_start['through']
+            result.paid_through = paid_through
+        else:
+            if payment_problems:
+                return block('needs_review', 'MAKEUP_PAYMENT_REVIEW', payment_problems[0])
+            return block('payment_required', 'MAKEUP_CURRENT_PAYMENT_REQUIRED', 'The next regular enrollment needs payment before another makeup can be booked.')
     if target_date and paid_through and target_date > paid_through:
         result.advance_booking = True
         result.reason_code = 'MAKEUP_ADVANCE_BOOKING'

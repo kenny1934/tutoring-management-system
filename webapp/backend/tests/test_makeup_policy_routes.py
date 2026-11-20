@@ -12,7 +12,7 @@ from sqlalchemy.engine import Engine
 from models import Enrollment, ExtensionRequest, SessionLog, Tutor
 from routers import sessions, extension_requests
 from schemas import SessionUpdate, ScheduleMakeupRequest, ExtensionRequestApprove
-from tests.test_makeup_entitlement_verification import records, preview, commit_change, future_booking, course, NOW
+from tests.test_makeup_entitlement_verification import records, prepaid_starter, preview, commit_change, future_booking, course, NOW
 from utils.makeup_validators import validate_makeup_constraints
 
 
@@ -51,6 +51,53 @@ def test_direct_booking_preserves_original_and_fee(records):
     assert result.makeup_session.financial_status == 'Paid'
     assert db.get(Enrollment, 11).revenue_total == before
     assert db.get(SessionLog, 110).rescheduled_to_id == result.makeup_session.id
+
+
+def test_prepaid_first_course_can_book_through_real_route_before_start(prepaid_starter):
+    db, actor = prepaid_starter
+    result = asyncio.run(sessions.schedule_makeup(310, ScheduleMakeupRequest(
+        session_date=date(2027, 4, 1), time_slot='10:00 - 11:30', location='MSA', tutor_id=2), actor, db))
+    assert result.makeup_session.make_up_for_id == 310
+    assert result.makeup_session.enrollment_id == 31
+    assert result.makeup_session.financial_status == 'Paid'
+    assert db.get(SessionLog, 310).session_date == date(2027, 4, 5)
+    assert db.get(SessionLog, 310).rescheduled_to_id == result.makeup_session.id
+
+
+@pytest.mark.parametrize('payment', ['Pending Payment', 'Overdue'])
+@pytest.mark.parametrize('course_started', [False, True])
+def test_unpaid_source_can_be_rescheduled_and_booked_without_settlement(prepaid_starter, monkeypatch, payment, course_started):
+    db, actor = prepaid_starter
+    if course_started:
+        from services import makeup_entitlement
+        monkeypatch.setattr(makeup_entitlement, '_today', lambda: date(2027, 4, 6))
+        monkeypatch.setattr(sessions, 'hk_now', lambda: datetime(2027, 4, 6, 12))
+    enrollment = db.get(Enrollment, 31)
+    enrollment.payment_status = payment
+    enrollment.payment_date = None
+    source = db.get(SessionLog, 310)
+    source.session_status = 'Scheduled'
+    source.financial_status = 'Unpaid'
+    db.commit()
+    result = asyncio.run(sessions.mark_session_rescheduled(310, actor, db))
+    assert result.session_status == 'Rescheduled - Pending Make-up'
+    revenue = enrollment.revenue_total
+    result = asyncio.run(sessions.schedule_makeup(310, ScheduleMakeupRequest(
+        session_date=date(2027, 4, 10), time_slot='10:00 - 11:30', location='MSA', tutor_id=2), actor, db))
+    replacement = result.makeup_session
+    assert replacement.financial_status == source.financial_status == 'Unpaid'
+    assert replacement.enrollment_id == source.enrollment_id == 31
+    assert source.rescheduled_to_id == replacement.id
+    assert (enrollment.payment_status, enrollment.payment_date, enrollment.revenue_total) == (payment, None, revenue)
+    # A second move and an edit must remain possible before payment arrives.
+    asyncio.run(sessions.update_session(replacement.id, SessionUpdate(time_slot='11:45 - 13:15'), actor, db))
+    asyncio.run(sessions.mark_session_rescheduled(replacement.id, actor, db))
+    next_booking = asyncio.run(sessions.schedule_makeup(replacement.id, ScheduleMakeupRequest(
+        session_date=date(2027, 4, 17), time_slot='10:00 - 11:30', location='MSA', tutor_id=2), actor, db))
+    assert next_booking.makeup_session.financial_status == 'Unpaid'
+    assert next_booking.makeup_session.enrollment_id == 31
+    assert next_booking.makeup_session.make_up_for_id == replacement.id
+    assert db.get(SessionLog, 310).session_date == date(2027, 4, 5)
 
 
 @pytest.mark.parametrize('replacement_chain', [False, True])

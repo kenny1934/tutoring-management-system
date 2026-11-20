@@ -225,6 +225,150 @@ def test_authorised_waived_regular_period_counts_as_settled(records):
     assert eligibility(db).can_book
 
 
+@pytest.fixture
+def prepaid_starter(records):
+    db, actor = records
+    db.query(SessionLog).filter_by(student_id=101).delete()
+    db.query(Enrollment).filter_by(student_id=101).delete()
+    course(db, 31, date(2027, 4, 5), count=4)
+    db.get(SessionLog, 310).session_status = 'Rescheduled - Pending Make-up'
+    db.commit()
+    return db, actor
+
+
+@pytest.mark.parametrize('reviewed', [False, True])
+@pytest.mark.parametrize('target', [None, date(2027, 4, 1), date(2027, 4, 10), date(2027, 4, 26)])
+def test_prepaid_first_course_can_arrange_makeup_before_start(prepaid_starter, reviewed, target):
+    db, _ = prepaid_starter
+    if reviewed:
+        grouped_payment(db, 31, date(2027, 4, 30), kind='first')
+    result = eligibility(db, 310, target=target)
+    assert result.can_book and not result.advance_booking
+    assert result.paid_through == date(2027, 4, 30 if reviewed else 26)
+
+
+def test_prepaid_start_does_not_enable_unpaid_later_period(prepaid_starter):
+    db, _ = prepaid_starter
+    result = eligibility(db, 310, target=date(2027, 5, 10))
+    assert not result.can_book and result.reason_code == 'MAKEUP_CURRENT_PAYMENT_REQUIRED'
+
+
+@pytest.mark.parametrize('payment', ['Paid', 'Waived', 'Pending Payment'])
+def test_prepaid_start_does_not_bridge_previous_regular_participation(prepaid_starter, payment):
+    db, _ = prepaid_starter
+    course(db, 32, date(2026, 9, 4), count=1, payment=payment)
+    db.commit()
+    result = eligibility(db, 310)
+    assert not result.can_book and result.reason_code == 'MAKEUP_CURRENT_PAYMENT_REQUIRED'
+
+
+@pytest.mark.parametrize('status', ['Paused', 'Left'])
+def test_prepaid_start_does_not_override_recorded_participation(prepaid_starter, status):
+    db, actor = prepaid_starter
+    commit_change(db, actor, preview(db, status=status))
+    result = eligibility(db, 310)
+    assert not result.can_book and result.reason_code == 'MAKEUP_PARTICIPATION_REQUIRED'
+
+
+@pytest.mark.parametrize('payment', ['Pending Payment', 'Overdue', 'Paid'])
+def test_unpaid_source_can_move_without_creating_paid_coverage(prepaid_starter, payment):
+    db, _ = prepaid_starter
+    db.get(Enrollment, 31).payment_status = payment
+    db.get(SessionLog, 310).financial_status = 'Unpaid'
+    db.commit()
+    result = eligibility(db, 310)
+    assert result.can_book and result.paid_through is None
+    assert db.get(SessionLog, 310).financial_status == 'Unpaid'
+    assert db.get(Enrollment, 31).payment_status == payment
+    # An unpaid source may move after the course starts as well.
+    assert eligibility(db, 310, as_of=date(2027, 4, 10)).can_book
+    assert service._intervals(service._facts(db, [101]), 101)[0] == []
+
+
+def test_unpaid_renewal_does_not_unlock_old_paid_makeups(records):
+    db, _ = records
+    course(db, 31, date(2027, 4, 5), count=4, payment='Pending Payment',
+           status='Rescheduled - Pending Make-up')
+    db.commit()
+    old_paid = eligibility(db, as_of=date(2027, 4, 10))
+    assert not old_paid.can_book and old_paid.reason_code == 'MAKEUP_CURRENT_PAYMENT_REQUIRED'
+    moved_unpaid = eligibility(db, 310, as_of=date(2027, 4, 10))
+    assert moved_unpaid.can_book and moved_unpaid.paid_through is None
+
+
+@pytest.mark.parametrize('blocker', ['Paused', 'Left', 'cancelled', 'attended', 'duplicate', 'July', 'unknown_payment'])
+def test_unpaid_source_keeps_participation_history_and_year_guards(prepaid_starter, blocker):
+    db, actor = prepaid_starter
+    db.get(Enrollment, 31).payment_status = 'Pending Payment'
+    db.get(SessionLog, 310).financial_status = 'Unpaid'
+    db.commit()
+    if blocker in {'Paused', 'Left'}:
+        commit_change(db, actor, preview(db, status=blocker))
+    elif blocker == 'cancelled':
+        db.get(Enrollment, 31).payment_status = 'Cancelled'
+    elif blocker == 'attended':
+        db.get(SessionLog, 310).session_status = 'Attended'
+    elif blocker == 'duplicate':
+        future_booking(db, source_id=310)
+    elif blocker == 'unknown_payment':
+        db.get(Enrollment, 31).payment_status = 'Unrecognised'
+    db.commit()
+    result = eligibility(db, 310, target=date(2027, 7, 1) if blocker == 'July' else date(2027, 4, 10))
+    assert not result.can_book
+
+
+@pytest.mark.parametrize('changed', ['weekday', 'time', 'branch', 'missing_weekday'])
+@pytest.mark.parametrize('enrollment_id', [11, 12])
+def test_individual_timetable_changes_preserve_paid_makeup_rights(records, changed, enrollment_id):
+    db, _ = records
+    lesson = db.get(SessionLog, enrollment_id * 10)
+    if changed == 'weekday':
+        lesson.session_date += timedelta(days=2)
+    elif changed == 'time':
+        lesson.time_slot = '10:00 - 11:30'
+    elif changed == 'branch':
+        lesson.location = 'MSB'
+    else:
+        db.get(Enrollment, enrollment_id).assigned_day = None
+    db.commit()
+    recorded = (lesson.session_date, lesson.time_slot, lesson.location)
+    result = eligibility(db)
+    assert result.can_book and result.paid_through == date(2027, 3, 29)
+    assert (lesson.session_date, lesson.time_slot, lesson.location) == recorded
+
+
+def test_future_paid_source_can_be_booked_despite_moved_current_original(records):
+    db, _ = records
+    db.get(SessionLog, 120).session_date += timedelta(days=2)
+    course(db, 13, date(2027, 4, 5), count=4)
+    grouped_payment(db, 13, date(2027, 4, 30))
+    db.get(SessionLog, 131).session_status = 'Rescheduled - Pending Make-up'
+    db.commit()
+    result = eligibility(db, 131, target=date(2027, 4, 15))
+    assert result.can_book and result.paid_through == date(2027, 4, 30)
+
+
+def test_moved_final_lesson_uses_next_assigned_weekday_without_extra_grace(records):
+    db, _ = records
+    # The final Monday lesson was moved to Wednesday. Payment does not cover
+    # the following Monday, even though seven days from Wednesday is later.
+    db.get(SessionLog, 124).session_date = date(2027, 3, 31)
+    db.commit()
+    result = eligibility(db, as_of=date(2027, 4, 4))
+    assert result.can_book and result.paid_through == date(2027, 3, 31)
+    assert not eligibility(db, as_of=date(2027, 4, 5)).can_book
+
+
+@pytest.mark.parametrize('weekday', [None, 'Unknown'])
+def test_unknown_timetable_keeps_actual_coverage_without_inventing_continuity(records, weekday):
+    db, _ = records
+    db.get(Enrollment, 12).assigned_day = weekday
+    db.commit()
+    assert eligibility(db, as_of=date(2027, 3, 29)).can_book
+    result = eligibility(db, as_of=date(2027, 3, 30))
+    assert not result.can_book and result.status == 'payment_required'
+
+
 def test_legacy_extension_weeks_do_not_cover_a_new_unpaid_period(records):
     db, _ = records
     db.get(Enrollment, 12).deadline_extension_weeks = 52
@@ -507,12 +651,13 @@ def test_paid_source_can_be_booked_before_its_original_date(records, status):
     assert result.valid_until == date(2027, 6, 30)
 
 
-def test_early_booking_still_requires_paid_source(records):
+def test_early_booking_preserves_an_unpaid_source(records):
     db, _ = records
     db.get(SessionLog, 110).financial_status = 'Unpaid'
     db.commit()
     result = eligibility(db, target=date(2026, 9, 3))
-    assert not result.can_book and result.reason_code == 'MAKEUP_SOURCE_UNPAID'
+    assert result.can_book
+    assert db.get(SessionLog, 110).financial_status == 'Unpaid'
 
 
 @pytest.fixture
