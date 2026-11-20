@@ -13,7 +13,7 @@ from .schemas import (
 
 def intake_source(db, student_id, *, as_of, trial_enrollment_id=None, trial_session_id=None,
                   policy=BillingPolicy()):
-    """Read all the student's history so an intake cannot hide an existing course."""
+    """Read history for fees, trial conversion and source freshness checks."""
     from .drafts import DraftNotFound, digest, utc
     from .workflow import workflow_storage_enabled
 
@@ -38,17 +38,9 @@ def intake_source(db, student_id, *, as_of, trial_enrollment_id=None, trial_sess
            for s in lessons):
         issue('INTAKE_SOURCE_OWNERSHIP', 'Check which student owns the enrollment and session records before preparing this intake.')
 
-    # A cancelled-only record is not proof of an ongoing course. It still
-    # remains in the historical newness/materials decision, matching creation.
+    # History determines the materials fee, but an existing course can have
+    # another weekly class. Review and confirmation check the actual sessions.
     is_new = not any(e.enrollment_type != 'Trial' for e in enrollments)
-    current_ids = {e.id for e in enrollments if e.enrollment_type == 'Regular' and
-                   e.payment_status != 'Cancelled' and
-                   ((e.first_lesson_date and policy.academic_start <= e.first_lesson_date <= policy.regular_end)
-                    or any(s.enrollment_id == e.id and s.make_up_for_id is None and
-                           policy.academic_start <= s.session_date <= policy.regular_end
-                           for s in lessons))}
-    if current_ids:
-        issue('INTAKE_EXISTING_COURSE', 'This student already has a regular enrollment this teaching year. Open Enrollment renewals to continue it.')
     trial = None
     if trial_enrollment_id is not None:
         enrollment = by_id.get(trial_enrollment_id)
