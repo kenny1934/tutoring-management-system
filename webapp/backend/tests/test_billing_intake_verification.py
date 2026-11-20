@@ -309,6 +309,102 @@ def test_returning_student_uses_history_for_materials_without_changing_legacy_re
     assert session.get(Enrollment, 31).revenue_total == 2375
 
 
+def existing_regular_class(session, payment_status='Paid'):
+    session.add(Enrollment(id=31, student_id=102, tutor_id=1, assigned_day='Fri',
+                           assigned_time='16:00 - 17:30', location='MSA', lessons_paid=1,
+                           first_lesson_date=date(2026, 10, 30), enrollment_type='Regular',
+                           payment_status=payment_status, revenue_total=400, is_new_student=True))
+    session.flush()
+    session.add(SessionLog(id=310, enrollment_id=31, student_id=102, tutor_id=1,
+                           session_date=date(2026, 10, 30), time_slot='16:00 - 17:30',
+                           location='MSA', session_status='Scheduled',
+                           financial_status='Paid' if payment_status == 'Paid' else 'Unpaid'))
+    session.commit()
+
+
+@pytest.mark.parametrize('payment_status', ['Paid', 'Pending Payment'])
+@pytest.mark.parametrize('first,weekday,time_slot', [
+    ('2026-10-31', 'Sat', '16:00 - 17:30'),
+    ('2026-10-30', 'Fri', '17:30 - 19:00'),
+    ('2026-11-06', 'Fri', '16:00 - 17:30'),
+])
+def test_create_additional_enrollment_allows_free_sessions_in_same_teaching_year(
+        intake_records, payment_status, first, weekday, time_slot):
+    client, session, _ = intake_records
+    existing_regular_class(session, payment_status)
+    setup_preference(client)
+    context = intake_context(client, trial=False).json()
+    assert context['issues'] == []
+    assert not context['is_new_student'] and context['materials_fee'] == 0
+    payload = intake_request(client, trial=False)
+    payload['scenario'].update(first_lesson_date=first,
+        slots=[{'weekday': weekday, 'time_slot': time_slot, 'location': 'MSA'}])
+    payload['intake']['slots'] = [{'tutor_id': 2}]
+    _, draft = saved_intake(client, payload)
+    assert not draft['review']['message']['blocked_reasons']
+    response = client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=confirmation_data(draft))
+    assert response.status_code == 200, response.text
+    payment = response.json()
+    assert len(payment['lines']) == 1
+    created = session.get(Enrollment, payment['lines'][0]['enrollment_id'])
+    assert created.tutor_id == 2 and created.assigned_day == weekday
+    assert not created.is_new_student and created.renewed_from_enrollment_id is None
+    assert payment['review']['period']['materials_fee'] == 0
+    assert payment['review']['period']['deductions'] == []
+    lessons = session.query(SessionLog).filter_by(enrollment_id=created.id).all()
+    assert len(lessons) == payment['lines'][0]['lesson_count']
+    assert all(lesson.tutor_id == 2 and lesson.session_date.strftime('%a') == weekday for lesson in lessons)
+    assert session.get(Enrollment, 31).payment_status == payment_status
+    assert session.get(Enrollment, 31).revenue_total == 400
+    assert session.query(SessionLog).filter_by(enrollment_id=31).count() == 1
+    replay = client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=confirmation_data(draft))
+    assert replay.status_code == 200 and replay.json()['id'] == payment['id']
+    assert session.query(BillingPayment).count() == 1
+
+
+@pytest.mark.parametrize('time_slot,location,issue', [
+    ('16:00 - 17:30', 'MSA', 'EXISTING_ORIGINALS_OVERLAP'),
+    ('16:30 - 18:00', 'MSA', 'RENEWAL_SESSION_CONFLICT'),
+    ('16:00 - 17:30', 'MSB', 'RENEWAL_SESSION_CONFLICT'),
+])
+def test_additional_enrollment_still_blocks_duplicate_and_overlapping_sessions(
+        intake_records, time_slot, location, issue):
+    client, session, _ = intake_records
+    existing_regular_class(session)
+    setup_preference(client)
+    payload = intake_request(client, trial=False)
+    payload['scenario']['slots'] = [{'weekday': 'Fri', 'time_slot': time_slot, 'location': location}]
+    _, draft = saved_intake(client, payload)
+    review = draft['review']
+    assert issue in {item['code'] for item in review['issues']}
+    assert review['message']['blocked_reasons']
+    assert review['message']['en'] is None and review['message']['zh'] is None
+    response = client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=confirmation_data(draft))
+    assert response.status_code in {409, 422}, response.text
+    assert session.query(BillingPayment).count() == 0
+    assert session.query(Enrollment).filter_by(student_id=102).count() == 2
+    assert session.query(SessionLog).filter_by(student_id=102).count() == 2
+
+
+def test_additional_enrollment_rechecks_new_conflict_after_draft_is_saved(intake_records):
+    client, session, _ = intake_records
+    existing_regular_class(session)
+    setup_preference(client)
+    payload = intake_request(client, trial=False)
+    payload['scenario'].update(first_lesson_date='2026-10-31',
+        slots=[{'weekday': 'Sat', 'time_slot': '16:00 - 17:30', 'location': 'MSA'}])
+    _, draft = saved_intake(client, payload)
+    assert not draft['review']['message']['blocked_reasons']
+    session.add(SessionLog(enrollment_id=31, student_id=102, tutor_id=1,
+                           session_date=date(2026, 10, 31), time_slot='16:30 - 18:00',
+                           location='MSA', session_status='Scheduled', financial_status='Paid'))
+    session.commit()
+    response = client.post(f"/api/billing/drafts/{draft['id']}/confirm", json=confirmation_data(draft))
+    assert response.status_code == 409, response.text
+    assert session.query(BillingPayment).count() == 0
+    assert session.query(Enrollment).filter_by(student_id=102).count() == 2
+
+
 def test_short_first_payment_keeps_exact_boundary_reason_and_following_journey(intake_records):
     client, _, _ = intake_records
     payload = intake_request(client)
