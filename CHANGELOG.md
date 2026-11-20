@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.4.8](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.7...v2.4.8) (2026-11-20)
+
+### Improvements
+
+* **Student list**: Use compact search and filter controls on phones, with an active filter count and steadier loading placeholders.
+* **Renewal coupons**: Suggest the earliest eligible coupon, explain eligibility and offer optional January prepayment when it allows a coupon to be used.
+* **KMS receipts**: Review historical coupon receipts and link them to the correct enrollment without changing existing payment records.
+* **Renewal warnings**: Show the affected lessons with weekday dates, explain disabled creation actions and keep warnings separate from the action controls.
+
+### Bug Fixes
+
+* **Make-up availability**: Keep paid make-ups available when individual lessons have moved to another weekday, time or branch.
+* **Make-up payments**: Allow unpaid lessons to be rescheduled and booked while keeping their replacements unpaid on the original enrollment.
+* **First-course make-ups**: Arrange make-ups for a prepaid first enrollment before the course starts, including moving a lesson to an earlier date.
+* **Earlier rescheduling**: Allow make-ups before the original lesson date while retaining duplicate-booking and academic-year deadline checks.
+* **Additional classes**: Create another regular enrollment for an existing student when its lessons do not conflict with existing bookings.
+* **Renewal preparation**: Keep due renewals visible alongside unpaid-payment follow-up and preserve the enrollment preview while loading a selected student.
+* **Historical discrepancies**: Allow admins to prepare renewals despite historical timetable or lesson-record discrepancies while retaining checks for conflicting new bookings.
+* **Chart controls**: Centre icons consistently in the chart buttons.
+
 ## [2.4.7](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.6...v2.4.7) (2026-11-19)
 
 ### Improvements
