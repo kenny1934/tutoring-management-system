@@ -494,9 +494,25 @@ def test_july_payment_cannot_restore_an_expired_academic_right(records):
     assert not review.can_confirm
 
 
-def test_source_cannot_be_booked_before_its_original_date(records):
-    result = eligibility(records[0], target=date(2026, 9, 3))
-    assert not result.can_book and result.reason_code == 'MAKEUP_BEFORE_ORIGINAL'
+@pytest.mark.parametrize('status', [
+    'Rescheduled - Pending Make-up', 'Sick Leave - Pending Make-up',
+    'Weather Cancelled - Pending Make-up',
+])
+def test_paid_source_can_be_booked_before_its_original_date(records, status):
+    db, _ = records
+    db.get(SessionLog, 110).session_status = status
+    db.commit()
+    result = eligibility(db, target=date(2026, 9, 3))
+    assert result.can_book and result.root_session_id == 110
+    assert result.valid_until == date(2027, 6, 30)
+
+
+def test_early_booking_still_requires_paid_source(records):
+    db, _ = records
+    db.get(SessionLog, 110).financial_status = 'Unpaid'
+    db.commit()
+    result = eligibility(db, target=date(2026, 9, 3))
+    assert not result.can_book and result.reason_code == 'MAKEUP_SOURCE_UNPAID'
 
 
 @pytest.fixture

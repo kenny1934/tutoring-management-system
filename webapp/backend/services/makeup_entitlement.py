@@ -374,11 +374,6 @@ def _eligibility(facts, session, *, as_of, target_date=None):
         return block('needs_review', 'MAKEUP_SOURCE_REVIEW', 'The original lesson or enrollment was cancelled or reassigned.')
     if as_of > POLICY.makeup_end or root.session_date > POLICY.makeup_end or (target_date and target_date > POLICY.makeup_end):
         return block('expired', 'MAKEUP_YEAR_ENDED', 'Regular-course makeups must take place by 30 June of their original teaching year.')
-    if target_date and target_date < root.session_date:
-        # Revision may consume a future Scheduled lesson. That route already
-        # distinguishes a pending makeup from deliberate advance consumption.
-        if 'Pending Make-up' in session.session_status or session.make_up_for_id:
-            return block('needs_review', 'MAKEUP_BEFORE_ORIGINAL', 'Choose a makeup date on or after the original missed lesson.')
     if enrollment.payment_status not in SETTLED or root.financial_status not in SETTLED:
         return block('payment_required', 'MAKEUP_SOURCE_UNPAID', 'Record payment for the original enrollment before booking its makeup.')
     if enrollment.id not in {item['enrollment_id'] for item in intervals}:

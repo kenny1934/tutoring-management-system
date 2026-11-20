@@ -53,6 +53,34 @@ def test_direct_booking_preserves_original_and_fee(records):
     assert db.get(SessionLog, 110).rescheduled_to_id == result.makeup_session.id
 
 
+@pytest.mark.parametrize('replacement_chain', [False, True])
+def test_early_booking_preserves_paid_source_and_replacement_links(records, replacement_chain):
+    db, actor = records
+    enrollment = course(db, 13, date(2026, 12, 5), count=3,
+                        status='Rescheduled - Pending Make-up')
+    db.commit()
+    source_id = 130
+    if replacement_chain:
+        replacement = future_booking(db, source_id=source_id, when=date(2026, 12, 4))
+        replacement.session_status = 'Rescheduled - Pending Make-up'
+        db.commit()
+        source_id = replacement.id
+    revenue = enrollment.revenue_total
+    result = asyncio.run(sessions.schedule_makeup(source_id, ScheduleMakeupRequest(
+        session_date=date(2026, 12, 3), time_slot='10:00 - 11:30',
+        location='MSA', tutor_id=2), actor, db))
+    assert result.makeup_session.session_date == date(2026, 12, 3)
+    assert result.makeup_session.make_up_for_id == source_id
+    assert result.makeup_session.enrollment_id == 13
+    assert result.makeup_session.financial_status == 'Paid'
+    assert db.get(SessionLog, source_id).rescheduled_to_id == result.makeup_session.id
+    assert db.get(SessionLog, source_id).session_status == 'Rescheduled - Make-up Booked'
+    assert db.get(SessionLog, 130).session_date == date(2026, 12, 5)
+    assert db.get(Enrollment, 13).revenue_total == revenue
+    if replacement_chain:
+        assert db.get(SessionLog, 130).rescheduled_to_id == source_id
+
+
 def test_unrelated_tutor_cannot_direct_book_new_policy_student(records):
     db, _ = records
     with pytest.raises(HTTPException) as caught:
