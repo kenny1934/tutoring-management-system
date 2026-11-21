@@ -15,6 +15,9 @@ const changelogData = [
           },
           {
             "description": "**Renewal controls**: Use a compact month picker, removable filter selections, sticky stage tabs and grouped mobile controls, with secondary actions in Pages and Tools."
+          },
+          {
+            "description": "**Dashboard loading**: Loading placeholders now match the dashboard’s current layout on phones, desktops and ultrawide screens."
           }
         ]
       },

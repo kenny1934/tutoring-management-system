@@ -6,6 +6,7 @@ import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { NativeActivityRows } from "./NativeActivityRows";
 import { NativeActivityHistory } from "./NativeActivityHistory";
+import { DashboardActivitySkeleton } from "@/components/dashboard/DashboardSkeletons";
 import styles from "./NativePreview.module.css";
 
 export function NativeRecentActivity({ tutorId, className }: { tutorId?: number; className?: string }) {
@@ -32,7 +33,7 @@ function Activity({ scope, tutorId, location, className }: { scope: string; tuto
       <button ref={trigger} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={event => { event.currentTarget.focus({ preventScroll: true }); setOpen(true); }}>View all</button>
     </header>
     {error && <div className={styles.activityError} role="status">Couldn’t load activity. <button type="button" onClick={() => void mutate()}>Try again</button></div>}
-    {isLoading && !events ? <div className={styles.activitySkeleton} aria-label="Loading activity">{[0, 1, 2, 3].map(id => <div key={id} className="shimmer-sepia" />)}</div>
+    {isLoading && !events ? <DashboardActivitySkeleton />
       : events?.length ? <NativeActivityRows events={events} tutors={tutors} location={location} arrivalKey={scope} />
         : !error && <p className={styles.activityEmpty}>No recent activity</p>}
     {open && <NativeActivityHistory scope={scope} tutorId={tutorId} location={location} onClose={() => setOpen(false)} />}
