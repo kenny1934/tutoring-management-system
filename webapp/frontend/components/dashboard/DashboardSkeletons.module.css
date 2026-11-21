@@ -1,0 +1,37 @@
+.placeholder {
+  display: block;
+  max-width: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-ink-subtle) 16%, transparent);
+  animation: dashboardPulse 1.8s ease-in-out infinite;
+}
+
+.sessionRow {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.desktopGroup { display: none; }
+@media (min-width: 768px) { .desktopGroup { display: block; } }
+
+.calendarBody { min-height: 0; overflow: hidden; }
+.calendarGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); padding: 0 12px 8px; }
+.weekday, .calendarDay { display: flex; align-items: center; justify-content: center; }
+.weekday { height: 20px; }
+.calendarDay { height: 32px; }
+.activityTime { grid-column: 2; }
+.activityRow + .activityRow { border-top: 1px solid color-mix(in srgb, var(--color-line) 60%, transparent); }
+.chartRing { position: relative; width: 72%; max-width: 116px; aspect-ratio: 1; border-radius: 50%; border: 22px solid color-mix(in srgb, var(--color-ink-subtle) 16%, transparent); animation: dashboardPulse 1.8s ease-in-out infinite; }
+.chartCenter { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+
+@container (min-width: 440px) { .chartRing { max-width: 176px; } }
+@container dashboard (min-width: 1920px) { .chartRing { max-width: 300px; } }
+
+@keyframes dashboardPulse { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+@media (max-width: 767px) { .calendarGrid { display: none; } }
+@media (prefers-reduced-motion: reduce) { .placeholder, .chartRing { animation: none; } }

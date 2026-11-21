@@ -803,12 +803,6 @@
   .calendarPopover { animation: none; }
 }
 
-.calendarLoading { display: flex; flex-direction: column; gap: 14px; padding: 16px; height: clamp(420px, 60vh, 560px); }
-.calendarLoading [data-calendar-loading-month] { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
-.calendarLoading [data-calendar-loading-month] > div { height: 32px; }
-.calendarLoading [data-calendar-loading-agenda] { display: grid; gap: 12px; }
-.calendarLoading [data-calendar-loading-agenda] > div { height: 30px; }
-@media (max-width: 767px) { .calendarLoading { height: auto; min-height: 340px; } }
 
 .calendarPanel[data-native-calendar] { container-type: inline-size; container-name: calendar; }
 @container calendar (max-width: 380px) {
@@ -938,7 +932,6 @@ a.activityEntry:hover { --color-ink-subtle: var(--color-ink-strong); background:
 .activityEmpty { padding: 24px 0; font-size: 13px; color: var(--color-ink-subtle); }
 .activityError { padding: 10px 0; font-size: 13px; color: var(--color-foreground); }
 .activityError button { margin-left: 6px; color: var(--color-accent-ink, #a0704b); font-weight: 550; min-height: 32px; }
-.activitySkeleton > div { height: 44px; margin-block: 4px; border-radius: 2px; }
 .activityOverlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 32px; }
 .activityBackdrop { position: absolute; inset: 0; background: rgb(0 0 0 / .35); touch-action: none; }
 .activityHistoryDialog { position: relative; display: flex; flex-direction: column; width: min(760px, 100%); max-height: min(82dvh, 860px); border: 1px solid var(--color-line); border-radius: 6px; background: var(--color-paper); color: var(--color-foreground); box-shadow: 0 20px 64px rgb(0 0 0 / .25); }

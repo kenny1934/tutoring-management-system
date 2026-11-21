@@ -32,6 +32,7 @@ import { fitToScreen, useAsSheet } from "@/hooks/usePopoverSheet";
 import { useNativePresentation } from "@/components/design-preview/useNativePresentation";
 import { useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
 import { useCalendarMotion } from "@/components/design-preview/useCalendarMotion";
+import { DashboardCalendarSkeleton } from "./DashboardSkeletons";
 import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { getAppScroller } from "@/lib/scroll";
 import { recessSessionBackground } from "@/components/design-preview/sessionDetailMotion";
@@ -585,12 +586,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   // Only show skeleton on initial load (no cached data yet)
   // When loading older months, keepPreviousData keeps existing events visible
   if (isLoading && events.length === 0) {
-    if (native) return <div data-native-paper data-native-depth-surface aria-busy="true" role="status" aria-label="Loading tests and exams" className={cn("bg-paper rounded-xl", previewStyles.calendarLoading, className)}>
-      <div className="h-6 w-36 shimmer-sepia rounded" />
-      <div className="h-8 w-40 shimmer-sepia rounded" />
-      {!onPhone && <div data-calendar-loading-month>{Array.from({ length: 42 }, (_, i) => <div key={i} className="shimmer-sepia rounded" />)}</div>}
-      <div data-calendar-loading-agenda>{Array.from({ length: onPhone ? 5 : 3 }, (_, i) => <div key={i} className="shimmer-sepia rounded" />)}</div>
-    </div>;
+    if (native) return <DashboardCalendarSkeleton className={className} isMobile={isMobile} onPhone={onPhone} />;
     return (
       <div data-native-paper data-native-depth-surface className={cn(
         "bg-paper rounded-xl border border-line p-4",

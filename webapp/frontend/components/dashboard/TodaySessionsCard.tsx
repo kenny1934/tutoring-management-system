@@ -13,6 +13,7 @@ import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSession
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
 import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
+import { DashboardSessionsSkeleton } from "./DashboardSkeletons";
 import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -275,22 +276,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   }, [selectedSessions, showToast]);
 
   if (isLoading && allSessions.length === 0) {
-    return (
-      <div data-native-paper data-native-depth-surface aria-busy="true" role="status" aria-label="Loading today’s sessions" className={cn(
-        "bg-paper rounded-xl border border-line overflow-hidden md:h-[clamp(420px,60vh,560px)]",
-        !isMobile && "paper-texture",
-        className
-      )}>
-        <div className="p-4">
-          <div className="h-5 shimmer-sepia rounded w-32 mb-4" />
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 shimmer-sepia rounded" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardSessionsSkeleton className={className} isMobile={isMobile} />;
   }
 
   return (

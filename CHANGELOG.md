@@ -7,6 +7,7 @@
 * **Renewal worklist**: Scan compact desktop rows or cards, filter by weekday, matching class time and expiry dates, and jump directly to a page.
 * **Next student**: Continue through the filtered renewal worklist without reopening the mobile sheet, with a confirmation before discarding unsaved changes.
 * **Renewal controls**: Use a compact month picker, removable filter selections, sticky stage tabs and grouped mobile controls, with secondary actions in Pages and Tools.
+* **Dashboard loading**: Loading placeholders now match the dashboard’s current layout on phones, desktops and ultrawide screens.
 
 ### Bug Fixes
 
