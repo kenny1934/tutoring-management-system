@@ -452,7 +452,16 @@ export interface BillingQueueRow {
   action_url: string;
 }
 
+export interface BillingQueueFilters {
+  weekday?: BillingWeekday;
+  time_slot?: string;
+  expires_from?: string;
+  expires_to?: string;
+}
+
 export interface BillingQueueResponse {
+  time_slots?: string[];
+  navigation?: { key: string; student_id: number }[];
   as_of: string;
   collection_month: string;
   counts: BillingQueueStageCounts;

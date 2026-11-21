@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { SWRConfig, useSWRConfig } from 'swr';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BillingRenewalQueue } from './BillingRenewalQueue';
 import type { BillingDraftDetail, BillingQueueCounts, BillingQueueResponse, BillingQueueRow } from '@/types/billing';
 import { emptyBillingBatchItem, type BillingBatchItem } from '@/lib/billing-batch';
@@ -8,6 +8,7 @@ import type { BillingCardMessageTarget } from './BillingCardFeeMessage';
 
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), queue: vi.fn(), queueCounts: vi.fn(), options: vi.fn(), workspace: vi.fn(), batch: vi.fn(), feePanel: vi.fn(), invalidate: vi.fn(), receiptCount: vi.fn(), receipts: vi.fn(), settings: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
+vi.mock('@/lib/hooks/useSummerPreGradeWindow', () => ({ useSummerPreGradeWindow: () => ({ start: null, end: null }) }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: mocks.location }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { queue: mocks.queue, queueCounts: mocks.queueCounts, options: mocks.options, receiptCount: mocks.receiptCount, receipts: mocks.receipts } }));
 vi.mock('@/lib/renewal-queue', () => ({ invalidateRenewalQueueCache: mocks.invalidate }));
@@ -15,8 +16,8 @@ vi.mock('@/lib/hooks', async importOriginal => ({ ...await importOriginal<typeof
 vi.mock('@/components/layout/PageSurface', () => ({ PageSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
 vi.mock('./BillingPaymentSettings', () => ({ BillingPaymentSettings: (props: { recordedMethod?: string | null; studentId: number; onSaved: (value: { student_id: number; payment_method: string; mandate_ready: boolean; version: number; updated_at: null }) => void }) => { mocks.settings(props); return <button aria-label="Payment method">{props.recordedMethod === 'autopay' ? 'Autopay' : props.recordedMethod === 'manual' ? 'Manual' : 'Not set'}</button>; } }));
-vi.mock('./BillingRenewalWorkspace', () => ({ BillingRenewalWorkspace: (props: { row: BillingQueueRow; initialAction?: { kind: string; id?: string }; onClose: () => void }) => {
-  mocks.workspace(props); return <div role="dialog" aria-label="Enrollment renewal"><p>{props.initialAction ? `${props.initialAction.kind}:${props.initialAction.id ?? 'next'}` : 'Enrollment details'}</p><button onClick={props.onClose}>Close workspace</button></div>;
+vi.mock('./BillingRenewalWorkspace', () => ({ BillingRenewalWorkspace: (props: { row: BillingQueueRow; initialAction?: { kind: string; id?: string }; onClose: () => void; onNext?: () => void; nextAvailable?: boolean; navigating?: boolean; navigationError?: string }) => {
+  mocks.workspace(props); return <div role="dialog" aria-label="Enrollment renewal"><p>{props.initialAction ? `${props.initialAction.kind}:${props.initialAction.id ?? 'next'}` : 'Enrollment details'}</p><button onClick={props.onClose}>Close workspace</button><button disabled={!props.nextAvailable || props.navigating} onClick={props.onNext}>Next student</button>{props.navigationError && <p role="status">{props.navigationError}</p>}</div>;
 } }));
 vi.mock('./BillingBatchRenewModal', () => ({ BillingBatchRenewModal: (props: { rows: BillingQueueRow[]; onClose: (items?: BillingBatchItem[]) => void; onChanged: () => void }) => {
   mocks.batch(props); return <div role="dialog" aria-label="Batch renewal"><p>{props.rows.map(value => value.student.student_name).join(', ')}</p><button onClick={() => props.onClose()}>Close batch</button><button onClick={props.onChanged}>Batch changed</button>
@@ -40,13 +41,15 @@ function counts(collectionMonth = '2026-11', values: Partial<BillingQueueCounts>
 function Wrapper({ children }: { children: React.ReactNode }) { return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, revalidateOnFocus: false, shouldRetryOnError: false }}>{children}</SWRConfig>; }
 function show(props: Partial<Parameters<typeof BillingRenewalQueue>[0]> = {}) {
   let refreshCounts: () => Promise<unknown> = async () => {};
+  let refreshQueue: () => Promise<unknown> = async () => {};
   function CaptureCountsRefresh() {
     const { mutate } = useSWRConfig();
     refreshCounts = () => mutate(key => Array.isArray(key) && key[0] === 'renewal-queue-counts');
+    refreshQueue = () => mutate(key => Array.isArray(key) && key[0] === 'billing-renewal-queue');
     return null;
   }
   function TestWrapper({ children }: { children: React.ReactNode }) { return <Wrapper><CaptureCountsRefresh />{children}</Wrapper>; }
-  return { ...render(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} {...props} />, { wrapper: TestWrapper }), refreshCounts: () => refreshCounts() };
+  return { ...render(<BillingRenewalQueue onShowLegacy={vi.fn()} onShowTaught={vi.fn()} {...props} />, { wrapper: TestWrapper }), refreshCounts: () => refreshCounts(), refreshQueue: () => refreshQueue() };
 }
 beforeEach(() => {
   mocks.auth.mockReturnValue({ user: { id: 1 }, canViewAdminPages: true, isAdmin: true, effectiveRole: 'Admin', isLoading: false });
@@ -63,7 +66,128 @@ beforeEach(() => {
   mocks.invalidate.mockReset().mockImplementation(refresh => refresh ? refresh((key: unknown) => Array.isArray(key) && ['renewal-queue-counts', 'billing-renewal-queue'].includes(key[0])) : Promise.resolve());
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 describe('enrollment renewal queue', () => {
+  it('keeps mobile filters collapsed with removable selections visible outside the panel', async () => {
+    show(); await screen.findByRole('article');
+    const region = screen.getByRole('region', { name: 'Renewal filters' });
+    expect(screen.queryByLabelText('Day')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Find a student')).toBeVisible();
+    expect(screen.getByLabelText('Collection month').closest('header')).not.toBeNull();
+    fireEvent.change(screen.getByLabelText('Collection month'), { target: { value: '2026-09' } });
+    expect(screen.getByText('Sep 2026')).toBeVisible();
+    expect(screen.getByLabelText('Collection month')).toHaveValue('2026-09');
+    fireEvent.click(within(region).getByRole('button', { name: 'Filters' }));
+    fireEvent.change(screen.getByLabelText('Day'), { target: { value: 'Thu' } });
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: 'Thu' })));
+    fireEvent.click(within(region).getByRole('button', { name: 'Filters 1' }));
+    expect(screen.queryByLabelText('Day')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Day: Thu filter' }));
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: undefined, time_slot: undefined })));
+    expect(screen.queryByLabelText('Applied renewal filters')).not.toBeInTheDocument();
+  });
+
+  it('groups mobile related-page links in a keyboard-accessible menu', async () => {
+    show({ initialCollectionMonth: '2026-12' }); await screen.findByRole('article');
+    expect(screen.queryByRole('link', { name: 'Autopay list' })).not.toBeInTheDocument();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 100, height: 30, bottom: 40, left: 0, right: 100 } as DOMRect);
+    fireEvent.click(screen.getByRole('button', { name: 'Related pages' }));
+    const autopay = screen.getByRole('menuitem', { name: 'Autopay list' });
+    expect(autopay).toHaveAttribute('href', '/admin/autopay?collection_month=2026-12');
+    expect(autopay).toHaveFocus();
+    fireEvent.keyDown(autopay, { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitem', { name: 'Payment plans' })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Related pages' })).toHaveFocus();
+  });
+
+  it('applies class filters to counts and all result pages, then clears them together', async () => {
+    const result = response(); result.time_slots = ['18:30 - 20:00'];
+    mocks.queue.mockResolvedValue(result);
+    show(); await screen.findByRole('article');
+    if (!screen.queryByLabelText('Day')) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.change(screen.getByLabelText('Day'), { target: { value: 'Thu' } });
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: 'Thu', offset: 0 })));
+    fireEvent.change(screen.getByLabelText('Time slot'), { target: { value: '18:30 - 20:00' } });
+    if (!screen.queryByRole('button', { name: 'Expiry date: Any date' })) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expiry date: Any date' }));
+    fireEvent.change(screen.getByLabelText('Expires from'), { target: { value: '2026-12-01' } });
+    fireEvent.change(screen.getByLabelText('Expires through'), { target: { value: '2026-12-31' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply range' }));
+    await waitFor(() => expect(mocks.queueCounts).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: 'Thu', time_slot: '18:30 - 20:00', expires_from: '2026-12-01', expires_to: '2026-12-31' })));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: undefined, time_slot: undefined, expires_from: undefined, expires_to: undefined, offset: 0 })));
+  });
+
+  it('starts weekdays on Sunday and replaces time options when the day changes', async () => {
+    mocks.queue.mockImplementation(({ weekday }) => Promise.resolve({ ...response(), time_slots: weekday === 'Sun' ? ['09:00 - 10:30'] : ['18:30 - 20:00'] }));
+    show(); await screen.findByRole('article');
+    if (!screen.queryByLabelText('Day')) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    expect(within(screen.getByLabelText('Day')).getAllByRole('option').map(option => option.textContent)).toEqual(['All days', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+    fireEvent.change(screen.getByLabelText('Time slot'), { target: { value: '18:30 - 20:00' } });
+    if (!screen.queryByLabelText('Day')) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.change(screen.getByLabelText('Day'), { target: { value: 'Sun' } });
+    await waitFor(() => expect(within(screen.getByLabelText('Time slot')).getByRole('option', { name: '09:00 - 10:30' })).toBeInTheDocument());
+    expect(screen.getByLabelText('Time slot')).toHaveValue('');
+    expect(within(screen.getByLabelText('Time slot')).queryByRole('option', { name: '18:30 - 20:00' })).not.toBeInTheDocument();
+    expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: 'Sun', time_slot: undefined }));
+  });
+
+  it('applies an expiry preset as an inclusive range and clears dates independently', async () => {
+    show(); await screen.findByRole('article');
+    if (!screen.queryByRole('button', { name: 'Expiry date: Any date' })) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expiry date: Any date' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next 7 days' }));
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ expires_from: '2026-11-14', expires_to: '2026-11-20' })));
+    fireEvent.click(screen.getByRole('button', { name: /^Expiry date:/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear dates' }));
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ expires_from: undefined, expires_to: undefined })));
+  });
+
+  it('jumps directly to a distant page and resets it when a class filter changes', async () => {
+    mocks.queue.mockImplementation(({ offset = 0 }) => Promise.resolve({ ...response(), total: 260, offset }));
+    show(); await screen.findByRole('article');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Go to renewal page' }), { target: { value: '8' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }));
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 175 })));
+    expect(await screen.findByRole('textbox', { name: 'Go to renewal page' })).toHaveValue('8');
+    if (!screen.queryByLabelText('Day')) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.change(screen.getByLabelText('Day'), { target: { value: 'Thu' } });
+    await waitFor(() => expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ weekday: 'Thu', offset: 0 })));
+  });
+
+  it('offers aligned compact rows on desktop and retains a card view choice', async () => {
+    const original = window.matchMedia;
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ ...original(query), matches: true }));
+    show(); await screen.findByRole('article');
+    expect(screen.getByRole('button', { name: 'Compact' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Next period & fee')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    expect(screen.queryByText('Next period & fee')).not.toBeInTheDocument();
+    expect(screen.getByRole('article')).toBeVisible();
+  });
+
+  it('opens the next distinct student across pages using a scoped key, even after the current task disappears', async () => {
+    const second = { ...row(), key: 'student-5', student: { ...row().student, id: 5, student_name: 'Student Five' } };
+    const navigation = [{ key: row().key, student_id: 4 }, { key: 'old-5', student_id: 5 }, { key: 'student-6', student_id: 6 }];
+    mocks.queue.mockImplementation(params => {
+      if (params.row_key === 'old-5') return Promise.resolve({ ...response([]), navigation: [{ key: second.key, student_id: 5 }], total: 1 });
+      if (params.row_key === second.key) return Promise.resolve({ ...response([second]), navigation: [{ key: second.key, student_id: 5 }] });
+      return Promise.resolve({ ...response([row()]), navigation, total: 30 });
+    });
+    show(); await screen.findByRole('article');
+    if (!screen.queryByLabelText('Day')) fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.change(screen.getByLabelText('Day'), { target: { value: 'Thu' } });
+    await screen.findByRole('article');
+    fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next student' }));
+    await waitFor(() => expect(mocks.workspace.mock.lastCall![0].row.student.id).toBe(5));
+    expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ row_key: 'student-5', weekday: 'Thu', offset: 0, limit: 1 }), expect.any(AbortSignal));
+    expect(screen.getByRole('textbox', { name: 'Go to renewal page' })).toHaveValue('1');
+  });
+
   it('keeps warnings in preparation and filters them without changing the tab counts', async () => {
     const warning = { ...row(), origin: 'projection' as const, draft_id: null, needs_checking: true,
       issues: [{ code: 'CURRENT_ENROLLMENT_UNPAID', message: 'Current enrollment unpaid.', period: null }] };
@@ -72,24 +196,24 @@ describe('enrollment renewal queue', () => {
     show({ initialStage: 'prepare' });
     expect(await screen.findAllByRole('article')).toHaveLength(2);
     expect(screen.queryByRole('tab', { name: /Needs attention/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Show' })).toHaveValue('all');
+    expect(screen.getByRole('button', { name: 'Needs checking' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('Current enrollment unpaid', { selector: 'summary span' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Renew' })).toBeEnabled();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Show' }), { target: { value: 'checking' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Needs checking' }));
     await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(1));
     expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ stage: 'prepare', needs_checking: true, offset: 0 }));
     expect(screen.getByRole('tab', { name: 'To prepare 8' })).toHaveAttribute('aria-selected', 'true');
     expect(mocks.queueCounts).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('tab', { name: /Awaiting payment/ }));
     await waitFor(() => expect(mocks.queue.mock.lastCall![0]).toMatchObject({ stage: 'awaiting_payment', needs_checking: undefined }));
-    expect(screen.queryByRole('combobox', { name: 'Show' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Needs checking' })).not.toBeInTheDocument();
   });
 
   it('opens old attention links in the preparation checks filter', async () => {
     show({ initialStage: 'attention' });
     await screen.findByRole('article');
     expect(screen.getByRole('tab', { name: /To prepare/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('combobox', { name: 'Show' })).toHaveValue('checking');
+    expect(screen.getByRole('button', { name: 'Needs checking' })).toHaveAttribute('aria-pressed', 'true');
     expect(mocks.queue).toHaveBeenLastCalledWith(expect.objectContaining({ stage: 'prepare', needs_checking: true }));
   });
 
@@ -103,7 +227,7 @@ describe('enrollment renewal queue', () => {
     show();
     const cards = await screen.findAllByRole('article');
     expect(cards).toHaveLength(3);
-    expect(screen.getByText('All tasks · 3 tasks · MSA')).toBeVisible();
+    expect(screen.getByText('3 tasks · MSA')).toBeVisible();
     expect(screen.getByText('1–3 of 3 tasks')).toBeVisible();
     fireEvent.click(within(cards[0]).getByRole('checkbox', { name: 'Select Synthetic Student' }));
     await waitFor(() => expect(screen.getByText('1 selected')).toBeVisible());
@@ -165,12 +289,8 @@ describe('enrollment renewal queue', () => {
     mocks.receiptCount.mockResolvedValue({ storage_available: true, writes_available: true, count: 9 });
     const view = show({ initialStage: 'receipts', initialCollectionMonth: '2026-11' });
     await screen.findByRole('tab', { name: 'To send 4' });
-    // The app invalidates the same count family through its global cache.
-    // Bind that invalidation to this test's private provider.
-    mocks.invalidate.mockImplementation(() => view.refreshCounts());
     mocks.queueCounts.mockResolvedValueOnce(counts('2026-11', { prepare: 6, send: 3, awaiting_payment: 7, total: 27 }));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh renewals' }));
-    expect(mocks.invalidate).toHaveBeenCalledOnce();
+    await act(async () => { await view.refreshCounts(); });
     expect(await screen.findByRole('tab', { name: 'To send 3' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'To prepare 6' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Awaiting payment 7' })).toBeInTheDocument();
@@ -570,24 +690,26 @@ describe('enrollment renewal queue', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('keeps legacy and taught entry points explicit and refreshes reminder counts', async () => {
+  it('keeps legacy and taught entry points in Tools without a manual refresh control', async () => {
     const onShowLegacy = vi.fn(); const onShowTaught = vi.fn();
     show({ onShowLegacy, onShowTaught });
     await screen.findByRole('article');
-    fireEvent.click(screen.getByRole('button', { name: 'Earlier enrollments' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Taught but not in CSM yet 3' }));
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 100, height: 30, bottom: 40, left: 0, right: 100 } as DOMRect);
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Earlier enrollments' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Taught but not in CSM yet 3' }));
     expect(onShowLegacy).toHaveBeenCalledOnce(); expect(onShowTaught).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh renewals' }));
-    await waitFor(() => expect(mocks.queue).toHaveBeenCalledTimes(2));
-    expect(mocks.invalidate).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Refresh renewals' })).not.toBeInTheDocument();
   });
 
   it('keeps current cards visible during a background refresh', async () => {
-    show();
+    const view = show();
     const card = await screen.findByRole('article');
     let resolve!: (value: BillingQueueResponse) => void;
     mocks.queue.mockImplementationOnce(() => new Promise<BillingQueueResponse>(done => { resolve = done; }));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh renewals' }));
+    act(() => { void view.refreshQueue().catch(() => {}); });
     await waitFor(() => expect(resolve).toBeTypeOf('function'));
     expect(screen.getByRole('article')).toBe(card);
     expect(screen.queryByText('Loading renewals…')).not.toBeInTheDocument();
@@ -620,9 +742,9 @@ describe('enrollment renewal queue', () => {
 
   it('retains cards after a failed refresh and prevents acting on the retained calculation until retry', async () => {
     const source = { ...row(), origin: 'projection' as const, draft_id: null };
-    mocks.queue.mockResolvedValueOnce(response([source]));show();const card = await screen.findByRole('article');
+    mocks.queue.mockResolvedValueOnce(response([source]));const view = show();const card = await screen.findByRole('article');
     mocks.queue.mockRejectedValueOnce(new Error('Connection interrupted.'));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh renewals' }));
+    act(() => { void view.refreshQueue().catch(() => {}); });
     await screen.findByText('Connection interrupted.');
     expect(screen.getByRole('article')).toBe(card);
     expect(within(card).getByRole('button', { name: 'Renew' })).toBeDisabled();

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.9](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.8...v2.4.9) (2026-11-21)
+
+### Improvements
+
+* **Renewal worklist**: Scan compact desktop rows or cards, filter by weekday, matching class time and expiry dates, and jump directly to a page.
+* **Next student**: Continue through the filtered renewal worklist without reopening the mobile sheet, with a confirmation before discarding unsaved changes.
+* **Renewal controls**: Use a compact month picker, removable filter selections, sticky stage tabs and grouped mobile controls, with secondary actions in Pages and Tools.
+
+### Bug Fixes
+
+* **Skipped lessons**: Add skipped lessons with a clear plus button and avoid unused space while completing their details.
+
 ## [2.4.8](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.7...v2.4.8) (2026-11-20)
 
 ### Improvements

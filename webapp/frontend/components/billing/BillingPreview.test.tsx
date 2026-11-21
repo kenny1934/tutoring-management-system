@@ -61,6 +61,36 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('enrollment fee preview', () => {
+  it.each(['renewal', 'intake'] as const)('releases the previous review height while a skipped lesson is incomplete in %s', async mode => {
+    mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
+    const initial: BillingPreviewRequest = { first_lesson_date: '2026-12-03', mode: mode === 'intake' ? 'new_student' : 'transition',
+      payment_method: 'manual', slots: [{ weekday: 'Thu', time_slot: '18:30 - 20:00', location: 'MSA' }], materials_fee: 100, trial_deduction: false, mandate_ready: false };
+    renderBase(<BillingPreview focused embedded initialRequest={initial}
+      {...(mode === 'renewal' ? { renewalSource: { scenario: initial, enrollmentIds: [7], tutorNames: ['Fixture'] } }
+        : { intake: { slots: [{ tutor_id: 9 }] } })}
+      draftContext={{ studentId: 4, basis: 'include_pending', selectedEnrollmentIds: mode === 'renewal' ? [7] : [], sourceFingerprint: 'source' }} />);
+    await calculate();
+    const reviewed = screen.getByText('Review period 1');
+    const panel = reviewed.parentElement!;
+    expect(panel).not.toHaveClass('min-h-[22rem]');
+    const measurement = vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({ height: 600 } as DOMRect);
+    await act(async () => reviewed.setAttribute('data-billing-review-ready', 'true'));
+    fireEvent.click(screen.getByText('Skip lesson dates'));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip a lesson' }));
+    await calculate();
+    expect(screen.queryByText('Review period 1')).not.toBeInTheDocument();
+    expect(panel.style.minHeight).toBe('');
+    expect(panel).not.toHaveClass('min-h-[22rem]');
+    fireEvent.change(screen.getByLabelText('Skipped lesson date'), { target: { value: '2026-12-10' } });
+    await calculate();
+    expect(panel.style.minHeight).toBe('');
+    expect(panel).not.toHaveClass('min-h-[22rem]');
+    fireEvent.change(screen.getByLabelText('Reason for skipping'), { target: { value: 'Christmas party' } });
+    await calculate();
+    expect(screen.getByText('Review period 1')).toBeInTheDocument();
+    measurement.mockRestore();
+  });
+
   it.each(['renewal', 'intake'] as const)('includes an ad hoc skip and reason in the %s review, and removing it restores normal pricing input', async mode => {
     mocks.auth.mockReturnValue({ user: { id: 1 }, isLoading: false, isAdmin: true, isGuest: false });
     const initial: BillingPreviewRequest = { first_lesson_date: '2026-12-03', mode: mode === 'intake' ? 'new_student' : 'transition',
