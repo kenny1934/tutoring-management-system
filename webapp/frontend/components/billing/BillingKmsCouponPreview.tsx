@@ -36,10 +36,10 @@ export function BillingKmsCouponPreviewButton({ defaultBranch, storageAvailable 
   const [open, setOpen] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   if (!auth.isAdmin || auth.isReadOnly || !storageAvailable) return null;
-  return <><Button ref={trigger} size="sm" icon={Ticket} onClick={() => setOpen(scope)}>Check KMS coupons</Button>{open === scope && <KmsDialog key={scope} defaultBranch={defaultBranch} trigger={trigger} onClose={() => setOpen(null)} />}</>;
+  return <><Button ref={trigger} size="sm" icon={Ticket} onClick={() => setOpen(scope)}>Check KMS coupons</Button>{open === scope && <BillingKmsCouponDialog key={scope} defaultBranch={defaultBranch} trigger={trigger} onClose={() => setOpen(null)} />}</>;
 }
 
-function KmsDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void }) {
+export function BillingKmsCouponDialog({ defaultBranch, trigger, onClose }: { defaultBranch?: string; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void }) {
   const [status, setStatus] = useState<KmsPreviewStatus | null>(null);
   const [branch, setBranch] = useState(defaultBranch === 'MSA' || defaultBranch === 'MSB' ? defaultBranch : 'both');
   const [reviews, setReviews] = useState<Partial<Record<BillingBankBranch, KmsCheckReview>>>({});

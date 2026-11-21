@@ -10,6 +10,7 @@ from billing.queue import URGENCY_ORDER, build_queue, queue_available, queue_cou
 from billing.schemas import BillingQueueCountResponse, BillingQueueResponse, BillingQueueUrgencyCounts, QueueStage
 from database import get_db
 from models import Tutor
+from utils.time_slots import same_time_slot, time_slot_key
 from routers.billing import POLICY, holiday_dates, source_scope, student_number_order, today
 
 router = APIRouter()
@@ -30,15 +31,47 @@ def scoped_rows(request, user, db, collection_month, location, tutor_id):
     return as_of, month, rows
 
 
+def filter_classes(rows, *, weekday=None, time_slot=None, expires_from=None, expires_to=None, location=None):
+    if expires_from and expires_to and expires_from > expires_to:
+        raise HTTPException(status_code=422, detail='The expiry start date must be on or before the end date.')
+    if not any((weekday, time_slot, expires_from, expires_to)):
+        return rows
+    # Every selected condition belongs to the same class, not two different
+    # enrollments of a twice-weekly student. Filter before counts/pagination.
+    def matches(enrollment):
+        return ((not location or enrollment.location == location)
+            and (not weekday or (enrollment.weekday or '')[:3] == weekday)
+            and (not time_slot or same_time_slot(enrollment.time_slot, time_slot))
+            and (not expires_from or (enrollment.effective_end_date is not None and enrollment.effective_end_date >= expires_from))
+            and (not expires_to or (enrollment.effective_end_date is not None and enrollment.effective_end_date <= expires_to)))
+    return [row for row in rows if any(matches(enrollment) for enrollment in row.current_enrollments)]
+
+
+def time_slot_options(rows, location, weekday=None):
+    values = {}
+    for row in rows:
+        for enrollment in row.current_enrollments:
+            if (enrollment.time_slot and (not location or enrollment.location == location)
+                    and (not weekday or (enrollment.weekday or '')[:3] == weekday)):
+                values.setdefault(time_slot_key(enrollment.time_slot), enrollment.time_slot)
+    return sorted(values.values())
+
+
 @router.get('/billing/queue/counts', response_model=BillingQueueCountResponse)
 def get_queue_counts(
     request: Request,
     collection_month: str | None = Query(default=None, pattern=MONTH_PATTERN),
     location: str | None = Query(default=None, max_length=100),
     tutor_id: int | None = Query(default=None, gt=0),
+    weekday: Literal['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] | None = None,
+    time_slot: str | None = Query(default=None, min_length=1, max_length=100),
+    expires_from: date | None = None,
+    expires_to: date | None = None,
     user: Tutor = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     as_of, month, rows = scoped_rows(request, user, db, collection_month, location, tutor_id)
+    rows = filter_classes(rows, weekday=weekday, time_slot=time_slot, expires_from=expires_from,
+                          expires_to=expires_to, location=location)
     return BillingQueueCountResponse(as_of=as_of, collection_month=month, **queue_counts(rows).model_dump())
 
 
@@ -50,12 +83,20 @@ def get_queue(
     needs_checking: bool | None = None,
     search: str | None = Query(default=None, max_length=200),
     sort: Literal['expiry', 'student_id'] = 'expiry',
+    weekday: Literal['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] | None = None,
+    time_slot: str | None = Query(default=None, min_length=1, max_length=100),
+    expires_from: date | None = None,
+    expires_to: date | None = None,
+    row_key: str | None = Query(default=None, min_length=1, max_length=200),
     location: str | None = Query(default=None, max_length=100),
     tutor_id: int | None = Query(default=None, gt=0),
     offset: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=200),
     user: Tutor = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     as_of, month, rows = scoped_rows(request, user, db, collection_month, location, tutor_id)
+    slots = time_slot_options(rows, location, weekday)
+    rows = filter_classes(rows, weekday=weekday, time_slot=time_slot, expires_from=expires_from,
+                          expires_to=expires_to, location=location)
     counts = queue_counts(rows)
     if stage == 'attention':
         # Older deep links can still find warnings after the stage tabs change.
@@ -77,5 +118,9 @@ def get_queue(
     urgency_counts = BillingQueueUrgencyCounts()
     for row in rows:
         setattr(urgency_counts, row.urgency, getattr(urgency_counts, row.urgency) + 1)
-    return BillingQueueResponse(as_of=as_of, collection_month=month, counts=counts, urgency_counts=urgency_counts,
-                                total=len(rows), offset=offset, limit=limit, rows=rows[offset:offset + limit])
+    navigation = [{'key': row.key, 'student_id': row.student.id} for row in rows]
+    # A scoped key lookup lets explicit next-student navigation survive a
+    # preceding row leaving the stage after creation or message-sent actions.
+    page_rows = [row for row in rows if row.key == row_key] if row_key else rows[offset:offset + limit]
+    return BillingQueueResponse(time_slots=slots, navigation=navigation, as_of=as_of, collection_month=month, counts=counts, urgency_counts=urgency_counts,
+                                total=len(rows), offset=offset, limit=limit, rows=page_rows)

@@ -20,10 +20,10 @@ export function BillingCouponImportButton({ defaultBranch, storageAvailable, wri
   const [open, setOpen] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   if (!auth.isAdmin || auth.isReadOnly) return null;
-  return <><BillingKmsCouponPreviewButton defaultBranch={defaultBranch} storageAvailable={storageAvailable} />{manualFallback && <><Button ref={trigger} size="sm" icon={Upload} disabled={!storageAvailable || !writesAvailable} onClick={() => setOpen(scope)}>{defaultBranch === 'MSA' || defaultBranch === 'MSB' ? `Import ${defaultBranch} KMS list` : 'Import KMS list'}</Button>{open === scope && storageAvailable && writesAvailable && <ImportDialog key={scope} defaultBranch={defaultBranch} trigger={trigger} onClose={() => setOpen(null)} onChanged={onChanged} />}</>}</>;
+  return <><BillingKmsCouponPreviewButton defaultBranch={defaultBranch} storageAvailable={storageAvailable} />{manualFallback && <><Button ref={trigger} size="sm" icon={Upload} disabled={!storageAvailable || !writesAvailable} onClick={() => setOpen(scope)}>{defaultBranch === 'MSA' || defaultBranch === 'MSB' ? `Import ${defaultBranch} KMS list` : 'Import KMS list'}</Button>{open === scope && storageAvailable && writesAvailable && <BillingCouponImportDialog key={scope} defaultBranch={defaultBranch} trigger={trigger} onClose={() => setOpen(null)} onChanged={onChanged} />}</>}</>;
 }
 
-function ImportDialog({ defaultBranch, trigger, onClose, onChanged }: { defaultBranch?: string; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void; onChanged?: () => void }) {
+export function BillingCouponImportDialog({ defaultBranch, trigger, onClose, onChanged }: { defaultBranch?: string; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void; onChanged?: () => void }) {
   const [branch, setBranch] = useState<BillingBankBranch | ''>(defaultBranch === 'MSA' || defaultBranch === 'MSB' ? defaultBranch : '');
   const [date, setDate] = useState('');
   const [file, setFile] = useState<File | null>(null);

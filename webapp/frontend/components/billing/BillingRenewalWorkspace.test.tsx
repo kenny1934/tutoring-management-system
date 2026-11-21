@@ -7,14 +7,14 @@ import { BillingRenewalWorkspace } from './BillingRenewalWorkspace';
 import type { BillingRenewalAction } from './BillingRenewalPanel';
 
 const mocks = vi.hoisted(() => ({ detail: vi.fn(), modal: vi.fn() }));
-vi.mock('@/components/ui/modal', () => ({ Modal: (props: { children: React.ReactNode; persistent?: boolean }) => { mocks.modal(props); return <div role="dialog">{props.children}</div>; } }));
+vi.mock('@/components/ui/modal', () => ({ Modal: (props: { children: React.ReactNode; footer?: React.ReactNode; persistent?: boolean }) => { mocks.modal(props); return <div role="dialog">{props.children}{props.footer}</div>; } }));
 vi.mock('@/hooks/useOverlayLayer', () => ({ useOverlayLayer: () => ({ isTopmost: true, zIndex: 50 }) }));
 vi.mock('./BillingDraftReview', () => ({ BillingDraftFocus: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock('@/components/enrollments/EnrollmentDetailModal', () => ({ EnrollmentDetailModal: (props: { enrollmentId: number; onCreateBillingRenewal?: () => void; onOpenBillingPayment?: (id: string) => void }) => {
   mocks.detail(props);
   return <div aria-label="Current enrollment"><p>Enrollment {props.enrollmentId}</p>{props.onCreateBillingRenewal && <button onClick={props.onCreateBillingRenewal}>Renew</button>}<button onClick={() => props.onOpenBillingPayment?.('exact-payment')}>Open existing payment</button></div>;
 } }));
-vi.mock('./BillingRenewalPanel', () => ({ BillingRenewalPanel: ({ initialAction, onActionChange, onOpenEnrollment, onBusyChange, onCreated, onChanged }: { onChanged: () => void; onCreated?: (payment: BillingPaymentDetail) => void; onBusyChange: (busy: boolean) => void; initialAction: BillingRenewalAction; onActionChange: (action: BillingRenewalAction) => void; onOpenEnrollment: (id: number) => void }) => <div aria-label="Renewal form"><p>{initialAction.kind === 'renew' ? 'Next enrollment' : initialAction.id}</p><button onClick={() => onActionChange({ kind: 'draft', id: 'saved-3' })}>Save reviewed draft</button><button onClick={() => { onActionChange({ kind: 'payment', id: 'created-4' }); onChanged(); onCreated?.({ id: 'created-4', lines: [{ enrollment_id: 22 }] } as BillingPaymentDetail); }}>Confirm reviewed enrollment</button><button onClick={() => onOpenEnrollment(22)}>View created enrollment</button><button onClick={onChanged}>Record payment update</button><button onClick={() => onBusyChange(true)}>Start saving</button><button onClick={() => onBusyChange(false)}>Finish saving</button></div> }));
+vi.mock('./BillingRenewalPanel', () => ({ BillingRenewalPanel: ({ initialAction, onActionChange, onOpenEnrollment, onBusyChange, onCreated, onChanged }: { onChanged: () => void; onCreated?: (payment: BillingPaymentDetail) => void; onBusyChange: (busy: boolean) => void; initialAction: BillingRenewalAction; onActionChange: (action: BillingRenewalAction) => void; onOpenEnrollment: (id: number) => void }) => <div aria-label="Renewal form"><input aria-label="Renewal note" /><p>{initialAction.kind === 'renew' ? 'Next enrollment' : initialAction.id}</p><button onClick={() => onActionChange({ kind: 'draft', id: 'saved-3' })}>Save reviewed draft</button><button onClick={() => { onActionChange({ kind: 'payment', id: 'created-4' }); onChanged(); onCreated?.({ id: 'created-4', lines: [{ enrollment_id: 22 }] } as BillingPaymentDetail); }}>Confirm reviewed enrollment</button><button onClick={() => onOpenEnrollment(22)}>View created enrollment</button><button onClick={onChanged}>Record payment update</button><button onClick={() => onBusyChange(true)}>Start saving</button><button onClick={() => onBusyChange(false)}>Finish saving</button></div> }));
 
 function row(): BillingQueueRow {
   const enrollment = { enrollment_id: 7, tutor_id: 2, tutor_name: 'Tutor A', weekday: 'Mon', time_slot: '16:45 - 18:15', location: 'MSA', first_lesson_date: '2026-09-07', effective_end_date: '2026-11-30', last_original_date: '2026-11-02', last_paid_original_date: '2026-11-02', payment_status: 'Paid', lesson_count: 6, sessions_remaining: 2, fee_message_marked_sent: true };
@@ -26,6 +26,55 @@ function show(value = row(), initialAction?: BillingRenewalAction) {
 beforeEach(() => { Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 }); mocks.detail.mockReset(); });
 
 describe('familiar renewal workspace', () => {
+  it('keeps the mobile dialog mounted while resetting all content for the next student', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    const props = { initialAction: { kind: 'renew' as const }, trigger: createRef<HTMLButtonElement>(), onClose: vi.fn(), onChanged: vi.fn(), onNext: vi.fn(), nextAvailable: true };
+    const view = render(<BillingRenewalWorkspace {...props} row={row()} />);
+    const dialog = screen.getByRole('dialog');
+    const oldInput = screen.getByLabelText('Renewal note');
+    fireEvent.change(oldInput, { target: { value: 'Previous student note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm reviewed enrollment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View created enrollment' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    const next = { ...row(), key: 'student-5', student: { ...row().student, id: 5, student_name: 'Next Student' }, enrollment_ids: [99], current_enrollments: [{ ...row().current_enrollments![0], enrollment_id: 99 }] };
+    view.rerender(<BillingRenewalWorkspace {...props} row={next} />);
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(screen.getByLabelText('Renewal note')).not.toBe(oldInput);
+    expect(screen.getByLabelText('Renewal note')).toHaveValue('');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText('Enrollment 99')).toBeInTheDocument();
+    expect(screen.queryByText('Enrollment 22')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Create renewal' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Next student' }));
+    expect(props.onNext).toHaveBeenCalledOnce();
+  });
+
+  it('keeps unsaved edits until staff explicitly discard them before opening the next student', () => {
+    const next = vi.fn();
+    render(<BillingRenewalWorkspace row={row()} initialAction={{ kind: 'renew' }} trigger={createRef()} onClose={vi.fn()} onChanged={vi.fn()} onNext={next} nextAvailable position={1} worklistSize={20} />);
+    fireEvent.change(screen.getByLabelText('Renewal note'), { target: { value: 'Parent requested Thursday' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next student' }));
+    expect(next).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText('Renewal note')).toHaveValue('Parent requested Thursday');
+    fireEvent.click(screen.getByRole('button', { name: 'Next student' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard and continue' }));
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('continues directly after creation but disables navigation during a save', () => {
+    const next = vi.fn();
+    render(<BillingRenewalWorkspace row={row()} initialAction={{ kind: 'renew' }} trigger={createRef()} onClose={vi.fn()} onChanged={vi.fn()} onNext={next} nextAvailable position={2} worklistSize={20} />);
+    fireEvent.change(screen.getByLabelText('Renewal note'), { target: { value: 'Checked' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Start saving' }));
+    expect(screen.getByRole('button', { name: 'Next student' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish saving' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm reviewed enrollment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next student' }));
+    expect(next).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Discard and continue' })).not.toBeInTheDocument();
+  });
+
   it('labels original and created enrollments correctly and dismisses success after later mutations', () => {
     const original = { ...row(), enrollment_ids: [] };
     const changed = vi.fn();

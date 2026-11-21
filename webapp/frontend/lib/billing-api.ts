@@ -1,5 +1,5 @@
 import { fetchAPI, fetchResponse } from '@/lib/api';
-import type { BillingContextBasis, BillingDraftDetail, BillingDraftReview, BillingDraftReviewRequest, BillingDraftSaveRequest, BillingDraftSummary, BillingOptions, BillingPreviewRequest, BillingPreviewResponse, BillingRosterResponse, StudentBillingContext, BillingPreferences, BillingPaymentDetail, BillingRecordPaymentRequest, BillingQueueCounts, BillingQueueResponse, BillingQueueStage } from '@/types/billing';
+import type { BillingContextBasis, BillingDraftDetail, BillingDraftReview, BillingDraftReviewRequest, BillingDraftSaveRequest, BillingDraftSummary, BillingOptions, BillingPreviewRequest, BillingPreviewResponse, BillingRosterResponse, StudentBillingContext, BillingPreferences, BillingPaymentDetail, BillingRecordPaymentRequest, BillingQueueCounts, BillingQueueResponse, BillingQueueStage, BillingQueueFilters } from '@/types/billing';
 import type { BillingIntakeContext, BillingAutopayResponse, BillingAutopayStage, BillingAutopayExportScope, BillingAutopayExportPreview, BillingBankRunList, BillingBankRunDetail, BillingBankResultReview } from '@/types/billing';
 import type { BillingSettings, BillingReceiptTasks, BillingReceiptCount } from '@/types/billing';
 import type { BillingCouponBalance, BillingCouponVerification, BillingCouponReview, BillingCouponImport, BillingBankBranch } from '@/types/billing';
@@ -35,10 +35,10 @@ export const billingAPI = {
     fetchAPI<BillingIntakeContext>(`/billing/students/${studentId}/intake-context?${queryString(params)}`, { signal }),
   recordLegacyCouponReceipt: (studentId: number, useId: string, data: { expected_version: number; idempotency_key: string; receipt_reference: string; coupon_used_on: string; coupon_selected: boolean }, signal?: AbortSignal) =>
     fetchAPI<BillingCouponBalance>(`/billing/students/${studentId}/coupon-uses/${encodeURIComponent(useId)}/receipt`, { method: 'POST', body: JSON.stringify(data), signal }),
-  queue: (params: { collection_month?: string; stage?: BillingQueueStage; needs_checking?: boolean; sort?: 'expiry' | 'student_id'; search?: string; location?: string; tutor_id?: number; offset?: number; limit?: number } = {}) =>
-    fetchAPI<BillingQueueResponse>(`/billing/queue?${queryString(params)}`),
-  queueCounts: (params: { collection_month?: string; location?: string; tutor_id?: number } = {}) =>
-    fetchAPI<BillingQueueCounts>(`/billing/queue/counts?${queryString(params)}`),
+  queue: (params: BillingQueueFilters & { row_key?: string; collection_month?: string; stage?: BillingQueueStage; needs_checking?: boolean; sort?: 'expiry' | 'student_id'; search?: string; location?: string; tutor_id?: number; offset?: number; limit?: number } = {}, signal?: AbortSignal) =>
+    fetchAPI<BillingQueueResponse>(`/billing/queue?${queryString({ ...params })}`, { signal }),
+  queueCounts: (params: BillingQueueFilters & { collection_month?: string; location?: string; tutor_id?: number } = {}) =>
+    fetchAPI<BillingQueueCounts>(`/billing/queue/counts?${queryString({ ...params })}`),
   autopay: (params: { collection_month?: string; stage?: BillingAutopayStage; location?: string; search?: string; tutor_id?: number; offset?: number; limit?: number } = {}) =>
     fetchAPI<BillingAutopayResponse>(`/billing/autopay?${queryString(params)}`),
   autopayExportPreview: (data: BillingAutopayExportScope, signal?: AbortSignal) =>

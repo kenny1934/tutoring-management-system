@@ -1,5 +1,6 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { Button, Input, Textarea } from '@/components/controls';
 import type { BillingSlot } from '@/types/billing';
 
@@ -28,7 +29,7 @@ export function SkippedLessonsEditor({ slots, onChange, disabled, from, through 
         </label>
         <Button size="sm" variant="quiet" onClick={() => onChange(index, { skipped_lessons: slot.skipped_lessons!.filter((_, i) => i !== item) })}>Remove skipped date</Button>
       </div>)}
-      <Button size="sm" variant="quiet" disabled={disabled || (slot.skipped_lessons?.length || 0) >= 30}
+      <Button size="sm" variant="secondary" icon={Plus} disabled={disabled || (slot.skipped_lessons?.length || 0) >= 30}
         onClick={() => onChange(index, { skipped_lessons: [...(slot.skipped_lessons || []), { date: '', reason: '' }] })}>Skip a lesson</Button>
     </fieldset>)}
   </details>;

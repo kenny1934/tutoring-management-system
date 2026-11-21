@@ -481,7 +481,14 @@ class BillingQueueRow(BaseModel):
     action_url: str
 
 
+class BillingQueueNavigationItem(BaseModel):
+    key: str
+    student_id: int
+
+
 class BillingQueueResponse(BaseModel):
+    time_slots: list[str] = Field(default_factory=list)
+    navigation: list[BillingQueueNavigationItem] = Field(default_factory=list)
     as_of: date
     collection_month: str
     counts: BillingQueueCounts

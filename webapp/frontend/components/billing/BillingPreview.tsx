@@ -58,7 +58,7 @@ function CalculationPanel({ intake, preserveHeight, children }: { intake: boolea
     update();
     return () => { mutations.disconnect(); resize?.disconnect(); };
   }, [preserveHeight]);
-  return <div ref={panel} className={intake ? "min-h-[22rem] min-w-0 flex-[1_1_22rem] space-y-4" : "min-w-0 space-y-4 empty:hidden"}>{children}</div>;
+  return <div ref={panel} className={intake ? "min-w-0 flex-[1_1_22rem] space-y-4" : "min-w-0 space-y-4 empty:hidden"}>{children}</div>;
 }
 
 function selectableBranch(location: string) {
@@ -636,7 +636,7 @@ export function BillingPreview({ initialRequest, embedded = false, contextIssues
       {sourceFailure}{policyError}{calculationError}
       <div className={intake ? "flex min-w-0 flex-wrap items-start gap-5" : "flex flex-col gap-4"}>
       <div className={intake ? "min-w-0 flex-[1_1_19rem] space-y-4" : "space-y-4"}>{renewalEditor}{intakeFees}</div>
-      <CalculationPanel intake={!!intake} preserveHeight={renewalReady}>
+      <CalculationPanel intake={!!intake} preserveHeight={renewalReady && intakeReady && !!request}>
       {!hasReview && <BillingChecks issues={renewalContextIssues} presentation="renewal" />}
       {!request && <p className="text-sm text-ink-subtle">{renewalCoupon && !selectedRenewalCoupon ? 'Check coupons or select No coupon to continue.' : 'Complete the enrollment details to calculate its fee.'}</p>}
       {intake && !intakeReady && materialsValid && <p role="status" className="text-sm text-ink-subtle">Choose a tutor for each class.</p>}
