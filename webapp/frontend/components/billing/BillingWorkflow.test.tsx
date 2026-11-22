@@ -6,7 +6,7 @@ import { BillingConfirmDraft } from './BillingConfirmDraft';
 import { BillingPayments } from './BillingPayments';
 import type { BillingDraftDetail, BillingPaymentDetail, BillingPreferences } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), confirmDraft: vi.fn(), payments: vi.fn(), payment: vi.fn(), markPaymentSent: vi.fn(), recordPayment: vi.fn(), recordReceipt: vi.fn(), cancelPayment: vi.fn(), copy: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), confirmDraft: vi.fn(), payments: vi.fn(), payment: vi.fn(), markPaymentSent: vi.fn(), recordPayment: vi.fn(), recordReceipt: vi.fn(), cancelPayment: vi.fn(), editCharges: vi.fn(), options: vi.fn(), copy: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: mocks }));
 vi.mock('./BillingEnrollmentSessions', () => ({ BillingEnrollmentSessions: ({ enrollmentId }: { enrollmentId: number }) => <div>Actual sessions for enrollment {enrollmentId}</div> }));
@@ -27,6 +27,7 @@ beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true });
+  mocks.options.mockResolvedValue({ standard_materials_fee: 100 });
   mocks.preferences.mockResolvedValue(preferences());
   mocks.savePreferences.mockResolvedValue({ ...preferences(), version: 3 });
   mocks.confirmDraft.mockResolvedValue(payment());
@@ -192,7 +193,7 @@ describe('combined payment collection', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'The full payment has been received.' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm payment' }));
     await screen.findByText('Payment recorded for every linked enrollment.');
-    expect(mocks.recordPayment).toHaveBeenCalledWith('payment-1', expect.objectContaining({ amount: 2800, expected_version: 1 }), expect.any(AbortSignal));
+    expect(mocks.recordPayment).toHaveBeenCalledWith('payment-1', expect.objectContaining({ amount: 2800, method: 'bank_transfer', expected_version: 1 }), expect.any(AbortSignal));
   });
 
   it('shows both enrollment links and records one full payment without changing sent status', async () => {
@@ -201,6 +202,8 @@ describe('combined payment collection', () => {
     expect(screen.getByRole('link', { name: 'Enrollment #21' })).toHaveAttribute('href', '/enrollments/21');
     fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
     expect(screen.queryByRole('option', { name: 'Autopay' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Received by')).toHaveValue('bank_transfer');
+    fireEvent.change(screen.getByLabelText('Received by'), { target: { value: 'cash' } });
     expect(screen.getByRole('button', { name: 'Confirm payment' })).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Payment date'), { target: { value: '2026-10-18' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'The full payment has been received.' }));
@@ -392,4 +395,84 @@ it('keeps non-coupon receipts optional after payment', async () => {
   expect(screen.queryByRole('heading', { name: 'Coupon receipt' })).not.toBeInTheDocument();
   fireEvent.click(summary);
   expect(screen.getByLabelText('Issued KMS receipt reference')).toBeInTheDocument();
+});
+
+
+describe('unpaid enrollment charge editing', () => {
+  function joiningPayment() {
+    const result = payment();
+    result.review.scenario.mode = 'new_student';
+    result.review.scenario.materials_fee = 100;
+    result.review.period.materials_fee = 100;
+    result.review.period.total_fee = 2900;
+    result.lines[0].materials_fee = 100;
+    result.sent_at = '2026-10-18';
+    return result;
+  }
+  function show() { return render(<BillingPayments inline canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper }); }
+  it('reviews and saves waived materials independently of new-student identity', async () => {
+    const original = joiningPayment();
+    mocks.payment.mockResolvedValue(original); mocks.payments.mockResolvedValue([original]);
+    const updated = structuredClone(original);
+    updated.version = 2; updated.sent_at = null;
+    updated.review.scenario.materials_fee = 0; updated.review.period.materials_fee = 0;
+    updated.review.period.total_fee = 2800; updated.lines[0].materials_fee = 0;
+    mocks.editCharges.mockResolvedValue(updated);
+    show();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit charges' }));
+    const form = screen.getByRole('form', { name: 'Edit enrollment charges' });
+    expect(within(form).getByRole('button', { name: 'Save charges' })).toBeDisabled();
+    fireEvent.click(within(form).getByRole('checkbox', { name: 'Charge materials fee (MOP 100)' }));
+    fireEvent.change(within(form).getByLabelText('Reason for change'), { target: { value: 'Materials already supplied.' } });
+    expect(within(form).getByText(/Total:.*2,900.*2,800/)).toBeInTheDocument();
+    expect(within(form).getByText(/Send the revised message after saving/)).toBeInTheDocument();
+    fireEvent.click(within(form).getByRole('button', { name: 'Save charges' }));
+    await waitFor(() => expect(mocks.editCharges).toHaveBeenCalledWith('payment-1', expect.objectContaining({
+      charge_materials: false, keep_deduction: true, expected_total: 2800,
+      expected_version: 1, reason: 'Materials already supplied.', idempotency_key: expect.any(String),
+    }), expect.any(AbortSignal)));
+    await screen.findByText('Charges updated. Send the revised fee message to the parent.');
+    expect(screen.queryByRole('form', { name: 'Edit enrollment charges' })).not.toBeInTheDocument();
+  });
+  it('retains the same retry key after an uncertain save', async () => {
+    const original = joiningPayment(); mocks.payment.mockResolvedValue(original);
+    mocks.editCharges.mockRejectedValue(new Error('Connection lost'));
+    show(); fireEvent.click(await screen.findByRole('button', { name: 'Edit charges' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Charge materials fee/ }));
+    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Waive materials.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save charges' }));
+    await screen.findByText('Connection lost');
+    const first = mocks.editCharges.mock.calls[0][1];
+    fireEvent.click(screen.getByRole('button', { name: 'Save charges' }));
+    await waitFor(() => expect(mocks.editCharges).toHaveBeenCalledTimes(2));
+    expect(mocks.editCharges.mock.calls[1][1]).toEqual(first);
+  });
+  it('blocks editing payments held in a bank run', async () => {
+    mocks.payment.mockResolvedValue({ ...joiningPayment(), batch_action_issue: 'Open this payment in the Autopay list.' });
+    show(); expect(await screen.findByRole('button', { name: 'Edit charges' })).toBeDisabled();
+    expect(mocks.editCharges).not.toHaveBeenCalled();
+  });
+  it.each(['Paid', 'Cancelled'] as const)('hides editing for %s payments', async status => {
+    mocks.payment.mockResolvedValue({ ...joiningPayment(), status });
+    show(); await screen.findByRole('region', { name: 'Linked enrollments' });
+    expect(screen.queryByRole('button', { name: 'Edit charges' })).not.toBeInTheDocument();
+  });
+  it('keeps charges read-only for tutors', async () => {
+    mocks.auth.mockReturnValue({ user: { id: 7 }, effectiveRole: 'Tutor', isAdmin: false });
+    show(); await screen.findByRole('region', { name: 'Linked enrollments' });
+    expect(screen.queryByRole('button', { name: 'Edit charges' })).not.toBeInTheDocument();
+  });
+  it('shows the original and revised totals and reason in payment history', async () => {
+    mocks.payment.mockResolvedValue({ ...joiningPayment(), history: [{ kind: 'charges', actor_name: 'Admin', created_at: '2026-10-18', reason: 'Materials supplied.', previous_total: 2900, total: 2800 }] });
+    show(); await screen.findByRole('region', { name: 'Linked enrollments' });
+    fireEvent.click(screen.getByText('Payment history'));
+    expect(screen.getByText(/Materials supplied.*2,900.*2,800/)).toBeInTheDocument();
+  });
+});
+
+
+it('retains the revised-message reminder when an edited payment is reopened', async () => {
+  mocks.payment.mockResolvedValue({ ...payment(), message_needs_resend: true });
+  render(<BillingPayments inline canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+  await screen.findByText('Charges changed after the fee message was sent. Send the revised message to the parent.');
 });

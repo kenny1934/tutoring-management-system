@@ -775,10 +775,11 @@ async def create_enrollment(
     if enrollment_data.is_new_student is not None:
         is_new_student = enrollment_data.is_new_student
     else:
-        # Auto-detect: student is "new" if they have no prior non-Trial enrollments
+        # Cancelled attempts do not count as prior non-Trial enrollments.
         prior_non_trial = db.query(Enrollment).filter(
             Enrollment.student_id == enrollment_data.student_id,
-            Enrollment.enrollment_type != 'Trial'
+            Enrollment.enrollment_type != 'Trial',
+            or_(Enrollment.payment_status.is_(None), Enrollment.payment_status != 'Cancelled'),
         ).first()
         is_new_student = prior_non_trial is None
 

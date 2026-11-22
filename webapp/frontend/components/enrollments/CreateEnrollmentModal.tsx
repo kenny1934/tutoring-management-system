@@ -434,7 +434,7 @@ export function CreateEnrollmentModal({
     setIsNewStudent(null);
     enrollmentsAPI.getAll(student.id).then((enrollments) => {
       if (!active) return;
-      const hasNonTrialEnrollment = enrollments.some(e => e.enrollment_type !== 'Trial');
+      const hasNonTrialEnrollment = enrollments.some(e => e.enrollment_type !== 'Trial' && e.payment_status !== 'Cancelled');
       setIsNewStudent(!hasNonTrialEnrollment);
     }).catch(() => {});
     return () => { active = false; };

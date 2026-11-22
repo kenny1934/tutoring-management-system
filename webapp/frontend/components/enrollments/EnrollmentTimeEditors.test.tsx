@@ -6,6 +6,7 @@ import EnrollmentDetailPage from '@/app/enrollments/[id]/page';
 import { EnrollmentDetailPopover } from './EnrollmentDetailPopover';
 
 const data = vi.hoisted(() => ({
+  linkedPaymentId: null as string | null, paymentContent: vi.fn(), invalidate: vi.fn(),
   enrollment: { id: 31, student_id: 1, student_name: 'Synthetic Student', tutor_id: 2,
     tutor_name: 'Synthetic Tutor', assigned_day: 'Wed', assigned_time: '18:00-19:30',
     location: 'MSA', enrollment_type: 'Regular', payment_status: 'Paid', lessons_paid: 6,
@@ -18,7 +19,8 @@ vi.mock('@/contexts/LocationContext', () => ({ useLocation: () => ({ selectedLoc
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ effectiveRole: 'Admin', isReadOnly: false, canViewAdminPages: true }) }));
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock('@/lib/hooks', () => ({
-  useEnrollment: () => ({ data: data.enrollment, mutate: vi.fn() }),
+  invalidateCaches: data.invalidate,
+  useEnrollment: () => ({ data: { ...data.enrollment, billing_payment_id: data.linkedPaymentId }, mutate: vi.fn() }),
   useEnrollmentSessions: () => ({ data: data.empty }), useLocations: () => ({ data: ['MSA'] }),
   useTutors: () => ({ data: data.tutors }), usePageTitle: vi.fn(), useHolidays: () => ({ data: data.empty }),
   useHideSupersededSessions: () => [false, vi.fn()], useSummerApplication: () => ({}),
@@ -30,6 +32,7 @@ vi.mock('@/hooks/usePopoverSheet', () => ({
   useAsSheet: () => false, usePopoverSheet: () => ({}), fitToScreen: () => null,
   PopoverShell: ({ header, children }: { header: ReactNode; children: ReactNode }) => <div>{header}{children}</div>,
 }));
+vi.mock('@/components/billing/BillingPayments', () => ({ BillingPayments: (props: unknown) => { data.paymentContent(props); return <p>Linked payment charge controls</p>; } }));
 vi.mock('@/components/sessions/SessionDetailPopover', () => ({ SessionDetailPopover: () => null }));
 vi.mock('@/components/ui/confirm-dialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('@/components/tutors/TutorLink', () => ({ TutorLink: () => <span>Synthetic Tutor</span> }));
@@ -38,6 +41,10 @@ vi.mock('./ScheduleChangeReviewModal', () => ({
 }));
 
 beforeEach(() => {
+  data.linkedPaymentId = null;
+  data.enrollment.payment_status = 'Paid';
+  data.paymentContent.mockReset();
+  data.invalidate.mockReset();
   data.enrollment.assigned_time = '18:00-19:30';
   data.update.mockReset().mockResolvedValue(data.enrollment);
 });
@@ -75,3 +82,21 @@ for (const surface of ['page', 'popover'] as const) {
     });
   });
 }
+
+
+it('opens the linked payment editor from an unpaid enrollment detail page', async () => {
+  data.linkedPaymentId = 'linked-payment'; data.enrollment.payment_status = 'Pending Payment';
+  await act(async () => { render(<EnrollmentDetailPage />); });
+  const button = screen.getByRole('button', { name: 'Edit payment' });
+  expect(button).toBeEnabled(); fireEvent.click(button);
+  expect(screen.getByText('Linked payment charge controls')).toBeInTheDocument();
+  expect(data.paymentContent).toHaveBeenCalledWith(expect.objectContaining({ initialPaymentId: 'linked-payment', studentId: 1, inline: true }));
+  await act(async () => { (data.paymentContent.mock.lastCall![0] as { onChanged: () => void }).onChanged(); });
+  expect(data.invalidate).toHaveBeenCalledWith('enrollments', { studentId: 1 });
+});
+
+it('keeps paid linked enrollment charges locked', async () => {
+  data.linkedPaymentId = 'linked-payment';
+  await act(async () => { render(<EnrollmentDetailPage />); });
+  expect(screen.getByRole('button', { name: 'Edit payment' })).toBeDisabled();
+});

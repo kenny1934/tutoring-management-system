@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.10](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.9...v2.4.10) (2026-11-22)
+
+### Improvements
+
+* **Enrollment charges**: Edit unpaid enrollment materials fees and remove an existing deduction from the enrollment detail page, with updated totals, fee messages and a recorded reason.
+* **Payment recording**: Bank transfer is now selected by default for manual payments, while Cash remains available.
+
+### Bug Fixes
+
+* **New-student detection**: Cancelled enrollments no longer cause new students to be treated as returning when creating another enrollment.
+* **Revised fee messages**: Changes to charges reset the message’s sent status and keep a reminder visible until the revised message is marked sent.
+* **Coupon reservations**: Removing a coupon from an unpaid enrollment releases it for future use and keeps it available after payment.
+
 ## [2.4.9](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.8...v2.4.9) (2026-11-21)
 
 ### Improvements

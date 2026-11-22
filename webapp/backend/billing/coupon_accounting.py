@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import or_
+
 from models import Enrollment, SessionLog, Student, StudentCoupon
 from .coupon_models import CouponAccount, CouponObservation, CouponOperation, CouponUse, CouponVerification
 from .coupon_schemas import CouponBalance, CouponGroup, CouponGroupInput, CouponIssue, CouponObservationDetail, CouponUseDetail, CouponVerificationRequest, CouponVerificationReview
@@ -81,9 +83,11 @@ def _facts(db, ids, *, current=False):
     verification_ids.update(u.verification_id for values in uses.values() for u in values if u.verification_id)
     verifications = {r.id: r for r in rows(db.query(CouponVerification).filter(
         CouponVerification.id.in_(verification_ids)).order_by(CouponVerification.id))} if verification_ids else {}
+    tracked_payment_ids = {u.payment_id for values in uses.values() for u in values if u.payment_id}
     payments = {p.id: (p, sid) for p, sid in rows(db.query(BillingPayment, BillingAccount.student_id).join(
         BillingAccount, BillingAccount.id == BillingPayment.account_id).filter(
-        BillingAccount.student_id.in_(ids), BillingPayment.coupon_value > 0).order_by(BillingPayment.id))}
+        BillingAccount.student_id.in_(ids),
+        or_(BillingPayment.coupon_value > 0, BillingPayment.id.in_(tracked_payment_ids))).order_by(BillingPayment.id))}
     legacy_ids = {u.legacy_enrollment_id for values in uses.values() for u in values if u.legacy_enrollment_id}
     legacy = {r.id: r for r in rows(db.query(Enrollment).filter(Enrollment.id.in_(legacy_ids)).order_by(Enrollment.id))} if legacy_ids else {}
     legacy_dates = {}
@@ -108,6 +112,10 @@ def _use_state(use, payments, legacy):
         return use.state, issue('COUPON_SOURCE_REVIEW', 'Check the payment linked to this coupon.')
     status = payment.status if payment else enrollment.payment_status
     if use.state == 'released':
+        # Removing a coupon keeps the payment active. Its released use must
+        # stay released when that revised payment is later received.
+        if payment is not None and payment.coupon_value == 0 and not use.receipt_reference:
+            return 'released', None
         if (enrollment is not None and use.payment_id is None
                 and enrollment.discount_id is None and not use.receipt_reference
                 and not use.accounted_observation_id):

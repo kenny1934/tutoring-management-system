@@ -689,6 +689,21 @@ class BillingCancelRequest(WorkflowAction):
     reason: str = Field(min_length=1, max_length=500)
 
 
+class BillingChargesRequest(WorkflowAction):
+    expected_version: int = Field(ge=1)
+    charge_materials: bool
+    expected_total: int = Field(gt=0)
+    keep_deduction: bool = True
+    reason: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode='after')
+    def require_reason(self):
+        self.reason = self.reason.strip()
+        if not self.reason:
+            raise ValueError('Explain why the enrollment charges are changing.')
+        return self
+
+
 class BillingPaymentLineDetail(BaseModel):
     enrollment_id: int
     slot_index: int
@@ -705,6 +720,9 @@ class BillingPaymentHistory(BaseModel):
     kind: str
     actor_name: str
     created_at: datetime
+    reason: str | None = None
+    previous_total: int | None = None
+    total: int | None = None
 
 
 class BillingPaymentDetail(BaseModel):
@@ -717,6 +735,7 @@ class BillingPaymentDetail(BaseModel):
     created_at: datetime
     sent_at: datetime | None
     sent_language: Literal['zh', 'en'] | None
+    message_needs_resend: bool = False
     paid_at: datetime | None
     payment_date: date | None
     received_method: str | None

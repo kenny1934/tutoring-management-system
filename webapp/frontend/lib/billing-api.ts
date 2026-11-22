@@ -104,6 +104,8 @@ export const billingAPI = {
     fetchAPI<BillingPaymentDetail>(`/billing/payments/${encodeURIComponent(id)}/manual-paid`, { method: 'POST', body: JSON.stringify(data), signal }),
   recordReceipt: (id: string, data: { receipt_reference: string; expected_version: number; idempotency_key: string; coupon_selected?: boolean; coupon_used_on?: string; acknowledge_duplicate_receipt?: boolean }, signal?: AbortSignal) =>
     fetchAPI<BillingPaymentDetail>(`/billing/payments/${encodeURIComponent(id)}/receipt`, { method: 'POST', body: JSON.stringify(data), signal }),
+  editCharges: (id: string, data: { charge_materials: boolean; keep_deduction: boolean; expected_total: number; reason: string; expected_version: number; idempotency_key: string }, signal?: AbortSignal) =>
+    fetchAPI<BillingPaymentDetail>(`/billing/payments/${encodeURIComponent(id)}/charges`, { method: 'POST', body: JSON.stringify(data), signal }),
   cancelPayment: (id: string, data: { reason: string; expected_version: number; idempotency_key: string }, signal?: AbortSignal) =>
     fetchAPI<BillingPaymentDetail>(`/billing/payments/${encodeURIComponent(id)}/cancel`, { method: 'POST', body: JSON.stringify(data), signal }),
 };

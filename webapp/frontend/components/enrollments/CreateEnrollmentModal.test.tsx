@@ -4,7 +4,7 @@ import { useLayoutEffect } from 'react';
 import type { Student, TrialListItem } from '@/types';
 import { CreateEnrollmentModal } from './CreateEnrollmentModal';
 
-const mocks = vi.hoisted(() => ({ student: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), intakeContext: vi.fn(), renewal: vi.fn(), studentReady: vi.fn(), auth: vi.fn(), trials: [] as TrialListItem[], trialQuery: vi.fn(), getTrials: vi.fn(), trialMutate: vi.fn(), trialChecking: false, trialError: undefined as Error | undefined }));
+const mocks = vi.hoisted(() => ({ student: vi.fn(), enrollments: vi.fn(), preview: vi.fn(), create: vi.fn(), intake: vi.fn(), intakeContext: vi.fn(), renewal: vi.fn(), studentReady: vi.fn(), auth: vi.fn(), trials: [] as TrialListItem[], trialQuery: vi.fn(), getTrials: vi.fn(), trialMutate: vi.fn(), trialChecking: false, trialError: undefined as Error | undefined }));
 const tutors = [{ id: 9, tutor_name: 'Tutor Nine', default_location: 'MSA' }, { id: 12, tutor_name: 'Tutor Twelve', default_location: 'MSA' }, { id: 13, tutor_name: 'Tutor MSB', default_location: 'MSB' }];
 const options = { as_of: '2026-11-13', first_payment_from: '2026-10-30', workflow_writes_available: true };
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
@@ -12,7 +12,7 @@ vi.mock('@/contexts/LocationContext', () => ({ useLocation: () => ({ selectedLoc
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: vi.fn(), showError: vi.fn() }) }));
 vi.mock('@/lib/hooks', () => ({ useActiveTutors: () => ({ data: tutors }), useCacheInvalidation: () => ({ invalidateAfterEnrollmentCreate: vi.fn() }) }));
 vi.mock('@/lib/api', () => ({ studentsAPI: { getById: mocks.student, getCoupon: vi.fn().mockResolvedValue({ has_coupon: false }) },
-  enrollmentsAPI: { getAll: vi.fn().mockResolvedValue([]), getRenewalData: vi.fn(), preview: mocks.preview, create: mocks.create, getTrials: mocks.getTrials }, discountsAPI: { getAll: vi.fn() } }));
+  enrollmentsAPI: { getAll: mocks.enrollments, getRenewalData: vi.fn(), preview: mocks.preview, create: mocks.create, getTrials: mocks.getTrials }, discountsAPI: { getAll: vi.fn() } }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { options: vi.fn(), intakeContext: mocks.intakeContext } }));
 vi.mock('swr', () => ({ default: (key: unknown, fetcher: unknown, config: unknown) => {
   if (Array.isArray(key) && key[0] === 'student-trials') { mocks.trialQuery(key, fetcher, config); return { data: mocks.trials, error: mocks.trialError, isValidating: mocks.trialChecking, mutate: mocks.trialMutate }; }
@@ -29,6 +29,7 @@ vi.mock('@/components/billing/BillingEnrollmentIntake', () => ({ BillingEnrollme
 const student = { id: 4, student_name: 'Student Four', home_location: 'MSA', is_staff_referral: false } as Student;
 const trial = { enrollment_id: 70, session_id: 71, student_id: 4, student_name: 'Student Four', tutor_id: 9, tutor_name: 'Tutor Nine', session_date: '2026-10-23', time_slot: '16:45 - 18:15', location: 'MSA', session_status: 'Attended', trial_status: 'pending' } as TrialListItem;
 beforeEach(() => {
+  mocks.enrollments.mockReset().mockResolvedValue([]);
   options.workflow_writes_available = true;
   mocks.auth.mockReturnValue({ user: { id: 1 }, effectiveRole: 'Admin', isAdmin: true, isGuest: false });
   mocks.trials = []; mocks.trialChecking = false; mocks.trialError = undefined; mocks.getTrials.mockResolvedValue([]);
@@ -482,3 +483,13 @@ describe('existing enrollment form under the new fee scheme', () => {
     expect(mocks.intake).toHaveBeenLastCalledWith(expect.objectContaining({ studentId: 5, trialEnrollmentId: 80, trialSessionId: 81 }));
   });
 });
+
+
+it.each([['Cancelled', true], ['Paid', false], ['Pending Payment', false]] as const)(
+  'ignores only cancelled enrollment history in the legacy creation checkbox (%s)', async (status, checked) => {
+    mocks.enrollments.mockResolvedValue([{ id: 31, enrollment_type: 'Regular', payment_status: status }]);
+    render(<CreateEnrollmentModal isOpen onClose={vi.fn()} prefillStudent={student} prefillTutorId={9} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'One-Time' }));
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'New Student (+$100 reg fee)' })).toHaveProperty('checked', checked));
+  },
+);

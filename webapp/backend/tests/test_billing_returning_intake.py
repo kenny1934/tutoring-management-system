@@ -39,10 +39,11 @@ def preferences(client, *, method='manual', ready=False):
 
 
 @pytest.mark.parametrize('course,status,new', [
-    ('Regular', 'Paid', False), ('Regular', 'Cancelled', False),
+    ('Regular', 'Paid', False), ('Regular', 'Cancelled', True),
+    ('Summer', 'Cancelled', True), ('One-Time', 'Cancelled', True),
     ('Summer', 'Paid', False), ('One-Time', 'Paid', False), ('Trial', 'Paid', True),
 ])
-def test_newness_uses_all_non_trial_history_not_just_this_teaching_year(intake_env, course, status, new):
+def test_newness_uses_non_cancelled_non_trial_history_across_teaching_years(intake_env, course, status, new):
     client, db, _ = intake_env
     earlier(db, course=course, status=status)
     response = client.get('/api/billing/students/102/intake-context', params={'trial_enrollment_id': 21, 'trial_session_id': 210})

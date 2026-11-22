@@ -92,8 +92,25 @@ function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnroll
   const [cancelReason, setCancelReason] = useState('');
   const [cancelConfirmed, setCancelConfirmed] = useState(false);
   const cancelRegionId = useId();
+  const [editingCharges, setEditingCharges] = useState(false);
+  const [chargeMaterials, setChargeMaterials] = useState(false);
+  const [keepDeduction, setKeepDeduction] = useState(true);
+  const [chargeReason, setChargeReason] = useState('');
+  const [chargeVersion, setChargeVersion] = useState(detail.version);
+  const chargeRegionId = useId();
+  const chargeOptions = useSWR(editingCharges ? ['billing-charge-options', identity] : null, () => billingAPI.options(), { keepPreviousData: false, shouldRetryOnError: false });
+  const existingMaterials = detail.review.period.materials_fee ?? 0;
+  const chargeAmount = existingMaterials || chargeOptions.data?.standard_materials_fee;
+  const hasDeduction = detail.review.period.deductions.length > 0;
+  const canEditMaterials = ['new_student', 'returning_student'].includes(detail.review.scenario.mode) && detail.review.period.number === 1;
+  const newChargeTotal = detail.review.period.gross_tuition
+    - (keepDeduction ? detail.review.period.deductions.reduce((sum, deduction) => sum + deduction.amount, 0) : 0)
+    + (chargeMaterials ? chargeAmount ?? 0 : 0);
+  const chargesChanged = chargeMaterials !== (existingMaterials > 0) || (hasDeduction && !keepDeduction);
+  const chargesReady = chargesChanged && !!chargeReason.trim() && (!chargeMaterials || chargeAmount !== undefined)
+    && detail.version === chargeVersion && newChargeTotal > 0 && !detail.batch_action_issue;
   const [date, setDate] = useState(localToday);
-  const [method, setMethod] = useState<BillingReceiptMethod>(detail.review.period.collection.method === 'autopay' ? 'autopay' : 'cash');
+  const [method, setMethod] = useState<BillingReceiptMethod>(detail.review.period.collection.method === 'autopay' ? 'autopay' : 'bank_transfer');
   const receiptFormId = useId();
   const receiptInput = useRef<HTMLInputElement | null>(null);
   const [receipt, setReceipt] = useState('');
@@ -129,7 +146,7 @@ function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnroll
   const currentCopyFeedback = copyFeedback?.key === messageProof ? copyFeedback.value : null;
   useEffect(() => { setCopyFeedback(current => current?.key === messageProof ? current : null); }, [messageProof]);
 
-  async function run(kind: 'copy' | 'sent' | 'paid' | 'refresh' | 'receipt' | 'cancel', copyLanguage = language, copyText?: string) {
+  async function run(kind: 'copy' | 'sent' | 'paid' | 'refresh' | 'receipt' | 'cancel' | 'charges', copyLanguage = language, copyText?: string) {
     if ((sourceBlocked && kind !== 'copy' && kind !== 'refresh') || running.current || busy || (kind !== 'copy' && kind !== 'refresh' && (!auth.isAdmin || !canWrite))) return;
     const abort = new AbortController(); operation.current = abort; running.current = true; onBusyChange?.(true); setBusy(true); setNotice(null); setCopyFeedback(null);
     let checkedPayment = detail;
@@ -153,15 +170,17 @@ function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnroll
         return;
       }
       if (!safe || detail.status === 'Cancelled' || (kind === 'sent' && !canCopy) || (detail.status === 'Paid' && kind !== 'receipt')) return;
-      const body = kind === 'cancel' ? { reason: cancelReason.trim(), expected_version: detail.version } : kind === 'receipt' ? { receipt_reference: receipt.trim(), ...receiptProof, expected_version: detail.version } : kind === 'sent' ? { language, expected_version: detail.version } : { payment_date: date, amount: detail.review.period.total_fee!, method, receipt_reference: receipt.trim() || null, note: note.trim() || null, ...receiptProof, expected_version: detail.version };
+      const chargeBody = { charge_materials: chargeMaterials, keep_deduction: keepDeduction, expected_total: newChargeTotal, reason: chargeReason.trim(), expected_version: chargeVersion };
+      const body = kind === 'charges' ? chargeBody : kind === 'cancel' ? { reason: cancelReason.trim(), expected_version: detail.version } : kind === 'receipt' ? { receipt_reference: receipt.trim(), ...receiptProof, expected_version: detail.version } : kind === 'sent' ? { language, expected_version: detail.version } : { payment_date: date, amount: detail.review.period.total_fee!, method, receipt_reference: receipt.trim() || null, note: note.trim() || null, ...receiptProof, expected_version: detail.version };
       if ((kind === 'receipt' || kind === 'paid') && !receiptReady) return;
       if (kind === 'receipt' && !receipt.trim()) return;
       if (kind === 'cancel' && (!cancelConfirmed || !cancelReason.trim())) return;
       if (kind === 'paid' && (!received || !date)) return;
+      if (kind === 'charges' && !chargesReady) return;
       const content = JSON.stringify([identity, kind, body]);
       if (retry.current?.content !== content) retry.current = { content, token: crypto.randomUUID() };
       const token = retry.current.token;
-      const result = kind === 'cancel' ? await billingAPI.cancelPayment(detail.id, { reason: cancelReason.trim(), expected_version: detail.version, idempotency_key: token }, abort.signal) : kind === 'receipt' ? await billingAPI.recordReceipt(detail.id, { receipt_reference: receipt.trim(), ...receiptProof, expected_version: detail.version, idempotency_key: token }, abort.signal) : kind === 'sent'
+      const result = kind === 'charges' ? await billingAPI.editCharges(detail.id, { ...chargeBody, idempotency_key: token }, abort.signal) : kind === 'cancel' ? await billingAPI.cancelPayment(detail.id, { reason: cancelReason.trim(), expected_version: detail.version, idempotency_key: token }, abort.signal) : kind === 'receipt' ? await billingAPI.recordReceipt(detail.id, { receipt_reference: receipt.trim(), ...receiptProof, expected_version: detail.version, idempotency_key: token }, abort.signal) : kind === 'sent'
         ? await billingAPI.markPaymentSent(detail.id, { language, expected_version: detail.version, idempotency_key: token }, abort.signal)
         : await billingAPI.recordPayment(detail.id, { payment_date: date, amount: detail.review.period.total_fee!, method, receipt_reference: receipt.trim() || null, note: note.trim() || null, ...receiptProof, expected_version: detail.version, idempotency_key: token }, abort.signal);
       if (abort.signal.aborted || current.current !== identity) return;
@@ -169,8 +188,8 @@ function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnroll
       retry.current = null; await onUpdate(result, true);
       if (abort.signal.aborted || current.current !== identity || !active.current) return;
       if (kind === 'receipt' && result.receipt_reference?.trim()) onReceiptSaved?.(result);
-      setCollecting(false); setCancelling(false); setReceived(false);
-      setNotice({ text: kind === 'cancel' ? 'The linked enrollments have been cancelled.' : kind === 'receipt' ? 'KMS receipt reference saved.' : kind === 'sent' ? 'Fee message marked sent.' : 'Payment recorded for every linked enrollment.' });
+      setCollecting(false); setCancelling(false); setEditingCharges(false); setReceived(false);
+      setNotice({ text: kind === 'charges' ? (detail.sent_at ? 'Charges updated. Send the revised fee message to the parent.' : 'Charges and fee message updated.') : kind === 'cancel' ? 'The linked enrollments have been cancelled.' : kind === 'receipt' ? 'KMS receipt reference saved.' : kind === 'sent' ? 'Fee message marked sent.' : 'Payment recorded for every linked enrollment.' });
     } catch (failure) {
       if (!abort.signal.aborted && current.current === identity) {
         const duplicate = (failure as { status?: number }).status === 409 && failure instanceof Error && failure.message.startsWith('This student already has this receipt number.');
@@ -221,11 +240,29 @@ function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnroll
     {detail.review_issues.length > 0 && <ul role="alert" className="list-inside list-disc text-sm text-amber-800 dark:text-amber-300">{detail.review_issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
     {presentation === 'renewal' && <BillingChecks issues={renewalWarnings} compact />}
 
+    {detail.message_needs_resend && <p role="status" className="text-sm text-amber-800 dark:text-amber-300">Charges changed after the fee message was sent. Send the revised message to the parent.</p>}
     {detail.status === 'Pending Payment' && <div className="flex flex-wrap gap-2">
-      {auth.isAdmin && canWrite && <Button size="sm" icon={CreditCard} variant="primary" disabled={!safe || busy} onClick={() => { setCollecting(value => !value); setCancelling(false); }}>Record payment</Button>}
+      {auth.isAdmin && canWrite && <Button size="sm" icon={CreditCard} variant="primary" disabled={!safe || busy} onClick={() => { setCollecting(value => !value); setCancelling(false); setEditingCharges(false); }}>Record payment</Button>}
+      {auth.isAdmin && canWrite && (canEditMaterials || hasDeduction) && <Button size="sm" variant="secondary" disabled={busy || !safe || !!detail.batch_action_issue} title={detail.batch_action_issue || undefined} aria-expanded={editingCharges} aria-controls={chargeRegionId} onClick={() => {
+        setEditingCharges(value => !value); setChargeMaterials(existingMaterials > 0); setKeepDeduction(true);
+        setChargeReason(''); setChargeVersion(detail.version); setCollecting(false); setCancelling(false);
+      }}>Edit charges</Button>}
       <Button size="sm" variant="secondary" disabled={busy} aria-expanded={messageOpen} aria-controls={messageRegionId} onClick={() => setMessageOpen(value => !value)}>{messageOpen ? 'Hide fee message' : 'Fee message'}</Button>
-      {auth.isAdmin && canWrite && <Button size="sm" variant="secondary" icon={XCircle} iconClassName="text-red-600 dark:text-red-400" disabled={busy || !safe} aria-expanded={cancelling} aria-controls={cancelRegionId} onClick={() => { setCancelling(value => !value); setCollecting(false); }}>Cancel {detail.lines.length > 1 ? 'enrollments' : 'enrollment'}</Button>}
+      {auth.isAdmin && canWrite && <Button size="sm" variant="secondary" icon={XCircle} iconClassName="text-red-600 dark:text-red-400" disabled={busy || !safe} aria-expanded={cancelling} aria-controls={cancelRegionId} onClick={() => { setCancelling(value => !value); setCollecting(false); setEditingCharges(false); }}>Cancel {detail.lines.length > 1 ? 'enrollments' : 'enrollment'}</Button>}
     </div>}
+    {auth.isAdmin && canWrite && detail.status === 'Pending Payment' && editingCharges && <section id={chargeRegionId} className="space-y-3 border-t border-line pt-3">
+      <form aria-label="Edit enrollment charges" className="space-y-3" onSubmit={event => { event.preventDefault(); void run('charges'); }}>
+        <p className="text-sm text-ink-subtle">Changes apply to every enrollment in this payment. The student’s new-student status is preserved.</p>
+        {canEditMaterials && <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={chargeMaterials} disabled={busy || chargeAmount === undefined} onChange={event => setChargeMaterials(event.target.checked)} />Charge materials fee{chargeAmount !== undefined ? ` (${formatMOP(chargeAmount, 0)})` : ''}</label>}
+        {chargeOptions.error && !existingMaterials && <p role="alert" className="text-sm">Could not load the standard materials fee. <Button size="sm" onClick={() => { void chargeOptions.mutate(); }}>Retry settings</Button></p>}
+        {hasDeduction && <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={keepDeduction} disabled={busy} onChange={event => setKeepDeduction(event.target.checked)} />Keep existing deduction ({formatMOP(detail.review.period.deductions.reduce((sum, item) => sum + item.amount, 0), 0)})</label>}
+        <Field label="Reason for change" id={`${chargeRegionId}-reason`}><Textarea id={`${chargeRegionId}-reason`} required maxLength={500} value={chargeReason} disabled={busy} onChange={event => setChargeReason(event.target.value)} /></Field>
+        <p className="text-sm">Total: {formatMOP(detail.review.period.total_fee ?? 0, 0)} → {formatMOP(newChargeTotal, 0)}</p>
+        {detail.sent_at && <p className="text-sm text-amber-800 dark:text-amber-300">The fee message was already marked sent. Send the revised message after saving.</p>}
+        {chargeVersion !== detail.version && <p role="alert" className="text-sm">This payment changed. Close and reopen the charge editor before saving.</p>}
+        <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => setEditingCharges(false)}>Cancel changes</Button><Button type="submit" variant="primary" disabled={busy || !safe || !chargesReady}>Save charges</Button></div>
+      </form>
+    </section>}
     {auth.isAdmin && canWrite && detail.status === 'Pending Payment' && cancelling && <section id={cancelRegionId} className="space-y-3 border-t border-line pt-3">
       <form className="space-y-3" aria-label="Cancel linked enrollments" onSubmit={event => { event.preventDefault(); void run('cancel'); }}>
         <Field label="Reason for cancellation" id="payment-cancellation-reason"><Textarea id="payment-cancellation-reason" required maxLength={500} value={cancelReason} disabled={busy} onChange={event => setCancelReason(event.target.value)} /></Field>
@@ -265,7 +302,7 @@ function PaymentContent({ presentation, detail, onUpdate, canWrite, onOpenEnroll
 
     {presentation === 'renewal' && <section aria-label="Enrollment sessions" className="space-y-3">{detail.lines.map(line => <div key={line.enrollment_id} className="space-y-2">{detail.lines.length > 1 && <h4 className="text-sm font-medium">Enrollment #{line.enrollment_id}</h4>}<BillingEnrollmentSessions enrollmentId={line.enrollment_id} studentId={detail.student_id} /></div>)}</section>}
     {presentation === 'renewal' && <BillingChecks issues={renewalNotes} presentation="renewal" />}
-    <details className="rounded border border-line p-3"><summary className="cursor-pointer text-sm">Payment history</summary><ol className="mt-3 space-y-2 text-xs">{detail.history.map((event, index) => <li key={index}>{({ confirmed: 'Enrollment created', sent: 'Message marked sent', paid: 'Payment recorded', receipt: 'KMS receipt recorded', kms_receipt: 'KMS receipt linked automatically', cancelled: 'Enrollment cancelled', cancel: 'Enrollment cancelled' } as Record<string, string>)[event.kind] ?? event.kind} · {event.actor_name} · {formatShortDate(event.created_at)}</li>)}</ol></details>
+    <details className="rounded border border-line p-3"><summary className="cursor-pointer text-sm">Payment history</summary><ol className="mt-3 space-y-2 text-xs">{detail.history.map((event, index) => <li key={index}>{({ charges: 'Charges updated', confirmed: 'Enrollment created', sent: 'Message marked sent', paid: 'Payment recorded', receipt: 'KMS receipt recorded', kms_receipt: 'KMS receipt linked automatically', cancelled: 'Enrollment cancelled', cancel: 'Enrollment cancelled' } as Record<string, string>)[event.kind] ?? event.kind} · {event.actor_name} · {formatShortDate(event.created_at)}{event.reason && <p className="mt-1 whitespace-pre-wrap">{event.reason} · {formatMOP(event.previous_total ?? 0, 0)} → {formatMOP(event.total ?? 0, 0)}</p>}</li>)}</ol></details>
     {notice && <p ref={resultNotice} tabIndex={-1} role={notice.error ? 'alert' : 'status'} className="text-sm">{notice.text}</p>}
     {unverified && detail.status !== 'Pending Payment' && <Button size="sm" disabled={busy} onClick={() => { void run('refresh'); }}>Refresh payment</Button>}
   </div>;

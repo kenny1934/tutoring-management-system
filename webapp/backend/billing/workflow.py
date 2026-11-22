@@ -283,7 +283,10 @@ def payment_detail(db, payment, *, include_pending_event=None):
         })})
     events = db.query(BillingOperation).filter(BillingOperation.payment_id == payment.id).order_by(
         BillingOperation.id).all()
-    history = [BillingPaymentHistory(kind=row.kind, actor_name=row.actor_name, created_at=utc(row.created_at)) for row in events]
+    changes = {change['idempotency_key']: change for change in payment.snapshot.get('charge_changes', [])}
+    history = [BillingPaymentHistory(kind=row.kind, actor_name=row.actor_name, created_at=utc(row.created_at),
+        **({key: changes[row.idempotency_key][key] for key in ('reason', 'previous_total', 'total')}
+           if row.kind == 'charges' and row.idempotency_key in changes else {})) for row in events]
     if include_pending_event:
         history.append(BillingPaymentHistory(**include_pending_event))
     from .bank_runs import claimed_payments
@@ -298,6 +301,8 @@ def payment_detail(db, payment, *, include_pending_event=None):
             discount_amount=line.discount_amount, tuition_amount=line.tuition_amount, materials_fee=line.materials_fee,
         ) for line, enrollment, name in rows], created_at=utc(payment.created_at),
         sent_at=utc(payment.sent_at) if payment.sent_at else None, sent_language=payment.sent_language,
+        message_needs_resend=(payment.status == 'Pending Payment' and payment.sent_at is None
+                              and any(change.get('sent_at') for change in changes.values())),
         paid_at=utc(payment.paid_at) if payment.paid_at else None, payment_date=payment.payment_date,
         received_method=payment.received_method, receipt_reference=payment.receipt_reference, note=payment.note,
         coupon_status=payment.coupon_status, can_copy=not message_issues and not review.message.blocked_reasons,
@@ -306,9 +311,11 @@ def payment_detail(db, payment, *, include_pending_event=None):
 
 
 def finish_payment_operation(db, account, payment, data, payload_hash, kind, actor):
-    result = payment_detail(db, payment, include_pending_event={
-        'kind': kind, 'actor_name': (actor.tutor_name or str(actor.id))[:100], 'created_at': utc_now(),
-    })
+    event = {'kind': kind, 'actor_name': (actor.tutor_name or str(actor.id))[:100], 'created_at': utc_now()}
+    if kind == 'charges':
+        change = payment.snapshot['charge_changes'][-1]
+        event.update({key: change[key] for key in ('reason', 'previous_total', 'total')})
+    result = payment_detail(db, payment, include_pending_event=event)
     save_operation(db, account, data, payload_hash, kind, actor, result, payment)
     return result
 
@@ -472,7 +479,7 @@ def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, poli
     detail = payment_detail(db, payment)
     if detail.review_issues:
         raise DraftConflict(' '.join(detail.review_issues))
-    if (manual_only or kind == 'sent') and detail.batch_action_issue:
+    if (manual_only or kind in {'sent', 'charges'}) and detail.batch_action_issue:
         raise DraftConflict(detail.batch_action_issue)
     if manual_only and (detail.review.period.collection.method != 'manual'
                         or data.method not in {'cash', 'bank_transfer'}):
@@ -485,6 +492,8 @@ def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, poli
         payment.sent_at, payment.sent_language = event_time(), data.language
         for _, enrollment, _ in rows:
             enrollment.fee_message_sent = True
+    elif kind == 'charges':
+        revise_payment_charges(db, payment, data, actor, detail, rows, as_of=as_of)
     elif kind == 'paid':
         if payment.status != 'Pending Payment':
             raise DraftConflict('Only an unpaid payment can be recorded. Reload this payment.')
@@ -558,3 +567,66 @@ def mutate_payment(db, student_id, payment_id, data, actor, *, kind, as_of, poli
     db.info.pop('billing_legacy_lines', None)
     db.info.pop('billing_legacy_metadata', None)
     return finish_payment_operation(db, account, payment, data, payload_hash, kind, actor)
+
+
+def revise_payment_charges(db, payment, data, actor, detail, rows, *, as_of):
+    """Revise unpaid charges while retaining the confirmed teaching dates."""
+    from .messages import prepare_fee_messages
+    from .settings import get_settings
+    from . import coupon_accounting
+    from constants import hk_now
+
+    if payment.status != 'Pending Payment':
+        raise DraftConflict('Only unpaid enrollment charges can be edited.')
+    saved = BillingDraftReview.model_validate(payment.snapshot['review'])
+    period = saved.period.model_copy(deep=True)
+    scenario = saved.scenario.model_copy(deep=True)
+    # Keep an existing agreed amount even if the standard has since changed.
+    # Adding a charge uses the current shared standard, never a client amount.
+    materials = (period.materials_fee or get_settings(db, lock=True).materials_fee) if data.charge_materials else 0
+    if materials and (scenario.mode not in {'new_student', 'returning_student'} or period.number != 1):
+        raise ValueError('Materials can only be charged on a joining or returning enrollment.')
+    deductions = period.deductions if data.keep_deduction else []
+    discount = sum(d.amount for d in deductions)
+    total = period.gross_tuition - discount + materials
+    if total != data.expected_total:
+        raise DraftConflict('The charge amount changed. Reload and review the new total before saving.')
+    if total <= 0:
+        raise ValueError('The enrollment must have a positive payable total.')
+    if materials == period.materials_fee and deductions == period.deductions:
+        raise ValueError('Change the materials fee or deduction before saving.')
+    if not data.keep_deduction:
+        if payment.coupon_value:
+            coupon_accounting.payment_changed(db, detail.student_id, payment, data, kind='cancelled', as_of=as_of)
+            payment.coupon_value, payment.coupon_status = 0, 'none'
+        scenario.coupon, scenario.trial_deduction = None, False
+    scenario.materials_fee = materials
+    period.materials_fee, period.deductions = materials, deductions
+    period.tuition_after_deductions, period.total_fee = period.gross_tuition - discount, total
+    unit_fee, remainder = divmod(period.gross_tuition, period.lesson_count)
+    if remainder:
+        raise DraftConflict('Review the per-session tuition before changing these charges.')
+    message = prepare_fee_messages(saved.student, scenario, period, unit_fee,
+                                   blocked_reasons=saved.message.blocked_reasons)
+    if message.blocked_reasons:
+        raise DraftConflict(' '.join(message.blocked_reasons))
+    updated = saved.model_copy(update={'scenario': scenario, 'period': period, 'message': message})
+    updated.review_hash = digest(updated.model_dump(mode='json', exclude={'review_hash', 'source_fingerprint', 'issues'}))
+    request = {**payment.snapshot['request'], 'scenario': scenario.model_dump(mode='json')}
+    change = {'idempotency_key': data.idempotency_key, 'reason': data.reason,
+              'previous_total': saved.period.total_fee, 'total': total,
+              'before_review': payment.snapshot['review'], 'before_request': payment.snapshot['request'],
+              'sent_at': payment.sent_at.isoformat() if payment.sent_at else None,
+              'sent_language': payment.sent_language}
+    payment.snapshot = {**payment.snapshot, 'review': updated.model_dump(mode='json'), 'request': request,
+                        'charge_changes': [*payment.snapshot.get('charge_changes', []), change]}
+    shares = allocate_discount(discount, period.counts_by_slot)
+    for index, (line, enrollment, _) in enumerate(rows):
+        line.discount_amount = shares[line.slot_index]
+        line.tuition_amount = line.gross_tuition - line.discount_amount
+        line.materials_fee = materials if index == 0 else 0
+        enrollment.revenue_total = line.tuition_amount
+        enrollment.fee_message_sent = False
+        enrollment.last_modified_by = actor.user_email
+        enrollment.last_modified_time = hk_now()
+    payment.sent_at, payment.sent_language = None, None
