@@ -457,9 +457,9 @@ def _is_new_student(
 ) -> bool:
     """Whether the one-off registration fee still applies to this student.
 
-    New means no prior non-Trial enrollment. The enrollment this application
-    itself published is ignored, so the answer — and the fee quoted to the
-    parent — reads the same before and after publishing. An application with
+    New means no prior non-cancelled, non-Trial enrollment. Ignore the
+    enrollment published by this application so the fee quoted to the parent
+    stays the same before and after publishing. An application with
     no student linked yet counts as new, which is what publishing would find.
     """
     if not student_id:
@@ -467,6 +467,7 @@ def _is_new_student(
     query = db.query(Enrollment.id).filter(
         Enrollment.student_id == student_id,
         Enrollment.enrollment_type != 'Trial',
+        or_(Enrollment.payment_status.is_(None), Enrollment.payment_status != 'Cancelled'),
     )
     if exclude_application_id is not None:
         query = query.filter(
@@ -490,6 +491,7 @@ def _new_student_flags_bulk(
         .filter(
             Enrollment.student_id.in_(student_ids),
             Enrollment.enrollment_type != 'Trial',
+            or_(Enrollment.payment_status.is_(None), Enrollment.payment_status != 'Cancelled'),
         )
         .all()
     )

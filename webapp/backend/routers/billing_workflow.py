@@ -12,7 +12,7 @@ from models import Enrollment, Tutor
 from billing.models import BillingAccount, BillingPayment, BillingPaymentLine
 from billing.schemas import (
     BillingCancelRequest, BillingConfirmRequest, BillingPaidRequest, BillingPaymentDetail, BillingPreferences,
-    BillingPreferenceUpdate, BillingReceiptRequest, BillingSentRequest,
+    BillingPreferenceUpdate, BillingReceiptRequest, BillingSentRequest, BillingChargesRequest,
     BillingIntakeSource, BillingManualPaidRequest,
 )
 from billing import workflow
@@ -184,6 +184,12 @@ def record_manual_payment(payment_id: UUID, data: BillingManualPaidRequest, requ
 def record_receipt(payment_id: UUID, data: BillingReceiptRequest, request: Request,
                    user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
     return payment_action(db, payment_id, data, request, user, 'receipt')
+
+
+@router.post('/billing/payments/{payment_id}/charges', response_model=BillingPaymentDetail)
+def edit_charges(payment_id: UUID, data: BillingChargesRequest, request: Request,
+                 user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    return payment_action(db, payment_id, data, request, user, 'charges')
 
 
 @router.post('/billing/payments/{payment_id}/cancel', response_model=BillingPaymentDetail)

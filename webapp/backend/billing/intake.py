@@ -38,9 +38,9 @@ def intake_source(db, student_id, *, as_of, trial_enrollment_id=None, trial_sess
            for s in lessons):
         issue('INTAKE_SOURCE_OWNERSHIP', 'Check which student owns the enrollment and session records before preparing this intake.')
 
-    # History determines the materials fee, but an existing course can have
-    # another weekly class. Review and confirmation check the actual sessions.
-    is_new = not any(e.enrollment_type != 'Trial' for e in enrollments)
+    # Non-cancelled history determines newness and the materials fee. An
+    # existing course can have another weekly class. Review and confirmation check the actual sessions.
+    is_new = not any(e.enrollment_type != 'Trial' and e.payment_status != 'Cancelled' for e in enrollments)
     trial = None
     if trial_enrollment_id is not None:
         enrollment = by_id.get(trial_enrollment_id)

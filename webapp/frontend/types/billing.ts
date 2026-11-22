@@ -490,6 +490,7 @@ export interface BillingPaymentDetail {
   created_at: string;
   sent_at: string | null;
   sent_language: 'zh' | 'en' | null;
+  message_needs_resend?: boolean;
   paid_at: string | null;
   payment_date: string | null;
   received_method: BillingReceiptMethod | null;
@@ -499,7 +500,7 @@ export interface BillingPaymentDetail {
   can_copy: boolean;
   review_issues: string[];
   batch_action_issue?: string | null;
-  history: { kind: string; actor_name: string; created_at: string }[];
+  history: { kind: string; actor_name: string; created_at: string; reason?: string | null; previous_total?: number | null; total?: number | null }[];
 }
 
 export type BillingReceiptMethod = 'cash' | 'bank_transfer' | 'autopay';

@@ -408,3 +408,26 @@ def test_transition_coupon_option_preserves_saved_scenarios_and_finite_stock(env
     assert reread.status_code == 200, reread.text
     assert reread.json()['review']['review_hash'] == draft['review']['review_hash']
     assert db.get(Enrollment, value['lines'][0]['enrollment_id']).payment_status == 'Pending Payment'
+
+
+def test_removing_unpaid_coupon_releases_reservation_and_updates_revenue(env):
+    client, db, _ = env
+    observed(client, 1)
+    response, _, _ = checked(client)
+    assert response.status_code == 200
+    value = payment(client)
+    assert balance(client)['reserved_count'] == 1
+    response = client.post(f"/api/billing/payments/{value['id']}/charges", json={
+        'expected_version': value['version'], 'idempotency_key': 'remove-coupon',
+        'charge_materials': False, 'keep_deduction': False,
+        'expected_total': value['review']['period']['gross_tuition'], 'reason': 'Save coupon for later.'})
+    assert response.status_code == 200, response.text
+    revised = response.json()
+    assert revised['coupon_status'] == 'none' and revised['review']['period']['deductions'] == []
+    assert revised['can_copy'] and not revised['review_issues']
+    current = balance(client)
+    assert current['reserved_count'] == 0 and current['usable_count'] == 1
+    assert db.query(CouponUse).filter_by(payment_id=value['id']).one().state == 'released'
+    paid(client, revised)
+    assert balance(client)['usable_count'] == 1
+    assert balance(client)['uses'][0]['state'] == 'released'

@@ -7,10 +7,13 @@ import { normaliseTimeSlot, parseTimeRange, sameTimeSlot } from "@/lib/time-slot
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions, useSummerApplication } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions, useSummerApplication, invalidateCaches } from "@/lib/hooks";
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
+import { BillingPayments } from "@/components/billing/BillingPayments";
+import { Modal } from "@/components/ui/modal";
+import { billingAPI } from "@/lib/billing-api";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import useSWR from "swr";
 import { tutorsAPI, enrollmentsAPI, discountsAPI, summerAPI } from "@/lib/api";
@@ -72,6 +75,9 @@ export default function EnrollmentDetailPage() {
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [showLinkedPayment, setShowLinkedPayment] = useState(false);
+  const [linkedPaymentBusy, setLinkedPaymentBusy] = useState(false);
+  const billingOptions = useSWR(showLinkedPayment ? "enrollment-billing-options" : null, () => billingAPI.options());
   const [isEditingExtension, setIsEditingExtension] = useState(false);
   const [extensionForm, setExtensionForm] = useState({ weeks: 0, reason: "" });
   const [isSavingExtension, setIsSavingExtension] = useState(false);
@@ -1046,12 +1052,17 @@ export default function EnrollmentDetailPage() {
                     label="Edit payment"
                     icon={Pencil}
                     size="sm"
-                    onClick={handleEditPayment}
-                    disabled={isReadOnly || !!enrollment.billing_payment_id}
-                    title={enrollment.billing_payment_id ? "Open the linked payment to manage collection" : isReadOnly ? "Read-only access" : "Edit payment"}
+                    onClick={enrollment.billing_payment_id ? () => setShowLinkedPayment(true) : handleEditPayment}
+                    disabled={isReadOnly || (!!enrollment.billing_payment_id && enrollment.payment_status !== "Pending Payment")}
+                    title={isReadOnly ? "Read-only access" : "Edit payment"}
                   />
                 )}
               </div>
+              {enrollment.billing_payment_id && <Modal key={`${enrollment.id}:${enrollment.billing_payment_id}`} isOpen={showLinkedPayment} onClose={() => { if (!linkedPaymentBusy) setShowLinkedPayment(false); }} title="Enrollment payment" size="xl">
+                {showLinkedPayment && <BillingPayments inline studentId={enrollment.student_id} initialPaymentId={enrollment.billing_payment_id}
+                  canWrite={isAdmin && !isReadOnly && !!billingOptions.data?.workflow_writes_available}
+                  onBusyChange={setLinkedPaymentBusy} onChanged={() => { invalidateCaches('enrollments', { studentId: enrollment.student_id }); void mutateEnrollment(); }} />}
+              </Modal>}
               <div className="space-y-4">
                 {enrollment.billing_payment_id && <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} />}
                 {isEditingPayment ? (
