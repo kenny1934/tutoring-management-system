@@ -111,6 +111,23 @@ describe('confirmed teaching enrollments', () => {
 
 describe('combined payment collection', () => {
   function show() { return render(<BillingPayments canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper }); }
+  it('uses one flat summary and actual sessions in the payment modal, then shows only the selected task', async () => {
+    show();
+    const fee = await screen.findByRole('region', { name: 'Enrollment fee' });
+    expect(within(fee).getAllByText('MOP 2,800')).toHaveLength(1);
+    await waitFor(() => expect(screen.getByText('Actual sessions for enrollment 20')).toBeVisible());
+    expect(screen.queryByText('7 session dates')).not.toBeInTheDocument();
+    expect(screen.queryByText('Payment plan')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
+    expect(screen.getByRole('form', { name: 'Record received payment' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Enrollment fee' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Actual sessions for enrollment 20')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel enrollments' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to payment' }));
+    expect(screen.getByRole('region', { name: 'Enrollment fee' })).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Actual sessions for enrollment 20')).toBeVisible());
+  });
+
   it('puts created enrollment IDs first and uses actual session rows in renewal details', async () => {
     render(<BillingPayments inline presentation="renewal" canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
     const enrollments = await screen.findByRole('region', { name: 'Linked enrollments' });
@@ -118,7 +135,7 @@ describe('combined payment collection', () => {
     expect(fee).toContainElement(enrollments);
     expect(within(enrollments).getByRole('link', { name: 'Enrollment #20' })).toBeVisible();
     expect(within(enrollments).getByText(/Tutor A/)).toBeVisible();
-    expect(screen.getByText('Actual sessions for enrollment 20')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Actual sessions for enrollment 20')).toBeVisible());
     expect(screen.getByText('Actual sessions for enrollment 21')).toBeVisible();
     expect(screen.queryByLabelText('Sessions by month')).not.toBeInTheDocument();
     expect(screen.queryByText('7 session dates')).not.toBeInTheDocument();
@@ -226,12 +243,11 @@ describe('combined payment collection', () => {
     expect(message.parentElement).toContainElement(mark);
     fireEvent.click(within(message).getByRole('button', { name: 'English' }));
     expect(within(message).getByRole('textbox', { name: 'Fee message' })).toHaveValue('English fee message');
-    fireEvent.click(screen.getByRole('button', { name: 'Hide fee message' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to payment' }));
     expect(message).not.toBeVisible();
     expect(screen.queryByRole('button', { name: 'Mark sent' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Fee message' }));
-    expect(screen.getByRole('region', { name: 'Fee message' })).toBe(message);
-    expect(within(message).getByRole('textbox', { name: 'Fee message' })).toHaveValue('English fee message');
+    expect(within(screen.getByRole('region', { name: 'Fee message' })).getByRole('textbox', { name: 'Fee message' })).toHaveValue('English fee message');
     expect(screen.getByRole('button', { name: 'Mark sent' })).toBeVisible();
     expect(mocks.copy).not.toHaveBeenCalled();
     expect(mocks.markPaymentSent).not.toHaveBeenCalled();
@@ -322,6 +338,7 @@ describe('combined payment collection', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
     expect(await within(screen.getByRole('region', { name: 'Fee message' })).findByRole('alert')).toHaveTextContent('Could not verify payment.');
     expect(mocks.copy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to payment' }));
     expect(screen.getByRole('button', { name: 'Record payment' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh payment' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Record payment' })).toBeEnabled());
@@ -475,4 +492,24 @@ it('retains the revised-message reminder when an edited payment is reopened', as
   mocks.payment.mockResolvedValue({ ...payment(), message_needs_resend: true });
   render(<BillingPayments inline canWrite studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
   await screen.findByText('Charges changed after the fee message was sent. Send the revised message to the parent.');
+});
+
+describe('paid payment presentation', () => {
+  it('groups the charge calculation and received payment separately, without a manual badge or dates in the fee group', async () => {
+    const value = payment(); value.status = 'Paid'; value.received_method = 'cash'; value.payment_date = '2026-11-20';
+    value.sent_at = '2026-11-20'; value.sent_language = 'zh'; value.review.period.deductions = [{ kind: 'trial', amount: 150 }];
+    value.review.period.total_fee = 2650; value.review.period.tuition_after_deductions = 2650;
+    mocks.payment.mockResolvedValue(value);
+    render(<BillingPayments inline studentId={4} initialPaymentId="payment-1" onChanged={vi.fn()} />, { wrapper: Wrapper });
+    const fee = await screen.findByRole('region', { name: 'Enrollment fee' });
+    expect(within(fee).getByText('MOP 2,650')).toBeVisible();
+    expect(within(fee).getByText('−MOP 150')).toBeVisible();
+    expect(within(fee).queryByText('Dates')).not.toBeInTheDocument();
+    expect(within(fee).queryByText('7 sessions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Manual')).not.toBeInTheDocument();
+    const received = screen.getByRole('region', { name: 'Received payment' });
+    expect(within(received).getByText('Cash')).toBeVisible();
+    expect(within(received).getByText('Nov 20, 2026')).toBeVisible();
+    expect(screen.getByLabelText('Fee message status')).toHaveTextContent('Sent Nov 20, 2026 (中文)');
+  });
 });

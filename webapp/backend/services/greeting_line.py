@@ -2,8 +2,8 @@
 The line under the dashboard greeting.
 
 Each morning the dashboard can say one thing worth noticing about the tutor's
-day: a class milestone, a student's first lesson or anniversary, a test most
-of their students sit, a holiday coming up, or a busier day than usual. When a
+day: a class milestone, a student's first lesson or anniversary, an upcoming
+assessment for their students' school and year group, a holiday, or a busier day than usual. When a
 number the tutor owns happens to be interesting (their 64th class is 4 cubed
 and 8 squared), the line says that too. On days with nothing to say, there's
 no line, which is what keeps it worth reading.
@@ -108,7 +108,7 @@ def properties(n: int) -> List[Candidate]:
     if _is_prime(n) and n > 50:
         backwards = int(digits[::-1])
         if backwards != n and _is_prime(backwards):
-            out.append((3, f"a prime, and so is {backwards}, which is {n} backwards"))
+            out.append((3, f"prime both forwards and backwards ({backwards})"))
         else:
             out.append((1, "a prime"))
     return sorted(out, key=lambda p: -p[0])
@@ -201,13 +201,15 @@ def gather(db: Session, tutor_id: int, today: date) -> List[Candidate]:
     best_class: Optional[Candidate] = None
     for i, slot in enumerate(today_slots, start=1):
         n = before + i
+        time = _start_time(slot)
+        class_name = f"Your {time} class" if time else "Your class"
         if n % 100 == 0 or n == 50:
-            line = (9, f"Your {_start_time(slot)} class is your {ordinal(n)} this school year.")
+            line = (9, f"{class_name} is your {ordinal(n)} this school year.")
         else:
             fact = number_fact(n)
             if not fact:
                 continue
-            line = (fact[0], f"Your {_start_time(slot)} class is your {ordinal(n)} this school year, and {fact[1]}")
+            line = (fact[0], f"{class_name} is your {ordinal(n)} this school year. {fact[1]}")
         if best_class is None or line[0] > best_class[0]:
             best_class = line
     if best_class:
@@ -221,11 +223,12 @@ def gather(db: Session, tutor_id: int, today: date) -> List[Candidate]:
             if 0 < (today - r.session_date).days <= 56:
                 recent[r.session_date].add(r.student_id)
         if recent and students > max(len(v) for v in recent.values()):
-            cands.append((7, f"You have {students} students across {word(len(today_slots))} classes today, "
-                             "more than on any day in the last eight weeks."))
+            classes = f"{word(len(today_slots))} class{'es' if len(today_slots) != 1 else ''}"
+            cands.append((7, f"You have {students} students in {classes} today. "
+                             "That's the most students you've had in a day in the last eight weeks."))
         fact = number_fact(students)
         if fact and fact[0] >= 7:
-            cands.append((fact[0] - 2 - NUMBER_TIE, f"You have {students} students today, and {fact[1]}"))
+            cands.append((fact[0] - 2 - NUMBER_TIE, f"You have {students} students today. {fact[1]}"))
 
     # A student's first lesson with this tutor.
     first_seen = dict(
@@ -240,7 +243,9 @@ def gather(db: Session, tutor_id: int, today: date) -> List[Candidate]:
     )
     for r in sorted(today_rows, key=lambda r: r.time_slot or ""):
         if first_seen.get(r.student_id) == today and r.session_status != SessionStatus.MAKEUP_CLASS.value:
-            cands.append((9, f"{r.student_name} has a first lesson with you today at {_start_time(r.time_slot)}."))
+            time = _start_time(r.time_slot)
+            when = f"today at {time}" if time else "today"
+            cands.append((9, f"{r.student_name} has their first lesson with you {when}."))
 
     # Anniversaries of a student's first enrolled lesson with this tutor, for
     # students who are still coming.
@@ -257,12 +262,13 @@ def gather(db: Session, tutor_id: int, today: date) -> List[Candidate]:
         if (first.month, first.day) == (today.month, today.day) and first.year < today.year:
             years = today.year - first.year
             here = student_id in today_ids
-            tail = ", and they're in today" if here else ""
-            cands.append((9 if here else 8, f"{names[student_id]} started with you {word(years)} "
-                                            f"year{'s' if years > 1 else ''} ago today{tail}."))
+            tail = " They have a lesson with you today." if here else ""
+            cands.append((9 if here else 8, f"{names[student_id]} started lessons with you {word(years)} "
+                                            f"year{'s' if years > 1 else ''} ago today.{tail}"))
 
-    # The test, quiz or exam in the next few days that most of the tutor's
-    # students sit. Said on Mondays and Thursdays, so it doesn't repeat daily.
+    # The upcoming assessment matching the most students by school and grade.
+    # The match does not establish which individual students will sit it.
+    # Said on Mondays and Thursdays, so it doesn't repeat daily.
     if today.weekday() in (0, 3):
         roster = defaultdict(set)
         for r in rows:
@@ -276,12 +282,12 @@ def gather(db: Session, tutor_id: int, today: date) -> List[Candidate]:
         soon = [(len(roster[(e.school, e.grade)]), e) for e in events if roster.get((e.school, e.grade))]
         if soon:
             n, e = max(soon, key=lambda x: (x[0], -x[1].start_date.toordinal()))
-            kind = (e.event_type or "test").lower()
-            who = f"{word(n)} of your students sit it" if n > 1 else "one of your students sits it"
-            rest = len(soon) - 1
-            more = f" Your students have {word(rest)} more in the next five days." if rest else ""
-            cands.append((6 + min(n, 4) // 2, f"{e.school} {e.grade} has a {kind} {_when(e.start_date, today)}, "
-                                              f"and {who}.{more}"))
+            kind = (e.event_type or "test").strip().lower() or "test"
+            article = "an" if kind[0] in "aeiou" else "a"
+            group = f"{e.school} {e.grade}"
+            day = f"{_WEEKDAYS[e.start_date.weekday()]} {e.start_date.day} {e.start_date.strftime('%b')}"
+            student_line = f"{word(n).capitalize()} of your students {'are' if n > 1 else 'is'} in {group}."
+            cands.append((6 + min(n, 4) // 2, f"{student_line} The calendar lists {article} {kind} for that year group on {day}."))
 
     return cands + _holiday_lines(db, today)
 
@@ -304,11 +310,17 @@ def _holiday_lines(db: Session, today: date) -> List[Candidate]:
     ahead = (first.holiday_date - today).days
     if not (ahead == 6 or (today.weekday() == 0 and ahead < 6)):
         return []
-    run = [h for h in upcoming if h.holiday_name == first.holiday_name]
+    run = [first]
+    for holiday in upcoming[1:]:
+        if holiday.holiday_name != first.holiday_name or holiday.holiday_date != run[-1].holiday_date + timedelta(days=1):
+            break
+        run.append(holiday)
     name = first.holiday_name or "A holiday"
     if len(run) > 1:
-        return [(8.5, f"{name} starts {_when(first.holiday_date, today)}, so there are no lessons "
-                    f"from then until {_WEEKDAYS[run[-1].holiday_date.weekday()]}.")]
+        start = f"{_WEEKDAYS[first.holiday_date.weekday()]} {first.holiday_date.day} {first.holiday_date.strftime('%b')}"
+        last = run[-1].holiday_date
+        end = f"{_WEEKDAYS[last.weekday()]} {last.day} {last.strftime('%b')}"
+        return [(8.5, f"{name} runs from {start} through {end}, with no lessons on those days.")]
     return [(8.5, f"{name} is {_when(first.holiday_date, today)}, so there are no lessons that day.")]
 
 

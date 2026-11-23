@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.4.11](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.10...v2.4.11) (2026-11-23)
+
+### Improvements
+
+* **Enrollment payments**: Review a clearer fee breakdown and status, open charge editing or payment recording directly, and find cancellation in the card’s action menu.
+* **Payment details**: See grouped fees and receipt details alongside session dates, lesson numbers and attendance status.
+* **Enrollment loading**: Loading placeholders now match the payment card and the session counts in Session history.
+* **Dashboard greetings**: Read clearer messages about school assessments, first lessons, anniversaries and holidays, with specific dates and more natural wording.
+
+### Bug Fixes
+
+* **Fee messages**: Open and copy saved messages in either language from both the enrollment card and payment details, including after payment or cancellation.
+* **Payment navigation**: Opening payment details now keeps the enrollment page underneath and restores your position when closed.
+* **Payment labels**: Clearly identify payment notes, cancellation reasons and sent-message information, with consistent overdue status.
+* **Holiday notices**: Separate holiday dates no longer appear as one continuous break.
+
 ## [2.4.10](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.9...v2.4.10) (2026-11-22)
 
 ### Improvements

@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from models import Enrollment, Holiday, RegularCourseConfig, SessionLog, Student, Tutor
+from models import CalendarEvent, Enrollment, Holiday, RegularCourseConfig, SessionLog, Student, Tutor
 from routers import stats
 from services.greeting_line import gather, greeting_line, number_fact, properties, school_year_start
 from tests.helpers import make_auth_token
@@ -98,6 +98,9 @@ class TestNumberFacts:
         # to almost anything else that could be said.
         assert properties(293) == [(1, "a prime")]
 
+    def test_a_reversible_prime_names_its_reverse_without_a_chain_of_clauses(self):
+        assert number_fact(73) == (3, "73 is prime both forwards and backwards (37).")
+
     def test_dull_numbers_have_nothing_to_say(self):
         assert number_fact(74) is None
         assert number_fact(1) is None
@@ -140,12 +143,12 @@ class TestPeople:
         _classes_before_today(db_session, tutor, 63)
         new = _enrol(db_session, _student(db_session, name="Mars Ieong"), tutor, TODAY)
         _lesson(db_session, new, TODAY, "16:45 - 18:15", "Scheduled")
-        assert greeting_line(db_session, tutor.id, TODAY) == "Mars Ieong has a first lesson with you today at 16:45."
+        assert greeting_line(db_session, tutor.id, TODAY) == "Mars Ieong has their first lesson with you today at 16:45."
 
     def test_an_anniversary_for_a_student_who_still_comes(self, db_session, tutor):
         e = _enrol(db_session, _student(db_session, name="Albee Kuong"), tutor, date(2025, 10, 15))
         _lesson(db_session, e, TODAY - timedelta(days=7), "10:00 - 11:30")
-        assert greeting_line(db_session, tutor.id, TODAY) == "Albee Kuong started with you one year ago today."
+        assert greeting_line(db_session, tutor.id, TODAY) == "Albee Kuong started lessons with you one year ago today."
 
     def test_no_anniversary_for_a_student_who_has_left(self, db_session, tutor):
         e = _enrol(db_session, _student(db_session, name="Gone Student"), tutor, date(2025, 10, 15))
@@ -167,7 +170,7 @@ class TestHolidays:
             db_session.add(Holiday(holiday_date=date(2026, 10, d), holiday_name="Company Trip"))
         db_session.commit()
         assert greeting_line(db_session, tutor.id, date(2026, 10, 19)) == (
-            "Company Trip starts this Tuesday, so there are no lessons from then until Friday.")
+            "Company Trip runs from Tuesday 20 Oct through Friday 23 Oct, with no lessons on those days.")
 
 
 class TestEndpoint:
@@ -180,3 +183,53 @@ class TestEndpoint:
         resp = client.get("/api/greeting-line", cookies={"access_token": make_auth_token(tutor.id)})
         assert resp.status_code == 200, resp.text
         assert set(resp.json()) == {"line"}
+
+
+class TestGreetingClarity:
+    def test_assessment_names_the_group_and_date_without_claiming_individual_attendance(self, db_session, tutor):
+        for _ in range(3):
+            e = _enrol(db_session, _student(db_session), tutor, YEAR_START)
+            _lesson(db_session, e, TODAY - timedelta(days=7))
+        other = _enrol(db_session, _student(db_session, school="TIS", grade="F3"), tutor, YEAR_START)
+        _lesson(db_session, other, TODAY - timedelta(days=7))
+        db_session.add_all([
+            CalendarEvent(event_id="greeting-exam", title="SRL-E F2 exam", school="SRL-E", grade="F2",
+                          event_type="Exam", start_date=date(2026, 10, 19)),
+            CalendarEvent(event_id="greeting-quiz", title="TIS F3 quiz", school="TIS", grade="F3",
+                          event_type="Quiz", start_date=date(2026, 10, 20)),
+        ])
+        db_session.commit()
+        assert greeting_line(db_session, tutor.id, TODAY) == (
+            "Three of your students are in SRL-E F2. "
+            "The calendar lists an exam for that year group on Monday 19 Oct.")
+
+    @pytest.mark.parametrize('kind,label', [("Exam", "an exam"), ("Quiz", "a quiz"), (None, "a test")])
+    def test_one_matching_student_and_missing_assessment_type(self, db_session, tutor, kind, label):
+        e = _enrol(db_session, _student(db_session), tutor, YEAR_START)
+        _lesson(db_session, e, TODAY - timedelta(days=7))
+        db_session.add(CalendarEvent(event_id="greeting-one", title="School assessment", school="SRL-E", grade="F2",
+                                     event_type=kind, start_date=date(2026, 10, 19)))
+        db_session.commit()
+        assert greeting_line(db_session, tutor.id, TODAY) == (
+            "One of your students is in SRL-E F2. "
+            f"The calendar lists {label} for that year group on Monday 19 Oct.")
+
+    def test_a_first_lesson_with_no_time_does_not_leave_an_empty_at(self, db_session, tutor):
+        e = _enrol(db_session, _student(db_session, name="Example Student"), tutor, TODAY)
+        _lesson(db_session, e, TODAY, slot="", status="Scheduled")
+        assert greeting_line(db_session, tutor.id, TODAY) == "Example Student has their first lesson with you today."
+
+    def test_a_busy_day_with_one_class_uses_the_singular(self, db_session, tutor):
+        students = [_enrol(db_session, _student(db_session), tutor, YEAR_START) for _ in range(2)]
+        _lesson(db_session, students[0], TODAY - timedelta(days=7))
+        for e in students:
+            _lesson(db_session, e, TODAY)
+        assert any(line == "You have 2 students in one class today. That's the most students you've had in a day in the last eight weeks."
+                   for _, line in gather(db_session, tutor.id, TODAY))
+
+    def test_separate_holiday_dates_do_not_imply_a_continuous_closure(self, db_session, tutor):
+        for day in (20, 22):
+            db_session.add(Holiday(holiday_date=date(2026, 10, day), holiday_name="Company Trip"))
+        db_session.commit()
+        assert greeting_line(db_session, tutor.id, date(2026, 10, 19)) == (
+            "Company Trip is this Tuesday, so there are no lessons that day.")

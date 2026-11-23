@@ -736,6 +736,7 @@ class BillingPaymentDetail(BaseModel):
     sent_at: datetime | None
     sent_language: Literal['zh', 'en'] | None
     message_needs_resend: bool = False
+    saved_message: FeeMessagePreview | None = Field(default=None, exclude_if=lambda value: value is None)
     paid_at: datetime | None
     payment_date: date | None
     received_method: str | None
