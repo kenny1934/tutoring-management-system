@@ -915,6 +915,18 @@ export async function openFileFromPathWithFallback(
     return opened ? null : 'open_failed';
   }
 
+  const { loadMaterialPdf } = await import('./materials');
+  const material = await loadMaterialPdf(path);
+  if (material && 'denied' in material) return 'permission_denied';
+  if (material) {
+    const url = URL.createObjectURL(new Blob([material.data], { type: 'application/pdf' }));
+    const tab = window.open(url, '_blank');
+    if (!tab) { URL.revokeObjectURL(url); return 'open_failed'; }
+    tab.opener = null;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return null;
+  }
+
   // 2. Local access failed - try Paperless fallback
   if (!paperlessSearch) {
     return result.error;
@@ -979,6 +991,23 @@ export async function printFileFromPathWithFallback(
     } catch {
       // Read failed — fall through to Paperless
     }
+  }
+
+  const { loadMaterialPdf } = await import('./materials');
+  const material = await loadMaterialPdf(path);
+  if (material && 'denied' in material) return 'permission_denied';
+  if (material) {
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const total = (await PDFDocument.load(material.data)).getPageCount();
+      if ((pageStart && (pageStart < 1 || pageStart > total)) || (pageEnd && (pageEnd < (pageStart ?? 1) || pageEnd > total)) ||
+          (complexRange && [...complexRange.matchAll(/\d+/g)].some(match => Number(match[0]) > total))) return 'print_failed';
+      const pages = complexRange ? parsePageRange(complexRange) : pageStart || pageEnd
+        ? Array.from({ length: (pageEnd ?? pageStart ?? 1) - (pageStart ?? 1) + 1 }, (_, index) => (pageStart ?? 1) + index) : [];
+      const blob = pages.length ? await extractPagesForPrint(material.data, pages, stamp) : stamp
+        ? await stampPdf(material.data, stamp) : new Blob([material.data], { type: 'application/pdf' });
+      return printPdfBlob(blob) ? null : 'popup_blocked';
+    } catch { return 'print_failed'; }
   }
 
   // 2. Local access failed - try Paperless fallback

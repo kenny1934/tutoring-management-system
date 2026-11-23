@@ -132,3 +132,22 @@ describe("bulk assignment confirmation", () => {
     await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
   });
 });
+
+it('adds a material draft once without replacing existing classwork or saving before review', async () => {
+  mocks.auth.mockReturnValue({ user: { id: 2 }, effectiveRole: 'Tutor', isReadOnly: false, impersonatedTutor: null });
+  const current = { ...session, exercises: [{ id: 9, session_id: 100, exercise_type: 'CW', pdf_name: '[Center]\\existing.pdf' }] } as Session;
+  const draft = { pdf_name: '[MSA Staff]\\scan\\new.pdf', pages: '1-2,4' };
+  const view = render(<ConfirmProvider><ExerciseModal session={current} exerciseType="CW" isOpen onClose={mocks.close} initialExercise={draft} /></ConfirmProvider>);
+  expect(screen.getByDisplayValue('[Center]\\existing.pdf')).toBeInTheDocument();
+  expect(screen.getByDisplayValue(draft.pdf_name)).toBeInTheDocument();
+  expect(screen.getByDisplayValue('1-2,4')).toBeInTheDocument();
+  expect(mocks.save).not.toHaveBeenCalled();
+  view.rerender(<ConfirmProvider><ExerciseModal session={{ ...current }} exerciseType="CW" isOpen onClose={mocks.close} initialExercise={{ ...draft }} /></ConfirmProvider>);
+  expect(screen.getAllByDisplayValue(draft.pdf_name)).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+  const sent = mocks.save.mock.calls[0][2];
+  expect(sent).toHaveLength(2);
+  expect(sent[0].pdf_name).toBe('[Center]\\existing.pdf');
+  expect(sent[1]).toMatchObject({ pdf_name: draft.pdf_name, remarks: 'Pages: 1-2,4' });
+});

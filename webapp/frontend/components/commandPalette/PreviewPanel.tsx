@@ -11,7 +11,12 @@ import {
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getSessionStatusConfig } from "@/lib/session-status";
-import { getPaymentStatusConfig } from "@/lib/enrollment-utils";
+import type { Session, Enrollment } from "@/types";
+import { StudentSearchShortcuts } from "./StudentSearchShortcuts";
+import type { SearchCategory } from "./search-filters";
+import { SessionSearchContent } from "./SessionSearchContent";
+import { formatSearchDate } from "./search-result-labels";
+import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { HelpTopic } from "./types";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -27,6 +32,7 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
 
 // Preview data types for command palette
 interface StudentPreviewData {
+  id: number;
   student_name: string;
   school_student_id?: string;
   grade?: string;
@@ -36,19 +42,10 @@ interface StudentPreviewData {
   contacts?: { phone: string; label?: string }[];
   home_location?: string;
   enrollment_count?: number;
+  enrollments?: unknown[];
 }
 
-interface SessionPreviewData {
-  student_name: string;
-  school_student_id?: string;
-  session_date: string;
-  time_slot?: string;
-  grade?: string;
-  lang_stream?: string;
-  school?: string;
-  session_status?: string;
-  tutor_name?: string;
-}
+type SessionPreviewData = Session;
 
 interface ExamPreviewData {
   title: string;
@@ -59,18 +56,7 @@ interface ExamPreviewData {
   event_type: string | null;
 }
 
-interface EnrollmentPreviewData {
-  student_name: string;
-  school_student_id?: string;
-  grade?: string;
-  lang_stream?: string;
-  school?: string;
-  payment_status?: string;
-  assigned_day?: string;
-  assigned_time?: string;
-  tutor_name?: string;
-  lessons_paid?: number;
-}
+type EnrollmentPreviewData = Enrollment;
 
 type PreviewData =
   | { type: 'help'; data: HelpTopic }
@@ -118,7 +104,7 @@ export function HelpPreview({ topic }: { topic: HelpTopic }) {
 }
 
 // Preview content component following app-wide display patterns
-export function PreviewContent({ data }: { data: PreviewData | null }) {
+export function PreviewContent({ data, onChanged = () => {}, onOpenDetails, onNavigate, onStudentRecords, onSession, tutorId }: { data: PreviewData | null; tutorId?: number; onChanged?: () => void; onOpenDetails?: () => void; onNavigate?: (href: string) => void; onStudentRecords?: (category: SearchCategory, student: { id: number; name: string }) => void; onSession?: (id: number) => void }) {
   if (!data) return null;
 
   // Help topic preview
@@ -129,11 +115,12 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
   // Student preview - follows StudentDetailPopover pattern
   if (data.type === 'student') {
     const s = data.data;
+    const enrollmentCount = s.enrollments?.length ?? s.enrollment_count;
     return (
       <div className="space-y-3">
-        {/* ID - monospace, small, gray (consistent with StudentInfoBadges) */}
+        {/* Student ID stays subordinate to the name and badges. */}
         {s.school_student_id && (
-          <div className="text-[11px] font-mono text-ink-subtle dark:text-[#a89880]">
+          <div className="text-[11px] text-ink-subtle">
             {s.school_student_id}
           </div>
         )}
@@ -166,13 +153,14 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
               <span>{s.home_location}</span>
             </div>
           )}
-          {s.enrollment_count !== undefined && (
+          {enrollmentCount !== undefined && (
             <div className="flex items-center gap-2">
               <BookOpen className="h-3 w-3 text-ink-subtle" />
-              <span>{s.enrollment_count} enrollment{s.enrollment_count !== 1 ? 's' : ''}</span>
+              <span>{enrollmentCount} enrollment{enrollmentCount !== 1 ? 's' : ''}</span>
             </div>
           )}
         </div>
+        {onNavigate && onStudentRecords && onSession && <StudentSearchShortcuts key={s.id} student={s} tutorId={tutorId} onNavigate={onNavigate} onRecords={onStudentRecords} onSession={onSession} />}
       </div>
     );
   }
@@ -186,7 +174,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Date/time header */}
         <div className="flex items-center gap-2 text-xs text-ink-subtle dark:text-[#a89880]">
           <Calendar className="h-3 w-3" />
-          <span>{s.session_date}</span>
+          <span>{formatSearchDate(s.session_date)}</span>
           {s.time_slot && (
             <>
               <Clock className="h-3 w-3 ml-1" />
@@ -197,7 +185,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Student info */}
         <div>
           {s.school_student_id && (
-            <div className="text-[11px] font-mono text-ink-subtle dark:text-[#a89880]">
+            <div className="text-[11px] text-ink-subtle">
               {s.school_student_id}
             </div>
           )}
@@ -233,6 +221,12 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
             <span>{s.tutor_name}</span>
           </div>
         )}
+        {s.location && <div className="text-xs text-ink-subtle">{s.location}</div>}
+        <div className="flex flex-wrap gap-3 text-xs">
+          <button className="text-accent-ink underline" onClick={onOpenDetails}>Session details</button>
+          <button className="text-accent-ink underline" onClick={() => onNavigate?.(`/sessions/${s.id}`)}>Open session page</button>
+        </div>
+        <SessionSearchContent session={s} onChanged={onChanged} />
       </div>
     );
   }
@@ -240,12 +234,13 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
   // Enrollment preview - follows EnrollmentDetailPopover pattern
   if (data.type === 'enrollment') {
     const e = data.data;
-    const paymentConfig = e.payment_status ? getPaymentStatusConfig(e.payment_status) : null;
+    const displayStatus = getDisplayPaymentStatus(e);
+    const paymentConfig = displayStatus ? getPaymentStatusConfig(displayStatus) : null;
     return (
       <div className="space-y-3">
         {/* Student ID and name */}
         {e.school_student_id && (
-          <div className="text-[11px] font-mono text-ink-subtle dark:text-[#a89880]">
+          <div className="text-[11px] text-ink-subtle">
             {e.school_student_id}
           </div>
         )}
@@ -263,15 +258,18 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
             </span>
           )}
           {/* Payment status with color coding */}
-          {e.payment_status && paymentConfig && (
+          {displayStatus && paymentConfig && (
             <span className={cn(
               "px-1.5 py-0.5 text-[11px] rounded",
               paymentConfig.bgTint
             )}>
-              {e.payment_status}
+              {displayStatus}
             </span>
           )}
         </div>
+        {e.enrollment_type && <div className="text-xs text-ink-heading">{e.enrollment_type}</div>}
+        {e.first_lesson_date && <div className="text-xs text-ink-subtle">Started {formatSearchDate(e.first_lesson_date)}</div>}
+        <button className="text-xs text-accent-ink underline" onClick={onOpenDetails}>Enrolment details</button>
         {/* Details */}
         <div className="text-xs space-y-1.5 text-ink-heading">
           {(e.assigned_day || e.assigned_time) && (
@@ -327,12 +325,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
             </span>
           )}
           {ex.grade && (
-            <span
-              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(ex.grade) }}
-            >
-              {ex.grade}
-            </span>
+            <span className="px-1.5 py-0.5 text-[11px] rounded text-gray-800" style={{ backgroundColor: getGradeColor(ex.grade, undefined) }}>{ex.grade}</span>
           )}
           {ex.school && (
             <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">

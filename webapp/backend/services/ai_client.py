@@ -11,7 +11,9 @@ from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-MODEL_ID = "gemini-3.1-flash-lite"
+MODEL_ID = os.getenv("CSM_AI_MODEL", "gemini-3.1-flash-lite")
+OCR_MODEL_ID = os.getenv("CSM_OCR_MODEL", "gemini-3.5-flash-lite")
+PROCESS_MODEL_ID = os.getenv("CSM_PROCESS_MODEL", "gemini-3.8-flash")
 
 _client = None
 
@@ -68,6 +70,9 @@ def _extract_response(response) -> tuple[str, int, int, bool]:
     if hasattr(response, "usage_metadata") and response.usage_metadata:
         input_tokens = getattr(response.usage_metadata, "prompt_token_count", 0) or 0
         output_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
+        thoughts = getattr(response.usage_metadata, "thoughts_token_count", 0)
+        if isinstance(thoughts, int):
+            output_tokens += thoughts
 
     return text, input_tokens, output_tokens, is_truncated
 
@@ -91,11 +96,12 @@ def generate(
     full_prompt = f"{context}\n\n---\n\n{prompt}" if context else prompt
 
     config_kwargs: dict = {
-        "temperature": temperature,
         "max_output_tokens": max_output_tokens,
     }
     # thinking_level is supported by 3.x models; 2.5 models use automatic thinking
-    if model.startswith("gemini-3"):
+    if not model.startswith(("gemini-3", "gemini-4")):
+        config_kwargs["temperature"] = temperature
+    if model.startswith(("gemini-3", "gemini-4")):
         sdk_level = _get_thinking_level(thinking_level)
         config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=sdk_level)
     if response_mime_type:
@@ -149,10 +155,11 @@ def generate_multimodal(
         contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
 
     config_kwargs: dict = {
-        "temperature": temperature,
         "max_output_tokens": max_output_tokens,
     }
-    if model.startswith("gemini-3"):
+    if not model.startswith(("gemini-3", "gemini-4")):
+        config_kwargs["temperature"] = temperature
+    if model.startswith(("gemini-3", "gemini-4")):
         sdk_level = _get_thinking_level(thinking_level)
         config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=sdk_level)
     if response_mime_type:

@@ -15,6 +15,9 @@ export function parseQuery(q: string): { type: string | null; term: string } {
   const sessionMatch = q.match(/^[#](.+)/i) || q.match(/^sess:(.+)/i);
   if (sessionMatch) return { type: "session", term: sessionMatch[1] };
 
+  const enrollmentMatch = q.match(/^enr:(.+)/i);
+  if (enrollmentMatch) return { type: "enrollment", term: enrollmentMatch[1] };
+
   // !exam or e:term → exams
   const examMatch = q.match(/^[!](.+)/i) || q.match(/^e:(.+)/i);
   if (examMatch) return { type: "exam", term: examMatch[1] };
@@ -84,11 +87,15 @@ export function evaluateMath(expr: string): number {
 export function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query || query.length < 2) return text;
 
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const tokens = [...new Set(query.trim().split(/\s+/).filter(token => token.length >= 2))].sort((a, b) => b.length - a.length);
+  if (!tokens.length) return text;
+  const pattern = tokens.map(token => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const regex = new RegExp(`(${pattern})`, 'gi');
+  const isMatch = new RegExp(`^(?:${pattern})$`, 'i');
   const parts = text.split(regex);
 
   return parts.map((part, i) =>
-    regex.test(part) ? (
+    isMatch.test(part) ? (
       React.createElement('mark', {
         key: i,
         className: "bg-[#d4a574]/30 dark:bg-[#cd853f]/30 text-inherit rounded px-0.5"

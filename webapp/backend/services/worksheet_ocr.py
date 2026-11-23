@@ -15,7 +15,7 @@ import json
 import logging
 import re
 
-from services.ai_client import generate_multimodal, MODEL_ID
+from services.ai_client import generate_multimodal, OCR_MODEL_ID as MODEL_ID
 
 logger = logging.getLogger(__name__)
 

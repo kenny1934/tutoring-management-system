@@ -73,3 +73,13 @@ describe("lesson PDF recovery", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+it('opens an indexed original before trying the legacy document provider', async () => {
+  const lookup = vi.spyOn(await import('./api'), 'fetchAPI').mockResolvedValue({ file_id: 73 });
+  const response = vi.spyOn(await import('./api'), 'fetchResponse').mockResolvedValue({ arrayBuffer: async () => bytes } as Response);
+  try {
+    expect(await loadExercisePdf('[Center]\\indexed.pdf')).toEqual({ data: bytes, source: 'mckb' });
+    expect(h.search).not.toHaveBeenCalled();
+    expect(response).toHaveBeenCalledWith('/materials/73/raw', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  } finally { lookup.mockRestore(); response.mockRestore(); }
+});

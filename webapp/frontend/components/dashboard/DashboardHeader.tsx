@@ -111,7 +111,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             <button
               data-native-search
               aria-label="Search"
-              onClick={openCommandPalette}
+              data-global-search-trigger
+              onClick={event => openCommandPalette(event.currentTarget)}
               className={cn(
                 "hidden sm:flex items-center gap-2 px-2 @[500px]/header:px-3 py-1.5",
                 "bg-card border border-line rounded-full",

@@ -1,10 +1,8 @@
-import type { Enrollment } from "@/types";
-
 /**
  * Get the display payment status for an enrollment.
  * Returns "Overdue" if payment is pending and first lesson date has passed.
  */
-export function getDisplayPaymentStatus(enrollment: Enrollment): string {
+export function getDisplayPaymentStatus(enrollment: { payment_status?: string | null; first_lesson_date?: string | null }): string {
   if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
     const startDate = new Date(enrollment.first_lesson_date);
     const today = new Date();

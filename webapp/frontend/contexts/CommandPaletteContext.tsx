@@ -1,10 +1,16 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode, type RefObject } from "react";
+
+import { rememberScroll, type ScrollPlace } from "@/components/material/materialJourney";
+
+export type SearchOrigin = { token: string; url: string; source: HTMLElement | null; anchor: DOMRect | null; scroll: ScrollPlace[] };
+let sequence = 0;
 
 interface CommandPaletteContextType {
   isOpen: boolean;
-  open: () => void;
+  open: (source?: HTMLElement) => void;
+  origin: RefObject<SearchOrigin | null>;
   close: () => void;
   toggle: () => void;
 }
@@ -14,9 +20,17 @@ const CommandPaletteContext = createContext<CommandPaletteContextType | undefine
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
-  const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
+  const origin = useRef<SearchOrigin | null>(null);
+  const openNow = useRef(false);
+  const open = useCallback((source?: HTMLElement) => {
+    const focused = source ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null);
+    const token = `${Date.now()}:${++sequence}`;
+    origin.current = { token, url: window.location.href, source: focused, anchor: source?.getBoundingClientRect() ?? null, scroll: focused ? rememberScroll(focused) : [] };
+    window.history.replaceState({ ...window.history.state, csmSearchReturn: token }, "");
+    openNow.current = true; setIsOpen(true);
+  }, []);
+  const close = useCallback(() => { openNow.current = false; setIsOpen(false); }, []);
+  const toggle = useCallback(() => { if (openNow.current) close(); else open(); }, [open, close]);
 
   // Global keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
@@ -36,20 +50,16 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         e.preventDefault();
         toggle();
       }
-      // Escape to close
-      if (e.key === "Escape" && isOpen) {
-        e.preventDefault();
-        close();
-      }
+
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, toggle, close]);
+  }, [toggle]);
 
   const contextValue = useMemo(() => ({
-    isOpen, open, close, toggle,
-  }), [isOpen, open, close, toggle]);
+    isOpen, open, close, toggle, origin,
+  }), [isOpen, open, close, toggle, origin]);
 
   return (
     <CommandPaletteContext.Provider value={contextValue}>

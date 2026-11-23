@@ -62,6 +62,7 @@ export function RateSessionModal({
   }, [isOpen, session]);
 
   const handleSave = useCallback(async () => {
+    if (readOnly) return;
     const sessionId = session.id;
     const currentRating = rating;
     const currentNotes = notes;
@@ -96,7 +97,7 @@ export function RateSessionModal({
     } catch (error) {
       // Could rollback cache or show toast here
     }
-  }, [session, rating, notes, onClose, onSave]);
+  }, [session, rating, notes, onClose, onSave, readOnly]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -106,6 +107,14 @@ export function RateSessionModal({
       // Something is open over this modal, such as the homework Check Viewer
       // or a photo.
       if (keyIsForOverlayAbove(e, overlayLayer.isTopmost)) return;
+
+      // This capture listener otherwise stops Escape before Modal can hear it.
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        return;
+      }
 
       // Skip if focused on textarea (allow normal typing)
       const isTextarea = (e.target as HTMLElement)?.tagName === 'TEXTAREA';
@@ -149,7 +158,7 @@ export function RateSessionModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, overlayLayer.isTopmost, handleSave]);
+  }, [isOpen, overlayLayer.isTopmost, handleSave, onClose]);
 
   return (
     <Modal
