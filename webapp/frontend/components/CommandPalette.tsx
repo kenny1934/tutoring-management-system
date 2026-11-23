@@ -803,14 +803,14 @@ export function CommandPalette() {
               if (event.key === 'ArrowDown' || event.key === 'Enter') { event.preventDefault(); const first = document.querySelector<HTMLButtonElement>('[data-material-result]'); if (event.key === 'Enter') first?.click(); else first?.focus(); }
               if (event.key === 'Escape') { event.preventDefault(); if (query) setQuery(''); else close(); }
             }}
-            placeholder="Search or type ? for help"
+            placeholder={searchArea === "materials" ? "Search courseware" : "Search"}
             enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             role={searchArea === 'records' ? 'combobox' : 'searchbox'}
             aria-expanded={searchArea === 'records' ? allItems.length > 0 : undefined}
             aria-controls={searchArea === 'records' ? 'command-palette-listbox' : undefined}
             aria-activedescendant={searchArea === 'records' && allItems[selectedIndex] ? `command-result-${allItems[selectedIndex].id}` : undefined}
             aria-autocomplete={searchArea === 'records' ? 'list' : undefined}
-            aria-label={searchArea === "materials" ? "Search materials" : "Search commands and pages"}
+            aria-label={searchArea === "materials" ? "Search courseware" : "Search commands and pages"}
             className={cn(
               "flex-1 min-w-0 bg-transparent text-gray-900 dark:text-gray-100",
               "placeholder:text-gray-500 dark:placeholder:text-gray-400",
@@ -869,8 +869,8 @@ export function CommandPalette() {
         )}
 
         <div className={styles.areas} aria-label="Search area">
-          <button aria-pressed={searchArea === 'records'} onClick={() => setSearchArea('records')}>Records and commands</button>
-          <button aria-pressed={searchArea === 'materials'} onClick={() => { setSearchArea('materials'); setCommandPath([]); }}>Materials</button>
+          <button aria-pressed={searchArea === 'records'} onClick={() => setSearchArea('records')}>Records</button>
+          <button aria-pressed={searchArea === 'materials'} onClick={() => { setSearchArea('materials'); setCommandPath([]); }}>Courseware</button>
         </div>
         <MaterialSearch key={scope} query={query} scope={scope} active={searchArea === 'materials'} canAssign={!isReadOnly} />
         {searchArea === 'records' && <>

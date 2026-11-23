@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback } from "react";
 import useSWR from "swr";
-import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button, IconButton } from "@/components/controls";
 import { useAuth } from "@/contexts/AuthContext";
@@ -360,7 +359,7 @@ export function SessionSelectorModal({
       title={
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-accent-ink" />
-          <span>Assign Files to Sessions</span>
+          <span>Assign to sessions</span>
         </div>
       }
       size="xl"
@@ -406,10 +405,7 @@ export function SessionSelectorModal({
         <div className="space-y-4">
           <div className="text-center py-2">
             <div className="text-lg font-semibold text-ink-heading">
-              Confirm Assignment
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Please review before confirming
+              Confirm assignment
             </div>
           </div>
 
@@ -812,9 +808,6 @@ function SessionDayPicker({
 
   const selectedCount = filteredSessions.filter((s) => selections.has(s.id)).length;
 
-  // Use Portal to render outside Modal (avoids transform constraints on fixed positioning)
-  if (typeof document === "undefined") return null;
-
   const selectedTutorName = filterTutorId === "all"
     ? "All Tutors"
     : tutors.find((t) => t.id === filterTutorId)?.name
@@ -822,27 +815,51 @@ function SessionDayPicker({
       ?? user?.name
       ?? "Unknown";
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-[450px] max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-          <div className="flex items-center gap-3">
-            <div>
-              <div className="font-semibold text-ink-heading">
-                {dayName}
-              </div>
-              <div className="text-xs text-[#8b6f47] dark:text-[#cd853f]">
-                {monthDay} · {filteredSessions.filter(isCountableSession).length} sessions
-              </div>
+  return <Modal isOpen onClose={onClose} size="sm" title={`${dayName}, ${monthDay}`} footer={
+          filteredSessions.length > 0 && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {/* Default type selector */}
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Default:
+              </span>
+              <button
+                onClick={() => setDefaultType("CW")}
+                className={cn(
+                  "px-2 py-0.5 text-xs font-medium rounded transition-colors",
+                  defaultType === "CW"
+                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                    : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                )}
+              >
+                CW
+              </button>
+              <button
+                onClick={() => setDefaultType("HW")}
+                className={cn(
+                  "px-2 py-0.5 text-xs font-medium rounded transition-colors",
+                  defaultType === "HW"
+                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                )}
+              >
+                HW
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="quiet" size="sm" onClick={() => onClearAll(filteredSessions)}>
+                Clear
+              </Button>
+              <Button variant="quiet" size="sm" onClick={() => onSelectAll(filteredSessions, defaultType)}>
+                Select all
+              </Button>
             </div>
           </div>
+        )
+        }>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+          <span className="text-xs text-ink-subtle">{filteredSessions.filter(isCountableSession).length} {filteredSessions.filter(isCountableSession).length === 1 ? "session" : "sessions"}</span>
           <div className="flex items-center gap-2">
             {/* Tutor filter dropdown */}
             <div className="relative">
@@ -884,7 +901,6 @@ function SessionDayPicker({
                 </div>
               )}
             </div>
-            <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
           </div>
         </div>
 
@@ -1028,48 +1044,6 @@ function SessionDayPicker({
           )}
         </div>
 
-        {/* Footer */}
-        {filteredSessions.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-2 border-t border-line bg-wash">
-            <div className="flex items-center gap-2">
-              {/* Default type selector */}
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Default:
-              </span>
-              <button
-                onClick={() => setDefaultType("CW")}
-                className={cn(
-                  "px-2 py-0.5 text-xs font-medium rounded transition-colors",
-                  defaultType === "CW"
-                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                    : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                )}
-              >
-                CW
-              </button>
-              <button
-                onClick={() => setDefaultType("HW")}
-                className={cn(
-                  "px-2 py-0.5 text-xs font-medium rounded transition-colors",
-                  defaultType === "HW"
-                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                )}
-              >
-                HW
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="quiet" size="sm" onClick={() => onClearAll(filteredSessions)}>
-                Clear
-              </Button>
-              <Button variant="quiet" size="sm" onClick={() => onSelectAll(filteredSessions, defaultType)}>
-                Select all
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* Session detail popover */}
         {openSessionId !== null && (() => {
           const session = filteredSessions.find((s) => s.id === openSessionId);
@@ -1083,8 +1057,5 @@ function SessionDayPicker({
             />
           );
         })()}
-      </div>
-    </div>,
-    document.body
-  );
+    </Modal>;
 }

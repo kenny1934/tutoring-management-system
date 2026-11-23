@@ -10,45 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge, Button, IconButton } from "@/components/controls";
 import { documentsAPI } from "@/lib/document-api";
 import type { ExtractedQuestion, ProcessQuestionResult, ProcessQuestionError, ProcessQuestionsResponse, Document } from "@/types";
-import katex from "katex";
-
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-function balanceBraces(latex: string): string {
-  let depth = 0;
-  for (const ch of latex) {
-    if (ch === "{") depth++;
-    else if (ch === "}") depth--;
-  }
-  if (depth > 0) return latex + "}".repeat(depth);
-  if (depth < 0) return "{".repeat(-depth) + latex;
-  return latex;
-}
-
-function MathText({ text }: { text: string }) {
-  const html = useMemo(() => {
-    // Split on $...$ math delimiters, escape non-math segments to prevent XSS
-    const parts: string[] = [];
-    let lastIndex = 0;
-    const regex = /\$([^$]+)\$/g;
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) parts.push(escapeHtml(text.slice(lastIndex, match.index)));
-      try {
-        const latex = balanceBraces(match[1]);
-        parts.push(katex.renderToString(latex, { throwOnError: false, output: "html" }));
-      } catch {
-        parts.push(`<code>${escapeHtml(match[1])}</code>`);
-      }
-      lastIndex = regex.lastIndex;
-    }
-    if (lastIndex < text.length) parts.push(escapeHtml(text.slice(lastIndex)));
-    return parts.join("");
-  }, [text]);
-  return <span dangerouslySetInnerHTML={{ __html: html }} />;
-}
+import { MathText } from "@/components/ui/math-text";
 
 const DIFFICULTY_COLORS = {
   easy: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",

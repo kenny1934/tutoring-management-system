@@ -72,3 +72,11 @@ def test_original_proxy_preserves_pdf_range_without_exposing_upstream_credential
     assert response.headers['cache-control'] == 'private, no-store'
     assert 'x-csm-signature' not in response.headers
     assert client.get('/api/materials/7/raw', headers={'Range': 'bytes=0-4,9-10'}).status_code == 416
+
+
+def test_missing_original_gives_an_opening_option_without_exposing_nas_details(client, monkeypatch):
+    intercept(monkeypatch, lambda request: httpx.Response(404, json={"detail": "private NAS account or path"}))
+    response = client.get('/api/materials/7/raw')
+    assert response.status_code == 404
+    assert 'connected folders' in response.json()['detail']
+    assert 'private' not in response.text

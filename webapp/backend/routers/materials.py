@@ -22,7 +22,7 @@ def request_materials(action: str, payload: dict, user: Tutor):
     base = os.getenv("MCKB_API_URL", "").rstrip("/")
     key = os.getenv("CSM_MATERIALS_BRIDGE_KEY", "")
     if not base or len(key) < 32:
-        raise HTTPException(503, "Materials search is not connected yet.")
+        raise HTTPException(503, "Courseware search is not connected yet.")
     # The email is resolved by CSM authentication, never accepted from the browser.
     email = user.user_email.strip().lower()
     path = f"/api/integrations/csm/materials/{action}"
@@ -35,19 +35,19 @@ def request_materials(action: str, payload: dict, user: Tutor):
         with httpx.Client(timeout=httpx.Timeout(20, connect=5), follow_redirects=False) as client:
             response = client.post(base + path, content=body, headers=headers)
     except httpx.HTTPError:
-        raise HTTPException(503, "Materials search is temporarily unavailable.") from None
+        raise HTTPException(503, "Courseware search is temporarily unavailable.") from None
     if response.status_code == 403:
         raise HTTPException(403, "Your Knowledge Base account needs access to this material source. Ask an administrator.")
     if response.status_code == 404 and action in ("preview", "resolve"):
         raise HTTPException(404, "This material is no longer available.")
     if response.status_code == 422:
-        raise HTTPException(422, "Check the material search filters.")
+        raise HTTPException(422, "Check the courseware search filters.")
     if not response.is_success:
-        raise HTTPException(503, "Materials search is temporarily unavailable.")
+        raise HTTPException(503, "Courseware search is temporarily unavailable.")
     try:
         return response.json()
     except ValueError:
-        raise HTTPException(503, "Materials search returned an invalid response.") from None
+        raise HTTPException(503, "Courseware search returned an invalid response.") from None
 
 
 class MaterialSearch(BaseModel):
@@ -84,9 +84,9 @@ def original(file_id: int, request: Request, download: bool = False, user: Tutor
     base = os.getenv("MCKB_API_URL", "").rstrip("/")
     key = os.getenv("CSM_MATERIALS_BRIDGE_KEY", "")
     if not base or len(key) < 32:
-        raise HTTPException(503, "Materials search is not connected yet.")
+        raise HTTPException(503, "Courseware search is not connected yet.")
     if file_id <= 0:
-        raise HTTPException(404, "Material not found")
+        raise HTTPException(404, "The original PDF is unavailable. Try opening through connected folders.")
     byte_range = request.headers.get("range")
     import re
     if byte_range and (len(byte_range) > 100 or not re.fullmatch(r"bytes=(?:[0-9]+-[0-9]*|-[0-9]+)", byte_range)):
@@ -110,7 +110,7 @@ def original(file_id: int, request: Request, download: bool = False, user: Tutor
     if response.status_code not in (200, 206) or response.headers.get("content-type", "").split(";")[0] != "application/pdf":
         status = response.status_code
         close()
-        messages = {403: "Your Knowledge Base account needs access to this material.", 404: "Material not found",
+        messages = {403: "Your Knowledge Base account needs access to this courseware.", 404: "The original PDF is unavailable. Try opening through connected folders.",
             409: "The original has changed. It needs reindexing before opening.", 415: "Original preview supports PDFs only.",
             416: "Requested data is outside this PDF."}
         raise HTTPException(status if status in messages else 503, messages.get(status, "The office PDF gateway is offline or not connected."))

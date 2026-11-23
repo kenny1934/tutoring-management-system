@@ -143,6 +143,12 @@ interface PdfPageViewerProps {
   pdfData: ArrayBuffer | null;
   /** Pages to render (1-indexed). Empty array = all pages. */
   pageNumbers: number[];
+  /** Start a search preview at its first matching physical page. */
+  initialPage?: number;
+  /** Enable read-only page shortcuts without taking lesson-mode keys. */
+  keyboardNavigation?: boolean;
+  /** Limit canvas work for long courseware PDFs. Existing lesson rendering is unchanged. */
+  renderConcurrency?: number;
   /** Stamp info to overlay on each page (same as printing). */
   stamp?: PrintStampInfo;
   isLoading: boolean;
@@ -250,6 +256,9 @@ export function PdfPageViewer({
   pdfData,
   pageNumbers,
   previewRotation = 0,
+  initialPage,
+  keyboardNavigation = false,
+  renderConcurrency = Infinity,
   stamp,
   isLoading,
   loadingMessage,
@@ -294,6 +303,9 @@ export function PdfPageViewer({
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
+  const currentVisiblePageRef = useRef(currentVisiblePage); currentVisiblePageRef.current = currentVisiblePage;
+  const initialPageRef = useRef(initialPage); initialPageRef.current = initialPage;
+  const previewStartRef = useRef<{ data: ArrayBuffer; rotation: number; match: number | undefined; page: number } | null>(null);
   const [pdfDarkMode, togglePdfDarkMode] = usePdfDarkMode();
   const pageUrlsRef = useRef<string[]>([]);
   const pagesRef = useRef<RenderedPage[]>([]);
@@ -435,11 +447,14 @@ export function PdfPageViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const scrollToPage = useCallback((pageNum: number) => {
+  const scrollToPage = useCallback((pageNum: number, behavior: ScrollBehavior = "smooth") => {
     const clamped = Math.max(1, Math.min(pageNum, pagesRef.current.length));
     const el = pageRefs.current[clamped - 1];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const container = scrollContainerRef.current;
+    if (el && container) {
+      const padding = parseFloat(getComputedStyle(container).paddingTop) || 0;
+      const top = container.scrollTop + el.getBoundingClientRect().top - container.getBoundingClientRect().top - padding;
+      container.scrollTo({ top, behavior });
     }
   }, []);
 
@@ -505,6 +520,8 @@ export function PdfPageViewer({
       setProcessError("The PDF took too long to prepare.");
       setIsProcessing(false);
     }, 45_000);
+    previewStartRef.current = { data: pdfData, rotation: previewRotation, match: initialPageRef.current,
+      page: previewStartRef.current?.data === pdfData ? currentVisiblePageRef.current : initialPageRef.current || 1 };
     setIsProcessing(true);
     setProcessError(null);
 
@@ -576,7 +593,12 @@ export function PdfPageViewer({
         };
 
         const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
-        const results = await Promise.all(pageNums.map(renderPage));
+        const results: (RenderedPage | null)[] = [];
+        const batchSize = Number.isFinite(renderConcurrency) ? Math.max(1, Math.floor(renderConcurrency)) : pageNums.length || 1;
+        for (let start = 0; start < pageNums.length; start += batchSize) {
+          results.push(...await Promise.all(pageNums.slice(start, start + batchSize).map(renderPage)));
+          if (cancelled) break;
+        }
 
         doc.destroy();
         destroyDocument = undefined;
@@ -645,7 +667,7 @@ export function PdfPageViewer({
       clearTimeout(deadline);
       destroyDocument?.();
     };
-  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick, previewRotation]);
+  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick, previewRotation, renderConcurrency]);
 
   // Revoke all cached page URLs on unmount
   useEffect(() => {
@@ -709,6 +731,20 @@ export function PdfPageViewer({
     el.scrollLeft = pending.scrollLeft;
     restoreRef.current = null;
   }, [pages, zoom]);
+
+  const initialPageApplied = useRef<{ data: ArrayBuffer; page: number; rotation: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!initialPage || !pdfData || !pages.length || restoreRef.current || isProcessing) return;
+    const opening = previewStartRef.current;
+    if (!opening || opening.rotation !== previewRotation || opening.data !== pdfData) return;
+    if (initialPageApplied.current?.data === pdfData && initialPageApplied.current.page === initialPage && initialPageApplied.current.rotation === previewRotation) return;
+    const number = Math.max(1, Math.min(opening.match === initialPage ? opening.page : initialPage, pages.length));
+    const container = scrollContainerRef.current, target = pageRefs.current[number - 1];
+    if (!container || !target) return;
+    scrollToPage(number, "auto");
+    setCurrentVisiblePage(number);
+    initialPageApplied.current = { data: pdfData, page: initialPage, rotation: previewRotation };
+  }, [initialPage, pdfData, pages, zoom, isProcessing, scrollToPage, previewRotation]);
 
   // Remember each zoom change, including a pinch or a refit to the pane's width.
   useEffect(() => { saveView(); }, [zoom, saveView]);
@@ -812,7 +848,12 @@ export function PdfPageViewer({
         };
 
         const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
-        const results = await Promise.all(pageNums.map(renderPage));
+        const results: (RenderedPage | null)[] = [];
+        const batchSize = Number.isFinite(renderConcurrency) ? Math.max(1, Math.floor(renderConcurrency)) : pageNums.length || 1;
+        for (let start = 0; start < pageNums.length; start += batchSize) {
+          results.push(...await Promise.all(pageNums.slice(start, start + batchSize).map(renderPage)));
+          if (cancelled) break;
+        }
         doc.destroy();
 
         if (cancelled) {
@@ -1021,7 +1062,18 @@ export function PdfPageViewer({
   const pageCovered = covers[currentVisiblePage - 1] !== undefined;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+    <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]"
+      role={keyboardNavigation ? "region" : undefined} aria-label={keyboardNavigation ? "PDF preview" : undefined}
+      tabIndex={keyboardNavigation ? 0 : undefined} onKeyDown={keyboardNavigation ? (event) => {
+        if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+        const dialog = event.target instanceof HTMLElement ? event.target.closest('[role="dialog"]') : null;
+        if (dialog && event.currentTarget.contains(dialog)) return;
+        const next = event.key === "ArrowRight" || event.key === "PageDown" ? currentVisiblePage + 1
+          : event.key === "ArrowLeft" || event.key === "PageUp" ? currentVisiblePage - 1
+          : event.key === "Home" ? 1 : event.key === "End" ? pages.length : null;
+        if (next === null) return;
+        event.preventDefault(); event.stopPropagation(); scrollToPage(next);
+      } : undefined}>
       <div className={previewStyles.phonePdfTitle}>
         <span title={exerciseLabel}>{exerciseLabel}</span>
         {pageNumbers.length > 0 && <small>p{formatCompactPageRange(pageNumbers)}</small>}
