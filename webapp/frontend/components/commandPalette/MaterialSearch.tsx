@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
-import { ArrowLeft, Copy, FileText, Filter } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Filter } from "lucide-react";
 import { fetchAPI } from "@/lib/api";
+import { IconButton } from '@/components/controls';
+import { MathText } from "@/components/ui/math-text";
 import { MaterialWorkControls } from "./MaterialWorkControls";
 import styles from "./MaterialSearch.module.css";
 
@@ -58,7 +60,7 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
   const update = (patch: Partial<typeof filters>) => { setFilters(value => ({ ...value, ...patch })); setNotice(''); listRef.current?.scrollTo?.(0, 0); };
   const choose = (row: MaterialResult) => { setSelection({ key, row }); setNotice(''); requestAnimationFrame(() => previewRef.current?.focus()); };
   const back = () => { const id = selected?.file_id; setSelection(null); requestAnimationFrame(() => document.getElementById(`material-${id}`)?.focus()); };
-  const copy = async (path: string) => { try { await navigator.clipboard.writeText(materialAliasPath(path)); setNotice('Material path copied.'); } catch { setNotice('Copy failed. You can select and copy the path below.'); } };
+  const copy = async (path: string) => { try { await navigator.clipboard.writeText(materialAliasPath(path)); setNotice('Path copied.'); } catch { setNotice('Copy failed. You can select and copy the path below.'); } };
   const open = async () => {
     if (!selected) return;
     setNotice('Opening original…');
@@ -68,61 +70,94 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
       setNotice(error ? 'The original could not be opened. Connect its folder in Settings or check whether it is available in Shelv.' : 'Original opened.');
     } catch { setNotice('The original could not be opened. The extracted text is still available here.'); }
   };
-  return <section className={styles.root} aria-label="Material search" style={{ display: active ? undefined : "none" }}>
+  return <section className={styles.root} aria-label="Courseware search" style={{ display: active ? undefined : "none" }}>
     <div className={styles.filters}>
       <div className={styles.bar}>
-        <label>Source<select aria-label="Material source" value={filters.share} onChange={e => update({ share: e.target.value, folder: '' })}>
-          <option value="">All material sources</option>{sources.data?.sources.map(source => <option key={source.id} value={source.id}>{source.label}{facets?.share[source.id] !== undefined ? ` (${facets.share[source.id]})` : ''}</option>)}
+        <label>Source<select aria-label="Courseware source" value={filters.share} onChange={e => update({ share: e.target.value, folder: '' })}>
+          <option value="">All sources</option>{sources.data?.sources.map(source => <option key={source.id} value={source.id}>{source.label}{facets?.share[source.id] !== undefined ? ` (${facets.share[source.id]})` : ''}</option>)}
         </select></label>
-        <label>Sort<select aria-label="Material sort" value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value="relevance">Relevance</option><option value="recent">Recently modified</option></select></label>
+        <label>Sort<select aria-label="Courseware sort" value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value="relevance">Relevance</option><option value="recent">Recently modified</option></select></label>
         <button aria-expanded={expanded} onClick={() => setExpanded(value => !value)}><Filter size={14} />Filters{(filters.ext || filters.modified || filters.folder) && ' •'}</button>
       </div>
       {expanded && <div className={styles.bar}>
-        <label>File type<select aria-label="Material file type" value={filters.ext} onChange={e => update({ ext: e.target.value })}><option value="">All types</option>{[...new Set(['.pdf', '.docx', '.xlsx', '.pptx', ...Object.keys(facets?.ext ?? {})])].sort().map(ext => <option key={ext} value={ext}>{ext.slice(1).toUpperCase()}{facets?.ext[ext] !== undefined ? ` (${facets.ext[ext]})` : ''}</option>)}</select></label>
-        <label>Modified<select aria-label="Material modified date" value={filters.modified} onChange={e => update({ modified: e.target.value })}><option value="">Any time</option><option value="week">Past week</option><option value="month">Past month</option><option value="year">Past year</option><option value="older">Older</option></select></label>
-        <label>Folder<select aria-label="Material folder" value={filters.folder} onChange={e => update({ folder: e.target.value })}><option value="">All folders</option>{[...new Set([...(filters.folder ? [filters.folder] : []), ...Object.keys(facets?.folder ?? {})])].map(folder => <option key={folder} value={folder}>{folder}{facets?.folder[folder] !== undefined ? ` (${facets.folder[folder]})` : ''}</option>)}</select></label>
+        <label>File type<select aria-label="Courseware file type" value={filters.ext} onChange={e => update({ ext: e.target.value })}><option value="">All types</option>{[...new Set(['.pdf', '.docx', '.xlsx', '.pptx', ...Object.keys(facets?.ext ?? {})])].sort().map(ext => <option key={ext} value={ext}>{ext.slice(1).toUpperCase()}{facets?.ext[ext] !== undefined ? ` (${facets.ext[ext]})` : ''}</option>)}</select></label>
+        <label>Modified<select aria-label="Courseware modified date" value={filters.modified} onChange={e => update({ modified: e.target.value })}><option value="">Any time</option><option value="week">Past week</option><option value="month">Past month</option><option value="year">Past year</option><option value="older">Older</option></select></label>
+        <label>Folder<select aria-label="Courseware folder" value={filters.folder} onChange={e => update({ folder: e.target.value })}><option value="">All folders</option>{[...new Set([...(filters.folder ? [filters.folder] : []), ...Object.keys(facets?.folder ?? {})])].map(folder => <option key={folder} value={folder}>{folder}{facets?.folder[folder] !== undefined ? ` (${facets.folder[folder]})` : ''}</option>)}</select></label>
         <button onClick={() => update({ share: '', ext: '', modified: '', folder: '', sort: 'relevance' })}>Reset filters</button>
       </div>}
     </div>
     <div className={styles.body}>
-      <div ref={listRef} className={`${styles.list} ${selected ? styles.withSelection : ''}`} aria-label="Material results" onKeyDown={event => {
+      <div ref={listRef} className={`${styles.list} ${selected ? styles.withSelection : ''}`} aria-label="Courseware results" onKeyDown={event => {
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
         const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-material-result]')];
         const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : Math.max(0, Math.min(buttons.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
         event.preventDefault(); buttons[next]?.focus();
       }}>
-        {sources.isLoading && <p role="status">Connecting to materials…</p>}
+        {sources.isLoading && <p role="status">Connecting…</p>}
         {sources.error && <p role="alert">{sources.error.message} <button onClick={() => void sources.mutate()}>Retry connection</button></p>}
-        {sources.data && !sources.data.sources.length && <p>Your Knowledge Base account has no material sources. Ask an administrator for access.</p>}
-        {!!sources.data?.sources.length && !ready && <p>{query.trim().length > 256 ? 'Use a search of 256 characters or fewer.' : 'Search worksheet names or words inside documents (at least two characters).'}</p>}
-        {ready && pages.isLoading && <p role="status">Searching materials…</p>}
+        {sources.data && !sources.data.sources.length && <p>Your Knowledge Base account has no courseware sources. Ask an administrator for access.</p>}
+        {!!sources.data?.sources.length && !ready && !!query.trim() && <p>{query.trim().length > 256 ? 'Use a search of 256 characters or fewer.' : 'Enter at least two characters.'}</p>}
+        {ready && pages.isLoading && <p role="status">Searching…</p>}
         {ready && pages.error && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
-        {first && <p className={styles.count}>{first.total.toLocaleString()} materials · Identical copies grouped</p>}
-        {first?.total === 0 && <p>No materials match. Try fewer words or broaden the filters.</p>}
+        {first && <p className={styles.count}>{first.total.toLocaleString()} {first.total === 1 ? 'result' : 'results'}</p>}
+        {first?.total === 0 && <p>No courseware matches. Try fewer words or broaden the filters.</p>}
         {rows.map(row => <button key={row.file_id} id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
-          <FileText size={16} /><span><strong>{row.filename}</strong><small>{labels[row.share] ?? row.share}{row.page_count ? ` · ${row.page_count} pages` : ''}{row.duplicate_count ? ` · ${row.duplicate_count} other copies` : ''}</small>
+          <FileText size={16} /><span><strong>{row.filename}</strong><small>{labels[row.share] ?? row.share}{row.page_count ? ` · ${row.page_count} ${row.page_count === 1 ? 'page' : 'pages'}` : ''}{row.duplicate_count ? ` · ${row.duplicate_count} other copies` : ''}</small>
             <small className={styles.path}>{row.rel_path}</small><span className={styles.snippet}><MaterialHighlight text={row.snippet} ranges={row.highlights} /></span>
-            {!!row.matched_pages.length && <small>Candidate pages: {row.matched_pages.slice(0, 8).join(', ')}{row.matched_pages.length > 8 ? '…' : ''}</small>}
+            {!!row.matched_pages.length && <small>Matches within pages: {row.matched_pages.slice(0, 8).join(', ')}{row.matched_pages.length > 8 ? '…' : ''}</small>}
           </span>
         </button>)}
-        {first && (visible?.at(-1)?.page ?? 0) * first.page_size < first.total && <button className={styles.more} disabled={pages.isValidating} onClick={() => void pages.setSize(pages.size + 1)}>{pages.isValidating ? 'Loading…' : 'Load more materials'}</button>}
+        {first && (visible?.at(-1)?.page ?? 0) * first.page_size < first.total && <button className={styles.more} disabled={pages.isValidating} onClick={() => void pages.setSize(pages.size + 1)}>{pages.isValidating ? 'Loading…' : 'Load more courseware'}</button>}
       </div>
-      {selected && <section ref={previewRef} tabIndex={-1} className={styles.preview} aria-label="Material preview" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); back(); } }}>
-        <button onClick={back}><ArrowLeft size={14} />Back to materials</button><h2>{selected.filename}</h2>
-        <div className={styles.actions}><button onClick={() => void copy(selected.nas_path)}><Copy size={14} />Copy path</button></div>
-        <p className={styles.path}>{materialAliasPath(selected.nas_path)}</p>
-        <MaterialWorkControls key={selected.file_id} material={selected} scope={scope} canAssign={canAssign} onLocalOpen={() => void open()} />
+      {selected && <section ref={previewRef} tabIndex={-1} className={styles.preview} aria-label="Courseware preview" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); back(); } }}>
+        <MaterialWorkControls key={`${scope}:${selected.file_id}`} material={selected} scope={scope} canAssign={canAssign} heading={<>
+        <div className={styles.previewTitle}><IconButton className={styles.previewBack} label="Back to courseware" icon={ArrowLeft} size="sm" onClick={back} /><h2 title={selected.filename}>{selected.filename}</h2></div>
+        {!!selected.matched_pages.length && <p className={styles.pageMatches}>Matches within pages {selected.matched_pages.slice(0, 8).join(', ')}{selected.matched_pages.length > 8 ? '…' : ''}</p>}
+        </>}>
         {notice && <p role="status">{notice}</p>}
         {preview.data?.extraction_metadata?.needs_review && <p role="note">Some pages have uncertain OCR. Check the original before reusing the questions.</p>}
         {preview.isLoading && <p role="status">Loading extracted text…</p>}
         {preview.error && <p role="alert">The preview could not load. <button onClick={() => void preview.mutate()}>Retry preview</button></p>}
         {preview.data && !preview.data.chunks.length && <p>No searchable text was extracted from this document.</p>}
-        {!!selected.matched_pages.length && <p>Matches cover candidate page ranges. Check the original before choosing exercise pages.</p>}
-        {preview.data?.chunks.map(chunk => <div key={chunk.chunk_index} className={styles.chunk}><h3>{chunk.page_start ? chunk.page_end && chunk.page_end !== chunk.page_start ? `Pages ${chunk.page_start}–${chunk.page_end}` : `Page ${chunk.page_start}` : 'Document text'}{preview.data?.extraction_metadata?.pages.some(page => page.page === chunk.page_start && page.method === 'ocr') && ' · OCR'}</h3><p><MaterialHighlight text={chunk.content} ranges={chunk.highlights} /></p></div>)}
+        {preview.data && <ExtractedText key={`${selected.file_id}:${term}`} preview={preview.data} />}
         {preview.data?.truncated && <p>This text preview is shortened. Open the original for the full document.</p>}
+        <details className={styles.fileDetails}><summary>File details</summary><p className={styles.path}>{materialAliasPath(selected.nas_path)}</p><div className={styles.actions}><button onClick={() => void copy(selected.nas_path)}><Copy size={14} />Copy path</button><button onClick={() => void open()}>Open in connected folder</button></div></details>
         {!!selected.duplicate_locations.length && <details><summary>Other copies</summary>{selected.duplicate_locations.map(copy => <p key={`${copy.share}:${copy.rel_path}`}>{labels[copy.share] ?? copy.share}: {copy.rel_path}</p>)}</details>}
+        </MaterialWorkControls>
       </section>}
     </div>
   </section>;
+}
+
+function ExtractedText({ preview }: { preview: Preview }) {
+  const root = useRef<HTMLDivElement>(null);
+  const targets = useRef<HTMLElement[]>([]);
+  const [position, setPosition] = useState(0), [count, setCount] = useState(0);
+  const jump = useCallback((index: number) => {
+    const hits = targets.current;
+    if (!hits.length) return;
+    const next = (index + hits.length) % hits.length;
+    hits.forEach((hit, i) => { if (i === next) hit.setAttribute('data-current-match', 'true'); else hit.removeAttribute('data-current-match'); });
+    setPosition(next);
+    const container = root.current?.closest<HTMLElement>('[data-courseware-scroll]');
+    if (container) container.scrollTo?.({ top: container.scrollTop + hits[next].getBoundingClientRect().top - container.getBoundingClientRect().top - 52, behavior: 'auto' });
+  }, []);
+  useEffect(() => {
+    targets.current = [...(root.current?.querySelectorAll<HTMLElement>('[data-text-chunk]') ?? [])].flatMap(chunk => {
+      const marks = [...chunk.querySelectorAll<HTMLElement>('mark')];
+      return marks;
+    });
+    setCount(targets.current.length); jump(0);
+  }, [preview, jump]);
+  return <div ref={root}>
+    <div className={styles.matchNavigation} role="group" aria-label="Text matches">
+      <span aria-live="polite">{count ? `${position + 1} of ${count} matches` : 'Extracted text'}</span>
+      {count > 0 && <div><IconButton label="Previous text match" icon={ArrowUp} size="sm" onClick={() => jump(position - 1)} /><IconButton label="Next text match" icon={ArrowDown} size="sm" onClick={() => jump(position + 1)} /></div>}
+    </div>
+    {preview.chunks.map(chunk => <div key={chunk.chunk_index} className={styles.chunk} data-text-chunk>
+      <h3>{chunk.page_start ? chunk.page_end && chunk.page_end !== chunk.page_start ? `Pages ${chunk.page_start}–${chunk.page_end}` : `Page ${chunk.page_start}` : 'Document text'}{preview.extraction_metadata?.pages.some(page => page.page === chunk.page_start && page.method === 'ocr') && ' · OCR'}</h3>
+      <p><MathText text={chunk.content} renderMath={(formula, offset, length) => chunk.highlights.some(([start, end]) => start < offset + length && end > offset) ? <mark className={styles.mathMatch}>{formula}</mark> : formula} renderText={(value, offset) => <MaterialHighlight text={value} ranges={chunk.highlights.map(([start, end]) => [Math.max(0, start - offset), Math.min(Array.from(value).length, end - offset)]).filter(([start, end]) => end > start)} />} /></p>
+    </div>)}
+  </div>;
 }

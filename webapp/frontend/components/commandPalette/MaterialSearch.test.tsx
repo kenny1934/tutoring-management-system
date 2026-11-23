@@ -23,25 +23,74 @@ beforeEach(() => {
   });
 });
 
-describe('Materials search', () => {
+describe('Courseware search', () => {
   it('passes source, type, date and folder filters without changing the query', async () => {
     mount(); await screen.findByRole('button', { name: /Worksheet 1/ });
-    fireEvent.change(screen.getByLabelText('Material source'), { target: { value: 'developer' } });
+    fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: 'developer' } });
     fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    fireEvent.change(screen.getByLabelText('Material file type'), { target: { value: '.pdf' } });
-    fireEvent.change(screen.getByLabelText('Material modified date'), { target: { value: 'year' } });
+    fireEvent.change(screen.getByLabelText('Courseware file type'), { target: { value: '.pdf' } });
+    fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'year' } });
     await screen.findByRole('option', { name: 'Year 9 (2)' });
-    fireEvent.change(screen.getByLabelText('Material folder'), { target: { value: 'Year 9' } });
+    fireEvent.change(screen.getByLabelText('Courseware folder'), { target: { value: 'Year 9' } });
     await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search')).at(-1)![1].body)).toMatchObject({ q: 'fractions', share: 'developer', ext: '.pdf', modified: 'year', folder: 'Year 9' }));
+  });
+  it.each(['"a term"', '4x^2-y^2+10x-y'])('preserves the courseware query %s for the provider', async query => {
+    mount(query);
+    await screen.findByRole('button', { name: /Worksheet 1/ });
+    const request = mocks.fetch.mock.calls.find(call => call[0].endsWith('/search'))!;
+    expect(JSON.parse(request[1].body).q).toBe(query);
   });
   it('opens an honest page-range preview and returns focus to the same material', async () => {
     mount(); const result = await screen.findByRole('button', { name: /Worksheet 1/ }); fireEvent.click(result);
-    const preview = await screen.findByRole('region', { name: 'Material preview' });
+    const preview = await screen.findByRole('region', { name: 'Courseware preview' });
     expect(await within(preview).findByText('Pages 1–2')).toBeInTheDocument();
-    expect(within(preview).getByText(/candidate page ranges/)).toBeInTheDocument();
+    expect(within(preview).getByText('Matches within pages 1, 2')).toBeInTheDocument();
     fireEvent.keyDown(preview, { key: 'Escape' });
     await waitFor(() => expect(result).toHaveFocus());
-    expect(screen.queryByRole('region', { name: 'Material preview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
+  });
+  it('keeps file paths and fallback actions in collapsed file details', async () => {
+    mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+    const preview = await screen.findByRole('region', { name: 'Courseware preview' });
+    const details = within(preview).getByText('File details').closest('details');
+    expect(details).not.toHaveAttribute('open');
+    expect(within(preview).getByRole('button', { name: 'Copy path' })).not.toBeVisible();
+    expect(within(preview).getByRole('button', { name: 'Open in connected folder' })).not.toBeVisible();
+    expect(within(preview).queryByLabelText('Courseware pages')).toBeNull();
+    fireEvent.click(within(preview).getByText('File details'));
+    expect(within(preview).getByRole('button', { name: 'Copy path' })).toBeVisible();
+  });
+  it('steps through text matches, wraps and scrolls only the preview content', async () => {
+    mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? sources : path.includes('/preview') ? { file_id: 1, chunks: [{ chunk_index: 0, page_start: 1, page_end: 1, content: 'fractions and more fractions', highlights: [[0, 9], [19, 28]] }] } : page([1]));
+    mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+    const preview = await screen.findByRole('region', { name: 'Courseware preview' });
+    await within(preview).findByText('1 of 2 matches');
+    const scroll = vi.fn();
+    Object.assign(preview.querySelector('[data-courseware-scroll]')!, { scrollTo: scroll });
+    const matches = preview.querySelectorAll('mark');
+    expect(matches[0]).toHaveAttribute('data-current-match', 'true');
+    fireEvent.click(within(preview).getByRole('button', { name: 'Next text match' }));
+    expect(within(preview).getByText('2 of 2 matches')).toBeVisible();
+    expect(matches[1]).toHaveAttribute('data-current-match', 'true');
+    expect(matches[0]).not.toHaveAttribute('data-current-match');
+    expect(scroll).toHaveBeenCalled();
+    fireEvent.click(within(preview).getByRole('button', { name: 'Next text match' }));
+    expect(within(preview).getByText('1 of 2 matches')).toBeVisible();
+    fireEvent.click(within(preview).getByRole('button', { name: 'Previous text match' }));
+    expect(within(preview).getByText('2 of 2 matches')).toBeVisible();
+  });
+  it('highlights a rendered expression without marking its whole OCR page', async () => {
+    const content = String.raw`解 $4x^{2} - y^{2} + 10x - y$。 Other page text.`;
+    const start = Array.from(content.slice(0, content.indexOf('4x'))).length;
+    const end = Array.from(content.slice(0, content.indexOf('$。'))).length;
+    mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? sources : path.includes('/preview') ? { file_id: 1, chunks: [{ chunk_index: 0, page_start: 16, page_end: 16, content, highlights: [[start, end]] }] } : page([1]));
+    mount('4x^2-y^2+10x-y'); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+    const preview = await screen.findByRole('region', { name: 'Courseware preview' });
+    await within(preview).findByText('1 of 1 matches');
+    const match = preview.querySelector('mark[data-current-match]');
+    expect(match?.querySelector('.katex')).not.toBeNull();
+    expect(match).not.toHaveTextContent('Other page text');
+    expect(preview.querySelector('[data-text-chunk]')).not.toHaveAttribute('data-current-match');
   });
   it('prevents a slow previous query from replacing newer results', async () => {
     let old!: (data: unknown) => void;
@@ -54,10 +103,10 @@ describe('Materials search', () => {
   });
   it('loads another page and groups repeated file identities', async () => {
     mocks.fetch.mockImplementation(async (path: string, options: { body: string }) => path.endsWith('/sources') ? sources : JSON.parse(options.body).page === 1 ? page([1, 2], 3) : page([2, 3], 3, 2));
-    mount(); fireEvent.click(await screen.findByRole('button', { name: 'Load more materials' }));
+    mount(); fireEvent.click(await screen.findByRole('button', { name: 'Load more courseware' }));
     await screen.findByRole('button', { name: /Worksheet 3/ });
     expect(screen.getAllByRole('button', { name: /Worksheet 2/ })).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: 'Load more materials' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Load more courseware' })).toBeNull();
   });
   it('keeps an unconfigured provider actionable', async () => {
     mocks.fetch.mockRejectedValue(new Error('Materials search is not connected yet.'));
@@ -66,9 +115,9 @@ describe('Materials search', () => {
   });
   it('drops previews when identity scope changes', async () => {
     const view = mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
-    await screen.findByRole('region', { name: 'Material preview' });
+    await screen.findByRole('region', { name: 'Courseware preview' });
     await act(async () => view.change('fractions', 'tutor-2'));
-    expect(screen.queryByRole('region', { name: 'Material preview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
   });
   it('can navigate the results using the arrow keys', async () => {
     mount(); const first = await screen.findByRole('button', { name: /Worksheet 1/ }); first.focus();

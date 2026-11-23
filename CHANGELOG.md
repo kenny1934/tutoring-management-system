@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.4.12](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.11...v2.4.12) (2026-11-24)
+
+### Improvements
+
+* **Courseware search**: Find worksheets by their indexed text, filter by source and folder, and search exact phrases in quotation marks or algebra expressions with common power notation.
+* **Search previews**: Read extracted text with rendered maths, step through highlighted matches and keep compact file controls visible while scrolling.
+* **Original PDFs**: Scroll through the whole document, use page arrows and thumbnails, or open the original in a new tab.
+* **Courseware assignment**: Choose pages and assign them to sessions using the familiar calendar, tutor filters and classwork or homework selection.
+
+### Bug Fixes
+
+* **Assignment calendar**: Day selections open above the calendar, and the classwork, homework and selection controls remain visible while the student list scrolls.
+* **Search layout**: Centre the desktop console, simplify file details and show clearer messages when an original PDF is unavailable.
+* **Maths highlights**: Highlight matching rendered expressions without outlining the surrounding OCR page.
+
 ## [2.4.11](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.10...v2.4.11) (2026-11-23)
 
 ### Improvements
