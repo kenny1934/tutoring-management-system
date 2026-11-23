@@ -270,6 +270,8 @@ def payment_detail(db, payment, *, include_pending_event=None):
         issues = payment_integrity(db, payment, review, rows)
     except (ValueError, TypeError, KeyError, IndexError, AttributeError, ZeroDivisionError):
         raise DraftConflict('The saved payment needs review before it can be opened.') from None
+    # Terminal payments retain their saved message for viewing, never for sending.
+    saved_message = review.message if payment.status in ('Paid', 'Cancelled') and not issues else None
     message_issues = list(issues)
     if payment.status == 'Paid':
         message_issues.append('This payment has already been recorded.')
@@ -295,7 +297,7 @@ def payment_detail(db, payment, *, include_pending_event=None):
                    'Open this payment in the Autopay list.' if claimed_payments(db, [payment.id]) else None)
     return BillingPaymentDetail(
         id=payment.id, student_id=review.student.id, version=payment.version, status=payment.status,
-        review=review, lines=[BillingPaymentLineDetail(
+        review=review, saved_message=saved_message, lines=[BillingPaymentLineDetail(
             enrollment_id=line.enrollment_id, slot_index=line.slot_index, tutor_id=enrollment.tutor_id,
             tutor_name=name, lesson_count=line.lesson_count, gross_tuition=line.gross_tuition,
             discount_amount=line.discount_amount, tuition_amount=line.tuition_amount, materials_fee=line.materials_fee,

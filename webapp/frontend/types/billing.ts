@@ -491,6 +491,7 @@ export interface BillingPaymentDetail {
   sent_at: string | null;
   sent_language: 'zh' | 'en' | null;
   message_needs_resend?: boolean;
+  saved_message?: BillingDraftReview['message'] | null;
   paid_at: string | null;
   payment_date: string | null;
   received_method: BillingReceiptMethod | null;

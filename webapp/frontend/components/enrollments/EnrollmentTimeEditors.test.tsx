@@ -32,7 +32,7 @@ vi.mock('@/hooks/usePopoverSheet', () => ({
   useAsSheet: () => false, usePopoverSheet: () => ({}), fitToScreen: () => null,
   PopoverShell: ({ header, children }: { header: ReactNode; children: ReactNode }) => <div>{header}{children}</div>,
 }));
-vi.mock('@/components/billing/BillingPayments', () => ({ BillingPayments: (props: unknown) => { data.paymentContent(props); return <p>Linked payment charge controls</p>; } }));
+vi.mock('@/components/billing/BillingEnrollmentPaymentCard', () => ({ BillingEnrollmentPaymentCard: (props: unknown) => { data.paymentContent(props); return <p>Linked payment actions</p>; } }));
 vi.mock('@/components/sessions/SessionDetailPopover', () => ({ SessionDetailPopover: () => null }));
 vi.mock('@/components/ui/confirm-dialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('@/components/tutors/TutorLink', () => ({ TutorLink: () => <span>Synthetic Tutor</span> }));
@@ -84,19 +84,23 @@ for (const surface of ['page', 'popover'] as const) {
 }
 
 
-it('opens the linked payment editor from an unpaid enrollment detail page', async () => {
+it('renders linked payment actions directly and refreshes the enrollment after a change', async () => {
   data.linkedPaymentId = 'linked-payment'; data.enrollment.payment_status = 'Pending Payment';
   await act(async () => { render(<EnrollmentDetailPage />); });
-  const button = screen.getByRole('button', { name: 'Edit payment' });
-  expect(button).toBeEnabled(); fireEvent.click(button);
-  expect(screen.getByText('Linked payment charge controls')).toBeInTheDocument();
-  expect(data.paymentContent).toHaveBeenCalledWith(expect.objectContaining({ initialPaymentId: 'linked-payment', studentId: 1, inline: true }));
+  expect(screen.getByText('Linked payment actions')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Edit payment' })).not.toBeInTheDocument();
+  expect(data.paymentContent).toHaveBeenCalledWith(expect.objectContaining({ enrollment: expect.objectContaining({ billing_payment_id: 'linked-payment' }) }));
   await act(async () => { (data.paymentContent.mock.lastCall![0] as { onChanged: () => void }).onChanged(); });
   expect(data.invalidate).toHaveBeenCalledWith('enrollments', { studentId: 1 });
+  const history = screen.getByRole('heading', { name: /^Session History/ }).parentElement!.parentElement!;
+  expect(screen.queryByText('Session progress')).not.toBeInTheDocument();
+  expect(history).toContainElement(screen.getByText('Attended'));
+  expect(history).toContainElement(screen.getByText('Scheduled'));
 });
 
-it('keeps paid linked enrollment charges locked', async () => {
+it('uses the linked summary for paid enrollments without showing the legacy editor', async () => {
   data.linkedPaymentId = 'linked-payment';
   await act(async () => { render(<EnrollmentDetailPage />); });
-  expect(screen.getByRole('button', { name: 'Edit payment' })).toBeDisabled();
+  expect(screen.getByText('Linked payment actions')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Edit payment' })).not.toBeInTheDocument();
 });

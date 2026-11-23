@@ -11,10 +11,7 @@ import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHo
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
-import { BillingPayments } from "@/components/billing/BillingPayments";
-import { Modal } from "@/components/ui/modal";
-import { billingAPI } from "@/lib/billing-api";
-import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
+import { BillingEnrollmentPaymentCard } from "@/components/billing/BillingEnrollmentPaymentCard";
 import useSWR from "swr";
 import { tutorsAPI, enrollmentsAPI, discountsAPI, summerAPI } from "@/lib/api";
 import { mutate } from "swr";
@@ -45,7 +42,7 @@ import { HideSupersededToggle, AllSessionsHiddenNote } from "@/components/sessio
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-import { formatShortDate } from "@/lib/formatters";
+import { formatMOP, formatShortDate } from "@/lib/formatters";
 import { MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
@@ -69,15 +66,11 @@ export default function EnrollmentDetailPage() {
   const { selectedLocation } = useLocation();
   const { effectiveRole, isReadOnly, canViewAdminPages } = useAuth();
   const { showToast } = useToast();
-  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
-  const [showLinkedPayment, setShowLinkedPayment] = useState(false);
-  const [linkedPaymentBusy, setLinkedPaymentBusy] = useState(false);
-  const billingOptions = useSWR(showLinkedPayment ? "enrollment-billing-options" : null, () => billingAPI.options());
   const [isEditingExtension, setIsEditingExtension] = useState(false);
   const [extensionForm, setExtensionForm] = useState({ weeks: 0, reason: "" });
   const [isSavingExtension, setIsSavingExtension] = useState(false);
@@ -1028,6 +1021,10 @@ export default function EnrollmentDetailPage() {
                 isEditingPayment && "ring-2 ring-amber-400"
               )}
             >
+              {enrollment.billing_payment_id ? (
+                <BillingEnrollmentPaymentCard key={enrollment.id} enrollment={enrollment}
+                  onChanged={() => { invalidateCaches('enrollments', { studentId: enrollment.student_id }); void mutateEnrollment(); }} />
+              ) : <>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
                   <CreditCard className="h-4 w-4" />
@@ -1052,19 +1049,13 @@ export default function EnrollmentDetailPage() {
                     label="Edit payment"
                     icon={Pencil}
                     size="sm"
-                    onClick={enrollment.billing_payment_id ? () => setShowLinkedPayment(true) : handleEditPayment}
-                    disabled={isReadOnly || (!!enrollment.billing_payment_id && enrollment.payment_status !== "Pending Payment")}
+                    onClick={handleEditPayment}
+                    disabled={isReadOnly}
                     title={isReadOnly ? "Read-only access" : "Edit payment"}
                   />
                 )}
               </div>
-              {enrollment.billing_payment_id && <Modal key={`${enrollment.id}:${enrollment.billing_payment_id}`} isOpen={showLinkedPayment} onClose={() => { if (!linkedPaymentBusy) setShowLinkedPayment(false); }} title="Enrollment payment" size="xl">
-                {showLinkedPayment && <BillingPayments inline studentId={enrollment.student_id} initialPaymentId={enrollment.billing_payment_id}
-                  canWrite={isAdmin && !isReadOnly && !!billingOptions.data?.workflow_writes_available}
-                  onBusyChange={setLinkedPaymentBusy} onChanged={() => { invalidateCaches('enrollments', { studentId: enrollment.student_id }); void mutateEnrollment(); }} />}
-              </Modal>}
               <div className="space-y-4">
-                {enrollment.billing_payment_id && <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} />}
                 {isEditingPayment ? (
                   // EDIT MODE
                   <>
@@ -1210,7 +1201,7 @@ export default function EnrollmentDetailPage() {
                     {/* Lessons Paid */}
                     {enrollment.lessons_paid && (
                       <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Lessons paid</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Sessions</span>
                         <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                           {enrollment.lessons_paid}
                         </span>
@@ -1254,8 +1245,15 @@ export default function EnrollmentDetailPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500 dark:text-gray-400">New Student</span>
                         <Badge tone="info">
-                          {enrollment.registration_fee === 0 ? "Yes" : "+$100 reg fee"}
+                          Yes
                         </Badge>
+                      </div>
+                    )}
+
+                    {enrollment.registration_fee != null && enrollment.enrollment_type !== 'Trial' && (enrollment.registration_fee > 0 || enrollment.is_new_student) && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Materials fee</span>
+                        <span className="text-sm font-medium">{formatMOP(enrollment.registration_fee, 0)}</span>
                       </div>
                     )}
 
@@ -1287,25 +1285,6 @@ export default function EnrollmentDetailPage() {
                   </>
                 )}
 
-                {/* Session Stats - always visible (read-only) */}
-                <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Session progress</p>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
-                      <p className="text-lg font-bold text-green-700 dark:text-green-400">{sessionStats.completed}</p>
-                      <p className="text-xs text-gray-500">Attended</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{sessionStats.scheduled}</p>
-                      <p className="text-xs text-gray-500">Scheduled</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
-                      <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{sessionStats.pendingMakeup}</p>
-                      <p className="text-xs text-gray-500">Pending</p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Fee Message & Actions - Collapsible */}
                 <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
@@ -1328,7 +1307,7 @@ export default function EnrollmentDetailPage() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        {enrollment.billing_payment_id ? <div className="pt-4"><BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} /></div> : enrollment.payment_status === 'Waived' ? (
+                        {enrollment.payment_status === 'Waived' ? (
                           <div className="pt-4">
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                               This enrollment is waived, so no fee is due and there is no fee message to send.
@@ -1463,6 +1442,7 @@ export default function EnrollmentDetailPage() {
                   </AnimatePresence>
                 </div>
               </div>
+              </>}
             </motion.div>
           </div>
 
@@ -1629,6 +1609,25 @@ export default function EnrollmentDetailPage() {
                 hiddenCount={sortedSessions.length - visibleSessions.length}
               />
             </div>
+
+            {/* Session progress stays with the teaching records. */}
+                <div className="mb-4">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
+                      <p className="text-lg font-bold text-green-700 dark:text-green-400">{sessionStats.completed}</p>
+                      <p className="text-xs text-gray-500">Attended</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{sessionStats.scheduled}</p>
+                      <p className="text-xs text-gray-500">Scheduled</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                      <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{sessionStats.pendingMakeup}</p>
+                      <p className="text-xs text-gray-500">Pending</p>
+                    </div>
+                  </div>
+                </div>
+
 
             {sessionsLoading ? (
               <div className="space-y-2">

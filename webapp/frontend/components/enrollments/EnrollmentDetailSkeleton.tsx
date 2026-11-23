@@ -12,15 +12,21 @@ export function EnrollmentDetailSkeleton() {
         <div className="min-w-0 rounded-lg border border-line bg-raised p-4">
           <SkeletonBlock className="mb-4 h-4 w-36" /><SkeletonFieldRows count={6} />
         </div>
-        <div className="min-w-0 rounded-lg border border-line bg-raised p-4">
-          <SkeletonBlock className="mb-4 h-4 w-32" /><SkeletonFieldRows count={4} />
-          <div className="mt-4 grid grid-cols-3 gap-2">{[0, 1, 2].map(index => <SkeletonBlock key={index} className="h-16 w-full" />)}</div>
-          <div className="mt-4 flex flex-wrap gap-2"><SkeletonBlock className="h-8 w-32" /><SkeletonBlock className="h-8 w-28" /></div>
+        <div className="min-w-0 space-y-4 rounded-lg border border-line bg-raised p-4">
+          <div className="flex items-center justify-between gap-3"><SkeletonBlock className="h-4 w-32" /><div className="flex gap-1"><SkeletonBlock className="h-7 w-7" /><SkeletonBlock className="h-7 w-7" /></div></div>
+          <div className="flex items-center justify-between gap-3"><div className="space-y-2"><SkeletonBlock className="h-3 w-16" /><SkeletonBlock className="h-8 w-32" /></div><SkeletonBlock className="h-5 w-16" /></div>
+          <SkeletonFieldRows count={2} />
+          <div className="border-t border-line pt-3"><SkeletonFieldRows count={3} /></div>
+          <div className="space-y-2 border-t border-line pt-3">
+            <SkeletonBlock className="h-8 w-full" />
+            <div className="grid grid-cols-2 gap-2"><SkeletonBlock className="h-7 w-full" /><SkeletonBlock className="h-7 w-full" /></div>
+          </div>
         </div>
       </div>
       <div className="min-w-0 rounded-lg border border-line bg-raised p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><SkeletonBlock className="h-4 w-40" /><SkeletonBlock className="h-7 w-24" /></div>
-        <div className="space-y-2">{[0, 1, 2, 3].map(index => <SkeletonBlock key={index} className="h-12 w-full" />)}</div>
+        <div className="mb-4 grid grid-cols-3 gap-2">{[0, 1, 2].map(index => <SkeletonBlock key={index} className="h-16 w-full" />)}</div>
+        <div className="space-y-2">{[0, 1, 2, 3].map(index => <SkeletonBlock key={index} className="h-16 w-full" />)}</div>
       </div>
     </div>
   </div></PageSurface>;

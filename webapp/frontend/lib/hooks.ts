@@ -658,7 +658,8 @@ export function useActivityFeed(location?: string, tutorId?: number, limit?: num
  */
 export function useGreetingLine(tutorId?: number, enabled = true) {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
-  const storageKey = `csm_greeting_line:${tutorId ?? "me"}:${today}`;
+  // Refresh the previous wording while keeping the new line stable for the day.
+  const storageKey = `csm_greeting_line:v2:${tutorId ?? "me"}:${today}`;
   // Storage is read after mounting, never during the server render, so the
   // first paint matches on both sides. "unread" means not looked yet.
   const [stored, setStored] = useState<string | null | undefined | "unread">("unread");
@@ -672,7 +673,7 @@ export function useGreetingLine(tutorId?: number, enabled = true) {
   }, [storageKey]);
 
   const { data } = useSWR(
-    enabled && stored === undefined ? ["greeting-line", tutorId ?? "me", today] : null,
+    enabled && stored === undefined ? ["greeting-line", "v2", tutorId ?? "me", today] : null,
     async () => {
       const { line } = await api.stats.getGreetingLine(tutorId);
       try {

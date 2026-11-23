@@ -345,6 +345,8 @@ def test_payment_is_atomic_for_all_classes_and_preserves_imported_coupons(env):
     assert result['status'] == 'Paid' and result['version'] == 2
     assert result['coupon_status'] == 'awaiting_receipt' and not result['can_copy']
     assert result['review']['message']['zh'] is None
+    assert result['saved_message'] == payment['review']['message']
+    assert client.get(f"/api/billing/payments/{payment['id']}").json()['saved_message'] == result['saved_message']
     for line in result['lines']:
         enrollment = session.get(Enrollment, line['enrollment_id'])
         assert enrollment.payment_status == 'Paid' and enrollment.payment_date == date(2026, 10, 17)
@@ -416,6 +418,7 @@ def test_changed_linked_enrollment_blocks_copy_and_collection(env, field, value)
     session.commit()
     detail = client.get(f"/api/billing/payments/{payment['id']}").json()
     assert detail['review_issues'] and not detail['can_copy']
+    assert detail.get('saved_message') is None
     response = client.post(f"/api/billing/payments/{payment['id']}/paid", json=pay_payload(payment))
     assert response.status_code == 409
     assert session.get(BillingPayment, payment['id']).status == 'Pending Payment'
@@ -476,6 +479,7 @@ def test_changed_session_or_tutor_blocks_confirmed_message_and_payment(env, muta
     session.commit()
     detail = client.get(f"/api/billing/payments/{payment['id']}").json()
     assert detail['review_issues'] and not detail['can_copy']
+    assert detail.get('saved_message') is None
     assert client.post(f"/api/billing/payments/{payment['id']}/paid", json=pay_payload(payment)).status_code == 409
     assert session.get(BillingPayment, payment['id']).status == 'Pending Payment'
 
@@ -499,6 +503,8 @@ def test_cancel_preserves_audit_releases_claims_and_allows_reviewed_replacement(
     cancelled = response.json()
     assert cancelled['status'] == 'Cancelled' and cancelled['version'] == 2
     assert cancelled['coupon_status'] == 'none' and not cancelled['can_copy']
+    assert cancelled['saved_message'] == payment['review']['message']
+    assert cancelled['review']['message']['zh'] is None
     assert session.query(BillingLessonClaim).count() == 0
     assert session.get(BillingPayment, payment['id']).snapshot == saved_snapshot
     assert session.query(BillingDraftRevision).count() == 1
@@ -632,3 +638,25 @@ def test_tutor_cannot_mutate_confirmed_payments(env, action, payload):
     })
     assert response.status_code == 403
     assert session.get(BillingPayment, payment['id']).version == 1
+
+
+@pytest.mark.parametrize('status', ['Paid', 'Cancelled'])
+def test_terminal_saved_message_is_withheld_when_linked_records_disagree(env, status):
+    client, session, _ = env
+    _, _, payment = confirmed(client)
+    url = f"/api/billing/payments/{payment['id']}"
+    if status == 'Paid':
+        response = client.post(f"{url}/paid", json=pay_payload(payment))
+    else:
+        response = client.post(f"{url}/cancel", json={
+            'expected_version': 1, 'idempotency_key': 'cancel-archive-check', 'reason': 'Incorrect dates.',
+        })
+    assert response.status_code == 200, response.text
+    assert response.json()['saved_message'] == payment['review']['message']
+    enrollment = session.get(Enrollment, payment['lines'][0]['enrollment_id'])
+    enrollment.revenue_total = 1
+    session.commit()
+    detail = client.get(url).json()
+    assert detail['review_issues']
+    assert detail.get('saved_message') is None
+    assert not detail['can_copy']
