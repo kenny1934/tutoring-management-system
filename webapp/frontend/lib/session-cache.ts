@@ -14,6 +14,13 @@ export function updateSessionInCache(updatedSession: Session, options?: { quiet?
   // Update single session cache (for /sessions/[id] pages)
   mutate(['session', sessionId], updatedSession, { revalidate: false });
 
+  // Search keeps a scoped envelope so permissions and selected-record details stay together.
+  mutate(
+    key => Array.isArray(key) && key[0] === 'search-preview' && key[3] === 'session' && key[4] === sessionId,
+    (current: { type: 'session'; data: Session } | undefined) => current ? { ...current, data: { ...current.data, ...updatedSession } } : current,
+    { revalidate: true }
+  );
+
   // Update all list caches that might contain this session
   // Using a matcher function to find all relevant cache keys
   mutate(

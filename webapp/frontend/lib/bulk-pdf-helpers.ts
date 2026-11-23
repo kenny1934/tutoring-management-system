@@ -7,6 +7,7 @@
  * file system utilities are passed as parameters.
  */
 
+import { loadMaterialPdf } from './materials';
 import { parsePageRange } from './pdf-utils';
 
 /**
@@ -104,6 +105,12 @@ export async function fetchPdfData(
         // Failed to read local file silently
       }
     }
+  }
+
+  if (!arrayBuffer) {
+    const material = await loadMaterialPdf(exercise.pdf_name);
+    if (material && 'denied' in material) return { exercise, arrayBuffer: null };
+    if (material) arrayBuffer = material.data;
   }
 
   // Try Paperless fallback if local failed and callback provided

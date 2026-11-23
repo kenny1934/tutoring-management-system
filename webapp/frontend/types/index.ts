@@ -2125,13 +2125,23 @@ export interface SearchResults {
     school_student_id: string | null;
     school: string | null;
     grade: string | null;
+    lang_stream?: string | null;
     phone: string | null;
+    contacts?: StudentContact[] | null;
   }>;
+  has_more?: Partial<Record<"students" | "sessions" | "enrollments" | "exams", boolean>>;
   sessions: Array<{
+    match_context?: Array<{ label: string; text: string }>;
     id: number;
     student_id: number;
     student_name: string | null;
+    school_student_id?: string | null;
+    grade?: string | null;
+    lang_stream?: string | null;
+    school?: string | null;
     session_date: string | null;
+    time_slot?: string | null;
+    location?: string | null;
     session_status: string | null;
     tutor_name: string | null;
   }>;
@@ -2139,9 +2149,17 @@ export interface SearchResults {
     id: number;
     student_id: number;
     student_name: string | null;
+    school_student_id?: string | null;
+    grade?: string | null;
+    lang_stream?: string | null;
+    school?: string | null;
     tutor_name: string | null;
     location: string | null;
     payment_status: string | null;
+    assigned_day?: string | null;
+    assigned_time?: string | null;
+    first_lesson_date?: string | null;
+    enrollment_type?: string | null;
   }>;
   exams: Array<{
     id: number;

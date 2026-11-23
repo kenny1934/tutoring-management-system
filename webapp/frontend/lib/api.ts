@@ -1013,10 +1013,14 @@ export const statsAPI = {
     return fetchAPI<string[]>("/locations");
   },
 
-  search: (query: string, location?: string, limit?: number) => {
+  search: (query: string, location?: string, limit?: number, includeHistory = false, filters?: import("@/components/commandPalette/search-filters").SearchOptions) => {
     const params = new URLSearchParams({ q: query });
     if (location && location !== "All Locations") params.append("location", location);
     if (limit) params.append("limit", limit.toString());
+    if (includeHistory) params.set("include_history", "true");
+    for (const [key, value] of Object.entries(filters ?? {})) {
+      if (value !== undefined && value !== '') params.set(key, String(value));
+    }
     return fetchAPI<SearchResults>(`/search?${params.toString()}`);
   },
 

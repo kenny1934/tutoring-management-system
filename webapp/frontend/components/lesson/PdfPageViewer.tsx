@@ -138,6 +138,8 @@ export interface PdfViewState {
 }
 
 interface PdfPageViewerProps {
+  /** Read-only preview rotation; existing lesson/annotation views keep zero. */
+  previewRotation?: number;
   pdfData: ArrayBuffer | null;
   /** Pages to render (1-indexed). Empty array = all pages. */
   pageNumbers: number[];
@@ -247,6 +249,7 @@ const MAX_RENDER_CACHE_SIZE = 30;
 export function PdfPageViewer({
   pdfData,
   pageNumbers,
+  previewRotation = 0,
   stamp,
   isLoading,
   loadingMessage,
@@ -541,7 +544,7 @@ export function PdfPageViewer({
           if (cancelled) return null;
           try {
             const page = await doc.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport(previewRotation ? { scale, rotation: ((page.rotate || 0) + previewRotation) % 360 } : { scale });
 
             const canvas = document.createElement("canvas");
             canvas.width = viewport.width;
@@ -642,7 +645,7 @@ export function PdfPageViewer({
       clearTimeout(deadline);
       destroyDocument?.();
     };
-  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick]);
+  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick, previewRotation]);
 
   // Revoke all cached page URLs on unmount
   useEffect(() => {
@@ -787,7 +790,7 @@ export function PdfPageViewer({
           if (cancelled) return null;
           try {
             const page = await doc.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport(previewRotation ? { scale, rotation: ((page.rotate || 0) + previewRotation) % 360 } : { scale });
             const canvas = document.createElement("canvas");
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -856,7 +859,7 @@ export function PdfPageViewer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, exerciseId]);
+  }, [zoom, exerciseId, previewRotation]);
 
   useLayoutEffect(() => {
     if (isLoading || isProcessing || !pdfData || pages.length === 0 || !pageStackRef.current) return;

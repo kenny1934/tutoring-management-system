@@ -20,7 +20,9 @@ from services.question_extraction import (
 
 logger = logging.getLogger(__name__)
 
-PROCESS_MODEL = "gemini-3-flash-preview"
+from services.ai_client import PROCESS_MODEL_ID
+
+PROCESS_MODEL = PROCESS_MODEL_ID
 MAX_CONCURRENT = 5
 
 # ---------------------------------------------------------------------------
@@ -92,6 +94,7 @@ def text_to_tiptap_nodes(text: str) -> list[dict]:
     parts = _MATH_RE.split(text)  # alternates: text, math_content, text, ...
     for i in range(0, len(parts), 2):  # even indices are outside math
         parts[i] = parts[i].replace("\\\\", "\n")
+        parts[i] = re.sub(r"\\n(?=\s*(?:\$|Answer:|$))", "\n", parts[i])
     # Rejoin: re-wrap odd parts (math content) with $...$
     rebuilt = []
     for i, p in enumerate(parts):
@@ -322,12 +325,16 @@ def _process_one_question_attempt(question_text: str, use_vary: bool) -> tuple[d
         thinking_level="medium",
         response_mime_type="application/json",
         max_output_tokens=16384,
-        temperature=0.3,
+        response_schema={
+            "type": "OBJECT",
+            "properties": {key: ({"type": "STRING", "enum": ["easy", "medium", "hard"]} if key == "difficulty" else {"type": "STRING"}) for key in (["solution", "topic", "subtopic", "difficulty"] + (["variant", "variant_solution"] if use_vary else []))},
+            "required": ["solution", "topic", "subtopic", "difficulty"] + (["variant", "variant_solution"] if use_vary else []),
+        },
     )
 
     if is_truncated:
-        # Try to salvage truncated JSON by closing the string and object
-        text = _salvage_truncated_json(text)
+        from fastapi import HTTPException
+        raise HTTPException(502, "The solution was incomplete. Please retry this question.")
 
     # Must always fix escapes before parsing — \beta, \theta, \frac etc.
     # collide with JSON escape sequences (\b, \t, \f) and get silently mangled

@@ -8,13 +8,12 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_, case, select
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta, time
-from constants import BASE_FEE_PER_LESSON, EXAM_EVENT_TYPES, hk_now
+from constants import BASE_FEE_PER_LESSON, hk_now
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
 from schemas import DashboardStats, StudentBasic, ActivityEvent, GreetingLine
 from services.greeting_line import greeting_line
 from auth.dependencies import get_current_user, reject_guest, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
-from utils.query_helpers import enrollment_with_student_tutor
 
 router = APIRouter()
 
@@ -246,9 +245,17 @@ def get_active_students(
 @router.get("/search")
 def global_search(
     request: Request,
-    q: str = Query(..., min_length=2, description="Search query"),
+    q: str = Query("", max_length=200, description="Search query; may be empty with explicit filters"),
     location: Optional[str] = Query(None, description="Filter by location"),
-    limit: int = Query(5, ge=1, le=10, description="Results per category"),
+    limit: int = Query(5, ge=1, le=50, description="Results per category"),
+    include_history: bool = Query(False, description="Include older sessions and past enrollments"),
+    category: Optional[str] = Query(None, pattern="^(students|sessions|enrollments|exams)$"),
+    offset: int = Query(0, ge=0),
+    from_date: Optional[date] = Query(None),
+    to_date: Optional[date] = Query(None),
+    tutor_id: Optional[int] = Query(None, ge=1),
+    student_id: Optional[int] = Query(None, ge=1),
+    status: Optional[str] = Query(None, max_length=100),
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
@@ -256,163 +263,20 @@ def global_search(
     Global search across students, sessions, and enrollments.
 
     Used by the Command Palette (Cmd+K) for quick navigation.
-    Returns categorized results for students, sessions, and enrollments.
+    Returns bounded, identifiable results for students, sessions, enrollments and exams.
+    History is explicit; the default prioritises nearby lessons and current enrollments.
     Optionally filtered by location.
     """
-    search_term = f"%{q}%"
+    from services.global_search import search_records
 
-    # Get effective role (respects Super Admin impersonation)
     effective_role = get_effective_role(request, current_user)
-
-    # Check if user can see/search phone numbers
-    can_see_phone = (
-        effective_role in ADMIN_WRITE_ROLES or
-        is_office_ip(request, db)
-    )
-
-    # Search students by name, school_student_id, school, and optionally phone
-    # Use func.coalesce to handle NULL values safely
-    student_search_conditions = [
-        Student.student_name.ilike(search_term),
-        func.coalesce(Student.school_student_id, '').ilike(search_term),
-        func.coalesce(Student.school, '').ilike(search_term)
-    ]
-    if can_see_phone:
-        student_search_conditions.append(func.coalesce(Student.phone, '').ilike(search_term))
-        student_search_conditions.append(
-            func.json_search(Student.contacts, 'one', f'%{q}%', None, '$[*].phone').isnot(None)
-        )
-
-    student_query = db.query(Student).filter(or_(*student_search_conditions))
-
-    # Filter by location if specified (via enrollment or home_location)
-    if location:
-        student_query = student_query.filter(
-            or_(
-                Student.home_location == location,
-                Student.id.in_(
-                    db.query(Enrollment.student_id).filter(Enrollment.location == location)
-                )
-            )
-        )
-
-    students = student_query.limit(limit).all()
-
-    # Search recent sessions (join with student to search by student name)
-    # Only look at sessions from the past 30 days and upcoming 30 days
-    today = hk_now().date()
-    session_window_start = today - timedelta(days=30)
-    session_window_end = today + timedelta(days=30)
-
-    # Use joinedload to eagerly load relationships
-    # Join with Tutor to also search by tutor name
-    session_query = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor)
-    ).join(
-        Student, SessionLog.student_id == Student.id
-    ).join(
-        Tutor, SessionLog.tutor_id == Tutor.id
-    ).filter(
-        SessionLog.session_date >= session_window_start,
-        SessionLog.session_date <= session_window_end,
-        or_(
-            Student.student_name.ilike(search_term),
-            func.coalesce(Student.school_student_id, '').ilike(search_term),
-            func.coalesce(Tutor.tutor_name, '').ilike(search_term)
-        )
-    )
-
-    # Filter sessions by location if specified
-    if location:
-        session_query = session_query.filter(SessionLog.location == location)
-
-    sessions = session_query.order_by(SessionLog.session_date.desc()).limit(limit).all()
-
-    # Search enrollments by student name or tutor name
-    # Use joinedload to eagerly load relationships, join with Tutor for search
-    enrollment_query = db.query(Enrollment).options(
-        *enrollment_with_student_tutor()
-    ).join(
-        Student, Enrollment.student_id == Student.id
-    ).join(
-        Tutor, Enrollment.tutor_id == Tutor.id
-    ).filter(
-        Enrollment.payment_status.in_(['Paid', 'Pending Payment']),
-        or_(
-            Student.student_name.ilike(search_term),
-            func.coalesce(Tutor.tutor_name, '').ilike(search_term)
-        )
-    )
-
-    # Filter enrollments by location if specified
-    if location:
-        enrollment_query = enrollment_query.filter(Enrollment.location == location)
-
-    enrollments = enrollment_query.limit(limit).all()
-
-    # Search exams/tests by title, school, grade
-    exam_query = db.query(CalendarEvent).filter(
-        CalendarEvent.event_type.in_(EXAM_EVENT_TYPES),
-        CalendarEvent.start_date >= today - timedelta(days=30),
-        or_(
-            CalendarEvent.title.ilike(search_term),
-            func.coalesce(CalendarEvent.school, '').ilike(search_term),
-            func.coalesce(CalendarEvent.grade, '').ilike(search_term),
-        )
-    ).order_by(CalendarEvent.start_date.asc())
-
-    exams = exam_query.limit(limit).all()
-
-    return {
-        "students": [
-            {
-                "id": s.id,
-                "student_name": s.student_name,
-                "school_student_id": s.school_student_id,
-                "school": s.school,
-                "grade": s.grade,
-                "phone": s.phone if can_see_phone else None,
-                "contacts": s.contacts if can_see_phone else None,
-            }
-            for s in students
-        ],
-        "sessions": [
-            {
-                "id": sess.id,
-                "student_id": sess.student_id,
-                "student_name": sess.student.student_name if sess.student else None,
-                "session_date": sess.session_date.isoformat() if sess.session_date else None,
-                "session_status": sess.session_status,
-                "tutor_name": sess.tutor.tutor_name if sess.tutor else None,
-            }
-            for sess in sessions
-        ],
-        "enrollments": [
-            {
-                "id": e.id,
-                "student_id": e.student_id,
-                "student_name": e.student.student_name if e.student else None,
-                "tutor_name": e.tutor.tutor_name if e.tutor else None,
-                "location": e.location,
-                "payment_status": e.payment_status,
-            }
-            for e in enrollments
-        ],
-        "exams": [
-            {
-                "id": ex.id,
-                "event_id": ex.event_id,
-                "title": ex.title,
-                "start_date": ex.start_date.isoformat() if ex.start_date else None,
-                "end_date": ex.end_date.isoformat() if ex.end_date else None,
-                "school": ex.school,
-                "grade": ex.grade,
-                "event_type": ex.event_type,
-            }
-            for ex in exams
-        ],
-    }
+    can_see_phone = effective_role in ADMIN_WRITE_ROLES or is_office_ip(request, db)
+    if from_date and to_date and from_date > to_date:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="The start date must be on or before the end date.")
+    return search_records(db, q, location, limit, include_history, can_see_phone,
+                          category=category, offset=offset, from_date=from_date, to_date=to_date,
+                          tutor_id=tutor_id, status=status, student_id=student_id)
 
 
 @router.get("/greeting-line", response_model=GreetingLine)

@@ -1,10 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from "react";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
+import { SearchSurface } from "./commandPalette/SearchSurface";
+import styles from "./commandPalette/SearchSurface.module.css";
+import { MaterialSearch } from "./commandPalette/MaterialSearch";
+import { SearchFilterControls } from "./commandPalette/SearchFilters";
+import { defaultSearchFilters, hasSearchConstraint, readCalendarWords, requestFilters, searchDate, type SearchCategory, type SearchFilters } from "./commandPalette/search-filters";
+import { usePaletteSearch } from "./commandPalette/usePaletteSearch";
+import { useSearchReturn, type SearchPlace } from "./commandPalette/useSearchReturn";
+import { restoreScroll } from "@/components/material/materialJourney";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import Fuse from "fuse.js";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
+import { SearchRecordDetail, type SearchRecord } from "./commandPalette/SearchRecordDetail";
+import { sessionLabel, enrollmentLabel } from "./commandPalette/search-result-labels";
 import { createPortal } from "react-dom";
 import { useBackToClose } from "@/hooks/useBackToClose";
 import {
@@ -40,7 +51,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api, SearchResults, studentsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
+import { studentsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -55,12 +66,10 @@ import {
   SUPER_ADMIN_PAGES,
   QUICK_ACTIONS,
   HELP_TOPICS,
-  typeBadgeColors,
   ResultItem,
   NestedCommand,
-  HelpTopic,
 } from "./commandPalette/types";
-import { parseQuery, evaluateMath, highlightMatch } from "./commandPalette/utils";
+import { parseQuery, evaluateMath } from "./commandPalette/utils";
 import { useRecentSearches } from "./commandPalette/hooks";
 import { ResultItemButton } from "./commandPalette/ResultItem";
 import { PreviewSkeleton, HelpPreview, PreviewContent } from "./commandPalette/PreviewPanel";
@@ -68,10 +77,14 @@ import { useHaptic } from "@/lib/useHaptic";
 
 export function CommandPalette() {
   const router = useRouter();
-  const { isOpen, close } = useCommandPalette();
+  const { isOpen, close, open, origin } = useCommandPalette();
+  const reduced = useReducedMotion();
+  const navigateRef = useRef<(href: string) => void>(() => {});
+  const navigate = useCallback((href: string) => navigateRef.current(href), []);
   // On a phone, back closes the search before it leaves the page.
   useBackToClose(isOpen, close);
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, user, effectiveRole, isImpersonating, impersonatedTutor, isReadOnly } = useAuth();
+  const scope = `${user?.id}:${effectiveRole}:${isImpersonating ? impersonatedTutor?.id : ""}`;
   const { theme, setTheme } = useTheme();
   const { viewMode, setViewMode } = useRole();
   const { selectedLocation, setSelectedLocation, locations } = useLocation();
@@ -155,13 +168,13 @@ export function CommandPalette() {
       title: 'Filter Sessions',
       icon: Filter,
       children: [
-        { id: 'filter-scheduled', title: 'Scheduled', icon: Calendar, execute: () => { router.push('/sessions?status=Scheduled'); close(); }},
-        { id: 'filter-trial', title: 'Trial Class', icon: Star, execute: () => { router.push('/sessions?status=Trial Class'); close(); }},
-        { id: 'filter-makeup-class', title: 'Make-up Class', icon: RefreshCw, execute: () => { router.push('/sessions?status=Make-up Class'); close(); }},
-        { id: 'filter-attended', title: 'Attended', icon: CheckCircle, execute: () => { router.push('/sessions?status=Attended'); close(); }},
-        { id: 'filter-noshow', title: 'No Show', icon: UserX, execute: () => { router.push('/sessions?status=No Show'); close(); }},
-        { id: 'filter-cancelled', title: 'Cancelled', icon: X, execute: () => { router.push('/sessions?status=Cancelled'); close(); }},
-        { id: 'filter-pending-makeups', title: 'All Pending Make-ups', icon: Clock, execute: () => { router.push('/sessions?filter=pending-makeups'); close(); }},
+        { id: 'filter-scheduled', title: 'Scheduled', icon: Calendar, execute: () => { navigate('/sessions?status=Scheduled'); close(); }},
+        { id: 'filter-trial', title: 'Trial Class', icon: Star, execute: () => { navigate('/sessions?status=Trial Class'); close(); }},
+        { id: 'filter-makeup-class', title: 'Make-up Class', icon: RefreshCw, execute: () => { navigate('/sessions?status=Make-up Class'); close(); }},
+        { id: 'filter-attended', title: 'Attended', icon: CheckCircle, execute: () => { navigate('/sessions?status=Attended'); close(); }},
+        { id: 'filter-noshow', title: 'No Show', icon: UserX, execute: () => { navigate('/sessions?status=No Show'); close(); }},
+        { id: 'filter-cancelled', title: 'Cancelled', icon: X, execute: () => { navigate('/sessions?status=Cancelled'); close(); }},
+        { id: 'filter-pending-makeups', title: 'All Pending Make-ups', icon: Clock, execute: () => { navigate('/sessions?filter=pending-makeups'); close(); }},
       ],
     });
 
@@ -171,14 +184,14 @@ export function CommandPalette() {
       title: 'Overdue Payments',
       icon: DollarSign,
       children: [
-        { id: 'pay-all', title: 'All Overdue', icon: DollarSign, execute: () => { router.push('/overdue-payments'); close(); }},
-        { id: 'pay-critical', title: 'Critical (30+ days)', icon: AlertCircle, execute: () => { router.push('/overdue-payments?urgency=critical'); close(); }},
-        { id: 'pay-high', title: 'High (15-29 days)', icon: AlertCircle, execute: () => { router.push('/overdue-payments?urgency=high'); close(); }},
+        { id: 'pay-all', title: 'All Overdue', icon: DollarSign, execute: () => { navigate('/overdue-payments'); close(); }},
+        { id: 'pay-critical', title: 'Critical (30+ days)', icon: AlertCircle, execute: () => { navigate('/overdue-payments?urgency=critical'); close(); }},
+        { id: 'pay-high', title: 'High (15-29 days)', icon: AlertCircle, execute: () => { navigate('/overdue-payments?urgency=high'); close(); }},
       ],
     });
 
     return commands;
-  }, [isAdmin, locations, selectedLocation, setSelectedLocation, router, close]);
+  }, [isAdmin, locations, selectedLocation, setSelectedLocation, navigate, close]);
 
   // Fuse instance for fuzzy search on local items (pages + quick actions)
   const fuse = useMemo(() => {
@@ -194,14 +207,31 @@ export function CommandPalette() {
   }, [allPages]);
 
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResults | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [searchArea, setSearchArea] = useState<"records" | "materials">("records");
+  const [filters, setFilters] = useState<SearchFilters>(defaultSearchFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const drillReturn = useRef<{ query: string; filters: SearchFilters; includeHistory: boolean } | null>(null);
+  const [includeHistory, setIncludeHistory] = useState(false);
+  const [activeRecord, setActiveRecord] = useState<SearchRecord | null>(null);
+  const { mutate } = useSWRConfig();
+  const openRecord = useCallback((type: SearchRecord["type"], id: number) => {
+    const row = document.getElementById(`command-result-${type}-${id}`)
+      ?? (selection.current?.id ? document.getElementById(`command-result-${selection.current.id}`) : null)
+      ?? inputRef.current;
+    const rect = row?.getBoundingClientRect();
+    setActiveRecord({ type, id, source: row, position: { x: rect?.left ?? window.innerWidth / 2, y: rect?.bottom ?? 120 } });
+    inputRef.current?.blur();
+  }, []);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [previewItem, setPreviewItem] = useState<{ type: string; id: number } | null>(null);
   const [debouncedPreviewItem, setDebouncedPreviewItem] = useState<{ type: string; id: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLElement>(null);
+  const readTop = useRef(0);
+  const pendingReturn = useRef<SearchPlace | null>(null);
+  const selection = useRef<{ key: string; index: number; id?: string; move?: boolean } | null>(null);
 
   // Recent searches hook (handles localStorage persistence)
   const { recentSearches, saveRecentSearch, clearRecentSearch, clearAllRecentSearches } = useRecentSearches();
@@ -213,71 +243,80 @@ export function CommandPalette() {
 
   // Debounce preview item to prevent rapid fetches during keyboard navigation
   useEffect(() => {
+    if (!isOpen) { setDebouncedPreviewItem(null); return; }
     const timer = setTimeout(() => {
       setDebouncedPreviewItem(previewItem);
     }, 150);
     return () => clearTimeout(timer);
-  }, [previewItem]);
+  }, [previewItem, isOpen]);
 
   // Fetch preview data based on debounced type (prevents race conditions)
-  const { data: previewData, isLoading: previewLoading } = useSWR(
-    debouncedPreviewItem ? `preview-${debouncedPreviewItem.type}-${debouncedPreviewItem.id}` : null,
+  const { data: previewData, isLoading: previewLoading, error: previewError, mutate: retryPreview } = useSWR(
+    isOpen && searchArea === "records" && debouncedPreviewItem ? ["search-preview", scope, selectedLocation, debouncedPreviewItem.type, debouncedPreviewItem.id] : null,
     async () => {
       if (!debouncedPreviewItem) return null;
       if (debouncedPreviewItem.type === 'student') {
-        return { type: 'student', data: await studentsAPI.getById(debouncedPreviewItem.id) };
+        return { type: 'student' as const, data: await studentsAPI.getById(debouncedPreviewItem.id) };
       }
       if (debouncedPreviewItem.type === 'session') {
-        return { type: 'session', data: await sessionsAPI.getById(debouncedPreviewItem.id) };
+        return { type: 'session' as const, data: await sessionsAPI.getById(debouncedPreviewItem.id) };
       }
       if (debouncedPreviewItem.type === 'enrollment') {
-        return { type: 'enrollment', data: await enrollmentsAPI.getById(debouncedPreviewItem.id) };
+        return { type: 'enrollment' as const, data: await enrollmentsAPI.getById(debouncedPreviewItem.id) };
       }
       return null;
     },
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
-  // Focus input when opened
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-      setQuery("");
-      setResults(null);
-      setSelectedIndex(0);
-      setCommandPath([]);
-      setPreviewItem(null);
-      setDebouncedPreviewItem(null);
-      setHelpPreview(null);
+  useLayoutEffect(() => {
+    if (isOpen) {
+      inputRef.current?.focus({ preventScroll: true });
+      if (listRef.current) listRef.current.scrollTop = readTop.current;
     }
   }, [isOpen]);
-
-  // Parse query for type filters
-  const { type: filterType, term: searchTerm } = useMemo(() => parseQuery(query), [query]);
-
-  // Debounced search
   useEffect(() => {
-    if (!searchTerm || searchTerm.length < 2) {
-      setResults(null);
-      setSelectedIndex(0);
-      return;
-    }
+    setSearchArea("records"); setQuery(""); setFilters(defaultSearchFilters()); setFiltersOpen(false); drillReturn.current = null; setIncludeHistory(false); setActiveRecord(null); setSelectedIndex(0); setCommandPath([]);
+    setPreviewItem(null); setDebouncedPreviewItem(null); readTop.current = 0; pendingReturn.current = null; selection.current = null;
+  }, [scope, selectedLocation]);
 
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const data = await api.stats.search(searchTerm, selectedLocation);
-        setResults(data);
-        setSelectedIndex(0);
-      } catch (error) {
-        // Search failed silently
-      } finally {
-        setLoading(false);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [query, searchTerm]);
+  useEffect(() => { if (!isOpen) setActiveRecord(null); }, [isOpen]);
+  const parsed = useMemo(() => parseQuery(query), [query]);
+  const calendar = useMemo(() => !parsed.type || parsed.type === 'session' ? readCalendarWords(parsed.term) : { term: parsed.term }, [parsed]);
+  const filterType = parsed.type || (calendar.dates ? 'session' : filters.category ? ({ students: 'student', sessions: 'session', enrollments: 'enrollment', exams: 'exam' } as const)[filters.category] : null);
+  const searchTerm = calendar.term.trim();
+  const effectiveFilters = useMemo(() => ({ ...filters,
+    ...(calendar.dates ? { category: 'sessions' as const, dates: calendar.dates } : {}),
+    ...(parsed.type && ['student', 'session', 'enrollment', 'exam'].includes(parsed.type) ? { category: `${parsed.type}s` as SearchCategory } : {}),
+    ...(parsed.type === 'exam' || (!parsed.type && !calendar.dates && filters.category === 'exams') ? { audience: 'centre' as const } : {}),
+  }), [filters, calendar.dates, parsed.type]);
+  const currentTutorId = isImpersonating ? impersonatedTutor?.id : user?.id;
+  const calendarDay = searchDate();
+  const options = useMemo(() => requestFilters(effectiveFilters, currentTutorId, new Date(`${calendarDay}T12:00:00+08:00`)), [effectiveFilters, currentTutorId, calendarDay]);
+  const filterError = options.from_date && options.to_date && options.from_date > options.to_date ? 'The start date must be on or before the end date.' : undefined;
+  const constrained = hasSearchConstraint(options);
+  const browsing = !!query || !!effectiveFilters.category || constrained;
+  const canSearch = searchTerm.length >= 2 || (!searchTerm && constrained);
+  const searchEnabled = searchArea === "records" && isOpen && !commandPath.length && !filterError && canSearch && !query.startsWith("=") && !query.startsWith("?") && filterType !== "page" && !/^(?:date|d)\s+[+-]?\d+$/i.test(query);
+  const { results, loading, error: searchError, retry, loadMore, more } = usePaletteSearch(searchTerm, selectedLocation, scope, searchEnabled, includeHistory, options);
+  const changeFilters = useCallback((next: SearchFilters) => { setFilters(next); setQuery(searchTerm); }, [searchTerm]);
+  const studentRecords = useCallback((category: SearchCategory, student: { id: number; name: string }) => {
+    drillReturn.current = { query, filters, includeHistory };
+    setFilters({ ...defaultSearchFilters(), category, audience: filters.audience, student,
+      ...(category === 'sessions' ? { dates: 'custom', to: searchDate() } : {}) });
+    setQuery(''); setIncludeHistory(category === 'sessions'); setActiveRecord(null);
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+  }, [query, filters, includeHistory]);
+  const backFromStudent = useCallback(() => {
+    const previous = drillReturn.current;
+    setFilters(previous?.filters ?? defaultSearchFilters()); setQuery(previous?.query ?? ''); setIncludeHistory(previous?.includeHistory ?? false);
+    drillReturn.current = null;
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+  }, []);
+  const refreshSearch = useCallback(() => {
+    retry();
+    void mutate(key => Array.isArray(key) && key[0] === "search-preview" && key[1] === scope && key[2] === selectedLocation);
+  }, [retry, mutate, scope, selectedLocation]);
 
   // Slash syntax: "filter/" or "loc/" etc. to enter submenu
   useEffect(() => {
@@ -398,11 +437,11 @@ export function CommandPalette() {
     }
 
     // When no query, show recent searches + action commands + nested commands + quick actions + pages
-    if (!query) {
+    if (!browsing) {
       // Recent searches
       recentSearches.forEach((search) => {
         items.push({
-          id: `recent-${search}`,
+          id: `recent-${encodeURIComponent(search)}`,
           type: "recent",
           title: search,
           href: "", // Will set query instead of navigating
@@ -467,11 +506,21 @@ export function CommandPalette() {
             id: `student-${s.id}`,
             type: "student",
             title: s.student_name,
-            subtitle: [s.school_student_id, phoneDisplay, s.school, s.grade].filter(Boolean).join(" · "),
+            subtitle: [s.school_student_id, phoneDisplay].filter(Boolean).join(" · "),
+            identity: { grade: s.grade, school: s.school, langStream: s.lang_stream },
             href: `/students/${s.id}`,
+            execute: () => openRecord("student", s.id),
             icon: User,
           });
         });
+        if (results.has_more?.students) items.push({
+          id: `more-students-${results.students.length}`, type: 'more', group: 'student',
+          title: more?.category === 'students' && !more.error ? 'Loading more students...' : 'Show more students',
+          subtitle: more?.category === 'students' && more.error ? 'Could not load more. Select to retry.' : undefined,
+          icon: ChevronRight,
+          execute: () => { void loadMore('students'); inputRef.current?.focus({ preventScroll: true }); },
+        });
+
       }
 
       // Sessions (only if no filter or filter is "session")
@@ -481,31 +530,46 @@ export function CommandPalette() {
             id: `session-${s.id}`,
             type: "session",
             title: s.student_name || "Unknown Student",
-            subtitle: [
-              s.session_date ? new Date(s.session_date).toLocaleDateString() : null,
-              s.tutor_name,
-              s.session_status,
-            ]
-              .filter(Boolean)
-              .join(" · "),
-            href: `/sessions?date=${s.session_date}`,
+            subtitle: sessionLabel(s),
+            matchContext: s.match_context,
+            identity: { grade: s.grade ?? null, school: s.school ?? null, langStream: s.lang_stream },
+            href: `/sessions/${s.id}`,
+            execute: () => openRecord("session", s.id),
             icon: Calendar,
           });
         });
+        if (results.has_more?.sessions) items.push({
+          id: `more-sessions-${results.sessions.length}`, type: 'more', group: 'session',
+          title: more?.category === 'sessions' && !more.error ? 'Loading more sessions...' : 'Show more sessions',
+          subtitle: more?.category === 'sessions' && more.error ? 'Could not load more. Select to retry.' : undefined,
+          icon: ChevronRight,
+          execute: () => { void loadMore('sessions'); inputRef.current?.focus({ preventScroll: true }); },
+        });
+
       }
 
-      // Enrollments (only if no filter - enrollments don't have a prefix)
-      if (!filterType) {
+      // Enrolments (also available directly with enr:term)
+      if (!filterType || filterType === "enrollment") {
         results.enrollments.forEach((e) => {
           items.push({
             id: `enrollment-${e.id}`,
             type: "enrollment",
             title: e.student_name || "Unknown Student",
-            subtitle: [e.tutor_name, e.location, e.payment_status].filter(Boolean).join(" · "),
-            href: `/students/${e.student_id}`,
+            subtitle: enrollmentLabel(e),
+            identity: { grade: e.grade ?? null, school: e.school ?? null, langStream: e.lang_stream },
+            execute: () => openRecord("enrollment", e.id),
+            href: `/enrollments/${e.id}`,
             icon: BookOpen,
           });
         });
+        if (results.has_more?.enrollments) items.push({
+          id: `more-enrollments-${results.enrollments.length}`, type: 'more', group: 'enrollment',
+          title: more?.category === 'enrollments' && !more.error ? 'Loading more enrolments...' : 'Show more enrolments',
+          subtitle: more?.category === 'enrollments' && more.error ? 'Could not load more. Select to retry.' : undefined,
+          icon: ChevronRight,
+          execute: () => { void loadMore('enrollments'); inputRef.current?.focus({ preventScroll: true }); },
+        });
+
       }
 
       // Exams (only if no filter or filter is "exam")
@@ -525,11 +589,19 @@ export function CommandPalette() {
             icon: GraduationCap,
           });
         });
+        if (results.has_more?.exams) items.push({
+          id: `more-exams-${results.exams.length}`, type: 'more', group: 'exam',
+          title: more?.category === 'exams' && !more.error ? 'Loading more exams...' : 'Show more exams',
+          subtitle: more?.category === 'exams' && more.error ? 'Could not load more. Select to retry.' : undefined,
+          icon: ChevronRight,
+          execute: () => { void loadMore('exams'); inputRef.current?.focus({ preventScroll: true }); },
+        });
+
       }
     }
 
     // Add matching pages using fuzzy search (only if no filter or filter is "page")
-    if (!filterType || filterType === "page") {
+    if ((!filterType || filterType === "page") && searchTerm.length >= 2 && !constrained) {
       const fuseResults = fuse.search(searchTerm);
       const matchedPages = fuseResults
         .filter(r => r.item.itemType === 'page' || r.item.itemType === 'action')
@@ -547,7 +619,7 @@ export function CommandPalette() {
     }
 
     return items;
-  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands, showToast, commandPath, nestedCommands, close]);
+  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands, showToast, commandPath, nestedCommands, close, openRecord, browsing, constrained, loadMore, more]);
 
   // Index map for O(1) lookup instead of O(n) indexOf
   const itemIndexMap = useMemo(() => {
@@ -556,8 +628,59 @@ export function CommandPalette() {
     return map;
   }, [allItems]);
 
-  // State for help preview (separate from API-fetched preview)
-  const [helpPreview, setHelpPreview] = useState<HelpTopic | null>(null);
+  const searchJourney = useSearchReturn(scope + ":" + selectedLocation, open, origin,
+    () => ({ query, filters: effectiveFilters, includeHistory, selectedId: allItems[selectedIndex]?.id, index: selectedIndex, path: commandPath, top: listRef.current?.scrollTop ?? readTop.current }),
+    place => { pendingReturn.current = place; readTop.current = place.top; setQuery(place.query); setFilters(place.filters ?? defaultSearchFilters()); setIncludeHistory(place.includeHistory ?? false); setSelectedIndex(place.index); setCommandPath(place.path); });
+  navigateRef.current = href => {
+    if (new URL(href, window.location.href).href === window.location.href) { close(); return; }
+    searchJourney.remember(); setActiveRecord(null); router.push(href); close();
+  };
+  useLayoutEffect(() => {
+    if (isOpen) searchJourney.navigation.current = false;
+  }, [isOpen, searchJourney.navigation]);
+  const returnToSource = useCallback(() => {
+    requestAnimationFrame(() => {
+      const place = origin.current;
+      if (!place || searchJourney.navigation.current || window.location.href !== place.url || document.querySelector('[role="dialog"]')) return;
+      restoreScroll(place.scroll);
+      const target = place.source?.isConnected && place.source.getClientRects().length ? place.source
+        : [...document.querySelectorAll<HTMLElement>("[data-global-search-trigger]")].find(element => element.getClientRects().length) ?? document.getElementById("main-content");
+      if (target?.id === "main-content" && !target.hasAttribute("tabindex")) target.tabIndex = -1;
+      target?.focus({ preventScroll: true });
+    });
+  }, [origin, searchJourney.navigation]);
+  useLayoutEffect(() => {
+    const key = JSON.stringify([scope, selectedLocation, query, commandPath, effectiveFilters]);
+    const previous = selection.current, returning = pendingReturn.current;
+    if (returning && loading && !results) return;
+    const explicit = !returning && previous?.key === key && selectedIndex !== previous.index;
+    let index = Math.max(0, Math.min(selectedIndex, allItems.length - 1));
+    if (returning) {
+      const found = allItems.findIndex(item => item.id === returning.selectedId);
+      index = found >= 0 ? found : Math.max(0, Math.min(returning.index, allItems.length - 1));
+      if (listRef.current) listRef.current.scrollTop = returning.top;
+      pendingReturn.current = null;
+    } else if (previous?.key !== key) {
+      index = 0; readTop.current = 0;
+      if (listRef.current) listRef.current.scrollTop = 0;
+    } else if (!explicit && previous?.id) {
+      const found = allItems.findIndex(item => item.id === previous.id);
+      if (found >= 0) index = found;
+    }
+    selection.current = { key, index, id: allItems[index]?.id, move: explicit };
+    if (index !== selectedIndex) setSelectedIndex(index);
+  }, [allItems, selectedIndex, scope, selectedLocation, query, includeHistory, commandPath, loading, results, effectiveFilters]);
+  const helpPreview = useMemo(() => {
+    const item = allItems[selectedIndex];
+    return item?.type === "help" ? HELP_TOPICS.find(topic => topic.id === item.id) ?? null : null;
+  }, [allItems, selectedIndex]);
+  const previewMatches = !!debouncedPreviewItem && allItems[selectedIndex]?.id === `${debouncedPreviewItem.type}-${debouncedPreviewItem.id}`;
+  const hasPreview = !!helpPreview || ["student", "session", "enrollment", "exam"].includes(allItems[selectedIndex]?.type);
+  useEffect(() => {
+    if (reduced || !previewRef.current || !hasPreview) return;
+    const animation = previewRef.current.animate?.([{ opacity: .65 }, { opacity: 1 }], { duration: 120, easing: "ease-out" });
+    return () => animation?.cancel();
+  }, [selectedIndex, hasPreview, previewMatches, reduced]);
 
   // Derive exam preview from search results (no API fetch needed)
   const examPreview = useMemo(() => {
@@ -571,28 +694,11 @@ export function CommandPalette() {
   useEffect(() => {
     const item = allItems[selectedIndex];
 
-    // Handle help topics (no API fetch needed)
-    if (item?.type === 'help') {
-      const topic = HELP_TOPICS.find(t => t.id === item.id);
-      setHelpPreview(topic || null);
-      setPreviewItem(null);
-      return;
-    }
-
-    // Exam preview is derived via useMemo — just clear other previews
-    if (item?.type === 'exam') {
-      setHelpPreview(null);
-      setPreviewItem(null);
-      return;
-    }
-
-    setHelpPreview(null);
-
     // Handle API-fetched previews
     if (item && ['student', 'session', 'enrollment'].includes(item.type)) {
       const entityId = parseInt(item.id.split('-')[1], 10);
       if (!isNaN(entityId)) {
-        setPreviewItem({ type: item.type, id: entityId });
+        setPreviewItem(previous => previous?.type === item.type && previous.id === entityId ? previous : { type: item.type, id: entityId });
       } else {
         setPreviewItem(null);
       }
@@ -607,7 +713,7 @@ export function CommandPalette() {
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex((prev) => Math.min(prev + 1, allItems.length - 1));
+          setSelectedIndex((prev) => Math.min(prev + 1, Math.max(0, allItems.length - 1)));
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -625,11 +731,11 @@ export function CommandPalette() {
             if (item.type === "recent") {
               // Set query instead of navigating for recent searches
               setQuery(item.title);
-            } else if ((item.type === "action" || item.type === "utility") && item.execute) {
+            } else if (item.execute) {
               // Execute action or utility command (execute handles closing if needed)
               item.execute();
             } else if (item.href) {
-              router.push(item.href);
+              navigate(item.href);
               close();
             }
           }
@@ -640,6 +746,8 @@ export function CommandPalette() {
             // Go back from submenu
             setCommandPath(prev => prev.slice(0, -1));
             setSelectedIndex(0);
+          } else if (effectiveFilters.student) {
+            backFromStudent();
           } else if (query) {
             // First escape clears query
             setQuery("");
@@ -654,99 +762,77 @@ export function CommandPalette() {
             e.preventDefault();
             setCommandPath(prev => prev.slice(0, -1));
             setSelectedIndex(0);
+          } else if (!query && effectiveFilters.student) {
+            e.preventDefault(); backFromStudent();
           }
           break;
       }
     },
-    [allItems, selectedIndex, router, close, query, commandPath, saveRecentSearch]
+    [allItems, selectedIndex, navigate, close, query, commandPath, saveRecentSearch, haptic, effectiveFilters.student, backFromStudent]
   );
 
-  // Scroll selected item into view
-  useEffect(() => {
-    if (listRef.current) {
-      const selectedElement = listRef.current.querySelector(
-        `[data-index="${selectedIndex}"]`
-      );
-      selectedElement?.scrollIntoView({ block: "nearest" });
-    }
-  }, [selectedIndex]);
+  // Arrow keys scroll only the results, preserving the page behind the search.
+  useLayoutEffect(() => {
+    if (!selection.current?.move || !listRef.current) return;
+    selection.current.move = false;
+    const list = listRef.current;
+    const selected = list.querySelector<HTMLElement>(`[data-index="${selectedIndex}"]`);
+    if (!selected) return;
+    const row = selected.getBoundingClientRect(), box = list.getBoundingClientRect();
+    if (row.top < box.top) list.scrollTop += row.top - box.top;
+    else if (row.bottom > box.bottom) list.scrollTop += row.bottom - box.bottom;
+  }, [selectedIndex, allItems]);
 
-  // Handle click outside
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) {
-        close();
-      }
-    },
-    [close]
-  );
-
-  if (!mounted || !isOpen) return null;
+  if (!mounted) return null;
 
   const modalContent = (
-    <div
-      className={cn(
-        "fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm",
-        "flex items-start justify-center pt-[15vh]",
-        "max-sm:pt-0 max-sm:items-stretch"
-      )}
-      onClick={handleBackdropClick}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command palette"
-        className={cn(
-          "w-[min(90vw,36rem)] bg-paper dark:bg-raised rounded-xl shadow-2xl",
-          "border border-line dark:border-tint",
-          "overflow-hidden flex flex-col",
-          // Mobile full-screen mode
-          "max-sm:w-full max-sm:h-full max-sm:rounded-none max-sm:border-0"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <>
+    <AnimatePresence initial={false}>
+      {isOpen && <SearchSurface key="global-search" origin={origin.current} onClose={close} onUnmount={returnToSource} input={inputRef}>
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 max-sm:py-4 border-b border-line dark:border-tint">
-          <Search className="h-5 w-5 text-accent-ink flex-shrink-0" />
+        <div className={cn(styles.header, "flex items-center gap-3 border-b border-line")}>
+          <div className={styles.query}>
+          {loading ? <RefreshCw role="status" aria-label="Searching" className="h-5 w-5 text-accent-ink flex-shrink-0 animate-spin" /> : <Search className="h-5 w-5 text-accent-ink flex-shrink-0" />}
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={event => {
+              if (searchArea === 'records') { handleKeyDown(event); return; }
+              if (event.key === 'ArrowDown' || event.key === 'Enter') { event.preventDefault(); const first = document.querySelector<HTMLButtonElement>('[data-material-result]'); if (event.key === 'Enter') first?.click(); else first?.focus(); }
+              if (event.key === 'Escape') { event.preventDefault(); if (query) setQuery(''); else close(); }
+            }}
             placeholder="Search or type ? for help"
             enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            role="combobox"
-            aria-expanded={allItems.length > 0}
-            aria-controls="command-palette-listbox"
-            aria-activedescendant={allItems[selectedIndex]?.id || undefined}
-            aria-autocomplete="list"
-            aria-label="Search commands and pages"
+            role={searchArea === 'records' ? 'combobox' : 'searchbox'}
+            aria-expanded={searchArea === 'records' ? allItems.length > 0 : undefined}
+            aria-controls={searchArea === 'records' ? 'command-palette-listbox' : undefined}
+            aria-activedescendant={searchArea === 'records' && allItems[selectedIndex] ? `command-result-${allItems[selectedIndex].id}` : undefined}
+            aria-autocomplete={searchArea === 'records' ? 'list' : undefined}
+            aria-label={searchArea === "materials" ? "Search materials" : "Search commands and pages"}
             className={cn(
-              "flex-1 bg-transparent text-gray-900 dark:text-gray-100",
+              "flex-1 min-w-0 bg-transparent text-gray-900 dark:text-gray-100",
               "placeholder:text-gray-500 dark:placeholder:text-gray-400",
               "focus:outline-none text-base max-sm:text-lg"
             )}
           />
           {/* Clear input button */}
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="p-1 hover:bg-wash rounded transition-colors"
+          <button
+              disabled={!query} aria-hidden={!query} style={{ visibility: query ? "visible" : "hidden" }}
+              aria-label="Clear search"
+              onClick={() => { setQuery(""); inputRef.current?.focus({ preventScroll: true }); }}
+              className="p-2 hover:bg-wash rounded transition-colors"
             >
               <X className="h-4 w-4 text-gray-500" />
             </button>
-          )}
-          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 max-sm:hidden">
-            <kbd className="px-1.5 py-0.5 bg-wash rounded border border-line dark:border-tint">
-              Ctrl+K
-            </kbd>
           </div>
           <button
+            aria-label="Close search"
             onClick={close}
-            className="p-1 hover:bg-wash rounded transition-colors"
+            className="p-2 hover:bg-wash rounded transition-colors"
           >
-            <X className="h-4 w-4 text-gray-500" />
+            <span className="hidden sm:inline text-sm font-medium text-accent-ink">Close</span><span className="sm:hidden text-sm font-medium text-accent-ink">Cancel</span>
           </button>
         </div>
 
@@ -782,42 +868,38 @@ export function CommandPalette() {
           </div>
         )}
 
+        <div className={styles.areas} aria-label="Search area">
+          <button aria-pressed={searchArea === 'records'} onClick={() => setSearchArea('records')}>Records and commands</button>
+          <button aria-pressed={searchArea === 'materials'} onClick={() => { setSearchArea('materials'); setCommandPath([]); }}>Materials</button>
+        </div>
+        <MaterialSearch key={scope} query={query} scope={scope} active={searchArea === 'materials'} canAssign={!isReadOnly} />
+        {searchArea === 'records' && <>
+        {!commandPath.length && !query.startsWith('=') && !query.startsWith('?') && filterType !== 'page' && <SearchFilterControls
+          filters={effectiveFilters} onChange={changeFilters} expanded={filtersOpen} onToggle={() => setFiltersOpen(value => !value)}
+          includeHistory={includeHistory} onHistory={() => setIncludeHistory(value => !value)} currentTutor={currentTutorId}
+          error={filterError} onBack={backFromStudent} />}
+
         {/* Results with Preview Panel */}
-        <div className="flex max-h-[50vh] max-sm:max-h-none max-sm:flex-1">
+        <div className={styles.body}>
           {/* Results panel */}
           <div
             ref={listRef}
             id="command-palette-listbox"
             role="listbox"
             aria-label="Search results"
-            className={cn(
-              "overflow-y-auto",
-              (debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length ? "w-[55%] border-r border-line dark:border-tint" : "w-full"
-            )}
+            aria-busy={loading}
+            onScroll={event => { readTop.current = event.currentTarget.scrollTop; }}
+            className={styles.results}
           >
-          {loading && (
-            <div className="py-2">
-              <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Searching...
-              </div>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2.5 animate-pulse">
-                  <div className="h-4 w-4 bg-line dark:bg-tint rounded" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-4 bg-line dark:bg-tint rounded w-3/4" />
-                    <div className="h-3 bg-line dark:bg-tint rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {loading && allItems.length === 0 && <div role="status" className={styles.status}><RefreshCw className="h-3 w-3 animate-spin" />Searching...</div>}
+          {searchError && <div role="status" className={styles.status}>Search could not load.<button onClick={() => retry()} className="font-medium text-accent-ink underline">Retry</button></div>}
 
           {/* Enhanced empty state with illustration */}
-          {!loading && allItems.length === 0 && searchTerm.length >= 2 && (
+          {!loading && !searchError && allItems.length === 0 && browsing && !filterError && (
             <div className="flex flex-col items-center px-4 py-6 text-center">
               <SearchNoResults className="mb-2 opacity-90" />
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                No results for &quot;{query}&quot;
+                {canSearch ? query ? <>No results for &quot;{query}&quot;</> : "No records match these filters." : "Type a name or choose a session date."}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Try @student, #session, = calc, or ? for help
@@ -825,34 +907,35 @@ export function CommandPalette() {
             </div>
           )}
 
-          {!loading && allItems.length > 0 && query && (
+          {allItems.length > 0 && browsing && (
             <div className="py-2">
               {/* Group by type */}
-              {["utility", "help", "student", "session", "enrollment", "exam", "page"].map((type) => {
-                const typeItems = allItems.filter((item) => item.type === type);
+              {["utility", "help", "student", "session", "enrollment", "exam", "page", "action"].map((type) => {
+                const typeItems = allItems.filter((item) => item.type === type || (item.type === "more" && item.group === type));
                 if (typeItems.length === 0) return null;
 
                 const typeLabels: Record<string, string> = {
+                  action: "Commands",
                   utility: "Result",
                   help: "Help",
                   student: "Students",
                   session: "Sessions",
-                  enrollment: "Enrollments",
+                  enrollment: "Enrolments",
                   exam: "Exams",
                   page: "Pages",
                 };
 
                 return (
                   <div key={type}>
-                    <div className="px-4 py-1.5 flex items-center gap-2">
+                    <div className={styles.group}>
                       <span className={cn(
-                        "text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded",
-                        typeBadgeColors[type]
+                        "text-xs font-semibold",
+                        "text-ink-subtle"
                       )}>
-                        {typeLabels[type]}
+                        {typeLabels[type]}{results?.has_more?.[`${type}s` as keyof NonNullable<typeof results.has_more>] && <span className="ml-2 font-normal text-ink-subtle">More available</span>}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {typeItems.length}
+                        {typeItems.filter(item => item.type !== "more").length}
                       </span>
                     </div>
                     {typeItems.map((item) => {
@@ -861,6 +944,7 @@ export function CommandPalette() {
 
                       return (
                         <ResultItemButton
+                          onSelect={setSelectedIndex}
                           key={item.id}
                           item={item}
                           index={index}
@@ -868,6 +952,7 @@ export function CommandPalette() {
                           searchTerm={searchTerm}
                           showEnterIcon={item.type !== 'help'}
                           onClick={() => {
+                            setSelectedIndex(index);
                             haptic.trigger("light");
                             if (query && ["student", "session", "enrollment", "exam"].includes(item.type)) {
                               saveRecentSearch(query);
@@ -875,7 +960,7 @@ export function CommandPalette() {
                             if (item.execute) {
                               item.execute();
                             } else if (item.href) {
-                              router.push(item.href);
+                              navigate(item.href);
                               close();
                             }
                           }}
@@ -889,10 +974,11 @@ export function CommandPalette() {
           )}
 
           {/* Submenu items when in nested command */}
-          {!loading && !query && commandPath.length > 0 && (
+          {!query && commandPath.length > 0 && (
             <div className="py-2">
               {allItems.map((item, idx) => (
                 <ResultItemButton
+                          onSelect={setSelectedIndex}
                   key={item.id}
                   item={item}
                   index={idx}
@@ -904,7 +990,7 @@ export function CommandPalette() {
           )}
 
           {/* Empty state with recent searches and pages when no query */}
-          {!loading && !query && commandPath.length === 0 && (
+          {!browsing && commandPath.length === 0 && (
             <div className="py-2">
               {/* Recent Searches */}
               {recentSearches.length > 0 && (
@@ -925,9 +1011,10 @@ export function CommandPalette() {
                   </div>
                   {recentSearches.map((search, index) => (
                     <ResultItemButton
+                          onSelect={setSelectedIndex}
                       key={`recent-${search}`}
                       item={{
-                        id: `recent-${search.replace(/\s+/g, '-')}`,
+                        id: `recent-${encodeURIComponent(search)}`,
                         type: "recent",
                         title: search,
                         icon: Clock,
@@ -943,7 +1030,7 @@ export function CommandPalette() {
               )}
 
               {/* Actions */}
-              <div className="px-4 py-1.5 flex items-center gap-2">
+              <div className={styles.group}>
                 <Sparkles className="h-3 w-3 text-purple-600" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Actions
@@ -951,6 +1038,7 @@ export function CommandPalette() {
               </div>
               {actionCommands.map((action, idx) => (
                 <ResultItemButton
+                          onSelect={setSelectedIndex}
                   key={action.id}
                   item={action}
                   index={recentSearches.length + idx}
@@ -963,7 +1051,7 @@ export function CommandPalette() {
               {/* Nested Commands */}
               {nestedCommands.length > 0 && (
                 <>
-                  <div className="px-4 py-1.5 flex items-center gap-2">
+                  <div className={styles.group}>
                     <Filter className="h-3 w-3 text-blue-600" />
                     <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                       Commands
@@ -971,6 +1059,7 @@ export function CommandPalette() {
                   </div>
                   {nestedCommands.map((cmd, idx) => (
                     <ResultItemButton
+                          onSelect={setSelectedIndex}
                       key={cmd.id}
                       item={{
                         id: cmd.id,
@@ -994,7 +1083,7 @@ export function CommandPalette() {
               )}
 
               {/* Quick Actions */}
-              <div className="px-4 py-1.5 flex items-center gap-2">
+              <div className={styles.group}>
                 <Zap className="h-3 w-3 text-amber-700" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Quick Actions
@@ -1002,6 +1091,7 @@ export function CommandPalette() {
               </div>
               {QUICK_ACTIONS.map((action, idx) => (
                 <ResultItemButton
+                          onSelect={setSelectedIndex}
                   key={action.id}
                   item={{
                     id: action.id,
@@ -1013,14 +1103,14 @@ export function CommandPalette() {
                   index={recentSearches.length + actionCommands.length + nestedCommands.length + idx}
                   isSelected={recentSearches.length + actionCommands.length + nestedCommands.length + idx === selectedIndex}
                   onClick={() => {
-                    router.push(action.href);
+                    navigate(action.href);
                     close();
                   }}
                 />
               ))}
 
               {/* Quick Navigation */}
-              <div className="px-4 py-1.5 flex items-center gap-2">
+              <div className={styles.group}>
                 <Grid3x3 className="h-3 w-3 text-gray-500 dark:text-gray-400" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Pages
@@ -1034,6 +1124,7 @@ export function CommandPalette() {
 
                 return (
                   <ResultItemButton
+                          onSelect={setSelectedIndex}
                     key={page.id}
                     item={{
                       id: page.id,
@@ -1047,7 +1138,7 @@ export function CommandPalette() {
                     iconColorClass={isAdminPage ? "text-amber-700 dark:text-amber-400" : undefined}
                     badge={isAdminPage ? <Shield className="h-3 w-3 text-amber-700 dark:text-amber-400" /> : undefined}
                     onClick={() => {
-                      router.push(page.href);
+                      navigate(page.href);
                       close();
                     }}
                   />
@@ -1058,20 +1149,25 @@ export function CommandPalette() {
           </div>
 
           {/* Preview panel - desktop only */}
-          {(debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length && (
-            <div className="hidden sm:block w-[45%] p-4 overflow-y-auto bg-[#fef9f3]/50 dark:bg-[#29241e]/50">
+          {hasPreview && !commandPath.length && (
+            <aside ref={previewRef} aria-label="Result preview" className={styles.preview}>
               {helpPreview ? (
                 <HelpPreview topic={helpPreview} />
               ) : examPreview ? (
                 <PreviewContent data={{ type: 'exam', data: examPreview }} />
-              ) : previewLoading ? (
+              ) : previewMatches && previewError ? (
+                <div role="alert" className="text-xs text-ink-heading">Details could not load. <button onClick={() => void retryPreview()} className="text-accent-ink underline">Retry details</button></div>
+              ) : !previewMatches || previewLoading ? (
                 <PreviewSkeleton />
               ) : (
-                <PreviewContent data={previewData ?? null} />
+                <PreviewContent data={previewData ?? null} onChanged={refreshSearch} onNavigate={navigate} onStudentRecords={studentRecords} tutorId={options.tutor_id} onSession={id => openRecord("session", id)}
+                  onOpenDetails={() => { if (debouncedPreviewItem?.type === "session" || debouncedPreviewItem?.type === "enrollment") openRecord(debouncedPreviewItem.type, debouncedPreviewItem.id); }} />
               )}
-            </div>
+            </aside>
           )}
         </div>
+
+        </>}
 
         {/* Footer hints - hidden on mobile */}
         <div className="px-4 py-2 border-t border-line dark:border-tint bg-wash/50 max-sm:hidden">
@@ -1089,7 +1185,7 @@ export function CommandPalette() {
               <kbd className="px-1 py-0.5 bg-field-fill rounded border border-line dark:border-tint text-[11px]">
                 Esc
               </kbd>
-              {query ? "Clear" : "Close"}
+              {effectiveFilters.student ? "Back" : query ? "Clear" : "Close"}
             </span>
             <span className="flex items-center gap-1">
               <span className="text-[11px]">?</span>
@@ -1097,8 +1193,13 @@ export function CommandPalette() {
             </span>
           </div>
         </div>
-      </div>
-    </div>
+      </SearchSurface>}
+    </AnimatePresence>
+    {isOpen && activeRecord && <SearchRecordDetail key={`${scope}:${selectedLocation}:${activeRecord.type}:${activeRecord.id}`} record={activeRecord} scope={scope} location={selectedLocation}
+      onStudentRecords={studentRecords} tutorId={options.tutor_id} onSession={id => openRecord("session", id)} navigate={navigate}
+      onClose={() => { setActiveRecord(null); refreshSearch(); requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true })); }} onChanged={refreshSearch}
+      onNavigate={() => { searchJourney.remember(); setActiveRecord(null); close(); }} />}
+    </>
   );
 
   return createPortal(modalContent, document.body);

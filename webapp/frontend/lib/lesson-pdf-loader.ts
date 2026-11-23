@@ -13,11 +13,12 @@ import {
 import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
 import { parseParallelPath } from './parallel-path';
 import { composeSideBySidePdf } from './pdf-utils';
+import { loadMaterialPdf } from './materials';
 import { searchPaperlessByPath } from './paperless-utils';
 
 export interface PdfLoadResult {
   data: ArrayBuffer;
-  source: 'local' | 'paperless';
+  source: 'local' | 'paperless' | 'mckb';
 }
 
 export interface PdfLoadError {
@@ -131,6 +132,12 @@ async function loadSinglePdf(
       }
     }
   }
+
+  onProgress?.("Checking Knowledge Base…");
+  const material = await loadMaterialPdf(pdfName, signal);
+  signal.throwIfAborted();
+  if (material && 'denied' in material) return { error: 'fetch_failed' };
+  if (material) return { data: material.data, source: 'mckb' };
 
   // 2. Try Paperless: check cache first
   onProgress?.("Checking Shelv\u2026");

@@ -37,9 +37,12 @@ export interface PageItem {
 // Result item type for unified list
 export interface ResultItem {
   id: string;
-  type: "student" | "session" | "enrollment" | "exam" | "page" | "recent" | "action" | "utility" | "help";
+  type: "student" | "session" | "enrollment" | "exam" | "page" | "recent" | "action" | "utility" | "help" | "more";
   title: string;
   subtitle?: string;
+  group?: string;
+  matchContext?: Array<{ label: string; text: string }>;
+  identity?: { grade: string | null; school: string | null; langStream?: string | null };
   href?: string;
   icon: IconType;
   execute?: () => void;
@@ -124,6 +127,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     content: [
       { label: '@name', desc: 'Filter to students only' },
       { label: '#term', desc: 'Filter to sessions only' },
+      { label: 'enr:term', desc: 'Filter to enrolments only' },
       { label: '!term', desc: 'Filter to exams only' },
       { label: '/page', desc: 'Filter to pages only' },
       { label: '= expr', desc: 'Calculator (e.g. = 6 * 250)' },

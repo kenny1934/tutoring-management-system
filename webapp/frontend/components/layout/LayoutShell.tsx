@@ -87,7 +87,8 @@ export function LayoutShell({ children }: LayoutShellProps) {
           <div className="flex items-center">
             <PhoneBell />
             <button
-              onClick={openCommandPalette}
+              data-global-search-trigger
+              onClick={event => openCommandPalette(event.currentTarget)}
               className="flex h-11 w-11 items-center justify-center rounded-lg active:bg-foreground/10 transition-colors"
               aria-label="Search"
             >

@@ -65,6 +65,8 @@ export interface CollectedExercise {
 }
 
 interface ExerciseModalProps {
+  /** Material search adds this draft row to the current lesson before review. */
+  initialExercise?: { pdf_name: string; pages: string };
   session: Session;
   exerciseType: "CW" | "HW";
   isOpen: boolean;
@@ -111,6 +113,7 @@ export function ExerciseModal({
   onClose,
   onSave,
   onCollect,
+  initialExercise,
   readOnly: roleReadOnly = false,
 }: ExerciseModalProps) {
   const { isReadOnly } = useAuth();
@@ -322,8 +325,14 @@ export function ExerciseModal({
             answer_complex_pages: answerComplexPages,
           };
         });
-      setExercises(filteredExercises);
-      setIsDirty(false);
+      if (initialExercise) {
+        const added = createExercise(exerciseType, initialExercise.pdf_name);
+        Object.assign(added, getPageFieldsFromSelection(parsePageInput(initialExercise.pages)) ?? {});
+        setExercises([...filteredExercises, added]);
+      } else {
+        setExercises(filteredExercises);
+      }
+      setIsDirty(!!initialExercise);
       setValidationErrors([]);
       setSelectedIndices(new Set());
       setClipboardData(getExerciseClipboard());
@@ -339,7 +348,7 @@ export function ExerciseModal({
       setBrowsingForAnswerClientId(null);
       setAnswerFolderTreeOpen(false);
     }
-  }, [isOpen, session, exerciseType]);
+  }, [isOpen, session, exerciseType, initialExercise]);
 
 
   const handleSave = useCallback(async () => {
@@ -1426,7 +1435,7 @@ export function ExerciseModal({
               ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
               : "text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
           )}>
-            No {title.toLowerCase()} assigned yet. Click "Add {title.toLowerCase()}" to add one.
+            No {title.toLowerCase()} assigned yet. Click &quot;Add {title.toLowerCase()}&quot; to add one.
           </div>
         ) : (<>
           <Reorder.Group
