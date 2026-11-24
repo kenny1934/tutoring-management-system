@@ -7,16 +7,17 @@ import { Button } from '@/components/controls';
 import { fetchResponse } from '@/lib/api';
 import { extractPagesForPrint, getPageCount } from '@/lib/pdf-utils';
 import type { MaterialResult } from './MaterialSearch';
+import type { MaterialReadingPlace } from './material-workspace';
 import styles from './MaterialSearch.module.css';
 
 const Viewer = dynamic(() => import('@/components/lesson/PdfPageViewer').then(module => module.PdfPageViewer), { ssr: false });
 
 const ALL_PAGES: number[] = [];
 
-export function MaterialOriginal({ material, scope, pages, initialPage, onPageCount }: {
-  material: MaterialResult; scope: string; pages: number[]; onPageCount: (count: number) => void; initialPage?: number;
+export function MaterialOriginal({ material, scope, pages, initialPage, onPageCount, reading }: {
+  material: MaterialResult; scope: string; pages: number[]; onPageCount: (count: number) => void; initialPage?: number; reading?: MaterialReadingPlace;
 }) {
-  const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState(reading?.rotation ?? 0);
   const [printing, setPrinting] = useState(false), [notice, setNotice] = useState('');
   const result = useSWR(['material-original', scope, material.file_id], async () => {
     const response = await fetchResponse(`/materials/${material.file_id}/raw`);
@@ -45,10 +46,10 @@ export function MaterialOriginal({ material, scope, pages, initialPage, onPageCo
   };
   return <div className={styles.original}>
     <div className={styles.actions}>
-      <Button variant="secondary" size="sm" icon={RotateCw} disabled={!result.data} aria-label="Rotate original preview" onClick={() => setRotation(value => (value + 90) % 360)}>Rotate</Button>
+      <Button variant="secondary" size="sm" icon={RotateCw} disabled={!result.data} aria-label="Rotate original preview" onClick={() => setRotation(value => { const next = (value + 90) % 360; if (reading) reading.rotation = next; return next; })}>Rotate</Button>
       <Button variant="secondary" size="sm" icon={ExternalLink} disabled={!result.data} onClick={openInTab}>Open in new tab</Button>
     </div>
-    <div className={styles.viewer}><Viewer previewRotation={rotation} pdfData={result.data?.data ?? null} pageNumbers={ALL_PAGES} initialPage={initialPage || material.matched_pages[0] || 1} keyboardNavigation renderConcurrency={2} isLoading={result.isLoading}
+    <div className={styles.viewer}><Viewer previewRotation={rotation} pdfData={result.data?.data ?? null} pageNumbers={ALL_PAGES} initialPage={initialPage || material.matched_pages[0] || 1} viewStates={reading?.pdfViews} viewKey={material.file_id} keyboardNavigation renderConcurrency={2} isLoading={result.isLoading}
       error={result.error?.message ?? null} onRetry={() => void result.mutate()} exerciseLabel={material.filename}
       onPrint={() => void print()} isPrinting={printing} printTitle={pages.length ? 'Print selected pages' : 'Print original'} /></div>
     {notice && <p role="status">{notice}</p>}

@@ -7,40 +7,48 @@ import { Button } from '@/components/controls';
 import { materialAliasPath, type MaterialResult } from './MaterialSearch';
 import { materialPages } from './material-pages';
 import { MaterialOriginal } from './MaterialOriginal';
+import { createMaterialReadingPlace, type MaterialReadingPlace } from './material-workspace';
 import styles from './MaterialSearch.module.css';
 
 const SessionSelectorModal = dynamic(() => import('@/components/sessions/SessionSelectorModal').then(module => module.SessionSelectorModal), { ssr: false });
 
-export function MaterialWorkControls({ material, scope, canAssign, heading, children, previewPage }: {
-  material: MaterialResult; scope: string; canAssign: boolean; heading?: ReactNode; children?: ReactNode; previewPage?: number | null;
+export function MaterialWorkControls({ material, scope, canAssign, heading, children, previewPage, pageNavigation, reading: saved }: {
+  material: MaterialResult; scope: string; canAssign: boolean; heading?: ReactNode; children?: ReactNode; previewPage?: number | null; reading?: MaterialReadingPlace; pageNavigation?: ReactNode;
 }) {
-  const textScroll = useRef<HTMLDivElement>(null), textTop = useRef(0);
-  const [pdfStartPage, setPdfStartPage] = useState(material.matched_pages[0] || 1);
+  const local = useRef(createMaterialReadingPlace());
+  const reading = saved ?? local.current;
+  const textScroll = useRef<HTMLDivElement>(null);
+  const [pdfStartPage, setPdfStartPage] = useState(reading.showOriginal ? reading.pdfStartPage : material.matched_pages[0] || 1);
   const assignButton = useRef<HTMLButtonElement>(null);
-  const [showOriginal, setShowOriginal] = useState(false), [assigning, setAssigning] = useState(false), [selectingSessions, setSelectingSessions] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(reading.showOriginal), [assigning, setAssigning] = useState(false), [selectingSessions, setSelectingSessions] = useState(false);
   const [count, setCount] = useState(material.page_count), [range, setRange] = useState(material.page_count === 1 ? '1' : '');
   const [notice, setNotice] = useState('');
   const selected = materialPages(range, count);
   const switchView = () => {
     if (!showOriginal) {
-      textTop.current = textScroll.current?.scrollTop ?? 0;
-      setPdfStartPage(previewPage || material.matched_pages[0] || 1);
+      reading.textTop = textScroll.current?.scrollTop ?? 0;
+      const page = reading.focusPage || reading.matchPage || previewPage || material.matched_pages[0] || 1;
+      if (page !== reading.pdfStartPage) reading.pdfViews.clear();
+      reading.pdfStartPage = page; setPdfStartPage(page);
     }
-    setShowOriginal(value => !value);
+    reading.showOriginal = !showOriginal; setShowOriginal(reading.showOriginal);
   };
-  useLayoutEffect(() => { if (!showOriginal && textScroll.current) textScroll.current.scrollTop = textTop.current; }, [showOriginal]);
+  useLayoutEffect(() => { if (!showOriginal && textScroll.current) textScroll.current.scrollTop = reading.textTop ?? 0; }, [showOriginal, reading, children]);
   const calendarReady = useCallback(() => setAssigning(false), []);
   const closePages = () => { setAssigning(false); setSelectingSessions(false); requestAnimationFrame(() => assignButton.current?.focus()); };
   const returnToAssignment = () => { setSelectingSessions(false); requestAnimationFrame(() => assignButton.current?.focus()); };
   return <div className={styles.previewLayout}>
     <div className={styles.previewHeader}>{heading}
-    {material.ext === '.pdf' && <div className={styles.actions}>
+    {(material.ext === '.pdf' || pageNavigation) && <div className={styles.actions}>
+      {material.ext === '.pdf' && <>
       <Button variant="secondary" size="sm" icon={showOriginal ? AlignLeft : FileText} aria-label={showOriginal ? 'Show extracted text' : 'View original PDF'} onClick={switchView}>{showOriginal ? 'View text' : 'View PDF'}</Button>
       {canAssign && <Button variant="secondary" size="sm" icon={CalendarPlus} aria-label="Assign to sessions" ref={assignButton} aria-haspopup="dialog" onClick={() => { setAssigning(true); setNotice(''); }}>Assign</Button>}
+      </>}
+      {pageNavigation}
     </div>}
     </div>
-    {showOriginal && <div className={styles.pdfContent}><MaterialOriginal material={material} scope={scope} pages={selected ?? []} initialPage={pdfStartPage} onPageCount={setCount} /></div>}
-    <div ref={textScroll} className={styles.previewContent} data-courseware-scroll hidden={showOriginal}>
+    {showOriginal && <div className={styles.pdfContent}><MaterialOriginal material={material} scope={scope} pages={selected ?? []} initialPage={pdfStartPage} reading={reading} onPageCount={setCount} /></div>}
+    <div ref={textScroll} className={styles.previewContent} data-courseware-scroll onScroll={event => { if (!showOriginal) reading.textTop = event.currentTarget.scrollTop; }} hidden={showOriginal}>
     {notice && <p role="status">{notice}</p>}
     {children}
     </div>

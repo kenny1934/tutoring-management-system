@@ -92,3 +92,14 @@ describe("PDF preparation recovery", () => {
     expect(views.get(1)!.zoom).toBe(saved.zoom);
   });
 });
+
+it('does not replace a saved place while a loading placeholder has no scroller', async () => {
+  const views = new Map<number, PdfViewState>();
+  const view = render(<PdfPageViewer {...base} viewStates={views} />);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  const scroll = view.container.querySelector<HTMLElement>('[data-native-pdf-scroll]')!;
+  scroll.scrollTop = 240; fireEvent.scroll(scroll);
+  const saved = { ...views.get(1)! };
+  view.rerender(<PdfPageViewer {...base} isLoading viewStates={views} onViewStateChange={() => {}} />);
+  expect(views.get(1)).toEqual(saved);
+});

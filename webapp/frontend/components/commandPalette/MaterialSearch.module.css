@@ -88,3 +88,25 @@
 .pdfContent { flex: 1; min-width: 0; min-height: 0; display: flex; overflow: hidden; padding: 8px 12px; }
 .pdfContent .original { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; margin: 0; }
 .pdfContent .viewer { flex: 1; min-width: 0; height: auto; min-height: 0; }
+
+.historyHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 20px; font-size: 0.75rem; color: var(--color-ink-subtle); }
+.historyHeader button { text-decoration: underline; text-underline-offset: 3px; }
+.historyRow { display: flex; align-items: center; gap: 4px; }
+.historyRow > button:first-child { flex: 1; min-width: 0; }
+
+.historyHeader button { min-height: 32px; }
+@media (max-width: 639px) { .historyHeader { padding-inline: 16px; } .historyHeader button { min-height: 44px; } }
+
+.previewHeader .pageLinks { display: flex; align-items: center; gap: 3px; min-width: 0; flex: 1; overflow-x: auto; overscroll-behavior-x: contain; }
+.pageLinks button { flex-shrink: 0; min-width: 28px; min-height: 32px; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+.pageLinks button[aria-pressed='true'] { background: var(--color-tint); font-weight: 600; }
+.coverage { min-width: 0; font-size: 11px; color: var(--color-ink-subtle); }
+.coverage summary { display: flex; align-items: center; gap: 4px; cursor: pointer; min-height: 32px; list-style: none; }
+.coverage summary::-webkit-details-marker { display: none; }
+.coverage summary span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coverage summary svg { flex-shrink: 0; }
+.coverage[open] summary svg { transform: rotate(180deg); }
+.coverage p { position: absolute; inset: 100% 0 auto; z-index: 2; margin: 0; padding: 12px; border: 1px solid var(--color-line); background: var(--color-paper); box-shadow: 0 4px 12px #0002; }
+.matchNavigation .matchSummary { align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.matchSummary > span { flex-shrink: 0; }
+@media (max-width: 639px) { .pageLinks button { min-width: 36px; min-height: 44px; } }
