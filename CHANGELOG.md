@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.13](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.12...v2.4.13) (2026-11-24)
+
+### Improvements
+
+* **Courseware history**: Recall recent searches with their source and folder filters, or remove saved searches you no longer need.
+* **Search continuity**: Reopen the console at the same result, highlighted match and reading position, including PDF zoom and rotation.
+* **Matching pages**: Jump directly to a matching page in extracted text or the original PDF, including matches beyond the initial text preview.
+* **Search coverage**: See when a document still needs text recognition or has incomplete extraction, with clearer explanations for limited search results.
+
+### Bug Fixes
+
+* **PDF position**: Preserve the visible page and reading position when switching views or reopening the console, with an accurate page counter.
+
 ## [2.4.12](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.11...v2.4.12) (2026-11-24)
 
 ### Improvements

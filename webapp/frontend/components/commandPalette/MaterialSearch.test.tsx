@@ -15,7 +15,7 @@ function mount(query = 'fractions', scope = 'tutor-1') {
   return { ...result, change: (value: string, identity = scope) => result.rerender(view(value, identity)) };
 }
 beforeEach(() => {
-  mocks.fetch.mockReset();
+  localStorage.clear(); mocks.fetch.mockReset();
   mocks.fetch.mockImplementation(async (path: string) => {
     if (path.endsWith('/sources')) return sources;
     if (path.includes('/preview')) return { file_id: 1, chunks: [{ chunk_index: 0, page_start: 1, page_end: 2, content: 'Practice fractions here', highlights: [[9, 18]] }], truncated: false };
@@ -44,7 +44,8 @@ describe('Courseware search', () => {
     mount(); const result = await screen.findByRole('button', { name: /Worksheet 1/ }); fireEvent.click(result);
     const preview = await screen.findByRole('region', { name: 'Courseware preview' });
     expect(await within(preview).findByText('Pages 1–2')).toBeInTheDocument();
-    expect(within(preview).getByText('Matches within pages 1, 2')).toBeInTheDocument();
+    expect(within(preview).getByRole('group', { name: 'Matching pages' })).toBeInTheDocument();
+    expect(within(preview).getByRole('button', { name: 'Show matching page 2' })).toBeVisible();
     fireEvent.keyDown(preview, { key: 'Escape' });
     await waitFor(() => expect(result).toHaveFocus());
     expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
@@ -131,4 +132,117 @@ describe('Courseware search', () => {
     expect(container.querySelector('mark')).toHaveTextContent('分數');
     expect(container.textContent).toBe('📚 分數 practice');
   });
+});
+
+it('restores source filters, loaded results, selection, match and reading position after the console unmounts', async () => {
+  const { createMaterialWorkspace } = await import('./material-workspace');
+  const workspace = createMaterialWorkspace(), cache = new Map();
+  mocks.fetch.mockImplementation(async (path: string, options: { body: string }) => path.endsWith('/sources') ? sources : path.includes('/preview') ? {
+    file_id: 3, chunks: [1, 16].map((number, index) => ({ chunk_index: index, page_start: number, page_end: number, content: 'fractions', highlights: [[0, 9]] })), truncated: false,
+  } : JSON.parse(options.body).page === 1 ? page([1, 2], 3) : page([3], 3, 2));
+  const tree = (open: boolean, query = 'fractions') => <SWRConfig value={{ provider: () => cache, dedupingInterval: 0 }}>{open && <MaterialSearch query={query} scope="continuity" workspace={workspace} />}</SWRConfig>;
+  const view = render(tree(true));
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: 'developer' } });
+  fireEvent.change(screen.getByLabelText('Courseware sort'), { target: { value: 'recent' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Load more courseware' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 3/ }));
+  await screen.findByText('1 of 2 matches');
+  fireEvent.click(screen.getByRole('button', { name: 'Next text match' }));
+  const list = screen.getByLabelText('Courseware results'), text = document.querySelector<HTMLElement>('[data-courseware-scroll]')!;
+  list.scrollTop = 300; fireEvent.scroll(list); text.scrollTop = 1400; fireEvent.scroll(text);
+  view.rerender(tree(false)); view.rerender(tree(true));
+  expect(screen.getByLabelText('Courseware source')).toHaveValue('developer');
+  expect(screen.getByLabelText('Courseware sort')).toHaveValue('recent');
+  await screen.findByRole('region', { name: 'Courseware preview' });
+  expect(await screen.findByText('2 of 2 matches')).toBeVisible();
+  expect(screen.getByRole('button', { name: /Worksheet 3/ })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByLabelText('Courseware results').scrollTop).toBe(300);
+  expect(document.querySelector('[data-courseware-scroll]')?.scrollTop).toBe(1400);
+  expect(workspace.reading?.place.matchPage).toBe(16);
+  view.rerender(tree(true, 'new query'));
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull());
+});
+
+it('recalls courseware history with source filters and allows removing it', async () => {
+  const query = '4x^2-y^2+10x-y';
+  let current = query;
+  const cache = new Map();
+  const change = (value: string) => { current = value; view.rerender(tree()); };
+  const tree = () => <SWRConfig value={{ provider: () => cache }}><MaterialSearch query={current} scope="history-user" onQueryChange={change} /></SWRConfig>;
+  const view = render(tree());
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: 'msa_scan' } });
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  change('');
+  const recall = await screen.findByRole('button', { name: `Search courseware for ${query}` });
+  fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: '' } });
+  fireEvent.click(recall);
+  await waitFor(() => expect(screen.getByLabelText('Courseware source')).toHaveValue('msa_scan'));
+  await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search')).at(-1)![1].body)).toMatchObject({ q: query, share: 'msa_scan' }));
+  change('');
+  fireEvent.click(await screen.findByRole('button', { name: `Remove courseware search ${query}` }));
+  expect(screen.queryByRole('button', { name: `Search courseware for ${query}` })).toBeNull();
+});
+
+it('qualifies empty results only when the selected accessible source has known text gaps', async () => {
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? { sources: [
+    { id: 'center', label: 'Center', coverage: { files: 10, limited_files: 0 } },
+    { id: 'developer', label: 'Developer', coverage: { files: 10, limited_files: 3 } },
+  ] } : page([], 0));
+  mount();
+  expect(await screen.findByRole('note')).toHaveTextContent('Some files in these sources have no searchable text');
+  fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: 'center' } });
+  await screen.findByText('No courseware matches. Try fewer words or broaden the filters.');
+  expect(screen.queryByRole('note')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: 'developer' } });
+  expect(await screen.findByRole('note')).toBeVisible();
+});
+
+it('distinguishes deferred OCR from uncertain recognised text and keeps the explanation collapsed', async () => {
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? sources : path.includes('/preview') ? {
+    file_id: 1, chunks: [], truncated: false, extraction_metadata: { needs_review: true, pages: [] },
+    coverage: { status: 'awaiting_ocr', has_text: false, total_pages: 3, native: 0, ocr: 0, pending_ocr: 3, failed_ocr: 0 },
+  } : page([1]));
+  mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  const details = await screen.findByLabelText('Text coverage');
+  expect(details).not.toHaveAttribute('open');
+  expect(within(details).getByText('OCR not run · 3 pages')).toBeVisible();
+  expect(screen.queryByText(/uncertain OCR/)).toBeNull();
+  fireEvent.click(within(details).getByText('OCR not run · 3 pages'));
+  expect(within(details).getByText(/may include blank or sparse pages/)).toBeVisible();
+  fireEvent.keyDown(details, { key: 'Escape' });
+  expect(details).not.toHaveAttribute('open');
+  expect(screen.getByRole('region', { name: 'Courseware preview' })).toBeVisible();
+});
+
+it('loads a matching page omitted by the initial text cap, preserves highlights, and returns to all matches', async () => {
+  const later = 'Later fractions page';
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? { ...sources, features: ['coverage', 'focused_preview'] } : path.includes('/preview') ? {
+    file_id: 1, chunks: [{ chunk_index: path.includes('&page=16') ? 15 : 0, page_start: path.includes('&page=16') ? 16 : 1, page_end: path.includes('&page=16') ? 16 : 1,
+      content: path.includes('&page=16') ? later : 'fractions', highlights: path.includes('&page=16') ? [[6, 15]] : [[0, 9]] }], truncated: !path.includes('&page=16'),
+  } : { ...page([1]), results: [{ ...row(1), page_count: 34, matched_pages: [1, 16] }] });
+  mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  await screen.findByText('Page 1');
+  fireEvent.click(screen.getByRole('button', { name: 'Show matching page 16' }));
+  await screen.findByText('Page 16');
+  expect(mocks.fetch).toHaveBeenCalledWith('/materials/1/preview?q=fractions&page=16');
+  expect(screen.getByRole('button', { name: 'Show matching page 16' })).toHaveAttribute('aria-pressed', 'true');
+  expect(document.querySelector('[data-current-match]')).toHaveTextContent('fractions');
+  expect(document.querySelector('[data-text-chunk]')).toHaveTextContent(later);
+  fireEvent.click(screen.getByRole('button', { name: 'Show all matching text' }));
+  await screen.findByText('Page 1');
+  expect(screen.getByRole('button', { name: 'Show all matching text' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('can jump within an existing preview when the provider has not deployed focused-page support', async () => {
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? sources : path.includes('/preview') ? {
+    file_id: 1, chunks: [1, 16].map((number, index) => ({ chunk_index: index, page_start: number, page_end: number, content: 'fractions', highlights: [[0, 9]] })), truncated: false,
+  } : { ...page([1]), results: [{ ...row(1), page_count: 34, matched_pages: [1, 16] }] });
+  mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  await screen.findByText('Page 1');
+  fireEvent.click(screen.getByRole('button', { name: 'Show matching page 16' }));
+  await screen.findByText('Page 16');
+  expect(screen.queryByText('Page 1')).toBeNull();
+  expect(mocks.fetch.mock.calls.filter(call => call[0].includes('/preview')).every(call => !call[0].includes('&page='))).toBe(true);
 });

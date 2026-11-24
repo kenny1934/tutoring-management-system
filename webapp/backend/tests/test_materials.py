@@ -80,3 +80,14 @@ def test_missing_original_gives_an_opening_option_without_exposing_nas_details(c
     assert response.status_code == 404
     assert 'connected folders' in response.json()['detail']
     assert 'private' not in response.text
+
+
+def test_focused_preview_forwards_the_page_and_keeps_coverage(client, monkeypatch):
+    def handler(request):
+        assert json.loads(request.content) == {'file_id': 7, 'q': '4x^2-y^2', 'page': 16}
+        return httpx.Response(200, json={'focused_page': 16, 'coverage': {'status': 'awaiting_ocr'}, 'chunks': []})
+    intercept(monkeypatch, handler)
+    response = client.get('/api/materials/7/preview', params={'q': '4x^2-y^2', 'page': 16})
+    assert response.status_code == 200
+    assert response.json()['coverage']['status'] == 'awaiting_ocr'
+    assert client.get('/api/materials/7/preview?page=0').status_code == 422

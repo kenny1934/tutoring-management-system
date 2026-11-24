@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fra
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { SearchSurface } from "./commandPalette/SearchSurface";
 import styles from "./commandPalette/SearchSurface.module.css";
+import { createMaterialWorkspace } from "./commandPalette/material-workspace";
 import { MaterialSearch } from "./commandPalette/MaterialSearch";
 import { SearchFilterControls } from "./commandPalette/SearchFilters";
 import { defaultSearchFilters, hasSearchConstraint, readCalendarWords, requestFilters, searchDate, type SearchCategory, type SearchFilters } from "./commandPalette/search-filters";
@@ -88,6 +89,7 @@ export function CommandPalette() {
   const { theme, setTheme } = useTheme();
   const { viewMode, setViewMode } = useRole();
   const { selectedLocation, setSelectedLocation, locations } = useLocation();
+  const materialWorkspace = useMemo(createMaterialWorkspace, [scope, selectedLocation]);
   const { showToast } = useToast();
   const haptic = useHaptic();
 
@@ -629,8 +631,8 @@ export function CommandPalette() {
   }, [allItems]);
 
   const searchJourney = useSearchReturn(scope + ":" + selectedLocation, open, origin,
-    () => ({ query, filters: effectiveFilters, includeHistory, selectedId: allItems[selectedIndex]?.id, index: selectedIndex, path: commandPath, top: listRef.current?.scrollTop ?? readTop.current }),
-    place => { pendingReturn.current = place; readTop.current = place.top; setQuery(place.query); setFilters(place.filters ?? defaultSearchFilters()); setIncludeHistory(place.includeHistory ?? false); setSelectedIndex(place.index); setCommandPath(place.path); });
+    () => ({ area: searchArea, query, filters: effectiveFilters, includeHistory, selectedId: allItems[selectedIndex]?.id, index: selectedIndex, path: commandPath, top: listRef.current?.scrollTop ?? readTop.current }),
+    place => { setSearchArea(place.area ?? "records"); pendingReturn.current = place; readTop.current = place.top; setQuery(place.query); setFilters(place.filters ?? defaultSearchFilters()); setIncludeHistory(place.includeHistory ?? false); setSelectedIndex(place.index); setCommandPath(place.path); });
   navigateRef.current = href => {
     if (new URL(href, window.location.href).href === window.location.href) { close(); return; }
     searchJourney.remember(); setActiveRecord(null); router.push(href); close();
@@ -872,7 +874,7 @@ export function CommandPalette() {
           <button aria-pressed={searchArea === 'records'} onClick={() => setSearchArea('records')}>Records</button>
           <button aria-pressed={searchArea === 'materials'} onClick={() => { setSearchArea('materials'); setCommandPath([]); }}>Courseware</button>
         </div>
-        <MaterialSearch key={scope} query={query} scope={scope} active={searchArea === 'materials'} canAssign={!isReadOnly} />
+        <MaterialSearch key={`${scope}:${selectedLocation}`} workspace={materialWorkspace} onQueryChange={setQuery} query={query} scope={`${scope}:${selectedLocation}`} active={searchArea === 'materials'} canAssign={!isReadOnly} />
         {searchArea === 'records' && <>
         {!commandPath.length && !query.startsWith('=') && !query.startsWith('?') && filterType !== 'page' && <SearchFilterControls
           filters={effectiveFilters} onChange={changeFilters} expanded={filtersOpen} onToggle={() => setFiltersOpen(value => !value)}

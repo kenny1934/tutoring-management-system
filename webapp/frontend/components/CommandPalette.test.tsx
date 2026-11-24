@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SWRConfig } from "swr";
 import { CommandPaletteProvider, useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { CommandPalette } from "./CommandPalette";
-const mocks = vi.hoisted(() => ({ fetch: vi.fn(), search: vi.fn(), student: vi.fn(), session: vi.fn(), enrollment: vi.fn(), push: vi.fn(), auth: { user: { id: 5 }, effectiveRole: "Tutor", isAdmin: false, isSuperAdmin: false }, locations: ["MSA", "MSB"], noop: () => {} }));
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), search: vi.fn(), student: vi.fn(), session: vi.fn(), enrollment: vi.fn(), push: vi.fn(), auth: { user: { id: 5 }, effectiveRole: "Tutor", isAdmin: false, isSuperAdmin: false }, locations: ["MSA", "MSB"], location: "MSA", noop: () => {} }));
 vi.mock("next/navigation", async () => {
   const { useSyncExternalStore } = await import("react");
   const subscribe = (fn: () => void) => { window.addEventListener("popstate", fn); window.addEventListener("search-navigation", fn); return () => { window.removeEventListener("popstate", fn); window.removeEventListener("search-navigation", fn); }; };
@@ -14,7 +14,7 @@ vi.mock("next/navigation", async () => {
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "light", setTheme: mocks.noop }) }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => mocks.auth }));
 vi.mock("@/contexts/RoleContext", () => ({ useRole: () => ({ viewMode: "my-view", setViewMode: mocks.noop }) }));
-vi.mock("@/contexts/LocationContext", () => ({ useLocation: () => ({ selectedLocation: "MSA", setSelectedLocation: mocks.noop, locations: mocks.locations }) }));
+vi.mock("@/contexts/LocationContext", () => ({ useLocation: () => ({ selectedLocation: mocks.location, setSelectedLocation: mocks.noop, locations: mocks.locations }) }));
 vi.mock("@/contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.noop }) }));
 vi.mock("@/lib/hooks/useSummerPreGradeWindow", () => ({ useSummerPreGradeWindow: () => false }));
 vi.mock("@/lib/useHaptic", () => ({ useHaptic: () => ({ trigger: mocks.noop }) }));
@@ -28,7 +28,7 @@ const response = { students: [1, 2].map(id => ({ id, student_name: `Learner ${id
 function mount() { return render(<SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}><CommandPaletteProvider><Trigger /><CommandPalette /></CommandPaletteProvider></SWRConfig>); }
 const input = () => screen.getByRole("combobox", { name: "Search commands and pages" });
 beforeEach(() => {
-  window.history.replaceState({}, "", "/sessions"); localStorage.clear(); mocks.auth.isAdmin = false; mocks.auth.isSuperAdmin = false;
+  window.history.replaceState({}, "", "/sessions"); localStorage.clear(); mocks.location = "MSA"; mocks.auth.user.id = 5; mocks.auth.isAdmin = false; mocks.auth.isSuperAdmin = false;
   mocks.session.mockReset().mockResolvedValue({ id: 71, student_name: "Search Learner", session_date: "2026-11-23", exercises: [], session_status: "Scheduled" });
   mocks.enrollment.mockReset().mockResolvedValue({ id: 81, student_name: "Search Learner", payment_status: "Paid" });
   mocks.search.mockReset().mockResolvedValue(response); mocks.student.mockReset().mockImplementation(async (id: number) => ({ id, student_name: `Learner ${id}`, school: "School", grade: "F2" }));
@@ -202,4 +202,32 @@ describe("Material search entry", () => {
     expect(screen.getByLabelText('Courseware source')).toHaveValue('center');
     await screen.findByRole('button', { name: /Fractions.pdf/ });
   });
+});
+
+it('restores courseware after closing and clears the workspace when the centre or account changes', async () => {
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? { sources: [{ id: 'center', label: 'Center' }] } : path.includes('/preview') ? { file_id: 4, chunks: [], truncated: false } : {
+    total: 1, page: 1, page_size: 20, facets: { share: {}, folder: {}, ext: {}, modified: {} }, results: [{ file_id: 4, filename: 'Fractions.pdf', share: 'center', ext: '.pdf', rel_path: 'Fractions.pdf', nas_path: '\\\\nas\\Center\\Fractions.pdf', page_count: 2, matched_pages: [], snippet: '', highlights: [], duplicate_count: 0, duplicate_locations: [] }],
+  });
+  const cache = new Map();
+  const tree = () => <SWRConfig value={{ provider: () => cache }}><CommandPaletteProvider><Trigger /><CommandPalette /></CommandPaletteProvider></SWRConfig>;
+  const view = render(tree());
+  fireEvent.click(screen.getByText('Open search')); fireEvent.click(screen.getByRole('button', { name: 'Courseware' }));
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search courseware' }), { target: { value: 'fractions' } });
+  await screen.findByRole('option', { name: 'Center' });
+  fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: 'center' } });
+  fireEvent.click(await screen.findByRole('button', { name: /Fractions.pdf/ }));
+  await screen.findByRole('region', { name: 'Courseware preview' });
+  fireEvent.click(screen.getByRole('button', { name: 'Close search' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  fireEvent.click(screen.getByText('Open search'));
+  expect(screen.getByRole('searchbox', { name: 'Search courseware' })).toHaveValue('fractions');
+  expect(screen.getByLabelText('Courseware source')).toHaveValue('center');
+  await screen.findByRole('region', { name: 'Courseware preview' });
+  mocks.location = 'MSB'; view.rerender(tree());
+  expect(input()).toHaveValue(''); expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Courseware' }));
+  expect(screen.getByLabelText('Courseware source')).toHaveValue('');
+  expect(screen.queryByRole('group', { name: 'Recent courseware searches' })).toBeNull();
+  mocks.auth.user.id = 7; view.rerender(tree());
+  expect(input()).toHaveValue(''); expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
 });

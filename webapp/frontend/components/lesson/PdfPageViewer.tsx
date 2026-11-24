@@ -348,6 +348,7 @@ export function PdfPageViewer({
   // scroll position goes back once that zoom has been drawn. Scrolling isn't
   // recorded while a view is waiting, so the outgoing pages can't overwrite it.
   const restoreRef = useRef<(PdfViewState & { zoomTarget?: number }) | null>(null);
+  const restoringSavedView = useRef(false);
 
   // The saved view this viewer uses: its own key if it was given one, and otherwise the exercise's.
   const viewId = viewKey ?? exerciseId;
@@ -355,6 +356,8 @@ export function PdfPageViewer({
   const saveView = useCallback(() => {
     if (viewId == null || !viewStates || restoreRef.current) return;
     const el = scrollContainerRef.current;
+    // Loading or rotation can temporarily replace the scroller with a placeholder.
+    if (!el) return;
     viewStates.set(viewId, {
       zoom: zoomRef.current,
       userZoomed: userHasZoomed.current,
@@ -698,6 +701,7 @@ export function PdfPageViewer({
   // left in, or the top of the first page at fit-to-width if it's new.
   useLayoutEffect(() => {
     const saved = viewId != null ? viewStates?.get(viewId) : undefined;
+    restoringSavedView.current = !!saved;
     restoreRef.current = saved
       ? { ...saved }
       : { zoom: 0, userZoomed: false, scrollTop: 0, scrollLeft: 0, inkHidden: false, covers: {} };
@@ -735,9 +739,15 @@ export function PdfPageViewer({
   const initialPageApplied = useRef<{ data: ArrayBuffer; page: number; rotation: number } | null>(null);
   useLayoutEffect(() => {
     if (!initialPage || !pdfData || !pages.length || restoreRef.current || isProcessing) return;
+    // Apply the page anchor after the fitted page dimensions have reached the DOM.
+    if (!userHasZoomed.current && zoom !== fitZoomRef.current) return;
     const opening = previewStartRef.current;
     if (!opening || opening.rotation !== previewRotation || opening.data !== pdfData) return;
     if (initialPageApplied.current?.data === pdfData && initialPageApplied.current.page === initialPage && initialPageApplied.current.rotation === previewRotation) return;
+    if (restoringSavedView.current && initialPageApplied.current?.data !== pdfData) {
+      initialPageApplied.current = { data: pdfData, page: initialPage, rotation: previewRotation };
+      return;
+    }
     const number = Math.max(1, Math.min(opening.match === initialPage ? opening.page : initialPage, pages.length));
     const container = scrollContainerRef.current, target = pageRefs.current[number - 1];
     if (!container || !target) return;
@@ -798,10 +808,10 @@ export function PdfPageViewer({
       setCurrentVisiblePage(closest);
     };
 
+    updateVisiblePage();
     container.addEventListener("scroll", updateVisiblePage, { passive: true });
     return () => container.removeEventListener("scroll", updateVisiblePage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages.length]);
+  }, [pages.length, isProcessing, zoom]);
 
   // Debounced hi-res re-render when zoom exceeds current render resolution
   // Uses pagesRef to avoid re-triggering when pages change (prevents flash on initial load)

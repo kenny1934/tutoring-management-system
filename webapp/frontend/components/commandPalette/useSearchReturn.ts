@@ -7,7 +7,7 @@ import type { SearchOrigin } from "@/contexts/CommandPaletteContext";
 
 import type { SearchFilters } from "./search-filters";
 
-export type SearchPlace = { filters?: SearchFilters; query: string; includeHistory?: boolean; selectedId?: string; index: number; path: string[]; top: number };
+export type SearchPlace = { area?: "records" | "materials"; filters?: SearchFilters; query: string; includeHistory?: boolean; selectedId?: string; index: number; path: string[]; top: number };
 const KEY = "csmSearchReturn";
 
 /** Keep only navigation coordinates and the query in tab memory, never in the URL or storage. */

@@ -41,7 +41,7 @@ def request_materials(action: str, payload: dict, user: Tutor):
     if response.status_code == 404 and action in ("preview", "resolve"):
         raise HTTPException(404, "This material is no longer available.")
     if response.status_code == 422:
-        raise HTTPException(422, "Check the courseware search filters.")
+        raise HTTPException(422, "Choose a page within this document." if action == "preview" else "Check the courseware search filters.")
     if not response.is_success:
         raise HTTPException(503, "Courseware search is temporarily unavailable.")
     try:
@@ -73,10 +73,10 @@ def search(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
 
 
 @router.get("/{file_id}/preview")
-def preview(file_id: int, q: str = Query(default="", max_length=256), user: Tutor = Depends(get_current_user)):
+def preview(file_id: int, q: str = Query(default="", max_length=256), page: int | None = Query(default=None, ge=1, le=100000), user: Tutor = Depends(get_current_user)):
     if file_id <= 0:
         raise HTTPException(404, "This material is no longer available.")
-    return request_materials("preview", {"file_id": file_id, "q": q}, user)
+    return request_materials("preview", {"file_id": file_id, "q": q, **({"page": page} if page is not None else {})}, user)
 
 
 @router.get("/{file_id}/raw")
