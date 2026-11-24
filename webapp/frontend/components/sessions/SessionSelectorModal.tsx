@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import useSWR from "swr";
 import { Modal } from "@/components/ui/modal";
 import { Button, IconButton } from "@/components/controls";
@@ -55,6 +55,8 @@ interface SessionSelectorModalProps {
   onClose: () => void;
   files: FileSelection[];
   onAssignComplete?: () => void;
+  /** Keep the preceding overlay until this calendar owns its history entry. */
+  onReady?: () => void;
 }
 
 export function SessionSelectorModal({
@@ -62,10 +64,12 @@ export function SessionSelectorModal({
   onClose,
   files,
   onAssignComplete,
+  onReady,
 }: SessionSelectorModalProps) {
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
   const today = getToday();
+  useEffect(() => { if (isOpen) onReady?.(); }, [isOpen, onReady]);
 
   // Calendar state
   const [viewDate, setViewDate] = useState<Date>(today);

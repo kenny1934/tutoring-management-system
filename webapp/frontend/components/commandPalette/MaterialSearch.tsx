@@ -39,6 +39,7 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
   const [filters, setFilters] = useState({ share: '', ext: '', modified: '', folder: '', sort: 'relevance' });
   const [expanded, setExpanded] = useState(false);
   const [selection, setSelection] = useState<{ key: string; row: MaterialResult } | null>(null);
+  const [matchPage, setMatchPage] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
   const previewRef = useRef<HTMLElement>(null), listRef = useRef<HTMLDivElement>(null);
   useEffect(() => { const timer = setTimeout(() => setTerm(query.trim()), 300); return () => clearTimeout(timer); }, [query]);
@@ -58,7 +59,7 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
   const labels = Object.fromEntries((sources.data?.sources ?? []).map(source => [source.id, source.label]));
   const first = visible?.[0], facets = first?.facets;
   const update = (patch: Partial<typeof filters>) => { setFilters(value => ({ ...value, ...patch })); setNotice(''); listRef.current?.scrollTo?.(0, 0); };
-  const choose = (row: MaterialResult) => { setSelection({ key, row }); setNotice(''); requestAnimationFrame(() => previewRef.current?.focus()); };
+  const choose = (row: MaterialResult) => { setMatchPage(null); setSelection({ key, row }); setNotice(''); requestAnimationFrame(() => previewRef.current?.focus()); };
   const back = () => { const id = selected?.file_id; setSelection(null); requestAnimationFrame(() => document.getElementById(`material-${id}`)?.focus()); };
   const copy = async (path: string) => { try { await navigator.clipboard.writeText(materialAliasPath(path)); setNotice('Path copied.'); } catch { setNotice('Copy failed. You can select and copy the path below.'); } };
   const open = async () => {
@@ -111,7 +112,7 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
         {first && (visible?.at(-1)?.page ?? 0) * first.page_size < first.total && <button className={styles.more} disabled={pages.isValidating} onClick={() => void pages.setSize(pages.size + 1)}>{pages.isValidating ? 'Loading…' : 'Load more courseware'}</button>}
       </div>
       {selected && <section ref={previewRef} tabIndex={-1} className={styles.preview} aria-label="Courseware preview" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); back(); } }}>
-        <MaterialWorkControls key={`${scope}:${selected.file_id}`} material={selected} scope={scope} canAssign={canAssign} heading={<>
+        <MaterialWorkControls key={`${scope}:${selected.file_id}`} material={selected} scope={scope} canAssign={canAssign} previewPage={matchPage} heading={<>
         <div className={styles.previewTitle}><IconButton className={styles.previewBack} label="Back to courseware" icon={ArrowLeft} size="sm" onClick={back} /><h2 title={selected.filename}>{selected.filename}</h2></div>
         {!!selected.matched_pages.length && <p className={styles.pageMatches}>Matches within pages {selected.matched_pages.slice(0, 8).join(', ')}{selected.matched_pages.length > 8 ? '…' : ''}</p>}
         </>}>
@@ -120,7 +121,7 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
         {preview.isLoading && <p role="status">Loading extracted text…</p>}
         {preview.error && <p role="alert">The preview could not load. <button onClick={() => void preview.mutate()}>Retry preview</button></p>}
         {preview.data && !preview.data.chunks.length && <p>No searchable text was extracted from this document.</p>}
-        {preview.data && <ExtractedText key={`${selected.file_id}:${term}`} preview={preview.data} />}
+        {preview.data && <ExtractedText key={`${selected.file_id}:${term}`} preview={preview.data} onPageChange={setMatchPage} />}
         {preview.data?.truncated && <p>This text preview is shortened. Open the original for the full document.</p>}
         <details className={styles.fileDetails}><summary>File details</summary><p className={styles.path}>{materialAliasPath(selected.nas_path)}</p><div className={styles.actions}><button onClick={() => void copy(selected.nas_path)}><Copy size={14} />Copy path</button><button onClick={() => void open()}>Open in connected folder</button></div></details>
         {!!selected.duplicate_locations.length && <details><summary>Other copies</summary>{selected.duplicate_locations.map(copy => <p key={`${copy.share}:${copy.rel_path}`}>{labels[copy.share] ?? copy.share}: {copy.rel_path}</p>)}</details>}
@@ -130,7 +131,7 @@ export function MaterialSearch({ query, scope, active = true, canAssign = false 
   </section>;
 }
 
-function ExtractedText({ preview }: { preview: Preview }) {
+function ExtractedText({ preview, onPageChange }: { preview: Preview; onPageChange: (page: number | null) => void }) {
   const root = useRef<HTMLDivElement>(null);
   const targets = useRef<HTMLElement[]>([]);
   const [position, setPosition] = useState(0), [count, setCount] = useState(0);
@@ -140,9 +141,11 @@ function ExtractedText({ preview }: { preview: Preview }) {
     const next = (index + hits.length) % hits.length;
     hits.forEach((hit, i) => { if (i === next) hit.setAttribute('data-current-match', 'true'); else hit.removeAttribute('data-current-match'); });
     setPosition(next);
+    const page = Number(hits[next].closest<HTMLElement>('[data-text-chunk]')?.dataset.pageStart);
+    onPageChange(Number.isFinite(page) && page > 0 ? page : null);
     const container = root.current?.closest<HTMLElement>('[data-courseware-scroll]');
     if (container) container.scrollTo?.({ top: container.scrollTop + hits[next].getBoundingClientRect().top - container.getBoundingClientRect().top - 52, behavior: 'auto' });
-  }, []);
+  }, [onPageChange]);
   useEffect(() => {
     targets.current = [...(root.current?.querySelectorAll<HTMLElement>('[data-text-chunk]') ?? [])].flatMap(chunk => {
       const marks = [...chunk.querySelectorAll<HTMLElement>('mark')];
@@ -155,7 +158,7 @@ function ExtractedText({ preview }: { preview: Preview }) {
       <span aria-live="polite">{count ? `${position + 1} of ${count} matches` : 'Extracted text'}</span>
       {count > 0 && <div><IconButton label="Previous text match" icon={ArrowUp} size="sm" onClick={() => jump(position - 1)} /><IconButton label="Next text match" icon={ArrowDown} size="sm" onClick={() => jump(position + 1)} /></div>}
     </div>
-    {preview.chunks.map(chunk => <div key={chunk.chunk_index} className={styles.chunk} data-text-chunk>
+    {preview.chunks.map(chunk => <div key={chunk.chunk_index} className={styles.chunk} data-text-chunk data-page-start={chunk.page_start ?? undefined}>
       <h3>{chunk.page_start ? chunk.page_end && chunk.page_end !== chunk.page_start ? `Pages ${chunk.page_start}–${chunk.page_end}` : `Page ${chunk.page_start}` : 'Document text'}{preview.extraction_metadata?.pages.some(page => page.page === chunk.page_start && page.method === 'ocr') && ' · OCR'}</h3>
       <p><MathText text={chunk.content} renderMath={(formula, offset, length) => chunk.highlights.some(([start, end]) => start < offset + length && end > offset) ? <mark className={styles.mathMatch}>{formula}</mark> : formula} renderText={(value, offset) => <MaterialHighlight text={value} ranges={chunk.highlights.map(([start, end]) => [Math.max(0, start - offset), Math.min(Array.from(value).length, end - offset)]).filter(([start, end]) => end > start)} />} /></p>
     </div>)}

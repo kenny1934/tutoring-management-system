@@ -13,8 +13,8 @@ const Viewer = dynamic(() => import('@/components/lesson/PdfPageViewer').then(mo
 
 const ALL_PAGES: number[] = [];
 
-export function MaterialOriginal({ material, scope, pages, onPageCount }: {
-  material: MaterialResult; scope: string; pages: number[]; onPageCount: (count: number) => void;
+export function MaterialOriginal({ material, scope, pages, initialPage, onPageCount }: {
+  material: MaterialResult; scope: string; pages: number[]; onPageCount: (count: number) => void; initialPage?: number;
 }) {
   const [rotation, setRotation] = useState(0);
   const [printing, setPrinting] = useState(false), [notice, setNotice] = useState('');
@@ -48,7 +48,7 @@ export function MaterialOriginal({ material, scope, pages, onPageCount }: {
       <Button variant="secondary" size="sm" icon={RotateCw} disabled={!result.data} aria-label="Rotate original preview" onClick={() => setRotation(value => (value + 90) % 360)}>Rotate</Button>
       <Button variant="secondary" size="sm" icon={ExternalLink} disabled={!result.data} onClick={openInTab}>Open in new tab</Button>
     </div>
-    <div className={styles.viewer}><Viewer previewRotation={rotation} pdfData={result.data?.data ?? null} pageNumbers={ALL_PAGES} initialPage={material.matched_pages[0] || 1} keyboardNavigation renderConcurrency={2} isLoading={result.isLoading}
+    <div className={styles.viewer}><Viewer previewRotation={rotation} pdfData={result.data?.data ?? null} pageNumbers={ALL_PAGES} initialPage={initialPage || material.matched_pages[0] || 1} keyboardNavigation renderConcurrency={2} isLoading={result.isLoading}
       error={result.error?.message ?? null} onRetry={() => void result.mutate()} exerciseLabel={material.filename}
       onPrint={() => void print()} isPrinting={printing} printTitle={pages.length ? 'Print selected pages' : 'Print original'} /></div>
     {notice && <p role="status">{notice}</p>}
