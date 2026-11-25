@@ -48,6 +48,19 @@ def _link(db, enrollment_id):
         BillingPaymentLine.enrollment_id == enrollment_id).first()
 
 
+def period_start(review, slot_index):
+    """A continuing calendar period can begin before its first old weekday.
+
+    Previous retained coverage still owns its dates. A joining or returning
+    student's first payment keeps its actual agreed start.
+    """
+    if review.period.number == 1 and review.scenario.mode in {'new_student', 'returning_student'}:
+        return review.period.coverage_from
+    start = review.period.coverage_from.replace(day=1)
+    retained = review.scenario.slots[slot_index].covered_through
+    return max(start, retained + timedelta(days=1)) if retained else start
+
+
 def preview(db, enrollment, change, *, as_of, locked=False):
     """Return a read-only proposal. A fresh proposal is required when applying."""
     from .workflow import canonical_time, payment_integrity, payment_rows, time_range
@@ -62,9 +75,7 @@ def preview(db, enrollment, change, *, as_of, locked=False):
         return None
     if change.effective_date is None and not getattr(change, 'review_period', False):
         return None
-    start, through = review.period.coverage_from, review.period.coverage_through
-    if review.period.kind == 'regular':
-        start = start.replace(day=1)
+    start, through = period_start(review, line.slot_index), review.period.coverage_through
     effective = change.effective_date or max(as_of, start)
     if not max(as_of, start) <= effective <= through:
         raise HTTPException(422, 'Choose an effective date within the remaining billing period.')
@@ -238,6 +249,14 @@ def apply(db, enrollment_id, change, actor, *, as_of):
     if payment.status == 'Pending Payment':
         from .messages import prepare_adjusted_fee_messages
         reviewed = BillingDraftReview.model_validate(snapshot['review'])
+        if reviewed.period.collection.method == 'manual':
+            ids = [row.enrollment_id for row, _, _ in workflow.payment_rows(db, payment)]
+            originals = db.query(SessionLog).filter(SessionLog.enrollment_id.in_(ids),
+                SessionLog.make_up_for_id.is_(None), SessionLog.session_status != 'Cancelled').all()
+            first = min(row.session_date for row in originals)
+            reviewed.period.collection.due_before_lesson = first
+            for _, row, _ in workflow.payment_rows(db, payment):
+                row.payment_deadline = first
         reviewed.message = prepare_adjusted_fee_messages(db, payment, reviewed, snapshot=snapshot)
         if reviewed.message.blocked_reasons:
             raise HTTPException(409, ' '.join(reviewed.message.blocked_reasons))

@@ -377,3 +377,71 @@ def test_decrease_cannot_create_entitlements_outside_existing_makeup_deadline(en
     proposal = preview(db, enrollment, request, as_of=date(2026, 11, 25))
     assert any('deadline' in issue for issue in proposal['issues'])
     assert all(row.session_status == 'Scheduled' for row in db.query(SessionLog).filter_by(enrollment_id=enrollment.id))
+
+
+@pytest.mark.parametrize('source_start,expected_count,effective', [
+    (date(2026, 10, 23), 5, date(2026, 12, 1)),
+    (date(2026, 10, 30), 8, None),
+])
+def test_december_transition_uses_calendar_start_without_reselling_previous_coverage(env, source_start, expected_count, effective):
+    client, db, actor = env
+    source = db.get(Enrollment, 11)
+    source.first_lesson_date = source_start
+    for index, row in enumerate(db.query(SessionLog).filter_by(enrollment_id=11).order_by(SessionLog.id)):
+        row.session_date = source_start + timedelta(weeks=index)
+    db.commit()
+    _, _, detail = confirmed(client, method='autopay', ready=True)
+    enrollment = db.get(Enrollment, detail['lines'][0]['enrollment_id'])
+    method = 'autopay' if detail['review']['period']['collection']['method'] == 'autopay' else 'cash'
+    response = client.post(f"/api/billing/payments/{detail['id']}/paid", json=pay_payload(detail, method=method))
+    assert response.status_code == 200, response.text
+    payment = db.get(BillingPayment, detail['id'])
+    original_quote = deepcopy(payment.snapshot['review'])
+    received = payment.received_amount
+    request = ScheduleChangeRequest(assigned_day='Thu', assigned_time='16:00 - 17:30', location='MSA', tutor_id=1,
+        review_period=True, effective_date=effective)
+    proposal = preview(db, enrollment, request, as_of=date(2026, 11, 25))
+    assert not proposal['issues']
+    assert proposal['new_count'] == expected_count
+    dates = [move['date'] for move in proposal['moves']] + proposal['added_dates']
+    assert ('2026-12-03' in dates) is (source_start == date(2026, 10, 23))
+    assert all(date.fromisoformat(day) > source_start + timedelta(weeks=5) for day in dates)
+    payload = ApplyScheduleChangeRequest(assigned_day=request.assigned_day, assigned_time=request.assigned_time,
+        location=request.location, tutor_id=request.tutor_id, effective_date=date.fromisoformat(proposal['effective_date']),
+        expected_adjustment_hash=proposal['review_hash'], idempotency_key='december-paid-change', reason='Permanent weekday change')
+    apply(db, enrollment.id, payload, actor, as_of=date(2026, 11, 25));db.commit()
+    assert enrollment.lessons_paid == expected_count and enrollment.payment_status == 'Partially Paid'
+    assert payment.snapshot['review'] == original_quote and payment.received_amount == received
+    assert_integrity(db, payment)
+
+
+@pytest.mark.parametrize('mode', ['new_student', 'returning_student'])
+def test_first_joining_payment_keeps_its_actual_start(env, mode):
+    from billing.schedule_adjustments import period_start
+    from billing.schemas import BillingDraftReview
+    _, db, _, payment, _ = fixture_payment(env)
+    review = BillingDraftReview.model_validate(payment.snapshot['review'])
+    review.scenario.mode = mode
+    assert period_start(review, 0) == review.period.coverage_from == date(2027, 1, 5)
+
+
+def test_december_manual_bill_uses_actual_new_first_lesson_deadline(env):
+    client, db, actor = env
+    source = db.get(Enrollment, 11)
+    source.first_lesson_date = date(2026, 10, 23)
+    for index, row in enumerate(db.query(SessionLog).filter_by(enrollment_id=11).order_by(SessionLog.id)):
+        row.session_date = source.first_lesson_date + timedelta(weeks=index)
+    db.commit()
+    _, _, detail = confirmed(client)
+    payment = db.get(BillingPayment, detail['id'])
+    enrollment = db.get(Enrollment, detail['lines'][0]['enrollment_id'])
+    assert detail['review']['period']['lesson_count'] == 3
+    request = ScheduleChangeRequest(assigned_day='Thu', assigned_time='16:00 - 17:30', location='MSA', tutor_id=1, effective_date=date(2026, 12, 1))
+    proposal = preview(db, enrollment, request, as_of=date(2026, 11, 25))
+    payload = ApplyScheduleChangeRequest(**request.model_dump(exclude={'review_period'}), expected_adjustment_hash=proposal['review_hash'], idempotency_key='december-manual-change', reason='Permanent weekday change')
+    apply(db, enrollment.id, payload, actor, as_of=date(2026, 11, 25));db.commit()
+    revised = assert_integrity(db, payment)
+    assert revised.review.period.total_fee == 2000
+    assert revised.review.period.collection.due_before_lesson == date(2026, 12, 3)
+    assert enrollment.payment_deadline == date(2026, 12, 3)
+    assert '2026/12/03' in revised.review.message.en
