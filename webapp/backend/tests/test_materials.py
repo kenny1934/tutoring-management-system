@@ -91,3 +91,37 @@ def test_focused_preview_forwards_the_page_and_keeps_coverage(client, monkeypatc
     assert response.status_code == 200
     assert response.json()['coverage']['status'] == 'awaiting_ocr'
     assert client.get('/api/materials/7/preview?page=0').status_code == 422
+
+
+def test_refinement_contract_keeps_search_and_preview_in_sync(client, monkeypatch):
+    seen = []
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={'results': [], 'total': 0, 'chunks': []})
+    intercept(monkeypatch, handler)
+    refine = {'match': 'any', 'exact_phrase': 'a term', 'search_in': 'content', 'modified_from': '2025-01-01', 'modified_to': '2025-12-31'}
+    assert client.post('/api/materials/search', json={'q': 'fractions', 'refine': refine}).status_code == 200
+    assert client.get('/api/materials/7/preview', params={'q': 'fractions', 'refine': json.dumps(refine), 'page': 16}).status_code == 200
+    assert seen[0]['refine'] == seen[1]['refine']
+    assert seen[0]['refine']['modified_from'] == '2025-01-01'
+    assert seen[1]['page'] == 16
+
+
+@pytest.mark.parametrize('refine', [{'match': 'wrong'}, {'search_in': 'director'}, {'modified_from': '2026-01-01', 'modified_to': '2025-01-01'}, {'any_words': 'x'*257}, {'email': 'other@example.test'}])
+def test_refinements_are_validated_before_forwarding(client, refine):
+    assert client.post('/api/materials/search', json={'q': 'algebra', 'refine': refine}).status_code == 422
+    assert client.get('/api/materials/1/preview', params={'refine': json.dumps(refine)}).status_code == 422
+
+
+def test_no_unbounded_empty_search(client, monkeypatch):
+    intercept(monkeypatch, lambda request: httpx.Response(200, json={'results': []}))
+    assert client.post('/api/materials/search', json={'q': '', 'refine': {'exclude_words': 'draft'}}).status_code == 422
+    assert client.post('/api/materials/search', json={'q': '', 'refine': {'exact_phrase': 'a term'}}).status_code == 200
+
+
+def test_word_limit_error_is_actionable_but_arbitrary_provider_messages_are_private(client, monkeypatch):
+    detail = 'Use at most eight words in each word field. Put longer phrases in Exact phrase.'
+    replies = iter([detail, 'private provider diagnostics'])
+    intercept(monkeypatch, lambda request: httpx.Response(422, json={'detail': next(replies)}))
+    assert client.post('/api/materials/search', json={'q': 'algebra', 'refine': {'exclude_words': 'many words'}}).json()['detail'] == detail
+    assert 'private' not in client.get('/api/materials/1/preview').text

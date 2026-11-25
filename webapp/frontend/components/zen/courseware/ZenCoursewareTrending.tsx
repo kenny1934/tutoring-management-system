@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
-import { paperlessAPI, type PaperlessDocument } from "@/lib/api";
 import { formatDaysAgo } from "@/lib/formatters";
-import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import type { PreviewFile } from "./ZenCoursewarePreview";
 
 interface ZenCoursewareTrendingProps {
@@ -160,10 +158,6 @@ export function ZenCoursewareTrending({
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Cache for resolved Paperless IDs (refs to avoid keyboard handler re-registration)
-  const paperlessCacheRef = useRef<Map<string, PaperlessDocument>>(new Map());
-  const resolvingRef = useRef<Set<string>>(new Set());
-
   const { data: trendingData, isLoading } = useCoursewarePopularity(
     timeRange,
     exerciseFilter || undefined,
@@ -190,42 +184,8 @@ export function ZenCoursewareTrending({
     selected?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [cursor]);
 
-  // Resolve Paperless document for preview
-  const resolveAndPreview = useCallback(async (filename: string, path: string) => {
-    // Check cache
-    const cached = paperlessCacheRef.current.get(filename);
-    if (cached) {
-      onSelectFile({
-        documentId: cached.id,
-        path: cached.original_path || cached.converted_path || path,
-        title: filename,
-      });
-      return;
-    }
-
-    if (resolvingRef.current.has(filename)) return;
-    resolvingRef.current.add(filename);
-    setZenStatus("Resolving file in Paperless...", "info");
-
-    try {
-      const response = await paperlessAPI.search(path, 3, "all");
-      if (response.results.length > 0) {
-        const doc = response.results[0];
-        paperlessCacheRef.current.set(filename, doc);
-        onSelectFile({
-          documentId: doc.id,
-          path: doc.original_path || doc.converted_path || path,
-          title: filename,
-        });
-        setZenStatus("", "info");
-      } else {
-        setZenStatus("File not found in Paperless", "warning");
-      }
-    } catch {
-      setZenStatus("Failed to resolve file", "error");
-    } finally {
-      resolvingRef.current.delete(filename);
-    }
+  const resolveAndPreview = useCallback((filename: string, path: string) => {
+    onSelectFile({ path, title: filename, source: 'courseware' });
   }, [onSelectFile]);
 
   // Keyboard handler

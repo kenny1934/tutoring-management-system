@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.background import BackgroundTask
 from starlette.responses import StreamingResponse
 from urllib.parse import quote
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from services.material_refinements import SearchRefinement
 
 from auth.dependencies import get_current_user
 from models import Tutor
@@ -41,6 +42,12 @@ def request_materials(action: str, payload: dict, user: Tutor):
     if response.status_code == 404 and action in ("preview", "resolve"):
         raise HTTPException(404, "This material is no longer available.")
     if response.status_code == 422:
+        try:
+            detail = response.json().get("detail")
+        except (ValueError, AttributeError):
+            detail = None
+        if detail == "Use at most eight words in each word field. Put longer phrases in Exact phrase.":
+            raise HTTPException(422, detail)
         raise HTTPException(422, "Choose a page within this document." if action == "preview" else "Check the courseware search filters.")
     if not response.is_success:
         raise HTTPException(503, "Courseware search is temporarily unavailable.")
@@ -52,7 +59,8 @@ def request_materials(action: str, payload: dict, user: Tutor):
 
 class MaterialSearch(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    q: str = Field(min_length=1, max_length=256)
+    q: str = Field(default="", max_length=256)
+    refine: SearchRefinement | None = None
     share: str | None = None
     ext: str | None = Field(default=None, max_length=16)
     folder: str | None = Field(default=None, max_length=512)
@@ -69,14 +77,22 @@ def sources(user: Tutor = Depends(get_current_user)):
 
 @router.post("/search")
 def search(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
-    return request_materials("search", data.model_dump(exclude_none=True), user)
+    if not data.q.strip() and not (data.refine and (data.refine.any_words.strip() or data.refine.exact_phrase.strip())):
+        raise HTTPException(422, "Enter some words or an exact phrase to search for.")
+    return request_materials("search", data.model_dump(mode="json", exclude_none=True), user)
 
 
 @router.get("/{file_id}/preview")
-def preview(file_id: int, q: str = Query(default="", max_length=256), page: int | None = Query(default=None, ge=1, le=100000), user: Tutor = Depends(get_current_user)):
+def preview(file_id: int, q: str = Query(default="", max_length=256), page: int | None = Query(default=None, ge=1, le=100000), refine: str | None = Query(default=None, max_length=2048), user: Tutor = Depends(get_current_user)):
     if file_id <= 0:
         raise HTTPException(404, "This material is no longer available.")
-    return request_materials("preview", {"file_id": file_id, "q": q, **({"page": page} if page is not None else {})}, user)
+    options = {}
+    if refine is not None:
+        try:
+            options["refine"] = SearchRefinement.model_validate_json(refine).model_dump(mode="json", exclude_none=True)
+        except (ValidationError, ValueError):
+            raise HTTPException(422, "Check the courseware search filters.") from None
+    return request_materials("preview", {"file_id": file_id, "q": q, **({"page": page} if page is not None else {}), **options}, user)
 
 
 @router.get("/{file_id}/raw")

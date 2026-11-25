@@ -26,3 +26,13 @@ it('handles corrupt or unavailable browser storage without breaking search', () 
   expect(hook.result.current.entries).toHaveLength(1);
   spy.mockRestore();
 });
+
+it('migrates saved searches from before refinements and retains phrase-only searches', () => {
+  localStorage.setItem('command-palette-courseware-history:legacy', JSON.stringify([{ query: 'algebra', filters: { share: 'center', ext: '.pdf', modified: '', folder: '', sort: 'relevance' } }]));
+  const hook = renderHook(() => useCoursewareHistory('legacy'));
+  expect(hook.result.current.entries[0]).toEqual({ query: 'algebra', filters: { ...defaultMaterialFilters(), share: 'center', ext: '.pdf' } });
+  const phrase = { query: '', filters: { ...defaultMaterialFilters(), exact_phrase: 'a term', exclude_words: 'draft', modified_to: '2025-12-31' } };
+  act(() => hook.result.current.save(phrase));
+  hook.unmount();
+  expect(renderHook(() => useCoursewareHistory('legacy')).result.current.entries[0]).toEqual(phrase);
+});

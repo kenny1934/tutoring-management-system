@@ -1,5 +1,7 @@
 "use client";
 
+import { setCoursewarePdfScope } from '@/lib/courseware-pdf';
+
 import {
   createContext,
   useContext,
@@ -287,6 +289,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // isReadOnly - Supervisor and Guest are read-only
   const isReadOnly = effectiveRole === "Supervisor" || effectiveRole === "Guest";
+
+  const coursewareScope = user ? `${user.id}:${effectiveRole}:${isImpersonating ? impersonatedTutor?.id : ''}` : '';
+  useEffect(() => {
+    setCoursewarePdfScope(coursewareScope);
+    return () => setCoursewarePdfScope('');
+  }, [coursewareScope]);
 
   const contextValue = useMemo(() => ({
     user,

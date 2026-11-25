@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
-import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Filter, Clock, X } from "lucide-react";
+import { MaterialRefinement } from './MaterialRefinement';
+import { searchRefinement, positiveSearch, refinementKeys, filterChips } from './material-refinements';
+import { defaultMaterialFilters } from './material-workspace';
+import { MaterialBasket } from './MaterialBasket';
+import { useAbortableRequest } from './useAbortableRequest';
+import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Clock, X } from "lucide-react";
 import { fetchAPI } from "@/lib/api";
 import { IconButton } from '@/components/controls';
 import { MathText } from "@/components/ui/math-text";
@@ -49,19 +54,28 @@ function MaterialSearchWorkspace({ query, scope, active = true, canAssign = fals
   const history = useCoursewareHistory(scope);
   const [term, setTerm] = useState(query.trim());
   const [filters, setFilters] = useState(() => workspace.filters);
-  const [expanded, setExpanded] = useState(workspace.expanded);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [editFilter, setEditFilter] = useState<keyof typeof filters>();
+  useEffect(() => { if (!active) setFilterOpen(false); }, [active]);
   const [selection, setSelection] = useState(() => workspace.selection);
+  const [basket, setBasket] = useState(workspace.basket);
+  const changeBasket = (entries: typeof basket) => { workspace.basket = entries; setBasket(entries); };
   const [notice, setNotice] = useState('');
   const [pageJump, setPageJump] = useState(0);
   const previewRef = useRef<HTMLElement>(null), listRef = useRef<HTMLDivElement>(null);
   useEffect(() => { const timer = setTimeout(() => setTerm(query.trim()), 300); return () => clearTimeout(timer); }, [query]);
   const sources = useSWR(active ? ["material-sources", scope] : null, () => fetchAPI<{ features?: string[]; sources: { id: string; label: string; coverage?: { files: number; limited_files: number } }[] }>("/materials/sources"), { revalidateOnFocus: false, shouldRetryOnError: false });
   const supportsFocusedPreview = sources.data?.features?.includes("focused_preview") ?? false;
+  const supportsRefinements = sources.data?.features?.includes("search_refinements") ?? false;
+  const refine = searchRefinement(filters) ?? (supportsRefinements ? {} : undefined);
+  const refineKey = JSON.stringify(refine ?? null);
+  const requestFilters = Object.fromEntries(Object.entries(filters).filter(([key, value]) => value && !refinementKeys.includes(key as typeof refinementKeys[number])));
   const key = JSON.stringify([scope, term, filters]);
-  const ready = active && !!sources.data?.sources.length && term.length >= 2 && term.length <= 256 && term === query.trim();
+  const ready = active && !!sources.data?.sources.length && positiveSearch(term, filters) && term.length <= 256 && term === query.trim() && (!refine || supportsRefinements);
+  const searchRequest = useAbortableRequest(key, ready);
   const pages = useSWRInfinite<SearchPage>(
     (index, previous) => !ready || (previous && previous.page * previous.page_size >= previous.total) ? null : ["material-search", key, index + 1],
-    ([, , page]: [string, string, number]) => fetchAPI<SearchPage>("/materials/search", { method: 'POST', body: JSON.stringify({ q: term, ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), page }) }),
+    ([, , page]: [string, string, number]) => searchRequest(signal => fetchAPI<SearchPage>("/materials/search", { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(refine ? { refine } : {}), page }), signal })),
     { revalidateOnFocus: false, shouldRetryOnError: false, persistSize: false, initialSize: workspace.searchKey === key ? workspace.size : 1 }
   );
   const { size: loadedPages, setSize } = pages;
@@ -77,11 +91,12 @@ function MaterialSearchWorkspace({ query, scope, active = true, canAssign = fals
       if (loadedPages !== 1) void setSize(1);
       setSelection(null); workspace.selection = null;
     } else { workspace.size = loadedPages; workspace.selection = selection; }
-    workspace.filters = filters; workspace.expanded = expanded;
+    workspace.filters = filters;
     if (listRef.current) listRef.current.scrollTop = workspace.listTop;
-  }, [workspace, key, filters, expanded, selection, loadedPages, setSize, visible]);
-  const preview = useSWR(active && selected ? ["material-preview", scope, selected.file_id, term, supportsFocusedPreview ? reading?.focusPage ?? null : null] : null,
-    () => fetchAPI<Preview>(`/materials/${selected!.file_id}/preview?q=${encodeURIComponent(term)}${supportsFocusedPreview && reading?.focusPage ? `&page=${reading.focusPage}` : ""}`), { revalidateOnFocus: false, shouldRetryOnError: false });
+  }, [workspace, key, filters, selection, loadedPages, setSize, visible]);
+  const previewRequest = useAbortableRequest(JSON.stringify([scope, selected?.file_id, term, reading?.focusPage, refineKey]), active && !!selected);
+  const preview = useSWR(active && selected ? ["material-preview", scope, selected.file_id, term, supportsFocusedPreview ? reading?.focusPage ?? null : null, refineKey] : null,
+    () => previewRequest(signal => fetchAPI<Preview>(`/materials/${selected!.file_id}/preview?q=${encodeURIComponent(term)}${supportsFocusedPreview && reading?.focusPage ? `&page=${reading.focusPage}` : ""}${refine ? `&refine=${encodeURIComponent(refineKey)}` : ""}`, { signal })), { revalidateOnFocus: false, shouldRetryOnError: false });
   const shownPreview = preview.data && !supportsFocusedPreview && reading?.focusPage ? {
     ...preview.data, chunks: preview.data.chunks.filter(chunk => chunk.page_start && chunk.page_start <= reading.focusPage! && reading.focusPage! <= (chunk.page_end ?? chunk.page_start)),
   } : preview.data;
@@ -104,7 +119,6 @@ function MaterialSearchWorkspace({ query, scope, active = true, canAssign = fals
   }, [active, first, pages.error, ready, term, filters, saveHistory]);
   const recall = (entry: CoursewareHistoryEntry) => {
     setFilters(entry.filters); setSelection(null); workspace.reading = null; workspace.listTop = 0;
-    setExpanded(!!(entry.filters.ext || entry.filters.modified || entry.filters.folder));
     onQueryChange?.(entry.query);
   };
   const update = (patch: Partial<typeof filters>) => { setFilters(value => ({ ...value, ...patch })); setNotice(''); listRef.current?.scrollTo?.(0, 0); };
@@ -122,20 +136,24 @@ function MaterialSearchWorkspace({ query, scope, active = true, canAssign = fals
   };
   return <section className={styles.root} aria-label="Courseware search" style={{ display: active ? undefined : "none" }}>
     <div className={styles.filters}>
-      <div className={styles.bar}>
-        <label>Source<select aria-label="Courseware source" value={filters.share} onChange={e => update({ share: e.target.value, folder: '' })}>
+      <div className={styles.toolbar}>
+        <label><span className={styles.visuallyHidden}>Source</span><select aria-label="Courseware source" title={labels[filters.share] || 'All sources'} value={filters.share} onChange={event => update({ share: event.target.value, folder: '' })}>
           <option value="">All sources</option>{sources.data?.sources.map(source => <option key={source.id} value={source.id}>{source.label}{facets?.share[source.id] !== undefined ? ` (${facets.share[source.id]})` : ''}</option>)}
         </select></label>
-        <label>Sort<select aria-label="Courseware sort" value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value="relevance">Relevance</option><option value="recent">Recently modified</option></select></label>
-        <button aria-expanded={expanded} onClick={() => setExpanded(value => !value)}><Filter size={14} />Filters{(filters.ext || filters.modified || filters.folder) && ' •'}</button>
+        {supportsRefinements && <label className={styles.searchScope}><span className={styles.visuallyHidden}>Search in</span><select aria-label="Courseware search scope" value={filters.search_in} onChange={event => update({ search_in: event.target.value })}>
+          <option value="both">Name &amp; text</option><option value="filename">Filename only</option><option value="content">Contents only</option>
+        </select></label>}
+        {active && <MaterialRefinement filters={filters} onApply={update} facets={facets} supportsRefinements={supportsRefinements} isOpen={filterOpen} edit={editFilter} onOpenChange={open => { setFilterOpen(open); if (!open) setEditFilter(undefined); }} />}
       </div>
-      {expanded && <div className={styles.bar}>
-        <label>File type<select aria-label="Courseware file type" value={filters.ext} onChange={e => update({ ext: e.target.value })}><option value="">All types</option>{[...new Set(['.pdf', '.docx', '.xlsx', '.pptx', ...Object.keys(facets?.ext ?? {})])].sort().map(ext => <option key={ext} value={ext}>{ext.slice(1).toUpperCase()}{facets?.ext[ext] !== undefined ? ` (${facets.ext[ext]})` : ''}</option>)}</select></label>
-        <label>Modified<select aria-label="Courseware modified date" value={filters.modified} onChange={e => update({ modified: e.target.value })}><option value="">Any time</option><option value="week">Past week</option><option value="month">Past month</option><option value="year">Past year</option><option value="older">Older</option></select></label>
-        <label>Folder<select aria-label="Courseware folder" value={filters.folder} onChange={e => update({ folder: e.target.value })}><option value="">All folders</option>{[...new Set([...(filters.folder ? [filters.folder] : []), ...Object.keys(facets?.folder ?? {})])].map(folder => <option key={folder} value={folder}>{folder}{facets?.folder[folder] !== undefined ? ` (${facets.folder[folder]})` : ''}</option>)}</select></label>
-        <button onClick={() => update({ share: '', ext: '', modified: '', folder: '', sort: 'relevance' })}>Reset filters</button>
-      </div>}
+      {!!filterChips(filters, labels).filter(chip => chip.key !== 'share' && chip.key !== 'search_in').length && <div className={styles.filterChips} role="group" aria-label="Applied courseware filters">{filterChips(filters, labels).filter(chip => chip.key !== 'share' && chip.key !== 'search_in').map(chip => <span key={chip.key} className={styles.appliedFilter}>
+        <button title={chip.label} aria-label={`Edit ${chip.label}`} onClick={() => { setEditFilter(chip.key); setFilterOpen(true); }}><span>{chip.label}</span></button>
+        <button aria-label={`Remove ${chip.label}`} onClick={() => update(chip.clear)}><X size={12} /></button>
+      </span>)}</div>}
+      {refine && sources.data && !supportsRefinements && <p role="alert">Search refinements are unavailable on this service. <button onClick={() => update(Object.fromEntries(refinementKeys.map(key => [key, defaultMaterialFilters()[key]])))}>Clear refinements</button></p>}
     </div>
+    {(first || positiveSearch(query, filters)) && <div className={styles.resultTools}><span className={styles.count} aria-live="polite">{first ? `${first.total.toLocaleString()} ${first.total === 1 ? 'result' : 'results'}` : ''}</span>
+      <label><span className={styles.visuallyHidden}>Sort</span><select aria-label="Courseware sort" value={filters.sort} onChange={event => update({ sort: event.target.value })}><option value="relevance">Relevance</option><option value="recent">Recently modified</option></select></label>
+    </div>}
     <div className={styles.body}>
       <div ref={listRef} className={`${styles.list} ${selected ? styles.withSelection : ''}`} aria-label="Courseware results" onScroll={event => { workspace.listTop = event.currentTarget.scrollTop; }} onKeyDown={event => {
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -144,31 +162,30 @@ function MaterialSearchWorkspace({ query, scope, active = true, canAssign = fals
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : Math.max(0, Math.min(buttons.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
         event.preventDefault(); buttons[next]?.focus();
       }}>
-        {!query.trim() && !!history.entries.length && onQueryChange && <div role="group" aria-label="Recent courseware searches">
+        {!positiveSearch(query, filters) && !!history.entries.length && onQueryChange && <div role="group" aria-label="Recent courseware searches">
           <div className={styles.historyHeader}><span>Recent searches</span><button onClick={history.clear}>Clear history</button></div>
           {history.entries.map(entry => <div className={styles.historyRow} key={JSON.stringify(entry)}>
-            <button data-material-result className={styles.result} onClick={() => recall(entry)} aria-label={`Search courseware for ${entry.query}`}><Clock size={16} /><span><strong>{entry.query}</strong><small>{[labels[entry.filters.share] ?? entry.filters.share, entry.filters.folder, entry.filters.ext.slice(1).toUpperCase(), ({ week: 'Past week', month: 'Past month', year: 'Past year', older: 'Older' } as Record<string, string>)[entry.filters.modified], entry.filters.sort === 'recent' ? 'Recently modified' : ''].filter(Boolean).join(' · ') || 'All sources'}</small></span></button>
-            <IconButton label={`Remove courseware search ${entry.query}`} icon={X} size="sm" onClick={() => history.remove(entry)} />
+            <button data-material-result className={styles.result} onClick={() => recall(entry)} aria-label={`Search courseware for ${entry.query || entry.filters.exact_phrase || entry.filters.any_words}`}><Clock size={16} /><span><strong>{entry.query || entry.filters.exact_phrase || entry.filters.any_words}</strong><small>{filterChips(entry.filters, labels).map(chip => chip.label).concat(entry.filters.sort === 'recent' ? ['Recently modified'] : []).join(' · ') || 'All sources'}</small></span></button>
+            <IconButton label={`Remove courseware search ${entry.query || entry.filters.exact_phrase || entry.filters.any_words}`} icon={X} size="sm" onClick={() => history.remove(entry)} />
           </div>)}
         </div>}
         {sources.isLoading && <p role="status">Connecting…</p>}
         {sources.error && <p role="alert">{sources.error.message} <button onClick={() => void sources.mutate()}>Retry connection</button></p>}
         {sources.data && !sources.data.sources.length && <p>Your Knowledge Base account has no courseware sources. Ask an administrator for access.</p>}
-        {!!sources.data?.sources.length && !ready && !!query.trim() && <p>{query.trim().length > 256 ? 'Use a search of 256 characters or fewer.' : 'Enter at least two characters.'}</p>}
+        {!!sources.data?.sources.length && !ready && (!!query.trim() || !!filters.any_words || !!filters.exact_phrase) && (!positiveSearch(query, filters) || query.trim().length > 256) && <p>{query.trim().length > 256 ? 'Use a search of 256 characters or fewer.' : 'Enter at least two characters.'}</p>}
         {ready && pages.isLoading && <p role="status">Searching…</p>}
         {ready && pages.error && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
-        {first && <p className={styles.count}>{first.total.toLocaleString()} {first.total === 1 ? 'result' : 'results'}</p>}
         {first?.total === 0 && <><p>No courseware matches. Try fewer words or broaden the filters.</p>{limitedSources && <p role="note">Some files in these sources have no searchable text or incomplete extraction. Their page contents may not appear in results.</p>}</>}
-        {rows.map(row => <button key={row.file_id} id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
+        {rows.map(row => <div key={row.file_id} className={styles.resultRow}>{canAssign && row.ext === '.pdf' && <input type="checkbox" aria-label={`Select ${row.filename}`} checked={basket.some(entry => entry.material.file_id === row.file_id)} onChange={event => changeBasket(event.target.checked ? [...basket, { material: row, pages: row.page_count ? (row.page_count === 1 ? '1' : `1-${row.page_count}`) : '' }] : basket.filter(entry => entry.material.file_id !== row.file_id))} />}<button id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
           <FileText size={16} /><span><strong>{row.filename}</strong><small>{labels[row.share] ?? row.share}{row.page_count ? ` · ${row.page_count} ${row.page_count === 1 ? 'page' : 'pages'}` : ''}{row.duplicate_count ? ` · ${row.duplicate_count} other copies` : ''}</small>
             <small className={styles.path}>{row.rel_path}</small><span className={styles.snippet}><MaterialHighlight text={row.snippet} ranges={row.highlights} /></span>
             {!!row.matched_pages.length && <small>Matches within pages: {row.matched_pages.slice(0, 8).join(', ')}{row.matched_pages.length > 8 ? '…' : ''}</small>}
           </span>
-        </button>)}
+        </button></div>)}
         {first && (visible?.at(-1)?.page ?? 0) * first.page_size < first.total && <button className={styles.more} disabled={pages.isValidating} onClick={() => void pages.setSize(pages.size + 1)}>{pages.isValidating ? 'Loading…' : 'Load more courseware'}</button>}
       </div>
       {selected && <section ref={previewRef} tabIndex={-1} className={styles.preview} aria-label="Courseware preview" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); back(); } }}>
-        <MaterialWorkControls key={`${scope}:${selected.file_id}:${pageJump}`} material={selected} scope={scope} canAssign={canAssign} reading={reading} previewPage={reading?.matchPage} pageNavigation={!!selected.matched_pages.length && <div className={styles.pageLinks} role="group" aria-label="Matching pages">
+        <MaterialWorkControls key={`${scope}:${selected.file_id}:${pageJump}`} material={selected} scope={scope} canAssign={canAssign} onPageCount={count => changeBasket(basket.map(entry => entry.material.file_id === selected.file_id ? { ...entry, material: { ...entry.material, page_count: count } } : entry))} reading={reading} previewPage={reading?.matchPage} pageNavigation={!!selected.matched_pages.length && <div className={styles.pageLinks} role="group" aria-label="Matching pages">
           <button aria-label="Show all matching text" aria-pressed={!reading?.focusPage} onClick={() => jumpToPage(null)}>All</button>
           {selected.matched_pages.map(page => <button key={page} aria-label={`Show matching page ${page}`} aria-pressed={reading?.focusPage === page} onClick={() => jumpToPage(page)}>p.{page}</button>)}
         </div>} heading={<>
@@ -186,6 +203,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, canAssign = fals
         </MaterialWorkControls>
       </section>}
     </div>
+    {canAssign && basket.length > 0 && <MaterialBasket entries={basket} onChange={changeBasket} />}
   </section>;
 }
 

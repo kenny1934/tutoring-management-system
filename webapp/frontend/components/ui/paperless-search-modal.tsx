@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Loader2, AlertCircle, Check, Eye, EyeOff, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink, Copy } from "lucide-react";
+import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
@@ -67,13 +67,6 @@ export function PaperlessSearchModal({
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Array<{ doc: PaperlessDocument; pageSelection?: PageSelection }>>([]);
   const [hasNavigated, setHasNavigated] = useState(false); // Track if user used arrow keys
-
-  // State to track which trending items are previewable in Shelv (cache for found docs)
-  const [previewableTrending, setPreviewableTrending] = useState<Map<string, PaperlessDocument>>(new Map());
-  // Track items that failed the check (not in Shelv)
-  const [unavailableTrending, setUnavailableTrending] = useState<Set<string>>(new Set());
-  // Track items currently being checked
-  const [checkingPreview, setCheckingPreview] = useState<Set<string>>(new Set());
 
   // State to track selected trending items by filename (stable key for checkbox)
   const [selectedTrendingFilenames, setSelectedTrendingFilenames] = useState<Set<string>>(new Set());
@@ -192,9 +185,6 @@ export function PaperlessSearchModal({
       setHasMore(false);
       setIsLoadingMore(false);
       setSelectedDocs([]);
-      setPreviewableTrending(new Map());
-      setUnavailableTrending(new Set());
-      setCheckingPreview(new Set());
       setSelectedTrendingFilenames(new Set());
       setPreviewingTrendingFilename(null);
       setDetailItem(null);
@@ -444,51 +434,10 @@ export function PaperlessSearchModal({
 
   // Handle previewing a trending item (on-demand check, uses pre-computed path from topTrending)
   const handlePreviewTrending = useCallback(async (item: CoursewarePopularity & { path: string; stableId: number }) => {
-    // If already cached, open immediately
-    const cachedDoc = previewableTrending.get(item.filename);
-    if (cachedDoc) {
-      setPreviewDoc(cachedDoc);
-      setPreviewingTrendingFilename(item.filename);
-      return;
-    }
-
-    // If already known to be unavailable, do nothing (button shows EyeOff)
-    if (unavailableTrending.has(item.filename)) return;
-
-    // If already checking, ignore
-    if (checkingPreview.has(item.filename)) return;
-
-    // Start checking
-    setCheckingPreview(prev => { const next = new Set(prev); next.add(item.filename); return next; });
-
-    try {
-      if (!item.path) {
-        setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
-        return;
-      }
-
-      const response = await api.paperless.search(item.path, 3, 'all');
-      if (response.results.length > 0) {
-        // Found - cache and open preview
-        const doc = response.results[0];
-        setPreviewableTrending(prev => new Map(prev).set(item.filename, doc));
-        setPreviewDoc(doc);
-        setPreviewingTrendingFilename(item.filename);
-      } else {
-        // Not found - mark as unavailable (button will show EyeOff)
-        setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
-      }
-    } catch {
-      // On error, mark as unavailable
-      setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
-    } finally {
-      setCheckingPreview(prev => {
-        const next = new Set(prev);
-        next.delete(item.filename);
-        return next;
-      });
-    }
-  }, [previewableTrending, unavailableTrending, checkingPreview]);
+    if (!item.path) return;
+    setPreviewDoc({ id: item.stableId, title: item.filename, original_path: item.path, converted_path: item.path, tags: [], created: null, correspondent: null });
+    setPreviewingTrendingFilename(item.filename);
+  }, []);
 
   // Handle adding all selected docs
   const handleAddSelected = useCallback(() => {
@@ -743,7 +692,7 @@ export function PaperlessSearchModal({
                 </p>
                 <p>
                   <span className="font-medium text-gray-600 dark:text-gray-300">More:</span>{" "}
-                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">"exact phrase"</code>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">&quot;exact phrase&quot;</code>{" "}
                   <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">test*</code>{" "}
                   <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">created:[2024 to 2025]</code>
                 </p>
@@ -943,29 +892,14 @@ export function PaperlessSearchModal({
                                 {item.unique_student_count}
                               </span>
                             </span>
-                            {/* Preview button - always show, checks on-demand */}
-                            {unavailableTrending.has(item.filename) ? (
-                              <div className="p-1 shrink-0" title="Not available in Shelv">
-                                <EyeOff className="h-4 w-4 text-gray-300 dark:text-gray-400" />
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePreviewTrending(item);
-                                }}
-                                disabled={checkingPreview.has(item.filename)}
-                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
-                                title={checkingPreview.has(item.filename) ? 'Checking...' : 'Preview PDF'}
-                                aria-label={`Preview ${item.filename}`}
-                              >
-                                {checkingPreview.has(item.filename) ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </button>
-                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handlePreviewTrending(item); }}
+                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-700 dark:hover:text-amber-400 shrink-0"
+                              title="Preview PDF"
+                              aria-label={`Preview ${item.filename}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
                             {/* Copy path button */}
                             <CopyPathButton paths={item.normalized_paths} filename={item.filename} />
                             {/* Info/details button */}
@@ -1402,7 +1336,8 @@ export function PaperlessSearchModal({
           setPreviewDoc(null);
           setPreviewingTrendingFilename(null);
         }}
-        documentId={previewDoc?.id ?? null}
+        documentId={previewDoc && previewDoc.id < 0 ? null : previewDoc?.id ?? null}
+        sourcePath={previewDoc && previewDoc.id < 0 ? previewDoc.original_path || previewDoc.converted_path || undefined : undefined}
         documentTitle={previewDoc?.title}
         enablePageSelection={true}
         onSelect={previewDoc ? (selection) => {

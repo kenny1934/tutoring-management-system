@@ -138,6 +138,8 @@ export interface PdfViewState {
 }
 
 interface PdfPageViewerProps {
+  onPageCount?: (count: number) => void;
+  onDocumentError?: () => void;
   /** Read-only preview rotation; existing lesson/annotation views keep zero. */
   previewRotation?: number;
   pdfData: ArrayBuffer | null;
@@ -253,6 +255,7 @@ export interface PdfViewerHandle {
 const MAX_RENDER_CACHE_SIZE = 30;
 
 export function PdfPageViewer({
+  onPageCount, onDocumentError,
   pdfData,
   pageNumbers,
   previewRotation = 0,
@@ -489,6 +492,11 @@ export function PdfPageViewer({
     setAutoRetryTick(0);
   }, [pdfData, exerciseId]);
 
+  const pageCountCallback = useRef(onPageCount);
+  pageCountCallback.current = onPageCount;
+  const documentErrorCallback = useRef(onDocumentError);
+  documentErrorCallback.current = onDocumentError;
+
   // Process PDF: extract+stamp → render pages as images (parallel)
   // Uses render cache to skip expensive pipeline when switching back to a previously viewed exercise.
   useEffect(() => {
@@ -550,12 +558,17 @@ export function PdfPageViewer({
         if (cancelled) return;
         const task = pdfjs.getDocument({ data: pdfBytes });
         destroyDocument = () => { destroyDocument = undefined; void task.destroy().catch(() => {}); };
-        const doc = await task.promise;
+        const doc = await task.promise.catch(error => {
+          if (!cancelled) documentErrorCallback.current?.();
+          throw error;
+        });
 
         if (cancelled) {
           doc.destroy();
           return;
         }
+
+        pageCountCallback.current?.(doc.numPages);
 
         const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
         const scale = RENDER_SCALE * dpr;

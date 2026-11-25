@@ -13,7 +13,8 @@ import {
 import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
 import { parseParallelPath } from './parallel-path';
 import { composeSideBySidePdf } from './pdf-utils';
-import { loadMaterialPdf } from './materials';
+import { loadMaterialPdf, canonicalMaterialPath } from './materials';
+import { loadCoursewarePdf } from './courseware-pdf';
 import { searchPaperlessByPath } from './paperless-utils';
 
 export interface PdfLoadResult {
@@ -94,9 +95,18 @@ async function loadSinglePdf(
     return { error: 'no_file' };
   }
 
+  const courseware = canonicalMaterialPath(pdfName) && /\.pdf$/i.test(pdfName);
+  if (courseware) {
+    try { const result = await loadCoursewarePdf({ path: pdfName, signal }); return { data: result.data, source: result.source }; }
+    catch (error) {
+      signal.throwIfAborted();
+      if (error && typeof error === 'object' && 'status' in error && [401, 403].includes(Number(error.status))) return { error: 'fetch_failed' };
+    }
+  }
+
   // 1. Try local file access
   onProgress?.("Trying local file access\u2026");
-  if (isFileSystemAccessSupported()) {
+  if (!courseware && isFileSystemAccessSupported()) {
     const result = await getFileHandleFromPath(pdfName);
     signal.throwIfAborted();
     if (result.success) {
@@ -134,7 +144,7 @@ async function loadSinglePdf(
   }
 
   onProgress?.("Checking Knowledge Base…");
-  const material = await loadMaterialPdf(pdfName, signal);
+  const material = courseware ? null : await loadMaterialPdf(pdfName, signal);
   signal.throwIfAborted();
   if (material && 'denied' in material) return { error: 'fetch_failed' };
   if (material) return { data: material.data, source: 'mckb' };

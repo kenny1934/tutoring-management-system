@@ -117,14 +117,15 @@ export async function getSavedFolders(): Promise<SavedFolder[]> {
  */
 export async function verifyPermission(
   handle: FileSystemDirectoryHandle,
-  mode: 'read' | 'readwrite' = 'read'
+  mode: 'read' | 'readwrite' = 'read',
+  requestPermission = true
 ): Promise<boolean> {
   try {
     const options = { mode };
     if ((await handle.queryPermission(options)) === 'granted') {
       return true;
     }
-    if ((await handle.requestPermission(options)) === 'granted') {
+    if (requestPermission && (await handle.requestPermission(options)) === 'granted') {
       return true;
     }
     return false;
@@ -423,8 +424,8 @@ function findDriveFolder(folders: SavedFolder[], driveLetter: string): SavedFold
 }
 
 /** Navigate a directory handle to a file using relative path segments */
-export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[]): Promise<FileOperationResult> {
-  const hasPermission = await verifyPermission(folderHandle);
+export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[], requestPermission = true): Promise<FileOperationResult> {
+  const hasPermission = await verifyPermission(folderHandle, 'read', requestPermission);
   if (!hasPermission) {
     return { success: false, error: 'permission_denied' };
   }
@@ -445,7 +446,7 @@ export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, re
   }
 }
 
-export async function getFileHandleFromPath(path: string): Promise<FileOperationResult> {
+export async function getFileHandleFromPath(path: string, options?: { requestPermission?: boolean }): Promise<FileOperationResult> {
   // Strip surrounding quotes (from Windows "Copy as path")
   path = path.replace(/^["']|["']$/g, '');
 
@@ -477,7 +478,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
   if (mapping) {
     const driveFolder = findDriveFolder(folders, mapping.drivePath);
     if (driveFolder) {
-      return navigateToFile(driveFolder.handle, relativeParts);
+      return navigateToFile(driveFolder.handle, relativeParts, options?.requestPermission);
     }
   }
 
@@ -485,7 +486,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
   if (/^[A-Za-z]:$/.test(potentialAlias)) {
     const driveFolder = findDriveFolder(folders, potentialAlias);
     if (driveFolder) {
-      return navigateToFile(driveFolder.handle, relativeParts);
+      return navigateToFile(driveFolder.handle, relativeParts, options?.requestPermission);
     }
   }
 
@@ -496,7 +497,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
     return { success: false, error: 'folder_not_found' };
   }
 
-  return navigateToFile(folder.handle, relativeParts);
+  return navigateToFile(folder.handle, relativeParts, options?.requestPermission);
 }
 
 /**

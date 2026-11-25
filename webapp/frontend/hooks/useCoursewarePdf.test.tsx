@@ -1,0 +1,32 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { useCoursewarePdf } from './useCoursewarePdf';
+const load = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/courseware-pdf', () => ({ loadCoursewarePdf: load }));
+beforeEach(() => { load.mockReset(); });
+it('aborts the old file and ignores its late bytes after changing files', async () => {
+  const resolve: Array<(data: unknown) => void> = [];
+  load.mockImplementation(() => new Promise(done => resolve.push(done)));
+  const view = renderHook(({ path }) => useCoursewarePdf(path), { initialProps: { path: '[Center]/first.pdf' } });
+  const firstSignal = load.mock.calls[0][0].signal;
+  view.rerender({ path: '[Center]/second.pdf' });
+  expect(firstSignal.aborted).toBe(true);
+  await act(async () => resolve[0]({ source: 'local', data: new ArrayBuffer(1) }));
+  expect(view.result.current.data).toBeUndefined();
+  const second = { source: 'mckb', data: new ArrayBuffer(2) };
+  await act(async () => resolve[1](second));
+  expect(view.result.current.data).toBe(second);
+  const signal = load.mock.calls[1][0].signal;
+  view.unmount(); expect(signal.aborted).toBe(true);
+});
+it('recovers a locally unreadable PDF through the gateway and resets retry for another file', async () => {
+  load.mockResolvedValue({ source: 'local', data: new ArrayBuffer(1) });
+  const view = renderHook(({ path }) => useCoursewarePdf(path), { initialProps: { path: '[Center]/first.pdf' } });
+  await waitFor(() => expect(view.result.current.data?.source).toBe('local'));
+  act(() => view.result.current.recoverLocal());
+  await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+  expect(load.mock.calls[1][0]).toMatchObject({ localFirst: false, refresh: true });
+  view.rerender({ path: '[Center]/second.pdf' });
+  await waitFor(() => expect(load).toHaveBeenCalledTimes(3));
+  expect(load.mock.calls[2][0]).toMatchObject({ localFirst: true, refresh: false });
+});

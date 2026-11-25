@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useCoursewarePdf } from '@/hooks/useCoursewarePdf';
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check, Eraser, Download, RotateCcw, CalendarPlus, Moon, Sun } from "lucide-react";
@@ -10,6 +11,8 @@ import { validatePageRange, getPageCount } from "@/lib/pdf-utils";
 import type { PageSelection } from "@/types";
 
 interface PdfPreviewModalProps {
+  sourcePath?: string;
+  pdfBlobUrl?: string;
   isOpen: boolean;
   onClose: () => void;
   documentId: number | null;
@@ -19,15 +22,16 @@ interface PdfPreviewModalProps {
   enablePageSelection?: boolean;
 }
 
-export function PdfPreviewModal({
+function LegacyPdfPreviewModal({
   isOpen,
   onClose,
-  documentId,
+  documentId, pdfBlobUrl,
   documentTitle,
   onSelect,
   onAssign,
   enablePageSelection = false,
 }: PdfPreviewModalProps) {
+  const originalUrl = pdfBlobUrl || (documentId ? api.paperless.getPreviewUrl(documentId) : null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
@@ -80,7 +84,7 @@ export function PdfPreviewModal({
       setBlackInkMode("balanced");
       setBlackInkStrokeThreshold(0);
     }
-  }, [isOpen, documentId]);
+  }, [isOpen, originalUrl]);
 
   // Cleanup blob URL when component unmounts or cleaned PDF changes
   useEffect(() => {
@@ -93,11 +97,11 @@ export function PdfPreviewModal({
 
   // Load page count when document changes
   useEffect(() => {
-    if (!isOpen || !documentId || !enablePageSelection) return;
+    if (!isOpen || !originalUrl || !enablePageSelection) return;
 
     const loadPageCount = async () => {
       try {
-        const previewUrl = api.paperless.getPreviewUrl(documentId);
+        const previewUrl = originalUrl!;
         const response = await fetch(previewUrl);
         if (!response.ok) return;
         const blob = await response.blob();
@@ -110,7 +114,7 @@ export function PdfPreviewModal({
     };
 
     loadPageCount();
-  }, [isOpen, documentId, enablePageSelection]);
+  }, [isOpen, originalUrl, enablePageSelection]);
 
   // Validate page range on change
   useEffect(() => {
@@ -205,8 +209,8 @@ export function PdfPreviewModal({
         handleSelect();
       } else if (e.key === "o" || e.key === "O") {
         e.preventDefault();
-        if (documentId) {
-          window.open(api.paperless.getPreviewUrl(documentId), "_blank");
+        if (originalUrl) {
+          window.open(originalUrl!, "_blank");
         }
       } else if (e.key === "d" || e.key === "D") {
         e.preventDefault();
@@ -216,7 +220,7 @@ export function PdfPreviewModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onSelect, documentId, handleSelect, togglePdfDarkMode]);
+  }, [isOpen, onSelect, originalUrl, handleSelect, togglePdfDarkMode]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -236,21 +240,21 @@ export function PdfPreviewModal({
   };
 
   const handleOpenInNewTab = () => {
-    if (documentId) {
-      window.open(api.paperless.getPreviewUrl(documentId), "_blank");
+    if (originalUrl) {
+      window.open(originalUrl!, "_blank");
     }
   };
 
   // Handle handwriting removal
   const handleRemoveHandwriting = async () => {
-    if (!documentId || isProcessingHandwriting) return;
+    if (!originalUrl || isProcessingHandwriting) return;
 
     setIsProcessingHandwriting(true);
     setHandwritingError(null);
 
     try {
       // Fetch the PDF from Paperless
-      const previewUrl = api.paperless.getPreviewUrl(documentId);
+      const previewUrl = originalUrl!;
       const response = await fetch(previewUrl);
       if (!response.ok) {
         throw new Error("Failed to fetch PDF");
@@ -335,9 +339,9 @@ export function PdfPreviewModal({
     setShowCleanedVersion(!showCleanedVersion);
   };
 
-  if (!documentId) return null;
+  if (!originalUrl) return null;
 
-  const previewUrl = api.paperless.getPreviewUrl(documentId);
+  const previewUrl = originalUrl!;
   const displayUrl = showCleanedVersion && cleanedPdfUrl ? cleanedPdfUrl : previewUrl;
   const hasPageSelection = enablePageSelection && (
     (useComplexRange && complexRange.trim()) ||
@@ -719,4 +723,23 @@ export function PdfPreviewModal({
       </div>
     </Modal>
   );
+}
+
+
+export function PdfPreviewModal(props: PdfPreviewModalProps) {
+  if (!props.isOpen) return null;
+  return props.sourcePath ? <PathPdfPreviewModal key={props.sourcePath} {...props} /> : <LegacyPdfPreviewModal {...props} />;
+}
+function PathPdfPreviewModal(props: PdfPreviewModalProps) {
+  const pdf = useCoursewarePdf(props.sourcePath!);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pdf.data) return;
+    const next = URL.createObjectURL(new Blob([pdf.data.data], { type: 'application/pdf' })); setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [pdf.data]);
+  if (!url || !pdf.data) return <Modal isOpen title={props.documentTitle || 'Courseware preview'} onClose={props.onClose}>
+    {pdf.error ? <div role="alert">{pdf.error}<button onClick={pdf.retry}>Retry preview</button></div> : <p role="status">Loading PDF…</p>}
+  </Modal>;
+  return <LegacyPdfPreviewModal {...props} documentId={null} pdfBlobUrl={url} />;
 }

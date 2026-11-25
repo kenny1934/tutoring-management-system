@@ -2570,6 +2570,8 @@ function CoursewareSearchTab() {
                             </span>
                           </div>
                         </div>
+                        <IconButton size="sm" icon={Eye} label={`Preview ${item.filename}`}
+                          onClick={event => { event.stopPropagation(); handlePreview(-1, getTrendingPath(item)); }} />
                         <IconButton
                           size="sm"
                           icon={copiedPath === getTrendingPath(item) ? Check : Copy}
@@ -2766,7 +2768,8 @@ function CoursewareSearchTab() {
       <PdfPreviewModal
         isOpen={previewDocId !== null}
         onClose={() => setPreviewDocId(null)}
-        documentId={previewDocId}
+        documentId={previewDocId && previewDocId > 0 ? previewDocId : null}
+        sourcePath={previewDocId === -1 ? previewDocTitle : undefined}
         documentTitle={previewDocTitle}
         onAssign={() => {
           if (previewDocId) {

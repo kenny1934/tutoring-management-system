@@ -12,8 +12,8 @@ import styles from './MaterialSearch.module.css';
 
 const SessionSelectorModal = dynamic(() => import('@/components/sessions/SessionSelectorModal').then(module => module.SessionSelectorModal), { ssr: false });
 
-export function MaterialWorkControls({ material, scope, canAssign, heading, children, previewPage, pageNavigation, reading: saved }: {
-  material: MaterialResult; scope: string; canAssign: boolean; heading?: ReactNode; children?: ReactNode; previewPage?: number | null; reading?: MaterialReadingPlace; pageNavigation?: ReactNode;
+export function MaterialWorkControls({ material, scope, canAssign, heading, children, previewPage, pageNavigation, reading: saved, onPageCount }: {
+  onPageCount?: (count: number) => void; material: MaterialResult; scope: string; canAssign: boolean; heading?: ReactNode; children?: ReactNode; previewPage?: number | null; reading?: MaterialReadingPlace; pageNavigation?: ReactNode;
 }) {
   const local = useRef(createMaterialReadingPlace());
   const reading = saved ?? local.current;
@@ -47,7 +47,7 @@ export function MaterialWorkControls({ material, scope, canAssign, heading, chil
       {pageNavigation}
     </div>}
     </div>
-    {showOriginal && <div className={styles.pdfContent}><MaterialOriginal material={material} scope={scope} pages={selected ?? []} initialPage={pdfStartPage} reading={reading} onPageCount={setCount} /></div>}
+    {showOriginal && <div className={styles.pdfContent}><MaterialOriginal material={material} scope={scope} pages={selected ?? []} initialPage={pdfStartPage} reading={reading} onPageCount={value => { setCount(value); onPageCount?.(value); }} /></div>}
     <div ref={textScroll} className={styles.previewContent} data-courseware-scroll onScroll={event => { if (!showOriginal) reading.textTop = event.currentTarget.scrollTop; }} hidden={showOriginal}>
     {notice && <p role="status">{notice}</p>}
     {children}

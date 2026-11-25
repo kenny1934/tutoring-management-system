@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SWRConfig } from 'swr';
@@ -32,6 +33,7 @@ describe('Courseware search', () => {
     fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'year' } });
     await screen.findByRole('option', { name: 'Year 9 (2)' });
     fireEvent.change(screen.getByLabelText('Courseware folder'), { target: { value: 'Year 9' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search')).at(-1)![1].body)).toMatchObject({ q: 'fractions', share: 'developer', ext: '.pdf', modified: 'year', folder: 'Year 9' }));
   });
   it.each(['"a term"', '4x^2-y^2+10x-y'])('preserves the courseware query %s for the provider', async query => {
@@ -176,6 +178,8 @@ it('recalls courseware history with source filters and allows removing it', asyn
   fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
   change('');
   const recall = await screen.findByRole('button', { name: `Search courseware for ${query}` });
+  expect(screen.queryByLabelText('Courseware sort')).toBeNull();
+  expect(screen.queryByText(/results?$/, { selector: '[aria-live="polite"]' })).toBeNull();
   fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: '' } });
   fireEvent.click(recall);
   await waitFor(() => expect(screen.getByLabelText('Courseware source')).toHaveValue('msa_scan'));
@@ -226,7 +230,7 @@ it('loads a matching page omitted by the initial text cap, preserves highlights,
   await screen.findByText('Page 1');
   fireEvent.click(screen.getByRole('button', { name: 'Show matching page 16' }));
   await screen.findByText('Page 16');
-  expect(mocks.fetch).toHaveBeenCalledWith('/materials/1/preview?q=fractions&page=16');
+  expect(mocks.fetch).toHaveBeenCalledWith('/materials/1/preview?q=fractions&page=16', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   expect(screen.getByRole('button', { name: 'Show matching page 16' })).toHaveAttribute('aria-pressed', 'true');
   expect(document.querySelector('[data-current-match]')).toHaveTextContent('fractions');
   expect(document.querySelector('[data-text-chunk]')).toHaveTextContent(later);
@@ -245,4 +249,107 @@ it('can jump within an existing preview when the provider has not deployed focus
   await screen.findByText('Page 16');
   expect(screen.queryByText('Page 1')).toBeNull();
   expect(mocks.fetch.mock.calls.filter(call => call[0].includes('/preview')).every(call => !call[0].includes('&page='))).toBe(true);
+});
+
+it('aborts obsolete search and preview requests', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => {
+    if (path.includes('/preview') || (path === '/materials/search' && JSON.parse(options.body).q === 'algebra')) return new Promise(() => {});
+    return original(path, options);
+  });
+  const view = mount(); await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.click(screen.getByRole('button', { name: /Worksheet 1/ }));
+  await screen.findByRole('region', { name: 'Courseware preview' });
+  const oldPreview = mocks.fetch.mock.calls.find(call => String(call[0]).includes('/preview'))![1].signal as AbortSignal;
+  view.change('algebra');
+  await waitFor(() => expect(oldPreview.aborted).toBe(true));
+  await waitFor(() => expect(mocks.fetch.mock.calls.some(call => call[0] === '/materials/search' && JSON.parse(call[1].body).q === 'algebra')).toBe(true));
+  const latest = mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').at(-1)![1].signal as AbortSignal;
+  expect(latest.aborted).toBe(false); view.unmount(); expect(latest.aborted).toBe(true);
+});
+it('keeps selected documents while changing the search query', async () => {
+  const view = render(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="fractions" scope="basket" canAssign /></SWRConfig>);
+  fireEvent.click(await screen.findByLabelText('Select Worksheet 1.pdf'));
+  expect(screen.getByRole('group', { name: 'Selected courseware' })).toHaveTextContent('1 selected');
+  view.rerender(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="algebra" scope="basket" canAssign /></SWRConfig>);
+  await screen.findByRole('button', { name: /Worksheet 2/ });
+  fireEvent.click(screen.getByLabelText('Select Worksheet 2.pdf'));
+  expect(screen.getByRole('group', { name: 'Selected courseware' })).toHaveTextContent('2 selected');
+  fireEvent.click(screen.getByRole('button', { name: 'Review and assign' }));
+  expect(screen.getByLabelText('Pages for Worksheet 1.pdf')).toHaveValue('1-3');
+  expect(screen.getByLabelText('Pages for Worksheet 2.pdf')).toHaveValue('1-3');
+});
+
+it('applies structured rules together, forwards them to preview, and removes individual chips', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => path.endsWith('/sources') ? Promise.resolve({ ...sources, features: ['search_refinements', 'focused_preview'] }) : original(path, options));
+  mount('F1 algebra');
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  const calls = mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').length;
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'any_words' } });
+  fireEvent.change(screen.getByLabelText('Alternatives'), { target: { value: 'factorisation' } });
+  fireEvent.keyDown(screen.getByLabelText('Alternatives'), { key: 'Enter' });
+  fireEvent.change(screen.getByLabelText('Alternatives'), { target: { value: 'factorization' } });
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'exclude_words' } });
+  fireEvent.change(screen.getByLabelText('Excluded words'), { target: { value: 'draft' } });
+  fireEvent.keyDown(screen.getByLabelText('Excluded words'), { key: 'Enter' });
+  fireEvent.change(screen.getByLabelText('Excluded words'), { target: { value: 'answers' } });
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'exact_phrase' } });
+  fireEvent.change(screen.getByLabelText('Exact phrase'), { target: { value: 'a term' } });
+  fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'custom' } });
+  fireEvent.change(screen.getByLabelText('Modified from'), { target: { value: '2025-01-01' } });
+  fireEvent.change(screen.getByLabelText('Modified through'), { target: { value: '2025-12-31' } });
+  expect(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search')).toHaveLength(calls);
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(screen.queryByRole('form', { name: 'Courseware filter settings' })).toBeNull();
+  await waitFor(() => expect(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search')).toHaveLength(calls+1));
+  const payload = JSON.parse(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').at(-1)![1].body);
+  expect(payload).toMatchObject({ q: 'F1 algebra', refine: { any_words: 'factorisation factorization', exclude_words: 'draft answers', exact_phrase: 'a term', modified_from: '2025-01-01', modified_to: '2025-12-31' } });
+  expect(payload.any_words).toBeUndefined();
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  await waitFor(() => expect(mocks.fetch.mock.calls.some(call => String(call[0]).includes('/preview'))).toBe(true));
+  const url = new URL(mocks.fetch.mock.calls.find(call => String(call[0]).includes('/preview'))![0], 'https://example.test');
+  expect(JSON.parse(url.searchParams.get('refine')!)).toEqual(payload.refine);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Excludes draft or answers' }));
+  await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').at(-1)![1].body).refine.exclude_words).toBeUndefined());
+});
+
+it('rejects reversed dates and cancels drafts without changing the search', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => path.endsWith('/sources') ? Promise.resolve({ ...sources, features: ['search_refinements'] }) : original(path, options));
+  mount(); await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'custom' } });
+  fireEvent.change(screen.getByLabelText('Modified from'), { target: { value: '2026-01-01' } });
+  fireEvent.change(screen.getByLabelText('Modified through'), { target: { value: '2025-01-01' } });
+  expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  expect(screen.getByRole('alert')).toHaveTextContent('start date');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  expect(screen.queryByLabelText('Modified from')).toBeNull();
+  expect(screen.getByLabelText('Courseware modified date')).toHaveValue('');
+  expect(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search')).toHaveLength(1);
+});
+
+it('supports a phrase-only search and recalls its complete refinements from history', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => path.endsWith('/sources') ? Promise.resolve({ ...sources, features: ['search_refinements'] }) : original(path, options));
+  const cache = new Map();
+  function App() {
+    const [query, change] = React.useState('');
+    return <SWRConfig value={{ provider: () => cache }}><MaterialSearch scope="phrase-history" query={query} onQueryChange={change} /></SWRConfig>;
+  }
+  const view = render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Filters' }));
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'exact_phrase' } });
+  fireEvent.change(screen.getByLabelText('Exact phrase'), { target: { value: 'a term' } });
+  fireEvent.change(screen.getByLabelText('Search word matching'), { target: { value: 'any' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  view.unmount(); render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Search courseware for a term' }));
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  expect(screen.getByRole('button', { name: 'Remove Exact phrase: a term' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Remove Any search word' })).toBeVisible();
 });

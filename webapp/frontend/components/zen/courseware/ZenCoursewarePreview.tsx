@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useCoursewarePdf } from '@/hooks/useCoursewarePdf';
 import { paperlessAPI } from "@/lib/api";
 
 export interface PreviewFile {
+  source?: 'courseware';
   documentId?: number;
   blobUrl?: string;
   path: string;
@@ -23,7 +25,21 @@ interface ZenCoursewarePreviewProps {
  * - +/-: Zoom in/out
  * - o: Open in new tab
  */
-export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePreviewProps) {
+export function ZenCoursewarePreview(props: ZenCoursewarePreviewProps) {
+  return props.file?.source === 'courseware' ? <PathCoursewarePreview key={props.file.path} {...props} /> : <LegacyZenCoursewarePreview {...props} />;
+}
+function PathCoursewarePreview(props: ZenCoursewarePreviewProps) {
+  const pdf = useCoursewarePdf(props.file!.path);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pdf.data) return;
+    const next = URL.createObjectURL(new Blob([pdf.data.data], { type: 'application/pdf' })); setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [pdf.data]);
+  if (!url || !pdf.data) return <div role={pdf.error ? 'alert' : 'status'}>{pdf.error || 'Loading PDF…'}{pdf.error && <button onClick={pdf.retry}>Retry preview</button>}</div>;
+  return <LegacyZenCoursewarePreview {...props} file={{ ...props.file!, documentId: undefined, blobUrl: url }} />;
+}
+function LegacyZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePreviewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
