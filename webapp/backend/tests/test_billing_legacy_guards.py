@@ -90,7 +90,7 @@ def assert_blocked(call):
 
 
 @pytest.mark.parametrize("action", ["update_paid", "update_sent", "update_discount", "batch_paid", "batch_sent",
-                                   "cancel", "schedule", "clear_override", "set_override", "renew"])
+                                   "cancel", "clear_override", "set_override", "renew"])
 def test_legacy_routes_cannot_split_grouped_payment(env, action):
     db, admin = env
     before = [(e.id, e.payment_status, e.fee_message_sent, e.lessons_paid) for e in db.query(Enrollment).all()]
@@ -101,9 +101,6 @@ def test_legacy_routes_cannot_split_grouped_payment(env, action):
         "batch_paid": lambda: enrollments.batch_mark_paid(BatchEnrollmentRequest(enrollment_ids=[14, 11]), db, admin),
         "batch_sent": lambda: enrollments.batch_mark_sent(BatchEnrollmentRequest(enrollment_ids=[14, 11]), db, admin),
         "cancel": lambda: enrollments.cancel_enrollment(11, db, admin),
-        "schedule": lambda: enrollments.apply_schedule_change(11, ApplyScheduleChangeRequest(
-            assigned_day="Sat", assigned_time="16:00 - 17:30", tutor_id=1, location="MSA", apply_to_sessions=True
-        ), db, admin),
         "clear_override": lambda: enrollments.clear_discount_override(11, admin, db),
         "set_override": lambda: enrollments.set_discount_override(11, DiscountOverrideRequest(code="NONE", reason="Synthetic"), admin, db),
         "renew": lambda: enrollments.batch_renew(BatchRenewRequest(enrollment_ids=[14, 11], lessons_paid=6), admin, db),
@@ -140,9 +137,8 @@ def test_old_unlinked_schedule_cannot_be_stretched_after_conversion(env):
     assert db.get(Enrollment, 13).lessons_paid == 2
 
 
-@pytest.mark.parametrize("changes", [dict(session_date=date(2027, 1, 1)), dict(time_slot="10:00 - 11:30"),
-                                    dict(location="MSB"), dict(session_status="Cancelled")])
-def test_direct_original_session_structural_edits_are_blocked(env, changes):
+@pytest.mark.parametrize("changes", [dict(session_status="Cancelled")])
+def test_direct_original_session_cancellation_is_blocked(env, changes):
     db, admin = env
     assert_blocked(lambda: sessions.update_session(111, SessionUpdate(**changes), admin, db))
     assert db.get(SessionLog, 111).session_status == "Scheduled"

@@ -20,7 +20,8 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from billing.guards import assert_legacy_creation_allowed, assert_legacy_enrollments_mutable, lock_billing_session
+from billing.guards import assert_legacy_enrollments_mutable, lock_billing_session
+from billing.schedules import prepare_schedule_change, finish_schedule_change
 from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
 from schemas import BulkTutorChangeRequest, BulkTutorChangeResponse, SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
@@ -2085,23 +2086,20 @@ async def update_session(
     if not _is_lesson_number_only_update(request):
         _verify_session_ownership(session, current_user)
 
-    # A confirmed payment owns its original teaching dates. Attendance,
-    # notes and make-up handling retain their existing workflows.
-    changes_original = not session.make_up_for_id and (
-        any(getattr(request, field) is not None and getattr(request, field) != getattr(session, field)
-            for field in ("session_date", "time_slot", "location", "tutor_id"))
-        or (request.session_status is not None and request.session_status != session.session_status
-            and "Cancelled" in (request.session_status, session.session_status))
+    # Cancellation changes coverage and still needs the payment workflow.
+    cancels_original = not session.make_up_for_id and (
+        request.session_status is not None and request.session_status != session.session_status
+        and "Cancelled" in (request.session_status, session.session_status)
     )
-    if changes_original and session.enrollment_id:
+    if cancels_original and session.enrollment_id:
         assert_legacy_enrollments_mutable(
             db, [session.enrollment_id], structural=True, action="review schedule changes"
         )
-
-    if changes_original and request.session_date is not None and session.enrollment is not None:
-        assert_legacy_creation_allowed(
-            db, session.student_id, request.session_date, session.enrollment.enrollment_type
-        )
+    changes_schedule = any(
+        getattr(request, field) is not None and getattr(request, field) != getattr(session, field)
+        for field in ("session_date", "time_slot", "location", "tutor_id")
+    )
+    schedule_change = prepare_schedule_change(db, session.enrollment_id) if changes_schedule else None
 
     # Booking changes share the same eligibility rule, including same-date
     # time changes and reactivation. Recording an actual taught lesson remains
@@ -2315,6 +2313,8 @@ async def update_session(
     # A lesson moved onto the day a tutor recorded one fills itself in from that record.
     if request.session_date is not None or request.time_slot is not None:
         fill_unlisted_lessons(db, [session.student_id], current_user.user_email)
+
+    finish_schedule_change(db, schedule_change, current_user)
 
     db.commit()
     db.refresh(session)

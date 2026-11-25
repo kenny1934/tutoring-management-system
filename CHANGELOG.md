@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.14](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.13...v2.4.14) (2026-11-25)
+
+### Bug Fixes
+
+* **Session editing**: Restore tutor, time and date changes for sessions managed through monthly billing while preserving their fees and payment status.
+* **Enrollment schedules**: Restore tutor, weekday and time changes, including the option to update upcoming sessions while keeping completed lessons unchanged.
+
 ## [2.4.13](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.12...v2.4.13) (2026-11-24)
 
 ### Improvements
