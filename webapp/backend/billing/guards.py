@@ -190,14 +190,17 @@ def billing_metadata(db: Session, enrollments):
     ).filter(line.enrollment_id.in_(defaults)).all()
     lines = {item.enrollment_id: item for item, _snapshot in line_rows}
     methods = {}
+    supplement_totals = {}
     for item, snapshot in line_rows:
         method = (snapshot or {}).get("review", {}).get("period", {}).get("collection", {}).get("method")
         methods[item.enrollment_id] = method if method in ("manual", "autopay") else None
+        supplement_totals[item.enrollment_id] = sum(value['amount'] for value in (snapshot or {}).get('supplementary_payments', []) if value['enrollment_id'] == item.enrollment_id)
     end_dates = dict(db.query(
         SessionLog.enrollment_id, func.max(SessionLog.session_date)
     ).filter(SessionLog.enrollment_id.in_(lines), SessionLog.make_up_for_id.is_(None)).group_by(
         SessionLog.enrollment_id
     ).all()) if lines else {}
+    db.info.setdefault("billing_supplement_totals", {}).update(supplement_totals)
     cache = db.info.setdefault("billing_legacy_lines", {})
     for row in rows:
         entry = lines.get(row.id)
@@ -270,7 +273,7 @@ def annotate_billing_response(db: Session, responses):
         line = db.info.get("billing_legacy_lines", {}).get(enrollment_id(item))
         if line is not None:
             if hasattr(item, "total_fee"):
-                item.total_fee = line.tuition_amount + line.materials_fee
+                item.total_fee = line.tuition_amount + line.materials_fee + db.info.get("billing_supplement_totals", {}).get(enrollment_id(item), 0)
             if hasattr(item, "registration_fee"):
                 item.registration_fee = line.materials_fee
     return items
@@ -307,6 +310,12 @@ def combine_overdue_payments(db: Session, responses, today):
             row.billing_payment_lesson_count = int(total.lesson_count)
             row.billing_payment_line_count = int(total.line_count)
         collection = payment.snapshot.get("review", {}).get("period", {}).get("collection", {}) if payment else {}
+        pending = [item for item in (payment.snapshot.get('supplementary_payments', []) if payment else []) if item['status'] != 'Paid']
+        if pending:
+            collection = {'method': 'manual', 'due_before_lesson': min(lesson['date'] for item in pending for lesson in item['lessons'])}
+            row.billing_payment_total_fee = sum(item['amount'] for item in pending)
+            row.billing_payment_lesson_count = sum(len(item['lessons']) for item in pending)
+            row.billing_payment_line_count = len({item['enrollment_id'] for item in pending})
         method = collection.get("method")
         row.billing_payment_method = method if method in ("manual", "autopay") else None
         due = collection.get("debit_to") if method == "autopay" else collection.get("due_before_lesson")

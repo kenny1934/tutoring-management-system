@@ -156,7 +156,17 @@ def _facts(db, student_ids, *, locked=False):
             original_dates[key].append(session.session_date)
     for item in events:
         event_groups[item.participation_id].append(item)
-    return {'enrollments': {e.id: e for e in enrollments}, 'sessions': {s.id: s for s in sessions},
+    adjusted_ids = {payment.id for _, payment in payments
+                    if payment.snapshot.get('period_schedule_changes') or payment.snapshot.get('schedule_changes')}
+    adjusted_claims = defaultdict(list)
+    sessions_by_id = {row.id: row for row in sessions}
+    if adjusted_ids:
+        from billing.models import BillingLessonClaim
+        for claim in _query(db.query(BillingLessonClaim).filter(
+                BillingLessonClaim.payment_id.in_(adjusted_ids)).order_by(BillingLessonClaim.id), locked).all():
+            if claim.session_id in sessions_by_id:
+                adjusted_claims[claim.payment_id].append((claim, sessions_by_id[claim.session_id]))
+    return {'_adjusted_claims': adjusted_claims, 'enrollments': {e.id: e for e in enrollments}, 'sessions': {s.id: s for s in sessions},
             'headers': {h.student_id: h for h in headers}, 'events': events,
             'payments': {line.enrollment_id: (line, payment) for line, payment in payments}, 'holidays': holidays,
             'sessions_by_student': by_student, 'sessions_by_enrollment': by_enrollment,
@@ -245,11 +255,37 @@ def _build_intervals(facts, student_id):
     """Return verified settled coverage; legacy dates never gain extension weeks."""
     intervals, problems = [], []
     for enrollment in facts['enrollments_by_student'].get(student_id, []):
-        if enrollment.enrollment_type != 'Regular' or enrollment.payment_status not in SETTLED:
+        if enrollment.enrollment_type != 'Regular' or enrollment.payment_status not in SETTLED | {'Partially Paid'}:
             continue
         originals = sorted([s for s in facts['sessions_by_enrollment'].get(enrollment.id, [])
                             if s.make_up_for_id is None and s.session_status != 'Cancelled'], key=lambda s: (s.session_date, s.id))
         if not originals or not any(POLICY.academic_start <= s.session_date <= POLICY.regular_end for s in originals):
+            continue
+        linked_adjusted = facts['payments'].get(enrollment.id)
+        if linked_adjusted and (linked_adjusted[1].snapshot.get('period_schedule_changes')
+                                or linked_adjusted[1].snapshot.get('schedule_changes')):
+            line, payment = linked_adjusted
+            try:
+                from billing.schemas import BillingDraftReview
+                from billing.workflow import payment_integrity
+                from billing.schedule_adjustments import supplements
+                review = BillingDraftReview.model_validate(payment.snapshot['review'])
+                related = [(ln, facts['enrollments'][eid], '') for eid, (ln, pay) in facts['payments'].items()
+                           if pay.id == payment.id]
+                related.sort(key=lambda item: item[0].slot_index)
+                sessions = [row for _, block, _ in related for row in facts['sessions_by_enrollment'].get(block.id, [])]
+                claims = facts.get('_adjusted_claims', {}).get(payment.id)
+                # Facts are loaded in a bounded batch; no database access is
+                # required when evaluating each individual source entitlement.
+                if claims is None or payment.status != 'Paid' or payment_integrity(
+                        None, payment, review, related, preloaded_claims=claims, preloaded_sessions=sessions):
+                    raise ValueError()
+                through = review.period.coverage_through
+                start = min([review.period.coverage_from, *[row.session_date for row in originals if row.financial_status in SETTLED]])
+                intervals.append({'enrollment_id': enrollment.id, 'payment_id': payment.id,
+                    'from': start, 'through': through, 'continuity': through, 'paid_on': enrollment.payment_date})
+            except (ValueError, KeyError, TypeError, IndexError):
+                problems.append('A paid enrollment’s lesson records need review.')
             continue
         if (any(s.student_id != student_id or s.financial_status not in SETTLED for s in originals)
                 or len(originals) != enrollment.lessons_paid):
@@ -393,7 +429,7 @@ def _eligibility(facts, session, *, as_of, target_date=None):
     # Moving an unpaid lesson preserves the debt on its original enrollment.
     # It does not need settled coverage today or create any new paid coverage.
     unpaid_source = (root.financial_status == 'Unpaid'
-                     and enrollment.payment_status in SETTLED | {'Pending Payment', 'Overdue'})
+                     and enrollment.payment_status in SETTLED | {'Pending Payment', 'Overdue', 'Partially Paid'})
     if not unpaid_source and enrollment.id not in {item['enrollment_id'] for item in intervals}:
         return block('needs_review', 'MAKEUP_PAYMENT_REVIEW', 'The original enrollment’s paid lesson records need review.')
     ancestry = _ancestry_ids(facts, session)

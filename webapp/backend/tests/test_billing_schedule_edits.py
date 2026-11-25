@@ -12,8 +12,8 @@ from billing.models import BillingLessonClaim, BillingPayment
 from billing.workflow import payment_detail
 from models import Enrollment, SessionLog, Tutor
 from routers import enrollments, sessions
-from schemas import ApplyScheduleChangeRequest, SessionUpdate
-from tests.test_billing_drafts import env as draft_env
+from schemas import ApplyScheduleChangeRequest, ScheduleChangeRequest, SessionUpdate
+from tests.test_billing_drafts import env as draft_env, review_request
 from tests.test_billing_workflow import env, confirmed, pay_payload
 
 
@@ -30,9 +30,20 @@ def originals(db, enrollment_id):
     return db.query(SessionLog).filter_by(enrollment_id=enrollment_id, make_up_for_id=None).order_by(SessionLog.session_date).all()
 
 
-def setup_payment(env, paid=False):
+def setup_payment(env, paid=False, legacy=False):
     client, db, actor = env
-    _, _, detail = confirmed(client)
+    if legacy:
+        source = db.get(Enrollment, 11)
+        source.first_lesson_date -= timedelta(weeks=6)
+        for row in originals(db, source.id):
+            row.session_date -= timedelta(weeks=6)
+        db.commit()
+    payload = review_request(client) if legacy else None
+    if payload:
+        payload['confirmed_checks'] = ['UNPAID_PAST_DATES']
+    _, _, detail = confirmed(client, payload=payload)
+    if legacy:
+        assert detail['review']['period']['kind'] == 'legacy'
     if paid:
         response = client.post(f"/api/billing/payments/{detail['id']}/paid", json=pay_payload(detail))
         assert response.status_code == 200, response.text
@@ -70,8 +81,8 @@ def test_session_editor_preserves_payment_and_can_collect_afterwards(env, paid, 
 @pytest.mark.parametrize('paid', [False, True])
 @pytest.mark.parametrize('apply_to_sessions', [False, True])
 def test_enrollment_editor_preserves_count_fees_and_original_quote(env, monkeypatch, paid, apply_to_sessions):
-    _, db, actor, payment, eid = setup_payment(env, paid)
-    monkeypatch.setattr(enrollments, 'billing_today', lambda _: date(2026, 10, 17))
+    _, db, actor, payment, eid = setup_payment(env, paid, legacy=True)
+    monkeypatch.setattr(enrollments, 'billing_today', lambda _: date(2026, 9, 26))
     old_quote = deepcopy(payment.snapshot['review'])
     before = [(row.id, row.session_date, row.financial_status) for row in originals(db, eid)]
     result = asyncio.run(enrollments.apply_schedule_change(eid, ApplyScheduleChangeRequest(
@@ -131,14 +142,18 @@ def test_invalid_session_changes_leave_payment_and_claim_intact_after_rollback(e
 
 def test_enrollment_schedule_change_leaves_completed_lessons_untouched(env, monkeypatch):
     _, db, actor, payment, eid = setup_payment(env)
-    monkeypatch.setattr(enrollments, 'billing_today', lambda _: date(2026, 10, 17))
+    monkeypatch.setattr(enrollments, 'billing_today', lambda _: date(2026, 11, 14))
     first, *_ = originals(db, eid)
     first.session_status = 'Attended'
     db.commit()
     before = (first.session_date, first.time_slot, first.tutor_id)
+    from billing.schedule_adjustments import preview
+    request = ScheduleChangeRequest(assigned_day='Thu', assigned_time='12:00 - 13:30', location='MSA', tutor_id=2,
+                                   effective_date=date(2026, 11, 14))
+    proposal = preview(db, db.get(Enrollment, eid), request, as_of=date(2026, 11, 14))
     asyncio.run(enrollments.apply_schedule_change(eid, ApplyScheduleChangeRequest(
-        assigned_day='Thu', assigned_time='12:00 - 13:30', location='MSA', tutor_id=2,
-        apply_to_sessions=True), db, actor))
+        **request.model_dump(exclude={'review_period'}), expected_adjustment_hash=proposal['review_hash'],
+        idempotency_key='completed-lesson-change', reason='Permanent weekday change', apply_to_sessions=True), db, actor))
     assert (first.session_date, first.time_slot, first.tutor_id) == before
     assert payment_detail(db, payment).review_issues == []
 

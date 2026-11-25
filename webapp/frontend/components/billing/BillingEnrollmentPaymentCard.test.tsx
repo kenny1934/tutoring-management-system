@@ -260,3 +260,18 @@ it('keeps cancellation in the header menu and returns focus there after dismissi
   expect(more).toHaveFocus();
   expect(mocks.cancelPayment).not.toHaveBeenCalled();
 });
+it('keeps the other enrollment paid when a grouped class has additional tuition outstanding', async () => {
+  current = basePayment(); current.status = 'Paid'; current.outstanding_supplement_amount = 800;
+  current.supplementary_payments = [{ id: 'extra', enrollment_id: 21, amount: 800, status: 'Pending Payment', lessons: [], reason: 'Change', payment_date: null, received_method: null, receipt_reference: null }];
+  show(); await screen.findByText('MOP 1,200');
+  expect(screen.getByText('Paid')).toBeVisible();
+  expect(screen.queryByText('Partially paid')).not.toBeInTheDocument();
+});
+it('shows the revised enrollment total separately from its original payment and outstanding tuition', async () => {
+  current = basePayment(); current.status = 'Paid'; current.outstanding_supplement_amount = 800;
+  current.supplementary_payments = [{ id: 'extra', enrollment_id: 20, amount: 800, status: 'Pending Payment', lessons: [], reason: 'Change', payment_date: null, received_method: null, receipt_reference: null }];
+  show(); await screen.findByText('MOP 2,000');
+  expect(screen.getByText('Partially paid')).toBeVisible();
+  expect(screen.getByText('Original payment').nextElementSibling).toHaveTextContent('MOP 1,200');
+  expect(screen.getByText(/Additional tuition outstanding/)).toHaveTextContent('MOP 800');
+});

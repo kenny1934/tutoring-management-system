@@ -682,6 +682,7 @@ async def approve_slot(
         session_status="Make-up Class",
         financial_status=original_session.financial_status if grouped_payment else "Unpaid",
         make_up_for_id=original_session.id,
+        billing_tuition_amount=original_session.billing_tuition_amount,
         notes=f"Approved via proposal #{proposal.id}",
         last_modified_by=f"tutor_{tutor_id}@csmpro.app",
         last_modified_time=hk_now()

@@ -104,10 +104,12 @@ function EnrollmentFee({ detail, enrollment }: { detail: BillingPaymentDetail; e
   const period = detail.review.period;
   const multiple = detail.lines.length > 1;
   const deduction = period.deductions[0];
+  const extra = (detail.supplementary_payments ?? []).filter(item => item.enrollment_id === enrollment.id).reduce((sum, item) => sum + item.amount, 0);
+  const outstanding = (detail.supplementary_payments ?? []).filter(item => item.enrollment_id === enrollment.id && item.status !== 'Paid').reduce((sum, item) => sum + item.amount, 0);
   return <div className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><p className="text-xs text-ink-subtle">{multiple ? 'This enrollment' : 'Total fee'}</p><p className="text-2xl font-semibold tabular-nums">{formatMOP(line.tuition_amount + line.materials_fee, 0)}</p></div>
-      <BillingPaymentStatus detail={detail} />
+      <div><p className="text-xs text-ink-subtle">{multiple ? 'This enrollment' : 'Total fee'}</p><p className="text-2xl font-semibold tabular-nums">{formatMOP(line.tuition_amount + line.materials_fee + extra, 0)}</p></div>
+      <BillingPaymentStatus detail={{ ...detail, outstanding_supplement_amount: outstanding }} />
     </div>
     {(line.materials_fee > 0 || line.discount_amount > 0) && <dl aria-label="Fee breakdown" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-sm">
       <dt className="text-ink-subtle">Tuition</dt><dd>{formatMOP(line.gross_tuition, 0)}</dd>
@@ -115,13 +117,14 @@ function EnrollmentFee({ detail, enrollment }: { detail: BillingPaymentDetail; e
       {(line.materials_fee > 0 || enrollment.is_new_student) && <><dt className="text-ink-subtle">Materials fee</dt><dd>{formatMOP(line.materials_fee, 0)}</dd></>}
     </dl>}
     {(detail.status !== 'Cancelled' || (enrollment.is_new_student && !line.materials_fee && !line.discount_amount)) && <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 border-t border-line pt-3 text-xs">
-      {detail.status === 'Paid' ? <><dt className="text-ink-subtle">Payment date</dt><dd className="text-right">{formatShortDate(detail.payment_date)}</dd><dt className="text-ink-subtle">Received by</dt><dd className="text-right">{detail.received_method === 'bank_transfer' ? 'Bank transfer' : detail.received_method === 'autopay' ? 'Autopay' : detail.received_method === 'cash' ? 'Cash' : 'Not recorded'}</dd>{detail.receipt_reference && <><dt className="text-ink-subtle">KMS receipt</dt><dd className="break-words text-right">{detail.receipt_reference}</dd></>}</> : detail.status === 'Pending Payment' ? <>
+      {detail.status === 'Paid' ? <>{extra > 0 && <><dt className="text-ink-subtle">Original payment</dt><dd className="text-right">{formatMOP(line.tuition_amount + line.materials_fee, 0)}</dd></>}<dt className="text-ink-subtle">{extra > 0 ? 'Original payment date' : 'Payment date'}</dt><dd className="text-right">{formatShortDate(detail.payment_date)}</dd><dt className="text-ink-subtle">Received by</dt><dd className="text-right">{detail.received_method === 'bank_transfer' ? 'Bank transfer' : detail.received_method === 'autopay' ? 'Autopay' : detail.received_method === 'cash' ? 'Cash' : 'Not recorded'}</dd>{detail.receipt_reference && <><dt className="text-ink-subtle">KMS receipt</dt><dd className="break-words text-right">{detail.receipt_reference}</dd></>}</> : detail.status === 'Pending Payment' ? <>
         <dt className="text-ink-subtle">Collection</dt><dd className="text-right"><PaymentMethodBadge method={period.collection.method} /></dd>
         <dt className="text-ink-subtle">{period.collection.method === 'manual' ? 'Pay before' : 'Debit dates'}</dt><dd className="text-right">{period.collection.method === 'manual' ? formatShortDate(period.collection.due_before_lesson) : `${formatShortDate(period.collection.debit_from)} to ${formatShortDate(period.collection.debit_to)}`}</dd>
       </> : null}
       {enrollment.is_new_student && !line.materials_fee && !line.discount_amount && <><dt className="text-ink-subtle">Materials fee</dt><dd className="text-right">{formatMOP(0, 0)}</dd></>}
     </dl>}
     {multiple && <p className="rounded border border-line bg-wash p-2 text-xs text-ink-subtle">This enrollment is part of a payment covering {detail.lines.length} enrollments. Payment total: <strong className="font-semibold text-foreground">{period.total_fee == null ? 'To confirm' : formatMOP(period.total_fee, 0)}</strong>.</p>}
+    {outstanding > 0 && <p className="text-sm">Additional tuition outstanding: {formatMOP(outstanding, 0)}. Open payment details to record it.</p>}
     <BillingPaymentMessageStatus detail={detail} />
     {detail.status === 'Paid' && detail.note && <section className="space-y-1"><h4 className="text-xs font-medium text-ink-subtle">Payment note</h4><p className="whitespace-pre-wrap break-words text-sm">{detail.note}</p></section>}
   </div>;

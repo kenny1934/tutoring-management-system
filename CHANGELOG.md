@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.4.15](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.14...v2.4.15) (2026-11-26)
+
+### Improvements
+
+* **Enrollment schedules**: Review the effective date, session count and additional tuition before changing a monthly enrollment's weekday.
+* **Additional tuition**: Keep the original payment intact while collecting fees for added sessions, with a Partially paid status until the balance is settled.
+* **Remaining sessions**: Keep the agreed fee and arrange make-ups for sessions that no longer fit the new weekly timetable.
+* **Revenue reporting**: Preserve the value of existing sessions when a paid enrollment gains additional lessons.
+
 ## [2.4.14](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.13...v2.4.14) (2026-11-25)
 
 ### Bug Fixes

@@ -205,6 +205,20 @@ def projection_row(context, holidays, as_of, through, policy):
 def pending_rows(context, payments, payment_enrollments, linked_ids, deadlines, as_of, through):
     rows = []
     for payment in payments:
+        from .schedule_adjustments import supplements
+        pending = [item for item in supplements(payment) if item['status'] == 'Pending Payment']
+        if pending:
+            dates = [date.fromisoformat(lesson['date']) for item in pending for lesson in item['lessons']]
+            collection = CollectionWindow(method='manual', due_before_lesson=min(dates))
+            row = base_row(context, stage='awaiting_payment', origin='payment',
+                payment_method='manual', collection=collection, first_lesson_date=min(dates),
+                coverage_through=BillingDraftReview.model_validate(payment.snapshot['review']).period.coverage_through,
+                lesson_count=len(dates), total_fee=sum(item['amount'] for item in pending), amount_basis='reviewed',
+                draft_id=payment.draft_id, payment_id=payment.id, payment_ids=[payment.id],
+                enrollment_ids=sorted({item['enrollment_id'] for item in pending}),
+                supplementary_payment=True, note='Additional sessions need payment')
+            row.action_url += f'?view=payments&payment={payment.id}'
+            rows.append(apply_pending_window(row, as_of=as_of, through=through))
         if payment.status != 'Pending Payment':
             continue
         review = BillingDraftReview.model_validate(payment.snapshot['review'])

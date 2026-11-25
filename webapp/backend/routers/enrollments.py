@@ -233,7 +233,7 @@ def compute_enrollment_total_fee(enrollment, db: Session) -> Optional[int]:
     """
     line = payment_line(db, enrollment)
     if line is not None:
-        return line.tuition_amount + line.materials_fee
+        return line.tuition_amount + line.materials_fee + db.info.get('billing_supplement_totals', {}).get(enrollment.id, 0)
     if enrollment.enrollment_type == 'Summer':
         return None
 
@@ -1509,7 +1509,7 @@ def get_overdue_enrollments(
             *enrollment_with_relations()
         )
         .filter(
-            Enrollment.payment_status == "Pending Payment",
+            Enrollment.payment_status.in_(["Pending Payment", "Partially Paid"]),
             Enrollment.first_lesson_date.isnot(None),
             deadline_filter,
             Enrollment.student_id.isnot(None)
@@ -2964,7 +2964,17 @@ async def preview_schedule_change(
             exclude_enrollment_id=enrollment_id
         )
 
-    can_apply = len(conflicts) == 0
+    period_adjustment = None
+    if new_schedule.effective_date or new_schedule.review_period:
+        from billing.schedule_adjustments import preview as preview_period_adjustment
+        period_adjustment = preview_period_adjustment(db, enrollment, new_schedule, as_of=today)
+        if period_adjustment:
+            # The period proposal owns its dates; legacy one-for-one shifts
+            # must not introduce unrelated conflicts or holiday extensions.
+            conflicts = []
+            updatable_sessions = []
+            warnings = period_adjustment['issues']
+    can_apply = not conflicts and not (period_adjustment and period_adjustment['issues'])
 
     if conflicts:
         warnings.append(f"{len(conflicts)} conflict(s) detected with new schedule")
@@ -2977,6 +2987,7 @@ async def preview_schedule_change(
         updatable_sessions=updatable_sessions,
         conflicts=conflicts,
         warnings=warnings,
+        period_adjustment=period_adjustment,
         can_apply=can_apply
     )
 
@@ -2992,6 +3003,28 @@ async def apply_schedule_change(
     Apply a schedule change to an enrollment and optionally update future sessions.
     Admin only.
     """
+    if changes.expected_adjustment_hash:
+        if not changes.idempotency_key or not changes.effective_date:
+            raise HTTPException(422, 'Review the period dates before applying this change.')
+        from billing.schedule_adjustments import apply as apply_period_adjustment
+        try:
+            result = apply_period_adjustment(db, enrollment_id, changes, current_user,
+                                            as_of=billing_today(hk_now().date()))
+            db.commit()
+            return result
+        except Exception:
+            db.rollback()
+            raise
+    if changes.effective_date:
+        raise HTTPException(409, 'Review the billing-period dates and fee before applying this weekday change.')
+    if changes.apply_to_sessions:
+        from billing.schedule_adjustments import preview as preview_period_adjustment
+        existing = db.get(Enrollment, enrollment_id)
+        if existing is not None and (existing.assigned_day or '')[:3] != changes.assigned_day[:3]:
+            proposed = ScheduleChangeRequest(assigned_day=changes.assigned_day, assigned_time=changes.assigned_time,
+                location=changes.location, tutor_id=changes.tutor_id, review_period=True)
+            if preview_period_adjustment(db, existing, proposed, as_of=billing_today(hk_now().date())) is not None:
+                raise HTTPException(409, 'Review the billing-period dates and fee before applying this weekday change.')
     schedule_change = prepare_schedule_change(db, enrollment_id)
 
     # Get enrollment

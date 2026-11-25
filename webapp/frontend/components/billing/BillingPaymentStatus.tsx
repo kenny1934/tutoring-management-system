@@ -6,6 +6,7 @@ import { billingToday } from '@/lib/billing-clock';
 import type { BillingPaymentDetail } from '@/types/billing';
 
 export function billingPaymentStatus(detail: BillingPaymentDetail, today = billingToday()) {
+  if ((detail.outstanding_supplement_amount ?? 0) > 0) return 'Partially paid';
   if (detail.status !== 'Pending Payment') return detail.status;
   const collection = detail.review.period.collection;
   const deadline = collection.method === 'manual' ? collection.due_before_lesson : collection.debit_to;

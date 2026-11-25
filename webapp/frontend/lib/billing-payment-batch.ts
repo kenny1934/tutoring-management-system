@@ -21,6 +21,7 @@ export interface PaymentBatchItem {
 }
 
 export function queuePaymentBatchAction(row: BillingQueueRow): PaymentBatchAction | null {
+  if (row.supplementary_payment) return null;
   if (row.origin !== 'payment' || !row.payment_id || row.payment_ids.some(id => id !== row.payment_id)) return null;
   if (row.stage === 'send') return 'sent';
   return row.stage === 'awaiting_payment' && row.collection?.method === 'manual' ? 'paid' : null;

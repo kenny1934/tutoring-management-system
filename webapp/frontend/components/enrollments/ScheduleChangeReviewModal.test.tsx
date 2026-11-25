@@ -1,0 +1,29 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { ScheduleChangeReviewModal } from './ScheduleChangeReviewModal';
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), apply: vi.fn(), toast: vi.fn() }));
+vi.mock('@/lib/api', () => ({ enrollmentsAPI: { previewScheduleChange: mocks.preview, applyScheduleChange: mocks.apply } }));
+vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: mocks.toast }) }));
+vi.mock('@/components/ui/modal', () => ({ Modal: ({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) => <div>{children}{footer}</div> }));
+const schedule = { day: 'Tue', time: '16:00 - 17:30', location: 'MSA', tutorId: 1, tutorName: 'Example Tutor' };
+const proposal = { payment_id: 'payment', review_hash: 'a'.repeat(64), effective_date: '2027-01-01', coverage_from: '2027-01-01', coverage_through: '2027-01-31', previous_count: 3, new_count: 5, regular_count: 5,
+  moves: [{ session_id: 1, from_date: '2027-01-05', date: '2027-01-01' }], pending_session_ids: [], added_dates: ['2027-01-22', '2027-01-29'], additional_amount: 800, original_payment_status: 'Paid', issues: [] };
+function mount() { return render(<ScheduleChangeReviewModal isOpen enrollmentId={20} currentSchedule={schedule} newSchedule={{ ...schedule, day: 'Fri' }} onClose={vi.fn()} onSuccess={vi.fn()} />); }
+beforeEach(() => { vi.clearAllMocks(); mocks.preview.mockResolvedValue({ enrollment_id: 20, period_adjustment: proposal, updatable_sessions: [], unchangeable_sessions: [], conflicts: [], warnings: [], can_apply: true }); mocks.apply.mockResolvedValue({ message: 'Schedule updated' }); });
+it('reviews added unpaid sessions and submits the exact reviewed period', async () => {
+  mount();
+  await screen.findByRole('region', { name: 'Billing period adjustment' });
+  expect(mocks.preview).toHaveBeenCalledWith(20, expect.objectContaining({ review_period: true }));
+  expect(screen.getByText(/The added sessions will be unpaid/)).toHaveTextContent('800');
+  const submit = screen.getByRole('button', { name: 'Apply changes' });
+  expect(submit).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Reason for the change'), { target: { value: 'Permanent weekday change' } });
+  fireEvent.click(submit);
+  await waitFor(() => expect(mocks.apply).toHaveBeenCalledWith(20, expect.objectContaining({ expected_adjustment_hash: proposal.review_hash, effective_date: '2027-01-01', reason: 'Permanent weekday change' })));
+  expect(screen.queryByRole('button', { name: 'Keep all sessions' })).not.toBeInTheDocument();
+});
+it('explains surplus entitlements without a refund or an extended period', async () => {
+  mocks.preview.mockResolvedValue({ enrollment_id: 20, period_adjustment: { ...proposal, previous_count: 5, new_count: 5, pending_session_ids: [4, 5], added_dates: [], additional_amount: 0 }, updatable_sessions: [], unchangeable_sessions: [], conflicts: [], warnings: [], can_apply: true });
+  mount();
+  expect(await screen.findByText(/2 sessions need rescheduling/)).toHaveTextContent('The original fee and billing end date stay the same');
+});

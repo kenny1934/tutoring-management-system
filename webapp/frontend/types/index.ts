@@ -2040,6 +2040,8 @@ export interface EnrollmentDetailResponse {
 
 /** Schedule change request */
 export interface ScheduleChangeRequest {
+  review_period?: boolean;
+  effective_date?: string;
   assigned_day: string;
   assigned_time: string;
   location: string;
@@ -2072,6 +2074,14 @@ export interface UpdatableSession {
 
 /** Schedule change preview response */
 export interface ScheduleChangePreviewResponse {
+  period_adjustment?: {
+    payment_id: string; review_hash: string; effective_date: string;
+    coverage_from: string; coverage_through: string;
+    previous_count: number; new_count: number; regular_count: number;
+    moves: { session_id: number; from_date: string; date: string }[];
+    pending_session_ids: number[]; added_dates: string[];
+    additional_amount: number; original_payment_status: string; issues: string[];
+  } | null;
   enrollment_id: number;
   current_schedule: {
     assigned_day: string;
@@ -2096,6 +2106,10 @@ export interface ScheduleChangePreviewResponse {
 
 /** Apply schedule change request */
 export interface ApplyScheduleChangeRequest {
+  effective_date?: string;
+  expected_adjustment_hash?: string;
+  idempotency_key?: string;
+  reason?: string;
   assigned_day: string;
   assigned_time: string;
   location: string;
