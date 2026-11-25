@@ -15,6 +15,7 @@ from collections import defaultdict
 from database import get_db
 from services.makeup_entitlement import assert_makeup_entitlement, assert_extension_not_required, eligibility_for_sessions
 from billing import coupon_accounting, coupon_legacy
+from billing.schedules import prepare_schedule_change, finish_schedule_change
 from billing.guards import (
     annotate_billing_response, assert_generic_regular_policy, assert_legacy_creation_allowed,
     assert_legacy_enrollments_mutable, assert_legacy_fee_message_allowed,
@@ -2991,9 +2992,7 @@ async def apply_schedule_change(
     Apply a schedule change to an enrollment and optionally update future sessions.
     Admin only.
     """
-    assert_legacy_enrollments_mutable(
-        db, [enrollment_id], structural=True, action="review schedule changes"
-    )
+    schedule_change = prepare_schedule_change(db, enrollment_id)
 
     # Get enrollment
     enrollment = db.query(Enrollment).options(
@@ -3083,15 +3082,11 @@ async def apply_schedule_change(
 
             sessions_updated += 1
 
-    if sessions_updated:
-        assert_legacy_creation_allowed(
-            db, enrollment.student_id, enrollment.first_lesson_date, enrollment.enrollment_type,
-            lesson_dates=[session.session_date for session in sessions if not session.make_up_for_id],
-        )
-
     # A lesson moved onto the day a tutor recorded one fills itself in from that record.
     if sessions_updated:
         fill_unlisted_lessons(db, [enrollment.student_id], current_user.user_email)
+
+    finish_schedule_change(db, schedule_change, current_user)
 
     db.commit()
 

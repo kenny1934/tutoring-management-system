@@ -197,6 +197,16 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
     ).filter(BillingLessonClaim.payment_id == payment.id).all()
     expected = {(lesson.slot, lesson.date, canonical_time(lesson.time_slot), lesson.location.strip())
                 for lesson in review.period.lessons}
+    schedules = payment.snapshot.get('teaching_schedules', {})
+    adjusted_lessons = schedules.get('lessons', {})
+    # Each adjustment replaces one confirmed place, never the number of lessons
+    # or their price. Keep the original quote available as historical evidence.
+    def schedule_key(value):
+        return (value['slot'], date.fromisoformat(value['date']), value['time_slot'], value['location'])
+    originals = {schedule_key(value['original']) for value in adjusted_lessons.values()}
+    if not originals.issubset(expected) or len(originals) != len(adjusted_lessons):
+        issues.append('The recorded schedule changes no longer match this payment.')
+    expected = (expected - originals) | {schedule_key(value['current']) for value in adjusted_lessons.values()}
     line_by_enrollment = {line.enrollment_id: line for line, _, _ in rows}
     actual = {(line_by_enrollment[claim.enrollment_id].slot_index, claim.lesson_date, claim.time_slot, claim.location)
               for claim, _ in claims if claim.enrollment_id in line_by_enrollment}
@@ -217,13 +227,17 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
         gross = review.period.gross_tuition * count // review.period.lesson_count
         materials = review.period.materials_fee if line.slot_index == expected_slots[0] else 0
         evidence = line_evidence.get(str(line.enrollment_id), {})
+        timetable = schedules.get('enrollments', {}).get(str(enrollment.id), {
+            'assigned_day': slot.weekday, 'assigned_time': slot.time_slot,
+            'location': slot.location, 'tutor_id': evidence.get('tutor_id'),
+        })
         if (enrollment.student_id != review.student.id or enrollment.enrollment_type != 'Regular'
                 or enrollment.lessons_paid != line.lesson_count or enrollment.discount_id is not None
                 or enrollment.payment_status != payment.status
                 or enrollment.revenue_total != line.tuition_amount
-                or enrollment.assigned_day != slot.weekday or not same_time_slot(enrollment.assigned_time, slot.time_slot)
-                or enrollment.location != slot.location or enrollment.first_lesson_date != min(lesson_dates)
-                or enrollment.tutor_id != evidence.get('tutor_id')
+                or enrollment.assigned_day != timetable['assigned_day'] or not same_time_slot(enrollment.assigned_time, timetable['assigned_time'])
+                or enrollment.location != timetable['location'] or enrollment.first_lesson_date != min(lesson_dates)
+                or enrollment.tutor_id != timetable['tutor_id']
                 or ('renewed_from_enrollment_id' in evidence and
                     enrollment.renewed_from_enrollment_id != evidence['renewed_from_enrollment_id'])
                 or ('is_new_student' in evidence and
@@ -235,12 +249,16 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
                 or (payment.status == 'Paid' and enrollment.payment_date != payment.payment_date)):
             issues.append('An enrollment no longer matches this payment. Review it before continuing.')
     for claim, lesson in claims:
+        adjustment = adjusted_lessons.get(str(lesson.id))
         # A missed or rescheduled original still belongs to the paid period.
         # Its replacement remains linked through the existing makeup chain.
         if (lesson.enrollment_id != claim.enrollment_id or lesson.student_id != review.student.id
                 or lesson.make_up_for_id is not None or lesson.session_status == 'Cancelled'
                 or lesson.session_date != claim.lesson_date or canonical_time(lesson.time_slot) != claim.time_slot
-                or (lesson.location or '').strip() != claim.location):
+                or (lesson.location or '').strip() != claim.location
+                or (adjustment is not None and (schedule_key(adjustment['current']) !=
+                    (line_by_enrollment[claim.enrollment_id].slot_index, claim.lesson_date, claim.time_slot, claim.location)
+                    or lesson.tutor_id != adjustment['current']['tutor_id']))):
             issues.append('A confirmed lesson was removed or reassigned. Review its enrollment.')
     sessions = (preloaded_sessions if preloaded_sessions is not None else
                 db.query(SessionLog).filter(SessionLog.enrollment_id.in_(line_by_enrollment)).all() if rows else [])
