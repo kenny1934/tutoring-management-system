@@ -13,7 +13,7 @@ from billing.models import BillingAccount, BillingPayment, BillingPaymentLine
 from billing.schemas import (
     BillingCancelRequest, BillingConfirmRequest, BillingPaidRequest, BillingPaymentDetail, BillingPreferences,
     BillingPreferenceUpdate, BillingReceiptRequest, BillingSentRequest, BillingChargesRequest,
-    BillingIntakeSource, BillingManualPaidRequest,
+    BillingIntakeSource, BillingManualPaidRequest, BillingSupplementPaidRequest,
 )
 from billing import workflow
 from routers.billing import POLICY, source_scope, today
@@ -196,3 +196,13 @@ def edit_charges(payment_id: UUID, data: BillingChargesRequest, request: Request
 def cancel_enrollments(payment_id: UUID, data: BillingCancelRequest, request: Request,
                       user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
     return payment_action(db, payment_id, data, request, user, 'cancelled')
+
+
+@router.post('/billing/payments/{payment_id}/supplement-paid', response_model=BillingPaymentDetail)
+def record_supplementary_payment(payment_id: UUID, data: BillingSupplementPaidRequest, request: Request,
+                                  user: Tutor = Depends(require_admin_write), db: Session = Depends(get_db)):
+    require_workflow()
+    payment, student_id = find_payment(db, payment_id)
+    authorise_payment(db, payment, student_id, request, user)
+    from billing.schedule_adjustments import record_supplement
+    return write_action(db, user, lambda actor: record_supplement(db, payment, data, actor, as_of=today()))

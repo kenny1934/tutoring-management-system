@@ -2060,6 +2060,8 @@ class ScheduleChangeRequest(BaseModel):
     assigned_time: TimeSlot = Field(..., max_length=20, description="New time slot")
     location: str = Field(..., max_length=200, description="New location")
     tutor_id: int = Field(..., gt=0, description="New tutor ID")
+    effective_date: Optional[date] = None
+    review_period: bool = False
 
 
 class UnchangeableSession(BaseModel):
@@ -2104,6 +2106,7 @@ class ScheduleChangePreviewResponse(BaseModel):
     updatable_sessions: List[UpdatableSession] = Field(default_factory=list)
     conflicts: List[StudentConflict] = Field(default_factory=list, description="Conflicts with new schedule")
     warnings: List[str] = Field(default_factory=list, description="Warnings about the change")
+    period_adjustment: Optional[dict] = None
     can_apply: bool = Field(default=True, description="Whether the change can be applied (no conflicts)")
 
 
@@ -2113,6 +2116,10 @@ class ApplyScheduleChangeRequest(BaseModel):
     assigned_time: TimeSlot = Field(..., max_length=20)
     location: str = Field(..., max_length=200)
     tutor_id: int = Field(..., gt=0)
+    effective_date: Optional[date] = None
+    expected_adjustment_hash: Optional[str] = Field(default=None, min_length=64, max_length=64)
+    idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=64)
+    reason: Optional[str] = Field(default=None, min_length=1, max_length=500)
     apply_to_sessions: bool = Field(default=True, description="Whether to also update future sessions")
     date_overrides: Optional[Dict[int, str]] = Field(default=None, description="Manual date overrides: session_id -> ISO date string")
     time_overrides: Optional[Dict[int, TimeSlot]] = Field(default=None, description="Manual time overrides: session_id -> time string (e.g. '14:30 - 16:00')")

@@ -38,6 +38,7 @@ describe('combined-payment batch eligibility', () => {
     expect(queuePaymentBatchAction({ ...row, stage: 'awaiting_payment', collection: { ...row.collection!, method: 'autopay' } })).toBeNull();
     expect(queuePaymentBatchAction({ ...row, payment_ids: ['payment-one', 'other'] })).toBeNull();
     expect(queuePaymentBatchAction({ ...row, origin: 'legacy' })).toBeNull();
+    expect(queuePaymentBatchAction({ ...row, stage: 'awaiting_payment', supplementary_payment: true })).toBeNull();
   });
 
   it.each(['payment id', 'student id', 'review student id', 'enrollment membership'] as const)('blocks a mismatched %s before any write', async field => {

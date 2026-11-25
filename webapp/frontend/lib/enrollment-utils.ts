@@ -3,6 +3,7 @@
  * Returns "Overdue" if payment is pending and first lesson date has passed.
  */
 export function getDisplayPaymentStatus(enrollment: { payment_status?: string | null; first_lesson_date?: string | null }): string {
+  if (enrollment.payment_status === 'Partially Paid') return 'Partially paid';
   if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
     const startDate = new Date(enrollment.first_lesson_date);
     const today = new Date();
@@ -24,6 +25,8 @@ export function getPaymentStatusConfig(status: string) {
       return { bgClass: 'bg-green-500', bgTint: 'bg-green-50 dark:bg-green-900/20' };
     case 'Overdue':
       return { bgClass: 'bg-red-500', bgTint: 'bg-red-50 dark:bg-red-900/20' };
+    case 'Partially paid':
+    case 'Partially Paid':
     case 'Pending Payment':
       return { bgClass: 'bg-amber-500', bgTint: 'bg-amber-50 dark:bg-amber-900/20' };
     default:

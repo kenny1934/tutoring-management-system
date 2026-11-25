@@ -419,6 +419,7 @@ export interface BillingQueueEnrollment {
 }
 
 export interface BillingQueueRow {
+  supplementary_payment?: boolean;
   key: string;
   needs_checking?: boolean;
   renewal_available?: boolean;
@@ -480,7 +481,16 @@ export interface BillingPreferences {
   updated_at: string | null;
 }
 
+export interface BillingSupplementDetail {
+  message?: BillingDraftReview['message'] | null;
+  id: string; enrollment_id: number; status: 'Pending Payment' | 'Paid'; amount: number;
+  lessons: { session_id: number; date: string; time_slot: string; location: string }[];
+  reason: string; payment_date: string | null; received_method: string | null; receipt_reference: string | null;
+}
+
 export interface BillingPaymentDetail {
+  supplementary_payments?: BillingSupplementDetail[];
+  outstanding_supplement_amount?: number;
   id: string;
   student_id: number;
   version: number;

@@ -17,7 +17,7 @@ from .schemas import (
 )
 
 SETTLED = {'Paid', 'Waived'}
-PENDING = {'Pending Payment', 'Overdue', 'Unpaid'}
+PENDING = {'Pending Payment', 'Overdue', 'Unpaid', 'Partially Paid'}
 
 
 @dataclass(frozen=True)

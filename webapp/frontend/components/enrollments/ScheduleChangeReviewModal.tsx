@@ -3,7 +3,8 @@
 import { parseTimeRange, sameTimeSlot } from "@/lib/time-slots";
 import { TimeRangeInput } from "@/components/controls/TimeRangeInput";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSWRConfig } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -61,6 +62,13 @@ export function ScheduleChangeReviewModal({
   onSuccess,
 }: ScheduleChangeReviewModalProps) {
   const { showToast } = useToast();
+  const { mutate: refreshBilling } = useSWRConfig();
+
+  const [effectiveDate, setEffectiveDate] = useState("");
+  const [reason, setReason] = useState("");
+  const requestSerial = useRef(0);
+  const submitRunning = useRef(false);
+  const retry = useRef<{ body: string; key: string } | null>(null);
 
   // Preview state
   const [preview, setPreview] = useState<ScheduleChangePreviewResponse | null>(null);
@@ -113,41 +121,50 @@ export function ScheduleChangeReviewModal({
     });
   };
 
-  // Fetch preview when modal opens
-  useEffect(() => {
-    if (isOpen && enrollmentId) {
-      fetchPreview();
-    } else {
-      // Reset state when closing
-      setPreview(null);
-      setPreviewError(null);
-      setOverrides({});
-    }
-  }, [isOpen, enrollmentId, newSchedule.day, newSchedule.time, newSchedule.location, newSchedule.tutorId]);
-
-  const fetchPreview = async () => {
+  const fetchPreview = useCallback(async () => {
+    const serial = ++requestSerial.current;
     setPreviewLoading(true);
     setPreviewError(null);
     try {
       const request: ScheduleChangeRequest = {
+        review_period: currentSchedule.day.slice(0, 3) !== newSchedule.day.slice(0, 3),
+        ...(effectiveDate ? { effective_date: effectiveDate } : {}),
         assigned_day: newSchedule.day,
         assigned_time: newSchedule.time,
         location: newSchedule.location,
         tutor_id: newSchedule.tutorId,
       };
       const result = await enrollmentsAPI.previewScheduleChange(enrollmentId, request);
-      setPreview(result);
+      if (serial === requestSerial.current) setPreview(result);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to preview schedule change";
-      setPreviewError(message);
+      if (serial === requestSerial.current) setPreviewError(message);
     } finally {
-      setPreviewLoading(false);
+      if (serial === requestSerial.current) setPreviewLoading(false);
     }
-  };
+  }, [enrollmentId, currentSchedule.day, newSchedule.day, newSchedule.time, newSchedule.location, newSchedule.tutorId, effectiveDate]);
+
+  useEffect(() => {
+    setEffectiveDate(""); setReason(""); setOverrides({}); retry.current = null;
+  }, [enrollmentId]);
+
+  useEffect(() => {
+    if (isOpen && enrollmentId) {
+      void fetchPreview();
+    } else {
+      setPreview(null); setPreviewError(null); setOverrides({});
+      setEffectiveDate(""); setReason("");
+    }
+    return () => { requestSerial.current += 1; };
+  }, [isOpen, enrollmentId, fetchPreview]);
 
   // Handle applying changes (update sessions)
   const handleApplyChanges = async () => {
-    if (Object.values(overrides).some((override) => override.time && !parseTimeRange(override.time))) return;
+    if (submitRunning.current || !preview || previewLoading || previewError) return;
+    const adjustment = preview.period_adjustment;
+    if (adjustment && !reason.trim()) return;
+    submitRunning.current = true;
+    if (Object.values(overrides).some((override) => override.time && !parseTimeRange(override.time))) { submitRunning.current = false; return; }
     setIsSubmitting(true);
     try {
       // Build date and time overrides from the combined state
@@ -159,7 +176,12 @@ export function ScheduleChangeReviewModal({
         if (override.time) timeOverrides[Number(sessionId)] = override.time;
       });
 
+      const proof = JSON.stringify([adjustment?.review_hash, reason.trim()]);
+      if (retry.current?.body !== proof) retry.current = { body: proof, key: crypto.randomUUID() };
       const result = await enrollmentsAPI.applyScheduleChange(enrollmentId, {
+        ...(adjustment ? { effective_date: adjustment.effective_date,
+          expected_adjustment_hash: adjustment.review_hash, idempotency_key: retry.current!.key,
+          reason: reason.trim() } : {}),
         assigned_day: newSchedule.day,
         assigned_time: newSchedule.time,
         location: newSchedule.location,
@@ -168,6 +190,12 @@ export function ScheduleChangeReviewModal({
         date_overrides: Object.keys(dateOverrides).length > 0 ? dateOverrides : undefined,
         time_overrides: Object.keys(timeOverrides).length > 0 ? timeOverrides : undefined,
       });
+      if (adjustment) {
+        await refreshBilling(key => Array.isArray(key) && (
+          (key[0] === 'billing-payment' && key[2] === adjustment.payment_id)
+          || ['billing-payments', 'billing-queue', 'billing-queue-counts'].includes(key[0])
+        )).catch(() => {});
+      }
       showToast(result.message, "success");
       onSuccess();
       onClose();
@@ -175,6 +203,7 @@ export function ScheduleChangeReviewModal({
       const message = error instanceof Error ? error.message : "Failed to apply schedule change";
       showToast(message, "error");
     } finally {
+      submitRunning.current = false;
       setIsSubmitting(false);
     }
   };
@@ -206,7 +235,7 @@ export function ScheduleChangeReviewModal({
   const hasUnchangeableSessions = preview?.unchangeable_sessions && preview.unchangeable_sessions.length > 0;
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;
-  const canApply = (preview?.can_apply ?? true) && Object.values(overrides).every((override) => !override.time || !!parseTimeRange(override.time));
+  const canApply = !!preview && preview.enrollment_id === enrollmentId && !previewLoading && !previewError && (!preview.period_adjustment || !!reason.trim()) && (preview?.can_apply ?? false) && Object.values(overrides).every((override) => !override.time || !!parseTimeRange(override.time));
 
   // Format schedule change summary
   const changeSummary = useMemo(() => {
@@ -230,11 +259,12 @@ export function ScheduleChangeReviewModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Schedule Change Impact Review"
+      title="Review schedule change"
       size="lg"
       footer={
         previewLoading ? null : previewError ? (
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => { setEffectiveDate(""); void fetchPreview(); }}>Retry preview</Button>
             <Button onClick={onClose}>Close</Button>
           </div>
         ) : (
@@ -243,7 +273,7 @@ export function ScheduleChangeReviewModal({
               Cancel
             </Button>
             <div className="flex gap-3">
-              {hasUpdatableSessions && (
+              {hasUpdatableSessions && !preview?.period_adjustment && (
                 <Button onClick={handleKeepSessions} disabled={isSubmitting}>
                   Keep all sessions
                 </Button>
@@ -257,7 +287,7 @@ export function ScheduleChangeReviewModal({
                 // A conflict already greyed this button out, so it still reads as unavailable.
                 className={cn(hasConflicts && "opacity-50 cursor-not-allowed")}
               >
-                {hasUpdatableSessions ? "Apply changes" : "Update enrollment"}
+                {hasUpdatableSessions || preview?.period_adjustment ? "Apply changes" : "Update enrollment"}
               </Button>
             </div>
           </div>
@@ -287,6 +317,16 @@ export function ScheduleChangeReviewModal({
               <span>{changeSummary}</span>
             </div>
           </div>
+
+          {preview.period_adjustment && <section aria-label="Billing period adjustment" className="space-y-3 rounded border border-line p-3">
+            <p className="text-sm">Enrollment: {preview.period_adjustment.previous_count} → {preview.period_adjustment.new_count} sessions. Billing ends {formatShortDate(preview.period_adjustment.coverage_through)}.</p>
+            <Field label="Change effective from" id="schedule-effective-date"><Input id="schedule-effective-date" type="date" value={effectiveDate || preview.period_adjustment.effective_date} min={preview.period_adjustment.coverage_from} max={preview.period_adjustment.coverage_through} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>
+            <p className="text-sm">Additional tuition: MOP {preview.period_adjustment.additional_amount.toLocaleString('en-US')}.{preview.period_adjustment.additional_amount > 0 && (preview.period_adjustment.original_payment_status === 'Paid' ? ' The added sessions will be unpaid, and the enrollment will be partially paid until the additional tuition is received.' : ' The unpaid bill will include these additional sessions.')}</p>
+            {preview.period_adjustment.moves.length > 0 && <div className="space-y-1 text-xs"><p className="font-medium">Regular sessions on the new timetable</p>{preview.period_adjustment.moves.map(move => <p key={move.session_id}>{formatShortDate(move.from_date)} → {formatShortDate(move.date)} · {newSchedule.time}</p>)}</div>}
+            {preview.period_adjustment.added_dates.length > 0 && <div className="space-y-1 text-xs"><p className="font-medium">Additional unpaid sessions</p>{preview.period_adjustment.added_dates.map(day => <p key={day}>{formatShortDate(day)} · {newSchedule.time}</p>)}</div>}
+            {preview.period_adjustment.pending_session_ids.length > 0 && <p className="text-sm">{preview.period_adjustment.pending_session_ids.length} sessions need rescheduling. These will remain on this enrollment as pending make-ups. The original fee and billing end date stay the same.</p>}
+            <Field label="Reason for the change" id="schedule-adjustment-reason"><Input id="schedule-adjustment-reason" maxLength={500} value={reason} disabled={isSubmitting} onChange={event => setReason(event.target.value)} /></Field>
+          </section>}
 
           {/* Conflicts */}
           {hasConflicts && (
@@ -386,7 +426,6 @@ export function ScheduleChangeReviewModal({
                       const effectiveDate = getEffectiveDate(session);
                       const effectiveTime = getEffectiveTime(session);
                       const hasTimeOverride = !!overrides[session.session_id]?.time;
-                      const hasDateOverride = !!overrides[session.session_id]?.date;
 
                       return (
                         <tr
@@ -528,7 +567,7 @@ export function ScheduleChangeReviewModal({
                 </table>
               </div>
             </div>
-          ) : (
+          ) : !preview.period_adjustment && (
             <div className="bg-wash border border-line rounded-lg p-4 text-center">
               <CheckCircle2 className="h-8 w-8 text-green-700 mx-auto mb-2" />
               <p className="text-sm text-foreground/70">

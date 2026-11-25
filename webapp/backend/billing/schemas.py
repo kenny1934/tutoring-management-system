@@ -448,6 +448,7 @@ class BillingQueueEnrollment(BaseModel):
 
 
 class BillingQueueRow(BaseModel):
+    supplementary_payment: bool = Field(default=False, exclude_if=lambda value: not value)
     key: str
     student: BillingStudent
     stage: QueueStage
@@ -704,6 +705,29 @@ class BillingChargesRequest(WorkflowAction):
         return self
 
 
+class BillingSupplementPaidRequest(WorkflowAction):
+    expected_version: int = Field(ge=1)
+    supplement_id: str = Field(min_length=36, max_length=36)
+    enrollment_id: int = Field(gt=0)
+    amount: int = Field(gt=0)
+    payment_date: date
+    method: Literal['cash', 'bank_transfer']
+    receipt_reference: str | None = Field(default=None, max_length=100)
+
+
+class BillingSupplementDetail(BaseModel):
+    message: FeeMessagePreview | None = None
+    id: str
+    enrollment_id: int
+    status: Literal['Pending Payment', 'Paid']
+    amount: int
+    lessons: list[dict]
+    reason: str
+    payment_date: date | None = None
+    received_method: str | None = None
+    receipt_reference: str | None = None
+
+
 class BillingPaymentLineDetail(BaseModel):
     enrollment_id: int
     slot_index: int
@@ -731,6 +755,8 @@ class BillingPaymentDetail(BaseModel):
     version: int
     status: Literal['Pending Payment', 'Paid', 'Cancelled']
     review: BillingDraftReview
+    supplementary_payments: list[BillingSupplementDetail] = Field(default_factory=list)
+    outstanding_supplement_amount: int = 0
     lines: list[BillingPaymentLineDetail]
     created_at: datetime
     sent_at: datetime | None

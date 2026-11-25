@@ -197,6 +197,23 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
     ).filter(BillingLessonClaim.payment_id == payment.id).all()
     expected = {(lesson.slot, lesson.date, canonical_time(lesson.time_slot), lesson.location.strip())
                 for lesson in review.period.lessons}
+    from .schedule_adjustments import extra_lessons, supplements, enrollment_status, supplement_for_root
+    extras = extra_lessons(payment)
+    unit = review.period.gross_tuition // review.period.lesson_count
+    seen_supplements, seen_sessions = set(), set()
+    for item in supplements(payment):
+        if (item['id'] in seen_supplements or item['status'] not in {'Paid', 'Pending Payment'}
+                or item['enrollment_id'] not in {enrollment.id for _, enrollment, _ in rows}
+                or not item['lessons'] or item['amount'] != unit * len(item['lessons'])
+                or (item['status'] == 'Paid' and (not item.get('payment_date') or item.get('received_amount') != item['amount']))):
+            issues.append('A supplementary payment needs review.')
+        seen_supplements.add(item['id'])
+        for lesson in item['lessons']:
+            if lesson['session_id'] in seen_sessions or lesson['slot'] not in {line.slot_index for line, enrollment, _ in rows if enrollment.id == item['enrollment_id']}:
+                issues.append('A supplementary session needs review.')
+            seen_sessions.add(lesson['session_id'])
+    expected |= {(lesson['slot'], date.fromisoformat(lesson['date']), lesson['time_slot'], lesson['location'])
+                 for lesson in extras}
     schedules = payment.snapshot.get('teaching_schedules', {})
     adjusted_lessons = schedules.get('lessons', {})
     # Each adjustment replaces one confirmed place, never the number of lessons
@@ -208,6 +225,12 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
         issues.append('The recorded schedule changes no longer match this payment.')
     expected = (expected - originals) | {schedule_key(value['current']) for value in adjusted_lessons.values()}
     line_by_enrollment = {line.enrollment_id: line for line, _, _ in rows}
+    claim_by_session = {claim.session_id: claim for claim, _ in claims}
+    for item in supplements(payment):
+        for lesson in item['lessons']:
+            claim = claim_by_session.get(lesson['session_id'])
+            if claim is None or claim.enrollment_id != item['enrollment_id']:
+                issues.append('A supplementary session no longer belongs to its payment.')
     actual = {(line_by_enrollment[claim.enrollment_id].slot_index, claim.lesson_date, claim.time_slot, claim.location)
               for claim, _ in claims if claim.enrollment_id in line_by_enrollment}
     cancelled = payment.status == 'Cancelled'
@@ -226,15 +249,18 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
         count = review.period.counts_by_slot[line.slot_index]
         gross = review.period.gross_tuition * count // review.period.lesson_count
         materials = review.period.materials_fee if line.slot_index == expected_slots[0] else 0
+        own_supplements = supplements(payment, enrollment.id)
+        extra_count = sum(len(item['lessons']) for item in own_supplements)
+        extra_tuition = sum(item['amount'] for item in own_supplements)
         evidence = line_evidence.get(str(line.enrollment_id), {})
         timetable = schedules.get('enrollments', {}).get(str(enrollment.id), {
             'assigned_day': slot.weekday, 'assigned_time': slot.time_slot,
             'location': slot.location, 'tutor_id': evidence.get('tutor_id'),
         })
         if (enrollment.student_id != review.student.id or enrollment.enrollment_type != 'Regular'
-                or enrollment.lessons_paid != line.lesson_count or enrollment.discount_id is not None
-                or enrollment.payment_status != payment.status
-                or enrollment.revenue_total != line.tuition_amount
+                or enrollment.lessons_paid != line.lesson_count + extra_count or enrollment.discount_id is not None
+                or enrollment.payment_status != enrollment_status(payment, enrollment.id)
+                or enrollment.revenue_total != line.tuition_amount + extra_tuition
                 or enrollment.assigned_day != timetable['assigned_day'] or not same_time_slot(enrollment.assigned_time, timetable['assigned_time'])
                 or enrollment.location != timetable['location'] or enrollment.first_lesson_date != min(lesson_dates)
                 or enrollment.tutor_id != timetable['tutor_id']
@@ -264,9 +290,21 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
                 db.query(SessionLog).filter(SessionLog.enrollment_id.in_(line_by_enrollment)).all() if rows else [])
     if not cancelled and {s.id for s in sessions if s.make_up_for_id is None} != {claim.session_id for claim, _ in claims}:
         issues.append('The enrollment contains a different set of original lessons. Review its sessions.')
-    expected_financial = 'Paid' if payment.status == 'Paid' else 'Unpaid'
-    if any(s.financial_status != expected_financial for s in sessions if s.session_status != 'Cancelled'):
+    by_id = {row.id: row for row in sessions}
+    def expected_financial(row):
+        supplement = supplement_for_root(payment, row, by_id)
+        return 'Paid' if (supplement['status'] if supplement else payment.status) == 'Paid' else 'Unpaid'
+    if any(s.financial_status != expected_financial(s) for s in sessions if s.session_status != 'Cancelled'):
         issues.append('The session payment statuses do not match the combined payment.')
+    if payment.snapshot.get('period_schedule_changes'):
+        from decimal import Decimal
+        amounts = {line.enrollment_id: Decimal(line.tuition_amount) / line.lesson_count for line, _, _ in rows}
+        for session in sessions:
+            supplement = supplement_for_root(payment, session, by_id)
+            amount = (Decimal(supplement['amount']) / len(supplement['lessons'])) if supplement else amounts.get(session.enrollment_id)
+            if session.billing_tuition_amount is None or amount is None or abs(Decimal(session.billing_tuition_amount) - amount) > Decimal('0.000001'):
+                issues.append('A session no longer matches its agreed tuition allocation.')
+                break
     if sum(line.tuition_amount + line.materials_fee for line, _, _ in rows) != review.period.total_fee:
         issues.append('The linked enrollment fees do not match the combined total.')
     return list(dict.fromkeys(issues))
@@ -312,17 +350,32 @@ def payment_detail(db, payment, *, include_pending_event=None):
     from .bank_runs import claimed_payments
     batch_issue = ('Open this earlier-year payment for review.' if account.academic_start != POLICY.academic_start else
                    'This payment account is inactive. Review it first.' if not account.active else
-                   'Open this payment in the Autopay list.' if claimed_payments(db, [payment.id]) else None)
+                   'Open this payment in the Autopay list.' if claimed_payments(db, [payment.id])
+                   and not (payment.status == 'Paid' and any(item['status'] != 'Paid' for item in payment.snapshot.get('supplementary_payments', []))) else None)
+    from copy import deepcopy
+    shown_supplements = deepcopy(payment.snapshot.get('supplementary_payments', []))
+    for supplement in shown_supplements:
+        for lesson in supplement['lessons']:
+            current = payment.snapshot.get('teaching_schedules', {}).get('lessons', {}).get(str(lesson['session_id']), {}).get('current')
+            if current:
+                lesson.update({key: current[key] for key in ('date', 'time_slot', 'location')})
+    if not issues:
+        from .messages import prepare_supplement_fee_messages
+        for supplement in shown_supplements:
+            supplement['message'] = prepare_supplement_fee_messages(review, supplement).model_dump(mode='json')
     return BillingPaymentDetail(
         id=payment.id, student_id=review.student.id, version=payment.version, status=payment.status,
-        review=review, saved_message=saved_message, lines=[BillingPaymentLineDetail(
+        review=review, saved_message=saved_message,
+        supplementary_payments=shown_supplements,
+        outstanding_supplement_amount=sum(item['amount'] for item in payment.snapshot.get('supplementary_payments', []) if item['status'] != 'Paid'),
+        lines=[BillingPaymentLineDetail(
             enrollment_id=line.enrollment_id, slot_index=line.slot_index, tutor_id=enrollment.tutor_id,
             tutor_name=name, lesson_count=line.lesson_count, gross_tuition=line.gross_tuition,
             discount_amount=line.discount_amount, tuition_amount=line.tuition_amount, materials_fee=line.materials_fee,
         ) for line, enrollment, name in rows], created_at=utc(payment.created_at),
         sent_at=utc(payment.sent_at) if payment.sent_at else None, sent_language=payment.sent_language,
         message_needs_resend=(payment.status == 'Pending Payment' and payment.sent_at is None
-                              and any(change.get('sent_at') for change in changes.values())),
+                              and any(change.get('sent_at') for change in [*changes.values(), *payment.snapshot.get('period_schedule_changes', [])])),
         paid_at=utc(payment.paid_at) if payment.paid_at else None, payment_date=payment.payment_date,
         received_method=payment.received_method, receipt_reference=payment.receipt_reference, note=payment.note,
         coupon_status=payment.coupon_status, can_copy=not message_issues and not review.message.blocked_reasons,
@@ -628,6 +681,9 @@ def revise_payment_charges(db, payment, data, actor, detail, rows, *, as_of):
         raise DraftConflict('Review the per-session tuition before changing these charges.')
     message = prepare_fee_messages(saved.student, scenario, period, unit_fee,
                                    blocked_reasons=saved.message.blocked_reasons)
+    if payment.snapshot.get('period_schedule_changes'):
+        from .messages import prepare_adjusted_fee_messages
+        message = prepare_adjusted_fee_messages(db, payment, saved.model_copy(update={'scenario': scenario, 'period': period}))
     if message.blocked_reasons:
         raise DraftConflict(' '.join(message.blocked_reasons))
     updated = saved.model_copy(update={'scenario': scenario, 'period': period, 'message': message})
@@ -646,6 +702,10 @@ def revise_payment_charges(db, payment, data, actor, detail, rows, *, as_of):
         line.tuition_amount = line.gross_tuition - line.discount_amount
         line.materials_fee = materials if index == 0 else 0
         enrollment.revenue_total = line.tuition_amount
+        if payment.snapshot.get('period_schedule_changes'):
+            from decimal import Decimal
+            for session in db.query(SessionLog).filter_by(enrollment_id=enrollment.id).all():
+                session.billing_tuition_amount = Decimal(line.tuition_amount) / line.lesson_count
         enrollment.fee_message_sent = False
         enrollment.last_modified_by = actor.user_email
         enrollment.last_modified_time = hk_now()

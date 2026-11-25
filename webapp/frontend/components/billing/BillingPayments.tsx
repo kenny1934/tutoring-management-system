@@ -16,6 +16,7 @@ import { billingToday } from '@/lib/billing-clock';
 import { BillingPaymentStatus, BillingPaymentMessageStatus, billingPaymentStatus } from './BillingPaymentStatus';
 import { BillingChecks } from './BillingChecks';
 import { BillingEnrollmentSessions } from './BillingEnrollmentSessions';
+import { BillingSupplementaryPayments } from './BillingSupplementaryPayments';
 import { billingCheck } from '@/lib/billing-presentation';
 import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
@@ -60,7 +61,7 @@ export function BillingPayments({ action, onActionClose, presentation = 'default
       return <button key={item.id} type="button" onClick={event => { trigger.current = event.currentTarget; setSelection({ scope, id: item.id }); }} className="space-y-2 rounded-md border border-line bg-paper p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{formatShortDate(period.first_lesson_date)} to {formatShortDate(period.last_lesson_date)}</span><PaymentMethodBadge method={period.collection.method} /></div>
         <p className="text-sm">{plural(period.lesson_count, 'session')} · ${period.total_fee?.toLocaleString('en-US')}</p>
-        <div className="flex flex-wrap gap-1.5"><Badge tone={item.status === 'Cancelled' ? 'neutral' : item.status === 'Paid' ? 'success' : overdue ? 'danger' : 'warning'}>{item.status === 'Cancelled' ? 'Cancelled' : item.status === 'Paid' ? 'Paid' : overdue ? 'Overdue' : 'Unpaid'}</Badge>{item.sent_at && <Badge tone="info">Message sent</Badge>}{item.review_issues.length > 0 && <Badge tone="warning">Check enrollment</Badge>}</div>
+        <div className="flex flex-wrap gap-1.5"><Badge tone={item.status === 'Cancelled' ? 'neutral' : item.status === 'Paid' ? 'success' : overdue ? 'danger' : 'warning'}>{billingPaymentStatus(item)}</Badge>{item.sent_at && <Badge tone="info">Message sent</Badge>}{item.review_issues.length > 0 && <Badge tone="warning">Check enrollment</Badge>}</div>
       </button>;
     })}</div>
     </>}
@@ -351,6 +352,7 @@ function PaymentContent({ action, onActionClose, presentation, detail, onUpdate,
       ? <section className="space-y-3 rounded border border-line p-3"><h3 className="text-sm font-semibold">Coupon receipt</h3>{receiptEntryForm}</section>
       : auth.isAdmin && canWrite && <details className="rounded border border-line p-3"><summary className="cursor-pointer text-sm">Add KMS receipt (optional)</summary><div className="mt-3">{receiptEntryForm}</div></details>)}
 
+    <BillingSupplementaryPayments detail={detail} canWrite={canWrite && auth.isAdmin && !sourceBlocked && !unverified} onUpdate={onUpdate} onBusyChange={onBusyChange} />
     <section aria-label="Enrollment sessions" className="space-y-3 border-t border-line pt-3">
       {presentation === 'default' ? <section aria-label="Linked enrollments" className="space-y-4">
         <p className="text-xs text-ink-subtle">Coverage: {formatShortDate(detail.review.period.first_lesson_date)} to {formatShortDate(detail.review.period.last_lesson_date)}</p>
@@ -364,7 +366,7 @@ function PaymentContent({ action, onActionClose, presentation, detail, onUpdate,
       </section> : detail.lines.map(line => <div key={line.enrollment_id} className="space-y-2">{detail.lines.length > 1 && <h4 className="text-sm font-medium">Enrollment #{line.enrollment_id}</h4>}<BillingEnrollmentSessions enrollmentId={line.enrollment_id} studentId={detail.student_id} /></div>)}
     </section>
     <BillingChecks issues={renewalNotes} presentation="renewal" />
-    <details className="border-t border-line pt-3"><summary className="cursor-pointer text-sm">Payment history</summary><ol className="mt-3 space-y-2 text-xs">{detail.history.map((event, index) => <li key={index}>{({ charges: 'Charges updated', confirmed: 'Enrollment created', sent: 'Message marked sent', paid: 'Payment recorded', receipt: 'KMS receipt recorded', kms_receipt: 'KMS receipt linked automatically', cancelled: 'Enrollment cancelled', cancel: 'Enrollment cancelled' } as Record<string, string>)[event.kind] ?? event.kind} · {event.actor_name} · {formatShortDate(event.created_at)}{event.reason && <p className="mt-1 whitespace-pre-wrap">{event.reason} · {formatMOP(event.previous_total ?? 0, 0)} → {formatMOP(event.total ?? 0, 0)}</p>}</li>)}</ol></details>
+    <details className="border-t border-line pt-3"><summary className="cursor-pointer text-sm">Payment history</summary><ol className="mt-3 space-y-2 text-xs">{detail.history.map((event, index) => <li key={index}>{({ schedule_adjusted: 'Enrollment schedule updated', supplement_paid: 'Additional tuition received', charges: 'Charges updated', confirmed: 'Enrollment created', sent: 'Message marked sent', paid: 'Payment recorded', receipt: 'KMS receipt recorded', kms_receipt: 'KMS receipt linked automatically', cancelled: 'Enrollment cancelled', cancel: 'Enrollment cancelled' } as Record<string, string>)[event.kind] ?? event.kind} · {event.actor_name} · {formatShortDate(event.created_at)}{event.reason && <p className="mt-1 whitespace-pre-wrap">{event.reason} · {formatMOP(event.previous_total ?? 0, 0)} → {formatMOP(event.total ?? 0, 0)}</p>}</li>)}</ol></details>
     {notice && <p ref={resultNotice} tabIndex={-1} role={notice.error ? 'alert' : 'status'} className="text-sm">{notice.text}</p>}
     {unverified && <Button size="sm" disabled={busy} onClick={() => { void run('refresh'); }}>Refresh payment</Button>}
   </div>;

@@ -319,6 +319,8 @@ class SessionLog(Base):
 
     # Financial tracking
     financial_status = Column(String(100), default='Unpaid')
+    billing_tuition_amount = Column(DECIMAL(12, 6), nullable=True,
+        comment='Agreed session tuition retained when a paid enrollment gains sessions')
 
     # Performance tracking
     performance_rating = Column(String(10), comment='Star rating as emojis (⭐⭐⭐), NULL = not rated')

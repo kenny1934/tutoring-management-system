@@ -14,6 +14,8 @@ function queryString(values: Record<string, string | number | boolean | number[]
 }
 
 export const billingAPI = {
+  supplementPaid: (id: string, data: { expected_version: number; idempotency_key: string; supplement_id: string; enrollment_id: number; amount: number; payment_date: string; method: 'cash' | 'bank_transfer'; receipt_reference?: string | null }, signal?: AbortSignal) =>
+    fetchAPI<BillingPaymentDetail>(`/billing/payments/${encodeURIComponent(id)}/supplement-paid`, { method: 'POST', body: JSON.stringify(data), signal }),
   couponBalance: (id: number, tutorId?: number, signal?: AbortSignal) => fetchAPI<BillingCouponBalance>(`/billing/students/${id}/coupons?${queryString({ tutor_id: tutorId })}`, { signal }),
   reviewCoupons: (id: number, data: BillingCouponVerification, signal?: AbortSignal) => fetchAPI<BillingCouponReview>(`/billing/students/${id}/coupons/review`, { method: 'POST', body: JSON.stringify(data), signal }),
   verifyCoupons: (id: number, data: BillingCouponVerification & { expected_review_hash: string; idempotency_key: string }, signal?: AbortSignal) => fetchAPI<BillingCouponBalance>(`/billing/students/${id}/coupons/verify`, { method: 'POST', body: JSON.stringify(data), signal }),

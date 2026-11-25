@@ -1044,6 +1044,7 @@ async def enroll_student(
         session_status="Make-up Class",  # Revision sessions are make-up sessions
         financial_status=consume_session.financial_status,
         make_up_for_id=consume_session.id,
+        billing_tuition_amount=consume_session.billing_tuition_amount,
         exam_revision_slot_id=slot.id,
         notes=request.notes,
         last_modified_by=modified_by,

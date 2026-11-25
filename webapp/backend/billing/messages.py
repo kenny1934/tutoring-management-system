@@ -155,7 +155,7 @@ def _fee_description(request, period, *, zh):
     return f' ({("，" if zh else ", ").join(parts)})' if parts else ''
 
 
-def _render(student, request, period, *, zh):
+def _render(student, request, period, *, zh, schedule_sections=None):
     """Use the established parent template without its legacy recalculation."""
     sections = [
         '家長您好，以下是 MathConcept中學教室 常規課程 之【繳費提示訊息】：' if zh else
@@ -175,6 +175,8 @@ def _render(student, request, period, *, zh):
         lines.append(f'{_DATE_INDENT}(共{len(dates)}堂)' if zh
                      else f'{_DATE_INDENT}({len(dates)} lessons total)')
         schedules.append('\n'.join(lines))
+    if schedule_sections is not None:
+        schedules = schedule_sections
     sections.append(_identity_lines(student.school_student_id, student.student_name, 'zh' if zh else 'en')
                     + '\n' + '\n\n'.join(schedules))
     if len(schedules) > 1:
@@ -228,3 +230,82 @@ def prepare_fee_messages(
         en=_render(student, request, period, zh=False),
         blocked_reasons=[],
     )
+
+
+def prepare_adjusted_fee_messages(db, payment, review, *, snapshot=None):
+    """Render actual reviewed dates, including sold sessions awaiting reschedule."""
+    from datetime import date
+    from collections import defaultdict
+    from models import SessionLog
+    from .models import BillingPaymentLine
+    from .schemas import PreviewSlot, PreviewLesson, PeriodCount
+    rows = db.query(BillingPaymentLine).filter_by(payment_id=payment.id).all()
+    lessons = db.query(SessionLog).filter(SessionLog.enrollment_id.in_([row.enrollment_id for row in rows]),
+        SessionLog.make_up_for_id.is_(None), SessionLog.session_status != 'Cancelled').all()
+    groups = defaultdict(list)
+    for lesson in lessons:
+        groups[(_DAYS[lesson.session_date.weekday()], lesson.time_slot, lesson.location)].append(lesson)
+    ordered = sorted(groups.items())
+    slots = [PreviewSlot(weekday=key[0], time_slot=key[1], location=key[2]) for key, _ in ordered]
+    if not slots:
+        return FeeMessagePreview(template_version=MESSAGE_TEMPLATE_VERSION, zh=None, en=None, blocked_reasons=['Review the enrollment sessions.'])
+    display_lessons = [PreviewLesson(date=row.session_date, slot=index, weekday=key[0], time_slot=key[1], location=key[2])
+                       for index, (key, group) in enumerate(ordered) for row in group]
+    period = review.period.model_copy(deep=True)
+    period.lessons = display_lessons
+    period.counts_by_slot = [len(group) for _, group in ordered]
+    period.first_lesson_date = period.coverage_from = min(row.date for row in display_lessons)
+    period.last_lesson_date = max(row.date for row in display_lessons)
+    period.counts_by_month = [PeriodCount(month=month, lessons=count) for month, count in sorted(Counter(row.date.strftime('%Y-%m') for row in display_lessons).items())]
+    scenario = review.scenario.model_copy(update={'slots': slots, 'first_lesson_date': period.first_lesson_date})
+    if period.collection.method == 'manual':
+        period.collection.due_before_lesson = period.first_lesson_date
+    unit = period.gross_tuition // period.lesson_count
+    reasons = _snapshot_checks(review.student, scenario, period, unit)
+    if reasons:
+        return FeeMessagePreview(template_version=MESSAGE_TEMPLATE_VERSION, zh=None, en=None, blocked_reasons=reasons)
+    messages = {}
+    for zh, language in ((True, 'zh'), (False, 'en')):
+        sections = []
+        pending = [row for row in lessons if row.session_status != 'Scheduled' and 'Pending Make-up' in row.session_status]
+        for (weekday, time, location), group in ordered:
+            scheduled = [row for row in group if row not in pending]
+            if not scheduled:
+                continue
+            heading = f'上課時間：星期{_DAY_ZH[weekday]} {time}' if zh else f'Schedule: {_DAY_EN[weekday]} {time}'
+            sections.append(heading + '\n' + '\n'.join(f'{_DATE_INDENT}{row.session_date:%Y/%m/%d}' for row in sorted(scheduled, key=lambda row: row.session_date)))
+        if pending:
+            sections.append(f'另有{len(pending)}堂待安排補課，學費不變。' if zh else f'{len(pending)} sessions remain to be rescheduled. The agreed tuition is unchanged.')
+        messages[language] = _render(review.student, scenario, period, zh=zh, schedule_sections=sections)
+    return FeeMessagePreview(template_version=MESSAGE_TEMPLATE_VERSION, zh=messages['zh'], en=messages['en'], blocked_reasons=[])
+
+
+def prepare_supplement_fee_messages(review, supplement):
+    """Use the normal bilingual payment instructions for additional tuition."""
+    from datetime import date
+    from collections import defaultdict
+    from .schemas import PreviewSlot, PreviewLesson, PeriodCount, CollectionWindow
+    groups = defaultdict(list)
+    for lesson in supplement['lessons']:
+        day = date.fromisoformat(lesson['date'])
+        groups[(_DAYS[day.weekday()], lesson['time_slot'], lesson['location'])].append(day)
+    ordered = sorted(groups.items())
+    slots = [PreviewSlot(weekday=key[0], time_slot=key[1], location=key[2]) for key, _ in ordered]
+    lessons = [PreviewLesson(date=day, slot=index, weekday=key[0], time_slot=key[1], location=key[2])
+               for index, (key, days) in enumerate(ordered) for day in days]
+    first, last = min(lesson.date for lesson in lessons), max(lesson.date for lesson in lessons)
+    scenario = review.scenario.model_copy(update={'slots': slots, 'mode': 'regular', 'first_lesson_date': first,
+        'payment_method': 'manual', 'materials_fee': 0, 'coupon': None, 'trial_deduction': False, 'adjustment': None})
+    period = review.period.model_copy(update={'kind': 'supplement', 'coverage_from': first,
+        'coverage_through': max(last, review.period.coverage_through), 'first_lesson_date': first,
+        'last_lesson_date': last, 'lesson_count': len(lessons), 'lessons': lessons,
+        'counts_by_slot': [len(days) for _, days in ordered],
+        'counts_by_month': [PeriodCount(month=month, lessons=count) for month, count in sorted(Counter(lesson.date.strftime('%Y-%m') for lesson in lessons).items())],
+        'gross_tuition': supplement['amount'], 'tuition_after_deductions': supplement['amount'],
+        'total_fee': supplement['amount'], 'deductions': [], 'materials_fee': 0,
+        'collection': CollectionWindow(method='manual', due_before_lesson=first)})
+    message = prepare_fee_messages(review.student, scenario, period, supplement['amount'] // len(lessons))
+    if not message.blocked_reasons:
+        message.zh = '以下是更改上課安排後新增課堂的補繳學費通知。\n\n' + message.zh
+        message.en = 'Additional tuition following a schedule change.\n\n' + message.en
+    return message

@@ -1670,6 +1670,7 @@ async def schedule_makeup(
         session_status="Make-up Class",
         financial_status=original_session.financial_status,  # Inherit from original session
         make_up_for_id=original_session.id,
+        billing_tuition_amount=original_session.billing_tuition_amount,
         # Summer linkage follows the active session. Preserves the invariant
         # that at most one session_log row points to a given SummerSession,
         # so arrangement views can render the live date/lesson without
