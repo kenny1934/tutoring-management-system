@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useSyncExternalStore } from "react";
+import { createContext, useEffect, useId, useSyncExternalStore } from "react";
 
 /**
  * One ordered stack of every overlay currently on screen.
@@ -23,6 +23,10 @@ import { useEffect, useId, useSyncExternalStore } from "react";
  * Escape close too much, never too little, because an overlay that cannot be
  * dismissed is the one failure a reader cannot recover from.
  */
+
+// Full-screen surfaces pass their bounds through React portals, so nested
+// dialogs cover the surface beneath them. Page dialogs use the content area.
+export const OverlayViewportContext = createContext<"content" | "screen">("content");
 
 /**
  * Deliberately the numbers the overlays already hardcoded: 9999 for a modal

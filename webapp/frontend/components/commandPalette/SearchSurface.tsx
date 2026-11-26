@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { motion, useIsPresent, useReducedMotion } from "framer-motion";
-import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { OverlayViewportContext, useOverlayLayer } from "@/hooks/useOverlayLayer";
 import type { SearchOrigin } from "@/contexts/CommandPaletteContext";
 import styles from "./SearchSurface.module.css";
 
@@ -29,7 +29,7 @@ export function SearchSurface({ children, origin, onClose, onUnmount, input, wid
     fit(); viewport?.addEventListener("resize", fit); viewport?.addEventListener("scroll", fit);
     return () => { viewport?.removeEventListener("resize", fit); viewport?.removeEventListener("scroll", fit); returnFocus.current(); };
   }, [input]);
-  return <motion.div ref={backdrop} className={styles.backdrop} style={{ zIndex: layer.zIndex }}
+  return <OverlayViewportContext.Provider value="screen"><motion.div ref={backdrop} className={styles.backdrop} style={{ zIndex: layer.zIndex }}
     initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .14 }}
     onClick={event => { if (event.target === event.currentTarget && layer.isTopmost) onClose(); }}>
     <motion.div ref={panel} role="dialog" aria-modal="true" aria-label="Command palette" data-command-palette className={`${styles.panel} ${wide ? styles.coursewarePanel : detailed ? styles.recordDetailPanel : ""}`} inert={!present}
@@ -49,5 +49,5 @@ export function SearchSurface({ children, origin, onClose, onUnmount, input, wid
       }}>
       {children}
     </motion.div>
-  </motion.div>;
+  </motion.div></OverlayViewportContext.Provider>;
 }

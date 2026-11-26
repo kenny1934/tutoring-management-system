@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.4.18](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.16...v2.4.18) (2026-11-26)
+## [2.4.17](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.16...v2.4.17) (2026-11-26)
 
 ### Improvements
 
@@ -13,6 +13,7 @@
 
 ### Bug Fixes
 
+* **Search assignment dialogs**: Cover the whole search console with the background dimming and blur, including the area over an expanded sidebar.
 * **Autopay collection**: Prepare confirmed payments after the suggested notice or debit dates, including later files for newly added students, and record the actual bank debit date while keeping financial and duplicate-payment checks.
 * **Nested assignment dialogs**: Keep the selected courseware and reader open when Escape closes a page or session selection dialog.
 * **Clear filters**: Preserve the selected source, search scope and sort order when clearing additional filter conditions.
