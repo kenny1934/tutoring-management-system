@@ -77,8 +77,8 @@ def preview(db, enrollment, change, *, as_of, locked=False):
         return None
     start, through = period_start(review, line.slot_index), review.period.coverage_through
     effective = change.effective_date or max(as_of, start)
-    if not max(as_of, start) <= effective <= through:
-        raise HTTPException(422, 'Choose an effective date within the remaining billing period.')
+    if not start <= effective <= through:
+        raise HTTPException(422, 'Choose an effective date within the billing period.')
     if (enrollment.assigned_day or '')[:3] == change.assigned_day[:3]:
         return None
     tutor = db.get(Tutor, change.tutor_id)
@@ -164,7 +164,9 @@ def preview(db, enrollment, change, *, as_of, locked=False):
                                       'time_slot': row.time_slot} for row in movable if row.id in pending],
                 'added_dates': added,
                 'additional_amount': unit * len(added), 'original_payment_status': payment.status,
-                'issues': list(dict.fromkeys(issues))}
+                'issues': list(dict.fromkeys(issues)),
+                'past_dates': sorted({day for day, _ in positions if day < as_of.isoformat()}),
+                'requires_past_confirmation': effective < as_of or any(day < as_of.isoformat() for day, _ in positions)}
     proposal['review_hash'] = digest({'proposal': proposal, 'change': {field: getattr(change, field) for field in ('assigned_day', 'assigned_time', 'location', 'tutor_id')},
         'quote': payment.snapshot, 'sources': [[row.id, row.session_date, row.time_slot, row.location,
         row.session_status, row.financial_status, row.make_up_for_id, row.rescheduled_to_id] for row in all_sessions],
@@ -184,7 +186,12 @@ def apply(db, enrollment_id, change, actor, *, as_of):
         raise HTTPException(409, 'Reload the enrollment before reviewing its billing period.')
     payment = state['payment']
     account = state['account']
-    payload_hash = workflow.operation_key('schedule_adjusted', enrollment_id, change, actor)
+    # Preserve retries of requests saved before past-date confirmation existed.
+    operation_data = change.model_dump(mode='json')
+    if not change.acknowledge_past_dates:
+        operation_data.pop('acknowledge_past_dates', None)
+    payload_hash = digest({'kind': 'schedule_adjusted', 'target': enrollment_id,
+                           'actor': actor.id, 'data': operation_data})
     replay = workflow.replay_operation(db, account, change, payload_hash)
     if replay:
         return ScheduleChangeResult.model_validate(replay.result)
@@ -194,6 +201,8 @@ def apply(db, enrollment_id, change, actor, *, as_of):
         raise HTTPException(409, 'The enrollment changed. Review the new dates and amount before saving.')
     if proposal['issues']:
         raise HTTPException(409, ' '.join(proposal['issues']))
+    if proposal['requires_past_confirmation'] and not change.acknowledge_past_dates:
+        raise HTTPException(422, 'Confirm the past dates before applying this schedule change.')
     if not change.apply_to_sessions or change.date_overrides or change.time_overrides:
         raise HTTPException(422, 'Apply the reviewed period dates together. Reschedule individual sessions afterwards.')
     if not change.reason or not change.reason.strip():
@@ -270,7 +279,7 @@ def apply(db, enrollment_id, change, actor, *, as_of):
         for _, row, _ in workflow.payment_rows(db, payment):
             row.fee_message_sent = False
     snapshot.setdefault('period_schedule_changes', []).append({
-        **proposal, 'before_review': before_review, 'before_request': before_request, 'sent_at': previous_sent_at, 'reason': change.reason.strip(),
+        **proposal, 'acknowledged_past_dates': change.acknowledge_past_dates, 'before_review': before_review, 'before_request': before_request, 'sent_at': previous_sent_at, 'reason': change.reason.strip(),
         'actor_id': actor.id, 'changed_at': utc_now().isoformat()})
     payment.snapshot = snapshot
     # A supplement must not reallocate discounts from lessons already taught.

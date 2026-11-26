@@ -2,9 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { SWRConfig, useSWRConfig } from 'swr';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BillingAutopayRun } from './BillingAutopayRun';
-import type { BillingAutopayResponse, BillingAutopayRow, BillingAutopayStage } from '@/types/billing';
+import type { BillingAutopayResponse, BillingAutopayRow, BillingAutopayStage, BillingQueueRow } from '@/types/billing';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), setLocation: vi.fn(), options: vi.fn(), autopay: vi.fn(), payment: vi.fn(), bankRuns: vi.fn(), bankRun: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), autopayExportPreview: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), location: vi.fn(), setLocation: vi.fn(), options: vi.fn(), autopay: vi.fn(), payment: vi.fn(), bankRuns: vi.fn(), bankRun: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn(), workspace: vi.fn(), autopayExportPreview: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: mocks.auth }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: mocks.location }));
 vi.mock('@/lib/billing-api', () => ({ billingAPI: { autopay: mocks.autopay, options: mocks.options, bankRuns: mocks.bankRuns, bankRun: mocks.bankRun, preferences: mocks.preferences, savePreferences: mocks.savePreferences, autopayExportPreview: mocks.autopayExportPreview } }));
@@ -15,7 +15,12 @@ vi.mock('./BillingPayments', () => ({ BillingPayments: (props: { studentId: numb
   mocks.payment(props); return <section aria-label="Reviewed payment">{props.studentId}:{props.initialPaymentId}</section>;
 } }));
 
-const options = { autopay_first_collection_month: '2026-11', autopay_last_collection_month: '2027-06', workflow_available: true, preferences_writes_available: true };
+vi.mock('./BillingRenewalWorkspace', () => ({ BillingRenewalWorkspace: (props: { row: BillingQueueRow; initialAction: { kind: string; id?: string }; onClose: () => void; onChanged: () => void }) => {
+  mocks.workspace(props);
+  return <div role="dialog" aria-label="Enrollment renewal"><p>{props.row.student.student_name}</p><p>{props.initialAction.kind === 'draft' ? `Draft ${props.initialAction.id}` : 'Renewal form'}</p><button onClick={props.onChanged}>Confirm reviewed enrollment</button><button onClick={props.onClose}>Close renewal</button></div>;
+} }));
+
+const options = { workflow_writes_available: true, autopay_first_collection_month: '2026-11', autopay_last_collection_month: '2027-06', workflow_available: true, preferences_writes_available: true };
 function row(overrides: Partial<BillingAutopayRow> = {}): BillingAutopayRow {
   return { key: 'payment-one', student: { id: 4, student_name: 'Synthetic Student', school_student_id: '004', home_location: 'MSA', grade: 'F1', lang_stream: 'E', school: 'Synthetic School', is_staff_referral: false },
     stage: 'ready', origin: 'payment', payment_id: 'payment-one', draft_id: 'draft-one', payment_status: 'Pending Payment',
@@ -184,7 +189,8 @@ describe('autopay collection review', () => {
     expect(within(screen.getByRole('region', { name: 'Collection summary' })).getByText('MOP 0')).toBeInTheDocument();
     expect(screen.queryByText('Ready to collect · 1 payment')).not.toBeInTheDocument();
     fireEvent.click(within(card).getByRole('button', { name: 'Details for Synthetic Student' }));
-    expect(await screen.findByRole('link', { name: 'Review draft' })).toHaveAttribute('href', '/billing/students/4?view=drafts&draft=draft-one');
+    expect(await screen.findByRole('button', { name: 'Review draft' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Review draft' })).not.toBeInTheDocument();
     expect(screen.getByText('Confirm the amount when reviewing the enrollment.')).toBeInTheDocument();
     expect(mocks.payment).not.toHaveBeenCalled();
   });
@@ -338,5 +344,58 @@ describe('autopay collection review', () => {
     await screen.findByText('Collection unavailable.'); expect(screen.queryByText('MOP 0')).not.toBeInTheDocument();
     expect(mocks.autopay.mock.lastCall![0].search).toBe('004');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' })); await screen.findByRole('article');
+  });
+});
+
+
+describe('direct autopay preparation', () => {
+  function prepare(origin: 'draft' | 'projection' = 'projection') {
+    const value = row({ key: 'prepare-one', stage: 'prepare', origin, payment_id: null, payment_status: null, draft_id: origin === 'draft' ? 'saved-one' : null, amount_basis: 'estimate', reasons: [{ code: 'CREATE_ENROLLMENT', label: 'Prepare the enrollment' }] });
+    mocks.autopay.mockImplementation(({ stage }: { stage: BillingAutopayStage }) => Promise.resolve(response(stage === 'prepare' ? [value] : [])));
+    return value;
+  }
+  async function list() {
+    const view = show(); fireEvent.click(await screen.findByRole('tab', { name: /To prepare/ })); await screen.findByRole('article'); return view;
+  }
+  it.each(['draft', 'projection'] as const)('opens the exact %s directly from its row', async origin => {
+    const value = prepare(origin); await list();
+    fireEvent.click(screen.getByRole('button', { name: `${origin === 'draft' ? 'Review draft' : 'Renew enrollment'} for Synthetic Student` }));
+    await screen.findByRole('dialog', { name: 'Enrollment renewal' });
+    expect(mocks.workspace.mock.lastCall![0]).toMatchObject({ row: { student: value.student, enrollment_ids: [7], origin, total_fee: null, amount_basis: 'unknown' }, initialAction: origin === 'draft' ? { kind: 'draft', id: 'saved-one' } : { kind: 'renew' } });
+  });
+  it.each(['draft', 'projection'] as const)('replaces the %s details journey link with direct review', async origin => {
+    prepare(origin); await list(); const details = screen.getByRole('button', { name: 'Details for Synthetic Student' }); fireEvent.click(details);
+    const dialog = await screen.findByRole('dialog', { name: 'Autopay details' });
+    expect(within(dialog).queryByRole('link', { name: /Review/ })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: origin === 'draft' ? 'Review draft' : 'Renew enrollment' }));
+    await screen.findByRole('dialog', { name: 'Enrollment renewal' });
+    expect(screen.queryByRole('dialog', { name: 'Autopay details' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close renewal' })); await waitFor(() => expect(details).toHaveFocus());
+  });
+  it('refreshes rows after creation without unmounting the open renewal', async () => {
+    prepare(); await list(); fireEvent.click(screen.getByRole('button', { name: 'Renew enrollment for Synthetic Student' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Enrollment renewal' });
+    mocks.autopay.mockResolvedValue(response([], { counts: { ready: 0, attention: 1, prepare: 0, skipped: 0 } }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm reviewed enrollment' })); await screen.findByRole('tab', { name: 'To prepare 0' });
+    expect(screen.getByRole('dialog', { name: 'Enrollment renewal' })).toBe(dialog);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close renewal' })); await waitFor(() => expect(screen.getByRole('tab', { name: 'To prepare 0' })).toHaveFocus());
+  });
+  it.each(['readonly', 'paused', 'unavailable'])('does not offer creation when %s', async mode => {
+    prepare();
+    if (mode === 'readonly') mocks.auth.mockReturnValue({ user: { id: 1 }, isAdmin: false, isReadOnly: true, canViewAdminPages: true, effectiveRole: 'Supervisor' });
+    if (mode === 'paused') mocks.options.mockResolvedValue({ ...options, workflow_writes_available: false });
+    if (mode === 'unavailable') mocks.autopay.mockImplementation(({ stage }: { stage: BillingAutopayStage }) => Promise.resolve(response(stage === 'prepare' ? [row({ stage: 'prepare', origin: 'projection', payment_id: null })] : [], { preparation_available: false })));
+    await list(); expect(screen.queryByRole('button', { name: /Renew enrollment for|Review draft for/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Details for Synthetic Student' })); const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('button', { name: /Renew enrollment|Review draft/ })).not.toBeInTheDocument(); expect(within(dialog).queryByRole('link', { name: /Review enrollment|Review draft/ })).not.toBeInTheDocument();
+  });
+  it.each(['month', 'branch', 'role', 'search'])('isolates open preparation when %s changes', async mode => {
+    prepare(); const view = await list(); fireEvent.click(screen.getByRole('button', { name: 'Renew enrollment for Synthetic Student' })); await screen.findByRole('dialog', { name: 'Enrollment renewal' });
+    if (mode === 'month') fireEvent.change(screen.getByLabelText('Collection month'), { target: { value: '2026-12' } });
+    if (mode === 'search') fireEvent.change(screen.getByLabelText('Find a student'), { target: { value: 'Another' } });
+    if (mode === 'branch') { mocks.location.mockReturnValue({ selectedLocation: 'MSB', locations: ['All Locations', 'MSA', 'MSB'], setSelectedLocation: mocks.setLocation }); view.rerender(<BillingAutopayRun initialCollectionMonth="2026-11" />); }
+    if (mode === 'role') { mocks.auth.mockReturnValue({ user: { id: 1 }, isAdmin: false, isReadOnly: true, canViewAdminPages: true, effectiveRole: 'Supervisor' }); view.rerender(<BillingAutopayRun initialCollectionMonth="2026-11" />); }
+    expect(screen.queryByRole('dialog', { name: 'Enrollment renewal' })).not.toBeInTheDocument();
+    await act(async () => {});
   });
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.16](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.15...v2.4.16) (2026-11-26)
+
+### Improvements
+
+* **Autopay preparation**: Renew an enrollment or review its draft directly from the To prepare list and enrollment details.
+* **Enrollment schedules**: Choose an earlier effective date within the enrollment period and confirm past session dates before applying a timetable change.
+
+### Bug Fixes
+
+* **Mobile session history**: Keep enrollment details and the Copy button within the screen in the By enrollment view.
+
 ## [2.4.15](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.14...v2.4.15) (2026-11-26)
 
 ### Improvements
