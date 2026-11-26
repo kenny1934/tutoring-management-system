@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useCallback, useId, useState, type ReactNode } from "react";
+import { useEffect, useCallback, useContext, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useDragControls, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
-import { useOverlayLayer, type OverlayLayer } from "@/hooks/useOverlayLayer";
+import { OverlayViewportContext, useOverlayLayer, type OverlayLayer } from "@/hooks/useOverlayLayer";
 import { useBackToClose } from "@/hooks/useBackToClose";
 import { useAsSheet } from "@/hooks/usePopoverSheet";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ export function Modal({
 }: ModalProps) {
   // Track if component is mounted (for SSR compatibility)
   const [mounted, setMounted] = useState(false);
+  const viewport = useContext(OverlayViewportContext);
 
   useEffect(() => {
     setMounted(true);
@@ -228,7 +229,8 @@ export function Modal({
           onClick={(event) => event.stopPropagation()}
           style={{ zIndex }}
           className={cn(
-            "fixed inset-0 md:left-[var(--sidebar-width,72px)] flex justify-center transition-[left] duration-350",
+            "fixed inset-0 flex justify-center",
+            viewport === "content" && "md:left-[var(--sidebar-width,72px)] transition-[left] duration-350",
             asSheet ? "items-end" : "items-center p-4",
           )}
         >
