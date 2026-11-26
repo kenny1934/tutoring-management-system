@@ -1185,6 +1185,8 @@ export interface StatDetailStudent {
 
 // Overdue enrollment types
 export interface OverdueEnrollment {
+  payment_status?: string;
+  billing_supplement_amount?: number;
   billing_payment_total_fee?: number | null;
   billing_payment_lesson_count?: number | null;
   billing_payment_line_count?: number | null;

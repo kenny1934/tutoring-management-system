@@ -381,6 +381,8 @@ class DiscountOverrideRequest(BaseModel):
 
 class OverdueEnrollment(BaseModel):
     """Overdue enrollment with days overdue calculation"""
+    payment_status: str = "Pending Payment"
+    billing_supplement_amount: int = 0
     billing_payment_id: Optional[str] = None
     billing_payment_total_fee: Optional[int] = None
     billing_payment_lesson_count: Optional[int] = None

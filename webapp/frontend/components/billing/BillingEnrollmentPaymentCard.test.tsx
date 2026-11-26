@@ -275,3 +275,19 @@ it('shows the revised enrollment total separately from its original payment and 
   expect(screen.getByText('Original payment').nextElementSibling).toHaveTextContent('MOP 1,200');
   expect(screen.getByText(/Additional tuition outstanding/)).toHaveTextContent('MOP 800');
 });
+
+
+it('resurfaces Record payment on the enrollment for outstanding additional tuition', async () => {
+  current.status = 'Paid';
+  current.outstanding_supplement_amount = 800;
+  current.supplementary_payments = [{ id: 'extra', enrollment_id: 20, status: 'Pending Payment', amount: 800,
+    lessons: [{ session_id: 30, date: '2027-01-22', time_slot: '16:00 - 17:30', location: 'MSA' }], reason: 'Schedule change' }];
+  show();
+  const record = await screen.findByRole('button', { name: 'Record payment' });
+  fireEvent.click(record);
+  const dialog = await screen.findByRole('dialog', { name: 'Record payment' });
+  await within(dialog).findByLabelText('Received by');
+  expect(within(dialog).getByRole('checkbox')).toHaveAccessibleName(/800/);
+  expect(within(dialog).queryByText('Payment plan')).not.toBeInTheDocument();
+  expect(mocks.recordPayment).not.toHaveBeenCalled();
+});

@@ -1496,6 +1496,7 @@ def get_overdue_enrollments(
         from billing.models import BillingPaymentLine
         grouped_ids = select(BillingPaymentLine.enrollment_id)
         deadline_filter = or_(
+            Enrollment.payment_status == "Partially Paid",
             and_(Enrollment.id.in_(grouped_ids),
                  func.coalesce(Enrollment.payment_deadline, Enrollment.first_lesson_date) <= week_from_now),
             and_(Enrollment.id.notin_(grouped_ids), deadline_filter),
@@ -1604,6 +1605,7 @@ def get_overdue_enrollments(
             total_fee = compute_enrollment_total_fee(enrollment, db)
 
         result.append(OverdueEnrollment(
+            payment_status=enrollment.payment_status,
             id=enrollment.id,
             student_id=enrollment.student_id,
             student_name=enrollment.student.student_name if enrollment.student else "",
