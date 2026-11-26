@@ -78,9 +78,8 @@ def preview(db, enrollment, change, *, as_of, locked=False):
     start, through = period_start(review, line.slot_index), review.period.coverage_through
     effective_min = start
     if review.period.number == 1 and review.scenario.mode in {'new_student', 'returning_student'}:
-        from services.schedule_backdating import first_week_start
         retained = review.scenario.slots[line.slot_index].covered_through
-        effective_min = max(first_week_start(start), db.get(BillingAccount, payment.account_id).academic_start)
+        effective_min = db.get(BillingAccount, payment.account_id).academic_start
         if retained:
             effective_min = max(effective_min, retained + timedelta(days=1))
     effective = change.effective_date or max(as_of, start)

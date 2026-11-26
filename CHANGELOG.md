@@ -6,11 +6,14 @@
 
 * **Autopay preparation**: Renew an enrollment or review its draft directly from the To prepare list and enrollment details.
 * **Enrollment schedules**: Choose an earlier effective date, including an earlier weekday for the first lesson, and confirm past session dates before applying a timetable change.
+* **Dashboard bulk actions**: Keep selected-session actions within reach in a floating toolbar above the phone navigation.
 * **Bulk exercise PDFs**: Print unsaved assignments together with a stamp for each student, or download one merged, named PDF per student.
 * **App background**: Saved Wood desk backgrounds now switch to Plain, with light and dark mode still available.
 
 ### Bug Fixes
 
+* **Enrollment effective dates**: Remove the first-week cutoff when moving the first lesson earlier, while preserving payment and attendance checks.
+* **Keep all sessions**: Save the new enrollment timetable while keeping existing session dates.
 * **Mobile session history**: Keep enrollment details and the Copy button within the screen in the By enrollment view.
 * **Bulk action menus**: Use warm backgrounds and hover colours on the Sessions page and the dashboard’s Today sessions card.
 

@@ -130,8 +130,26 @@ def test_earlier_first_weekday_updates_an_unlinked_enrollment_start(setup):
     block.first_lesson_date = date(2026, 11, 27)
     db.commit()
     proposal = preview(setup)
-    assert proposal.effective_date_min == date(2026, 11, 23)
+    assert proposal.effective_date_min is None
     assert proposal.can_apply and proposal.updatable_sessions[0].new_date == date(2026, 11, 25)
     apply(setup, acknowledge_past_dates=True, reason='The first lesson moved to Wednesday.')
     assert block.first_lesson_date == date(2026, 11, 25)
     assert block.payment_status == 'Paid' and block.lessons_paid == 4
+
+
+def test_unlinked_enrollment_accepts_an_earlier_week_with_confirmation(setup):
+    db, actor, block = setup
+    db.query(SessionLog).filter(SessionLog.enrollment_id == block.id, SessionLog.session_date < date(2026, 11, 27)).delete()
+    block.first_lesson_date = date(2026, 11, 27)
+    db.commit()
+    row = db.query(SessionLog).filter_by(enrollment_id=block.id).one()
+    data = request()
+    data['effective_date'] = date(2026, 11, 18)
+    proposal = asyncio.run(enrollments.preview_schedule_change(20, ScheduleChangeRequest(**data), db, actor))
+    assert proposal.effective_date_min is None and proposal.can_apply
+    data.update(date_overrides={row.id: '2026-11-18'}, reason='The first lesson was a week earlier.')
+    with pytest.raises(HTTPException, match='Confirm the past dates'):
+        asyncio.run(enrollments.apply_schedule_change(20, ApplyScheduleChangeRequest(**data), db, actor))
+    asyncio.run(enrollments.apply_schedule_change(20, ApplyScheduleChangeRequest(**data, acknowledge_past_dates=True), db, actor))
+    assert row.session_date == block.first_lesson_date == date(2026, 11, 18)
+    assert block.lessons_paid == 4 and block.payment_status == 'Paid'
