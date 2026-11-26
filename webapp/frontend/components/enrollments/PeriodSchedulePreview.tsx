@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, PlusCircle } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, HandCoins } from 'lucide-react';
 import type { ScheduleChangePreviewResponse } from '@/types';
 import { formatShortDate } from '@/lib/formatters';
 
@@ -26,12 +26,20 @@ export function PeriodSchedulePreview({ adjustment, time, tutorName }: {
     <ul aria-label="Session changes" className="divide-y divide-line overflow-hidden rounded-lg border border-line">
       {rows.map(row => {
         const needsDate = row.kind === 'pending';
-        const Icon = needsDate ? AlertTriangle : row.kind === 'add' ? PlusCircle : CheckCircle2;
-        const tone = needsDate ? 'text-amber-700 dark:text-amber-400' : row.kind === 'add' ? 'text-blue-700 dark:text-blue-400' : 'text-green-700 dark:text-green-400';
+        const Icon = needsDate ? AlertTriangle : CheckCircle2;
+        const tone = needsDate ? 'text-amber-700 dark:text-amber-400' : row.kind === 'add' ? 'text-foreground/60' : 'text-green-700 dark:text-green-400';
         return <li key={row.key} className="space-y-2 p-3">
           <div className={`flex items-center gap-2 text-xs font-medium ${tone}`}>
-            <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-            <span>{needsDate ? 'Needs rescheduling' : row.kind === 'add' ? 'Additional · Unpaid' : 'Moves'}</span>
+            {row.kind === 'add' ? <>
+              <span>Additional</span>
+              <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                <HandCoins aria-hidden="true" className="h-4 w-4 shrink-0" />
+                Unpaid
+              </span>
+            </> : <>
+              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span>{needsDate ? 'Needs rescheduling' : 'Moves'}</span>
+            </>}
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 text-xs sm:text-sm">
             <div><p className="text-[11px] text-foreground/50">{row.kind === 'add' ? 'Additional session' : 'Current'}</p><p className="font-medium">{formatShortDate(row.date)}</p>{row.originalTime && <p className="text-xs text-foreground/60">{row.originalTime}</p>}</div>

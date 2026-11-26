@@ -450,3 +450,37 @@ def test_december_manual_bill_uses_actual_new_first_lesson_deadline(env):
     assert revised.review.period.collection.due_before_lesson == date(2026, 12, 3)
     assert enrollment.payment_deadline == date(2026, 12, 3)
     assert '2026/12/03' in revised.review.message.en
+
+
+@pytest.mark.parametrize('days_until_due, visible', [(8, False), (7, True), (0, True), (-1, True)])
+def test_supplement_overdue_deadline_uses_added_lesson_not_original_bill(env, monkeypatch, days_until_due, visible):
+    from routers import enrollments
+    _, db, actor, payment, enrollment = fixture_payment(env)
+    proposal, payload = change(db, enrollment)
+    apply(db, enrollment.id, payload, actor, as_of=date(2026, 11, 25))
+    db.commit()
+    due = date.fromisoformat(proposal['added_dates'][0])
+    today = due - timedelta(days=days_until_due)
+    monkeypatch.setattr(enrollments, 'billing_today', lambda fallback: today)
+    # The original bill's deadline is independent of the added lessons.
+    original_deadline = enrollment.payment_deadline
+    enrollment.payment_deadline = due + timedelta(days=30)
+    db.commit()
+    rows = [row for row in enrollments.get_overdue_enrollments(None, None, db) if row.id == enrollment.id]
+    assert bool(rows) is visible
+    if visible:
+        assert rows[0].payment_status == 'Partially Paid'
+        assert rows[0].billing_supplement_amount == 800
+        assert rows[0].billing_payment_total_fee == 800
+        assert rows[0].billing_payment_lesson_count == 2
+        assert rows[0].billing_payment_due_date == due
+        assert rows[0].days_overdue == -days_until_due
+    enrollment.payment_deadline = original_deadline
+    db.commit()
+    item = payment.snapshot['supplementary_payments'][0]
+    record_supplement(db, payment, BillingSupplementPaidRequest(expected_version=payment.version,
+        idempotency_key='overdue-supplement', supplement_id=item['id'], enrollment_id=enrollment.id,
+        amount=800, payment_date=today, method='bank_transfer'), actor, as_of=today)
+    db.commit()
+    assert enrollment.payment_status == 'Paid'
+    assert not [row for row in enrollments.get_overdue_enrollments(None, None, db) if row.id == enrollment.id]

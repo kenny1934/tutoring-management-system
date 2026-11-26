@@ -156,3 +156,12 @@ describe('overdue combined-payment batch entry', () => {
     expect(mocks.batchMarkPaid).not.toHaveBeenCalled();
   });
 });
+
+
+it('offers direct supplementary collection and excludes it from whole-bill batch selection', async () => {
+  show([combined(7, { payment_status: 'Partially Paid', billing_supplement_amount: 800, billing_payment_total_fee: 800 })]);
+  await act(async () => {});
+  expect(screen.getByRole('checkbox', { name: 'Select Student 7' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Record payment' })).toBeVisible();
+  expect(screen.queryByRole('link', { name: 'Open payment' })).not.toBeInTheDocument();
+});

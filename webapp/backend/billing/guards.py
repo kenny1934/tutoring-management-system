@@ -313,7 +313,8 @@ def combine_overdue_payments(db: Session, responses, today):
         pending = [item for item in (payment.snapshot.get('supplementary_payments', []) if payment else []) if item['status'] != 'Paid']
         if pending:
             collection = {'method': 'manual', 'due_before_lesson': min(lesson['date'] for item in pending for lesson in item['lessons'])}
-            row.billing_payment_total_fee = sum(item['amount'] for item in pending)
+            row.billing_supplement_amount = sum(item['amount'] for item in pending)
+            row.billing_payment_total_fee = row.billing_supplement_amount
             row.billing_payment_lesson_count = sum(len(item['lessons']) for item in pending)
             row.billing_payment_line_count = len({item['enrollment_id'] for item in pending})
         method = collection.get("method")
@@ -321,5 +322,7 @@ def combine_overdue_payments(db: Session, responses, today):
         due = collection.get("debit_to") if method == "autopay" else collection.get("due_before_lesson")
         row.billing_payment_due_date = date.fromisoformat(due) if due else row.payment_deadline or row.first_lesson_date
         row.days_overdue = (today - row.billing_payment_due_date).days
+        if row.billing_supplement_amount and row.days_overdue < -7:
+            continue
         result.append(row)
     return sorted(result, key=lambda row: row.days_overdue, reverse=True)

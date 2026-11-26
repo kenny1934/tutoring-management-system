@@ -14,6 +14,7 @@ import type { BillingPaymentDetail } from '@/types/billing';
 import { PaymentMethodBadge } from '@/components/payments/PaymentMethodBadge';
 import { BillingDraftFocus, billingDraftAuthScope, billingDraftTutorId } from './BillingDraftReview';
 import { BillingPayments, type BillingPaymentAction } from './BillingPayments';
+import { BillingSupplementPaymentButton } from './BillingSupplementPaymentButton';
 import { BillingPaymentStatus, BillingPaymentMessageStatus } from './BillingPaymentStatus';
 
 export function BillingEnrollmentPaymentCard(props: { enrollment: Enrollment; onChanged: () => void }) {
@@ -82,6 +83,7 @@ function EnrollmentPaymentCard({ enrollment, onChanged }: { enrollment: Enrollme
       {detail.message_needs_resend && <p role="status" className="text-sm text-amber-800 dark:text-amber-300">Charges changed after the fee message was sent. Send the revised message to the parent.</p>}
       {detail.status === 'Cancelled' && detail.note && <section className="space-y-1"><h4 className="text-xs font-medium text-ink-subtle">Reason for cancellation</h4><p className="whitespace-pre-wrap break-words text-sm">{detail.note}</p></section>}
       <div className="space-y-2 border-t border-line pt-3">
+        {detail.status === 'Paid' && detail.supplementary_payments?.some(item => item.enrollment_id === enrollment.id && item.status !== 'Paid') && <BillingSupplementPaymentButton paymentId={paymentId} studentId={enrollment.student_id} enrollmentId={enrollment.id} className="w-full" onChanged={onChanged} />}
         {pending && admin && <Button variant="primary" icon={CreditCard} className="w-full" disabled={!canAct || busy} onClick={event => open('paid', event.currentTarget)}>Record payment</Button>}
         <div className="grid grid-cols-2 gap-2">
           <Button size="sm" variant="secondary" icon={ReceiptText} disabled={busy} onClick={event => open('summary', event.currentTarget)}>Open payment</Button>
@@ -124,7 +126,7 @@ function EnrollmentFee({ detail, enrollment }: { detail: BillingPaymentDetail; e
       {enrollment.is_new_student && !line.materials_fee && !line.discount_amount && <><dt className="text-ink-subtle">Materials fee</dt><dd className="text-right">{formatMOP(0, 0)}</dd></>}
     </dl>}
     {multiple && <p className="rounded border border-line bg-wash p-2 text-xs text-ink-subtle">This enrollment is part of a payment covering {detail.lines.length} enrollments. Payment total: <strong className="font-semibold text-foreground">{period.total_fee == null ? 'To confirm' : formatMOP(period.total_fee, 0)}</strong>.</p>}
-    {outstanding > 0 && <p className="text-sm">Additional tuition outstanding: {formatMOP(outstanding, 0)}. Open payment details to record it.</p>}
+    {outstanding > 0 && <p className="text-sm">Additional tuition outstanding: {formatMOP(outstanding, 0)}.</p>}
     <BillingPaymentMessageStatus detail={detail} />
     {detail.status === 'Paid' && detail.note && <section className="space-y-1"><h4 className="text-xs font-medium text-ink-subtle">Payment note</h4><p className="whitespace-pre-wrap break-words text-sm">{detail.note}</p></section>}
   </div>;

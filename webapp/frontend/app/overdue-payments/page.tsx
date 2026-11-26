@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import { BillingSupplementPaymentButton } from "@/components/billing/BillingSupplementPaymentButton";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import { PaymentMethodBadge } from "@/components/payments/PaymentMethodBadge";
 import { BillingPaymentBatchModal } from "@/components/billing/BillingPaymentBatchModal";
@@ -298,7 +299,7 @@ export default function OverduePaymentsPage() {
   }, []);
 
   // The popover expects a full Enrollment; the overdue row carries a compatible
-  // subset, so adapt it (these rows are always Pending Payment by definition).
+  // subset, including the actual payment status for additional tuition.
   const popoverEnrollmentObj = useMemo<Enrollment | null>(() => {
     const e = popoverEnrollment;
     if (!e) return null;
@@ -311,7 +312,7 @@ export default function OverduePaymentsPage() {
       location: e.location,
       lessons_paid: e.lessons_paid,
       first_lesson_date: e.first_lesson_date,
-      payment_status: 'Pending Payment',
+      payment_status: e.payment_status ?? 'Pending Payment',
       billing_managed: e.billing_managed,
       billing_payment_id: e.billing_payment_id,
       billing_payment_method: e.billing_payment_method,
@@ -947,7 +948,7 @@ function OverdueRow({
             type="checkbox"
             checked={isChecked}
             disabled={readOnly || selectionDisabled || (!!enrollment.billing_payment_id && enrollment.billing_payment_method !== 'manual')}
-            title={enrollment.billing_payment_id && enrollment.billing_payment_method !== 'manual' ? "Record this collection through the Autopay list." : selectionDisabled ? "Clear selection to choose a different payment workflow." : undefined}
+            title={enrollment.billing_supplement_amount ? "Record additional tuition individually." : enrollment.billing_payment_id && enrollment.billing_payment_method !== 'manual' ? "Record this collection through the Autopay list." : selectionDisabled ? "Clear selection to choose a different payment workflow." : undefined}
             onChange={() => onToggleCheck(enrollment.id)}
             aria-label={`Select ${enrollment.student_name}`}
             className="h-4 w-4 rounded border-gray-300 cursor-pointer"
@@ -1011,7 +1012,7 @@ function OverdueRow({
       {/* Actions */}
       <td className="px-4 py-3 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-2 flex-nowrap">
-          {enrollment.billing_payment_id ? <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} /> : <Button
+          {enrollment.billing_payment_id && !!enrollment.billing_supplement_amount ? <BillingSupplementPaymentButton paymentId={enrollment.billing_payment_id} studentId={enrollment.student_id} /> : enrollment.billing_payment_id ? <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} /> : <Button
             size="sm"
             icon={Check}
             iconClassName="text-green-600 dark:text-green-400"

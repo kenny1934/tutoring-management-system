@@ -3,6 +3,7 @@ import type { PaymentBatchTarget } from './billing-payment-batch';
 
 /** Historical payments keep their original Summer/date/discount workflow. */
 export function overduePaymentFamily(row: OverdueEnrollment): 'combined' | 'legacy' | null {
+  if (row.billing_supplement_amount) return null;
   if (row.billing_payment_id) return row.billing_payment_method === 'manual' ? 'combined' : null;
   return row.billing_managed ? null : 'legacy';
 }

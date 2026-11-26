@@ -8,6 +8,7 @@ import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
+import { BillingSupplementPaymentButton } from "@/components/billing/BillingSupplementPaymentButton";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import {
   useFloating,
@@ -766,6 +767,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
         {/* Actions */}
         <div className="pt-3 border-t border-line space-y-2">
+          {enrollment.billing_payment_id && enrollment.payment_status === "Partially Paid" && <BillingSupplementPaymentButton paymentId={enrollment.billing_payment_id} studentId={enrollment.student_id} enrollmentId={enrollment.id} className="w-full" onChanged={onStatusChange} />}
           {enrollment.billing_payment_id && <BillingWorkflowLink studentId={enrollment.student_id} paymentId={enrollment.billing_payment_id} method={enrollment.billing_payment_method} onClick={onClose} />}
           {/* Confirm Payment button - only shown for pending payments */}
           {showMarkAsPaid && (

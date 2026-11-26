@@ -7,6 +7,7 @@ import { shareOrCopy, useCanShare } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
+import { BillingSupplementPaymentButton } from "@/components/billing/BillingSupplementPaymentButton";
 import { BillingWorkflowLink } from "@/components/billing/BillingWorkflowLink";
 import useSWR from "swr";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -554,6 +555,7 @@ export function EnrollmentDetailModal({
           {/* Right side actions - buttons expand on hover (desktop), wrap on mobile */}
           <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Renewal workflow actions */}
+            {detail.billing_payment_id && detail.payment_status === "Partially Paid" && <BillingSupplementPaymentButton paymentId={detail.billing_payment_id} studentId={detail.student_id} enrollmentId={detail.id} onChanged={() => { void mutate(); onStatusChange?.(); }} />}
             {detail.billing_payment_id && (onOpenBillingPayment ? <Button size="sm" onClick={() => onOpenBillingPayment(detail.billing_payment_id!)}>Open payment</Button> : <BillingWorkflowLink studentId={detail.student_id} paymentId={detail.billing_payment_id} method={detail.billing_payment_method} onClick={onClose} />)}
             {showRenewalActions && !detail.billing_payment_id && (
               <>

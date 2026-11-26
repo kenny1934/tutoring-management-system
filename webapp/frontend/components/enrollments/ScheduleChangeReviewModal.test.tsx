@@ -15,7 +15,7 @@ it('reviews added unpaid sessions and submits the exact reviewed period', async 
   await screen.findByRole('region', { name: 'Billing period adjustment' });
   expect(mocks.preview).toHaveBeenCalledWith(20, expect.objectContaining({ review_period: true }));
   expect(screen.getByText('Additional tuition: MOP 800')).toBeInTheDocument();
-  expect(screen.getAllByText('Additional · Unpaid')).toHaveLength(2);
+  expect(screen.getAllByText('Unpaid')).toHaveLength(2);
   expect(screen.getByText('Enrollment becomes partially paid')).toBeInTheDocument();
   const submit = screen.getByRole('button', { name: 'Apply changes' });
   expect(submit).toBeDisabled();
