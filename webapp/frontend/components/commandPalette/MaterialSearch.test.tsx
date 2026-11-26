@@ -413,3 +413,33 @@ it('keeps the selected courseware when Escape closes a portalled assignment dial
   expect(preview).toBeVisible();
   expect(within(preview).getByRole('heading', { name: 'Worksheet 1.pdf' })).toBeVisible();
 });
+
+
+it('reopens a cancelled request cache without flashing an abort alert', async () => {
+  const original=mocks.fetch.getMockImplementation()!;
+  let fractionsCalls=0,finish!: (value: ReturnType<typeof page>)=>void;
+  mocks.fetch.mockImplementation((path:string,options?:{body:string;signal:AbortSignal})=>{
+    if(path!=='/materials/search'||JSON.parse(options!.body).q!=='fractions')return original(path,options);
+    fractionsCalls++;
+    if(fractionsCalls===1)return new Promise((_resolve,reject)=>options!.signal.addEventListener('abort',()=>reject(new DOMException('signal is aborted without reason','AbortError'))));
+    return new Promise(resolve=>{finish=resolve;});
+  });
+  const alerts:string[]=[];
+  const observer=new MutationObserver(()=>document.querySelectorAll('[role="alert"]').forEach(el=>alerts.push(el.textContent??'')));
+  observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+  try{
+    const view=mount('fractions');await waitFor(()=>expect(fractionsCalls).toBe(1));
+    view.change('algebra');await screen.findByRole('button',{name:/Worksheet 1/});
+    view.change('fractions');await waitFor(()=>expect(fractionsCalls).toBe(2));
+    expect(screen.queryByRole('button',{name:'Retry search'})).not.toBeInTheDocument();
+    await act(async()=>{finish(page([3]));});await screen.findByRole('button',{name:/Worksheet 3/});
+    expect(alerts.some(text=>/aborted|Retry search/i.test(text))).toBe(false);
+  }finally{observer.disconnect();}
+});
+
+
+it('still offers Retry for a failure that the current request did not cancel', async () => {
+  mocks.fetch.mockImplementation((path:string)=>path.endsWith('/sources')?Promise.resolve(sources):Promise.reject(new Error('Courseware service unavailable.')));
+  mount();await screen.findByRole('button',{name:'Retry search'});
+  expect(screen.getByRole('alert')).toHaveTextContent('Courseware service unavailable.');
+});

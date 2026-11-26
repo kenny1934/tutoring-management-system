@@ -10,7 +10,7 @@ import { MaterialRefinement } from './MaterialRefinement';
 import { searchRefinement, coursewarePdfTerms, positiveSearch, refinementKeys, filterChips } from './material-refinements';
 import { defaultMaterialFilters } from './material-workspace';
 import { MaterialBasket } from './MaterialBasket';
-import { useAbortableRequest } from './useAbortableRequest';
+import { isCancelledSearchRequest, useAbortableRequest } from './useAbortableRequest';
 import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Clock, X, CalendarPlus } from "lucide-react";
 import { fetchAPI } from "@/lib/api";
 import { IconButton } from '@/components/controls';
@@ -196,7 +196,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         {sources.error && <p role="alert">{sources.error.message} <button onClick={() => void sources.mutate()}>Retry connection</button></p>}
         {sources.data && !sources.data.sources.length && <p>Your Knowledge Base account has no courseware sources. Ask an administrator for access.</p>}
         {!!sources.data?.sources.length && !ready && (!!query.trim() || !!filters.any_words || !!filters.exact_phrase) && (!positiveSearch(query, filters) || query.trim().length > 256) && <p>{query.trim().length > 256 ? 'Use a search of 256 characters or fewer.' : 'Enter at least two characters.'}</p>}
-        {ready && pages.error && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
+        {ready && pages.error && !isCancelledSearchRequest(pages.error) && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
         {first?.total === 0 && <><p>No courseware matches. Try fewer words or broaden the filters.</p>{limitedSources && <p role="note">Some files in these sources have no searchable text or incomplete extraction. Their page contents may not appear in results.</p>}</>}
         {!positiveSearch(query, filters) && emptyState}
         {rows.map(row => <div key={row.file_id} className={styles.resultRow}>{canAssign && multiple && row.ext === '.pdf' && <input type="checkbox" aria-label={`Select ${row.filename}`} checked={basket.some(entry => entry.material.file_id === row.file_id)} onChange={event => changeBasket(event.target.checked ? [...basket, { material: row, pages: row.page_count ? (row.page_count === 1 ? '1' : `1-${row.page_count}`) : '' }] : basket.filter(entry => entry.material.file_id !== row.file_id))} />}<button id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
@@ -214,7 +214,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         {notice && <p role="status">{notice}</p>}
         {!preview.data?.coverage && preview.data?.extraction_metadata?.needs_review && <p role="note">Some pages have uncertain OCR. Check the original before reusing the questions.</p>}
         {preview.isLoading && <p role="status">Loading extracted text…</p>}
-        {preview.error && <p role="alert">The preview could not load. <button onClick={() => void preview.mutate()}>Retry preview</button></p>}
+        {preview.error && !isCancelledSearchRequest(preview.error) && <p role="alert">The preview could not load. <button onClick={() => void preview.mutate()}>Retry preview</button></p>}
         {shownPreview && !shownPreview.chunks.length && <p>{focusedTextOmitted ? "This page is not included in this text preview. View the original PDF." : reading?.focusPage ? `No searchable text is available on page ${reading.focusPage}. Try the original PDF.` : 'No searchable text was extracted from this document.'}</p>}
         {shownPreview && <ExtractedText key={`${selected.file_id}:${term}:${reading?.focusPage ?? "all"}`} preview={shownPreview} reading={reading!} pageNavigation={textPageNavigation} />}
         {preview.data?.truncated && <p>This text preview is shortened. Open the original for the full document.</p>}

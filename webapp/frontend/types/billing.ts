@@ -646,6 +646,7 @@ export interface BillingAutopayRow {
   recorded_payment_method?: BillingMethod | null;
   mandate_ready?: boolean | null;
   sent_at?: string | null;
+  issues?: BillingPreviewResponse['issues'];
   reasons: { code: string; label: string }[];
   enrollment_ids: number[];
   action_url: string;

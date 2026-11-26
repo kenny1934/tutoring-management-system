@@ -60,16 +60,28 @@ function GapDates({ evidence }: { evidence: BillingGapEvidence[] }) {
 }
 
 /** Short labels remain visible; complete explanations are available on demand. */
-export function BillingChecks({ issues, compact = false, maxVisible = 2, presentation = 'default', representedByControls = [], studentId }: {
+export function BillingChecks({ issues, compact = false, maxVisible = 2, presentation = 'default', representedByControls = [], studentId, onRecordsChanged, recordsDisabled }: {
   issues: BillingIssue[];
   compact?: boolean;
   maxVisible?: number;
-  presentation?: 'default' | 'renewal';
+  presentation?: 'default' | 'renewal' | 'attention';
+  onRecordsChanged?: () => void;
+  recordsDisabled?: boolean;
   representedByControls?: readonly string[];
   studentId?: number;
 }) {
   const ordered = displayedIssues(issues);
   if (!ordered.length) return null;
+  if (presentation === 'attention') {
+    const checks = ordered.filter(issue => !representedByControls.includes(issue.code));
+    if (!checks.length) return null;
+    return <section aria-label="Enrollment checks"><ul className="space-y-3 text-sm">{checks.map(issue => <li key={`${issue.code}:${issue.period ?? ''}:${issue.message}`} className="space-y-1">
+      <p className="font-medium">{billingCheck(issue.code).label}</p>
+      <p className="text-ink-subtle">{issue.message}</p>
+      <BillingIssueRecords records={issue.record_evidence} studentId={studentId} onChanged={onRecordsChanged} disabled={recordsDisabled} />
+      {!!issue.gap_evidence?.length && <GapDates evidence={issue.gap_evidence} />}
+    </li>)}</ul></section>;
+  }
   const attention = ordered.filter(i => billingCheck(i.code).severity !== 'info');
   const renewalAttention = attention.filter(issue => !representedByControls.includes(issue.code));
   if (presentation === 'renewal') return <section aria-label="Renewal checks" className="space-y-2 rounded-md border border-line p-3 text-xs">

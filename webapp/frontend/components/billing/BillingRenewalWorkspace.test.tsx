@@ -227,3 +227,24 @@ describe('familiar renewal workspace', () => {
     expect(within(screen.getByRole('tabpanel')).getByText('Next enrollment')).toBeVisible();
   });
 });
+
+
+it.each(['projection', 'draft'] as const)('keeps %s record review out of creation actions when preparation is unavailable', origin => {
+  const value={...row(), stage:'attention' as const, origin, draft_id: origin==='draft'?'blocked-draft':null};
+  render(<BillingRenewalWorkspace row={value} allowPreparation={false} initialAction={{kind:'renew'}} trigger={createRef()} onClose={vi.fn()} onChanged={vi.fn()} />);
+  expect(screen.getByText('Enrollment 7')).toBeVisible();
+  expect(screen.queryByLabelText('Renewal form')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Renew'})).not.toBeInTheDocument();
+  expect(mocks.detail.mock.lastCall![0].onCreateBillingRenewal).toBeUndefined();
+  expect(mocks.detail.mock.lastCall![0].onOpenBillingPayment).toBeUndefined();
+  expect(mocks.modal.mock.lastCall![0].title).toBe('Enrollment review');
+});
+
+
+it('starts attention on the affected record while retaining the existing guarded renewal review for authorised staff', async () => {
+  render(<BillingRenewalWorkspace row={{...row(),stage:'attention'}} allowPreparation trigger={createRef()} onClose={vi.fn()} onChanged={vi.fn()} />);
+  expect(screen.getByText('Enrollment 7')).toBeVisible();
+  expect(screen.queryByLabelText('Renewal form')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Renew'}));
+  await waitFor(() => expect(screen.getByLabelText('Renewal form')).toBeVisible());
+});

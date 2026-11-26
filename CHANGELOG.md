@@ -13,6 +13,8 @@
 
 ### Bug Fixes
 
+* **Autopay follow-up**: Show the specific enrollment checks and related records, open enrollment review directly, and keep missing bank authorisation separate from enrollment problems.
+* **Search while typing**: Keep interrupted searches from briefly showing a retry error or cancelling their replacement.
 * **Search assignment dialogs**: Cover the whole search console with the background dimming and blur, including the area over an expanded sidebar.
 * **Autopay collection**: Prepare confirmed payments after the suggested notice or debit dates, including later files for newly added students, and record the actual bank debit date while keeping financial and duplicate-payment checks.
 * **Nested assignment dialogs**: Keep the selected courseware and reader open when Escape closes a page or session selection dialog.
