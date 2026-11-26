@@ -118,9 +118,9 @@ def test_all_ready_rows_have_one_exact_total_and_no_sample_or_total_row(bank_rec
     payment(client, student_id=104, source_id=41, key='bank-draft', draft_only=True)
     reviewed = preview(client)
     assert reviewed['can_download'] and not reviewed['issues']
-    assert reviewed['payment_count'] == len(reviewed['rows']) == 2
-    assert reviewed['total_amount'] == '3200.00'
-    assert [row['student']['school_student_id'] for row in reviewed['rows']] == ['27', '2100']
+    assert reviewed['payment_count'] == len(reviewed['rows']) == 3
+    assert reviewed['total_amount'] == '4800.00'
+    assert [row['student']['school_student_id'] for row in reviewed['rows']] == ['27', '28', '2100']
     assert_exact_workbook(export(client, reviewed), reviewed)
 
 
