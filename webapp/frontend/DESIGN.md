@@ -74,11 +74,9 @@ Shadows are Tailwind's own light values. The theme used to override them with 30
 
 ## The page background
 
-The background behind the pages is a choice people make under **Background** in the user menu, next to Theme. Plain is the default, and the wood desk is the other option. The choice is stored per device.
+Every page uses the shared Plain background through `PageSurface` (`components/layout/PageSurface.tsx`) and the `--surface-*` variables in `globals.css`. Light and dark mode keep the warm palette. There is no background picker.
 
-Each background is an entry in `SURFACES` in `lib/surfaces.ts`, plus a block of `--surface-*` variables in `globals.css` keyed on `data-surface`. Pages draw it through `PageSurface` (`components/layout/PageSurface.tsx`) and the `surface` classes, and never draw a background of their own. To add a background, for example for another deployment, add one entry and one light and one dark CSS block that set every variable. No page needs to change, and the picker previews the new entry with the same CSS.
-
-A boot script in the root layout puts the choice on `<html>` before the first paint, so the desk doesn't flash plain on load. `SurfaceAttribute` keeps it in step after that.
+Wood desk is retired. The root layout's boot script applies Plain before the first paint and replaces a saved `csm_surface=wood` value with `plain`. Unsupported preferences also read as Plain. `SurfaceAttribute` keeps the shared surface in step after hydration.
 
 ## Type
 

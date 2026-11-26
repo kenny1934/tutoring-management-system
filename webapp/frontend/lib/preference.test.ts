@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createChoicePreference } from "./preference";
 import { createBooleanPreference } from "./boolean-preference";
 import { SURFACE_BOOT_SCRIPT, SURFACE_STORAGE_KEY } from "./surfaces";
@@ -41,14 +41,43 @@ describe("createBooleanPreference", () => {
 
 describe("SURFACE_BOOT_SCRIPT", () => {
   it("copies a known background onto <html> before React runs", () => {
-    localStorage.setItem(SURFACE_STORAGE_KEY, "wood");
+    localStorage.setItem(SURFACE_STORAGE_KEY, "plain");
     new Function(SURFACE_BOOT_SCRIPT)();
-    expect(document.documentElement.dataset.surface).toBe("wood");
+    expect(document.documentElement.dataset.surface).toBe("plain");
   });
 
-  it("leaves <html> alone for an unknown value, so the page stays plain", () => {
+  it("uses Plain for an unknown value without putting it in the DOM", () => {
     localStorage.setItem(SURFACE_STORAGE_KEY, "<script>");
     new Function(SURFACE_BOOT_SCRIPT)();
-    expect(document.documentElement.dataset.surface).toBeUndefined();
+    expect(document.documentElement.dataset.surface).toBe("plain");
+  });
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+describe('retired Wood desk preference', () => {
+  it('replaces a saved wood choice before paint without changing dark mode', () => {
+    localStorage.setItem(SURFACE_STORAGE_KEY, 'wood');
+    localStorage.setItem('theme', 'dark');
+    document.documentElement.dataset.surface = 'wood';
+    new Function(SURFACE_BOOT_SCRIPT)();
+    expect(document.documentElement.dataset.surface).toBe('plain');
+    expect(localStorage.getItem(SURFACE_STORAGE_KEY)).toBe('plain');
+    expect(localStorage.getItem('theme')).toBe('dark');
+  });
+  it('uses Plain with no saved background', () => {
+    new Function(SURFACE_BOOT_SCRIPT)();
+    expect(document.documentElement.dataset.surface).toBe('plain');
+  });
+  it('still applies Plain when browser storage cannot be read', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage blocked'); });
+    expect(() => new Function(SURFACE_BOOT_SCRIPT)()).not.toThrow();
+    expect(document.documentElement.dataset.surface).toBe('plain');
+  });
+  it('still applies Plain when the saved preference cannot be rewritten', () => {
+    localStorage.setItem(SURFACE_STORAGE_KEY, 'wood');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage read only'); });
+    expect(() => new Function(SURFACE_BOOT_SCRIPT)()).not.toThrow();
+    expect(document.documentElement.dataset.surface).toBe('plain');
   });
 });

@@ -84,7 +84,7 @@ export function ExerciseDropdownButton({
       {open && (
         <div
           className={cn(
-            "absolute z-50 min-w-[140px] rounded-md shadow-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 py-1",
+            "absolute z-50 min-w-[140px] rounded-md shadow-lg border bg-paper border-line py-1",
             dropUp ? "bottom-full mb-1" : "top-full mt-1",
             "right-0"
           )}
@@ -98,7 +98,7 @@ export function ExerciseDropdownButton({
             className={cn(
               "w-full flex items-center gap-2 px-3 py-1.5 text-[11px]",
               hasExercises
-                ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                ? "text-gray-700 dark:text-gray-300 hover:bg-tint"
                 : "text-gray-500 dark:text-gray-400 cursor-not-allowed"
             )}
           >
@@ -114,20 +114,20 @@ export function ExerciseDropdownButton({
             className={cn(
               "w-full flex items-center gap-2 px-3 py-1.5 text-[11px]",
               hasExercises
-                ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                ? "text-gray-700 dark:text-gray-300 hover:bg-tint"
                 : "text-gray-500 dark:text-gray-400 cursor-not-allowed"
             )}
           >
             <Printer className="h-3 w-3" />
             Print {exerciseType}
           </button>
-          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+          <div className="border-t border-line my-1" />
           <button
             onClick={() => {
               setOpen(false);
               onAssign();
             }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-700 dark:text-gray-300 hover:bg-tint"
           >
             <Icon className="h-3 w-3" />
             Assign {exerciseType}

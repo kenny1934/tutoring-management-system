@@ -2112,6 +2112,7 @@ class ScheduleChangePreviewResponse(BaseModel):
     effective_date: Optional[date] = None
     coverage_from: Optional[date] = None
     coverage_through: Optional[date] = None
+    effective_date_min: Optional[date] = None
     period_adjustment: Optional[dict] = None
     can_apply: bool = Field(default=True, description="Whether the change can be applied (no conflicts)")
 

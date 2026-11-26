@@ -2883,6 +2883,11 @@ def _preview_schedule_change(enrollment_id, new_schedule, db):
     roots = [row.session_date for row in sessions if not row.make_up_for_id]
     coverage_from = enrollment.first_lesson_date or min(roots, default=today)
     coverage_through = max(roots, default=coverage_from)
+    from services.schedule_backdating import first_week_start
+    first_roots = [row for row in sessions if not row.make_up_for_id and row.session_date == coverage_from]
+    can_move_first = first_roots and all(row.session_status == 'Scheduled' and not row.rescheduled_to_id
+        and not any(other.make_up_for_id == row.id for other in sessions) for row in first_roots)
+    effective_min = first_week_start(coverage_from) if can_move_first else coverage_from
 
     # Include backdated targets when checking holidays.
     end_range = max(today, coverage_through) + timedelta(weeks=52)
@@ -2987,7 +2992,7 @@ def _preview_schedule_change(enrollment_id, new_schedule, db):
             conflicts = []
             updatable_sessions = []
             warnings = period_adjustment['issues']
-    if period_adjustment is None and new_schedule.effective_date and not coverage_from <= effective <= coverage_through:
+    if period_adjustment is None and new_schedule.effective_date and not effective_min <= effective <= coverage_through:
         raise HTTPException(422, 'Choose an effective date within the enrollment period.')
     backdate_issues = []
     if period_adjustment is None:
@@ -2995,7 +3000,7 @@ def _preview_schedule_change(enrollment_id, new_schedule, db):
         by_id = {row.id: row for row in sessions}
         _, backdate_issues = validate_backdated_targets(db, enrollment,
             [(by_id[row.session_id], row.shifted_date or row.new_date, row.new_time_slot) for row in updatable_sessions],
-            effective, today, coverage_from, coverage_through)
+            effective, today, effective_min, coverage_through)
         warnings.extend(backdate_issues)
     can_apply = not conflicts and not backdate_issues and not (period_adjustment and period_adjustment['issues'])
 
@@ -3011,7 +3016,7 @@ def _preview_schedule_change(enrollment_id, new_schedule, db):
         conflicts=conflicts,
         warnings=warnings,
         period_adjustment=period_adjustment,
-        as_of=today, effective_date=effective,
+        as_of=today, effective_date=effective, effective_date_min=effective_min,
         coverage_from=coverage_from, coverage_through=coverage_through,
         can_apply=can_apply
     )
@@ -3100,7 +3105,7 @@ async def apply_schedule_change(
             legacy_targets.append((by_id[row.session_id], day, time))
         from services.schedule_backdating import validate_backdated_targets
         backdated, issues = validate_backdated_targets(db, enrollment, legacy_targets,
-            changes.effective_date or fresh.as_of, fresh.as_of, fresh.coverage_from, fresh.coverage_through)
+            changes.effective_date or fresh.as_of, fresh.as_of, fresh.effective_date_min, fresh.coverage_through)
         if issues:
             raise HTTPException(409, ' '.join(issues))
         if backdated:
@@ -3129,6 +3134,8 @@ async def apply_schedule_change(
         session.last_modified_time = hk_now()
         session.last_modified_by = current_user.user_email
         sessions_updated += 1
+    if legacy_targets:
+        enrollment.first_lesson_date = min(enrollment.first_lesson_date or fresh.coverage_from, *(day for _, day, _ in legacy_targets))
     if backdated:
         note = f"Backdated schedule change from {changes.effective_date or min(day for _, day, _ in legacy_targets)}: {changes.reason.strip()}"
         enrollment.remark = '\n'.join(filter(None, [(enrollment.remark or '').rstrip(), note]))

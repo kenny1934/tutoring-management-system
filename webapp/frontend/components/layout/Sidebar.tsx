@@ -16,7 +16,6 @@ import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { SurfacePicker } from "@/components/ui/SurfacePicker";
 import { TONES } from "@/lib/tones";
 import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -667,12 +666,6 @@ export function Sidebar() {
                 <span className="text-sm font-medium text-foreground/80">Theme</span>
                 <ThemeToggle compact />
               </div>
-            </div>
-
-            {/* Page background */}
-            <div className="py-3">
-              <span className="text-sm font-medium text-foreground/80 mb-2 block">Background</span>
-              <SurfacePicker />
             </div>
 
             {/* Location Selector - Admin only */}

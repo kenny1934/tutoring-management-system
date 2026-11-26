@@ -1120,6 +1120,7 @@ export async function printBulkFiles(
         pdfData: arrayBuffer,
         pageNumbers: getPageNumbers(exercise, '[BulkPrint]'),
         label: exercise.pdf_name,
+        stamp: exercise.stamp,
       });
     }
   }
@@ -1206,6 +1207,7 @@ export async function downloadBulkFiles(
         pdfData: arrayBuffer,
         pageNumbers: getPageNumbers(exercise, '[BulkDownload]'),
         label: exercise.pdf_name,
+        stamp: exercise.stamp,
       });
     }
   }
@@ -1215,6 +1217,8 @@ export async function downloadBulkFiles(
   }
 
   try {
+    // A download labelled as complete must include every requested file.
+    if (bulkItems.length !== validExercises.length) return 'download_failed';
     // Extract and combine all pages into actual PDF (not HTML like print)
     const combinedBlob = await extractBulkPagesForDownload(bulkItems, stamp);
 

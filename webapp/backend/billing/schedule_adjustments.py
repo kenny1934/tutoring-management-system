@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from models import Enrollment, Holiday, SessionLog, Tutor
 from .calculator import BillingPolicy
 from .drafts import digest
-from .models import BillingLessonClaim, BillingPayment, BillingPaymentLine, utc_now
+from .models import BillingAccount, BillingLessonClaim, BillingPayment, BillingPaymentLine, utc_now
 from .schemas import BillingDraftReview
 
 
@@ -76,8 +76,15 @@ def preview(db, enrollment, change, *, as_of, locked=False):
     if change.effective_date is None and not getattr(change, 'review_period', False):
         return None
     start, through = period_start(review, line.slot_index), review.period.coverage_through
+    effective_min = start
+    if review.period.number == 1 and review.scenario.mode in {'new_student', 'returning_student'}:
+        from services.schedule_backdating import first_week_start
+        retained = review.scenario.slots[line.slot_index].covered_through
+        effective_min = max(first_week_start(start), db.get(BillingAccount, payment.account_id).academic_start)
+        if retained:
+            effective_min = max(effective_min, retained + timedelta(days=1))
     effective = change.effective_date or max(as_of, start)
-    if not start <= effective <= through:
+    if not effective_min <= effective <= through:
         raise HTTPException(422, 'Choose an effective date within the billing period.')
     if (enrollment.assigned_day or '')[:3] == change.assigned_day[:3]:
         return None
@@ -155,7 +162,11 @@ def preview(db, enrollment, change, *, as_of, locked=False):
             other_begin, other_end = time_range(claim.time_slot)
             if claim.lesson_date.isoformat() == day and begin < other_end and other_begin < end:
                 issues.append(f'Another confirmed lesson already covers {day}.')
+    first_lesson = min([enrollment.first_lesson_date, *[date.fromisoformat(day) for day, _ in positions]])
     proposal = {'payment_id': payment.id, 'payment_version': payment.version,
+                'effective_date_min': effective_min.isoformat(),
+                'previous_first_lesson_date': enrollment.first_lesson_date.isoformat(),
+                'first_lesson_date': first_lesson.isoformat(),
                 'effective_date': effective.isoformat(), 'coverage_from': start.isoformat(),
                 'coverage_through': through.isoformat(), 'previous_count': enrollment.lessons_paid,
                 'regular_count': len(moves) + len(added), 'new_count': enrollment.lessons_paid + len(added),
@@ -223,7 +234,8 @@ def apply(db, enrollment_id, change, actor, *, as_of):
         row.previous_session_status = row.session_status
         row.session_status = 'Rescheduled - Pending Make-up'
         row.last_modified_by = actor.user_email
-    # Existing moves are verified and their claims updated before additions.
+    enrollment.first_lesson_date = date.fromisoformat(proposal['first_lesson_date'])
+    # Existing moves and their earlier start are recorded before additions.
     finish_schedule_change(db, state, actor)
     snapshot = deepcopy(payment.snapshot)
     before_review = deepcopy(snapshot['review'])
@@ -341,7 +353,11 @@ def _extend_unpaid(db, payment, snapshot, additions, proposal, actor):
         line.discount_amount = shares[line.slot_index]
         line.tuition_amount = line.gross_tuition - line.discount_amount
         enrollment.revenue_total = line.tuition_amount
-        enrollment.first_lesson_date = min(lesson.date for lesson in period.lessons if lesson.slot == line.slot_index)
+        enrollment.first_lesson_date = min(enrollment.first_lesson_date,
+            min(lesson.date for lesson in period.lessons if lesson.slot == line.slot_index))
+        timetable = snapshot.get('teaching_schedules', {}).get('enrollments', {}).get(str(enrollment.id))
+        if timetable is not None:
+            timetable['first_lesson_date'] = enrollment.first_lesson_date.isoformat()
         enrollment.fee_message_sent = False
         enrollment.last_modified_by = actor.user_email
     payment.sent_at, payment.sent_language = None, None

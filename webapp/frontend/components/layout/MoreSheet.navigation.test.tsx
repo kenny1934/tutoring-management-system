@@ -18,7 +18,6 @@ vi.mock('@/components/ui/mobile-bottom-sheet', () => ({ MobileBottomSheet: ({ is
   isOpen: boolean; onClose: () => void; header: (close: () => void) => ReactNode; children: ReactNode;
 }) => isOpen ? <div role="dialog">{header(onClose)}{children}</div> : null }));
 vi.mock('@/components/ui/ThemeToggle', () => ({ ThemeToggle: () => null }));
-vi.mock('@/components/ui/SurfacePicker', () => ({ SurfacePicker: () => null }));
 vi.mock('@/components/auth', () => ({ RoleSwitcher: () => null }));
 vi.mock('./BottomTabBar', () => ({ TAB_HREFS: ['/', '/students', '/sessions', '/inbox'] }));
 vi.mock('./useNavigation', () => ({ useNavigation: () => ({
@@ -67,4 +66,11 @@ describe('More sheet navigation keeps pending routes alive', () => {
     fireEvent.click(guide);
     expect(mocks.close).toHaveBeenCalledTimes(1);
   });
+});
+
+it('keeps dark mode available after retiring the background picker', () => {
+  show();
+  expect(screen.getByText('Dark mode')).toBeVisible();
+  expect(screen.queryByText('Background')).not.toBeInTheDocument();
+  expect(screen.queryByRole('radiogroup', { name: 'Page background' })).not.toBeInTheDocument();
 });

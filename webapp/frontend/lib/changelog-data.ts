@@ -11,7 +11,13 @@ const changelogData = [
             "description": "**Autopay preparation**: Renew an enrollment or review its draft directly from the To prepare list and enrollment details."
           },
           {
-            "description": "**Enrollment schedules**: Choose an earlier effective date within the enrollment period and confirm past session dates before applying a timetable change."
+            "description": "**Enrollment schedules**: Choose an earlier effective date, including an earlier weekday for the first lesson, and confirm past session dates before applying a timetable change."
+          },
+          {
+            "description": "**Bulk exercise PDFs**: Print unsaved assignments together with a stamp for each student, or download one merged, named PDF per student."
+          },
+          {
+            "description": "**App background**: Saved Wood desk backgrounds now switch to Plain, with light and dark mode still available."
           }
         ]
       },
@@ -20,6 +26,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Mobile session history**: Keep enrollment details and the Copy button within the screen in the By enrollment view."
+          },
+          {
+            "description": "**Bulk action menus**: Use warm backgrounds and hover colours on the Sessions page and the dashboard’s Today sessions card."
           }
         ]
       }
