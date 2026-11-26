@@ -124,7 +124,7 @@ def preview(db, enrollment, change, *, as_of, locked=False):
                        and row.location == change.location for row in protected):
                 target_dates.append(day)
         day += timedelta(days=7)
-    moves = [{'session_id': row.id, 'from_date': row.session_date.isoformat(), 'date': day.isoformat()}
+    moves = [{'session_id': row.id, 'from_date': row.session_date.isoformat(), 'from_time_slot': row.time_slot, 'date': day.isoformat()}
              for row, day in zip(movable, target_dates)]
     pending = [row.id for row in movable[len(target_dates):]]
     added = [day.isoformat() for day in target_dates[len(movable):]]
@@ -159,7 +159,10 @@ def preview(db, enrollment, change, *, as_of, locked=False):
                 'effective_date': effective.isoformat(), 'coverage_from': start.isoformat(),
                 'coverage_through': through.isoformat(), 'previous_count': enrollment.lessons_paid,
                 'regular_count': len(moves) + len(added), 'new_count': enrollment.lessons_paid + len(added),
-                'moves': moves, 'pending_session_ids': pending, 'added_dates': added,
+                'moves': moves, 'pending_session_ids': pending,
+                'pending_sessions': [{'session_id': row.id, 'date': row.session_date.isoformat(),
+                                      'time_slot': row.time_slot} for row in movable if row.id in pending],
+                'added_dates': added,
                 'additional_amount': unit * len(added), 'original_payment_status': payment.status,
                 'issues': list(dict.fromkeys(issues))}
     proposal['review_hash'] = digest({'proposal': proposal, 'change': {field: getattr(change, field) for field in ('assigned_day', 'assigned_time', 'location', 'tutor_id')},

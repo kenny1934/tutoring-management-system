@@ -2078,8 +2078,9 @@ export interface ScheduleChangePreviewResponse {
     payment_id: string; review_hash: string; effective_date: string;
     coverage_from: string; coverage_through: string;
     previous_count: number; new_count: number; regular_count: number;
-    moves: { session_id: number; from_date: string; date: string }[];
+    moves: { session_id: number; from_date: string; from_time_slot?: string; date: string }[];
     pending_session_ids: number[]; added_dates: string[];
+    pending_sessions?: { session_id: number; date: string; time_slot: string }[];
     additional_amount: number; original_payment_status: string; issues: string[];
   } | null;
   enrollment_id: number;

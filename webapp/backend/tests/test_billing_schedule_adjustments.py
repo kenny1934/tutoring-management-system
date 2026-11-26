@@ -114,6 +114,11 @@ def test_five_to_three_keeps_all_five_entitlements_and_original_fee(env, paid):
     proposal, payload = change(db, enrollment, day='Tue', key='change-back')
     assert len(proposal['pending_session_ids']) == 2 and proposal['additional_amount'] == 0
     assert proposal['new_count'] == 5
+    pending_rows = db.query(SessionLog).filter(SessionLog.id.in_(proposal['pending_session_ids'])).order_by(SessionLog.session_date, SessionLog.id).all()
+    assert proposal['pending_sessions'] == [
+        {'session_id': row.id, 'date': row.session_date.isoformat(), 'time_slot': row.time_slot}
+        for row in pending_rows]
+    assert len(proposal['pending_sessions']) == 2
     apply(db, enrollment.id, payload, actor, as_of=date(2026, 11, 25))
     db.commit()
     roots = db.query(SessionLog).filter_by(enrollment_id=enrollment.id).all()
