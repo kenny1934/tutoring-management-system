@@ -263,7 +263,7 @@ def test_actual_schedule_editor_preview_apply_and_retry(env, monkeypatch):
     assert_integrity(db, payment)
 
 
-@pytest.mark.parametrize('case', ['before_period', 'after_period', 'past'])
+@pytest.mark.parametrize('case', ['before_period', 'after_period'])
 def test_invalid_effective_dates_cannot_move_the_financial_boundary(env, case):
     _, db, _, _, enrollment = fixture_payment(env)
     effective, as_of = {'before_period': (date(2026, 12, 31), date(2026, 11, 25)),
@@ -484,3 +484,79 @@ def test_supplement_overdue_deadline_uses_added_lesson_not_original_bill(env, mo
     db.commit()
     assert enrollment.payment_status == 'Paid'
     assert not [row for row in enrollments.get_overdue_enrollments(None, None, db) if row.id == enrollment.id]
+
+
+def test_admin_backdates_monthly_change_only_after_confirmation(env):
+    _, db, actor, payment, enrollment = fixture_payment(env)
+    earlier = db.query(SessionLog).filter_by(enrollment_id=enrollment.id).order_by(SessionLog.session_date).first()
+    earlier.session_status = 'Attended'
+    db.commit()
+    before = deepcopy(payment.snapshot['review'])
+    request = ScheduleChangeRequest(assigned_day='Wed', assigned_time='16:00 - 17:30',
+        location='MSA', tutor_id=1, effective_date=date(2027, 1, 6))
+    proposal = preview(db, enrollment, request, as_of=date(2027, 1, 7))
+    assert proposal['requires_past_confirmation'] is True
+    assert proposal['past_dates'] == ['2027-01-06']
+    assert not proposal['issues']
+    payload = ApplyScheduleChangeRequest(**request.model_dump(exclude={'review_period'}),
+        expected_adjustment_hash=proposal['review_hash'], idempotency_key='backdated-monthly', reason='The new timetable began yesterday.')
+    with pytest.raises(HTTPException, match='Confirm the past dates'):
+        apply(db, enrollment.id, payload, actor, as_of=date(2027, 1, 7))
+    assert not db.query(SessionLog).filter_by(enrollment_id=enrollment.id, session_date=date(2027, 1, 6)).count()
+    payload.acknowledge_past_dates = True
+    apply(db, enrollment.id, payload, actor, as_of=date(2027, 1, 7))
+    db.commit()
+    moved = db.query(SessionLog).filter_by(enrollment_id=enrollment.id, session_date=date(2027, 1, 6)).one()
+    assert moved.session_status == 'Scheduled'
+    assert earlier.session_date == date(2027, 1, 5) and earlier.session_status == 'Attended'
+    assert payment.snapshot['review'] == before
+    assert payment.snapshot['period_schedule_changes'][-1]['acknowledged_past_dates'] is True
+    assert_integrity(db, payment)
+
+
+def test_backdated_monthly_change_still_rejects_overlapping_attendance(env):
+    _, db, _, _, enrollment = fixture_payment(env)
+    db.add(SessionLog(student_id=enrollment.student_id, tutor_id=1, session_date=date(2027, 1, 6),
+        time_slot='16:15 - 17:45', location='MSB', session_status='Attended', financial_status='Paid'))
+    db.commit()
+    request = ScheduleChangeRequest(assigned_day='Wed', assigned_time='16:00 - 17:30',
+        location='MSA', tutor_id=1, effective_date=date(2027, 1, 6))
+    proposal = preview(db, enrollment, request, as_of=date(2027, 1, 7))
+    assert any('already has a lesson' in issue for issue in proposal['issues'])
+
+
+def test_backdated_monthly_editor_http_checks_confirmation_and_exact_retries(env, monkeypatch):
+    from routers import enrollments
+    client, db, _, payment, enrollment = fixture_payment(env)
+    client.app.include_router(enrollments.router, prefix='/api')
+    monkeypatch.setattr(enrollments, 'billing_today', lambda fallback: date(2027, 1, 7))
+    data = dict(assigned_day='Wed', assigned_time='16:00 - 17:30', location='MSA', tutor_id=1,
+        effective_date='2027-01-06', review_period=True)
+    response = client.post(f'/api/enrollments/{enrollment.id}/schedule-change-preview', json=data)
+    assert response.status_code == 200, response.text
+    proposal = response.json()['period_adjustment']
+    assert proposal['requires_past_confirmation'] and proposal['past_dates'] == ['2027-01-06']
+    data.pop('review_period')
+    data.update(expected_adjustment_hash=proposal['review_hash'], idempotency_key='backdate-http', reason='The timetable began yesterday.')
+    url = f'/api/enrollments/{enrollment.id}/apply-schedule-change'
+    assert client.patch(url, json=data).status_code == 422
+    data['acknowledge_past_dates'] = True
+    result = client.patch(url, json=data)
+    assert result.status_code == 200, result.text
+    assert client.patch(url, json=data).json() == result.json()
+    assert db.query(SessionLog).filter_by(enrollment_id=enrollment.id, session_date=date(2027, 1, 6)).count() == 1
+    assert_integrity(db, payment)
+
+
+def test_expired_period_still_allows_time_only_enrollment_edit_without_moving_history(env, monkeypatch):
+    import asyncio
+    from routers import enrollments
+    _, db, actor, payment, enrollment = fixture_payment(env)
+    monkeypatch.setattr(enrollments, 'billing_today', lambda fallback: date(2027, 2, 1))
+    before = [(row.id, row.session_date, row.time_slot) for row in db.query(SessionLog).filter_by(enrollment_id=enrollment.id).order_by(SessionLog.id)]
+    result = asyncio.run(enrollments.apply_schedule_change(enrollment.id, ApplyScheduleChangeRequest(
+        assigned_day=enrollment.assigned_day, assigned_time='18:00 - 19:30', location='MSA', tutor_id=1), db, actor))
+    assert result.sessions_updated == 0
+    assert enrollment.assigned_time == '18:00 - 19:30'
+    assert [(row.id, row.session_date, row.time_slot) for row in db.query(SessionLog).filter_by(enrollment_id=enrollment.id).order_by(SessionLog.id)] == before
+    assert_integrity(db, payment)

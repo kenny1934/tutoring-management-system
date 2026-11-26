@@ -2793,7 +2793,7 @@ def get_day_of_week_number(day_name: str) -> int:
     return days.get(day_name, 0)
 
 
-def calculate_new_session_date(old_date: date, old_day: str, new_day: str) -> date:
+def calculate_new_session_date(old_date: date, old_day: str, new_day: str, effective_date: Optional[date] = None) -> date:
     """Calculate new session date when changing assigned day.
 
     Finds the next occurrence of new_day that is in the same week or the following week.
@@ -2803,6 +2803,10 @@ def calculate_new_session_date(old_date: date, old_day: str, new_day: str) -> da
 
     # Calculate the difference in days
     day_diff = new_weekday - old_weekday
+
+    if effective_date is not None:
+        same_week = old_date + timedelta(days=new_weekday - old_date.weekday())
+        return same_week if same_week >= effective_date else same_week + timedelta(weeks=1)
 
     # If new day is before old day in the week, move to next week
     if day_diff < 0:
@@ -2818,11 +2822,12 @@ async def preview_schedule_change(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin_write)
 ):
-    """
-    Preview the impact of a schedule change on an enrollment.
-    Shows which sessions can and cannot be changed.
-    Admin only.
-    """
+    """Preview the impact of an admin schedule change."""
+    return _preview_schedule_change(enrollment_id, new_schedule, db)
+
+
+def _preview_schedule_change(enrollment_id, new_schedule, db):
+    """Share the same read-only date plan with the save path."""
     # Get enrollment with relationships
     enrollment = db.query(Enrollment).options(
         *enrollment_with_student_tutor()
@@ -2874,9 +2879,14 @@ async def preview_schedule_change(
     warnings = []
     today = billing_today(hk_now().date())
 
-    # Load holidays for next year
-    end_range = today + timedelta(weeks=52)
-    holidays = get_holidays_in_range(db, today, end_range)
+    effective = new_schedule.effective_date or today
+    roots = [row.session_date for row in sessions if not row.make_up_for_id]
+    coverage_from = enrollment.first_lesson_date or min(roots, default=today)
+    coverage_through = max(roots, default=coverage_from)
+
+    # Include backdated targets when checking holidays.
+    end_range = max(today, coverage_through) + timedelta(weeks=52)
+    holidays = get_holidays_in_range(db, min(today, effective), end_range)
 
     # Track used dates to avoid collisions when multiple sessions shift
     used_dates = set()
@@ -2885,11 +2895,11 @@ async def preview_schedule_change(
         tutor_name = session.tutor.tutor_name if session.tutor else "Unknown"
 
         # Check if session can be changed
-        is_past = session.session_date < today
+        is_past = session.session_date < effective
         is_unchangeable_status = session.session_status in UNCHANGEABLE_STATUSES
 
         if is_past or is_unchangeable_status:
-            reason = "Past date" if is_past else f"Status: {session.session_status}"
+            reason = ("Before effective date" if new_schedule.effective_date else "Past date") if is_past else f"Status: {session.session_status}"
             unchangeable_sessions.append(UnchangeableSession(
                 session_id=session.id,
                 session_date=session.session_date,
@@ -2903,7 +2913,8 @@ async def preview_schedule_change(
             new_date = calculate_new_session_date(
                 session.session_date,
                 enrollment.assigned_day,
-                new_schedule.assigned_day
+                new_schedule.assigned_day,
+                effective_date=new_schedule.effective_date,
             )
 
             # Check for holiday
@@ -2976,7 +2987,17 @@ async def preview_schedule_change(
             conflicts = []
             updatable_sessions = []
             warnings = period_adjustment['issues']
-    can_apply = not conflicts and not (period_adjustment and period_adjustment['issues'])
+    if period_adjustment is None and new_schedule.effective_date and not coverage_from <= effective <= coverage_through:
+        raise HTTPException(422, 'Choose an effective date within the enrollment period.')
+    backdate_issues = []
+    if period_adjustment is None:
+        from services.schedule_backdating import validate_backdated_targets
+        by_id = {row.id: row for row in sessions}
+        _, backdate_issues = validate_backdated_targets(db, enrollment,
+            [(by_id[row.session_id], row.shifted_date or row.new_date, row.new_time_slot) for row in updatable_sessions],
+            effective, today, coverage_from, coverage_through)
+        warnings.extend(backdate_issues)
+    can_apply = not conflicts and not backdate_issues and not (period_adjustment and period_adjustment['issues'])
 
     if conflicts:
         warnings.append(f"{len(conflicts)} conflict(s) detected with new schedule")
@@ -2990,6 +3011,8 @@ async def preview_schedule_change(
         conflicts=conflicts,
         warnings=warnings,
         period_adjustment=period_adjustment,
+        as_of=today, effective_date=effective,
+        coverage_from=coverage_from, coverage_through=coverage_through,
         can_apply=can_apply
     )
 
@@ -3017,14 +3040,12 @@ async def apply_schedule_change(
         except Exception:
             db.rollback()
             raise
-    if changes.effective_date:
-        raise HTTPException(409, 'Review the billing-period dates and fee before applying this weekday change.')
     if changes.apply_to_sessions:
         from billing.schedule_adjustments import preview as preview_period_adjustment
         existing = db.get(Enrollment, enrollment_id)
         if existing is not None and (existing.assigned_day or '')[:3] != changes.assigned_day[:3]:
             proposed = ScheduleChangeRequest(assigned_day=changes.assigned_day, assigned_time=changes.assigned_time,
-                location=changes.location, tutor_id=changes.tutor_id, review_period=True)
+                location=changes.location, tutor_id=changes.tutor_id, effective_date=changes.effective_date, review_period=True)
             if preview_period_adjustment(db, existing, proposed, as_of=billing_today(hk_now().date())) is not None:
                 raise HTTPException(409, 'Review the billing-period dates and fee before applying this weekday change.')
     schedule_change = prepare_schedule_change(db, enrollment_id)
@@ -3051,9 +3072,42 @@ async def apply_schedule_change(
     if not new_tutor:
         raise HTTPException(status_code=404, detail=f"Tutor with ID {changes.tutor_id} not found")
 
-    old_day = enrollment.assigned_day
-    old_time = enrollment.assigned_time
-    old_tutor_id = enrollment.tutor_id
+    legacy_targets = []
+    backdated = False
+    if changes.apply_to_sessions:
+        # Use the same source locks and preview as the editor, then validate
+        # manual overrides before any rows are changed.
+        all_student_sessions = db.query(SessionLog).filter_by(student_id=enrollment.student_id).order_by(
+            SessionLog.id).populate_existing().with_for_update().all()
+        fresh = _preview_schedule_change(enrollment_id, ScheduleChangeRequest(
+            assigned_day=changes.assigned_day, assigned_time=changes.assigned_time,
+            location=changes.location, tutor_id=changes.tutor_id,
+            effective_date=changes.effective_date,
+            review_period=(enrollment.assigned_day or '')[:3] != changes.assigned_day[:3]), db)
+        if fresh.period_adjustment is not None:
+            raise HTTPException(409, 'Review the billing-period dates and fee before applying this weekday change.')
+        by_id = {row.id: row for row in all_student_sessions if row.enrollment_id == enrollment_id}
+        eligible = {row.session_id for row in fresh.updatable_sessions}
+        override_ids = set(changes.date_overrides or {}) | set(changes.time_overrides or {})
+        if not override_ids <= eligible:
+            raise HTTPException(409, 'Some sessions can no longer be changed. Reload the preview.')
+        for row in fresh.updatable_sessions:
+            try:
+                day = date.fromisoformat(changes.date_overrides[row.session_id]) if changes.date_overrides and row.session_id in changes.date_overrides else row.shifted_date or row.new_date
+            except ValueError:
+                raise HTTPException(422, 'Choose a valid session date.') from None
+            time = (changes.time_overrides or {}).get(row.session_id, changes.assigned_time)
+            legacy_targets.append((by_id[row.session_id], day, time))
+        from services.schedule_backdating import validate_backdated_targets
+        backdated, issues = validate_backdated_targets(db, enrollment, legacy_targets,
+            changes.effective_date or fresh.as_of, fresh.as_of, fresh.coverage_from, fresh.coverage_through)
+        if issues:
+            raise HTTPException(409, ' '.join(issues))
+        if backdated:
+            if not changes.acknowledge_past_dates:
+                raise HTTPException(422, 'Confirm the past dates before applying this schedule change.')
+            if not changes.reason or not changes.reason.strip():
+                raise HTTPException(422, 'Explain why the enrollment schedule is changing.')
 
     # Update enrollment record
     enrollment.assigned_day = changes.assigned_day
@@ -3065,60 +3119,22 @@ async def apply_schedule_change(
 
     sessions_updated = 0
 
-    if changes.apply_to_sessions:
-        today = billing_today(hk_now().date())
-
-        # Load holidays for next year
-        end_range = today + timedelta(weeks=52)
-        holidays = get_holidays_in_range(db, today, end_range)
-
-        # Get updatable sessions (future, scheduled status), ordered by date
-        sessions = db.query(SessionLog).filter(
-            SessionLog.enrollment_id == enrollment_id,
-            SessionLog.session_date >= today,
-            ~SessionLog.session_status.in_(UNCHANGEABLE_STATUSES)
-        ).order_by(SessionLog.session_date).all()
-
-        # Track used dates to avoid collisions when multiple sessions shift
-        used_dates = set()
-
-        for session in sessions:
-            # Check for manual date override first
-            if changes.date_overrides and session.id in changes.date_overrides:
-                new_date = date.fromisoformat(changes.date_overrides[session.id])
-            else:
-                # Calculate new date
-                new_date = calculate_new_session_date(
-                    session.session_date,
-                    old_day,
-                    changes.assigned_day
-                )
-
-                # Handle holiday shifts and collision avoidance
-                while new_date in holidays or new_date in used_dates:
-                    new_date += timedelta(weeks=1)
-
-            # Track this date as used
-            used_dates.add(new_date)
-
-            if session.make_up_for_id or session.session_status == 'Make-up Class':
-                assert_makeup_entitlement(db, session, new_date)
-
-            # Update session
-            session.session_date = new_date
-            # Handle time override
-            if changes.time_overrides and session.id in changes.time_overrides:
-                session.time_slot = changes.time_overrides[session.id]
-            else:
-                session.time_slot = changes.assigned_time
-            session.location = changes.location
-            session.tutor_id = changes.tutor_id
-            session.last_modified_time = hk_now()
-
-            sessions_updated += 1
+    for session, new_date, new_time in legacy_targets:
+        if session.make_up_for_id or session.session_status == 'Make-up Class':
+            assert_makeup_entitlement(db, session, new_date)
+        session.session_date = new_date
+        session.time_slot = new_time
+        session.location = changes.location
+        session.tutor_id = changes.tutor_id
+        session.last_modified_time = hk_now()
+        session.last_modified_by = current_user.user_email
+        sessions_updated += 1
+    if backdated:
+        note = f"Backdated schedule change from {changes.effective_date or min(day for _, day, _ in legacy_targets)}: {changes.reason.strip()}"
+        enrollment.remark = '\n'.join(filter(None, [(enrollment.remark or '').rstrip(), note]))
 
     # A lesson moved onto the day a tutor recorded one fills itself in from that record.
-    if sessions_updated:
+    if sessions_updated and not backdated:
         fill_unlisted_lessons(db, [enrollment.student_id], current_user.user_email)
 
     finish_schedule_change(db, schedule_change, current_user)

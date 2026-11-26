@@ -2108,6 +2108,10 @@ class ScheduleChangePreviewResponse(BaseModel):
     updatable_sessions: List[UpdatableSession] = Field(default_factory=list)
     conflicts: List[StudentConflict] = Field(default_factory=list, description="Conflicts with new schedule")
     warnings: List[str] = Field(default_factory=list, description="Warnings about the change")
+    as_of: Optional[date] = None
+    effective_date: Optional[date] = None
+    coverage_from: Optional[date] = None
+    coverage_through: Optional[date] = None
     period_adjustment: Optional[dict] = None
     can_apply: bool = Field(default=True, description="Whether the change can be applied (no conflicts)")
 
@@ -2119,6 +2123,7 @@ class ApplyScheduleChangeRequest(BaseModel):
     location: str = Field(..., max_length=200)
     tutor_id: int = Field(..., gt=0)
     effective_date: Optional[date] = None
+    acknowledge_past_dates: bool = False
     expected_adjustment_hash: Optional[str] = Field(default=None, min_length=64, max_length=64)
     idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=64)
     reason: Optional[str] = Field(default=None, min_length=1, max_length=500)

@@ -1684,7 +1684,7 @@ function CopyLessonDatesButton({
   const previewSuffix = scope === 'upcoming' ? '' : ' — Attended';
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={cn("relative shrink-0", inEnrollment && "ml-auto")} ref={dropdownRef}>
       <div className="flex items-stretch">
         <button
           onClick={() => handleCopy()}
@@ -2066,7 +2066,7 @@ function SessionsTab({
             return (
               <div key={enrollmentId} className="space-y-2">
                 {/* Enrollment Header - Clickable with Copy Button */}
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <button
                     onClick={(e) => {
                       if (enrollment) {
@@ -2075,9 +2075,10 @@ function SessionsTab({
                         setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
                       }
                     }}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
+                    className="flex w-full min-w-0 items-start gap-2 px-3 py-2 sm:w-auto sm:flex-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-line text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
                   >
-                    <Calendar className="h-4 w-4 text-accent-ink" />
+                    <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" />
+                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 [overflow-wrap:anywhere]">
                     <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                       {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
                     </span>
@@ -2106,6 +2107,7 @@ function SessionsTab({
                         {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
                       </span>
                     )}
+                    </span>
                   </button>
                   {/* Copy Button for this enrollment */}
                   <CopyLessonDatesButton

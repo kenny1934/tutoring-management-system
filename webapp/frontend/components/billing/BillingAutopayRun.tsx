@@ -18,16 +18,18 @@ import { billingAPI } from '@/lib/billing-api';
 import { formatMOP, formatShortDate, plural } from '@/lib/formatters';
 import { useDebouncedValue, usePageTitle, useVisibilityAwareInterval } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
-import type { BillingAutopayRow, BillingAutopayStage } from '@/types/billing';
+import type { BillingAutopayRow, BillingAutopayStage, BillingQueueRow } from '@/types/billing';
 import { BillingDraftFocus, billingDraftAuthScope } from './BillingDraftReview';
 import { BillingPayments } from './BillingPayments';
+import { BillingRenewalWorkspace } from './BillingRenewalWorkspace';
+import type { BillingRenewalAction } from './BillingRenewalPanel';
 import { BillingPaymentSettings } from './BillingPaymentSettings';
 import { BillingAutopayExport, BillingBankFileDialog } from './BillingAutopayExport';
 
 const STAGES = [
   { value: 'ready', label: 'Ready', icon: CheckCircle2, colour: 'text-green-700 dark:text-green-400', help: 'Enrollments are created and the fee message is sent. Bank authorisation is ready and all checks pass.' },
   { value: 'attention', label: 'Needs attention', icon: AlertCircle, colour: 'text-amber-700 dark:text-amber-400', help: 'A payment or enrollment needs checking. See the reason on each row.' },
-  { value: 'prepare', label: 'To prepare', icon: ClipboardList, colour: 'text-blue-700 dark:text-blue-400', help: 'Create the enrollments in Renewals. Saved drafts stay here until confirmed.' },
+  { value: 'prepare', label: 'To prepare', icon: ClipboardList, colour: 'text-blue-700 dark:text-blue-400', help: 'Review and create enrollments here. Saved drafts stay here until confirmed.' },
   { value: 'skipped', label: 'Skipped', icon: SkipForward, colour: 'text-ink-subtle', help: 'No debit is due. Check for prepaid lessons, manual payment or cancelled enrollments.' },
 ] as const;
 
@@ -80,11 +82,11 @@ export function BillingAutopayEntry() {
   return <BillingAutopayRun key={month || 'default'} initialCollectionMonth={month} />;
 }
 
-const AUTOPAY_COLUMNS = 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8.5rem_minmax(0,1fr)_5.5rem]';
+const AUTOPAY_COLUMNS = 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8.5rem_minmax(0,1fr)_8.5rem]';
 
 const BANK_FOLLOW_UP = { prepared: 'File saved', awaiting_results: 'Awaiting bank results', rejected: 'Not collected', review: 'Needs checking', record_payment: 'To record', recorded: 'Recorded' };
 
-function AutopayRow({ row, onOpen, onOpenRun, onAuthorisation }: { row: BillingAutopayRow; onOpen: (trigger: HTMLButtonElement) => void; onOpenRun?: (trigger: HTMLButtonElement) => void; onAuthorisation?: (trigger: HTMLButtonElement) => void }) {
+function AutopayRow({ row, onOpen, onOpenRun, onAuthorisation, onPrepare }: { row: BillingAutopayRow; onOpen: (trigger: HTMLButtonElement) => void; onOpenRun?: (trigger: HTMLButtonElement) => void; onAuthorisation?: (trigger: HTMLButtonElement) => void; onPrepare?: (trigger: HTMLButtonElement) => void }) {
   const student = row.student;
   const estimated = row.amount_basis === 'estimate';
   const method = row.collection?.method ?? row.recorded_payment_method ?? null;
@@ -109,15 +111,16 @@ function AutopayRow({ row, onOpen, onOpenRun, onAuthorisation }: { row: BillingA
       {onOpenRun && <div><Button size="sm" variant="quiet" className="h-auto min-h-7 max-w-full justify-start whitespace-normal px-0 text-left" onClick={event => onOpenRun(event.currentTarget)} aria-label={`Bank file & results for ${student.student_name}`}>Bank file &amp; results<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button></div>}
       {row.reasons.length > (authorisationAction && statusReason !== authorisationReason?.label ? 2 : 1) && <p className="text-ink-subtle">+{plural(row.reasons.length - (authorisationAction && statusReason !== authorisationReason?.label ? 2 : 1), 'check')}</p>}
     </div>
-    <div className="flex justify-end"><Button size="sm" variant="quiet" onClick={event => onOpen(event.currentTarget)} aria-label={`Details for ${student.student_name}`}>Details<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button></div>
+    <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 lg:col-span-1 lg:flex-col lg:items-end">{onPrepare && <Button size="sm" variant="primary" onClick={event => onPrepare(event.currentTarget)} aria-label={`${row.draft_id ? 'Review draft' : 'Renew enrollment'} for ${student.student_name}`}>{row.draft_id ? 'Review draft' : 'Renew enrollment'}</Button>}<Button size="sm" variant="quiet" onClick={event => onOpen(event.currentTarget)} aria-label={`Details for ${student.student_name}`}>Details<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button></div>
   </article>;
 }
 
-function AutopayDetails({ row, trigger, onClose, checking, checkError, onRetry, authorisationOpen, preferencesAvailable, canEditAuthorisation, onSaved, onOpenRun }: {
+function AutopayDetails({ row, trigger, onClose, checking, checkError, onRetry, authorisationOpen, preferencesAvailable, canEditAuthorisation, onSaved, onOpenRun, onPrepare }: {
   row: BillingAutopayRow; trigger: React.RefObject<HTMLButtonElement | null>; onClose: () => void;
   checking: boolean; checkError?: string; onRetry: () => void; authorisationOpen?: boolean;
   preferencesAvailable: boolean; canEditAuthorisation: boolean; onSaved: () => void;
   onOpenRun?: (trigger: HTMLButtonElement) => void;
+  onPrepare?: (trigger: HTMLButtonElement) => void;
 }) {
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [authorisationBusy, setAuthorisationBusy] = useState(false);
@@ -137,7 +140,7 @@ function AutopayDetails({ row, trigger, onClose, checking, checkError, onRetry, 
           {row.amount_basis === 'estimate' && <p className="text-xs text-ink-subtle">Confirm the amount when reviewing the enrollment.</p>}
         </>}
         {row.collection && <dl className={cn("grid gap-2 border-t border-line pt-3 text-xs", !hasPayment && "sm:grid-cols-2")}><div><dt className="text-ink-subtle">Notice</dt><dd className="mt-1">{dates(row.collection.notice_from, row.collection.notice_to)}</dd></div>{!hasPayment && <div><dt className="text-ink-subtle">{row.collection.method === 'autopay' ? 'Bank debit' : 'Manual payment due'}</dt><dd className="mt-1">{row.collection.method === 'autopay' ? dates(row.collection.debit_from, row.collection.debit_to) : formatShortDate(row.collection.due_before_lesson)}</dd></div>}</dl>}
-        {(onOpenRun || !hasPayment) && <div className="flex justify-end border-t border-line pt-3">{onOpenRun ? <Button size="sm" variant="primary" disabled={busy || unverified} onClick={event => onOpenRun(event.currentTarget)}>Bank file &amp; results<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button> : !hasPayment && <Link aria-disabled={busy} tabIndex={busy ? -1 : undefined} onClick={event => { if (busy) event.preventDefault(); }} href={row.action_url || `/billing/students/${row.student.id}`} className={buttonClasses({ size: 'sm', variant: 'secondary' })}>{row.draft_id ? 'Review draft' : row.stage === 'prepare' ? 'Review enrollment' : 'Open payment journey'}<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}</div>}
+        {(onPrepare || onOpenRun || !hasPayment) && <div className="flex justify-end border-t border-line pt-3">{onPrepare ? <Button size="sm" variant="primary" disabled={busy || unverified} onClick={event => onPrepare(event.currentTarget)}>{row.draft_id ? 'Review draft' : 'Renew enrollment'}<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button> : onOpenRun ? <Button size="sm" variant="primary" disabled={busy || unverified} onClick={event => onOpenRun(event.currentTarget)}>Bank file &amp; results<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button> : !hasPayment && <Link aria-disabled={busy} tabIndex={busy ? -1 : undefined} onClick={event => { if (busy) event.preventDefault(); }} href={row.action_url || `/billing/students/${row.student.id}`} className={buttonClasses({ size: 'sm', variant: 'secondary' })}>Open payment journey<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}</div>}
       </div>
     </BillingDraftFocus>
   </Modal>;
@@ -180,10 +183,46 @@ export function BillingAutopayRun({ initialCollectionMonth = '' }: { initialColl
     ? state.data.rows.find(row => row.key === selection.key) ?? null : null;
   useEffect(() => { setSelection(previous => previous?.scope === selectionScope ? previous : null); }, [selectionScope]);
   const trigger = useRef<HTMLButtonElement | null>(null);
+  const renewalTrigger = useRef<HTMLButtonElement | null>(null);
+  const [renewal, setRenewal] = useState<{ scope: string; row: BillingQueueRow; action: BillingRenewalAction } | null>(null);
+  useEffect(() => { setRenewal(previous => previous?.scope === selectionScope ? previous : null); }, [selectionScope]);
   const runTrigger = useRef<HTMLButtonElement | null>(null);
   const runScope = JSON.stringify([billingDraftAuthScope(auth), location, requestedMonth]);
   const [runSelection, setRunSelection] = useState<{ scope: string; run: { id?: string; branch: string; collection_month: string } } | null>(null);
   const canOpenRun = auth.isAdmin && !auth.isReadOnly;
+  const canPrepare = !!canOpenRun && !options.error && !!options.data?.workflow_writes_available;
+  useEffect(() => { if (!canPrepare) setRenewal(null); }, [canPrepare]);
+  function prepareAvailable(row: BillingAutopayRow) {
+    return canPrepare && !!current?.preparation_available && row.stage === 'prepare' && row.origin !== 'payment';
+  }
+  function openRenewal(row: BillingAutopayRow, element: HTMLButtonElement) {
+    if (!prepareAvailable(row)) return;
+    // The row supplies navigation context. The shared panel refreshes the
+    // student's sources and quote before allowing an enrollment to be created.
+    const source: BillingQueueRow = {
+      key: row.key, student: row.student, stage: 'prepare', origin: row.origin,
+      payment_method: row.collection?.method ?? row.recorded_payment_method ?? null,
+      recorded_payment_method: row.recorded_payment_method, mandate_ready: row.mandate_ready,
+      collection: row.collection ?? null, first_lesson_date: row.coverage_from ?? null,
+      coverage_through: row.coverage_through ?? null, lesson_count: null, total_fee: null,
+      amount_basis: 'unknown', prepare_on: null, due_date: null, overdue: false, ready_now: false,
+      draft_id: row.draft_id ?? null, payment_id: null, enrollment_ids: row.enrollment_ids,
+      payment_ids: [], issues: [], note: '', action_url: row.action_url,
+    };
+    // The details modal is about to unmount, so retain the row's trigger when
+    // its footer starts the renewal. Focus can return to the list afterwards.
+    if (!selection) renewalTrigger.current = element;
+    else renewalTrigger.current = trigger.current;
+    setSelection(null); setRunSelection(null);
+    setRenewal({ scope: selectionScope, row: source, action: row.draft_id ? { kind: 'draft', id: row.draft_id } : { kind: 'renew' } });
+  }
+  function renewalChanged() {
+    void refreshCache(key => Array.isArray(key) && ['billing-autopay', 'billing-queue', 'billing-queue-counts', 'billing-students', 'billing-student-context'].includes(key[0])).catch(() => {});
+  }
+  function closeRenewal() {
+    setRenewal(null);
+    requestAnimationFrame(() => { if (renewalTrigger.current?.isConnected) renewalTrigger.current.focus(); else document.getElementById(`${id}-${stage}-tab`)?.focus(); });
+  }
   const preferencesAvailable = !options.error && !!options.data?.workflow_available;
   const canEditAuthorisation = canOpenRun && preferencesAvailable && !!options.data?.preferences_writes_available;
   function bankTarget(row: BillingAutopayRow) {
@@ -255,10 +294,11 @@ export function BillingAutopayRun({ initialCollectionMonth = '' }: { initialColl
     <section role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${stage}-tab`} aria-busy={state.isValidating || searchPending} className="space-y-3">
       {(state.isLoading || state.isValidating || searchPending) && <p role="status" className="py-6 text-sm text-ink-subtle">Loading autopay…</p>}
       {state.error && !searchPending && <div role="alert" className="rounded border border-red-300 p-4 text-sm"><p>{state.error instanceof Error ? state.error.message : 'Could not load autopay.'}</p><Button size="sm" className="mt-2" onClick={() => { void state.mutate(); }}>Retry</Button></div>}
-      {current && <><p className="text-xs text-ink-subtle">{plural(current.total, 'entry', 'entries')} · Student number order</p>{current.rows.length ? <div className="min-w-0 overflow-hidden rounded-lg border border-line bg-paper"><div aria-hidden="true" className={cn('hidden gap-5 border-b border-line bg-tint px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:grid', AUTOPAY_COLUMNS)}><span>Student</span><span>Lessons covered</span><span className="text-right">Amount</span><span>Status</span><span className="w-[5.5rem]" /></div>{current.rows.map(row => <AutopayRow key={row.key} row={row} onOpen={element => { trigger.current = element; setSelection({ scope: selectionScope, key: row.key }); }} onOpenRun={canOpenRun && bankTarget(row) ? element => openBank(row, element) : undefined} onAuthorisation={canEditAuthorisation && row.recorded_payment_method === 'autopay' && !row.mandate_ready && row.reasons.some(reason => reason.code === 'MANDATE_NOT_READY') ? element => { trigger.current = element; setSelection({ scope: selectionScope, key: row.key, authorisation: true }); } : undefined} />)}</div> : <p className="rounded border border-line p-5 text-sm">{debouncedSearch ? 'No students match this search.' : stage === 'prepare' && !current.preparation_available ? 'Enrollment preparation is unavailable.' : EMPTY[stage]}</p>}
+      {current && <><p className="text-xs text-ink-subtle">{plural(current.total, 'entry', 'entries')} · Student number order</p>{current.rows.length ? <div className="min-w-0 overflow-hidden rounded-lg border border-line bg-paper"><div aria-hidden="true" className={cn('hidden gap-5 border-b border-line bg-tint px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:grid', AUTOPAY_COLUMNS)}><span>Student</span><span>Lessons covered</span><span className="text-right">Amount</span><span>Status</span><span className="w-[8.5rem]" /></div>{current.rows.map(row => <AutopayRow key={row.key} row={row} onPrepare={prepareAvailable(row) ? element => openRenewal(row, element) : undefined} onOpen={element => { trigger.current = element; setSelection({ scope: selectionScope, key: row.key }); }} onOpenRun={canOpenRun && bankTarget(row) ? element => openBank(row, element) : undefined} onAuthorisation={canEditAuthorisation && row.recorded_payment_method === 'autopay' && !row.mandate_ready && row.reasons.some(reason => reason.code === 'MANDATE_NOT_READY') ? element => { trigger.current = element; setSelection({ scope: selectionScope, key: row.key, authorisation: true }); } : undefined} />)}</div> : <p className="rounded border border-line p-5 text-sm">{debouncedSearch ? 'No students match this search.' : stage === 'prepare' && !current.preparation_available ? 'Enrollment preparation is unavailable.' : EMPTY[stage]}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><p className="text-ink-subtle">{current.total ? `${current.offset + 1}–${Math.min(current.offset + current.rows.length, current.total)} of ${current.total}` : '0 entries'}</p><div className="flex gap-2"><Button size="sm" disabled={offset === 0} onClick={() => setPage({ scope, offset: Math.max(0, offset - limit) })}>Previous</Button><Button size="sm" disabled={offset + limit >= current.total} onClick={() => setPage({ scope, offset: offset + limit })}>Next</Button></div></div></>}
     </section>
-    {selected && <AutopayDetails key={`${selectionScope}:${selected.key}`} row={selected} trigger={trigger} checking={state.isValidating} checkError={state.error ? state.error instanceof Error ? state.error.message : 'Could not refresh this collection.' : undefined} onRetry={() => { void state.mutate(); }} onClose={closeDetails} authorisationOpen={selection?.authorisation} preferencesAvailable={preferencesAvailable} canEditAuthorisation={canEditAuthorisation} onSaved={authorisationSaved} onOpenRun={canOpenRun && bankTarget(selected) ? element => openBank(selected, element) : undefined} />}
+    {selected && <AutopayDetails key={`${selectionScope}:${selected.key}`} row={selected} onPrepare={prepareAvailable(selected) ? element => openRenewal(selected, element) : undefined} trigger={trigger} checking={state.isValidating} checkError={state.error ? state.error instanceof Error ? state.error.message : 'Could not refresh this collection.' : undefined} onRetry={() => { void state.mutate(); }} onClose={closeDetails} authorisationOpen={selection?.authorisation} preferencesAvailable={preferencesAvailable} canEditAuthorisation={canEditAuthorisation} onSaved={authorisationSaved} onOpenRun={canOpenRun && bankTarget(selected) ? element => openBank(selected, element) : undefined} />}
+    {canPrepare && enabled && renewal?.scope === selectionScope && <BillingRenewalWorkspace key={`${selectionScope}:${renewal.row.key}`} row={renewal.row} initialAction={renewal.action} trigger={renewalTrigger} onClose={closeRenewal} onChanged={renewalChanged} />}
     {canOpenRun && runSelection?.scope === runScope && <BillingBankFileDialog key={`${runScope}:${runSelection.run.id || 'new'}`} collectionMonth={runSelection.run.collection_month} defaultBranch={runSelection.run.branch} initialRunId={runSelection.run.id} trigger={runTrigger} onClose={() => { setRunSelection(null); requestAnimationFrame(() => { if (runTrigger.current?.isConnected) runTrigger.current.focus(); else document.getElementById(`${id}-${stage}-tab`)?.focus(); }); }} />}
   </div></PageSurface>;
 }

@@ -29,6 +29,7 @@ import {
   ScheduleChangePreviewResponse,
   UpdatableSession,
 } from "@/lib/api";
+import { billingToday } from "@/lib/billing-clock";
 import { formatShortDate } from "@/lib/formatters";
 import { Popover } from "@/components/ui/popover";
 import { Button, Field, IconButton, Input, Label } from "@/components/controls";
@@ -67,6 +68,7 @@ export function ScheduleChangeReviewModal({
 
   const [effectiveDate, setEffectiveDate] = useState("");
   const [reason, setReason] = useState("");
+  const [pastDatesConfirmed, setPastDatesConfirmed] = useState(false);
   const requestSerial = useRef(0);
   const submitRunning = useRef(false);
   const retry = useRef<{ body: string; key: string } | null>(null);
@@ -163,7 +165,8 @@ export function ScheduleChangeReviewModal({
   const handleApplyChanges = async () => {
     if (submitRunning.current || !preview || previewLoading || previewError) return;
     const adjustment = preview.period_adjustment;
-    if (adjustment && !reason.trim()) return;
+    if ((adjustment || needsPastConfirmation) && !reason.trim()) return;
+    if (needsPastConfirmation && !pastDatesConfirmed) return;
     submitRunning.current = true;
     if (Object.values(overrides).some((override) => override.time && !parseTimeRange(override.time))) { submitRunning.current = false; return; }
     setIsSubmitting(true);
@@ -177,9 +180,11 @@ export function ScheduleChangeReviewModal({
         if (override.time) timeOverrides[Number(sessionId)] = override.time;
       });
 
-      const proof = JSON.stringify([adjustment?.review_hash, reason.trim()]);
+      const proof = JSON.stringify([adjustment?.review_hash, reason.trim(), pastDatesConfirmed]);
       if (retry.current?.body !== proof) retry.current = { body: proof, key: crypto.randomUUID() };
       const result = await enrollmentsAPI.applyScheduleChange(enrollmentId, {
+        ...(!adjustment && effectiveDate ? { effective_date: effectiveDate } : {}),
+        ...(needsPastConfirmation ? { acknowledge_past_dates: pastDatesConfirmed, reason: reason.trim() } : {}),
         ...(adjustment ? { effective_date: adjustment.effective_date,
           expected_adjustment_hash: adjustment.review_hash, idempotency_key: retry.current!.key,
           reason: reason.trim() } : {}),
@@ -194,7 +199,7 @@ export function ScheduleChangeReviewModal({
       if (adjustment) {
         await refreshBilling(key => Array.isArray(key) && (
           (key[0] === 'billing-payment' && key[2] === adjustment.payment_id)
-          || ['billing-payments', 'billing-queue', 'billing-queue-counts'].includes(key[0])
+          || ['billing-payments', 'billing-queue', 'billing-queue-counts', 'overdue-enrollments'].includes(key[0])
         )).catch(() => {});
       }
       showToast(result.message, "success");
@@ -214,6 +219,8 @@ export function ScheduleChangeReviewModal({
     setIsSubmitting(true);
     try {
       const result = await enrollmentsAPI.applyScheduleChange(enrollmentId, {
+        ...(!adjustment && effectiveDate ? { effective_date: effectiveDate } : {}),
+        ...(needsPastConfirmation ? { acknowledge_past_dates: pastDatesConfirmed, reason: reason.trim() } : {}),
         assigned_day: newSchedule.day,
         assigned_time: newSchedule.time,
         location: newSchedule.location,
@@ -236,7 +243,16 @@ export function ScheduleChangeReviewModal({
   const hasUnchangeableSessions = preview?.unchangeable_sessions && preview.unchangeable_sessions.length > 0;
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;
-  const canApply = !!preview && preview.enrollment_id === enrollmentId && !previewLoading && !previewError && (!preview.period_adjustment || !!reason.trim()) && (preview?.can_apply ?? false) && Object.values(overrides).every((override) => !override.time || !!parseTimeRange(override.time));
+  const reviewToday = preview?.as_of || billingToday();
+  const selectedEffective = effectiveDate || preview?.period_adjustment?.effective_date || preview?.effective_date || reviewToday;
+  const targetDates = preview?.period_adjustment
+    ? [...preview.period_adjustment.moves.map(move => move.date), ...preview.period_adjustment.added_dates]
+    : (preview?.updatable_sessions ?? []).map(getEffectiveDate);
+  const pastDates = [...new Set(targetDates.filter(day => day < reviewToday))].sort();
+  const needsPastConfirmation = !!preview && (preview.period_adjustment?.requires_past_confirmation || selectedEffective < reviewToday || pastDates.length > 0);
+  const backdateProof = JSON.stringify([enrollmentId, newSchedule, selectedEffective, targetDates, overrides, preview?.period_adjustment?.review_hash]);
+  useEffect(() => { setPastDatesConfirmed(false); }, [backdateProof]);
+  const canApply = !!preview && preview.enrollment_id === enrollmentId && !previewLoading && !previewError && (!(preview.period_adjustment || needsPastConfirmation) || !!reason.trim()) && (!needsPastConfirmation || pastDatesConfirmed) && (preview?.can_apply ?? false) && Object.values(overrides).every((override) => !override.time || !!parseTimeRange(override.time));
 
   // Format schedule change summary
   const changeSummary = useMemo(() => {
@@ -295,6 +311,7 @@ export function ScheduleChangeReviewModal({
         )
       }
     >
+      {preview?.enrollment_id === enrollmentId && currentSchedule.day.slice(0, 3) !== newSchedule.day.slice(0, 3) && <Field label="Change effective from" id="schedule-effective-date" className="mb-4"><Input id="schedule-effective-date" type="date" value={selectedEffective} min={preview.period_adjustment?.coverage_from || preview.coverage_from || undefined} max={preview.period_adjustment?.coverage_through || preview.coverage_through || undefined} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>}
       {previewLoading ? (
         <div className="text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent-ink" />
@@ -321,10 +338,15 @@ export function ScheduleChangeReviewModal({
 
           {preview.period_adjustment && <section aria-label="Billing period adjustment" className="space-y-3 rounded border border-line p-3">
             <p className="text-sm">{preview.period_adjustment.previous_count !== preview.period_adjustment.new_count && <>{preview.period_adjustment.previous_count} → </>}{preview.period_adjustment.new_count} billed sessions · Billing ends {formatShortDate(preview.period_adjustment.coverage_through)}.</p>
-            <Field label="Change effective from" id="schedule-effective-date"><Input id="schedule-effective-date" type="date" value={effectiveDate || preview.period_adjustment.effective_date} min={preview.period_adjustment.coverage_from} max={preview.period_adjustment.coverage_through} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>
             <PeriodSchedulePreview adjustment={preview.period_adjustment} time={newSchedule.time} tutorName={newSchedule.tutorName} />
             <Field label="Reason for the change" id="schedule-adjustment-reason"><Input id="schedule-adjustment-reason" maxLength={500} value={reason} disabled={isSubmitting} onChange={event => setReason(event.target.value)} /></Field>
           </section>}
+
+          {needsPastConfirmation && <div role="alert" className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
+            <p>{pastDates.length ? `Past session dates: ${pastDates.map(formatShortDate).join(', ')}.` : `The effective date, ${formatShortDate(selectedEffective)}, is in the past.`}</p>
+            <label className="flex items-start gap-2"><input type="checkbox" checked={pastDatesConfirmed} disabled={isSubmitting} onChange={event => setPastDatesConfirmed(event.target.checked)} />I confirm the past dates are correct.</label>
+            {!preview.period_adjustment && <Field label="Reason for the change" id="schedule-backdate-reason"><Input id="schedule-backdate-reason" maxLength={500} value={reason} disabled={isSubmitting} onChange={event => setReason(event.target.value)} /></Field>}
+          </div>}
 
           {/* Conflicts */}
           {hasConflicts && (
@@ -512,7 +534,8 @@ export function ScheduleChangeReviewModal({
                                         size="sm"
                                         value={overrides[session.session_id]?.date || effectiveDate}
                                         onChange={(e) => handleDateOverride(session.session_id, e.target.value)}
-                                        min={new Date().toISOString().split('T')[0]}
+                                        min={preview.coverage_from || undefined}
+                                        max={preview.coverage_through || undefined}
                                       />
                                     </Field>
                                     <div>

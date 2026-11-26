@@ -2076,6 +2076,8 @@ export interface UpdatableSession {
 
 /** Schedule change preview response */
 export interface ScheduleChangePreviewResponse {
+  as_of?: string | null; effective_date?: string | null;
+  coverage_from?: string | null; coverage_through?: string | null;
   period_adjustment?: {
     payment_id: string; review_hash: string; effective_date: string;
     coverage_from: string; coverage_through: string;
@@ -2084,6 +2086,7 @@ export interface ScheduleChangePreviewResponse {
     pending_session_ids: number[]; added_dates: string[];
     pending_sessions?: { session_id: number; date: string; time_slot: string }[];
     additional_amount: number; original_payment_status: string; issues: string[];
+    past_dates?: string[]; requires_past_confirmation?: boolean;
   } | null;
   enrollment_id: number;
   current_schedule: {
@@ -2109,6 +2112,7 @@ export interface ScheduleChangePreviewResponse {
 
 /** Apply schedule change request */
 export interface ApplyScheduleChangeRequest {
+  acknowledge_past_dates?: boolean;
   effective_date?: string;
   expected_adjustment_hash?: string;
   idempotency_key?: string;
