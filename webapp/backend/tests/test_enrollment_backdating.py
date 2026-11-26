@@ -122,3 +122,16 @@ def test_completed_sources_cannot_be_overridden_by_a_stale_client(setup):
     with pytest.raises(HTTPException, match='can no longer be changed'):
         apply(setup, acknowledge_past_dates=True, reason='Timetable correction.', date_overrides={attended.id: '2026-11-25'})
     assert attended.session_date == before and attended.session_status == 'Attended'
+
+
+def test_earlier_first_weekday_updates_an_unlinked_enrollment_start(setup):
+    db, _, block = setup
+    db.query(SessionLog).filter(SessionLog.enrollment_id == block.id, SessionLog.session_date < date(2026, 11, 27)).delete()
+    block.first_lesson_date = date(2026, 11, 27)
+    db.commit()
+    proposal = preview(setup)
+    assert proposal.effective_date_min == date(2026, 11, 23)
+    assert proposal.can_apply and proposal.updatable_sessions[0].new_date == date(2026, 11, 25)
+    apply(setup, acknowledge_past_dates=True, reason='The first lesson moved to Wednesday.')
+    assert block.first_lesson_date == date(2026, 11, 25)
+    assert block.payment_status == 'Paid' and block.lessons_paid == 4

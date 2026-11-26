@@ -1,6 +1,13 @@
 """Validate explicit backdated moves without changing attendance or sold counts."""
+from datetime import timedelta
+
 from constants import CONFLICTING_SESSION_STATUSES
 from models import SessionLog
+
+
+def first_week_start(first_date):
+    """A new weekday may fall before the first lesson in the same calendar week."""
+    return first_date - timedelta(days=first_date.weekday())
 
 
 def validate_backdated_targets(db, enrollment, targets, effective, today, coverage_from, coverage_through):

@@ -816,27 +816,6 @@
 
 .calendarPopover [data-calendar-syllabus-content], .calendarSyllabusSheet [data-calendar-syllabus-content] { overflow-wrap: anywhere; }
 
-/* Text-bearing sections need a predictable background over the wood grain. */
-:global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-header],
-:global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-flow="analytics"],
-:global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-flow="activity"] {
-  --color-on-surface: var(--color-foreground);
-  color: var(--color-foreground);
-  background: var(--surface-header-fill, var(--color-paper));
-  padding: 20px;
-  border: 0;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgb(25 14 5 / .12);
-}
-:global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-stack]::before { content: none; }
-:global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-search] kbd,
-:global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-revenue] :global(.text-accent-ink\/30) { color: var(--color-ink-strong); }
-@media (max-width: 767px) {
-  :global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-header],
-  :global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-flow="analytics"],
-  :global([data-surface="wood"]) .dashboard[data-native-preview="motion"] [data-native-flow="activity"] { padding: 14px; }
-}
-
 .dashboard[data-native-preview="motion"] [data-native-chart-interactive] { container-type: inline-size; }
 .chartBody { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 .chartPlot { height: 148px; min-width: 0; }

@@ -18,10 +18,8 @@ interface PageSurfaceProps {
 }
 
 /**
- * The background behind a page. Which background it draws (plain, the wood
- * desk, or anything added later) comes from the `data-surface` attribute on
- * <html>, through the surface variables in globals.css. On the plain surface
- * the texture, lighting and vignette layers have nothing to draw.
+ * The shared Plain background, drawn through the surface variables in
+ * globals.css. Texture, lighting and vignette layers have nothing to draw.
  */
 export function PageSurface({ children, fullHeight = false, scrollOnPhone = false }: PageSurfaceProps) {
   return (

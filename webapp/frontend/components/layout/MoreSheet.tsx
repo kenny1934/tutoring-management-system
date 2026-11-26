@@ -10,7 +10,6 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { SurfacePicker } from "@/components/ui/SurfacePicker";
 import { RoleSwitcher } from "@/components/auth";
 import { getInitials } from "@/lib/avatar-utils";
 import { useNavigation, type NavItem } from "./useNavigation";
@@ -162,10 +161,6 @@ export function MoreSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             <div className="flex items-center justify-between">
               <span className="text-[15px] font-medium text-foreground">Dark mode</span>
               <ThemeToggle compact />
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[15px] font-medium text-foreground">Background</span>
-              <SurfacePicker />
             </div>
           </div>
         </section>

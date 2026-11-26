@@ -11,7 +11,8 @@ from .models import BillingLessonClaim, BillingPayment, BillingPaymentLine, utc_
 
 
 def enrollment_schedule(row):
-    return {key: getattr(row, key) for key in ('assigned_day', 'assigned_time', 'location', 'tutor_id')}
+    return {**{key: getattr(row, key) for key in ('assigned_day', 'assigned_time', 'location', 'tutor_id')},
+            'first_lesson_date': row.first_lesson_date.isoformat() if row.first_lesson_date else None}
 
 
 def lesson_schedule(row):

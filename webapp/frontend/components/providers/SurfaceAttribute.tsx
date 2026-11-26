@@ -4,10 +4,8 @@ import { useEffect } from "react";
 import { surfacePreference } from "@/lib/surface-preference";
 
 /**
- * Keeps `data-surface` on <html> in step with the chosen background, so a
- * change in the user menu, or in another tab, repaints every page at once.
- * The boot script in the root layout sets the attribute before the first
- * paint, and this takes over after that.
+ * Keeps the shared Plain surface on <html> after hydration and storage
+ * changes from another tab. The boot script applies it before first paint.
  */
 export function SurfaceAttribute() {
   const [surface] = surfacePreference.usePreference();

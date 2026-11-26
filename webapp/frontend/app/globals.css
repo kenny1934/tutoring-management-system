@@ -977,31 +977,8 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   }
 
 /* ===== PAGE SURFACE =====
- * The background behind the pages, which people choose in the user menu.
- * Each choice is a block of variables keyed on `data-surface`, and the
- * classes below only read those variables. <html> carries the person's
- * choice, and a preview tile can carry its own, because the nearest
- * attribute wins. To add a background, add an entry to SURFACES in
- * lib/surfaces.ts and a light and a dark block here that set every
- * variable. With no attribute at all, the page is plain.
- *
- * `--color-on-surface` is the colour of text drawn straight onto the
- * surface, like the page headings on Settings or Exams. It has to change
- * with the surface, since white reads on wood but not on a pale page.
- *
- * The `--surface-header-*` variables say what goes behind a page's header.
- * A pale surface needs nothing, so the header sits straight on the page as
- * the "Ledger line". A busy one like the wood desk puts it on a strip of
- * paper, because no text colour reads well on wood in every spot. The strip
- * takes its colours from the palette, so it changes with the palette too:
- *
- * - `--surface-header-fill` is behind a page header that does not stick.
- * - `--surface-bar-fill` is behind one that sticks, which has to hide the
- *   page scrolling under it, so it is never transparent.
- * - `--surface-header-edge`, `-radius` and `-outset` are the strip's
- *   border, corners, and how far it reaches past the header on each side.
- * - `--surface-header-rule` is the hairline under the header. On a strip
- *   the strip's own edge does that job, so the hairline goes. */
+ * Every page uses the shared Plain surface in light and dark mode.
+ * Header variables keep page headings and sticky bars consistent. */
 
 :root,
 [data-surface="plain"] {
@@ -1036,71 +1013,12 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   --surface-header-rule: var(--color-line);
 }
 
-/* The wood desk: wood grain under a desk lamp, with darkened edges. */
-[data-surface="wood"] {
-  --surface-background: linear-gradient(
-    135deg,
-    var(--color-desk-light-base) 0%,
-    var(--color-desk-light-highlight) 50%,
-    var(--color-desk-light-base) 100%
-  );
-  --surface-texture: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpattern id='wood' x='0' y='0' width='200' height='200' patternUnits='userSpaceOnUse'%3E%3C!-- Main grain lines with variation --%3E%3Cpath d='M8 0 Q8 50 10 100 T12 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.22'/%3E%3Cpath d='M25 0 Q24 60 25 120 T26 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M42 0 Q43 45 42 90 T41 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.20'/%3E%3Cpath d='M58 0 Q57 55 58 110 T59 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3Cpath d='M75 0 Q76 48 75 96 T74 200' stroke='%23000' stroke-width='0.7' fill='none' opacity='0.24'/%3E%3Cpath d='M92 0 Q91 52 92 104 T93 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.20'/%3E%3Cpath d='M108 0 Q109 58 108 116 T107 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.19'/%3E%3Cpath d='M125 0 Q124 50 125 100 T126 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.19'/%3E%3Cpath d='M142 0 Q143 54 142 108 T141 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.25'/%3E%3Cpath d='M158 0 Q157 49 158 98 T159 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M175 0 Q176 56 175 112 T174 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.21'/%3E%3Cpath d='M192 0 Q191 51 192 102 T193 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C!-- Wood knots and irregularities --%3E%3Cellipse cx='65' cy='80' rx='8' ry='12' fill='%23000' opacity='0.10' transform='rotate(15 65 80)'/%3E%3Cellipse cx='145' cy='140' rx='6' ry='10' fill='%23000' opacity='0.11' transform='rotate(-8 145 140)'/%3E%3C!-- Fine grain detail --%3E%3Crect width='200' height='200' fill='url(%23noise)' opacity='0.05'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wood)'/%3E%3C/svg%3E");
-  --surface-texture-blend: multiply;
-  --surface-lighting: radial-gradient(
-    ellipse 120% 80% at 20% 10%,
-    var(--color-lamp-glow-light),
-    transparent 70%
-  );
-  --surface-vignette: radial-gradient(
-    ellipse 80% 70% at center,
-    transparent 40%,
-    rgba(0, 0, 0, 0.15) 100%
-  );
-  --color-on-surface: #ffffff;
-  --surface-header-fill: var(--color-paper);
-  --surface-bar-fill: var(--color-paper);
-  --surface-header-edge: var(--color-line);
-  --surface-header-radius: var(--radius-lg);
-  --surface-header-outset: 0.5rem;
-  --surface-header-rule: transparent;
-}
-
-.dark[data-surface="wood"],
-.dark [data-surface="wood"] {
-  --surface-background: linear-gradient(
-    135deg,
-    var(--color-desk-dark-base) 0%,
-    var(--color-desk-dark-highlight) 50%,
-    var(--color-desk-dark-base) 100%
-  );
-  --surface-texture: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpattern id='wood' x='0' y='0' width='200' height='200' patternUnits='userSpaceOnUse'%3E%3C!-- Main grain lines with variation --%3E%3Cpath d='M8 0 Q8 50 10 100 T12 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.22'/%3E%3Cpath d='M25 0 Q24 60 25 120 T26 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M42 0 Q43 45 42 90 T41 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.20'/%3E%3Cpath d='M58 0 Q57 55 58 110 T59 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3Cpath d='M75 0 Q76 48 75 96 T74 200' stroke='%23000' stroke-width='0.7' fill='none' opacity='0.24'/%3E%3Cpath d='M92 0 Q91 52 92 104 T93 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.20'/%3E%3Cpath d='M108 0 Q109 58 108 116 T107 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.19'/%3E%3Cpath d='M125 0 Q124 50 125 100 T126 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.19'/%3E%3Cpath d='M142 0 Q143 54 142 108 T141 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.25'/%3E%3Cpath d='M158 0 Q157 49 158 98 T159 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M175 0 Q176 56 175 112 T174 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.21'/%3E%3Cpath d='M192 0 Q191 51 192 102 T193 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C!-- Wood knots and irregularities --%3E%3Cellipse cx='65' cy='80' rx='8' ry='12' fill='%23000' opacity='0.10' transform='rotate(15 65 80)'/%3E%3Cellipse cx='145' cy='140' rx='6' ry='10' fill='%23000' opacity='0.11' transform='rotate(-8 145 140)'/%3E%3C!-- Fine grain detail --%3E%3Crect width='200' height='200' fill='url(%23noise)' opacity='0.05'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wood)'/%3E%3C/svg%3E");
-  --surface-texture-blend: overlay;
-  --surface-lighting: radial-gradient(
-    ellipse 100% 70% at 15% 5%,
-    var(--color-lamp-glow-dark),
-    transparent 60%
-  );
-  --surface-vignette: radial-gradient(
-    ellipse 75% 65% at center,
-    transparent 35%,
-    rgba(0, 0, 0, 0.4) 100%
-  );
-  --color-on-surface: #ffffff;
-  --surface-header-fill: var(--color-paper);
-  --surface-bar-fill: var(--color-paper);
-  --surface-header-edge: var(--color-line);
-  --surface-header-radius: var(--radius-lg);
-  --surface-header-outset: 0.5rem;
-  --surface-header-rule: transparent;
-}
 
 .surface {
   background: var(--surface-background);
 }
 
-/* The texture, lighting and vignette are separate layers so a page can set
- * the texture's strength with an opacity class. Dark mode always draws the
- * texture at 55%, as the wood desk always has. */
+/* Surface layers remain inert on the Plain background. */
 .surface-texture {
   background-image: var(--surface-texture);
   background-repeat: repeat;

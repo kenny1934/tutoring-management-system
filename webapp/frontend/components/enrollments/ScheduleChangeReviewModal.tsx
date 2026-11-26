@@ -311,7 +311,7 @@ export function ScheduleChangeReviewModal({
         )
       }
     >
-      {preview?.enrollment_id === enrollmentId && currentSchedule.day.slice(0, 3) !== newSchedule.day.slice(0, 3) && <Field label="Change effective from" id="schedule-effective-date" className="mb-4"><Input id="schedule-effective-date" type="date" value={selectedEffective} min={preview.period_adjustment?.coverage_from || preview.coverage_from || undefined} max={preview.period_adjustment?.coverage_through || preview.coverage_through || undefined} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>}
+      {preview?.enrollment_id === enrollmentId && currentSchedule.day.slice(0, 3) !== newSchedule.day.slice(0, 3) && <Field label="Change effective from" id="schedule-effective-date" className="mb-4"><Input id="schedule-effective-date" type="date" value={selectedEffective} min={preview.period_adjustment?.effective_date_min || preview.effective_date_min || preview.period_adjustment?.coverage_from || preview.coverage_from || undefined} max={preview.period_adjustment?.coverage_through || preview.coverage_through || undefined} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>}
       {previewLoading ? (
         <div className="text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent-ink" />
@@ -338,6 +338,7 @@ export function ScheduleChangeReviewModal({
 
           {preview.period_adjustment && <section aria-label="Billing period adjustment" className="space-y-3 rounded border border-line p-3">
             <p className="text-sm">{preview.period_adjustment.previous_count !== preview.period_adjustment.new_count && <>{preview.period_adjustment.previous_count} → </>}{preview.period_adjustment.new_count} billed sessions · Billing ends {formatShortDate(preview.period_adjustment.coverage_through)}.</p>
+            {preview.period_adjustment.first_lesson_date && preview.period_adjustment.previous_first_lesson_date && preview.period_adjustment.first_lesson_date !== preview.period_adjustment.previous_first_lesson_date && <p className="text-sm">Enrollment starts {formatShortDate(preview.period_adjustment.first_lesson_date)} (was {formatShortDate(preview.period_adjustment.previous_first_lesson_date)}).</p>}
             <PeriodSchedulePreview adjustment={preview.period_adjustment} time={newSchedule.time} tutorName={newSchedule.tutorName} />
             <Field label="Reason for the change" id="schedule-adjustment-reason"><Input id="schedule-adjustment-reason" maxLength={500} value={reason} disabled={isSubmitting} onChange={event => setReason(event.target.value)} /></Field>
           </section>}
@@ -534,7 +535,7 @@ export function ScheduleChangeReviewModal({
                                         size="sm"
                                         value={overrides[session.session_id]?.date || effectiveDate}
                                         onChange={(e) => handleDateOverride(session.session_id, e.target.value)}
-                                        min={preview.coverage_from || undefined}
+                                        min={preview.effective_date_min || preview.coverage_from || undefined}
                                         max={preview.coverage_through || undefined}
                                       />
                                     </Field>

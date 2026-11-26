@@ -262,7 +262,9 @@ def payment_integrity(db, payment, review, rows, *, preloaded_claims=None, prelo
                 or enrollment.payment_status != enrollment_status(payment, enrollment.id)
                 or enrollment.revenue_total != line.tuition_amount + extra_tuition
                 or enrollment.assigned_day != timetable['assigned_day'] or not same_time_slot(enrollment.assigned_time, timetable['assigned_time'])
-                or enrollment.location != timetable['location'] or enrollment.first_lesson_date != min(lesson_dates)
+                or enrollment.location != timetable['location']
+                or enrollment.first_lesson_date is None
+                or enrollment.first_lesson_date.isoformat() != timetable.get('first_lesson_date', min(lesson_dates).isoformat())
                 or enrollment.tutor_id != timetable['tutor_id']
                 or ('renewed_from_enrollment_id' in evidence and
                     enrollment.renewed_from_enrollment_id != evidence['renewed_from_enrollment_id'])

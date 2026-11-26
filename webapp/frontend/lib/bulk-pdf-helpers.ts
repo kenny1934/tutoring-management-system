@@ -8,13 +8,14 @@
  */
 
 import { loadMaterialPdf } from './materials';
-import { parsePageRange } from './pdf-utils';
+import { parsePageRange, type PrintStampInfo } from './pdf-utils';
 
 /**
  * Exercise info for bulk PDF operations
  */
 export interface BulkPrintExercise {
   pdf_name: string;
+  stamp?: PrintStampInfo;
   page_start?: string | number;
   page_end?: string | number;
   complex_pages?: string;  // e.g., "1,3,5-7"

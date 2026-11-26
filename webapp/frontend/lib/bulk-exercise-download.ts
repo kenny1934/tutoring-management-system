@@ -6,7 +6,8 @@
 
 import type { Session, SessionExercise } from '@/types';
 import type { BulkPrintExercise } from './bulk-pdf-helpers';
-import { parseExerciseRemarks } from './exercise-utils';
+import { parseExerciseRemarks, type ExerciseFormItemBase } from './exercise-utils';
+import { stampFor } from './lesson-utils';
 import type { PrintStampInfo, BulkPrintItem } from './pdf-utils';
 import { getPageNumbers, fetchPdfData, FileSystemUtils } from './bulk-pdf-helpers';
 import { extractBulkPagesForPrint } from './pdf-utils';
@@ -48,22 +49,37 @@ export interface BulkResult {
 /**
  * Group exercises from selected sessions by student.
  * Each student gets their own exercise list and stamp info.
+ * When supplied, drafts replace the saved exercise list for every selected lesson.
  */
 export function groupExercisesByStudent(
   sessions: Session[],
-  type: 'CW' | 'HW'
+  type: 'CW' | 'HW',
+  draftExercises?: readonly ExerciseFormItemBase[]
 ): StudentExerciseGroup[] {
   const exerciseType = type;
   const groupMap = new Map<number, StudentExerciseGroup>();
 
+  const seenSessions = new Set<number>();
   for (const session of sessions) {
-    const exercises = session.exercises?.filter(e => e.exercise_type === exerciseType) ?? [];
+    if (draftExercises && seenSessions.has(session.id)) continue;
+    seenSessions.add(session.id);
+    // Draft output belongs to each selected lesson, even before it is saved.
+    const exercises: BulkPrintExercise[] = draftExercises
+      ? draftExercises.filter(ex => ex.exercise_type === type && ex.pdf_name.trim()).map(ex => ({
+          pdf_name: ex.pdf_name,
+          page_start: ex.page_mode === 'simple' ? ex.page_start || ex.page_end || undefined : undefined,
+          page_end: ex.page_mode === 'simple' ? ex.page_end || undefined : undefined,
+          complex_pages: ex.page_mode === 'custom' ? ex.complex_pages : undefined,
+          remarks: ex.remarks,
+          stamp: stampFor(session),
+        }))
+      : (session.exercises?.filter(e => e.exercise_type === exerciseType) ?? []).map(toBulkExercise);
     if (exercises.length === 0) continue;
 
     const existing = groupMap.get(session.student_id);
     if (existing) {
       // Add exercises from additional sessions for same student
-      existing.exercises.push(...exercises.map(toBulkExercise));
+      existing.exercises.push(...exercises);
     } else {
       const dateStr = session.session_date?.replace(/-/g, '') ?? '';
       const studentName = (session.student_name ?? 'Unknown').replace(/\s+/g, '_');
@@ -77,7 +93,7 @@ export function groupExercisesByStudent(
         location,
         sessionDate: session.session_date,
         timeSlot: session.time_slot,
-        exercises: exercises.map(toBulkExercise),
+        exercises,
         stamp: {
           location,
           schoolStudentId,
@@ -120,7 +136,7 @@ export async function bulkDownloadByStudent(
       group.filename,
       group.stamp,
       searchPaperlessByPath
-    );
+    ).catch(() => 'download_failed' as const);
 
     if (error) {
       result.failed++;
@@ -146,17 +162,12 @@ export async function bulkPrintAllStudents(
   groups: StudentExerciseGroup[],
   paperlessSearch?: (path: string) => Promise<number | null>,
 ): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
-  const fsSupported = isFileSystemAccessSupported();
-  if (!fsSupported) {
-    return 'not_supported';
-  }
-
   // Flatten all exercises with their per-student stamps
   const allExercisesWithStamps: Array<{ exercise: BulkPrintExercise; stamp: PrintStampInfo }> = [];
   for (const group of groups) {
     for (const exercise of group.exercises) {
       if (exercise.pdf_name?.trim()) {
-        allExercisesWithStamps.push({ exercise, stamp: group.stamp });
+        allExercisesWithStamps.push({ exercise, stamp: exercise.stamp ?? group.stamp });
       }
     }
   }
@@ -172,6 +183,10 @@ export async function bulkPrintAllStudents(
       fetchPdfData(exercise, fsUtils, paperlessSearch ?? searchPaperlessByPath, '[BulkPrintAll]')
     )
   );
+
+  // Keep an incomplete student pack out of the print job.
+  if (results.every(result => !result.arrayBuffer)) return 'no_valid_files';
+  if (results.some(result => !result.arrayBuffer)) return 'print_failed';
 
   // Build BulkPrintItems with per-item stamps
   const bulkItems: BulkPrintItem[] = [];

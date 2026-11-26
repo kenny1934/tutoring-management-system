@@ -13,7 +13,7 @@ import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles, convertToAliasPath } from "@/lib/file-system";
+import { isFileSystemAccessSupported, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
@@ -29,6 +29,8 @@ import { ExerciseModal } from "./ExerciseModal";
 import { TrendingCoursewareSection } from "./TrendingCoursewareSection";
 import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { bulkDownloadByStudent, bulkPrintAllStudents, groupExercisesByStudent } from "@/lib/bulk-exercise-download";
+import { printErrorMessage } from "@/lib/lesson-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { ExerciseTutorWarning } from "./ExerciseTutorWarning";
@@ -109,8 +111,9 @@ function GroupExerciseModal({
   const [searchForIndex, setSearchForIndex] = useState<number | null>(null);
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
-  const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const bulkOutputRunning = useRef(false);
+  const [printAllState, setPrintAllState] = useState<'idle' | 'loading'>('idle');
+  const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading'>('idle');
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
   // Per-session save status for visual feedback
@@ -582,52 +585,52 @@ function GroupExerciseModal({
     setSearchForIndex(null);
   }, [searchForIndex, exerciseType]);
 
-  // Handle print all exercises in one batch
+  // Export the current form without saving assignments or changing its dirty state.
+  const draftGroups = useCallback(() => {
+    const errors = exercises.flatMap((ex, index) => ex.pdf_name.trim() ? validateExercisePageRange(ex, index) : []);
+    setValidationErrors(errors);
+    if (errors.length) {
+      showToast(`Row ${errors[0].index + 1}: ${errors[0].message}`, 'error');
+      return [];
+    }
+    return groupExercisesByStudent(sessions, exerciseType, exercises);
+  }, [exercises, sessions, exerciseType, showToast]);
+
   const handlePrintAll = useCallback(async () => {
-    if (printAllState === 'loading') return;
-
-    // Filter exercises that have PDF paths
-    const exercisesWithPdfs = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
-    if (exercisesWithPdfs.length === 0) return;
-
+    if (bulkOutputRunning.current) return;
+    const groups = draftGroups();
+    if (!groups.length) return;
+    bulkOutputRunning.current = true;
     setPrintAllState('loading');
-
-    // Build title (same format as download filename)
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const printTitle = `Bulk_${exerciseType}_${dateStr}_${sessions.length}students`;
-
-    // No stamp for bulk modal (multiple students)
-    const error = await printBulkFiles(exercisesWithPdfs, undefined, searchPaperlessByPath, printTitle);
-    if (error) {
-      setPrintAllState('error');
-      setTimeout(() => setPrintAllState('idle'), 2000);
-    } else {
+    try {
+      const error = await bulkPrintAllStudents(groups, searchPaperlessByPath);
+      if (error) showToast(printErrorMessage(error), 'error');
+    } catch {
+      showToast(printErrorMessage('print_failed'), 'error');
+    } finally {
       setPrintAllState('idle');
+      bulkOutputRunning.current = false;
     }
-  }, [exercises, printAllState, sessions, exerciseType]);
+  }, [draftGroups, showToast]);
 
-  // Handle download all exercises in one combined file
   const handleDownloadAll = useCallback(async () => {
-    if (downloadAllState === 'loading') return;
-
-    // Filter exercises that have PDF paths
-    const exercisesWithPdfs = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
-    if (exercisesWithPdfs.length === 0) return;
-
+    if (bulkOutputRunning.current) return;
+    const groups = draftGroups();
+    if (!groups.length) return;
+    bulkOutputRunning.current = true;
     setDownloadAllState('loading');
-
-    // Build filename: Bulk_CW_20260110_5students.pdf
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const filename = `Bulk_${exerciseType}_${dateStr}_${sessions.length}students.pdf`;
-
-    const error = await downloadBulkFiles(exercisesWithPdfs, filename, undefined, searchPaperlessByPath);
-    if (error) {
-      setDownloadAllState('error');
-      setTimeout(() => setDownloadAllState('idle'), 2000);
-    } else {
+    try {
+      const result = await bulkDownloadByStudent(groups);
+      const parts: string[] = [];
+      if (result.succeeded > 0) parts.push(`${result.succeeded} downloaded`);
+      if (result.failed > 0) parts.push(`${result.failed} failed`);
+      if (result.skipped > 0) parts.push(`${result.skipped} had no exercises`);
+      showToast(`${exerciseType} download: ${parts.join(', ')}`, result.failed > 0 ? 'error' : 'success');
+    } finally {
       setDownloadAllState('idle');
+      bulkOutputRunning.current = false;
     }
-  }, [exercises, downloadAllState, sessions, exerciseType]);
+  }, [draftGroups, exerciseType, showToast]);
 
   // Focus new exercise input after render
   useEffect(() => {
@@ -877,13 +880,14 @@ function GroupExerciseModal({
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
-          {canBrowseFiles && exercises.some(hasExerciseSource) ? (
+          {exercises.some(ex => ex.pdf_name.trim()) ? (
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={handlePrintAll}
                 loading={printAllState === 'loading'}
-                icon={printAllState === 'error' ? XCircle : Printer}
-                iconClassName={printAllState === 'error' ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}
+                disabled={downloadAllState === 'loading'}
+                icon={Printer}
+                iconClassName="text-green-700 dark:text-green-400"
                 className="px-2 md:px-3"
                 aria-label="Print all"
               >
@@ -892,8 +896,10 @@ function GroupExerciseModal({
               <Button
                 onClick={handleDownloadAll}
                 loading={downloadAllState === 'loading'}
-                icon={downloadAllState === 'error' ? XCircle : Download}
-                iconClassName={downloadAllState === 'error' ? "text-red-600 dark:text-red-400" : "text-purple-600 dark:text-purple-400"}
+                disabled={printAllState === 'loading'}
+                aria-label="Download all"
+                icon={Download}
+                iconClassName="text-purple-600 dark:text-purple-400"
                 className="px-2 md:px-3"
               >
                 <span className="hidden md:inline">Download all</span>
