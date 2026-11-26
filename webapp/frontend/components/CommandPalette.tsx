@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
+import { SearchAreaSwitch, type SearchArea } from "./commandPalette/SearchAreaSwitch";
+import { SearchProgress } from "./commandPalette/SearchProgress";
 import { SearchSurface } from "./commandPalette/SearchSurface";
 import styles from "./commandPalette/SearchSurface.module.css";
 import { createMaterialWorkspace } from "./commandPalette/material-workspace";
@@ -209,7 +211,9 @@ export function CommandPalette() {
   }, [allPages]);
 
   const [query, setQuery] = useState("");
-  const [searchArea, setSearchArea] = useState<"records" | "materials">("records");
+  const [searchArea, setSearchArea] = useState<SearchArea>("records");
+  const [searchToolsHost, setSearchToolsHost] = useState<HTMLDivElement | null>(null);
+  const recordModePlace = useRef<SearchPlace | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(defaultSearchFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const drillReturn = useRef<{ query: string; filters: SearchFilters; includeHistory: boolean } | null>(null);
@@ -278,6 +282,7 @@ export function CommandPalette() {
     }
   }, [isOpen]);
   useEffect(() => {
+    recordModePlace.current = null;
     setSearchArea("records"); setQuery(""); setFilters(defaultSearchFilters()); setFiltersOpen(false); drillReturn.current = null; setIncludeHistory(false); setActiveRecord(null); setSelectedIndex(0); setCommandPath([]);
     setPreviewItem(null); setDebouncedPreviewItem(null); readTop.current = 0; pendingReturn.current = null; selection.current = null;
   }, [scope, selectedLocation]);
@@ -652,6 +657,7 @@ export function CommandPalette() {
     });
   }, [origin, searchJourney.navigation]);
   useLayoutEffect(() => {
+    if (searchArea !== "records") return;
     const key = JSON.stringify([scope, selectedLocation, query, commandPath, effectiveFilters]);
     const previous = selection.current, returning = pendingReturn.current;
     if (returning && loading && !results) return;
@@ -671,7 +677,7 @@ export function CommandPalette() {
     }
     selection.current = { key, index, id: allItems[index]?.id, move: explicit };
     if (index !== selectedIndex) setSelectedIndex(index);
-  }, [allItems, selectedIndex, scope, selectedLocation, query, includeHistory, commandPath, loading, results, effectiveFilters]);
+  }, [allItems, selectedIndex, scope, selectedLocation, query, includeHistory, commandPath, loading, results, effectiveFilters, searchArea]);
   const helpPreview = useMemo(() => {
     const item = allItems[selectedIndex];
     return item?.type === "help" ? HELP_TOPICS.find(topic => topic.id === item.id) ?? null : null;
@@ -787,14 +793,26 @@ export function CommandPalette() {
 
   if (!mounted) return null;
 
+  const switchSearchArea = (next: SearchArea) => {
+    if (next === searchArea) return;
+    if (searchArea === 'records') recordModePlace.current = { query, filters: effectiveFilters, includeHistory, selectedId: allItems[selectedIndex]?.id, index: selectedIndex, path: commandPath, top: listRef.current?.scrollTop ?? readTop.current };
+    if (next === 'records' && recordModePlace.current?.query === query) {
+      pendingReturn.current = recordModePlace.current;
+      readTop.current = recordModePlace.current.top;
+      setCommandPath(recordModePlace.current.path);
+      setSelectedIndex(recordModePlace.current.index);
+    } else setCommandPath([]);
+    setFiltersOpen(false); setSearchArea(next);
+  };
+
   const modalContent = (
     <>
     <AnimatePresence initial={false}>
-      {isOpen && <SearchSurface key="global-search" origin={origin.current} onClose={close} onUnmount={returnToSource} input={inputRef}>
+      {isOpen && <SearchSurface key="global-search" wide={searchArea === "materials"} detailed={searchArea === "records" && hasPreview} origin={origin.current} onClose={close} onUnmount={returnToSource} input={inputRef}>
         {/* Search Input */}
         <div className={cn(styles.header, "flex items-center gap-3 border-b border-line")}>
           <div className={styles.query}>
-          {loading ? <RefreshCw role="status" aria-label="Searching" className="h-5 w-5 text-accent-ink flex-shrink-0 animate-spin" /> : <Search className="h-5 w-5 text-accent-ink flex-shrink-0" />}
+          <Search className="h-5 w-5 text-accent-ink flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -805,7 +823,7 @@ export function CommandPalette() {
               if (event.key === 'ArrowDown' || event.key === 'Enter') { event.preventDefault(); const first = document.querySelector<HTMLButtonElement>('[data-material-result]'); if (event.key === 'Enter') first?.click(); else first?.focus(); }
               if (event.key === 'Escape') { event.preventDefault(); if (query) setQuery(''); else close(); }
             }}
-            placeholder={searchArea === "materials" ? "Search courseware" : "Search"}
+            placeholder={searchArea === "materials" ? "Search courseware text or filenames" : "Search students, sessions, enrolments…"}
             enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             role={searchArea === 'records' ? 'combobox' : 'searchbox'}
             aria-expanded={searchArea === 'records' ? allItems.length > 0 : undefined}
@@ -870,13 +888,10 @@ export function CommandPalette() {
           </div>
         )}
 
-        <div className={styles.areas} aria-label="Search area">
-          <button aria-pressed={searchArea === 'records'} onClick={() => setSearchArea('records')}>Records</button>
-          <button aria-pressed={searchArea === 'materials'} onClick={() => { setSearchArea('materials'); setCommandPath([]); }}>Courseware</button>
-        </div>
-        <MaterialSearch key={`${scope}:${selectedLocation}`} workspace={materialWorkspace} onQueryChange={setQuery} query={query} scope={`${scope}:${selectedLocation}`} active={searchArea === 'materials'} canAssign={!isReadOnly} />
+        <div className={styles.modeToolbar}><SearchAreaSwitch value={searchArea} onChange={switchSearchArea} /><div className={styles.searchTools} ref={setSearchToolsHost} /></div>
+        <MaterialSearch toolbarHost={searchToolsHost} key={`${scope}:${selectedLocation}`} workspace={materialWorkspace} onQueryChange={setQuery} query={query} scope={`${scope}:${selectedLocation}`} active={searchArea === 'materials'} prefetchSources={!!user} canAssign={!isReadOnly} />
         {searchArea === 'records' && <>
-        {!commandPath.length && !query.startsWith('=') && !query.startsWith('?') && filterType !== 'page' && <SearchFilterControls
+        {!commandPath.length && !query.startsWith('=') && !query.startsWith('?') && filterType !== 'page' && <SearchFilterControls toolbarHost={searchToolsHost}
           filters={effectiveFilters} onChange={changeFilters} expanded={filtersOpen} onToggle={() => setFiltersOpen(value => !value)}
           includeHistory={includeHistory} onHistory={() => setIncludeHistory(value => !value)} currentTutor={currentTutorId}
           error={filterError} onBack={backFromStudent} />}
@@ -884,6 +899,8 @@ export function CommandPalette() {
         {/* Results with Preview Panel */}
         <div className={styles.body}>
           {/* Results panel */}
+          <div className={styles.resultColumn}>
+          <SearchProgress busy={loading} requestKey={JSON.stringify([scope, selectedLocation, searchTerm, options])} label="Searching records…" placeholders={allItems.length ? 0 : 3} />
           <div
             ref={listRef}
             id="command-palette-listbox"
@@ -893,7 +910,6 @@ export function CommandPalette() {
             onScroll={event => { readTop.current = event.currentTarget.scrollTop; }}
             className={styles.results}
           >
-          {loading && allItems.length === 0 && <div role="status" className={styles.status}><RefreshCw className="h-3 w-3 animate-spin" />Searching...</div>}
           {searchError && <div role="status" className={styles.status}>Search could not load.<button onClick={() => retry()} className="font-medium text-accent-ink underline">Retry</button></div>}
 
           {/* Enhanced empty state with illustration */}
@@ -1150,6 +1166,7 @@ export function CommandPalette() {
           )}
           </div>
 
+          </div>
           {/* Preview panel - desktop only */}
           {hasPreview && !commandPath.length && (
             <aside ref={previewRef} aria-label="Result preview" className={styles.preview}>

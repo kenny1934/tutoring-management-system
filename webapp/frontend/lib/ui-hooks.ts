@@ -132,7 +132,7 @@ export function useCooldown(ms: number): [boolean, () => void] {
 // ============================================================================
 
 import { openFileFromPathWithFallback, printFileFromPathWithFallback, PrintStampInfo } from "./file-system";
-import { searchPaperlessByPath } from "./paperless-utils";
+
 
 /**
  * State for file open/print operations per exercise (keyed by clientId).
@@ -169,10 +169,7 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
     setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading', message: undefined } }));
 
     try {
-      const error = await openFileFromPathWithFallback(path, (p) =>
-        searchPaperlessByPath(p, (msg) => {
-          setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], message: msg } }));
-        })
+      const error = await openFileFromPathWithFallback(path, undefined
       );
 
       if (error) {
@@ -200,10 +197,7 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
     setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading', message: undefined } }));
 
     try {
-      const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, (p) =>
-        searchPaperlessByPath(p, (msg) => {
-          setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], message: msg } }));
-        })
+      const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, undefined
       );
 
       if (error) {

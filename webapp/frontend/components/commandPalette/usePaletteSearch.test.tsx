@@ -23,7 +23,7 @@ describe("Global search responses", () => {
     const view = renderHook(({ location, scope, enabled }) => usePaletteSearch("name", location, scope, enabled), { initialProps: { location: "MSA", scope: "5", enabled: true } });
     await tick(); view.rerender({ location: "MSB", scope: "8", enabled: true }); await tick();
     await act(async () => a.resolve(result("Other scope"))); expect(view.result.current.results?.students[0].student_name).toBe("Current");
-    expect(search).toHaveBeenLastCalledWith("name", "MSB");
+    expect(search).toHaveBeenLastCalledWith("name", "MSB", undefined, false, undefined, expect.any(AbortSignal));
     const late = deferred(); search.mockReturnValueOnce(late.promise);
     view.rerender({ location: "MSA", scope: "8", enabled: true }); await tick(); view.rerender({ location: "MSA", scope: "8", enabled: false });
     await act(async () => late.resolve(result("After close"))); expect(view.result.current.results).toBeNull();
@@ -54,7 +54,7 @@ it("separates history responses from the current-record search cache", async () 
   await tick(); view.rerender({ includeHistory: true }); await tick();
   await act(async () => history.resolve(result("History"))); await act(async () => current.resolve(result("Current")));
   expect(view.result.current.results?.students[0].student_name).toBe("History");
-  expect(search).toHaveBeenLastCalledWith("name", "MSA", undefined, true);
+  expect(search).toHaveBeenLastCalledWith("name", "MSA", undefined, true, undefined, expect.any(AbortSignal));
   view.rerender({ includeHistory: false }); expect(view.result.current.results).toBeNull();
 });
 
@@ -64,14 +64,14 @@ describe('Search pagination', () => {
     search.mockResolvedValueOnce(page([1, 2, 3, 4, 5], true)).mockResolvedValueOnce(page([5, 6, 7], false));
     const view = renderHook(({ enabled }) => usePaletteSearch('learner', 'MSA', '5', enabled), { initialProps: { enabled: true } });
     await tick(); await act(async () => view.result.current.loadMore('students'));
-    expect(search).toHaveBeenLastCalledWith('learner', 'MSA', 5, false, { category: 'students', offset: 5 });
+    expect(search).toHaveBeenLastCalledWith('learner', 'MSA', 5, false, { category: 'students', offset: 5 }, expect.any(AbortSignal));
     expect(view.result.current.results?.students.map(row => row.id)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(view.result.current.results?.has_more?.students).toBe(false);
     view.rerender({ enabled: false });
     search.mockResolvedValueOnce(page([1, 2, 3, 4, 5], true)).mockResolvedValueOnce(page([1, 2, 3, 4, 5, 6, 7], false));
     view.rerender({ enabled: true }); await tick();
     expect(view.result.current.results?.students).toHaveLength(7);
-    expect(search).toHaveBeenLastCalledWith('learner', 'MSA', 8, false, { category: 'students', offset: 0 });
+    expect(search).toHaveBeenLastCalledWith('learner', 'MSA', 8, false, { category: 'students', offset: 0 }, expect.any(AbortSignal));
   });
   it('retains results after a failed page and retries without repeating the initial search', async () => {
     search.mockResolvedValueOnce(page([1, 2, 3, 4, 5], true)).mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce(page([6], false));
@@ -84,7 +84,8 @@ describe('Search pagination', () => {
     const late = deferred(); search.mockResolvedValueOnce(page([1, 2, 3, 4, 5], true)).mockReturnValueOnce(late.promise).mockResolvedValueOnce(page([10], false));
     const view = renderHook(({ scope }) => usePaletteSearch('learner', 'MSA', scope, true), { initialProps: { scope: '5' } }); await tick();
     let pending!: Promise<void>; act(() => { pending = view.result.current.loadMore('students'); });
-    view.rerender({ scope: '8' }); await tick();
+    const signal = search.mock.calls.at(-1)![5] as AbortSignal;
+    view.rerender({ scope: '8' }); expect(signal.aborted).toBe(true); await tick();
     await act(async () => { late.resolve(page([6], false)); await pending; });
     expect(view.result.current.results?.students.map(row => row.id)).toEqual([10]);
   });
@@ -92,6 +93,15 @@ describe('Search pagination', () => {
     search.mockResolvedValue(page([], false));
     const view = renderHook(({ filtered }) => usePaletteSearch('', 'MSA', '5', true, false, filtered ? { category: 'sessions', from_date: '2026-11-23' } : {}), { initialProps: { filtered: false } });
     await tick(); expect(search).not.toHaveBeenCalled(); view.rerender({ filtered: true }); await tick();
-    expect(search).toHaveBeenCalledWith('', 'MSA', undefined, false, { category: 'sessions', from_date: '2026-11-23' });
+    expect(search).toHaveBeenCalledWith('', 'MSA', undefined, false, { category: 'sessions', from_date: '2026-11-23' }, expect.any(AbortSignal));
   });
+});
+
+it('aborts superseded record searches and ignores late results after close', async () => {
+ const a=deferred();search.mockReturnValueOnce(a.promise).mockResolvedValueOnce(result('New'));
+ const view=renderHook(({term,enabled})=>usePaletteSearch(term,'MSA','5',enabled),{initialProps:{term:'older',enabled:true}});
+ await tick();const oldSignal=search.mock.calls[0][5] as AbortSignal;expect(oldSignal.aborted).toBe(false);
+ view.rerender({term:'newer',enabled:true});expect(oldSignal.aborted).toBe(true);await tick();
+ view.rerender({term:'newer',enabled:false});await act(async()=>a.resolve(result('Old')));
+ expect(view.result.current.results?.students[0].student_name).toBe('New');
 });

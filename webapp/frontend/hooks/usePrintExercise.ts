@@ -7,7 +7,7 @@ import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { bulkPrintAllStudents, groupExercisesByStudent, type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
 import { bulkPrintErrorMessage, printErrorMessage, type PrintingState } from "@/lib/lesson-utils";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { Session, SessionExercise } from "@/types";
@@ -19,23 +19,15 @@ const PRINT_ALL_ID = -1;
  * Printing in a lesson, for both views. `printing.id` says which print is
  * under way, and each print button compares it against its own id to show a
  * spinner. One exercise prints under its own id, and a print of several uses
- * a negative number. While a file is looked for in Paperless, how that's
+ * a negative number. While a file is loaded from courseware, how that's
  * going shows in `printing.progress`, which the buttons use as their title.
  */
 export function usePrintExercise() {
   const { showToast } = useToast();
   const [printing, setPrinting] = useState<PrintingState>({ id: null, progress: null });
-  const setProgress = useCallback((message: string) => {
-    setPrinting((prev) => (prev.progress === message ? prev : { ...prev, progress: message }));
-  }, []);
-  const paperlessSearch = useCallback(
-    (path: string) => searchPaperlessByPath(path, setProgress),
-    [setProgress],
-  );
-
   const printExercise = useCallback(async (exercise: SessionExercise, stamp: PrintStampInfo | undefined) => {
     if (!exercise.pdf_name) return;
-    setPrinting({ id: exercise.id, progress: null });
+    setPrinting({ id: exercise.id, progress: "Preparing PDF…" });
     try {
       // A class-wide preview's path isn't a real file, so the file the lesson
       // loaded for it is printed as it is, with no stamp.
@@ -55,13 +47,13 @@ export function usePrintExercise() {
         exercise.page_end,
         complexPages || undefined,
         stamp,
-        paperlessSearch,
+        undefined,
       );
       if (error) showToast(printErrorMessage(error), "error");
     } finally {
       setPrinting({ id: null, progress: null });
     }
-  }, [paperlessSearch, showToast]);
+  }, [showToast]);
 
   /**
    * Prints several students' exercises as one job, with `busyId` in
@@ -72,12 +64,12 @@ export function usePrintExercise() {
     if (groups.length === 0) return;
     setPrinting({ id: busyId, progress: null });
     try {
-      const error = await bulkPrintAllStudents(groups, paperlessSearch);
+      const error = await bulkPrintAllStudents(groups);
       if (error) showToast(bulkPrintErrorMessage(error, type), "error");
     } finally {
       setPrinting({ id: null, progress: null });
     }
-  }, [paperlessSearch, showToast]);
+  }, [showToast]);
 
   /**
    * Prints the classwork or the homework of every lesson given. When there's

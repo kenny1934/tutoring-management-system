@@ -1,20 +1,21 @@
 /**
  * File search utilities for drag-and-drop filename search.
- * Prioritizes Shelv search (fast) with optional local folder search.
+ * Prioritizes MCKB search (fast) with optional local folder search.
  */
 
-import { getSavedFolders, verifyPermission, type SavedFolder } from './file-system';
-import { paperlessAPI } from './api';
+import { getSavedFolders, verifyPermission } from './file-system';
+import { searchCoursewareFiles, coursewareBasename } from './courseware-lookup';
 
 export interface FileSearchResult {
   path: string;           // Full path in our format: "Alias\path\to\file.pdf"
-  source: 'local' | 'shelv';
+  source: 'local' | 'mckb';
   match: 'exact' | 'partial';
   folderName?: string;    // For grouping results
+  requiresChoice?: boolean; // A truncated result set must never be auto-selected.
 }
 
 export interface SearchProgress {
-  phase: 'local' | 'shelv' | 'done';
+  phase: 'local' | 'mckb' | 'done';
   foldersScanned: number;
   totalFolders: number;
   filesScanned: number;
@@ -22,8 +23,9 @@ export interface SearchProgress {
 }
 
 export interface SearchOptions {
-  /** Whether to search local folders (default: false - Shelv only) */
+  /** Whether to search local folders (default: false - MCKB only) */
   searchLocal?: boolean;
+  signal?: AbortSignal;
   /** Max number of local folders to search (default: 3) */
   localFolderLimit?: number;
   /** Max files to scan per folder (default: 1000) */
@@ -37,7 +39,7 @@ const YIELD_INTERVAL = 100; // Yield to UI every N files
 
 /**
  * Search for a file by filename.
- * Shelv is always searched first (fast). Local folders are optional.
+ * MCKB is always searched first (fast). Local folders are optional.
  * Returns results as they're found via callback.
  */
 export async function searchForFile(
@@ -47,17 +49,24 @@ export async function searchForFile(
   onResult?: (result: FileSearchResult) => void
 ): Promise<FileSearchResult[]> {
   const {
-    searchLocal = false,
+    searchLocal = false, signal,
     localFolderLimit = 3,
     localFileLimit = DEFAULT_MAX_FILES_PER_FOLDER,
   } = options;
 
   const results: FileSearchResult[] = [];
-  const normalizedFilename = filename.toLowerCase();
+  const normalizedFilename = coursewareBasename(filename).normalize('NFC').toLowerCase();
 
-  // Always search Shelv first (fast)
-  const shelvResults = await searchShelv(normalizedFilename, onProgress, onResult);
-  results.push(...shelvResults);
+  // Always search MCKB first (fast)
+  signal?.throwIfAborted();
+  try {
+    const mckbResults = await searchMCKB(normalizedFilename, onProgress, onResult, signal);
+    results.push(...mckbResults);
+  } catch (error) {
+    signal?.throwIfAborted();
+    // An explicitly requested connected-folder scan can still work offline.
+    if (!searchLocal) throw error;
+  }
 
   // Only search local folders if requested
   if (searchLocal) {
@@ -70,6 +79,7 @@ export async function searchForFile(
     results.push(...localResults);
   }
 
+  signal?.throwIfAborted();
   onProgress?.({
     phase: 'done',
     foldersScanned: 0,
@@ -234,53 +244,34 @@ async function searchInFolder(
 }
 
 /**
- * Search Shelv/Paperless for the filename.
+ * Search MCKB for the filename.
  */
-async function searchShelv(
+async function searchMCKB(
   filename: string,
   onProgress?: (progress: SearchProgress) => void,
-  onResult?: (result: FileSearchResult) => void
+  onResult?: (result: FileSearchResult) => void,
+  signal?: AbortSignal
 ): Promise<FileSearchResult[]> {
   const results: FileSearchResult[] = [];
 
   onProgress?.({
-    phase: 'shelv',
+    phase: 'mckb',
     foldersScanned: 0,
     totalFolders: 0,
     filesScanned: 0,
   });
 
-  try {
-    // Search by filename WITH extension - Shelv requires it for accurate results
-    const searchQuery = filename;
-    const response = await paperlessAPI.search(searchQuery, 50, 'all');
-
-    if (response.results) {
-      for (const doc of response.results) {
-        // Use converted_path if available (already in alias format), otherwise use original_path
-        const path = doc.converted_path || doc.original_path || `Document ${doc.id}`;
-
-        // Determine match type for display badge only (not filtering)
-        const docFilename = doc.title?.toLowerCase() || '';
-        const searchLower = filename.toLowerCase();
-        const isExact = docFilename === searchLower;
-        const isPartial = !isExact && docFilename.includes(searchLower.replace(/\.pdf$/i, ''));
-
-        // Show ALL results from API - don't filter client-side
-        // Paperless full-text search may match on content/title, not just filename
-        const result: FileSearchResult = {
-          path,
-          source: 'shelv',
-          match: isExact ? 'exact' : 'partial',
-          folderName: 'Shelv',
-        };
-
-        results.push(result);
-        onResult?.(result);
-      }
-    }
-  } catch (err) {
-    // Error searching Shelv silently
+  const names = [filename];
+  const unprefixed = filename.replace(/^\[[a-f0-9]{8}\]__/i, '');
+  if (unprefixed !== filename) names.push(unprefixed);
+  let found = await searchCoursewareFiles(names[0], signal);
+  if (!found.files.length && names.length > 1) found = await searchCoursewareFiles(names[1], signal);
+  if (!found.files.length) found = await searchCoursewareFiles(unprefixed.replace(/\.[^.]+$/, ''), signal);
+  signal?.throwIfAborted();
+  for (const file of found.files) {
+    const exact = names.some(name => file.filename.toLowerCase() === coursewareBasename(name).toLowerCase());
+    const result: FileSearchResult = { path: file.nas_path, source: 'mckb', match: exact ? 'exact' : 'partial', ...(found.complete === false ? { requiresChoice: true } : {}), folderName: file.share === 'center' ? 'Center' : file.share === 'developer' ? 'Courseware Developer 中學' : 'MSA Staff / scan' };
+    results.push(result); onResult?.(result);
   }
 
   return results;

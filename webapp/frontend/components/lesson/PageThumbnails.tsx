@@ -101,13 +101,13 @@ export function PageThumbnails({ pages, current, darkMode, onPick, onClose, togg
                 )}
                 style={{ height: THUMB_HEIGHT, width: (THUMB_HEIGHT * page.width) / page.height }}
               >
-                <img
+                {page.url && <img
                   src={page.url}
                   alt=""
                   draggable={false}
                   className="block w-full h-full"
                   style={darkMode ? { filter: PDF_DARK_FILTER } : undefined}
-                />
+                />}
               </span>
               <span className={cn(
                 "text-xs tabular-nums",

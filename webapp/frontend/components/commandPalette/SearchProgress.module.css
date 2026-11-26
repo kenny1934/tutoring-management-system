@@ -1,0 +1,19 @@
+.root { position: relative; flex-shrink: 0; padding: 18px 20px; background: var(--color-wash); color: var(--color-ink-heading); border-bottom: 1px solid var(--color-line); }
+.track { position: absolute; inset: 0 0 auto; height: 3px; overflow: hidden; background: var(--color-line); }
+.track span { display: block; width: 35%; height: 100%; background: var(--color-accent-ink); animation: searchTravel 1.6s ease-in-out infinite; }
+.message { display: flex; align-items: center; gap: 10px; min-height: 24px; font-size: 14px; font-weight: 600; }
+.spinner { flex-shrink: 0; color: var(--color-accent-ink); animation: searchSpin 1s linear infinite; }
+.detail { margin: 5px 0 0 28px; font-size: 13px; line-height: 1.5; color: var(--color-ink-subtle); }
+.placeholders { max-width: 760px; margin-top: 18px; display: grid; gap: 18px; }
+.row { display: flex; gap: 10px; }
+.row > div { flex: 1; min-width: 0; }
+.icon, .title, .line, .shortLine { display: block; background: var(--color-line); border-radius: 2px; animation: searchPulse 1.6s ease-in-out infinite; }
+.icon { width: 18px; height: 22px; flex-shrink: 0; }
+.title { width: 68%; height: 12px; }
+.line { width: 88%; height: 9px; margin-top: 8px; }
+.shortLine { width: 45%; height: 9px; margin-top: 6px; }
+@keyframes searchSpin { to { transform: rotate(360deg); } }
+@keyframes searchTravel { from { transform: translateX(-110%); } to { transform: translateX(390%); } }
+@keyframes searchPulse { 50% { opacity: .45; } }
+@media(max-width:767px) { .root { padding-inline: 16px; } }
+@media(prefers-reduced-motion:reduce) { .spinner, .track span, .icon, .title, .line, .shortLine { animation: none; } .track span { margin-left: 32%; } }

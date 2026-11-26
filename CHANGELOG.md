@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.4.18](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.16...v2.4.18) (2026-11-26)
+
+### Improvements
+
+* **Courseware workspace**: Use the same search, filters and PDF reader from the courseware page, exercise pickers and lesson mode, including previews from trending and curriculum suggestions.
+* **Readable search filters**: Add alternative words, excluded words, exact phrases and date ranges through one filter editor, with applied conditions that you can edit or remove.
+* **More room for PDFs**: Use a wider search console on large screens, expand the desktop reader, and give opened courseware a compact reading view on phones and folding screens.
+* **Find inside PDFs**: Find and highlight matching text in readable PDFs while keeping the relevant result page, zoom and reading position.
+* **Connected folders**: Prefer connected files on desktop and use the authenticated original when local access is unavailable.
+* **Search feedback**: Show clearer progress while results load and reuse recent courseware results when loading more files or adjusting filters.
+
+### Bug Fixes
+
+* **Autopay collection**: Prepare confirmed payments after the suggested notice or debit dates, including later files for newly added students, and record the actual bank debit date while keeping financial and duplicate-payment checks.
+* **Nested assignment dialogs**: Keep the selected courseware and reader open when Escape closes a page or session selection dialog.
+* **Clear filters**: Preserve the selected source, search scope and sort order when clearing additional filter conditions.
+* **Exact phrase searches**: Avoid a slow full-library text scan for some phrases containing common words, while preserving the matching documents and page highlights.
+
 ## [2.4.16](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.15...v2.4.16) (2026-11-26)
 
 ### Improvements

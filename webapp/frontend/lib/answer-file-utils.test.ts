@@ -1,10 +1,15 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { buildAnswerPaths, searchAnswerFile } from './answer-file-utils';
-const mocks = vi.hoisted(() => ({ supported: vi.fn(), getFile: vi.fn(), search: vi.fn(), getTags: vi.fn() }));
+const mocks = vi.hoisted(() => ({ supported: vi.fn(), getFile: vi.fn(), resolve: vi.fn(), search: vi.fn() }));
 vi.mock('./file-system', () => ({ isFileSystemAccessSupported: mocks.supported, getFileHandleFromPath: mocks.getFile }));
-vi.mock('./api', () => ({ paperlessAPI: { search: mocks.search, getTags: mocks.getTags } }));
-vi.mock('./paperless-utils', () => ({ searchPaperlessByPath: vi.fn() }));
-
+vi.mock('./courseware-lookup', () => ({ resolveCoursewareFile: mocks.resolve, searchCoursewareFiles: mocks.search }));
+beforeEach(() => {
+  vi.resetAllMocks(); mocks.supported.mockReturnValue(false); mocks.getFile.mockResolvedValue({ success: false });
+  mocks.resolve.mockRejectedValue({ status: 404 }); mocks.search.mockResolvedValue({ files: [], complete: true });
+});
+const worksheet = String.raw`[Center]\Courseware (Eng)\IGCSE\IGCSE_01.1_Number_System.pdf`;
+const answerPath = String.raw`[Center]\ANS\IGCSE\IGCSE_01.1_ANS.pdf`;
+const remote = (filename: string, nas_path = '[Center]\\ANS\\' + filename) => ({ file_id: 42, filename, nas_path, ext: '.pdf' });
 describe('buildAnswerPaths', () => {
   it('generates Center alias paths with folder replacement', () => {
     const paths = buildAnswerPaths('[Center]\\Courseware (Eng)\\IB\\abc.pdf');
@@ -49,70 +54,47 @@ describe('buildAnswerPaths', () => {
   });
 });
 
-const worksheet = String.raw`[Center]\Courseware (Eng)\IGCSE\IGCSE_01.1_Number_System.pdf`;
-const answerPath = String.raw`[Center]\ANS\IGCSE\IGCSE_01.1_ANS.pdf`;
-
-describe('IGCSE answer detection', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    mocks.supported.mockReturnValue(false);
-    mocks.getTags.mockResolvedValue({ tags: [{ id: 7, name: 'Ans' }] });
-    mocks.search.mockResolvedValue({ results: [] });
-  });
-
+describe('MCKB answer discovery', () => {
   it.each([
     ['IGCSE_01.1_Number_System', 'IGCSE_01.1_ANS'],
-    ['IGCSE_32.7_Percentiles', 'IGCSE_32.7_ANS'],
     ['IGCSE_01_Challenge', 'IGCSE_01_ANS'],
-  ])('prioritises the local answer for %s', (name, answer) => {
-    expect(buildAnswerPaths(`[Center]\\Courseware (Eng)\\IGCSE\\${name}.pdf`)[0])
-      .toBe(`[Center]\\ANS\\IGCSE\\${answer}.pdf`);
+    ['SAT_01_Properties_of_Integer', 'SAT_01_Properties_of_Integer_KEY'],
+    ['DSE_03.2_Revision_on_Percentage_II', 'DSE_03.2_KEY'],
+    ['algebra', 'algebra_ANS'],
+  ])('finds the exact answer filename for %s', async (name, expected) => {
+    mocks.search.mockResolvedValue({ files: [remote(expected.toLowerCase()+'.pdf')], complete: true });
+    expect(await searchAnswerFile(name+'.pdf')).toMatchObject({ source: 'mckb', fileId: 42 });
+    expect(mocks.search).toHaveBeenCalledWith(expected+'.pdf');
   });
-
-  it('finds the local answer before searching Shelv', async () => {
-    mocks.supported.mockReturnValue(true);
-    mocks.getFile.mockImplementation(async (path: string) => ({ success: path === answerPath }));
+  it('uses an existing connected answer before any remote lookup', async () => {
+    mocks.supported.mockReturnValue(true); mocks.getFile.mockImplementation(async (path: string) => ({ success: path === answerPath }));
     expect(await searchAnswerFile(worksheet)).toEqual({ path: answerPath, source: 'local' });
+    expect(mocks.resolve).not.toHaveBeenCalled(); expect(mocks.search).not.toHaveBeenCalled();
+  });
+  it('prefers the expected source and folder over an unrelated same-name answer', async () => {
+    mocks.resolve.mockImplementation(async (path: string) => { if(path === answerPath) return { file_id: 42, nas_path: answerPath }; throw { status: 404 }; });
+    expect(await searchAnswerFile(worksheet)).toEqual({ source: 'mckb', fileId: 42, path: answerPath });
     expect(mocks.search).not.toHaveBeenCalled();
   });
-
   it.each([
-    ['IGCSE_01.1_Number_System', 'IGCSE_01.1_ANS'],
-    ['IGCSE_01_Challenge', 'IGCSE_01_ANS'],
-  ])('uses the shortened Shelv name for %s', async (name, answer) => {
-    mocks.search.mockResolvedValue({ results: [{ id: 42, title: `${answer}.pdf` }] });
-    expect(await searchAnswerFile(`${name}.pdf`)).toEqual({ source: 'shelv', path: `${answer}.pdf`, documentId: 42 });
-    expect(mocks.search).toHaveBeenCalledWith(answer, 10, 'title', [7]);
+    ['IGCSE_01_Challenge', 'IGCSE_01.1_ANS.pdf'],
+    ['DSE_03.2_Revision_on_Percentage_II', 'DSE_03.20_KEY.pdf'],
+    ['SAT_01_Properties_of_Integer', 'SAT_01_Properties_of_Integer_KEY_extra.pdf'],
+  ])('never substitutes a neighbouring section or similarly named answer for %s', async (name, wrong) => {
+    mocks.search.mockResolvedValue({ files: [remote(wrong)], complete: true });
+    expect(await searchAnswerFile(name+'.pdf')).toBeNull();
   });
-
-  it('rejects a section answer for a Challenge sheet', async () => {
-    mocks.search.mockResolvedValue({ results: [{ id: 42, title: 'IGCSE_01.1_ANS' }] });
-    expect(await searchAnswerFile('IGCSE_01_Challenge.pdf')).toBeNull();
+  it('does not guess among answer files from different folders', async () => {
+    mocks.search.mockResolvedValue({ files: [remote('algebra_ANS.pdf'), remote('algebra_ANS.pdf', '[Center]\\Other\\algebra_ANS.pdf')], complete: true });
+    expect(await searchAnswerFile('algebra.pdf')).toBeNull();
   });
-
-  it('retries without the tag and matches the original filename', async () => {
-    mocks.search.mockResolvedValueOnce({ results: [] }).mockResolvedValueOnce({
-      results: [{ id: 42, title: 'Number system answers', original_path: answerPath }],
-    });
-    expect(await searchAnswerFile(worksheet)).toEqual({ source: 'shelv', path: answerPath, documentId: 42 });
-    expect(mocks.search).toHaveBeenLastCalledWith('IGCSE_01.1_ANS', 10, 'title');
-  });
-
-  it('preserves other Shelv filename searches', async () => {
-    mocks.search.mockResolvedValue({ results: [{ id: 42, title: 'algebra_ans' }] });
-    expect(await searchAnswerFile('algebra.pdf')).toMatchObject({ documentId: 42 });
-    expect(mocks.search).toHaveBeenCalledWith('algebra_ans', 10, 'title', [7]);
+  it('does not treat an access denial as permission to search another source', async () => {
+    mocks.resolve.mockRejectedValue({ status: 403 });
+    await expect(searchAnswerFile(worksheet)).rejects.toMatchObject({ status: 403 });
+    expect(mocks.search).not.toHaveBeenCalled();
   });
 });
-
-describe('SAT, SG and DSE answer detection', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    mocks.supported.mockReturnValue(false);
-    mocks.getTags.mockResolvedValue({ tags: [{ id: 7, name: 'Ans' }] });
-    mocks.search.mockResolvedValue({ results: [] });
-  });
-
+describe('Local SAT, SG and DSE conventions', () => {
   it('prioritises SAT keys locally', () => {
     expect(buildAnswerPaths(String.raw`[Center]\Courseware (Eng)\SAT\SAT_01_Properties_of_Integer.pdf`)[0])
       .toBe(String.raw`[Center]\ANS\SAT\SAT_01_Properties_of_Integer_KEY.pdf`);
@@ -142,28 +124,5 @@ describe('SAT, SG and DSE answer detection', () => {
     expect(mocks.search).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['SAT_01_Properties_of_Integer', 'SAT_01_Properties_of_Integer_KEY'],
-    ['DSE_03.2_Revision_on_Percentage_II', 'DSE_03.2_KEY'],
-  ])('searches Shelv for the key for %s', async (name, answer) => {
-    mocks.search.mockResolvedValue({ results: [{ id: 42, title: `${answer.toLowerCase()}.pdf` }] });
-    expect(await searchAnswerFile(`${name}.pdf`)).toMatchObject({ source: 'shelv', documentId: 42 });
-    expect(mocks.search).toHaveBeenCalledWith(answer, 10, 'title', [7]);
-  });
 
-  it('retries a key search without the Ans tag', async () => {
-    mocks.search.mockResolvedValueOnce({ results: [] }).mockResolvedValueOnce({
-      results: [{ id: 42, title: 'DSE_03.2_Key.pdf' }],
-    });
-    expect(await searchAnswerFile('DSE_03.2_Revision_on_Percentage_II.pdf')).toMatchObject({ documentId: 42 });
-    expect(mocks.search).toHaveBeenLastCalledWith('DSE_03.2_KEY', 10, 'title');
-  });
-
-  it.each([
-    ['DSE_03.2_Revision_on_Percentage_II', 'DSE_03.20_KEY'],
-    ['SAT_01_Properties_of_Integer', 'SAT_01_Properties_of_Integer_KEY_extra'],
-  ])('rejects a similarly named key for %s', async (name, wrongAnswer) => {
-    mocks.search.mockResolvedValue({ results: [{ id: 42, title: wrongAnswer }] });
-    expect(await searchAnswerFile(`${name}.pdf`)).toBeNull();
-  });
 });

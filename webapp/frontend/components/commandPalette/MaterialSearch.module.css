@@ -29,7 +29,7 @@
 .chunk h3 { font-size: 12px; font-weight: 600; }
 .chunk p { white-space: pre-wrap; }
 .more { display: block; min-height: 44px; padding: 8px 20px; font-size: 12px; }
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .root { flex: 1; }
   .filters { padding: 8px 16px; }
   .body { height: auto; flex: 1; min-height: 120px; }
@@ -52,7 +52,7 @@
 .lessonPicker { margin-top: 12px; }
 .lessonPicker .lessonResult { display: block; width: 100%; text-align: left; padding: 10px 0; border-bottom: 1px solid var(--color-line); color: var(--color-ink-heading); font-size: 12px; }
 .lessonResult small { display: block; font-size: 11px; color: var(--color-ink-subtle); margin-top: 3px; }
-@media(max-width:639px) { .workControls input, .lessonPicker input, .original input { min-height: 44px; font-size: 16px; } .workControls button { min-height: 44px; } .viewer { height: 55dvh; } }
+@media(max-width:767px) { .workControls input, .lessonPicker input, .original input { min-height: 44px; font-size: 16px; } .workControls button { min-height: 44px; } .viewer { height: 55dvh; } }
 
 .assignment { padding-top: 12px; margin-top: 8px; border-top: 1px solid var(--color-line); }
 .root .chooseSessions { min-height: 40px; margin-top: 8px; font-size: 12px; font-weight: 600; }
@@ -70,10 +70,10 @@
 .previewContent { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
 .previewHeader .actions { gap: 8px; }
 .original > .actions { padding: 4px 0 8px; gap: 8px; }
-.matchNavigation { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--color-line); background: var(--color-wash); color: var(--color-ink-subtle); font-size: 12px; }
+.matchNavigation { position: sticky; top: 0; z-index: 1; margin-inline: -16px; padding-inline: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--color-line); background: var(--color-wash); color: var(--color-ink-subtle); font-size: 12px; }
 .matchNavigation > div { display: flex; gap: 4px; }
 .root [data-current-match] { background: var(--color-tint); outline: 2px solid var(--color-accent-ink); outline-offset: 2px; border-radius: 2px; }
-@media(max-width:639px) { .previewHeader > button, .previewHeader .actions button, .original .actions button { min-height: 44px; } }
+@media(max-width:767px) { .previewHeader > button, .previewHeader .actions button, .original .actions button { min-height: 44px; } }
 
 .previewHeader { padding: 10px 16px; }
 .previewTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -81,7 +81,7 @@
 .previewTitle .previewBack { display: none; flex-shrink: 0; }
 .previewHeader .pageMatches { margin: 4px 0 8px; line-height: 1.4; }
 .previewHeader .actions { flex-wrap: nowrap; }
-@media(max-width:639px) { .previewTitle .previewBack { display: inline-flex; } .previewHeader { padding-top: 6px; padding-bottom: 8px; } }
+@media(max-width:767px) { .previewTitle .previewBack { display: inline-flex; } .previewHeader { padding-top: 6px; padding-bottom: 8px; } }
 
 .mathMatch { display: inline-block; max-width: 100%; vertical-align: middle; }
 
@@ -95,11 +95,8 @@
 .historyRow > button:first-child { flex: 1; min-width: 0; }
 
 .historyHeader button { min-height: 32px; }
-@media (max-width: 639px) { .historyHeader { padding-inline: 16px; } .historyHeader button { min-height: 44px; } }
+@media (max-width: 767px) { .historyHeader { padding-inline: 16px; } .historyHeader button { min-height: 44px; } }
 
-.previewHeader .pageLinks { display: flex; align-items: center; gap: 3px; min-width: 0; flex: 1; overflow-x: auto; overscroll-behavior-x: contain; }
-.pageLinks button { flex-shrink: 0; min-width: 28px; min-height: 32px; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
-.pageLinks button[aria-pressed='true'] { background: var(--color-tint); font-weight: 600; }
 .coverage { min-width: 0; font-size: 11px; color: var(--color-ink-subtle); }
 .coverage summary { display: flex; align-items: center; gap: 4px; cursor: pointer; min-height: 32px; list-style: none; }
 .coverage summary::-webkit-details-marker { display: none; }
@@ -109,7 +106,6 @@
 .coverage p { position: absolute; inset: 100% 0 auto; z-index: 2; margin: 0; padding: 12px; border: 1px solid var(--color-line); background: var(--color-paper); box-shadow: 0 4px 12px #0002; }
 .matchNavigation .matchSummary { align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .matchSummary > span { flex-shrink: 0; }
-@media (max-width: 639px) { .pageLinks button { min-width: 36px; min-height: 44px; } }
 
 .resultRow { display: flex; align-items: center; min-width: 0; }
 .resultRow > input { flex-shrink: 0; width: 18px; height: 18px; margin-left: 16px; accent-color: var(--color-ink-heading); }
@@ -188,7 +184,7 @@
 .filterSheet .refinementForm { max-height: min(85dvh,calc(var(--filter-viewport-height,100dvh) - 12px)); border-radius: 12px 12px 0 0; padding-bottom: env(safe-area-inset-bottom); animation: filterSheetAppear .16s ease-out; }
 @keyframes filtersAppear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes filterSheetAppear { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-@media(max-width:639px) {
+@media(max-width:767px) {
   .toolbar { gap: 6px; } .toolbar .searchScope { flex-basis: 142px; }
   .toolbar select { min-height: 44px; font-size: 16px; padding-inline: 6px; }
   .filterTrigger { min-height: 44px; padding-inline: 6px; }
@@ -201,7 +197,7 @@
 @media(prefers-reduced-motion:reduce) { .refinementForm, .filterSheet .refinementForm { animation: none; } }
 
 .term:focus-within { outline: 2px solid var(--color-accent-ink); outline-offset: 2px; }
-@media(max-width:639px) {
+@media(max-width:767px) {
   .refinementActions button { font-size: 14px; }
   .fileFilters > label, .searchWordMode, .ruleHeading, .addCondition, .term > button:first-child { font-size: 13px; }
   .rangeCalendar > button { font-size: 14px; }
@@ -210,3 +206,50 @@
 
 .resultTools option { background: var(--color-paper); color: var(--color-ink-heading); }
 :global(.dark) .resultTools select { color-scheme: dark; }
+
+/* The dialog supplies the available height; the reader takes the remaining space. */
+.root { flex: 1; }
+.body { flex: 1; height: auto; min-height: 120px; }
+.list[hidden], .filters[hidden] { display: none; }
+.preview { flex: 1 1 0; }
+.list.withSelection { flex: 0 0 clamp(300px, 29%, 520px); }
+.readerExpanded .preview { border-left: 0; }
+.expandReader { margin-left: auto; }
+.textPages { display: flex; align-items: center; }
+.textPages select { max-width: 100%; min-height: 32px; font: inherit; font-size: 12px; color-scheme: light; color: var(--color-ink-heading); background: var(--color-paper); border: 1px solid var(--color-line); border-radius: 3px; padding: 4px 28px 4px 8px; }
+.textPages option { color: var(--color-ink-heading); background: var(--color-paper); }
+:global(.dark) .textPages select { color-scheme: dark; }
+.chunk p { max-width: 85ch; }
+@media(max-width:767px) {
+  .list.withSelection { display: none; }
+  .expandReader { display: none; }
+  .textPages select { min-height: 44px; font-size: 16px; }
+}
+
+.matchNavigation { flex-wrap: wrap; padding-block: 4px; }
+.matchNavigation .matchSummary { flex: 1 1 120px; }
+.matchNavigation .textPages { flex: 0 1 170px; min-width: 0; }
+.textPages select { width: 100%; }
+@media(max-width:767px) { .matchNavigation .textPages { flex-basis: 100%; order: 3; } }
+
+.root { animation: coursewareAreaAppear .12s ease-out; }
+@keyframes coursewareAreaAppear { from { opacity: .5; } to { opacity: 1; } }
+@media(prefers-reduced-motion:reduce) { .root { animation: none; } }
+
+.hostedToolbar { justify-content: flex-end; }
+.hostedToolbar > label { flex: 0 1 230px; width: 230px; }
+.toolbar button { color: var(--color-accent-ink); }
+.toolbar select:focus-visible, .toolbar button:focus-visible { outline: 2px solid var(--color-accent-ink); outline-offset: 2px; }
+@media(max-width:767px) { .hostedToolbar > label { display: none; } }
+
+/* Opening a result on a phone gives the reader its own compact detail view. */
+@media(max-width:767px) {
+  .root[data-courseware-detail] > .filters, .root[data-courseware-detail] > .resultTools, .root[data-courseware-detail] > .basketBar { display: none; }
+  .previewHeader { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 4px; padding: 4px 8px; }
+  .previewTitle { gap: 2px; }
+  .previewHeader .actions { gap: 2px; }
+  .previewHeader .actions button { min-width: 44px; padding-inline: 8px; }
+  .actionLabel { display: none; }
+  .pdfContent { padding: 0; }
+  .pdfContent .viewer { border-inline: 0; border-bottom: 0; }
+}

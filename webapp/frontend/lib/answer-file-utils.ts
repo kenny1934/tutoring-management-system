@@ -1,20 +1,18 @@
 /**
  * Utilities for finding and opening answer files for exercises.
- * Supports local file system search and Paperless/Shelv fallback.
+ * Supports local file system search and MCKB originals.
  */
 
-import { getFileHandleFromPath, openFileInNewTab, isFileSystemAccessSupported, getCachedPaperlessDocumentId, setPaperlessPathCache } from './file-system';
-import { searchPaperlessByPath } from './paperless-utils';
-import { paperlessAPI } from './api';
+import { getFileHandleFromPath, isFileSystemAccessSupported, openFileFromPathWithFallback } from './file-system';
+import { canonicalMaterialPath } from './materials';
+import { loadCoursewarePdf } from './courseware-pdf';
+import { resolveCoursewareFile, searchCoursewareFiles } from './courseware-lookup';
 
 export interface AnswerSearchResult {
   path: string;
-  source: 'local' | 'shelv';
-  documentId?: number;  // For Shelv results
+  source: 'local' | 'mckb';
+  fileId?: number;
 }
-
-// Cache for the "Ans" tag ID from Shelv
-let ansTagIdCache: number | null = null;
 
 /**
  * Configurable folder replacement rules for [Center] paths.
@@ -53,34 +51,12 @@ const FILENAME_TRANSFORMATIONS: Array<{
   // Add more rules here as needed
 ];
 
-/** Use the same filename rules for local paths and Shelv queries. */
+/** Use the same filename rules for local paths and courseware queries. */
 function getTransformedAnswerFilename(filename: string): string | null {
   for (const rule of FILENAME_TRANSFORMATIONS) {
     const match = filename.match(rule.pattern);
     if (match) return rule.answerFilename(match);
   }
-  return null;
-}
-
-/**
- * Get the "Ans" tag ID from Shelv, with caching.
- */
-async function getAnsTagId(): Promise<number | null> {
-  if (ansTagIdCache !== null) {
-    return ansTagIdCache;
-  }
-
-  try {
-    const { tags } = await paperlessAPI.getTags();
-    const ansTag = tags.find(t => t.name.toLowerCase() === 'ans');
-    if (ansTag) {
-      ansTagIdCache = ansTag.id;
-      return ansTag.id;
-    }
-  } catch (err) {
-    // Failed to fetch tags silently
-  }
-
   return null;
 }
 
@@ -94,7 +70,7 @@ function parsePdfPath(path: string): {
   filenameWithoutExt: string;
 } {
   // Strip surrounding quotes
-  path = path.replace(/^["']|["']$/g, '');
+  path = canonicalMaterialPath(path) ?? path.replace(/^["']|["']$/g, '').replace(/\//g, '\\');
 
   // Check for bracketed alias like [Center] or [Courseware Developer 中學]
   const aliasMatch = path.match(/^\[([^\]]+)\]\\(.+)$/);
@@ -121,7 +97,7 @@ function parsePdfPath(path: string): {
   const directoryParts = pathParts.slice(0, -1);
 
   // Remove extension
-  const extMatch = filename.match(/^(.+)\.pdf$/i);
+  const extMatch = filename.match(/^(.+)\.(?:pdf|docx?|xlsx?|pptx?)$/i);
   const filenameWithoutExt = extMatch ? extMatch[1] : filename;
 
   return { alias, directoryParts, filename, filenameWithoutExt };
@@ -189,245 +165,56 @@ export function buildAnswerPaths(originalPath: string): string[] {
     }
   }
 
-  return candidates;
+  return candidates.map(path => path.replace(/\\{2,}/g, '\\'));
 }
 
-/**
- * Search for an answer file locally using the File System Access API.
- * Tries multiple candidate paths.
- */
-async function searchLocalAnswerFile(originalPath: string): Promise<AnswerSearchResult | null> {
-  if (!isFileSystemAccessSupported()) {
-    return null;
-  }
-
-  const candidates = buildAnswerPaths(originalPath);
-
-  for (const candidatePath of candidates) {
-    const result = await getFileHandleFromPath(candidatePath);
-    if (result.success) {
-      return { path: candidatePath, source: 'local' };
-    }
-  }
-
-  return null;
-}
-
-/**
- * Search for an answer file in Shelv using the filename and Ans tag.
- */
-async function searchShelvAnswerFile(originalPath: string): Promise<AnswerSearchResult | null> {
-  const { filenameWithoutExt } = parsePdfPath(originalPath);
-
-  // Build search query for the answer filename
-  const transformedAnswerFilename = getTransformedAnswerFilename(filenameWithoutExt);
-  const searchQuery = transformedAnswerFilename ?? `${filenameWithoutExt}_ans`;
-  const isMatchingAnswer = (doc: { title: string; original_path?: string | null }) => {
-    if (transformedAnswerFilename) {
-      // Require the complete code so chapter 01 cannot match section 01.1.
-      const expected = transformedAnswerFilename.toLowerCase();
-      const matches = (name: string) => name.replace(/\.pdf$/i, '').toLowerCase() === expected;
-      return matches(doc.title) || matches(doc.original_path?.split(/[\\/]/).pop() ?? '');
-    }
-    const title = doc.title.toLowerCase();
-    return title.includes(filenameWithoutExt.toLowerCase()) && title.includes('ans');
-  };
-
-  try {
-    // Get the Ans tag ID
-    const ansTagId = await getAnsTagId();
-
-    // Search Shelv with tag filtering if available
-    const tagIds = ansTagId ? [ansTagId] : undefined;
-    const results = await paperlessAPI.search(searchQuery, 10, 'title', tagIds);
-
-    if (results.results.length > 0) {
-      // Find the best match (exact filename match preferred)
-      const bestMatch = results.results.find(isMatchingAnswer) ||
-        (transformedAnswerFilename ? undefined : results.results[0]);
-
-      if (bestMatch) {
-        return {
-          path: bestMatch.original_path || bestMatch.title,
-          source: 'shelv',
-          documentId: bestMatch.id,
-        };
-      }
-    }
-
-    // If no results with tag filter, try without tag filter
-    if (ansTagId) {
-      const resultsNoTag = await paperlessAPI.search(searchQuery, 10, 'title');
-      if (resultsNoTag.results.length > 0) {
-        const bestMatch = resultsNoTag.results.find(isMatchingAnswer);
-
-        if (bestMatch) {
-          return {
-            path: bestMatch.original_path || bestMatch.title,
-            source: 'shelv',
-            documentId: bestMatch.id,
-          };
-        }
-      }
-    }
-  } catch (err) {
-    // Shelv search failed silently
-  }
-
-  return null;
-}
-
-/**
- * Search for an answer file, trying local first then Shelv.
- *
- * @param originalPath - The original exercise PDF path
- * @returns The answer file result or null if not found
- */
+/** Expected answer names are checked before searching elsewhere by filename. */
 export async function searchAnswerFile(originalPath: string): Promise<AnswerSearchResult | null> {
-  // 1. Try local file system first
-  const localResult = await searchLocalAnswerFile(originalPath);
-  if (localResult) {
-    return localResult;
-  }
-
-  // 2. Fall back to Shelv search
-  const shelvResult = await searchShelvAnswerFile(originalPath);
-  if (shelvResult) {
-    return shelvResult;
-  }
-
-  return null;
-}
-
-/**
- * Open an answer file in a new tab.
- *
- * @param result - The answer search result
- * @returns true if successful, false otherwise
- */
-export async function openAnswerFile(result: AnswerSearchResult): Promise<boolean> {
-  if (result.source === 'local') {
-    const handleResult = await getFileHandleFromPath(result.path);
-    if (handleResult.success) {
-      return openFileInNewTab(handleResult.handle);
+  const candidates = [...new Map(buildAnswerPaths(originalPath).map(path => [path.toLowerCase(), path])).values()];
+  if (isFileSystemAccessSupported()) {
+    for (const path of candidates) {
+      const found = await getFileHandleFromPath(path, { requestPermission: false });
+      if (found.success) return { path, source: 'local' };
     }
-    return false;
-  } else if (result.source === 'shelv' && result.documentId) {
-    // Open via Paperless API
-    window.open(`/api/paperless/preview/${result.documentId}`, '_blank');
-    return true;
   }
-
-  return false;
-}
-
-/**
- * Download an answer file.
- *
- * @param result - The answer search result
- * @returns true if successful, false otherwise
- */
-export async function downloadAnswerFile(result: AnswerSearchResult): Promise<boolean> {
-  if (result.source === 'local') {
-    const handleResult = await getFileHandleFromPath(result.path);
-    if (handleResult.success) {
-      try {
-        const file = await handleResult.handle.getFile();
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        return true;
-      } catch (err) {
-        return false;
-      }
-    }
-    return false;
-  } else if (result.source === 'shelv' && result.documentId) {
-    // Download via Paperless API
+  for (const path of candidates) {
     try {
-      const response = await fetch(`/api/paperless/preview/${result.documentId}`);
-      if (!response.ok) {
-        return false;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      // Extract filename from path or use document ID
-      const filename = result.path.split('\\').pop() || `answer_${result.documentId}.pdf`;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return true;
-    } catch (err) {
-      return false;
+      const found = await resolveCoursewareFile(path);
+      return { path: found.nas_path, source: 'mckb', fileId: found.file_id };
+    } catch (error) {
+      const status = error && typeof error === 'object' && 'status' in error ? Number(error.status) : 0;
+      if (status !== 404) throw error;
     }
   }
-
-  return false;
+  const { filenameWithoutExt } = parsePdfPath(originalPath);
+  const expected = (getTransformedAnswerFilename(filenameWithoutExt) ?? `${filenameWithoutExt}_ANS`) + '.pdf';
+  const found = await searchCoursewareFiles(expected);
+  const exact = found.files.filter(file => file.ext.toLowerCase() === '.pdf' && file.filename.toLowerCase() === expected.toLowerCase());
+  if (!found.complete || exact.length !== 1) return null;
+  return { path: exact[0].nas_path, source: 'mckb', fileId: exact[0].file_id };
 }
 
-/**
- * Resolve a Shelv document ID from a path, with cache.
- */
-async function resolveShelvDocumentId(path: string, onProgress?: (msg: string) => void): Promise<number | null> {
-  const cached = getCachedPaperlessDocumentId(path);
-  if (cached) return cached;
-
-  const docId = await searchPaperlessByPath(path, onProgress);
-  if (docId) {
-    setPaperlessPathCache(path, docId);
-  }
-  return docId;
+export async function openAnswerFile(result: AnswerSearchResult): Promise<boolean> {
+  return await openFileFromPathWithFallback(result.path) === null;
 }
 
-/**
- * Open an answer file, trying local first then falling back to Shelv.
- * Unlike openAnswerFile which requires a known source, this handles
- * paths where the source is unknown (e.g., user-pasted paths).
- */
-export async function openAnswerFileWithFallback(path: string, onProgress?: (msg: string) => void): Promise<boolean> {
-  // Try local first
-  onProgress?.('Trying local file…');
-  const localResult = await openAnswerFile({ source: 'local', path });
-  if (localResult) return true;
-
-  // Fall back to Shelv
-  onProgress?.('Searching Shelv…');
-  const documentId = await resolveShelvDocumentId(path, onProgress);
-  if (documentId) {
-    onProgress?.('Opening from Shelv…');
-    return openAnswerFile({ source: 'shelv', path, documentId });
-  }
-
-  return false;
+export async function downloadAnswerFile(result: AnswerSearchResult): Promise<boolean> {
+  try {
+    const file = await loadCoursewarePdf({ path: result.path, fileId: result.fileId });
+    const url = URL.createObjectURL(new Blob([file.data], { type: 'application/pdf' }));
+    const link = document.createElement('a'); link.href = url;
+    link.download = result.path.split(/[\\/]/).at(-1) || 'answer.pdf';
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return true;
+  } catch { return false; }
 }
 
-/**
- * Download an answer file, trying local first then falling back to Shelv.
- * Unlike downloadAnswerFile which requires a known source, this handles
- * paths where the source is unknown (e.g., user-pasted paths).
- */
-export async function downloadAnswerFileWithFallback(path: string, onProgress?: (msg: string) => void): Promise<boolean> {
-  // Try local first
-  onProgress?.('Trying local file…');
-  const localResult = await downloadAnswerFile({ source: 'local', path });
-  if (localResult) return true;
-
-  // Fall back to Shelv
-  onProgress?.('Searching Shelv…');
-  const documentId = await resolveShelvDocumentId(path, onProgress);
-  if (documentId) {
-    onProgress?.('Downloading from Shelv…');
-    return downloadAnswerFile({ source: 'shelv', path, documentId });
-  }
-
-  return false;
+export async function openAnswerFileWithFallback(path: string, onProgress?: (message: string) => void): Promise<boolean> {
+  onProgress?.('Opening answer PDF…');
+  return openAnswerFile({ source: 'mckb', path });
+}
+export async function downloadAnswerFileWithFallback(path: string, onProgress?: (message: string) => void): Promise<boolean> {
+  onProgress?.('Opening answer PDF…');
+  return downloadAnswerFile({ source: 'mckb', path });
 }

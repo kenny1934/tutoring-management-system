@@ -61,3 +61,18 @@ it('does not cache an old account result arriving after a scope switch', async (
   finish({ arrayBuffer: async () => bytes }); await pending;
   await loadCoursewarePdf({ path: '[Center]\\Exam.pdf', fileId: 7 }); expect(h.response).toHaveBeenCalledTimes(2);
 });
+
+it('resolves a drive-stripped path exactly before reading the selected connected folder', async () => {
+  h.json.mockResolvedValue({ file_id: 7, nas_path: '[Courseware Developer 中學]\\Secondary\\Practice.pdf' });
+  h.supported.mockReturnValue(true);
+  h.handle.mockResolvedValue({ success: true, handle: { getFile: async () => ({ arrayBuffer: async () => bytes }) } });
+  expect(await loadCoursewarePdf({ path: '\\Secondary\\Practice.pdf' })).toMatchObject({ source: 'local', data: bytes });
+  expect(h.json).toHaveBeenCalledWith('/materials/resolve', expect.objectContaining({ body: JSON.stringify({ path: '\\Secondary\\Practice.pdf' }) }));
+  expect(h.handle).toHaveBeenCalledWith('[Courseware Developer 中學]\\Secondary\\Practice.pdf', { requestPermission: false });
+  expect(h.response).not.toHaveBeenCalled();
+});
+it('does not guess a source when the saved relative path is ambiguous', async () => {
+  h.json.mockRejectedValue({ status: 409 });
+  await expect(loadCoursewarePdf({ path: '\\Practice.pdf' })).rejects.toMatchObject({ status: 409 });
+  expect(h.handle).not.toHaveBeenCalled(); expect(h.response).not.toHaveBeenCalled();
+});

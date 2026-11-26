@@ -45,7 +45,7 @@ import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, formatError } from "@/lib/utils";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import { useToast } from "@/contexts/ToastContext";
 import { NativeLessonPreview } from "@/components/design-preview/NativeLessonPreview";
 import { requestSingleLesson } from "@/components/design-preview/singleLessonJourney";
@@ -89,8 +89,7 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
     e.stopPropagation();
     if (openState === 'loading') return;
     setOpenState('loading');
-    const error = await openFileFromPathWithFallback(pdfName, (p) =>
-      searchPaperlessByPath(p)
+    const error = await openFileFromPathWithFallback(pdfName, undefined
     );
     if (error) {
       setOpenState('error');
@@ -106,7 +105,7 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
     setPrintState('loading');
     const error = await printFileFromPathWithFallback(
       pdfName, pageStart, pageEnd, undefined, stamp,
-      (p) => searchPaperlessByPath(p)
+      undefined
     );
     if (error) {
       setPrintState('error');
@@ -169,7 +168,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     e.stopPropagation();
     if (printState === 'loading') return;
     setPrintState('loading');
-    const error = await printBulkFiles(withPdfs, stamp, searchPaperlessByPath, baseFilename);
+    const error = await printBulkFiles(withPdfs, stamp, undefined, baseFilename);
     setPrintState(error ? 'error' : 'idle');
     if (error) setTimeout(() => setPrintState('idle'), 2000);
   };
@@ -178,7 +177,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     e.stopPropagation();
     if (downloadState === 'loading') return;
     setDownloadState('loading');
-    const error = await downloadBulkFiles(withPdfs, `${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    const error = await downloadBulkFiles(withPdfs, `${baseFilename}.pdf`, stamp, undefined);
     setDownloadState(error ? 'error' : 'idle');
     if (error) setTimeout(() => setDownloadState('idle'), 2000);
   };
@@ -187,7 +186,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     e.stopPropagation();
     if (answersState === 'loading') return;
     setAnswersState('loading');
-    const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, undefined);
     if (result.status === 'success') {
       setAnswersState('idle');
       if (result.missing > 0) {

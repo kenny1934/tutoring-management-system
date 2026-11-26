@@ -11,7 +11,7 @@ describe('MCKB original resolution', () => {
     expect(canonicalMaterialPath('[MSA Staff]\\private\\work.pdf')).toBeNull();
   });
   it('does not query a material provider for unrelated paths', async () => {
-    expect(await loadMaterialPdf('worksheet.pdf')).toBeNull(); expect(mocks.json).not.toHaveBeenCalled();
+    expect(await loadMaterialPdf('[Personal]\\worksheet.pdf')).toBeNull(); expect(mocks.json).not.toHaveBeenCalled();
   });
   it('resolves through the authenticated provider and validates PDF bytes', async () => {
     const bytes = new TextEncoder().encode('%PDF-1.7').buffer;
@@ -27,4 +27,13 @@ describe('MCKB original resolution', () => {
     mocks.json.mockResolvedValue({ file_id: 7 }); mocks.response.mockResolvedValue({ arrayBuffer: async () => new TextEncoder().encode('<html>').buffer });
     expect(await loadMaterialPdf('[Center]\\work.pdf')).toBeNull();
   });
+});
+
+it('normalises the real bare share and quoted drive formats without widening source permissions', () => {
+  expect(canonicalMaterialPath('Center\\Courseware (Eng)\\Exam.pdf')).toBe('[Center]\\Courseware (Eng)\\Exam.pdf');
+  expect(canonicalMaterialPath('Courseware Developer 中學\\Secondary\\Exam.pdf')).toBe('[Courseware Developer 中學]\\Secondary\\Exam.pdf');
+  expect(canonicalMaterialPath('MSA Staff\\scan\\Exam.pdf')).toBe('[MSA Staff]\\scan\\Exam.pdf');
+  expect(canonicalMaterialPath('"Z:\\Courseware (Eng)\\Exam.pdf"')).toBe('[Center]\\Courseware (Eng)\\Exam.pdf');
+  expect(canonicalMaterialPath('MSA Staff\\Private\\Exam.pdf')).toBeNull();
+  expect(canonicalMaterialPath('MO Center\\Exam.pdf')).toBeNull();
 });

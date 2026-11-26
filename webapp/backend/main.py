@@ -22,6 +22,7 @@ from billing.clock import test_date
 test_date()  # Refuse an unsafe test-clock configuration before serving requests.
 
 from auth.gate import AuthGateMiddleware
+from services.material_timing import MaterialTimingMiddleware
 from services.departure_guard import DepartedTutorAssignment, install as install_departure_guard
 
 logger = logging.getLogger(__name__)
@@ -281,6 +282,7 @@ app.add_middleware(AuthGateMiddleware)
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(MaterialTimingMiddleware)
 
 # Configure CORS with specific allowed headers (not wildcard)
 app.add_middleware(
@@ -435,6 +437,8 @@ async def departed_tutor_handler(request: Request, exc: DepartedTutorAssignment)
 @app.on_event("shutdown")
 async def shutdown_event():
     await ark_proxy.shutdown_ark_client()
+    from services.material_http import close_material_client
+    close_material_client()
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import { isPdfMath, type PdfFindTerm } from '@/lib/pdf-text-search';
 import { defaultMaterialFilters, type MaterialFilters } from './material-workspace';
 export const refinementKeys = ['match', 'any_words', 'exclude_words', 'exact_phrase', 'search_in', 'modified_from', 'modified_to'] as const;
 export function searchRefinement(filters: MaterialFilters) {
@@ -40,4 +41,26 @@ export function filterChips(filters: MaterialFilters, labels: Record<string, str
     chips.push({ key: 'modified', label: from && to ? `Modified ${from} – ${to}` : from ? `Modified since ${from}` : `Modified through ${to}`, clear: { modified_from: '', modified_to: '' } });
   }
   return chips;
+}
+
+/** Pass only positive search terms to the native PDF finder. */
+export function coursewarePdfTerms(query: string, filters: MaterialFilters): PdfFindTerm[] {
+  if (filters.search_in === 'filename') return [];
+  const terms: PdfFindTerm[] = [];
+  for (const raw of [query, filters.any_words]) {
+    const value = raw.replace(/[“”]/g, '"').trim();
+    if (isPdfMath(value.replace(/^"|"$/g, ''))) { terms.push({ text: value.replace(/^"|"$/g, ''), whole: true }); continue; }
+    for (const match of value.matchAll(/"([^"\n]+)"|([^\s"]+)/g)) {
+      if (match[1]) terms.push({ text: match[1], whole: true });
+      else for (const word of match[2].replace(/[+*()<>~@-]/g, ' ').split(/\s+/).filter(Boolean)) terms.push({ text: word });
+    }
+  }
+  if (filters.exact_phrase.trim()) terms.push({ text: filters.exact_phrase.trim(), whole: true });
+  const unique = new Map<string, PdfFindTerm>();
+  for (const term of terms) {
+    const key = term.text.toLowerCase(), previous = unique.get(key);
+    if (!previous) unique.set(key, term);
+    else if (term.whole && !previous.whole) unique.set(key, { ...previous, whole: true });
+  }
+  return [...unique.values()];
 }

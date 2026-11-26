@@ -248,7 +248,7 @@ def test_manually_changed_payment_is_held_and_not_treated_as_bank_replay(run_env
     assert db.query(BankRunOperation).filter_by(kind='results_recorded').count() == 0
 
 
-@pytest.mark.parametrize('change', ['unknown_contract', 'amount', 'date', 'batch', 'currency'])
+@pytest.mark.parametrize('change', ['unknown_contract', 'amount', 'future_date', 'batch', 'currency'])
 def test_report_mismatches_are_held_globally_before_any_payment(run_env, change):
     client, db, _actor, clock = run_env
     value = payment(client)
@@ -258,7 +258,7 @@ def test_report_mismatches_are_held_globally_before_any_payment(run_env, change)
     changed = {}
     if change == 'unknown_contract': rows[0] = ('MSA09999', *rows[0][1:])
     elif change == 'amount': rows[0] = (rows[0][0], '1600.01', *rows[0][2:])
-    elif change == 'date': changed['date'] = '2026/11/23'
+    elif change == 'future_date': changed['date'] = '2026/12/01'
     elif change == 'batch': changed['batch'] = '000009999'
     else: changed['currency'] = 'USD'
     clock[0] = date(2026, 11, 30)

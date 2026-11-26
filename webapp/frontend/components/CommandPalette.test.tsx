@@ -42,7 +42,7 @@ describe("Global search workspace", () => {
   it("opens with Ctrl+K and sends only the term from a student filter", async () => {
     mount(); fireEvent.keyDown(document, { key: "k", ctrlKey: true });
     await waitFor(() => expect(input()).toHaveFocus()); fireEvent.change(input(), { target: { value: "@learner" } });
-    await screen.findByRole("option", { name: /Learner 1/ }); expect(mocks.search).toHaveBeenLastCalledWith("learner", "MSA", undefined, false, { category: "students" });
+    await screen.findByRole("option", { name: /Learner 1/ }); expect(mocks.search).toHaveBeenLastCalledWith("learner", "MSA", undefined, false, { category: "students" }, expect.any(AbortSignal));
     fireEvent.keyDown(input(), { key: "k", ctrlKey: true }); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
   it("keeps the query and selection when dismissed and reopened, with staged Escape and focus return", async () => {
@@ -121,8 +121,9 @@ describe("Search record functionality", () => {
     mocks.search.mockResolvedValue({ students: [], sessions: [sessionResult], enrollments: [], exams: [], has_more: { sessions: true } });
     mount(); fireEvent.click(screen.getByText("Open search")); fireEvent.change(input(), { target: { value: "#learner" } });
     await screen.findByRole("option", { name: /Search Learner/ }); expect(screen.getByText("More available")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Search filters" }));
     fireEvent.click(screen.getByRole("button", { name: "Include history" }));
-    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith("learner", "MSA", undefined, true, { category: "sessions" }));
+    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith("learner", "MSA", undefined, true, { category: "sessions" }, expect.any(AbortSignal)));
     expect(screen.getByRole("button", { name: "Include history" })).toHaveAttribute("aria-pressed", "true");
   });
 });
@@ -134,7 +135,7 @@ describe('Search console expansion', () => {
     mount(); fireEvent.click(screen.getByText('Open search')); fireEvent.change(input(), { target: { value: '#algebra' } });
     const more = await screen.findByRole('option', { name: 'Show more sessions' });
     expect(screen.getAllByText('HW:')).toHaveLength(5); fireEvent.click(more);
-    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('algebra', 'MSA', 5, false, { category: 'sessions', offset: 5 }));
+    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('algebra', 'MSA', 5, false, { category: 'sessions', offset: 5 }, expect.any(AbortSignal)));
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Show more sessions' })).toBeNull());
     expect(within(screen.getByRole('listbox', { name: 'Search results' })).getAllByRole('option')).toHaveLength(6);
   });
@@ -142,7 +143,7 @@ describe('Search console expansion', () => {
     mocks.search.mockResolvedValue({ students: [], sessions: [], enrollments: [], exams: [] });
     mount(); fireEvent.click(screen.getByText('Open search'));
     fireEvent.change(screen.getByLabelText('Search scope'), { target: { value: 'my' } });
-    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('', 'MSA', undefined, false, { tutor_id: 5 }));
+    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('', 'MSA', undefined, false, { tutor_id: 5 }, expect.any(AbortSignal)));
     fireEvent.click(screen.getByRole('button', { name: 'Search filters' }));
     fireEvent.change(screen.getByLabelText('Session dates'), { target: { value: 'custom' } });
     fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2026-12-01' } });
@@ -155,7 +156,7 @@ describe('Search console expansion', () => {
     const row = await screen.findByRole('option', { name: /Learner 1/ }); fireEvent.click(row);
     await waitFor(() => expect(within(screen.getByRole('dialog', { name: 'Student details' })).getByRole('button', { name: 'Enrolments' })).toBeInTheDocument());
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Student details' })).getByRole('button', { name: 'Enrolments' }));
-    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('', 'MSA', undefined, false, { category: 'enrollments', student_id: 1 }));
+    await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('', 'MSA', undefined, false, { category: 'enrollments', student_id: 1 }, expect.any(AbortSignal)));
     fireEvent.click(screen.getByRole('button', { name: 'Back to search results' }));
     expect(input()).toHaveValue('@learner'); expect(screen.getByLabelText('Search category')).toHaveValue('students');
   });
@@ -174,7 +175,7 @@ it('uses centre scope for exams, which have no tutor ownership', async () => {
   mount(); fireEvent.click(screen.getByText('Open search'));
   fireEvent.change(screen.getByLabelText('Search scope'), { target: { value: 'my' } });
   fireEvent.change(input(), { target: { value: '!exam' } });
-  await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('exam', 'MSA', undefined, false, { category: 'exams' }));
+  await waitFor(() => expect(mocks.search).toHaveBeenLastCalledWith('exam', 'MSA', undefined, false, { category: 'exams' }, expect.any(AbortSignal)));
   expect(screen.getByLabelText('Search scope')).toHaveValue('centre');
 });
 
@@ -230,4 +231,17 @@ it('restores courseware after closing and clears the workspace when the centre o
   expect(screen.queryByRole('group', { name: 'Recent courseware searches' })).toBeNull();
   mocks.auth.user.id = 7; view.rerender(tree());
   expect(input()).toHaveValue(''); expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
+});
+
+it('keeps a pending record search visible and editable until results arrive', async () => {
+ let finish!: (value: typeof response) => void;
+ mocks.search.mockImplementationOnce(() => new Promise(resolve => { finish=resolve; }));
+ mount();fireEvent.click(screen.getByText('Open search'));
+ fireEvent.change(input(),{target:{value:'FixtureOnlyQuery'}});
+ const progress=await screen.findByText('Searching records…');
+ expect(progress.closest('[aria-busy="true"]')).toBeNull();
+ expect(input()).toBeEnabled();expect(input()).toHaveFocus();
+ expect(screen.queryByText(/No results for/)).toBeNull();
+ await act(async()=>finish(response));
+ await screen.findByText('Learner 1');expect(screen.queryByText('Searching records…')).toBeNull();
 });

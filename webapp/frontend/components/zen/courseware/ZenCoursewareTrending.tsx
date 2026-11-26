@@ -1,5 +1,6 @@
 "use client";
 
+import { getTrendingPath } from "@/lib/courseware-utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import { formatDaysAgo } from "@/lib/formatters";
@@ -214,7 +215,7 @@ export function ZenCoursewareTrending({
           e.stopImmediatePropagation();
           const item = items[cursor];
           if (item) {
-            const path = item.normalized_paths.split(",")[0]?.trim() || "";
+            const path = getTrendingPath(item);
             resolveAndPreview(item.filename, path);
           }
           break;
@@ -243,7 +244,7 @@ export function ZenCoursewareTrending({
           e.stopImmediatePropagation();
           const item = items[cursor];
           if (item) {
-            const path = item.normalized_paths.split(",")[0]?.trim() || "";
+            const path = getTrendingPath(item);
             onAssignFile(path, item.filename);
           }
           break;
@@ -414,7 +415,7 @@ export function ZenCoursewareTrending({
               <div
                 onClick={() => {
                   setCursor(index);
-                  const path = item.normalized_paths.split(",")[0]?.trim() || "";
+                  const path = getTrendingPath(item);
                   resolveAndPreview(item.filename, path);
                 }}
                 style={{
@@ -464,7 +465,7 @@ export function ZenCoursewareTrending({
                   }}
                 >
                   <div style={{ color: "var(--zen-dim)", marginBottom: "4px" }}>
-                    Path: {item.normalized_paths.split(",")[0]?.trim() || "—"}
+                    Path: {getTrendingPath(item)}
                   </div>
                   <div style={{ color: "var(--zen-dim)", marginBottom: "4px" }}>
                     Used by: {item.used_by || "—"}

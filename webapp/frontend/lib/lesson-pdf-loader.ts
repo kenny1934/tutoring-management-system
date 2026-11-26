@@ -1,25 +1,22 @@
 /**
  * PDF loader for Lesson Mode.
  * Resolves exercise PDF paths to ArrayBuffers for canvas rendering.
- * Reuses existing file-system + Paperless infrastructure.
+ * Reuses existing file-system + MCKB originals.
  */
 
 import {
   isFileSystemAccessSupported,
   getFileHandleFromPath,
-  getCachedPaperlessDocumentId,
-  setPaperlessPathCache,
 } from './file-system';
 import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
 import { parseParallelPath } from './parallel-path';
 import { composeSideBySidePdf } from './pdf-utils';
-import { loadMaterialPdf, canonicalMaterialPath } from './materials';
+import { canonicalMaterialPath } from './materials';
 import { loadCoursewarePdf } from './courseware-pdf';
-import { searchPaperlessByPath } from './paperless-utils';
 
 export interface PdfLoadResult {
   data: ArrayBuffer;
-  source: 'local' | 'paperless' | 'mckb';
+  source: 'local' | 'mckb';
 }
 
 export interface PdfLoadError {
@@ -85,7 +82,7 @@ async function loadPdf(
   }
 }
 
-/** Single real path: local File System Access first, Paperless fallback. */
+/** Single real path: local File System Access first, MCKB lookup. */
 async function loadSinglePdf(
   pdfName: string,
   onProgress: ((message: string) => void) | undefined,
@@ -96,11 +93,13 @@ async function loadSinglePdf(
   }
 
   const courseware = canonicalMaterialPath(pdfName) && /\.pdf$/i.test(pdfName);
+  let remoteFailure: unknown;
   if (courseware) {
     try { const result = await loadCoursewarePdf({ path: pdfName, signal }); return { data: result.data, source: result.source }; }
     catch (error) {
       signal.throwIfAborted();
       if (error && typeof error === 'object' && 'status' in error && [401, 403].includes(Number(error.status))) return { error: 'fetch_failed' };
+      remoteFailure = error;
     }
   }
 
@@ -114,14 +113,14 @@ async function loadSinglePdf(
         const file = await result.handle.getFile();
         const data = await file.arrayBuffer();
         signal.throwIfAborted();
-        // Validate PDF magic bytes — non-PDF files (e.g. .doc/.docx) fall through to Paperless
+        // Validate PDF magic bytes — non-PDF files (e.g. .doc/.docx) fall through to MCKB lookup
         const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
         const magic = String.fromCharCode(...header);
         if (magic.startsWith('%PDF-')) {
           return { data, source: 'local' };
         }
       } catch {
-        // Local read failed, continue to Paperless fallback
+        // Local read failed, continue to MCKB lookup
       }
     }
   }
@@ -143,50 +142,15 @@ async function loadSinglePdf(
     }
   }
 
-  onProgress?.("Checking Knowledge Base…");
-  const material = courseware ? null : await loadMaterialPdf(pdfName, signal);
-  signal.throwIfAborted();
-  if (material && 'denied' in material) return { error: 'fetch_failed' };
-  if (material) return { data: material.data, source: 'mckb' };
-
-  // 2. Try Paperless: check cache first
-  onProgress?.("Checking Shelv\u2026");
-  let documentId = getCachedPaperlessDocumentId(pdfName);
-
-  // 3. Cache miss — search Paperless
-  if (!documentId) {
-    documentId = await searchPaperlessByPath(pdfName, onProgress, signal);
-    signal.throwIfAborted();
-    if (documentId) {
-      setPaperlessPathCache(pdfName, documentId);
-    }
-  }
-
-  // 4. Fetch from Paperless proxy
-  onProgress?.("Downloading PDF\u2026");
-  if (documentId) {
+  onProgress?.("Opening courseware PDF…");
+  if (!courseware) {
     try {
-      const response = await fetch(`/api/paperless/preview/${documentId}`, { signal });
-      if (response.ok) {
-        const blob = await response.blob();
-        const data = await blob.arrayBuffer();
-        // Validate PDF magic bytes — reject non-PDF responses (e.g. HTML error pages)
-        const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
-        const magic = String.fromCharCode(...header);
-        if (!magic.startsWith('%PDF-')) {
-          console.warn('[lesson-pdf-loader] Non-PDF data received. Content-Type:',
-            response.headers.get('content-type'), 'Header:', magic);
-          return { error: 'fetch_failed' };
-        }
-        return { data, source: 'paperless' };
-      }
-      return { error: response.status === 404 ? 'file_not_found' : 'fetch_failed' };
-    } catch {
-      return { error: 'fetch_failed' };
-    }
+      const result = await loadCoursewarePdf({ path: pdfName, signal });
+      return { data: result.data, source: result.source };
+    } catch (error) { signal.throwIfAborted(); remoteFailure = error; }
   }
-
-  return { error: 'file_not_found' };
+  const status = remoteFailure && typeof remoteFailure === 'object' && 'status' in remoteFailure ? Number(remoteFailure.status) : 0;
+  return { error: status === 404 ? 'file_not_found' : 'fetch_failed' };
 }
 
 /** How many files a lesson view keeps in memory at once. Both views keep the same number. */

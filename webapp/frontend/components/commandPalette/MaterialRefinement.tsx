@@ -13,18 +13,18 @@ import styles from './MaterialSearch.module.css';
 type Rule = 'any_words' | 'exclude_words' | 'exact_phrase';
 const ruleLabels: Record<Rule, string> = { any_words: 'Must include one of', exclude_words: 'Must not include', exact_phrase: 'Must include phrase' };
 export type MaterialRefinementProps = {
-  filters: MaterialFilters; onApply: (patch: Partial<MaterialFilters>) => void;
+  sources?: { id: string; label: string }[]; filters: MaterialFilters; onApply: (patch: Partial<MaterialFilters>) => void;
   isOpen: boolean; onOpenChange: (open: boolean) => void; edit?: keyof MaterialFilters;
   supportsRefinements: boolean; facets?: { ext: Record<string, number>; folder: Record<string, number> };
 };
 
 export function MaterialRefinement({ isOpen, onOpenChange, ...props }: MaterialRefinementProps) {
   const countDescription = useId();
-  const mobile = useIsMobile(640), layer = useOverlayLayer(isOpen, { lockScroll: mobile });
+  const mobile = useIsMobile(768), layer = useOverlayLayer(isOpen, { lockScroll: mobile });
   const { refs, floatingStyles, context } = useFloating({ open: isOpen, onOpenChange, placement: 'bottom-end', strategy: 'fixed',
     middleware: [offset(8), flip({ padding: 12 }), shift({ padding: 12 }), size({ padding: 12, apply: ({ availableHeight, elements }) => { elements.floating.style.setProperty('--filter-available-height', `${availableHeight}px`); } })], whileElementsMounted: autoUpdate });
   const { getReferenceProps, getFloatingProps } = useInteractions([useClick(context), useDismiss(context, { enabled: layer.isTopmost, capture: { escapeKey: true }, bubbles: { escapeKey: false } }), useRole(context)]);
-  const count = filterChips(props.filters).filter(chip => chip.key !== 'share' && chip.key !== 'search_in').length;
+  const count = filterChips(props.filters).length;
   const close = () => onOpenChange(false);
   return <>
     <button ref={refs.setReference} {...getReferenceProps()} className={styles.filterTrigger} aria-label="Filters" aria-describedby={count ? countDescription : undefined} aria-expanded={isOpen}><Filter size={14} />Filters{count > 0 && <span aria-hidden="true">{count}</span>}</button>
@@ -41,7 +41,7 @@ export function MaterialRefinement({ isOpen, onOpenChange, ...props }: MaterialR
   </>;
 }
 
-function RefinementForm({ filters, onApply, onCancel, supportsRefinements, facets, edit, mobile }: Omit<MaterialRefinementProps, 'isOpen' | 'onOpenChange'> & { onCancel: () => void; mobile: boolean }) {
+function RefinementForm({ filters, onApply, onCancel, supportsRefinements, facets, edit, mobile, sources }: Omit<MaterialRefinementProps, 'isOpen' | 'onOpenChange'> & { onCancel: () => void; mobile: boolean }) {
   const [draft, setDraft] = useState(filters);
   const [visible, setVisible] = useState<Rule[]>(() => (Object.keys(ruleLabels) as Rule[]).filter(key => !!filters[key] || key === edit));
   const [words, setWords] = useState(() => ({ any_words: createTermDraft(filters.any_words), exclude_words: createTermDraft(filters.exclude_words) }));
@@ -79,6 +79,8 @@ function RefinementForm({ filters, onApply, onCancel, supportsRefinements, facet
     <div className={styles.filterHeading}><h2>Filters</h2><button type="button" aria-label="Close filters" onClick={onCancel}><X size={18} /></button></div>
     <div className={styles.filterScroll}>
       <fieldset className={styles.fileFilters}><legend>Files</legend>
+        {sources && <label>Source<select id={`${id}-share`} aria-label="Filter courseware source" value={draft.share} onChange={event => setDraft(previous => ({ ...previous, share: event.target.value, folder: '' }))}><option value="">All sources</option>{sources.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>}
+        {supportsRefinements && <label>Search in<select id={`${id}-search_in`} aria-label="Courseware search scope" value={draft.search_in} onChange={event => update('search_in', event.target.value)}><option value="both">Name &amp; text</option><option value="filename">Filename only</option><option value="content">Contents only</option></select></label>}
         <label>File type<select id={`${id}-ext`} aria-label="Courseware file type" value={draft.ext} onChange={event => update('ext', event.target.value)}><option value="">All types</option>{[...new Set(['.pdf', '.docx', '.xlsx', '.pptx', ...Object.keys(facets?.ext ?? {})])].sort().map(ext => <option key={ext} value={ext}>{ext.slice(1).toUpperCase()}</option>)}</select></label>
         <label>Folder<select id={`${id}-folder`} aria-label="Courseware folder" value={draft.folder} onChange={event => update('folder', event.target.value)}><option value="">All folders</option>{[...new Set([...(draft.folder ? [draft.folder] : []), ...Object.keys(facets?.folder ?? {})])].map(folder => <option key={folder} value={folder}>{folder}{facets?.folder[folder] !== undefined ? ` (${facets.folder[folder]})` : ''}</option>)}</select></label>
         <label>Modified<select id={`${id}-modified`} aria-label="Courseware modified date" value={customDates ? 'custom' : draft.modified} onChange={event => {

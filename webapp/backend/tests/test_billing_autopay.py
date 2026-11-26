@@ -95,26 +95,19 @@ def test_ready_is_exact_frozen_confirmed_amount_and_query_only(env):
 
 
 @pytest.mark.parametrize('mutation,expected', [
-    ('unsent', 'MESSAGE_NOT_SENT'), ('mandate', 'MANDATE_NOT_READY'),
+    ('mandate', 'MANDATE_NOT_READY'),
     ('method', 'PREFERENCE_CHANGED'), ('inactive', 'ACCOUNT_INACTIVE'),
-    ('late_message', 'MESSAGE_SENT_LATE'), ('changed_enrollment', 'PAYMENT_INTEGRITY'),
-    ('wrong_dates', 'COLLECTION_DATES_REVIEW'),
+    ('changed_enrollment', 'PAYMENT_INTEGRITY'),
 ])
 def test_readiness_checks_are_independent(env, mutation, expected):
     client, session, _ = env
     payment = autopay_payment(client, session)
     pref = session.query(BillingPreference).one()
-    if mutation == 'unsent': payment.sent_at = None
     if mutation == 'mandate': pref.mandate_ready = False
     if mutation == 'method': pref.payment_method = 'manual'
     if mutation == 'inactive': session.query(BillingAccount).one().active = False
-    if mutation == 'late_message': payment.sent_at = datetime(2026, 11, 18, 18)  # 19 Nov in HK
     if mutation == 'changed_enrollment':
         session.get(Enrollment, session.query(BillingPaymentLine).one().enrollment_id).revenue_total = 1
-    if mutation == 'wrong_dates':
-        snapshot = deepcopy(payment.snapshot)
-        snapshot['review']['period']['collection'].update(debit_from='2026-11-25', debit_to='2026-11-27')
-        payment.snapshot = snapshot
     session.commit()
     result = run(client)
     assert result['ready_total'] == 0
@@ -122,12 +115,20 @@ def test_readiness_checks_are_independent(env, mutation, expected):
     assert result['rows'][0]['stage'] == 'attention'
 
 
-def test_historical_pending_cannot_be_debited_again(env, monkeypatch):
+@pytest.mark.parametrize('sent_at', [None, datetime(2026, 11, 19, 4), datetime(2026, 11, 26, 4)])
+@pytest.mark.parametrize('as_of', [date(2026, 11, 26), date(2026, 12, 3)])
+def test_confirmed_renewal_remains_ready_after_suggested_dates(env, monkeypatch, sent_at, as_of):
     client, session, _ = env
-    autopay_payment(client, session)
-    monkeypatch.setattr('routers.billing_autopay.today', lambda: date(2026, 11, 23))
-    row, = run(client)['rows']
-    assert row['stage'] == 'attention' and 'DEBIT_WINDOW_PASSED' in codes(row)
+    payment = autopay_payment(client, session, sent=False)
+    payment.sent_at = sent_at
+    session.commit()
+    monkeypatch.setattr('routers.billing_autopay.today', lambda: as_of)
+    result = run(client)
+    row, = result['rows']
+    assert row['stage'] == 'ready' and codes(row) == {'READY'}
+    assert result['ready_total'] == payment.snapshot['review']['period']['total_fee']
+    assert row['collection']['debit_to'] == '2026-11-22'
+    assert (row['sent_at'] is None) == (sent_at is None)
 
 
 @pytest.mark.parametrize('corruption', ['missing', 'zero', 'empty_counts', 'foreign_student'])

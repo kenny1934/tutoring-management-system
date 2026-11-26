@@ -1,5 +1,6 @@
 import { fetchAPI, fetchResponse } from './api';
 import { canonicalMaterialPath } from './materials';
+import { resolveCoursewareFile } from './courseware-lookup';
 
 export type CoursewarePdf = { data: ArrayBuffer; source: 'local' | 'mckb'; fileId?: number };
 const MAX_BYTES = 32 * 1024 * 1024, MAX_FILES = 8, MAX_AGE = 2 * 60 * 1000;
@@ -28,9 +29,18 @@ export async function loadCoursewarePdf({ path, fileId, scope, signal, localFirs
   path: string; fileId?: number; scope?: string; signal?: AbortSignal; localFirst?: boolean; refresh?: boolean;
 }): Promise<CoursewarePdf> {
   signal?.throwIfAborted();
-  const canonical = canonicalMaterialPath(path);
   const capturedOwner = owner, capturedGeneration = generation;
   const identity = owner || scope;
+  let canonical = canonicalMaterialPath(path);
+  let resolvedId = fileId;
+  if (!canonical && !resolvedId) {
+    const resolved = await resolveCoursewareFile(path, signal);
+    canonical = canonicalMaterialPath(resolved.nas_path);
+    resolvedId = resolved.file_id;
+    if (!canonical) throw new Error('This courseware path cannot be opened.');
+  }
+  fileId = resolvedId;
+  signal?.throwIfAborted();
   const key = JSON.stringify([identity, canonical?.toLowerCase() || fileId]);
   const saved = cache.get(key);
   if (!refresh && identity && saved && Date.now() - saved.at < MAX_AGE && (!fileId || !saved.value.fileId || saved.value.fileId === fileId)) {

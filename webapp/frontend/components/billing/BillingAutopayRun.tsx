@@ -27,7 +27,7 @@ import { BillingPaymentSettings } from './BillingPaymentSettings';
 import { BillingAutopayExport, BillingBankFileDialog } from './BillingAutopayExport';
 
 const STAGES = [
-  { value: 'ready', label: 'Ready', icon: CheckCircle2, colour: 'text-green-700 dark:text-green-400', help: 'Enrollments are created and the fee message is sent. Bank authorisation is ready and all checks pass.' },
+  { value: 'ready', label: 'Ready', icon: CheckCircle2, colour: 'text-green-700 dark:text-green-400', help: 'Enrollments are confirmed and bank authorisation is ready. Suggested notice and debit dates do not prevent collection.' },
   { value: 'attention', label: 'Needs attention', icon: AlertCircle, colour: 'text-amber-700 dark:text-amber-400', help: 'A payment or enrollment needs checking. See the reason on each row.' },
   { value: 'prepare', label: 'To prepare', icon: ClipboardList, colour: 'text-blue-700 dark:text-blue-400', help: 'Review and create enrollments here. Saved drafts stay here until confirmed.' },
   { value: 'skipped', label: 'Skipped', icon: SkipForward, colour: 'text-ink-subtle', help: 'No debit is due. Check for prepaid lessons, manual payment or cancelled enrollments.' },
@@ -93,7 +93,7 @@ function AutopayRow({ row, onOpen, onOpenRun, onAuthorisation, onPrepare }: { ro
   const bankReason = row.bank_run?.follow_up === 'prepared' ? row.stage === 'attention' ? row.reasons[0]?.label : undefined
     : row.bank_run && ['review', 'rejected'].includes(row.bank_run.follow_up) ? row.bank_run.reason : undefined;
   const authorisationReason = row.reasons.find(reason => reason.code === 'MANDATE_NOT_READY');
-  const statusReason = row.bank_run ? bankReason : row.reasons[0]?.label || (row.stage === 'ready' ? 'Message sent' : 'Review details');
+  const statusReason = row.bank_run ? bankReason : row.reasons[0]?.label || (row.stage === 'ready' ? 'Ready for this collection' : 'Review details');
   const authorisationAction = onAuthorisation && authorisationReason && !row.mandate_ready
     ? <Button size="sm" variant="quiet" className="h-auto justify-start whitespace-normal px-0 py-0 text-left text-amber-800 underline decoration-dotted underline-offset-4 dark:text-amber-300" onClick={event => onAuthorisation(event.currentTarget)} aria-label={`Check bank authorisation for ${student.student_name}`}>{authorisationReason.label}</Button>
     : null;
@@ -287,7 +287,7 @@ export function BillingAutopayRun({ initialCollectionMonth = '' }: { initialColl
     {options.isLoading && <p role="status" className="text-sm text-ink-subtle">Loading collection dates…</p>}
     {(options.error || (!options.isLoading && !rangeReady)) && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm"><p>{options.error instanceof Error ? options.error.message : 'Autopay collection dates are unavailable.'}</p><Button size="sm" onClick={() => { void options.mutate(); }}>Retry collection dates</Button></div>}
     {rangeReady && !monthError && !state.error && <section aria-label="Collection summary" aria-busy={!current} className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-line bg-paper p-3 sm:p-4 lg:grid-cols-[1fr_1fr_auto]">
-      <div className="text-sm"><p className="text-xs text-ink-subtle">Notice</p><p className="mt-1">{current ? dates(current.notice_from, current.notice_to) : 'Checking dates…'}</p></div><div className="text-sm"><p className="text-xs text-ink-subtle">Bank debit</p><p className="mt-1">{current ? dates(current.debit_from, current.debit_to) : 'Checking dates…'}</p></div><div className="col-span-2 border-t border-line pt-2 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><p className="text-xs text-ink-subtle">Ready to collect{current ? ` · ${plural(current.counts.ready, 'payment')}` : ''}</p><p className="mt-0.5 text-xl font-semibold tabular-nums">{current ? formatMOP(current.ready_total, 0) : 'Checking…'}</p></div>
+      <div className="text-sm"><p className="text-xs text-ink-subtle">Suggested notice</p><p className="mt-1">{current ? dates(current.notice_from, current.notice_to) : 'Checking dates…'}</p></div><div className="text-sm"><p className="text-xs text-ink-subtle">Suggested bank debit</p><p className="mt-1">{current ? dates(current.debit_from, current.debit_to) : 'Checking dates…'}</p></div><div className="col-span-2 border-t border-line pt-2 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><p className="text-xs text-ink-subtle">Ready to collect{current ? ` · ${plural(current.counts.ready, 'payment')}` : ''}</p><p className="mt-0.5 text-xl font-semibold tabular-nums">{current ? formatMOP(current.ready_total, 0) : 'Checking…'}</p></div>
     </section>}
     {current && !current.confirmed_storage_available && <p className="text-xs text-amber-800 dark:text-amber-300">Confirmed payments are not available yet.</p>}
     <div ref={tabBar} role="tablist" aria-label="Autopay stages" className="flex gap-4 overflow-x-auto border-b border-line">{STAGES.map(item => <AutopayStageTab key={item.value} item={item} selected={stage === item.value} count={current?.counts[item.value]} id={id} onSelect={() => setStage(item.value)} onKeyDown={changeTab} />)}</div>

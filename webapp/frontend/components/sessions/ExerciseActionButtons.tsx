@@ -58,7 +58,7 @@ export function ExerciseActionButtons({
   // Build actions array (shared between mobile & desktop)
   const actions: ActionItem[] = [
     {
-      label: "Search Shelv",
+      label: "Search courseware",
       icon: <Search className="h-4 w-4 text-amber-700 dark:text-amber-400" />,
       onClick: onPaperlessSearch,
     },

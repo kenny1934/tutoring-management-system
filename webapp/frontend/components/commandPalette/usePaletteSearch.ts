@@ -20,6 +20,7 @@ export function usePaletteSearch(term: string, location: string, scope: string, 
   const current = useRef({ key, enabled }); current.current = { key, enabled };
   const pageRequest = useRef<string | null>(null);
   const generation = useRef(0);
+  const requests = useRef(new Map<AbortController, string>());
   const ready = term.trim().length >= 2 || (!term.trim() && hasSearchConstraint(options));
   useEffect(() => { cache.current.clear(); offsets.current.clear(); }, [scope]);
 
@@ -28,13 +29,13 @@ export function usePaletteSearch(term: string, location: string, scope: string, 
     setMore(null);
     if (!enabled || !ready) return;
     let active = true;
+    const controller = new AbortController();
+    const pending = requests.current; pending.set(controller, key);
     setState({ key, loading: true, error: false });
     const filters: SearchOptions = JSON.parse(optionsKey);
     const request = (extra?: SearchOptions, limit?: number) => {
       const params = { ...filters, ...extra };
-      return Object.keys(params).length
-        ? api.stats.search(term, location, limit, includeHistory, params)
-        : includeHistory || limit ? api.stats.search(term, location, limit, includeHistory) : api.stats.search(term, location);
+      return api.stats.search(term, location, limit, includeHistory, Object.keys(params).length ? params : undefined, controller.signal);
     };
     const timer = setTimeout(async () => {
       try {
@@ -68,9 +69,12 @@ export function usePaletteSearch(term: string, location: string, scope: string, 
         setState({ key, loading: false, error: false });
       } catch {
         if (active) setState({ key, loading: false, error: true });
-      }
+      } finally { pending.delete(controller); }
     }, 200);
-    return () => { active = false; clearTimeout(timer); };
+    return () => {
+      active = false; clearTimeout(timer);
+      for (const [request, owner] of pending) if (owner === key) { request.abort(); pending.delete(request); }
+    };
   }, [key, term, location, scope, enabled, attempt, includeHistory, optionsKey, ready]);
 
   const loadMore = useCallback(async (category: SearchCategory) => {
@@ -79,9 +83,10 @@ export function usePaletteSearch(term: string, location: string, scope: string, 
     const version = generation.current;
     const requestId = `${key}:${version}`;
     pageRequest.current = requestId; setMore({ key, category, error: false });
+    const controller = new AbortController(); requests.current.set(controller, key);
     try {
       const offset = offsets.current.get(key)?.[category] ?? previous[category].length;
-      const page = await api.stats.search(term, location, 5, includeHistory, { ...JSON.parse(optionsKey), category, offset });
+      const page = await api.stats.search(term, location, 5, includeHistory, { ...JSON.parse(optionsKey), category, offset }, controller.signal);
       if (!current.current.enabled || current.current.key !== key || generation.current !== version) return;
       const data = { ...previous, has_more: { ...previous.has_more, [category]: !!page[category].length && (page.has_more?.[category] ?? false) } };
       Object.assign(data, { [category]: mergeRows(previous[category] as { id: number }[], page[category]) });
@@ -90,7 +95,7 @@ export function usePaletteSearch(term: string, location: string, scope: string, 
       setMore(null); render();
     } catch {
       if (current.current.key === key && current.current.enabled && generation.current === version) setMore({ key, category, error: true });
-    } finally { if (pageRequest.current === requestId) pageRequest.current = null; }
+    } finally { requests.current.delete(controller); if (pageRequest.current === requestId) pageRequest.current = null; }
   }, [key, term, location, enabled, includeHistory, optionsKey, state?.loading]);
   const results = cache.current.get(key) ?? null;
   const error = state?.key === key && state.error;

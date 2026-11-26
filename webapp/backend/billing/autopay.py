@@ -5,7 +5,6 @@ shown separately and never contribute to the amount ready for collection.
 """
 from collections import defaultdict
 from datetime import date, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, or_
 
@@ -410,7 +409,7 @@ def build_autopay_run(db, *, as_of, month, holidays, tutor_id=None, location=Non
                 row.collection, row.coverage_from, row.coverage_through = p.collection, p.coverage_from, p.coverage_through
                 row.lesson_count, row.total_fee, row.amount_basis = p.lesson_count, p.total_fee, 'confirmed'
             if not valid or integrity:
-                row.reasons.append(reason('PAYMENT_INTEGRITY', 'Check the confirmed enrollment'))
+                row.reasons.append(reason('PAYMENT_INTEGRITY', 'The confirmed payment no longer matches its enrollments. Open payment details.'))
                 # A corrupt total is never presented as an approved amount.
                 if not valid:
                     row.total_fee, row.amount_basis = None, 'unknown'
@@ -422,33 +421,25 @@ def build_autopay_run(db, *, as_of, month, holidays, tutor_id=None, location=Non
                 row.reasons.append(reason('ALREADY_PAID' if due else 'PREPAID',
                     'Payment already received' if due else 'Already paid for these lessons'))
             elif payment.status != 'Pending Payment':
-                row.reasons.append(reason('PAYMENT_STATUS', 'Check the payment status'))
+                row.reasons.append(reason('PAYMENT_STATUS', 'This payment is not pending. Open payment details.'))
             elif review.period.collection.method != 'autopay':
                 row.stage = 'skipped'
                 row.reasons.append(reason('MANUAL_COLLECTION', 'Collect this enrollment manually'))
             else:
                 if not due:
-                    row.reasons.append(reason('EARLIER_PAYMENT_UNPAID', 'Earlier payment still unpaid'))
+                    row.reasons.append(reason('EARLIER_PAYMENT_UNPAID', 'This unpaid payment belongs to an earlier collection month. Select that month to collect it.'))
                 if not active:
-                    row.reasons.append(reason('ACCOUNT_INACTIVE', 'Check fee scheme setup'))
+                    row.reasons.append(reason('ACCOUNT_INACTIVE', 'The billing account is inactive. Review the student’s payment plan.'))
                 if method != 'autopay':
-                    row.reasons.append(reason('PREFERENCE_CHANGED', 'Check the saved payment method'))
+                    row.reasons.append(reason('PREFERENCE_CHANGED', 'The saved payment method has changed. Review the student’s payment plan.'))
                 if not mandate:
-                    row.reasons.append(reason('MANDATE_NOT_READY', 'Check bank authorisation'))
-                if not payment.sent_at:
-                    row.reasons.append(reason('MESSAGE_NOT_SENT', 'Send the fee message'))
-                if (payment.sent_at and review.period.collection.notice_to
-                        and utc(payment.sent_at).astimezone(ZoneInfo('Asia/Hong_Kong')).date() > review.period.collection.notice_to):
-                    row.reasons.append(reason('MESSAGE_SENT_LATE', 'Check the fee message date'))
+                    row.reasons.append(reason('MANDATE_NOT_READY', 'Record bank authorisation before collecting this payment.'))
+                # Confirmation approves this renewal. Notice and debit dates
+                # guide staff, but late administration must not prevent collection.
                 if sid in earlier_debt and due:
-                    row.reasons.append(reason('OUTSTANDING_PAYMENT', 'Check the earlier unpaid payment'))
-                if (not month.replace(day=20) <= review.period.collection.debit_from <= month.replace(day=22)
-                        or not month.replace(day=20) <= review.period.collection.debit_to <= month.replace(day=22)):
-                    row.reasons.append(reason('COLLECTION_DATES_REVIEW', 'Check the collection dates'))
+                    row.reasons.append(reason('OUTSTANDING_PAYMENT', 'An earlier Autopay payment is still unpaid. Review it before collecting this renewal.'))
                 if due_counts[sid] > 1:
-                    row.reasons.append(reason('MULTIPLE_DUE_PAYMENTS', 'Check multiple payments in this run'))
-                if review.period.collection.debit_to and as_of > review.period.collection.debit_to:
-                    row.reasons.append(reason('DEBIT_WINDOW_PASSED', 'Collection dates have passed'))
+                    row.reasons.append(reason('MULTIPLE_DUE_PAYMENTS', 'This student has multiple unpaid payments for this month. Review them before collecting.'))
                 if not row.reasons:
                     row.stage = 'ready'
                     row.reasons.append(reason('READY', 'Ready for this collection'))

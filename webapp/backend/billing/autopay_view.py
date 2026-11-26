@@ -45,7 +45,6 @@ def _matched_report(run, imported, frozen, identity, as_of):
         report = imported.report
         debit_date = date.fromisoformat(report['debit_date'])
         if (report.get('issues') or report_issues(report) or debit_date > as_of
-                or debit_date.strftime('%Y-%m') != run.collection_month
                 or report['currency'] != 'MOP'
                 or (run.bank_batch_no and report['bank_batch_no'] != run.bank_batch_no)
                 or report['bank_identity_hash'] != imported.bank_identity_hash
@@ -68,10 +67,6 @@ def _matched_report(run, imported, frozen, identity, as_of):
             actual[contract] = normalised
         if set(actual) != set(saved):
             return None
-        for row in frozen.rows:
-            collection = run.payment_evidence[row.payment_id]['collection']
-            if not date.fromisoformat(collection['debit_from']) <= debit_date <= date.fromisoformat(collection['debit_to']):
-                return None
         return debit_date, actual
     except INVALID:
         return None

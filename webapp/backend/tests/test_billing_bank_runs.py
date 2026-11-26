@@ -1,6 +1,6 @@
 """Persistent bank runs against invented financial records in isolated SQLite."""
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
@@ -189,7 +189,7 @@ def test_rejected_result_keeps_claimed_debt_without_automatic_actions(env, monke
     assert client.get(f"/api/billing/autopay/runs/{run['id']}").json()['status'] == 'needs_attention'
 
 
-@pytest.mark.parametrize('change', ['future', 'wrong_month', 'wrong_window', 'wrong_batch', 'wrong_total'])
+@pytest.mark.parametrize('change', ['future', 'invalid_date', 'wrong_batch', 'wrong_total'])
 def test_global_report_conflicts_block_all_financial_changes(env, monkeypatch, change):
     client, db, _, payment = env
     run, _ = prepared(client)
@@ -197,10 +197,17 @@ def test_global_report_conflicts_block_all_financial_changes(env, monkeypatch, c
     monkeypatch.setattr('routers.billing_bank_runs.today', lambda: date(2026, 11, 23))
     args = {}
     if change == 'future': args['date'] = '2026/11/24'
-    if change == 'wrong_month': args['date'] = '2026/12/21'
-    if change == 'wrong_window': args['date'] = '2026/11/19'
+    if change == 'invalid_date': args['date'] = 'not a date'
     if change == 'wrong_batch': args['batch'] = '000099999'
     if change == 'wrong_total': args['total'] = '1.00'
+    if change == 'invalid_date':
+        response = client.post(f"/api/billing/autopay/runs/{run['id']}/results",
+            data={'expected_version': str(run['version'])},
+            files={'file': ('bank-results.xls', report_for(run, **args), 'application/octet-stream')})
+        assert response.status_code == 422
+        assert db.get(BillingPayment, payment.id).status == 'Pending Payment'
+        assert db.query(BillingOperation).filter_by(kind='paid').count() == 0
+        return
     review = uploaded(client, run, report_for(run, **args))
     assert review['issues'] and not review['can_confirm']
     assert db.get(BillingPayment, payment.id).status == 'Pending Payment'
@@ -259,3 +266,71 @@ def test_effective_role_restricts_run_reads_and_writes(env, role, header):
     assert client.post('/api/billing/autopay/runs', headers=headers, json={
         'collection_month': '2026-11', 'branch': 'MSA', 'expected_content_hash': 'a' * 64,
         'idempotency_key': 'forbidden'}).status_code == 403
+
+
+@pytest.mark.parametrize('first_uploaded', [False, True])
+def test_later_students_get_separate_file_without_repeating_first_batch(env, monkeypatch, first_uploaded):
+    client, db, _, original = env
+    first, _ = prepared(client)
+    first_bytes = client.get(f"/api/billing/autopay/runs/{first['id']}/file").content
+    if first_uploaded:
+        first, _ = submitted(client, first, key='upload-first', batch='000004321')
+    later = clone_payment_for_student(db, original, 201)
+    later.sent_at = None
+    db.commit()
+    for router in ['billing_autopay', 'billing_bank_runs']:
+        monkeypatch.setattr(f'routers.{router}.today', lambda: date(2026, 11, 26))
+    review = preview(client)
+    assert review['can_download'] and review['excluded_claimed_count'] == 1
+    assert [r['payment_id'] for r in review['rows']] == [later.id]
+    second, _ = prepared(client, key='prepare-later')
+    assert first['id'] != second['id'] and second['can_submit']
+    assert [r['payment_id'] for r in second['export_preview']['rows']] == [later.id]
+    assert second['filename'] != first['filename']
+    assert client.get(f"/api/billing/autopay/runs/{first['id']}/file").content == first_bytes
+    second, _ = submitted(client, second, key='upload-later', batch='000004322')
+    assert second['status'] == 'submitted'
+    assert db.query(BankRunClaim).count() == 2
+    assert preview(client)['payment_count'] == 0
+    assert preview(client)['excluded_claimed_count'] == 2
+    assert original.status == later.status == 'Pending Payment'
+    if not first_uploaded:
+        assert client.get(f"/api/billing/autopay/runs/{first['id']}").json()['can_submit']
+        first, _ = submitted(client, first, key='upload-first-late', batch='000004321')
+    # Each result import settles only the students in its own saved file.
+    second_report = report_for(second, date='2026/11/26', batch='000004322')
+    wrong_run = uploaded(client, first, second_report)
+    assert wrong_run['issues'] and not wrong_run['can_confirm']
+    second_review = uploaded(client, second, second_report)
+    response, _ = confirm(client, second_review, key='record-later')
+    assert response.status_code == 200, response.text
+    assert later.status == 'Paid' and original.status == 'Pending Payment'
+    first = client.get(f"/api/billing/autopay/runs/{first['id']}").json()
+    first_review = uploaded(client, first, report_for(first, date='2026/11/26', batch='000004321'))
+    response, _ = confirm(client, first_review, key='record-first')
+    assert response.status_code == 200, response.text
+    assert original.status == later.status == 'Paid'
+    assert db.query(BillingOperation).filter_by(kind='paid').count() == 2
+
+
+@pytest.mark.parametrize('debit_date', [date(2026, 11, 19), date(2026, 11, 26), date(2026, 12, 3)])
+def test_delayed_collection_records_actual_bank_date_and_follow_up(env, monkeypatch, debit_date):
+    from tests.test_billing_autopay import run as public_run
+    client, db, _, payment = env
+    saved, _ = prepared(client)
+    payment.sent_at = datetime(2026, 11, 26, 4)
+    db.commit()
+    for router in ['billing_autopay', 'billing_bank_runs']:
+        monkeypatch.setattr(f'routers.{router}.today', lambda: date(2026, 12, 4))
+    assert client.get(f"/api/billing/autopay/runs/{saved['id']}").json()['can_submit']
+    saved, _ = submitted(client, saved)
+    review = uploaded(client, saved, report_for(saved, date=debit_date.strftime('%Y/%m/%d')))
+    assert review['can_confirm'] and not review['issues']
+    assert public_run(client)['rows'][0]['bank_run']['follow_up'] == 'record_payment'
+    response, body = confirm(client, review)
+    assert response.status_code == 200, response.text
+    assert payment.status == 'Paid' and payment.payment_date == debit_date
+    assert public_run(client)['rows'][0]['bank_run']['follow_up'] == 'recorded'
+    retry = client.post(f"/api/billing/autopay/runs/{saved['id']}/results/{review['id']}/confirm", json=body)
+    assert retry.json() == response.json()
+    assert db.query(BillingOperation).filter_by(kind='paid').count() == 1
