@@ -1,13 +1,7 @@
 """Validate explicit backdated moves without changing attendance or sold counts."""
-from datetime import timedelta
 
 from constants import CONFLICTING_SESSION_STATUSES
 from models import SessionLog
-
-
-def first_week_start(first_date):
-    """A new weekday may fall before the first lesson in the same calendar week."""
-    return first_date - timedelta(days=first_date.weekday())
 
 
 def validate_backdated_targets(db, enrollment, targets, effective, today, coverage_from, coverage_through):
@@ -24,7 +18,7 @@ def validate_backdated_targets(db, enrollment, targets, effective, today, covera
         if (row.session_status != 'Scheduled' or row.make_up_for_id or row.rescheduled_to_id
                 or any(other.make_up_for_id == row.id for other in all_sessions)):
             issues.append('Existing attendance or make-up arrangements need review before backdating this change.')
-        if not coverage_from <= day <= coverage_through:
+        if day > coverage_through or (coverage_from is not None and day < coverage_from):
             issues.append('Keep the changed sessions within the enrollment period.')
         start, end = time_range(time)
         for other in all_sessions:

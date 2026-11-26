@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef, memo } from "react";
+import { SelectionActionBar } from "./SelectionActionBar";
 import { NativeRequestError } from "@/components/design-preview/NativeRequestError";
 import { useNativeNavigationMemory, useNativeSessionsHref, useNativeViewState } from "@/components/design-preview/NativeNavigationMemory";
 import Link from "next/link";
@@ -12,7 +13,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, Presentation, UserPlus } from "lucide-react";
 import { DashboardSessionsSkeleton } from "./DashboardSkeletons";
 import previewStyles from "@/components/design-preview/NativePreview.module.css";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
@@ -507,14 +508,11 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
       </div>
 
       {/* Footer with Stats & Link (or Bulk Actions if selected) */}
-      <div className="px-4 py-3 border-t border-line bg-tint/50 flex-shrink-0">
+      <div className={cn("border-t border-line bg-tint/50 flex-shrink-0", !hasSelection && "px-4 py-3")}>
         {hasSelection ? (
           /* Bulk Action Bar */
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              {selectedIds.size} selected
-            </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <SelectionActionBar count={selectedIds.size} onClear={clearSelection}>
+            <div className="flex flex-wrap items-center gap-1.5">
               {/* Attendance actions - conditional based on selected sessions */}
               {bulkActionsAvailable.attended && (
                 <Button
@@ -528,7 +526,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   title="Mark all as attended"
                   aria-label="Mark all as attended"
                 >
-                  <span className="hidden xs:inline">Attended</span>
+                  <span className="hidden md:inline">Attended</span>
                 </Button>
               )}
               {bulkActionsAvailable.noShow && (
@@ -543,7 +541,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   title="Mark all as no show"
                   aria-label="Mark all as no show"
                 >
-                  <span className="hidden xs:inline">No show</span>
+                  <span className="hidden md:inline">No show</span>
                 </Button>
               )}
               {bulkActionsAvailable.reschedule && (
@@ -558,7 +556,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   title="Mark all as rescheduled"
                   aria-label="Mark all as rescheduled"
                 >
-                  <span className="hidden xs:inline">Reschedule</span>
+                  <span className="hidden md:inline">Reschedule</span>
                 </Button>
               )}
               {bulkActionsAvailable.sickLeave && (
@@ -573,7 +571,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   title="Mark all as sick leave"
                   aria-label="Mark all as sick leave"
                 >
-                  <span className="hidden xs:inline">Sick</span>
+                  <span className="hidden md:inline">Sick</span>
                 </Button>
               )}
               {bulkActionsAvailable.weatherCancelled && (
@@ -588,9 +586,11 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   title="Mark all as weather cancelled"
                   aria-label="Mark all as weather cancelled"
                 >
-                  <span className="hidden xs:inline">Weather</span>
+                  <span className="hidden md:inline">Weather</span>
                 </Button>
               )}
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
               {/* Exercise actions - always visible */}
               <ExerciseDropdownButton
                 exerciseType="CW"
@@ -610,18 +610,8 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 isProcessing={bulkExerciseProcessing === 'HW'}
                 dropUp
               />
-              {/* Clear button - always visible */}
-              <Button
-                size="sm"
-                variant="quiet"
-                icon={X}
-                onClick={clearSelection}
-                aria-label="Clear selection"
-              >
-                <span className="hidden xs:inline">Clear</span>
-              </Button>
             </div>
-          </div>
+          </SelectionActionBar>
         ) : (
           /* Regular Stats Footer */
           <div className="flex items-center justify-between">

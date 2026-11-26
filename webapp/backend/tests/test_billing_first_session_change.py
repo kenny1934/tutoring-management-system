@@ -62,7 +62,7 @@ def test_first_friday_can_move_to_wednesday_before_its_original_start(intake_env
     old_count = block.lessons_paid
     default = preview(db, block, request(None), as_of=date(2026, 11, 26))
     assert default['effective_date'] == '2026-11-27'
-    assert default['effective_date_min'] == '2026-11-23'
+    assert default['effective_date_min'] == '2026-09-01'
     proposal = preview(db, block, request(), as_of=date(2026, 11, 26))
     assert not proposal['issues']
     assert proposal['first_lesson_date'] == '2026-11-25'
@@ -107,10 +107,26 @@ def test_first_friday_can_move_to_wednesday_before_its_original_start(intake_env
     assert payment_detail(db, payment).review_issues
 
 
-def test_first_week_limit_rejects_an_unrelated_earlier_week(intake_env, monkeypatch):
+@pytest.mark.parametrize('paid', [True, False])
+def test_earlier_week_can_be_reviewed_and_saved(intake_env, monkeypatch, paid):
+    _, db, actor, payment, block = first_payment(intake_env, monkeypatch, paid=paid)
+    proposal = preview(db, block, request(date(2026, 11, 18)), as_of=date(2026, 11, 26))
+    assert not proposal['issues']
+    assert proposal['first_lesson_date'] == '2026-11-18'
+    assert proposal['new_count'] == 7 and proposal['additional_amount'] == 1200
+    data = ApplyScheduleChangeRequest(**request(date(2026, 11, 18)).model_dump(exclude={'review_period'}),
+        expected_adjustment_hash=proposal['review_hash'], idempotency_key='earlier-week',
+        acknowledge_past_dates=True, reason='The timetable started a week earlier.')
+    apply(db, block.id, data, actor, as_of=date(2026, 11, 26)); db.commit()
+    assert block.first_lesson_date == date(2026, 11, 18)
+    assert payment_detail(db, payment).review_issues == []
+    assert db.query(SessionLog).filter_by(enrollment_id=block.id, session_date=date(2026, 11, 18)).count() == 1
+
+
+def test_earlier_first_date_stays_in_its_billing_year(intake_env, monkeypatch):
     _, db, _, _, block = first_payment(intake_env, monkeypatch)
     with pytest.raises(HTTPException, match='within the billing period'):
-        preview(db, block, request(date(2026, 11, 18)), as_of=date(2026, 11, 26))
+        preview(db, block, request(date(2026, 8, 31)), as_of=date(2026, 11, 26))
 
 
 def test_earlier_first_date_still_checks_overlapping_attendance(intake_env, monkeypatch):
@@ -129,7 +145,7 @@ def test_http_first_week_preview_and_save_use_the_same_earlier_start(intake_env,
     response = client.post(f'/api/enrollments/{block.id}/schedule-change-preview', json=data)
     assert response.status_code == 200, response.text
     proposal = response.json()['period_adjustment']
-    assert proposal['effective_date_min'] == '2026-11-23'
+    assert proposal['effective_date_min'] == '2026-09-01'
     assert proposal['previous_first_lesson_date'] == '2026-11-27'
     assert proposal['first_lesson_date'] == '2026-11-25'
     data.pop('review_period')

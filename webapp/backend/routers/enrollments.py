@@ -2883,11 +2883,10 @@ def _preview_schedule_change(enrollment_id, new_schedule, db):
     roots = [row.session_date for row in sessions if not row.make_up_for_id]
     coverage_from = enrollment.first_lesson_date or min(roots, default=today)
     coverage_through = max(roots, default=coverage_from)
-    from services.schedule_backdating import first_week_start
     first_roots = [row for row in sessions if not row.make_up_for_id and row.session_date == coverage_from]
     can_move_first = first_roots and all(row.session_status == 'Scheduled' and not row.rescheduled_to_id
         and not any(other.make_up_for_id == row.id for other in sessions) for row in first_roots)
-    effective_min = first_week_start(coverage_from) if can_move_first else coverage_from
+    effective_min = None if can_move_first else coverage_from
 
     # Include backdated targets when checking holidays.
     end_range = max(today, coverage_through) + timedelta(weeks=52)
@@ -2992,7 +2991,7 @@ def _preview_schedule_change(enrollment_id, new_schedule, db):
             conflicts = []
             updatable_sessions = []
             warnings = period_adjustment['issues']
-    if period_adjustment is None and new_schedule.effective_date and not effective_min <= effective <= coverage_through:
+    if period_adjustment is None and new_schedule.effective_date and (effective > coverage_through or (effective_min is not None and effective < effective_min)):
         raise HTTPException(422, 'Choose an effective date within the enrollment period.')
     backdate_issues = []
     if period_adjustment is None:

@@ -71,21 +71,39 @@ it('resets confirmation when the monthly reviewed dates change', async () => {
 it('allows an earlier first weekday and shows the changed enrollment start', async () => {
   mocks.preview.mockImplementation(async (_id, request) => ({ enrollment_id: 20, as_of: '2026-11-26',
     period_adjustment: { ...proposal, effective_date: request.effective_date || '2026-11-27',
-      coverage_from: '2026-11-27', coverage_through: '2026-12-31', effective_date_min: '2026-11-23',
-      previous_first_lesson_date: '2026-11-27', first_lesson_date: request.effective_date === '2026-11-25' ? '2026-11-25' : '2026-11-27',
-      requires_past_confirmation: request.effective_date === '2026-11-25',
-      moves: [{ session_id: 7, from_date: '2026-11-27', date: request.effective_date === '2026-11-25' ? '2026-11-25' : '2026-12-02' }],
+      coverage_from: '2026-11-27', coverage_through: '2026-12-31', effective_date_min: '2026-09-01',
+      previous_first_lesson_date: '2026-11-27', first_lesson_date: request.effective_date === '2026-11-18' ? '2026-11-18' : '2026-11-27',
+      requires_past_confirmation: request.effective_date === '2026-11-18',
+      moves: [{ session_id: 7, from_date: '2026-11-27', date: request.effective_date === '2026-11-18' ? '2026-11-18' : '2026-12-02' }],
       added_dates: [], additional_amount: 0 }, updatable_sessions: [], unchangeable_sessions: [], conflicts: [], warnings: [], can_apply: true }));
   mount({ ...schedule, day: 'Fri' }, 'Wed');
   const date = await screen.findByLabelText('Change effective from') as HTMLInputElement;
   expect(date).toHaveValue('2026-11-27');
-  expect(date).toHaveAttribute('min', '2026-11-23');
-  fireEvent.change(date, { target: { value: '2026-11-25' } });
+  expect(date).toHaveAttribute('min', '2026-09-01');
+  fireEvent.change(date, { target: { value: '2026-11-18' } });
   expect(date.checkValidity()).toBe(true);
-  expect(await screen.findByText('Enrollment starts Nov 25, 2026 (was Nov 27, 2026).')).toBeInTheDocument();
+  expect(await screen.findByText('Enrollment starts Nov 18, 2026 (was Nov 27, 2026).')).toBeInTheDocument();
   const confirm = await screen.findByRole('checkbox', { name: 'I confirm the past dates are correct.' });
   fireEvent.change(screen.getByLabelText('Reason for the change'), { target: { value: 'The first lesson moved to Wednesday.' } });
   expect(screen.getByRole('button', { name: 'Apply changes' })).toBeDisabled();
   fireEvent.click(confirm); fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
-  await waitFor(() => expect(mocks.apply).toHaveBeenCalledWith(20, expect.objectContaining({ effective_date: '2026-11-25', acknowledge_past_dates: true })));
+  await waitFor(() => expect(mocks.apply).toHaveBeenCalledWith(20, expect.objectContaining({ effective_date: '2026-11-18', acknowledge_past_dates: true })));
+});
+
+
+it('keeps legacy session dates when only the enrollment timetable is changed', async () => {
+  mocks.preview.mockResolvedValue({ enrollment_id: 20, as_of: '2026-11-26', effective_date: '2026-11-27',
+    effective_date_min: null, coverage_from: '2026-11-27', coverage_through: '2026-12-31',
+    updatable_sessions: [{ session_id: 7, current_date: '2026-11-27', current_time_slot: '16:00 - 17:30',
+      current_tutor_name: 'Example Tutor', new_tutor_name: 'Example Tutor', new_date: '2026-12-02',
+      new_time_slot: '16:00 - 17:30', is_holiday: false }],
+    unchangeable_sessions: [], conflicts: [], warnings: [], can_apply: true });
+  mount({ ...schedule, day: 'Fri' }, 'Wed');
+  const date = await screen.findByLabelText('Change effective from');
+  expect(date).not.toHaveAttribute('min');
+  fireEvent.change(date, { target: { value: '2026-11-18' } });
+  await waitFor(() => expect(mocks.preview).toHaveBeenCalledWith(20, expect.objectContaining({ effective_date: '2026-11-18' })));
+  fireEvent.click(screen.getByRole('button', { name: 'Keep all sessions' }));
+  await waitFor(() => expect(mocks.apply).toHaveBeenCalledWith(20, expect.objectContaining({
+    effective_date: '2026-11-18', apply_to_sessions: false, assigned_day: 'Wed' })));
 });

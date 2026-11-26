@@ -219,7 +219,7 @@ export function ScheduleChangeReviewModal({
     setIsSubmitting(true);
     try {
       const result = await enrollmentsAPI.applyScheduleChange(enrollmentId, {
-        ...(!adjustment && effectiveDate ? { effective_date: effectiveDate } : {}),
+        ...(!preview?.period_adjustment && effectiveDate ? { effective_date: effectiveDate } : {}),
         ...(needsPastConfirmation ? { acknowledge_past_dates: pastDatesConfirmed, reason: reason.trim() } : {}),
         assigned_day: newSchedule.day,
         assigned_time: newSchedule.time,
@@ -311,7 +311,7 @@ export function ScheduleChangeReviewModal({
         )
       }
     >
-      {preview?.enrollment_id === enrollmentId && currentSchedule.day.slice(0, 3) !== newSchedule.day.slice(0, 3) && <Field label="Change effective from" id="schedule-effective-date" className="mb-4"><Input id="schedule-effective-date" type="date" value={selectedEffective} min={preview.period_adjustment?.effective_date_min || preview.effective_date_min || preview.period_adjustment?.coverage_from || preview.coverage_from || undefined} max={preview.period_adjustment?.coverage_through || preview.coverage_through || undefined} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>}
+      {preview?.enrollment_id === enrollmentId && currentSchedule.day.slice(0, 3) !== newSchedule.day.slice(0, 3) && <Field label="Change effective from" id="schedule-effective-date" className="mb-4"><Input id="schedule-effective-date" type="date" value={selectedEffective} min={(preview.period_adjustment ? preview.period_adjustment.effective_date_min ?? preview.period_adjustment.coverage_from : preview.effective_date_min) || undefined} max={preview.period_adjustment?.coverage_through || preview.coverage_through || undefined} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>}
       {previewLoading ? (
         <div className="text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent-ink" />
@@ -535,7 +535,7 @@ export function ScheduleChangeReviewModal({
                                         size="sm"
                                         value={overrides[session.session_id]?.date || effectiveDate}
                                         onChange={(e) => handleDateOverride(session.session_id, e.target.value)}
-                                        min={preview.effective_date_min || preview.coverage_from || undefined}
+                                        min={preview.effective_date_min || undefined}
                                         max={preview.coverage_through || undefined}
                                       />
                                     </Field>
