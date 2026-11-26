@@ -6,6 +6,7 @@ import { TimeRangeInput } from "@/components/controls/TimeRangeInput";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSWRConfig } from "swr";
 import { Modal } from "@/components/ui/modal";
+import { PeriodSchedulePreview } from "./PeriodSchedulePreview";
 import { useToast } from "@/contexts/ToastContext";
 import {
   AlertTriangle,
@@ -319,12 +320,9 @@ export function ScheduleChangeReviewModal({
           </div>
 
           {preview.period_adjustment && <section aria-label="Billing period adjustment" className="space-y-3 rounded border border-line p-3">
-            <p className="text-sm">Enrollment: {preview.period_adjustment.previous_count} → {preview.period_adjustment.new_count} sessions. Billing ends {formatShortDate(preview.period_adjustment.coverage_through)}.</p>
+            <p className="text-sm">{preview.period_adjustment.previous_count !== preview.period_adjustment.new_count && <>{preview.period_adjustment.previous_count} → </>}{preview.period_adjustment.new_count} billed sessions · Billing ends {formatShortDate(preview.period_adjustment.coverage_through)}.</p>
             <Field label="Change effective from" id="schedule-effective-date"><Input id="schedule-effective-date" type="date" value={effectiveDate || preview.period_adjustment.effective_date} min={preview.period_adjustment.coverage_from} max={preview.period_adjustment.coverage_through} disabled={isSubmitting} onChange={event => setEffectiveDate(event.target.value)} /></Field>
-            <p className="text-sm">Additional tuition: MOP {preview.period_adjustment.additional_amount.toLocaleString('en-US')}.{preview.period_adjustment.additional_amount > 0 && (preview.period_adjustment.original_payment_status === 'Paid' ? ' The added sessions will be unpaid, and the enrollment will be partially paid until the additional tuition is received.' : ' The unpaid bill will include these additional sessions.')}</p>
-            {preview.period_adjustment.moves.length > 0 && <div className="space-y-1 text-xs"><p className="font-medium">Regular sessions on the new timetable</p>{preview.period_adjustment.moves.map(move => <p key={move.session_id}>{formatShortDate(move.from_date)} → {formatShortDate(move.date)} · {newSchedule.time}</p>)}</div>}
-            {preview.period_adjustment.added_dates.length > 0 && <div className="space-y-1 text-xs"><p className="font-medium">Additional unpaid sessions</p>{preview.period_adjustment.added_dates.map(day => <p key={day}>{formatShortDate(day)} · {newSchedule.time}</p>)}</div>}
-            {preview.period_adjustment.pending_session_ids.length > 0 && <p className="text-sm">{preview.period_adjustment.pending_session_ids.length} sessions need rescheduling. These will remain on this enrollment as pending make-ups. The original fee and billing end date stay the same.</p>}
+            <PeriodSchedulePreview adjustment={preview.period_adjustment} time={newSchedule.time} tutorName={newSchedule.tutorName} />
             <Field label="Reason for the change" id="schedule-adjustment-reason"><Input id="schedule-adjustment-reason" maxLength={500} value={reason} disabled={isSubmitting} onChange={event => setReason(event.target.value)} /></Field>
           </section>}
 

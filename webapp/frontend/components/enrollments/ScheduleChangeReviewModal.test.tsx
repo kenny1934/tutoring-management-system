@@ -14,7 +14,9 @@ it('reviews added unpaid sessions and submits the exact reviewed period', async 
   mount();
   await screen.findByRole('region', { name: 'Billing period adjustment' });
   expect(mocks.preview).toHaveBeenCalledWith(20, expect.objectContaining({ review_period: true }));
-  expect(screen.getByText(/The added sessions will be unpaid/)).toHaveTextContent('800');
+  expect(screen.getByText('Additional tuition: MOP 800')).toBeInTheDocument();
+  expect(screen.getAllByText('Additional · Unpaid')).toHaveLength(2);
+  expect(screen.getByText('Enrollment becomes partially paid')).toBeInTheDocument();
   const submit = screen.getByRole('button', { name: 'Apply changes' });
   expect(submit).toBeDisabled();
   fireEvent.change(screen.getByLabelText('Reason for the change'), { target: { value: 'Permanent weekday change' } });
@@ -23,7 +25,13 @@ it('reviews added unpaid sessions and submits the exact reviewed period', async 
   expect(screen.queryByRole('button', { name: 'Keep all sessions' })).not.toBeInTheDocument();
 });
 it('explains surplus entitlements without a refund or an extended period', async () => {
-  mocks.preview.mockResolvedValue({ enrollment_id: 20, period_adjustment: { ...proposal, previous_count: 5, new_count: 5, pending_session_ids: [4, 5], added_dates: [], additional_amount: 0 }, updatable_sessions: [], unchangeable_sessions: [], conflicts: [], warnings: [], can_apply: true });
+  mocks.preview.mockResolvedValue({ enrollment_id: 20, period_adjustment: { ...proposal, previous_count: 5, new_count: 5, pending_session_ids: [4, 5], pending_sessions: [{ session_id: 4, date: '2027-01-22', time_slot: '16:00 - 17:30' }, { session_id: 5, date: '2027-01-29', time_slot: '16:00 - 17:30' }], added_dates: [], additional_amount: 0 }, updatable_sessions: [], unchangeable_sessions: [], conflicts: [], warnings: [], can_apply: true });
   mount();
-  expect(await screen.findByText(/2 sessions need rescheduling/)).toHaveTextContent('The original fee and billing end date stay the same');
+  expect(await screen.findByText('No additional payment')).toBeInTheDocument();
+  expect(screen.getAllByText('Needs rescheduling')).toHaveLength(2);
+  const list = screen.getByRole('list', { name: 'Session changes' });
+  expect(list).toHaveTextContent('Jan 22, 2027');
+  expect(list).toHaveTextContent('Jan 29, 2027');
+  expect(screen.getByText('Fee and billing end unchanged.')).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
