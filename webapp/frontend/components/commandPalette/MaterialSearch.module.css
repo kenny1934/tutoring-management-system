@@ -222,7 +222,7 @@
 .chunk p { max-width: 85ch; }
 @media(max-width:767px) {
   .list.withSelection { display: none; }
-  .expandReader { display: none; }
+  .actions .expandReader { display: none; }
   .textPages select { min-height: 44px; font-size: 16px; }
 }
 
