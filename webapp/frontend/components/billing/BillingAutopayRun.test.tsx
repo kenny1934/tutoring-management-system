@@ -189,7 +189,7 @@ describe('autopay collection review', () => {
     expect(within(screen.getByRole('region', { name: 'Collection summary' })).getByText('MOP 0')).toBeInTheDocument();
     expect(screen.queryByText('Ready to collect · 1 payment')).not.toBeInTheDocument();
     fireEvent.click(within(card).getByRole('button', { name: 'Details for Synthetic Student' }));
-    expect(await screen.findByRole('button', { name: 'Review draft' })).toBeVisible();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review draft' })).toBeVisible());
     expect(screen.queryByRole('link', { name: 'Review draft' })).not.toBeInTheDocument();
     expect(screen.getByText('Confirm the amount when reviewing the enrollment.')).toBeInTheDocument();
     expect(mocks.payment).not.toHaveBeenCalled();
