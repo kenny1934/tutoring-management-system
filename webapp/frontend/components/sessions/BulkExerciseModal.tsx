@@ -28,7 +28,6 @@ import { SummerBulkAssignSection } from "./SummerMaterialsSection";
 import { ExerciseModal } from "./ExerciseModal";
 import { TrendingCoursewareSection } from "./TrendingCoursewareSection";
 import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { bulkDownloadByStudent, bulkPrintAllStudents, groupExercisesByStudent } from "@/lib/bulk-exercise-download";
 import { printErrorMessage } from "@/lib/lesson-utils";
 import { exerciseInputClass } from "./exercise-constants";
@@ -603,7 +602,7 @@ function GroupExerciseModal({
     bulkOutputRunning.current = true;
     setPrintAllState('loading');
     try {
-      const error = await bulkPrintAllStudents(groups, searchPaperlessByPath);
+      const error = await bulkPrintAllStudents(groups);
       if (error) showToast(printErrorMessage(error), 'error');
     } catch {
       showToast(printErrorMessage('print_failed'), 'error');

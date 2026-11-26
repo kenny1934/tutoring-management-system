@@ -1,0 +1,26 @@
+.workspace { display: flex; flex-direction: column; min-height: 280px; height: 100%; min-width: 0; color: var(--color-ink-heading); background: var(--color-paper); }
+.header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 12px 20px; border-bottom: 1px solid var(--color-line); }
+.query { display: flex; flex: 1 1 220px; min-width: 0; gap: 10px; align-items: center; }
+.query svg { flex: none; color: var(--color-ink-subtle); }
+.query input { flex: 1; min-width: 0; min-height: 40px; background: transparent; color: inherit; outline-offset: 3px; font-size: 15px; }
+.tools { display: flex; align-items: center; min-width: 0; }
+.modal { display: flex; flex-direction: column; height: min(82dvh, 1100px); min-height: 0; }
+.modal > div:last-child { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0; overflow: hidden; }
+@media(max-width:767px) { .header { padding: 8px 16px; gap: 8px; flex-wrap: nowrap; } .query { flex-basis: 0; } .modal { height: min(88dvh, 1100px); } }
+
+.start { display: flex; flex-direction: column; gap: 16px; padding: 12px 20px; }
+.recentHeader { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; color: var(--color-ink-subtle); }
+.recentHeader button { min-height: 32px; text-decoration: underline; }
+.recentFile { display: flex; align-items: center; gap: 8px; }
+.recentFile > button:first-child { flex: 1; min-width: 0; text-align: left; min-height: 40px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media(max-width:767px) { .start { padding-inline: 16px; } .recentHeader button, .recentFile button { min-height: 44px; } }
+
+@media(max-width:767px) {
+  .workspace:has([data-courseware-detail]) > .header { display: none; }
+  .workspace [data-courseware-expand] { display: none; }
+}
+
+/* A sheet-sized screen gets the full available viewport while reading a file. */
+@media(max-width:767px) {
+  .modal:has([data-courseware-detail]) { height: 100dvh; max-height: 100dvh; border-radius: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+}

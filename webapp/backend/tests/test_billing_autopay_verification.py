@@ -161,10 +161,10 @@ def test_ready_uses_exact_confirmed_pending_amount_and_get_is_query_only(records
     assert statements
 
 
-@pytest.mark.parametrize('change', ['unsent', 'mandate', 'manual_preference', 'missing_preference', 'past_run'])
-def test_missing_operational_conditions_never_contribute_to_ready_total(records, monkeypatch, change):
+@pytest.mark.parametrize('change', ['mandate', 'manual_preference', 'missing_preference'])
+def test_missing_operational_conditions_never_contribute_to_ready_total(records, change):
     client, db, _ = records
-    value = payment(client, sent=change != 'unsent')
+    value = payment(client)
     preference = db.query(BillingPreference).one()
     if change == 'mandate':
         preference.mandate_ready = False
@@ -172,9 +172,6 @@ def test_missing_operational_conditions_never_contribute_to_ready_total(records,
         preference.payment_method = 'manual'
     elif change == 'missing_preference':
         db.delete(preference)
-    elif change == 'past_run':
-        from routers import billing_autopay
-        monkeypatch.setattr(billing_autopay, 'today', lambda: date(2026, 11, 23))
     db.commit()
     result = run(client)
     row = payment_row(result, value['id'])
@@ -191,20 +188,27 @@ def test_collection_month_is_not_the_month_of_the_lessons(records):
     assert december['ready_total'] == 0
 
 
-@pytest.mark.parametrize('sent_at,expected', [(datetime(2026, 11, 18, 15, 59), 'ready'),
-                                            (datetime(2026, 11, 18, 16, 0), 'attention')])
-def test_notice_deadline_uses_hong_kong_date_for_utc_evidence(records, sent_at, expected):
+@pytest.mark.parametrize('sent_at', [None, datetime(2026, 11, 18, 15, 59), datetime(2026, 11, 18, 16, 0)])
+@pytest.mark.parametrize('as_of', [date(2026, 11, 17), date(2026, 11, 26), date(2026, 12, 3)])
+def test_suggested_notice_and_debit_dates_do_not_block_confirmed_collection(records, monkeypatch, sent_at, as_of):
     client, db, _ = records
-    value = payment(client)
+    value = payment(client, sent=False)
     db.get(BillingPayment, value['id']).sent_at = sent_at
     db.commit()
+    monkeypatch.setattr('routers.billing_autopay.today', lambda: as_of)
     result = run(client)
-    assert payment_row(result, value['id'])['stage'] == expected
-    assert bool(result['ready_total']) is (expected == 'ready')
+    row = payment_row(result, value['id'])
+    assert row['stage'] == 'ready'
+    assert result['ready_total'] == value['review']['period']['total_fee']
+    assert result['counts']['ready'] == 1
+    if sent_at is None:
+        assert row['sent_at'] is None
+    else:
+        assert datetime.fromisoformat(row['sent_at'].replace('Z', '+00:00')).replace(tzinfo=None) == sent_at
 
 
-@pytest.mark.parametrize('start,end,expected', [(21, 21, 'ready'), (25, 27, 'attention')])
-def test_frozen_debit_dates_are_preserved_and_must_fit_the_run(records, start, end, expected):
+@pytest.mark.parametrize('start,end', [(21, 21), (25, 27)])
+def test_frozen_debit_dates_are_preserved_as_suggestions(records, start, end):
     client, db, _ = records
     value = payment(client)
     stored = db.get(BillingPayment, value['id'])
@@ -213,8 +217,10 @@ def test_frozen_debit_dates_are_preserved_and_must_fit_the_run(records, start, e
         debit_from=f'2026-11-{start:02}', debit_to=f'2026-11-{end:02}')
     stored.snapshot = snapshot
     db.commit()
-    row = payment_row(run(client), value['id'])
-    assert row['stage'] == expected
+    result = run(client)
+    row = payment_row(result, value['id'])
+    assert row['stage'] == 'ready'
+    assert result['ready_total'] == value['review']['period']['total_fee']
     assert row['collection']['debit_from'] == f'2026-11-{start:02}'
     assert row['collection']['debit_to'] == f'2026-11-{end:02}'
 
@@ -475,6 +481,8 @@ def test_numeric_student_order_and_scoped_counts_survive_pagination(records):
 def test_stage_filter_does_not_change_the_scoped_ready_summary(records):
     client, db, _ = records
     first = payment(client, sent=False)
+    db.query(BillingPreference).one().mandate_ready = False
+    db.commit()
     add_source(db)
     second = payment(client, student_id=102, source_id=21, key='independent-ready-other')
     result = run(client, stage='attention')

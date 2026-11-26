@@ -6,7 +6,7 @@ import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFro
 import type { PrintStampInfo } from "@/lib/file-system";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 
 interface RecapExerciseItemProps {
   pdfName: string;
@@ -53,8 +53,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
     if (openState === 'loading') return;
     setOpenState('loading');
     setProgressMessage(null);
-    const error = await openFileFromPathWithFallback(pdfName, (p) =>
-      searchPaperlessByPath(p, setProgressMessage)
+    const error = await openFileFromPathWithFallback(pdfName, undefined
     );
     setProgressMessage(null);
     if (error) {
@@ -76,7 +75,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
       pageEnd,
       undefined,
       stamp,
-      (p) => searchPaperlessByPath(p, setProgressMessage)
+      undefined
     );
     setProgressMessage(null);
     if (error) {

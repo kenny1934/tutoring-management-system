@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Copy, Check } from "lucide-react";
+import { splitCoursewarePaths } from "@/lib/courseware-utils";
 import { cn } from "@/lib/utils";
 
 interface CopyPathButtonProps {
@@ -15,7 +16,7 @@ export function CopyPathButton({ paths, filename }: CopyPathButtonProps) {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const pathList = paths ? paths.split(", ").filter(Boolean) : [];
+  const pathList = paths ? splitCoursewarePaths(paths) : [];
 
   const handleCopy = (path: string, e?: React.MouseEvent) => {
     e?.stopPropagation();

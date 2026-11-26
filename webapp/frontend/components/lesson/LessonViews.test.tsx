@@ -374,7 +374,7 @@ describe.each([
     await opened("Linear equations 3");
     press("p");
     await waitFor(() => expect(h.printFile).toHaveBeenCalledWith(
-      LINEAR, null, null, undefined, expect.objectContaining({ studentName: "Chan Tai Man" }), expect.any(Function),
+      LINEAR, null, null, undefined, expect.objectContaining({ studentName: "Chan Tai Man" }), undefined,
     ));
   });
 

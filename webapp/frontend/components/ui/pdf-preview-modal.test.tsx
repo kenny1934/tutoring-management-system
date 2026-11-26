@@ -1,0 +1,52 @@
+import type { ReactNode } from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { PdfPreviewModal } from './pdf-preview-modal';
+import { CoursewarePreviewState } from '@/components/courseware/CoursewarePreviewState';
+const mocks = vi.hoisted(() => ({ hook: vi.fn(), legacy: vi.fn(() => '/legacy.pdf'), retry: vi.fn(), canvas: vi.fn() }));
+vi.mock('@/components/courseware/CanvasPdfPreview', () => ({ CanvasPdfPreview: (props: {data?: ArrayBuffer; error?: string | null; onRetry?: () => void}) => { mocks.canvas(props); return props.data ? <div role="region" aria-label="Canvas PDF fixture" /> : <CoursewarePreviewState error={props.error} onRetry={props.onRetry} />; } }));
+vi.mock('@/hooks/useCoursewarePdf', () => ({ useCoursewarePdf: mocks.hook }));
+vi.mock('@/lib/api', () => ({ api: { paperless: { getPreviewUrl: mocks.legacy } }, documentProcessingAPI: {} }));
+vi.mock('@/components/ui/modal', () => ({ Modal: ({ children, title }: { children: ReactNode; title?: string }) => <div aria-label={title}>{children}</div> }));
+vi.mock('@/lib/pdf-utils', () => ({ validatePageRange: vi.fn(), getPageCount: vi.fn() }));
+beforeEach(() => {
+  mocks.hook.mockReset(); mocks.legacy.mockClear(); mocks.retry.mockClear();
+  vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:courseware'), revokeObjectURL: vi.fn() }));
+});
+it('opens an exact courseware path without looking up a Shelv document and releases its blob on close', async () => {
+  mocks.hook.mockReturnValue({ data: { data: new ArrayBuffer(5) }, error: null });
+  const props = { isOpen: true, onClose: vi.fn(), documentId: null, sourcePath: '[Center]/algebra.pdf', documentTitle: 'Algebra' };
+  const view = render(<PdfPreviewModal {...props} />);
+  await screen.findByRole('region', { name: 'Canvas PDF fixture' });
+  expect(mocks.canvas).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.any(ArrayBuffer) }));
+  expect(screen.queryByTitle('PDF Preview')).toBeNull();
+  expect(mocks.hook).toHaveBeenCalledWith(props.sourcePath);
+  expect(mocks.legacy).not.toHaveBeenCalled();
+  view.rerender(<PdfPreviewModal {...props} isOpen={false} />);
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:courseware');
+});
+it('never reuses an opaque legacy ID and provides retry for a courseware path failure', () => {
+  const props = { isOpen: true, onClose: vi.fn(), documentId: 12 };
+  const view = render(<PdfPreviewModal {...props} />);
+  expect(mocks.legacy).not.toHaveBeenCalled();
+  expect(screen.queryByTitle('PDF Preview')).toBeNull();
+  expect(mocks.hook).not.toHaveBeenCalled();
+  mocks.hook.mockReturnValue({ error: 'Unavailable', retry: mocks.retry });
+  view.rerender(<PdfPreviewModal {...props} sourcePath="[Center]/algebra.pdf" />);
+  expect(screen.getByRole('alert')).toHaveTextContent('PDF unavailable');
+  expect(screen.getByText(/Check your connection/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry preview' }));
+  expect(mocks.retry).toHaveBeenCalledOnce();
+});
+it('preserves the same preview shell and page selection while bytes arrive', async () => {
+ mocks.hook.mockReturnValue({error:null,isLoading:true});
+ const props={isOpen:true,onClose:vi.fn(),documentId:null,sourcePath:'[Center]/algebra.pdf',documentTitle:'Algebra',enablePageSelection:true};
+ const view=render(<PdfPreviewModal {...props}/>);
+ const shell=view.container.firstElementChild;
+ expect(screen.getByRole('status')).toHaveTextContent('Opening PDF…');
+ mocks.hook.mockReturnValue({data:{data:new ArrayBuffer(5)},error:null,isLoading:false});
+ view.rerender(<PdfPreviewModal {...props}/>);
+ await screen.findByRole('region',{name:'Canvas PDF fixture'});
+ expect(view.container.firstElementChild).toBe(shell);
+ expect(screen.queryByText('Loading PDF...')).toBeNull();
+});

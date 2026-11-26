@@ -273,18 +273,8 @@ def review_result(db, run, imported, *, as_of, policy=POLICY):
     if debit_date:
         if debit_date > as_of:
             issues.append(_issue('FUTURE_DEBIT_DATE', 'The bank debit date cannot be in the future.'))
-        if debit_date.strftime('%Y-%m') != run.collection_month:
-            issues.append(_issue('COLLECTION_MONTH', 'The bank debit date belongs to another collection month.'))
-        # Each exact saved payment carries its actual approved debit window.
-        for saved in frozen.rows:
-            try:
-                collection = run.payment_evidence[saved.payment_id]['collection']
-                if not date.fromisoformat(collection['debit_from']) <= debit_date <= date.fromisoformat(collection['debit_to']):
-                    issues.append(_issue('DEBIT_WINDOW', 'The bank debit date differs from the saved collection dates.'))
-                    break
-            except BAD_EVIDENCE:
-                issues.append(_issue('PAYMENT_CHANGED', 'A saved payment needs review.'))
-                break
+        # The saved run identifies the collection. A delayed bank debit may
+        # fall outside the suggested dates or in the following month.
     if report.get('currency') != 'MOP':
         issues.append(_issue('CURRENCY', 'This bank file requires MOP results.'))
     if run.bank_batch_no and report.get('bank_batch_no') != run.bank_batch_no:

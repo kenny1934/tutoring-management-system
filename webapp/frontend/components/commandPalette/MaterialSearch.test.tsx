@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SWRConfig } from 'swr';
@@ -32,6 +33,7 @@ describe('Courseware search', () => {
     fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'year' } });
     await screen.findByRole('option', { name: 'Year 9 (2)' });
     fireEvent.change(screen.getByLabelText('Courseware folder'), { target: { value: 'Year 9' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search')).at(-1)![1].body)).toMatchObject({ q: 'fractions', share: 'developer', ext: '.pdf', modified: 'year', folder: 'Year 9' }));
   });
   it.each(['"a term"', '4x^2-y^2+10x-y'])('preserves the courseware query %s for the provider', async query => {
@@ -44,8 +46,8 @@ describe('Courseware search', () => {
     mount(); const result = await screen.findByRole('button', { name: /Worksheet 1/ }); fireEvent.click(result);
     const preview = await screen.findByRole('region', { name: 'Courseware preview' });
     expect(await within(preview).findByText('Pages 1–2')).toBeInTheDocument();
-    expect(within(preview).getByRole('group', { name: 'Matching pages' })).toBeInTheDocument();
-    expect(within(preview).getByRole('button', { name: 'Show matching page 2' })).toBeVisible();
+    expect(within(preview).getByRole('combobox', { name: 'Matching text pages' })).toBeVisible();
+    expect(within(preview).getByRole('option', { name: 'Page 2' })).toBeInTheDocument();
     fireEvent.keyDown(preview, { key: 'Escape' });
     await waitFor(() => expect(result).toHaveFocus());
     expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
@@ -75,6 +77,16 @@ describe('Courseware search', () => {
     expect(matches[1]).toHaveAttribute('data-current-match', 'true');
     expect(matches[0]).not.toHaveAttribute('data-current-match');
     expect(scroll).toHaveBeenCalled();
+    // A wrapped mobile match bar must leave the active text below its real height.
+    const box = (top: number, height = 20) => ({ top, bottom: top + height, left: 0, right: 200, width: 200, height, x: 0, y: top, toJSON: () => ({}) });
+    const content = preview.querySelector<HTMLElement>('[data-courseware-scroll]')!;
+    vi.spyOn(content, 'getBoundingClientRect').mockReturnValue(box(100, 500));
+    vi.spyOn(within(preview).getByRole('group', { name: 'Text matches' }), 'getBoundingClientRect').mockReturnValue(box(100, 104));
+    vi.spyOn(matches[0], 'getBoundingClientRect').mockReturnValue(box(500));
+    vi.spyOn(preview.querySelector('[data-text-chunk]')!, 'getBoundingClientRect').mockReturnValue(box(200, 600));
+    fireEvent.click(within(preview).getByRole('button', { name: 'Next text match' }));
+    expect(scroll).toHaveBeenLastCalledWith({ top: 284, behavior: 'auto' });
+    fireEvent.click(within(preview).getByRole('button', { name: 'Previous text match' }));
     fireEvent.click(within(preview).getByRole('button', { name: 'Next text match' }));
     expect(within(preview).getByText('1 of 2 matches')).toBeVisible();
     fireEvent.click(within(preview).getByRole('button', { name: 'Previous text match' }));
@@ -108,6 +120,8 @@ describe('Courseware search', () => {
     await screen.findByRole('button', { name: /Worksheet 3/ });
     expect(screen.getAllByRole('button', { name: /Worksheet 2/ })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Load more courseware' })).toBeNull();
+    const searches = mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search'));
+    expect(searches.filter(call => JSON.parse(call[1].body).page === 1)).toHaveLength(1);
   });
   it('keeps an unconfigured provider actionable', async () => {
     mocks.fetch.mockRejectedValue(new Error('Materials search is not connected yet.'));
@@ -176,6 +190,8 @@ it('recalls courseware history with source filters and allows removing it', asyn
   fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
   change('');
   const recall = await screen.findByRole('button', { name: `Search courseware for ${query}` });
+  expect(screen.queryByLabelText('Courseware sort')).toBeNull();
+  expect(screen.queryByText(/results?$/, { selector: '[aria-live="polite"]' })).toBeNull();
   fireEvent.change(screen.getByLabelText('Courseware source'), { target: { value: '' } });
   fireEvent.click(recall);
   await waitFor(() => expect(screen.getByLabelText('Courseware source')).toHaveValue('msa_scan'));
@@ -223,16 +239,16 @@ it('loads a matching page omitted by the initial text cap, preserves highlights,
       content: path.includes('&page=16') ? later : 'fractions', highlights: path.includes('&page=16') ? [[6, 15]] : [[0, 9]] }], truncated: !path.includes('&page=16'),
   } : { ...page([1]), results: [{ ...row(1), page_count: 34, matched_pages: [1, 16] }] });
   mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
-  await screen.findByText('Page 1');
-  fireEvent.click(screen.getByRole('button', { name: 'Show matching page 16' }));
-  await screen.findByText('Page 16');
-  expect(mocks.fetch).toHaveBeenCalledWith('/materials/1/preview?q=fractions&page=16');
-  expect(screen.getByRole('button', { name: 'Show matching page 16' })).toHaveAttribute('aria-pressed', 'true');
+  await screen.findByRole('heading', { name: 'Page 1' });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Matching text pages' }), { target: { value: '16' } });
+  await screen.findByRole('heading', { name: 'Page 16' });
+  expect(mocks.fetch).toHaveBeenCalledWith('/materials/1/preview?q=fractions&page=16', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(screen.getByRole('combobox', { name: 'Matching text pages' })).toHaveValue('16');
   expect(document.querySelector('[data-current-match]')).toHaveTextContent('fractions');
   expect(document.querySelector('[data-text-chunk]')).toHaveTextContent(later);
-  fireEvent.click(screen.getByRole('button', { name: 'Show all matching text' }));
-  await screen.findByText('Page 1');
-  expect(screen.getByRole('button', { name: 'Show all matching text' })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Matching text pages' }), { target: { value: 'all' } });
+  await screen.findByRole('heading', { name: 'Page 1' });
+  expect(screen.getByRole('combobox', { name: 'Matching text pages' })).toHaveValue('all');
 });
 
 it('can jump within an existing preview when the provider has not deployed focused-page support', async () => {
@@ -240,9 +256,160 @@ it('can jump within an existing preview when the provider has not deployed focus
     file_id: 1, chunks: [1, 16].map((number, index) => ({ chunk_index: index, page_start: number, page_end: number, content: 'fractions', highlights: [[0, 9]] })), truncated: false,
   } : { ...page([1]), results: [{ ...row(1), page_count: 34, matched_pages: [1, 16] }] });
   mount(); fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
-  await screen.findByText('Page 1');
-  fireEvent.click(screen.getByRole('button', { name: 'Show matching page 16' }));
-  await screen.findByText('Page 16');
-  expect(screen.queryByText('Page 1')).toBeNull();
+  await screen.findByRole('heading', { name: 'Page 1' });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Matching text pages' }), { target: { value: '16' } });
+  await screen.findByRole('heading', { name: 'Page 16' });
+  expect(screen.queryByRole('heading', { name: 'Page 1' })).toBeNull();
   expect(mocks.fetch.mock.calls.filter(call => call[0].includes('/preview')).every(call => !call[0].includes('&page='))).toBe(true);
+});
+
+it('aborts obsolete search and preview requests', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => {
+    if (path.includes('/preview') || (path === '/materials/search' && JSON.parse(options.body).q === 'algebra')) return new Promise(() => {});
+    return original(path, options);
+  });
+  const view = mount(); await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.click(screen.getByRole('button', { name: /Worksheet 1/ }));
+  await screen.findByRole('region', { name: 'Courseware preview' });
+  const oldPreview = mocks.fetch.mock.calls.find(call => String(call[0]).includes('/preview'))![1].signal as AbortSignal;
+  view.change('algebra');
+  await waitFor(() => expect(oldPreview.aborted).toBe(true));
+  await waitFor(() => expect(mocks.fetch.mock.calls.some(call => call[0] === '/materials/search' && JSON.parse(call[1].body).q === 'algebra')).toBe(true));
+  const latest = mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').at(-1)![1].signal as AbortSignal;
+  expect(latest.aborted).toBe(false); view.unmount(); expect(latest.aborted).toBe(true);
+});
+it('keeps selected documents while changing the search query', async () => {
+  const view = render(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="fractions" scope="basket" canAssign /></SWRConfig>);
+  fireEvent.click(await screen.findByLabelText('Select Worksheet 1.pdf'));
+  expect(screen.getByRole('group', { name: 'Selected courseware' })).toHaveTextContent('1 selected');
+  view.rerender(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="algebra" scope="basket" canAssign /></SWRConfig>);
+  await screen.findByRole('button', { name: /Worksheet 2/ });
+  fireEvent.click(screen.getByLabelText('Select Worksheet 2.pdf'));
+  expect(screen.getByRole('group', { name: 'Selected courseware' })).toHaveTextContent('2 selected');
+  fireEvent.click(screen.getByRole('button', { name: 'Review and assign' }));
+  expect(screen.getByLabelText('Pages for Worksheet 1.pdf')).toHaveValue('1-3');
+  expect(screen.getByLabelText('Pages for Worksheet 2.pdf')).toHaveValue('1-3');
+});
+
+it('applies structured rules together, forwards them to preview, and removes individual chips', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => path.endsWith('/sources') ? Promise.resolve({ ...sources, features: ['search_refinements', 'focused_preview'] }) : original(path, options));
+  mount('F1 algebra');
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  const calls = mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').length;
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'any_words' } });
+  fireEvent.change(screen.getByLabelText('Alternatives'), { target: { value: 'factorisation' } });
+  fireEvent.keyDown(screen.getByLabelText('Alternatives'), { key: 'Enter' });
+  fireEvent.change(screen.getByLabelText('Alternatives'), { target: { value: 'factorization' } });
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'exclude_words' } });
+  fireEvent.change(screen.getByLabelText('Excluded words'), { target: { value: 'draft' } });
+  fireEvent.keyDown(screen.getByLabelText('Excluded words'), { key: 'Enter' });
+  fireEvent.change(screen.getByLabelText('Excluded words'), { target: { value: 'answers' } });
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'exact_phrase' } });
+  fireEvent.change(screen.getByLabelText('Exact phrase'), { target: { value: 'a term' } });
+  fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'custom' } });
+  fireEvent.change(screen.getByLabelText('Modified from'), { target: { value: '2025-01-01' } });
+  fireEvent.change(screen.getByLabelText('Modified through'), { target: { value: '2025-12-31' } });
+  expect(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search')).toHaveLength(calls);
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(screen.queryByRole('form', { name: 'Courseware filter settings' })).toBeNull();
+  await waitFor(() => expect(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search')).toHaveLength(calls+1));
+  const payload = JSON.parse(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').at(-1)![1].body);
+  expect(payload).toMatchObject({ q: 'F1 algebra', refine: { any_words: 'factorisation factorization', exclude_words: 'draft answers', exact_phrase: 'a term', modified_from: '2025-01-01', modified_to: '2025-12-31' } });
+  expect(payload.any_words).toBeUndefined();
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  await waitFor(() => expect(mocks.fetch.mock.calls.some(call => String(call[0]).includes('/preview'))).toBe(true));
+  const url = new URL(mocks.fetch.mock.calls.find(call => String(call[0]).includes('/preview'))![0], 'https://example.test');
+  expect(JSON.parse(url.searchParams.get('refine')!)).toEqual(payload.refine);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Excludes draft or answers' }));
+  await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search').at(-1)![1].body).refine.exclude_words).toBeUndefined());
+});
+
+it('rejects reversed dates and cancels drafts without changing the search', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => path.endsWith('/sources') ? Promise.resolve({ ...sources, features: ['search_refinements'] }) : original(path, options));
+  mount(); await screen.findByRole('button', { name: /Worksheet 1/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  fireEvent.change(screen.getByLabelText('Courseware modified date'), { target: { value: 'custom' } });
+  fireEvent.change(screen.getByLabelText('Modified from'), { target: { value: '2026-01-01' } });
+  fireEvent.change(screen.getByLabelText('Modified through'), { target: { value: '2025-01-01' } });
+  expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  expect(screen.getByRole('alert')).toHaveTextContent('start date');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  expect(screen.queryByLabelText('Modified from')).toBeNull();
+  expect(screen.getByLabelText('Courseware modified date')).toHaveValue('');
+  expect(mocks.fetch.mock.calls.filter(call => call[0] === '/materials/search')).toHaveLength(1);
+});
+
+it('supports a phrase-only search and recalls its complete refinements from history', async () => {
+  const original = mocks.fetch.getMockImplementation()!;
+  mocks.fetch.mockImplementation((path: string, options: { body: string }) => path.endsWith('/sources') ? Promise.resolve({ ...sources, features: ['search_refinements'] }) : original(path, options));
+  const cache = new Map();
+  function App() {
+    const [query, change] = React.useState('');
+    return <SWRConfig value={{ provider: () => cache }}><MaterialSearch scope="phrase-history" query={query} onQueryChange={change} /></SWRConfig>;
+  }
+  const view = render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Filters' }));
+  fireEvent.change(screen.getByLabelText('Add condition'), { target: { value: 'exact_phrase' } });
+  fireEvent.change(screen.getByLabelText('Exact phrase'), { target: { value: 'a term' } });
+  fireEvent.change(screen.getByLabelText('Search word matching'), { target: { value: 'any' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  view.unmount(); render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Search courseware for a term' }));
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  expect(screen.getByRole('button', { name: 'Remove Exact phrase: a term' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Remove Any search word' })).toBeVisible();
+});
+
+it('hosts courseware controls in the shared toolbar and edits source/scope within Filters', async () => {
+  const host = document.createElement('div'); document.body.append(host);
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? { ...sources, features: ['search_refinements'] } : page([1]));
+  render(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="algebra" scope="toolbar" toolbarHost={host} /></SWRConfig>);
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  expect(host).toContainElement(screen.getByLabelText('Courseware source'));
+  expect(host.querySelectorAll('select')).toHaveLength(1);
+  expect(screen.queryByLabelText('Courseware search scope')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  fireEvent.change(screen.getByLabelText('Filter courseware source'), { target: { value: 'developer' } });
+  fireEvent.change(screen.getByLabelText('Courseware search scope'), { target: { value: 'content' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  await waitFor(() => expect(JSON.parse(mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search')).at(-1)![1].body)).toMatchObject({ share: 'developer', refine: { search_in: 'content' } }));
+  expect(screen.getByLabelText('Courseware source')).toHaveValue('developer');
+  host.remove();
+});
+
+
+it('warms source permissions while records are open, without searching until courseware is active', async () => {
+  const cache = new Map();
+  const tree = (active: boolean, scope = 'warm-user:MSA', warm = true) => <SWRConfig value={{ provider: () => cache }}><MaterialSearch query="fractions" scope={scope} active={active} prefetchSources={warm} /></SWRConfig>;
+  const view = render(tree(false, 'warm-user:MSA', false));
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  view.rerender(tree(false));
+  await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
+  expect(mocks.fetch).toHaveBeenCalledWith('/materials/sources');
+  expect(mocks.fetch.mock.calls.some(([path]) => path.endsWith('/search'))).toBe(false);
+  view.rerender(tree(true));
+  await screen.findByRole('button', { name: /Worksheet 1/ });
+  expect(mocks.fetch.mock.calls.filter(([path]) => path.endsWith('/sources'))).toHaveLength(1);
+  view.rerender(tree(false, 'another-user:MSB'));
+  await waitFor(() => expect(mocks.fetch.mock.calls.filter(([path]) => path.endsWith('/sources'))).toHaveLength(2));
+  expect(screen.queryByRole('button', { name: /Worksheet 1/ })).toBeNull();
+});
+
+
+it('keeps the selected courseware when Escape closes a portalled assignment dialog', async () => {
+  render(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="fractions" scope="portal-escape" canAssign /></SWRConfig>);
+  fireEvent.click(await screen.findByRole('button', { name: /Worksheet 1/ }));
+  const preview = screen.getByRole('region', { name: 'Courseware preview' });
+  fireEvent.click(within(preview).getByRole('button', { name: 'Assign to sessions' }));
+  const pages = await screen.findByLabelText('Courseware pages');
+  fireEvent.keyDown(pages, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByLabelText('Courseware pages')).toBeNull());
+  expect(preview).toBeVisible();
+  expect(within(preview).getByRole('heading', { name: 'Worksheet 1.pdf' })).toBeVisible();
 });

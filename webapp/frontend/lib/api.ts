@@ -1013,7 +1013,7 @@ export const statsAPI = {
     return fetchAPI<string[]>("/locations");
   },
 
-  search: (query: string, location?: string, limit?: number, includeHistory = false, filters?: import("@/components/commandPalette/search-filters").SearchOptions) => {
+  search: (query: string, location?: string, limit?: number, includeHistory = false, filters?: import("@/components/commandPalette/search-filters").SearchOptions, signal?: AbortSignal) => {
     const params = new URLSearchParams({ q: query });
     if (location && location !== "All Locations") params.append("location", location);
     if (limit) params.append("limit", limit.toString());
@@ -1021,7 +1021,7 @@ export const statsAPI = {
     for (const [key, value] of Object.entries(filters ?? {})) {
       if (value !== undefined && value !== '') params.set(key, String(value));
     }
-    return fetchAPI<SearchResults>(`/search?${params.toString()}`);
+    return fetchAPI<SearchResults>(`/search?${params.toString()}`, { signal });
   },
 
   getActivityFeed: (location?: string, tutorId?: number, limit?: number, offset?: number) => {

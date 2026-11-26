@@ -1,15 +1,25 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { CanvasPdfPreview } from "@/components/courseware/CanvasPdfPreview";
+import { CoursewarePreviewState } from "@/components/courseware/CoursewarePreviewState";
+import { useCoursewarePdf } from '@/hooks/useCoursewarePdf';
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check, Eraser, Download, RotateCcw, CalendarPlus, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api, documentProcessingAPI, type ProcessingMode } from "@/lib/api";
+import { documentProcessingAPI, type ProcessingMode } from "@/lib/api";
 import { validatePageRange, getPageCount } from "@/lib/pdf-utils";
 import type { PageSelection } from "@/types";
 
 interface PdfPreviewModalProps {
+  sourcePath?: string;
+  pdfBlobUrl?: string;
+  pdfData?: ArrayBuffer;
+  pdfPending?: boolean;
+  pdfLoadError?: string | null;
+  onPdfRetry?: () => void;
+  onPdfDocumentError?: () => void;
   isOpen: boolean;
   onClose: () => void;
   documentId: number | null;
@@ -19,15 +29,17 @@ interface PdfPreviewModalProps {
   enablePageSelection?: boolean;
 }
 
-export function PdfPreviewModal({
+function LegacyPdfPreviewModal({
   isOpen,
   onClose,
-  documentId,
+  sourcePath, pdfBlobUrl, pdfData, pdfPending, pdfLoadError, onPdfRetry, onPdfDocumentError,
   documentTitle,
   onSelect,
   onAssign,
   enablePageSelection = false,
 }: PdfPreviewModalProps) {
+  const originalUrl = pdfBlobUrl || null;
+  const canvasPreview = pdfPending !== undefined || !!pdfData;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
@@ -80,7 +92,7 @@ export function PdfPreviewModal({
       setBlackInkMode("balanced");
       setBlackInkStrokeThreshold(0);
     }
-  }, [isOpen, documentId]);
+  }, [isOpen, originalUrl]);
 
   // Cleanup blob URL when component unmounts or cleaned PDF changes
   useEffect(() => {
@@ -93,11 +105,11 @@ export function PdfPreviewModal({
 
   // Load page count when document changes
   useEffect(() => {
-    if (!isOpen || !documentId || !enablePageSelection) return;
+    if (!isOpen || !originalUrl || !enablePageSelection || pdfData) return;
 
     const loadPageCount = async () => {
       try {
-        const previewUrl = api.paperless.getPreviewUrl(documentId);
+        const previewUrl = originalUrl!;
         const response = await fetch(previewUrl);
         if (!response.ok) return;
         const blob = await response.blob();
@@ -110,7 +122,7 @@ export function PdfPreviewModal({
     };
 
     loadPageCount();
-  }, [isOpen, documentId, enablePageSelection]);
+  }, [isOpen, originalUrl, enablePageSelection, pdfData]);
 
   // Validate page range on change
   useEffect(() => {
@@ -187,6 +199,7 @@ export function PdfPreviewModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (pdfData && !["o", "O", "Enter", "Escape"].includes(e.key)) return;
       // Don't trigger shortcuts when typing in inputs
       if (
         e.target instanceof HTMLInputElement ||
@@ -205,8 +218,8 @@ export function PdfPreviewModal({
         handleSelect();
       } else if (e.key === "o" || e.key === "O") {
         e.preventDefault();
-        if (documentId) {
-          window.open(api.paperless.getPreviewUrl(documentId), "_blank");
+        if (originalUrl) {
+          window.open(originalUrl!, "_blank");
         }
       } else if (e.key === "d" || e.key === "D") {
         e.preventDefault();
@@ -216,7 +229,7 @@ export function PdfPreviewModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onSelect, documentId, handleSelect, togglePdfDarkMode]);
+  }, [isOpen, onSelect, originalUrl, handleSelect, togglePdfDarkMode, pdfData]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -236,21 +249,21 @@ export function PdfPreviewModal({
   };
 
   const handleOpenInNewTab = () => {
-    if (documentId) {
-      window.open(api.paperless.getPreviewUrl(documentId), "_blank");
+    if (originalUrl) {
+      window.open(originalUrl!, "_blank");
     }
   };
 
   // Handle handwriting removal
   const handleRemoveHandwriting = async () => {
-    if (!documentId || isProcessingHandwriting) return;
+    if (!originalUrl || isProcessingHandwriting) return;
 
     setIsProcessingHandwriting(true);
     setHandwritingError(null);
 
     try {
       // Fetch the PDF from Paperless
-      const previewUrl = api.paperless.getPreviewUrl(documentId);
+      const previewUrl = originalUrl!;
       const response = await fetch(previewUrl);
       if (!response.ok) {
         throw new Error("Failed to fetch PDF");
@@ -335,9 +348,9 @@ export function PdfPreviewModal({
     setShowCleanedVersion(!showCleanedVersion);
   };
 
-  if (!documentId) return null;
+  if (!originalUrl && !canvasPreview) return null;
 
-  const previewUrl = api.paperless.getPreviewUrl(documentId);
+  const previewUrl = originalUrl!;
   const displayUrl = showCleanedVersion && cleanedPdfUrl ? cleanedPdfUrl : previewUrl;
   const hasPageSelection = enablePageSelection && (
     (useComplexRange && complexRange.trim()) ||
@@ -354,7 +367,7 @@ export function PdfPreviewModal({
       <div className="flex flex-col h-[70vh]">
         {/* Toolbar Row 1: Zoom + Actions */}
         <div className="flex items-center justify-between gap-2 pb-2">
-          <div className="flex items-center gap-2">
+          {!canvasPreview && <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -391,7 +404,7 @@ export function PdfPreviewModal({
             >
               {pdfDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-          </div>
+          </div>}
           <div className="flex items-center gap-3">
             {/* Keyboard hints */}
             <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
@@ -425,6 +438,7 @@ export function PdfPreviewModal({
               variant="outline"
               size="sm"
               onClick={handleOpenInNewTab}
+              disabled={!originalUrl}
               className="gap-1"
             >
               <ExternalLink className="h-4 w-4" />
@@ -488,7 +502,7 @@ export function PdfPreviewModal({
             variant="outline"
             size="sm"
             onClick={handleRemoveHandwriting}
-            disabled={isProcessingHandwriting}
+            disabled={isProcessingHandwriting || !originalUrl}
             className="gap-1.5"
             title="Remove handwriting from scanned PDF"
           >
@@ -670,7 +684,7 @@ export function PdfPreviewModal({
 
         {/* PDF Viewer */}
         <div className="flex-1 relative overflow-auto bg-gray-100 dark:bg-gray-900 rounded-lg mt-3">
-          {isLoading && (
+          {!canvasPreview && isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 text-amber-700 animate-spin" />
@@ -681,7 +695,7 @@ export function PdfPreviewModal({
             </div>
           )}
 
-          {error && (
+          {!canvasPreview && error && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
               <div className="text-center">
                 <p className="text-red-600 dark:text-red-400 mb-2">{error}</p>
@@ -692,6 +706,8 @@ export function PdfPreviewModal({
             </div>
           )}
 
+          {canvasPreview ? <CanvasPdfPreview path={sourcePath} error={pdfLoadError} data={showCleanedVersion && cleanedPdfUrl ? undefined : pdfData} src={showCleanedVersion && cleanedPdfUrl ? cleanedPdfUrl : undefined}
+            title={documentTitle} onRetry={onPdfRetry} onDocumentError={onPdfDocumentError} onPageCount={count => { setTotalPages(count); setIsLoading(false); }} /> : <>
           {/*
             Zoom implementation: CSS transform scale changes visual size but not layout size.
             To compensate: at 200% zoom (scale=2), we need width/height at 50% (100/2) to fill container.
@@ -715,8 +731,28 @@ export function PdfPreviewModal({
               title="PDF Preview"
             />
           </div>
+          </> }
         </div>
       </div>
     </Modal>
   );
+}
+
+
+export function PdfPreviewModal(props: PdfPreviewModalProps) {
+  if (!props.isOpen) return null;
+  if (!props.sourcePath && !props.pdfBlobUrl) return <Modal isOpen title={props.documentTitle || 'Courseware preview'} onClose={props.onClose}>
+    <CoursewarePreviewState error="This courseware path cannot be opened." title={props.documentTitle} />
+  </Modal>;
+  return props.sourcePath ? <PathPdfPreviewModal key={props.sourcePath} {...props} /> : <LegacyPdfPreviewModal {...props} />;
+}
+function PathPdfPreviewModal(props: PdfPreviewModalProps) {
+  const pdf = useCoursewarePdf(props.sourcePath!);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pdf.data) { setUrl(null); return; }
+    const next = URL.createObjectURL(new Blob([pdf.data.data], { type: 'application/pdf' })); setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [pdf.data]);
+  return <LegacyPdfPreviewModal {...props} documentId={null} pdfBlobUrl={url ?? undefined} pdfData={pdf.data?.data} pdfPending={!pdf.data && !pdf.error} pdfLoadError={pdf.error} onPdfRetry={pdf.retry} onPdfDocumentError={pdf.recoverLocal} />;
 }

@@ -5,7 +5,7 @@ import type { Session, SessionExercise, MakeupProposal } from "@/types";
 import { canBeMarked, getStatusChar, getStatusColor } from "./utils/sessionSorting";
 import { getPendingSlotCount } from "@/lib/proposal-utils";
 import { openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import { sessionsAPI, api } from "@/lib/api";
 import { ZenEditSession } from "./ZenEditSession";
 import { ZenExerciseAssign } from "./ZenExerciseAssign";
@@ -248,7 +248,7 @@ export function ZenSessionDetail({
 
   // Exercise operations
   const handleOpenExercise = useCallback(async (exercise: SessionExercise) => {
-    const error = await openFileFromPathWithFallback(exercise.pdf_name, searchPaperlessByPath);
+    const error = await openFileFromPathWithFallback(exercise.pdf_name, undefined);
     if (error) {
       setStatusMessage(`Failed to open: ${error}`);
     } else {
@@ -271,7 +271,7 @@ export function ZenSessionDetail({
         exercise.page_end,
         undefined,
         stamp,
-        searchPaperlessByPath
+        undefined
       );
       if (error) {
         setStatusMessage(`Failed to print: ${error}`);

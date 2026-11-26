@@ -1,85 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const h = vi.hoisted(() => ({
-  supported: vi.fn(), handle: vi.fn(), cached: vi.fn(), remember: vi.fn(),
-  search: vi.fn(), compose: vi.fn(),
-}));
-vi.mock("./file-system", () => ({
-  isFileSystemAccessSupported: h.supported, getFileHandleFromPath: h.handle,
-  getCachedPaperlessDocumentId: h.cached, setPaperlessPathCache: h.remember,
-}));
-vi.mock("./summer-courseware-scan", () => ({ parseSummerCoursewarePath: () => null, readCoursewareFile: vi.fn() }));
-vi.mock("./pdf-utils", () => ({ composeSideBySidePdf: h.compose }));
-vi.mock("./paperless-utils", () => ({ searchPaperlessByPath: h.search }));
-
-import { loadExercisePdf, PDF_LOAD_TIMEOUT_MS } from "./lesson-pdf-loader";
-
-const bytes = new TextEncoder().encode("%PDF-1.7\n").buffer;
-beforeEach(() => {
-  vi.useFakeTimers();
-  h.supported.mockReturnValue(false);
-  h.cached.mockReturnValue(42);
-  h.search.mockReset();
-  h.handle.mockReset();
-  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, blob: async () => ({ arrayBuffer: async () => bytes }) })));
-});
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
-
-describe("lesson PDF recovery", () => {
-  it("stops a stalled download at the deadline and allows a clean retry", async () => {
-    let signal!: AbortSignal;
-    vi.mocked(fetch).mockImplementationOnce((_url, options) => {
-      signal = options!.signal as AbortSignal;
-      return new Promise(() => {});
-    });
-    const pending = loadExercisePdf("A.pdf");
-    await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS);
-    expect(await pending).toEqual({ error: "timed_out" });
-    expect(signal.aborted).toBe(true);
-    expect(await loadExercisePdf("A.pdf")).toEqual({ data: bytes, source: "paperless" });
-    expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("releases a stalled local read and never starts a late remote request", async () => {
-    h.supported.mockReturnValue(true);
-    let settle!: (value: { success: boolean }) => void;
-    h.handle.mockReturnValue(new Promise(resolve => { settle = resolve; }));
-    const progress = vi.fn();
-    const pending = loadExercisePdf("A.pdf", progress);
-    await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS);
-    expect(await pending).toEqual({ error: "timed_out" });
-    const calls = progress.mock.calls.length;
-    settle({ success: false });
-    await vi.advanceTimersByTimeAsync(1);
-    expect(fetch).not.toHaveBeenCalled();
-    expect(h.search).not.toHaveBeenCalled();
-    expect(progress).toHaveBeenCalledTimes(calls);
-  });
-
-  it("passes the deadline signal through the document search", async () => {
-    h.cached.mockReturnValue(null);
-    h.search.mockImplementation((_path, _progress, signal: AbortSignal) => new Promise((_resolve, reject) => {
-      signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
-    }));
-    const pending = loadExercisePdf("A.pdf");
-    await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS);
-    expect(await pending).toEqual({ error: "timed_out" });
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it.each([[404, "file_not_found"], [503, "fetch_failed"]])("distinguishes a %s response from a missing assignment", async (status, error) => {
-    vi.mocked(fetch).mockResolvedValue({ ok: false, status } as Response);
-    expect(await loadExercisePdf("A.pdf")).toEqual({ error });
-    expect(vi.getTimerCount()).toBe(0);
-  });
-});
-
-it('opens an indexed original before trying the legacy document provider', async () => {
-  const lookup = vi.spyOn(await import('./api'), 'fetchAPI').mockResolvedValue({ file_id: 73 });
-  const response = vi.spyOn(await import('./api'), 'fetchResponse').mockResolvedValue({ arrayBuffer: async () => bytes } as Response);
-  try {
-    expect(await loadExercisePdf('[Center]\\indexed.pdf')).toEqual({ data: bytes, source: 'mckb' });
-    expect(h.search).not.toHaveBeenCalled();
-    expect(response).toHaveBeenCalledWith('/materials/73/raw', expect.objectContaining({ signal: expect.any(AbortSignal) }));
-  } finally { lookup.mockRestore(); response.mockRestore(); }
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const h = vi.hoisted(() => ({ supported: vi.fn(), handle: vi.fn(), load: vi.fn(), compose: vi.fn() }));
+vi.mock('./file-system', () => ({ isFileSystemAccessSupported: h.supported, getFileHandleFromPath: h.handle }));
+vi.mock('./courseware-pdf', () => ({ loadCoursewarePdf: h.load }));
+vi.mock('./summer-courseware-scan', () => ({ parseSummerCoursewarePath: () => null, readCoursewareFile: vi.fn() }));
+vi.mock('./pdf-utils', () => ({ composeSideBySidePdf: h.compose }));
+import { loadExercisePdf, PDF_LOAD_TIMEOUT_MS } from './lesson-pdf-loader';
+const bytes = new TextEncoder().encode('%PDF-1.7').buffer;
+beforeEach(() => { vi.useFakeTimers(); vi.resetAllMocks(); h.supported.mockReturnValue(false); h.load.mockResolvedValue({ data: bytes, source: 'mckb' }); });
+afterEach(() => vi.useRealTimers());
+describe('MCKB lesson PDF recovery', () => {
+ it('aborts a stalled original at the deadline and allows a clean retry', async () => {
+  let signal!: AbortSignal; h.load.mockImplementationOnce((options: { signal: AbortSignal }) => { signal=options.signal; return new Promise(() => {}); });
+  const pending=loadExercisePdf('A.pdf'); await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS);
+  expect(await pending).toEqual({ error: 'timed_out' }); expect(signal.aborted).toBe(true);
+  expect(await loadExercisePdf('A.pdf')).toEqual({ data: bytes, source: 'mckb' }); expect(vi.getTimerCount()).toBe(0);
+ });
+ it('never starts a remote request after a stalled connected-folder read has expired', async () => {
+  h.supported.mockReturnValue(true); let finish!: (value: unknown) => void; h.handle.mockImplementation(() => new Promise(resolve => { finish=resolve; }));
+  const pending=loadExercisePdf('A.pdf'); await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS); expect(await pending).toEqual({ error: 'timed_out' });
+  finish({ success: false }); await vi.advanceTimersByTimeAsync(1); expect(h.load).not.toHaveBeenCalled();
+ });
+ it('passes cancellation to the provider while a bare filename is being resolved', async () => {
+  h.load.mockImplementation(({signal}: {signal: AbortSignal}) => new Promise((_resolve,reject) => signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')))));
+  const pending=loadExercisePdf('A.pdf'); await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS); expect(await pending).toEqual({ error: 'timed_out' });
+ });
+ it.each([[404,'file_not_found'],[503,'fetch_failed'],[403,'fetch_failed']])('preserves a %s failure', async(status,error) => {
+  h.load.mockRejectedValue({status}); expect(await loadExercisePdf('A.pdf')).toEqual({error}); expect(vi.getTimerCount()).toBe(0);
+ });
+ it('loads a canonical indexed original only once and never falls back to another provider',async()=>{
+  expect(await loadExercisePdf('[Center]\\indexed.pdf')).toEqual({data:bytes,source:'mckb'}); expect(h.load).toHaveBeenCalledOnce();
+ });
 });

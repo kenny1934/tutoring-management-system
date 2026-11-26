@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
+import { positiveSearch } from './material-refinements';
 import { defaultMaterialFilters, type MaterialFilters } from './material-workspace';
 
 export type CoursewareHistoryEntry = { query: string; filters: MaterialFilters };
@@ -12,9 +13,16 @@ function read(scope: string): CoursewareHistoryEntry[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(storageKey(scope)) ?? '[]');
     if (!Array.isArray(value)) return [];
-    return value.filter((entry): entry is CoursewareHistoryEntry => !!entry && typeof entry.query === 'string' && entry.query.trim().length >= 2 && entry.query.length <= 256
-      && entry.filters && Object.keys(defaultMaterialFilters()).every(key => typeof entry.filters[key] === 'string'))
-      .slice(0, LIMIT).map(entry => ({ query: entry.query, filters: Object.fromEntries(Object.keys(defaultMaterialFilters()).map(key => [key, entry.filters[key as keyof MaterialFilters]])) as MaterialFilters }));
+    return value.flatMap(entry => {
+      if (!entry || typeof entry.query !== 'string' || entry.query.length > 256 || !entry.filters || typeof entry.filters !== 'object') return [];
+      const defaults = defaultMaterialFilters();
+      // Older saved searches do not have refinement fields yet.
+      const filters = Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [key, typeof entry.filters[key] === 'string' ? entry.filters[key] : fallback])) as MaterialFilters;
+      if (!positiveSearch(entry.query, filters) || Object.values(filters).some(value => value.length > 512)
+        || !['all', 'any'].includes(filters.match) || !['both', 'filename', 'content'].includes(filters.search_in)
+        || [filters.modified_from, filters.modified_to].some(value => value && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return [];
+      return [{ query: entry.query, filters }];
+    }).slice(0, LIMIT);
   } catch { return []; }
 }
 
@@ -31,7 +39,7 @@ export function useCoursewareHistory(scope: string) {
     setState({ scope, entries });
   }, [scope]);
   const save = useCallback((entry: CoursewareHistoryEntry) => {
-    if (entry.query.trim().length < 2 || entry.query.length > 256) return;
+    if (!positiveSearch(entry.query, entry.filters) || entry.query.length > 256) return;
     update(entries => [entry, ...entries.filter(item => identity(item) !== identity(entry))].slice(0, LIMIT));
   }, [update]);
   const remove = useCallback((entry: CoursewareHistoryEntry) => update(entries => entries.filter(item => identity(item) !== identity(entry))), [update]);

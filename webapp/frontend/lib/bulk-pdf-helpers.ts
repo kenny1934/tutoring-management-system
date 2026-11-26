@@ -35,8 +35,6 @@ export type FileOperationResult =
 export interface FileSystemUtils {
   isSupported: () => boolean;
   getFileHandle: (path: string) => Promise<FileOperationResult>;
-  getCachedDocId: (path: string) => number | null;
-  setCachedDocId: (path: string, id: number) => void;
 }
 
 /**
@@ -73,18 +71,18 @@ export function getPageNumbers(exercise: BulkPrintExercise, logPrefix: string = 
 }
 
 /**
- * Fetch PDF data from local file system or Paperless fallback.
+ * Fetch PDF data from local file system or MCKB originals.
  *
  * @param exercise - Exercise with PDF path
  * @param fsUtils - File system utilities (to avoid circular imports)
- * @param paperlessSearch - Optional callback to search Paperless when local access fails
+ * @param _legacySearch - Retained for older callers; courseware resolves through MCKB.
  * @param logPrefix - Log prefix for debugging (e.g., '[BulkPrint]')
  * @returns Object with exercise and arrayBuffer (null if fetch failed)
  */
 export async function fetchPdfData(
   exercise: BulkPrintExercise,
   fsUtils: FileSystemUtils,
-  paperlessSearch?: (path: string) => Promise<number | null>,
+  _legacySearch?: (path: string) => Promise<number | null>,
   logPrefix: string = '[Bulk]'
 ): Promise<{ exercise: BulkPrintExercise; arrayBuffer: ArrayBuffer | null }> {
   let arrayBuffer: ArrayBuffer | null = null;
@@ -96,7 +94,7 @@ export async function fetchPdfData(
       try {
         const file = await result.handle.getFile();
         const data = await file.arrayBuffer();
-        // Validate PDF magic bytes — .doc/.docx must fall through to Paperless
+        // Validate PDF magic bytes before passing bytes to the PDF renderer.
         const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
         const magic = String.fromCharCode(...header);
         if (magic.startsWith('%PDF-')) {
@@ -114,31 +112,6 @@ export async function fetchPdfData(
     if (material) arrayBuffer = material.data;
   }
 
-  // Try Paperless fallback if local failed and callback provided
-  if (!arrayBuffer && paperlessSearch) {
-    try {
-      // Check cache first
-      let documentId = fsUtils.getCachedDocId(exercise.pdf_name);
-
-      // If not cached, search Paperless
-      if (!documentId) {
-        documentId = await paperlessSearch(exercise.pdf_name);
-        if (documentId) {
-          fsUtils.setCachedDocId(exercise.pdf_name, documentId);
-        }
-      }
-
-      if (documentId) {
-        const response = await fetch(`/api/paperless/preview/${documentId}`);
-        if (response.ok) {
-          const blob = await response.blob();
-          arrayBuffer = await blob.arrayBuffer();
-        }
-      }
-    } catch (err) {
-      // Paperless fallback failed silently
-    }
-  }
 
   return { exercise, arrayBuffer };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { bulkPrintErrorMessage, printErrorMessage } from "@/lib/lesson-utils";
 import type { Session, SessionExercise } from "@/types";
 
@@ -74,28 +74,21 @@ describe("usePrintExercise printing one exercise", () => {
     let printed!: Promise<void>;
     act(() => { printed = result.current.printExercise(exercise(), stamp); });
     expect(result.current.printing.id).toBe(1001);
-    expect(h.printFile).toHaveBeenCalledWith(LINEAR, 2, 4, undefined, stamp, expect.any(Function));
+    expect(h.printFile).toHaveBeenCalledWith(LINEAR, 2, 4, undefined, stamp, undefined);
 
     await act(async () => { job.settle(null); await printed; });
     expect(result.current.printing).toEqual({ id: null, progress: null });
     expect(h.showToast).not.toHaveBeenCalled();
   });
 
-  it("shows how the search in Paperless is going while it looks for the file", async () => {
-    h.searchPaperless.mockImplementation(async (_path: string, onProgress?: (message: string) => void) => {
-      onProgress?.("Searching Paperless");
-      return null;
-    });
+  it("keeps preparation visible while the courseware PDF is loading without searching Paperless", async () => {
     const job = held<string | null>();
-    h.printFile.mockImplementation(async (...args: unknown[]) => {
-      const search = args[5] as (path: string) => Promise<number | null>;
-      await search(LINEAR);
-      return job.promise;
-    });
+    h.printFile.mockReturnValue(job.promise);
     const { result } = renderHook(() => usePrintExercise());
     let printed!: Promise<void>;
     act(() => { printed = result.current.printExercise(exercise(), stamp); });
-    await waitFor(() => expect(result.current.printing.progress).toBe("Searching Paperless"));
+    expect(result.current.printing.progress).toBe("Preparing PDF…");
+    expect(h.searchPaperless).not.toHaveBeenCalled();
     await act(async () => { job.settle(null); await printed; });
     expect(result.current.printing.progress).toBeNull();
   });

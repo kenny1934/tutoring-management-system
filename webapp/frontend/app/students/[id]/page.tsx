@@ -37,7 +37,7 @@ import { getToday } from "@/lib/calendar-utils";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
@@ -2410,8 +2410,7 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
     e.stopPropagation();
     if (openState === 'loading') return;
     setOpenState('loading');
-    const error = await openFileFromPathWithFallback(pdfName, (p) =>
-      searchPaperlessByPath(p)
+    const error = await openFileFromPathWithFallback(pdfName, undefined
     );
     if (error) {
       setOpenState('error');
@@ -2427,7 +2426,7 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
     setPrintState('loading');
     const error = await printFileFromPathWithFallback(
       pdfName, pageStart, pageEnd, undefined, stamp,
-      (p) => searchPaperlessByPath(p)
+      undefined
     );
     if (error) {
       setPrintState('error');
@@ -2490,7 +2489,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     e.stopPropagation();
     if (printState === 'loading') return;
     setPrintState('loading');
-    const error = await printBulkFiles(withPdfs, stamp, searchPaperlessByPath, baseFilename);
+    const error = await printBulkFiles(withPdfs, stamp, undefined, baseFilename);
     setPrintState(error ? 'error' : 'idle');
     if (error) setTimeout(() => setPrintState('idle'), 2000);
   };
@@ -2499,7 +2498,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     e.stopPropagation();
     if (downloadState === 'loading') return;
     setDownloadState('loading');
-    const error = await downloadBulkFiles(withPdfs, `${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    const error = await downloadBulkFiles(withPdfs, `${baseFilename}.pdf`, stamp, undefined);
     setDownloadState(error ? 'error' : 'idle');
     if (error) setTimeout(() => setDownloadState('idle'), 2000);
   };
@@ -2508,7 +2507,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     e.stopPropagation();
     if (answersState === 'loading') return;
     setAnswersState('loading');
-    const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, undefined);
     if (result.status === 'success') {
       setAnswersState('idle');
       if (result.missing > 0) {

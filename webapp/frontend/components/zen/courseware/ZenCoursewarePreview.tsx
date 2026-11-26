@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { paperlessAPI } from "@/lib/api";
+import { useCoursewarePdf } from '@/hooks/useCoursewarePdf';
+import { CanvasPdfPreview } from '@/components/courseware/CanvasPdfPreview';
+import { Button } from '@/components/controls';
+import { ExternalLink } from 'lucide-react';
+
 
 export interface PreviewFile {
+  source?: 'courseware';
   documentId?: number;
   blobUrl?: string;
   path: string;
@@ -23,7 +28,20 @@ interface ZenCoursewarePreviewProps {
  * - +/-: Zoom in/out
  * - o: Open in new tab
  */
-export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePreviewProps) {
+export function ZenCoursewarePreview(props: ZenCoursewarePreviewProps) {
+  return props.file && (props.file.source === 'courseware' || (!!props.file.path && !props.file.blobUrl)) ? <PathCoursewarePreview key={props.file.path} {...props} /> : <LegacyZenCoursewarePreview {...props} />;
+}
+function PathCoursewarePreview(props: ZenCoursewarePreviewProps) {
+  const pdf = useCoursewarePdf(props.file!.path);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pdf.data) { setUrl(null); return; }
+    const next = URL.createObjectURL(new Blob([pdf.data.data], { type: 'application/pdf' })); setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [pdf.data]);
+  return <LegacyZenCoursewarePreview {...props} pdfData={pdf.data?.data} pdfPending={!pdf.data && !pdf.error} pdfLoadError={pdf.error} onRetry={pdf.retry} onDocumentError={pdf.recoverLocal} file={{ ...props.file!, documentId: undefined, blobUrl: url ?? undefined }} />;
+}
+function LegacyZenCoursewarePreview({ file, onPageSelect, pdfData, pdfPending, pdfLoadError, onRetry, onDocumentError }: ZenCoursewarePreviewProps & { pdfData?: ArrayBuffer; pdfPending?: boolean; pdfLoadError?: string | null; onRetry?: () => void; onDocumentError?: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
@@ -35,9 +53,8 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
   const [pageEnd, setPageEnd] = useState("");
   const prevFileRef = useRef<string | null>(null);
 
-  const previewUrl = file?.documentId
-    ? paperlessAPI.getPreviewUrl(file.documentId)
-    : file?.blobUrl || null;
+  const previewUrl = file?.blobUrl || null;
+  const native = pdfPending !== undefined || !!pdfData || !!file?.blobUrl;
 
   // Reset state when file changes
   useEffect(() => {
@@ -75,6 +92,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
   // Zoom keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (native) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
 
@@ -92,7 +110,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleZoomIn, handleZoomOut, togglePdfDarkMode]);
+  }, [handleZoomIn, handleZoomOut, togglePdfDarkMode, native]);
 
   if (!file) {
     return (
@@ -116,7 +134,10 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header with title + zoom controls */}
+      {native ? <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2">
+        <span className="truncate text-sm font-medium text-ink-heading">{file.title}</span>
+        <Button variant="secondary" size="sm" icon={ExternalLink} disabled={!previewUrl} onClick={handleOpenInNewTab}>Open in new tab</Button>
+      </div> : <>      {/* Header with title + zoom controls */}
       <div
         style={{
           display: "flex",
@@ -209,6 +230,8 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
         </div>
       </div>
 
+</>}
+
       {/* Page selection for assignment */}
       {onPageSelect && (
         <div
@@ -267,7 +290,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
           backgroundColor: "var(--zen-bg)",
         }}
       >
-        {isLoading && (
+        {!native && isLoading && (
           <div
             style={{
               position: "absolute",
@@ -284,7 +307,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
           </div>
         )}
 
-        {error && (
+        {!native && error && (
           <div
             style={{
               position: "absolute",
@@ -314,7 +337,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
           </div>
         )}
 
-        {previewUrl && (
+        {native ? <CanvasPdfPreview error={pdfLoadError} data={pdfData} src={pdfData ? undefined : previewUrl ?? undefined} title={file.title} path={file.path} onRetry={onRetry} onDocumentError={onDocumentError} /> : previewUrl && (
           <div
             style={{
               width: "100%",

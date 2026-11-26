@@ -6,8 +6,8 @@ import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import type { SearchOrigin } from "@/contexts/CommandPaletteContext";
 import styles from "./SearchSurface.module.css";
 
-export function SearchSurface({ children, origin, onClose, onUnmount, input }: {
-  children: ReactNode; origin: SearchOrigin | null; onClose: () => void; onUnmount: () => void; input: RefObject<HTMLInputElement | null>;
+export function SearchSurface({ children, origin, onClose, onUnmount, input, wide = false, detailed = false }: {
+  detailed?: boolean; wide?: boolean; children: ReactNode; origin: SearchOrigin | null; onClose: () => void; onUnmount: () => void; input: RefObject<HTMLInputElement | null>;
 }) {
   const layer = useOverlayLayer(true, { lockScroll: true });
   const reduced = useReducedMotion(), present = useIsPresent();
@@ -32,7 +32,7 @@ export function SearchSurface({ children, origin, onClose, onUnmount, input }: {
   return <motion.div ref={backdrop} className={styles.backdrop} style={{ zIndex: layer.zIndex }}
     initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .14 }}
     onClick={event => { if (event.target === event.currentTarget && layer.isTopmost) onClose(); }}>
-    <motion.div ref={panel} role="dialog" aria-modal="true" aria-label="Command palette" data-command-palette className={styles.panel} inert={!present}
+    <motion.div ref={panel} role="dialog" aria-modal="true" aria-label="Command palette" data-command-palette className={`${styles.panel} ${wide ? styles.coursewarePanel : detailed ? styles.recordDetailPanel : ""}`} inert={!present}
       initial={reduced ? false : initial.current} animate={{ x: 0, y: 0, scale: 1, opacity: 1 }} exit={reduced ? { opacity: 0 } : initial.current!}
       transition={{ duration: reduced ? 0 : .16, ease: [.2, .7, .2, 1] }}
       onKeyDown={event => {

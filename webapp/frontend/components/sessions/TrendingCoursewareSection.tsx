@@ -2,19 +2,18 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, ChevronUp, ExternalLink, Eye, EyeOff, Flame, Info, Loader2, TrendingUp, User } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, ExternalLink, Eye, Flame, Info, Loader2, TrendingUp, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "@/components/controls";
-import { api } from "@/lib/api";
-import type { PaperlessDocument } from "@/lib/api";
 import type { CoursewarePopularity } from "@/types";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
+import { getTrendingPath } from "@/lib/courseware-utils";
 import { GradeLabel } from "@/components/ui/grade-label";
 
 interface TrendingCoursewareSectionProps {
-  exerciseType: "CW" | "HW";
+  exerciseType?: "CW" | "HW";
   grade?: string | null;
   school?: string | null;
   /** The location the tutor is working in. A usage row from another branch
@@ -38,9 +37,7 @@ export function TrendingCoursewareSection({
   onAdd,
 }: TrendingCoursewareSectionProps) {
   const [trendingExpanded, setTrendingExpanded] = useState(false);
-  const [trendingPreviewDoc, setTrendingPreviewDoc] = useState<PaperlessDocument | null>(null);
-  // Consolidated trending item state: tracks status and cached document per filename
-  const [trendingItemState, setTrendingItemState] = useState<Record<string, { status: 'checking' | 'available' | 'unavailable'; doc?: PaperlessDocument }>>({});
+  const [trendingPreviewDoc, setTrendingPreviewDoc] = useState<{ path: string; title: string } | null>(null);
   const [detailItem, setDetailItem] = useState<CoursewarePopularity | null>(null);
 
   // Fetch trending courseware for this grade/school
@@ -61,42 +58,10 @@ export function TrendingCoursewareSection({
     school ?? undefined
   );
 
-  // Handle preview trending item
-  const handlePreviewTrending = useCallback(async (item: CoursewarePopularity) => {
-    const itemState = trendingItemState[item.filename];
-
-    // If already cached, open immediately
-    if (itemState?.status === 'available' && itemState.doc) {
-      setTrendingPreviewDoc(itemState.doc);
-      return;
-    }
-
-    // If already known to be unavailable or checking, do nothing
-    if (itemState?.status === 'unavailable' || itemState?.status === 'checking') return;
-
-    // Start checking
-    setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'checking' } }));
-
-    try {
-      const path = item.normalized_paths?.split(',')[0]?.trim();
-      if (!path) {
-        setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'unavailable' } }));
-        return;
-      }
-
-      const response = await api.paperless.search(path, 3, 'all');
-      if (response.results.length > 0) {
-        // Found - cache and open preview
-        const doc = response.results[0];
-        setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'available', doc } }));
-        setTrendingPreviewDoc(doc);
-      } else {
-        setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'unavailable' } }));
-      }
-    } catch {
-      setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'unavailable' } }));
-    }
-  }, [trendingItemState]);
+  const handlePreviewTrending = useCallback((item: CoursewarePopularity) => {
+    const path = getTrendingPath(item);
+    if (path) setTrendingPreviewDoc({ path, title: item.filename });
+  }, []);
 
   return (
     <>
@@ -144,9 +109,8 @@ export function TrendingCoursewareSection({
           {trendingExpanded && (
             <div className="border-t border-line max-h-64 overflow-y-auto">
               {trendingData.map((item, index) => {
-                const firstPath = item.normalized_paths?.split(", ")[0]?.trim() || item.filename;
+                const firstPath = getTrendingPath(item);
                 const isExpanded = detailItem?.filename === item.filename;
-                const previewStatus = trendingItemState[item.filename]?.status;
                 return (
                   <div key={item.filename}>
                     <div
@@ -170,27 +134,8 @@ export function TrendingCoursewareSection({
                         {item.unique_student_count}
                       </span>
                       {/* Preview button */}
-                      {previewStatus === 'unavailable' ? (
-                        <div className="p-1 shrink-0" title="Not available in Shelv" onClick={(e) => e.stopPropagation()}>
-                          <EyeOff className="h-3.5 w-3.5 text-gray-300 dark:text-gray-400" />
-                        </div>
-                      ) : (
-                        <IconButton
-                          label="Preview PDF"
-                          title={previewStatus === 'checking' ? 'Checking...' : 'Preview PDF'}
-                          icon={previewStatus === 'checking' ? Loader2 : Eye}
-                          iconClassName={previewStatus === 'checking' ? "animate-spin" : undefined}
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePreviewTrending(item);
-                          }}
-                          disabled={previewStatus === 'checking'}
-                        />
-                      )}
-                      {/* Copy path button */}
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <CopyPathButton paths={item.normalized_paths} filename={item.filename} />
+                      <IconButton label={`Preview ${item.filename}`} title="Preview PDF" icon={Eye} size="sm" onClick={event => { event.stopPropagation(); handlePreviewTrending(item); }} />
+                      <div onClick={event => event.stopPropagation()}><CopyPathButton paths={item.normalized_paths} filename={item.filename} />
                       </div>
                       {/* Info/details button */}
                       <IconButton
@@ -298,7 +243,8 @@ export function TrendingCoursewareSection({
       <PdfPreviewModal
         isOpen={!!trendingPreviewDoc}
         onClose={() => setTrendingPreviewDoc(null)}
-        documentId={trendingPreviewDoc?.id ?? null}
+        documentId={null}
+        sourcePath={trendingPreviewDoc?.path}
         documentTitle={trendingPreviewDoc?.title}
       />
     </>

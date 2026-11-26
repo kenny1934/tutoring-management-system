@@ -14,18 +14,14 @@ import { extractBulkPagesForPrint } from './pdf-utils';
 import {
   isFileSystemAccessSupported,
   getFileHandleFromPath,
-  getCachedPaperlessDocumentId,
-  setPaperlessPathCache,
   downloadBulkFiles,
 } from './file-system';
-import { searchPaperlessByPath } from './paperless-utils';
+
 
 // Re-create fsUtils matching file-system.ts pattern (avoids circular import)
 const createFsUtils = (): FileSystemUtils => ({
   isSupported: isFileSystemAccessSupported,
   getFileHandle: getFileHandleFromPath,
-  getCachedDocId: getCachedPaperlessDocumentId,
-  setCachedDocId: setPaperlessPathCache,
 });
 
 export interface StudentExerciseGroup {
@@ -135,7 +131,7 @@ export async function bulkDownloadByStudent(
       group.exercises,
       group.filename,
       group.stamp,
-      searchPaperlessByPath
+      undefined
     ).catch(() => 'download_failed' as const);
 
     if (error) {
@@ -160,7 +156,7 @@ export async function bulkDownloadByStudent(
  */
 export async function bulkPrintAllStudents(
   groups: StudentExerciseGroup[],
-  paperlessSearch?: (path: string) => Promise<number | null>,
+  _legacySearch?: (path: string) => Promise<number | null>,
 ): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
   // Flatten all exercises with their per-student stamps
   const allExercisesWithStamps: Array<{ exercise: BulkPrintExercise; stamp: PrintStampInfo }> = [];
@@ -180,7 +176,7 @@ export async function bulkPrintAllStudents(
   const fsUtils = createFsUtils();
   const results = await Promise.all(
     allExercisesWithStamps.map(({ exercise }) =>
-      fetchPdfData(exercise, fsUtils, paperlessSearch ?? searchPaperlessByPath, '[BulkPrintAll]')
+      fetchPdfData(exercise, fsUtils, undefined, '[BulkPrintAll]')
     )
   );
 
@@ -239,7 +235,7 @@ export async function bulkPrintAllStudents(
 function toBulkExercise(ex: SessionExercise): BulkPrintExercise {
   const { complexPages, remarks } = parseExerciseRemarks(ex.remarks);
   return {
-    pdf_name: ex.pdf_name,
+    pdf_name: ex.pdf_name ?? '',
     page_start: ex.page_start,
     page_end: ex.page_end,
     complex_pages: complexPages || undefined,

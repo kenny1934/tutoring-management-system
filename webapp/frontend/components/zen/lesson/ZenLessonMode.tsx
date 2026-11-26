@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { getExerciseDisplayName, toEmbedUrl } from "@/lib/exercise-utils";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import { ZenLessonHeader } from "./ZenLessonHeader";
 import { ZenLessonSidebar } from "./ZenLessonSidebar";
@@ -213,7 +213,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         stamp: stampRef.current,
         onClose,
         onExitAttempt: ann.refs.handleExitAttemptRef.current,
-        paperlessSearch: searchPaperlessByPath,
+
         onEditExercises: handleEditExercisesRef.current,
         onUndo: ann.refs.handleUndoRef.current,
         onRedo: ann.refs.handleRedoRef.current,

@@ -36,7 +36,7 @@ import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
 import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
 import { TrendingCoursewareSection } from "./TrendingCoursewareSection";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { useAuth } from "@/contexts/AuthContext";
@@ -993,7 +993,7 @@ export function ExerciseModal({
     const printTitle = `${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}`;
 
     const urlExercises = exercises.filter(ex => ex.url && ex.url.trim() && !ex.pdf_name?.trim());
-    const error = await printBulkFiles(exercisesWithPdfs, stamp, searchPaperlessByPath, printTitle);
+    const error = await printBulkFiles(exercisesWithPdfs, stamp, undefined, printTitle);
     if (error) {
       setPrintAllState('error');
       setTimeout(() => setPrintAllState('idle'), 2000);
@@ -1023,7 +1023,7 @@ export function ExerciseModal({
     const studentName = session.student_name.replace(/\s+/g, '_');
     const filename = `${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
 
-    const error = await downloadBulkFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath);
+    const error = await downloadBulkFiles(exercisesWithPdfs, filename, stamp, undefined);
     if (error) {
       setDownloadAllState('error');
       setTimeout(() => setDownloadAllState('idle'), 2000);
@@ -1048,7 +1048,7 @@ export function ExerciseModal({
     const studentName = session.student_name.replace(/\s+/g, '_');
     const filename = `Ans_${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
 
-    const result = await downloadAllAnswerFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath, (msg) => setDownloadAllAnswersMessage(msg));
+    const result = await downloadAllAnswerFiles(exercisesWithPdfs, filename, stamp, undefined, (msg) => setDownloadAllAnswersMessage(msg));
     setDownloadAllAnswersMessage(undefined);
     if (result.status === 'success') {
       setDownloadAllAnswersState('idle');

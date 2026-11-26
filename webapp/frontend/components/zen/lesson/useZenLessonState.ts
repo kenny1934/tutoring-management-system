@@ -216,10 +216,15 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
 
     let cancelled = false;
     (async () => {
-      const result = await searchAnswerFile(pdfName);
-      if (cancelled) return;
-      answerCacheRef.current.set(pdfName, result);
-      setAnswerAvailable((prev) => new Map(prev).set(selectedExercise.id, result != null));
+      try {
+        const result = await searchAnswerFile(pdfName);
+        if (cancelled) return;
+        answerCacheRef.current.set(pdfName, result);
+        setAnswerAvailable((prev) => new Map(prev).set(selectedExercise.id, result != null));
+      } catch {
+        // An unavailable source is not a confirmed missing answer. Retry on revisit.
+        if (!cancelled) setAnswerAvailable((prev) => new Map(prev).set(selectedExercise.id, false));
+      }
     })();
 
     return () => { cancelled = true; };

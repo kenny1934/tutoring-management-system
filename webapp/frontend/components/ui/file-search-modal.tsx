@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Loader2, FileText, FolderSync, AlertCircle, Search, Info, CheckCircle2, Check, X } from "lucide-react";
@@ -57,6 +57,114 @@ export function FileSearchModal({
   // Batch mode state
   const [batchStates, setBatchStates] = useState<BatchSearchState[]>([]);
 
+  const request = useRef<AbortController | null>(null);
+
+  // Single file search
+  const startSearch = useCallback(async (includeLocal: boolean = false) => {
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+    setIsSearching(true);
+    setResults([]);
+    setError(null);
+
+    const options: SearchOptions = {
+      signal: controller.signal, searchLocal: includeLocal,
+      localFolderLimit: 3,
+      localFileLimit: 1000,
+    };
+
+    try {
+      const searchResults = await searchForFile(
+        filename!,
+        options,
+        (p) => { if (!controller.signal.aborted) setProgress(p); },
+        (result) => { if (!controller.signal.aborted) setResults((prev) => [...prev, result]); }
+      );
+
+      if (controller.signal.aborted) return;
+      if (searchResults.length === 0) {
+        setError(`No files matching "${filename}" were found${includeLocal ? "" : " in Courseware"}.`);
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Courseware search could not connect. Try again.");
+    } finally {
+      if (!controller.signal.aborted) setIsSearching(false);
+    }
+  }, [filename]);
+
+  // Batch search - search for all filenames simultaneously
+  const startBatchSearch = useCallback(async () => {
+    if (!filenames || filenames.length === 0) return;
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+
+    // Initialize batch states
+    const initialStates: BatchSearchState[] = filenames.map((fn) => ({
+      filename: fn,
+      isSearching: true,
+      results: [],
+      selectedPath: null,
+      error: null,
+    }));
+    setBatchStates(initialStates);
+
+    const options: SearchOptions = {
+      signal: controller.signal, searchLocal: false, // Courseware only for batch mode
+      localFolderLimit: 3,
+      localFileLimit: 1000,
+    };
+
+    // Search for each filename in parallel
+    await Promise.all(
+      filenames.map(async (fn, index) => {
+        try {
+          const searchResults = await searchForFile(
+            fn,
+            options,
+            undefined, // No progress callback for batch
+            (result) => {
+              if (controller.signal.aborted) return;
+              setBatchStates((prev) =>
+                prev.map((state, i) =>
+                  i === index
+                    ? { ...state, results: [...state.results, result] }
+                    : state
+                )
+              );
+            }
+          );
+
+          if (controller.signal.aborted) return;
+          setBatchStates((prev) =>
+            prev.map((state, i) => {
+              if (i !== index) return state;
+
+              // Auto-select exact match if found
+              const exactMatches = searchResults.filter((r) => r.match === "exact" && !r.requiresChoice);
+              const bestMatch = exactMatches.length === 1 ? exactMatches[0] : null;
+
+              return {
+                ...state,
+                isSearching: false,
+                selectedPath: bestMatch?.path || null,
+                error: searchResults.length === 0 ? `No matches found` : null,
+              };
+            })
+          );
+        } catch (err) {
+          if (controller.signal.aborted) return;
+          setBatchStates((prev) =>
+            prev.map((state, i) =>
+              i === index
+                ? { ...state, isSearching: false, error: "Search failed" }
+                : state
+            )
+          );
+        }
+      })
+    );
+  }, [filenames]);
+
   // Start search when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -74,105 +182,8 @@ export function FileSearchModal({
       setSearchLocalFolders(false);
       setBatchStates([]);
     }
-  }, [isOpen, filename, isBatchMode]);
-
-  // Single file search
-  const startSearch = useCallback(async (includeLocal: boolean = false) => {
-    setIsSearching(true);
-    setResults([]);
-    setError(null);
-
-    const options: SearchOptions = {
-      searchLocal: includeLocal,
-      localFolderLimit: 3,
-      localFileLimit: 1000,
-    };
-
-    try {
-      const searchResults = await searchForFile(
-        filename!,
-        options,
-        (p) => setProgress(p),
-        (result) => setResults((prev) => [...prev, result])
-      );
-
-      if (searchResults.length === 0) {
-        setError(`No files matching "${filename}" were found${includeLocal ? "" : " in Shelv"}.`);
-      }
-    } catch (err) {
-      setError("An error occurred while searching. Please try again.");
-    } finally {
-      setIsSearching(false);
-    }
-  }, [filename]);
-
-  // Batch search - search for all filenames simultaneously
-  const startBatchSearch = useCallback(async () => {
-    if (!filenames || filenames.length === 0) return;
-
-    // Initialize batch states
-    const initialStates: BatchSearchState[] = filenames.map((fn) => ({
-      filename: fn,
-      isSearching: true,
-      results: [],
-      selectedPath: null,
-      error: null,
-    }));
-    setBatchStates(initialStates);
-
-    const options: SearchOptions = {
-      searchLocal: false, // Shelv only for batch mode
-      localFolderLimit: 3,
-      localFileLimit: 1000,
-    };
-
-    // Search for each filename in parallel
-    await Promise.all(
-      filenames.map(async (fn, index) => {
-        try {
-          const searchResults = await searchForFile(
-            fn,
-            options,
-            undefined, // No progress callback for batch
-            (result) => {
-              setBatchStates((prev) =>
-                prev.map((state, i) =>
-                  i === index
-                    ? { ...state, results: [...state.results, result] }
-                    : state
-                )
-              );
-            }
-          );
-
-          setBatchStates((prev) =>
-            prev.map((state, i) => {
-              if (i !== index) return state;
-
-              // Auto-select exact match if found
-              const exactMatch = searchResults.find((r) => r.match === "exact");
-              const bestMatch = exactMatch || (searchResults.length === 1 ? searchResults[0] : null);
-
-              return {
-                ...state,
-                isSearching: false,
-                selectedPath: bestMatch?.path || null,
-                error: searchResults.length === 0 ? `No matches found` : null,
-              };
-            })
-          );
-        } catch (err) {
-          setBatchStates((prev) =>
-            prev.map((state, i) =>
-              i === index
-                ? { ...state, isSearching: false, error: "Search failed" }
-                : state
-            )
-          );
-        }
-      })
-    );
-  }, [filenames]);
+    return () => request.current?.abort();
+  }, [isOpen, filename, isBatchMode, filenames, startSearch, startBatchSearch]);
 
   // Re-run search when local toggle changes (single mode only)
   const handleLocalToggle = useCallback((enabled: boolean) => {
@@ -211,7 +222,7 @@ export function FileSearchModal({
 
   // Group results by source (single mode)
   const localResults = results.filter((r) => r.source === "local");
-  const shelvResults = results.filter((r) => r.source === "shelv");
+  const mckbResults = results.filter((r) => r.source === "mckb");
 
   // Sort results: exact matches first, then alphabetically
   const sortResults = (arr: FileSearchResult[]) =>
@@ -265,7 +276,7 @@ export function FileSearchModal({
             <div className="text-sm text-blue-700 dark:text-blue-300">
               <p className="font-medium mb-1">Searching for {batchTotalCount} dropped files</p>
               <p className="text-blue-600 dark:text-blue-400 text-xs">
-                Exact matches are auto-selected. Click a result to change selection.
+                Unique exact matches are selected automatically. Choose a folder when several files match.
               </p>
             </div>
           </div>
@@ -316,7 +327,7 @@ export function FileSearchModal({
             <p className="font-medium mb-1">Why search?</p>
             <p className="text-blue-600 dark:text-blue-400 text-xs">
               Browsers cannot access file paths from dropped files for security reasons.
-              We&apos;re searching for &quot;<span className="font-mono">{filename}</span>&quot; in Shelv.
+              We&apos;re searching for &quot;<span className="font-mono">{filename}</span>&quot; in Courseware.
             </p>
           </div>
         </div>
@@ -348,8 +359,8 @@ export function FileSearchModal({
             <Loader2 className="h-5 w-5 text-amber-700 animate-spin shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {progress.phase === "shelv"
-                  ? "Searching Shelv..."
+                {progress.phase === "mckb"
+                  ? "Searching Courseware..."
                   : progress.phase === "local"
                   ? "Scanning local folders..."
                   : "Search complete"}
@@ -399,17 +410,17 @@ export function FileSearchModal({
               </div>
             )}
 
-            {/* Shelv results */}
-            {shelvResults.length > 0 && (
+            {/* Courseware results */}
+            {mckbResults.length > 0 && (
               <div>
                 <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <Search className="h-4 w-4" />
-                  Shelv ({shelvResults.length})
+                  Courseware ({mckbResults.length})
                 </h3>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {sortResults(shelvResults).map((result, index) => (
+                  {sortResults(mckbResults).map((result, index) => (
                     <ResultRow
-                      key={`shelv-${index}`}
+                      key={`mckb-${index}`}
                       result={result}
                       onClick={() => handleSelectResult(result)}
                     />

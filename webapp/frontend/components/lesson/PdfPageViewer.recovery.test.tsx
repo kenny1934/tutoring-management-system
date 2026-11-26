@@ -103,3 +103,129 @@ it('does not replace a saved place while a loading placeholder has no scroller',
   view.rerender(<PdfPageViewer {...base} isLoading viewStates={views} onViewStateChange={() => {}} />);
   expect(views.get(1)).toEqual(saved);
 });
+
+describe('Progressive courseware preview', () => {
+  beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() }); });
+  afterEach(() => { delete (HTMLElement.prototype as unknown as { scrollTo?: unknown }).scrollTo; });
+  function delayedDocument() {
+    const finish = new Map<number, () => void>();
+    const rendered: number[] = [];
+    const destroy = vi.fn(async () => {});
+    h.getDocument.mockReturnValue({ destroy, promise: Promise.resolve({
+      numPages: 5, destroy,
+      getPage: async (number: number) => ({
+        getViewport: () => ({ width: 600, height: 800 + number * 10 }),
+        render: () => { rendered.push(number); return { promise: number === 3 ? Promise.resolve() : new Promise<void>(resolve => finish.set(number, resolve)) }; },
+      }),
+    }) });
+    let url = 0;
+    vi.mocked(URL.createObjectURL).mockImplementation(() => `blob:page-${++url}`);
+    return { finish, rendered, destroy };
+  }
+
+  it('reveals the matching physical page first, keeps all page slots, and preserves a manual zoom as neighbours arrive', async () => {
+    const { finish, rendered, destroy } = delayedDocument();
+    const views = new Map<number, PdfViewState>();
+    const view = render(<PdfPageViewer {...base} exerciseId={undefined} viewKey={9} viewStates={views} progressive renderConcurrency={2} initialPage={3} />);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(rendered[0]).toBe(3);
+    const firstPage = screen.getByRole('img', { name: 'Page 3' });
+    expect(screen.queryByRole('img', { name: 'Page 1' })).toBeNull();
+    expect(view.container.querySelector('[data-native-pdf-pages]')!.children).toHaveLength(5);
+    expect(firstPage.parentElement!.parentElement).toHaveStyle({ height: '830px' });
+    expect(screen.getByRole('status')).toHaveTextContent('Preparing remaining pages');
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    const scroll = view.container.querySelector<HTMLElement>('[data-native-pdf-scroll]')!;
+    scroll.scrollTop = 220; fireEvent.scroll(scroll);
+    const zoom = views.get(9)!.zoom;
+    await act(async () => { finish.get(2)!(); finish.get(4)!(); await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByRole('img', { name: 'Page 2' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Page 3' })).toBe(firstPage);
+    expect(views.get(9)!.zoom).toBe(zoom);
+    expect(scroll.scrollTop).toBe(220);
+    view.unmount();
+    expect(destroy).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:page-1');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:page-2');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:page-3');
+  });
+
+  it('keeps lesson exercises on their existing complete-document render path', async () => {
+    const { finish } = delayedDocument();
+    render(<PdfPageViewer {...base} progressive renderConcurrency={2} initialPage={3} />);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(screen.queryByRole('img', { name: 'Page 3' })).toBeNull();
+    await act(async () => { finish.get(1)!(); finish.get(2)!(); await vi.advanceTimersByTimeAsync(1); });
+    // Page 3 is ready, but lesson rendering still waits for the complete set.
+    expect(screen.queryByRole('img', { name: 'Page 3' })).toBeNull();
+    await act(async () => { finish.get(4)!(); await vi.advanceTimersByTimeAsync(1); });
+    await act(async () => { finish.get(5)!(); await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByRole('img', { name: 'Page 3' })).toBeInTheDocument();
+    expect(screen.queryByText('Preparing remaining pages…')).toBeNull();
+  });
+
+  it('keeps already prepared pages readable when background preparation times out', async () => {
+    const { destroy } = delayedDocument();
+    const retry = vi.fn();
+    render(<PdfPageViewer {...base} exerciseId={undefined} progressive renderConcurrency={2} initialPage={3} onRetry={retry} />);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(screen.getByRole('img', { name: 'Page 3' })).toBeInTheDocument();
+    await act(async () => vi.advanceTimersByTimeAsync(45_000));
+    expect(screen.getByRole('img', { name: 'Page 3' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Some pages took too long');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(destroy).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry PDF' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+});
+
+it('reuses the open document for native text and retains page-level matches if text positioning is unavailable', async () => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+  const text = vi.fn(async () => ({ items: [{ str: 'Quadratic equations' }], styles: {} }));
+  h.getDocument.mockReturnValue({ destroy: vi.fn(async () => {}), promise: Promise.resolve({ numPages: 1, destroy: vi.fn(), getPage: async () => ({
+    getTextContent: text, getViewport: () => ({ width: 600, height: 800 }), render: () => ({ promise: Promise.resolve() }),
+  }) }) });
+  const terms = [{ text: 'quadratic' }];
+  const view = render(<PdfPageViewer {...base} exerciseId={undefined} progressive searchTerms={terms} initialPage={1} />);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(h.getDocument).toHaveBeenCalledOnce(); expect(text).toHaveBeenCalledOnce();
+  expect(screen.getByRole('img', { name: 'Page 1' })).toBeInTheDocument();
+  // This mocked runtime has no TextLayer, so the user receives an honest fallback.
+  expect(screen.getByRole('group', { name: 'PDF text matches' })).toHaveTextContent('1 of 1 matches · page only');
+  view.rerender(<PdfPageViewer {...base} exerciseId={undefined} progressive searchTerms={[{ text: 'equations' }]} initialPage={1} />);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(h.getDocument).toHaveBeenCalledOnce(); expect(text).toHaveBeenCalledOnce();
+  view.unmount(); delete (HTMLElement.prototype as unknown as { scrollTo?: unknown }).scrollTo;
+});
+
+it('does not claim the PDF has no matches when native text extraction failed on another page', async () => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+  h.getDocument.mockReturnValue({ destroy: vi.fn(async () => {}), promise: Promise.resolve({ numPages: 2, destroy: vi.fn(), getPage: async (number: number) => ({
+    getTextContent: async () => { if (number === 2) throw new Error('Text unavailable'); return { items: [{ str: 'Unrelated text' }], styles: {} }; },
+    getViewport: () => ({ width: 600, height: 800 }), render: () => ({ promise: Promise.resolve() }),
+  }) }) });
+  const view = render(<PdfPageViewer {...base} exerciseId={undefined} progressive searchTerms={[{ text: 'quadratic' }]} initialPage={1} />);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(screen.getByRole('group', { name: 'PDF text matches' })).toHaveTextContent('Precise highlighting unavailable');
+  expect(screen.queryByText('No matching text in PDF')).toBeNull();
+  expect(screen.getByRole('img', { name: 'Page 1' })).toBeInTheDocument();
+  view.unmount(); delete (HTMLElement.prototype as unknown as { scrollTo?: unknown }).scrollTo;
+});
+
+it('keeps the courseware loading surface through byte fetching and first-page preparation', async () => {
+  const { CoursewarePreviewState } = await import('@/components/courseware/CoursewarePreviewState');
+  let ready!: (document: unknown) => void;
+  const task = documentTask();
+  h.getDocument.mockReturnValue({ destroy: vi.fn(async () => {}), promise: new Promise(resolve => { ready = resolve; }) });
+  const renderLoading = () => <CoursewarePreviewState />;
+  const view = render(<PdfPageViewer {...base} pdfData={null} isLoading renderLoading={renderLoading} />);
+  const status = screen.getByRole('status'); expect(status).toHaveTextContent('Opening PDF…');
+  view.rerender(<PdfPageViewer {...base} renderLoading={renderLoading} />);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(screen.getByRole('status')).toBe(status);
+  expect(screen.queryByText('Rendering pages...')).toBeNull();
+  await act(async () => { ready(await task.promise); await vi.advanceTimersByTimeAsync(1); });
+  expect(screen.getByRole('img', { name: 'Page 1' })).toBeInTheDocument();
+  expect(screen.queryByRole('status')).toBeNull();
+});

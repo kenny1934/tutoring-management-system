@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, Loader2, Plus, X } from "lucide-react";
+import { ExternalLink, Plus, X } from "lucide-react";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
-import { openFileFromPathWithFallback } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { CanvasPdfPreview } from '@/components/courseware/CanvasPdfPreview';
+
 import { Button, IconButton } from "@/components/controls";
 import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { useBackToClose } from "@/hooks/useBackToClose";
@@ -24,17 +24,22 @@ interface CurriculumPdfPreviewProps {
 /**
  * Peek at a worksheet without leaving the current surface.
  * Loads bytes through the same chain Lesson Mode uses (connected drive
- * folders first, Shelv as fallback) and renders them in an iframe overlay,
+ * folders first, then MCKB) and renders them in the shared PDF viewer,
  * portalled above whatever opened it.
  */
-export function CurriculumPdfPreview({
+export function CurriculumPdfPreview(props: CurriculumPdfPreviewProps) {
+  return <CurriculumPdfPreviewContent key={props.filePath} {...props} />;
+}
+
+function CurriculumPdfPreviewContent({
   filePath,
   fileLabel,
   onAdd,
   onClose,
 }: CurriculumPdfPreviewProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [progress, setProgress] = useState("Opening…");
+  const [data, setData] = useState<ArrayBuffer | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const trapTab = useDialogFocus(panelRef);
@@ -45,23 +50,22 @@ export function CurriculumPdfPreview({
   useEffect(() => {
     let cancelled = false;
     let url: string | null = null;
+    setFailed(false); setData(null); setBlobUrl(null);
     (async () => {
-      const result = await loadExercisePdf(filePath, (message) => {
-        if (!cancelled) setProgress(message);
-      });
+      const result = await loadExercisePdf(filePath);
       if (cancelled) return;
       if ("error" in result) {
         setFailed(true);
         return;
       }
       url = URL.createObjectURL(new Blob([result.data], { type: "application/pdf" }));
-      setBlobUrl(url);
+      setBlobUrl(url); setData(result.data);
     })();
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [filePath]);
+  }, [filePath, attempt]);
 
   // Capture phase, for the same reason as CurriculumModalShell: the exercise
   // modal swallows bubbling Escapes, deferring to open overlays via the
@@ -92,7 +96,7 @@ export function CurriculumPdfPreview({
         className={`bg-paper border-2 border-line-strong rounded-lg shadow-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden focus:outline-none ${styles.pdfPanel}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center gap-2 px-3 py-2 border-b border-line-strong/40 dark:border-line-strong/60">
+        <header className="flex shrink-0 items-center gap-2 px-3 py-2 border-b border-line-strong/40 dark:border-line-strong/60">
           <span
             data-curriculum-pdf-label
             className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate flex-1"
@@ -117,37 +121,14 @@ export function CurriculumPdfPreview({
             icon={ExternalLink}
             size="sm"
             label="Open in a new tab"
-            onClick={() => openFileFromPathWithFallback(filePath, searchPaperlessByPath)}
+            disabled={!blobUrl} onClick={() => { if (!blobUrl) return; const tab = window.open(blobUrl, '_blank'); if (tab) tab.opener = null; }}
           />
           <IconButton icon={X} size="sm" label="Close preview" onClick={onClose} />
         </header>
 
-        <div data-curriculum-pdf-content className="flex-1 min-h-0 bg-gray-100 dark:bg-gray-900">
-          {blobUrl ? (
-            <iframe src={blobUrl} title={fileLabel} className="w-full h-full border-0" />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center">
-              {failed ? (
-                <>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    We couldn&apos;t open this file.
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    It isn&apos;t reachable from your connected folders or Shelv on
-                    this device.
-                    {/* Only promise the add action where it exists (the
-                        exercise modal case). */}
-                    {onAdd ? " You can still add it to the session." : ""}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{progress}</p>
-                </>
-              )}
-            </div>
-          )}
+        <div data-curriculum-pdf-content className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <CanvasPdfPreview data={data ?? undefined} title={fileLabel} path={filePath} error={failed ? 'The PDF could not load.' : null} onRetry={() => setAttempt(value => value + 1)} />
+
         </div>
       </div>
     </div>,

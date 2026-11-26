@@ -10,7 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.background import BackgroundTask
 from starlette.responses import StreamingResponse
 from urllib.parse import quote
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from services.material_refinements import SearchRefinement
+from services.material_http import get_material_client
+from services.material_timing import material_timings
 
 from auth.dependencies import get_current_user
 from models import Tutor
@@ -31,28 +34,45 @@ def request_materials(action: str, payload: dict, user: Tutor):
     message = "\n".join(("csm-materials-v1", timestamp, email, "POST", path, hashlib.sha256(body).hexdigest()))
     headers = {"Content-Type": "application/json", "Accept-Encoding": "identity", "X-CSM-Email": email, "X-CSM-Timestamp": timestamp,
                "X-CSM-Signature": hmac.new(key.encode(), message.encode(), hashlib.sha256).hexdigest()}
+    started = time.perf_counter()
+    timings = material_timings.get()
     try:
-        with httpx.Client(timeout=httpx.Timeout(20, connect=5), follow_redirects=False) as client:
-            response = client.post(base + path, content=body, headers=headers)
+        # A standalone Request does not inherit the pooled client's cookies or
+        # defaults. Only this caller's freshly signed identity goes upstream.
+        response = get_material_client().send(httpx.Request("POST", base + path, content=body, headers=headers))
     except httpx.HTTPError:
         raise HTTPException(503, "Courseware search is temporarily unavailable.") from None
+    finally:
+        if timings is not None:
+            timings["mckb_request"] = (time.perf_counter() - started) * 1000
     if response.status_code == 403:
         raise HTTPException(403, "Your Knowledge Base account needs access to this material source. Ask an administrator.")
     if response.status_code == 404 and action in ("preview", "resolve"):
         raise HTTPException(404, "This material is no longer available.")
     if response.status_code == 422:
+        try:
+            detail = response.json().get("detail")
+        except (ValueError, AttributeError):
+            detail = None
+        if detail == "Use at most eight words in each word field. Put longer phrases in Exact phrase.":
+            raise HTTPException(422, detail)
         raise HTTPException(422, "Choose a page within this document." if action == "preview" else "Check the courseware search filters.")
     if not response.is_success:
         raise HTTPException(503, "Courseware search is temporarily unavailable.")
     try:
-        return response.json()
+        result = response.json()
+        search_ms = result.get("took_ms") if isinstance(result, dict) else None
+        if timings is not None and action == "search" and type(search_ms) in (int, float) and 0 <= search_ms < float("inf"):
+            timings["mckb_search"] = search_ms
+        return result
     except ValueError:
         raise HTTPException(503, "Courseware search returned an invalid response.") from None
 
 
 class MaterialSearch(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    q: str = Field(min_length=1, max_length=256)
+    q: str = Field(default="", max_length=256)
+    refine: SearchRefinement | None = None
     share: str | None = None
     ext: str | None = Field(default=None, max_length=16)
     folder: str | None = Field(default=None, max_length=512)
@@ -69,14 +89,22 @@ def sources(user: Tutor = Depends(get_current_user)):
 
 @router.post("/search")
 def search(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
-    return request_materials("search", data.model_dump(exclude_none=True), user)
+    if not data.q.strip() and not (data.refine and (data.refine.any_words.strip() or data.refine.exact_phrase.strip())):
+        raise HTTPException(422, "Enter some words or an exact phrase to search for.")
+    return request_materials("search", data.model_dump(mode="json", exclude_none=True), user)
 
 
 @router.get("/{file_id}/preview")
-def preview(file_id: int, q: str = Query(default="", max_length=256), page: int | None = Query(default=None, ge=1, le=100000), user: Tutor = Depends(get_current_user)):
+def preview(file_id: int, q: str = Query(default="", max_length=256), page: int | None = Query(default=None, ge=1, le=100000), refine: str | None = Query(default=None, max_length=2048), user: Tutor = Depends(get_current_user)):
     if file_id <= 0:
         raise HTTPException(404, "This material is no longer available.")
-    return request_materials("preview", {"file_id": file_id, "q": q, **({"page": page} if page is not None else {})}, user)
+    options = {}
+    if refine is not None:
+        try:
+            options["refine"] = SearchRefinement.model_validate_json(refine).model_dump(mode="json", exclude_none=True)
+        except (ValidationError, ValueError):
+            raise HTTPException(422, "Check the courseware search filters.") from None
+    return request_materials("preview", {"file_id": file_id, "q": q, **({"page": page} if page is not None else {}), **options}, user)
 
 
 @router.get("/{file_id}/raw")
@@ -135,4 +163,29 @@ class ResolveMaterial(BaseModel):
 
 @router.post("/resolve")
 def resolve(data: ResolveMaterial, user: Tutor = Depends(get_current_user)):
-    return request_materials("resolve", {"path": data.path}, user)
+    path = data.path.strip().replace("/", "\\")
+    if not path.startswith("\\") or path.startswith("\\\\"):
+        return request_materials("resolve", {"path": path}, user)
+    parts = path[1:].split("\\")
+    if any(part in ("", ".", "..") or ":" in part for part in parts):
+        raise HTTPException(404, "This material is no longer available.")
+    candidates = ["[Center]" + path, "[Courseware Developer 中學]" + path,
+                  "[MSA Staff]" + (path if parts[0].casefold() == "scan" else "\\scan" + path)]
+    matches = []
+    forbidden = 0
+    for candidate in candidates:
+        try:
+            found = request_materials("resolve", {"path": candidate}, user)
+            matches.append({**found, "nas_path": candidate})
+        except HTTPException as error:
+            if error.status_code == 403:
+                forbidden += 1
+            if error.status_code not in (403, 404):
+                raise
+    if len(matches) > 1:
+        raise HTTPException(409, "More than one courseware file matches this saved path. Choose it through courseware search.")
+    if not matches and forbidden == len(candidates):
+        raise HTTPException(403, "Your Knowledge Base account needs access to this material source. Ask an administrator.")
+    if not matches:
+        raise HTTPException(404, "This material is no longer available.")
+    return matches[0]

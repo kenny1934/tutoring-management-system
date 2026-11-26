@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useCallback, type ReactNode, type Ref } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useCallback, useMemo, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
@@ -14,6 +14,10 @@ import { PaneTools, usePaneTools } from "./PaneTools";
 import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP, computeFitZoom, stackZoomStyles } from "@/lib/zoom";
 import { CM } from "@/lib/drawing-guide";
 import { AnnotationTray } from "./AnnotationTray";
+import findStyles from "./PdfTextSearch.module.css";
+import { IconButton } from "@/components/controls";
+import { PdfTextSearchLayer, pdfNativeText, type PdfNativeText } from "./PdfTextSearch";
+import { pdfTextMatches, type PdfFindTerm } from "@/lib/pdf-text-search";
 import { PageThumbnails } from "./PageThumbnails";
 import { PageCover } from "./PageCover";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
@@ -138,6 +142,8 @@ export interface PdfViewState {
 }
 
 interface PdfPageViewerProps {
+  onPageCount?: (count: number) => void;
+  onDocumentError?: () => void;
   /** Read-only preview rotation; existing lesson/annotation views keep zero. */
   previewRotation?: number;
   pdfData: ArrayBuffer | null;
@@ -149,6 +155,10 @@ interface PdfPageViewerProps {
   keyboardNavigation?: boolean;
   /** Limit canvas work for long courseware PDFs. Existing lesson rendering is unchanged. */
   renderConcurrency?: number;
+  /** Reveal the matching page first in a read-only, full-document preview. */
+  progressive?: boolean;
+  /** Native text search for read-only courseware; exclusions are omitted by the caller. */
+  searchTerms?: PdfFindTerm[];
   /** Stamp info to overlay on each page (same as printing). */
   stamp?: PrintStampInfo;
   isLoading: boolean;
@@ -156,6 +166,10 @@ interface PdfPageViewerProps {
   error: string | null;
   exerciseLabel?: string;
   onRetry?: () => void;
+  /** Optional courseware error surface; lesson defaults remain unchanged. */
+  renderError?: (message: string) => ReactNode;
+  /** Keep courseware fetching and first-page preparation on the same surface. */
+  renderLoading?: () => ReactNode;
   /** Annotation state for this exercise's pages. */
   annotations?: PageAnnotations;
   /** Called with the one page whose strokes changed, and its new strokes. */
@@ -202,6 +216,8 @@ interface PdfPageViewerProps {
    * mode puts its way back here, so a finger can always reach it.
    */
   toolbarStart?: ReactNode;
+  /** The courseware detail header already names the file on a narrow screen. */
+  compactToolbar?: boolean;
   /** Prints the exercise on screen. Pass it to show the toolbar's Print button. */
   onPrint?: () => void;
   /** True while a print is being prepared, which greys out the Print button. */
@@ -253,18 +269,23 @@ export interface PdfViewerHandle {
 const MAX_RENDER_CACHE_SIZE = 30;
 
 export function PdfPageViewer({
+  onPageCount, onDocumentError,
   pdfData,
   pageNumbers,
   previewRotation = 0,
   initialPage,
   keyboardNavigation = false,
   renderConcurrency = Infinity,
+  progressive = false,
+  searchTerms,
   stamp,
   isLoading,
   loadingMessage,
   error,
   exerciseLabel,
   onRetry,
+  renderError,
+  renderLoading,
   annotations = {},
   onPageStrokesChange,
   onPagesStrokesChange,
@@ -283,6 +304,7 @@ export function PdfPageViewer({
   onDraftToggle,
   showDraft = false,
   toolbarStart,
+  compactToolbar = false,
   onPrint,
   isPrinting = false,
   printTitle = "Print this exercise (P)",
@@ -300,6 +322,15 @@ export function PdfPageViewer({
   const isDark = resolvedTheme === 'dark';
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [preparingMore, setPreparingMore] = useState(false);
+  const [renderWarning, setRenderWarning] = useState<string | null>(null);
+  const progressiveSource = useRef<{ data: ArrayBuffer; rotation: number } | null>(null);
+  const progressiveLayout = useRef<{ data: ArrayBuffer | null; rotation: number; count: number } | null>(null);
+  const [nativeState, setNativeState] = useState<{ source: ArrayBuffer | null; rotation: number; pages: Map<number, PdfNativeText>; complete: boolean; partial: boolean }>({ source: null, rotation: 0, pages: new Map(), complete: false, partial: false });
+  const [unlocatedNativeId, setUnlocatedNativeId] = useState<string | null>(null);
+  const [activeNativeId, setActiveNativeId] = useState<string | null>(null);
+  const pendingNativeScroll = useRef(false);
+  const nativeCache = useRef(new WeakMap<PdfNativeText, { key: string; result: ReturnType<typeof pdfTextMatches> }>());
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
@@ -315,6 +346,7 @@ export function PdfPageViewer({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasZoomed = useRef(false);
   const fitZoomRef = useRef(100);
+  const resizeAnchor = useRef<{ page: number; fraction: number } | null>(null);
 
   // Render cache: exerciseId → rendered pages + state needed for restoration
   const renderCacheRef = useRef<Map<number, {
@@ -489,6 +521,70 @@ export function PdfPageViewer({
     setAutoRetryTick(0);
   }, [pdfData, exerciseId]);
 
+  const pageCountCallback = useRef(onPageCount);
+  pageCountCallback.current = onPageCount;
+  const documentErrorCallback = useRef(onDocumentError);
+  documentErrorCallback.current = onDocumentError;
+
+  const progressivePreview = progressive && !tools && exerciseId == null && !stamp && pageNumbers.length === 0;
+  const progressiveDocument = progressivePreview ? pdfData : null;
+  const progressiveRotation = progressivePreview ? previewRotation : 0;
+  const progressiveBusy = progressivePreview && isProcessing;
+
+  const nativeEnabled = progressivePreview && !!searchTerms?.length;
+  const nativeKey = JSON.stringify(searchTerms ?? []);
+  const nativeRows = useMemo(() => {
+    const pages = new Map<number, { text: PdfNativeText; matches: ReturnType<typeof pdfTextMatches>['matches'] }>();
+    const matches: { id: string; page: number; pageIndex: number }[] = [];
+    let truncated = false, hasText = false;
+    if (!nativeEnabled || nativeState.source !== progressiveDocument || nativeState.rotation !== progressiveRotation) return { pages, matches, truncated, hasText };
+    const terms = JSON.parse(nativeKey) as PdfFindTerm[];
+    for (const [number, text] of [...nativeState.pages].sort(([a], [b]) => a - b)) {
+      hasText ||= !!text.index.text.trim();
+      let cached = nativeCache.current.get(text);
+      if (cached?.key !== nativeKey) { cached = { key: nativeKey, result: pdfTextMatches(text.index.text, terms) }; nativeCache.current.set(text, cached); }
+      const available = cached.result.matches.slice(0, Math.max(0, 10000 - matches.length));
+      truncated ||= cached.result.truncated || available.length < cached.result.matches.length;
+      pages.set(number, { text, matches: available });
+      available.forEach((match, pageIndex) => matches.push({ id: `${number}:${match.start}:${match.end}`, page: number, pageIndex }));
+    }
+    return { pages, matches, truncated, hasText };
+  }, [nativeEnabled, nativeState, progressiveDocument, progressiveRotation, nativeKey]);
+  const activeNative = nativeRows.matches.find(match => match.id === activeNativeId);
+  useEffect(() => { setActiveNativeId(null); pendingNativeScroll.current = false; }, [progressiveDocument, progressiveRotation, nativeKey]);
+  useEffect(() => {
+    if (activeNativeId || !nativeRows.matches.length || isProcessing || restoreRef.current) return;
+    let anchor = previewStartRef.current?.page || initialPage || 1;
+    if (restoringSavedView.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const middle = container.getBoundingClientRect().top + container.clientHeight / 2;
+      let distance = Infinity;
+      pageRefs.current.forEach((element, index) => {
+        if (!element) return;
+        const rect = element.getBoundingClientRect(), next = Math.abs(rect.top + rect.height / 2 - middle);
+        if (next < distance) { distance = next; anchor = index + 1; }
+      });
+    }
+    if (!nativeState.pages.has(anchor) && !nativeState.complete) return;
+    const match = nativeRows.matches.find(match => match.page === anchor) ?? nativeRows.matches.find(match => match.page >= anchor) ?? nativeRows.matches[0];
+    pendingNativeScroll.current = !restoringSavedView.current;
+    setActiveNativeId(match.id);
+  }, [activeNativeId, nativeRows, nativeState, initialPage, isProcessing, zoom]);
+  const nextNativeMatch = (direction: number) => {
+    if (!nativeRows.matches.length) return;
+    const index = nativeRows.matches.findIndex(match => match.id === activeNativeId);
+    const next = nativeRows.matches[(index + direction + nativeRows.matches.length) % nativeRows.matches.length];
+    pendingNativeScroll.current = true; setActiveNativeId(next.id); scrollToPage(next.page, 'auto');
+    if (next.id === activeNativeId) { const element = pageStackRef.current?.querySelector<HTMLElement>('[data-pdf-active-match] mark'); if (element) revealNativeMatch(element); }
+  };
+  const revealNativeMatch = (element: HTMLElement) => {
+    if (unlocatedNativeId === activeNativeId) setUnlocatedNativeId(null);
+    const container = scrollContainerRef.current;
+    if (!pendingNativeScroll.current || !container || restoreRef.current) return;
+    pendingNativeScroll.current = false;
+    container.scrollTo({ top: container.scrollTop + element.getBoundingClientRect().top - container.getBoundingClientRect().top - (container.clientHeight - element.getBoundingClientRect().height) / 2, behavior: 'auto' });
+  };
+
   // Process PDF: extract+stamp → render pages as images (parallel)
   // Uses render cache to skip expensive pipeline when switching back to a previously viewed exercise.
   useEffect(() => {
@@ -496,6 +592,8 @@ export function PdfPageViewer({
       pageUrlsRef.current = [];
       pdfBytesRef.current = null;
       setPages([]);
+      setPreparingMore(false);
+      setRenderWarning(null);
       setProcessError(null);
       setIsProcessing(false);
       return;
@@ -515,17 +613,26 @@ export function PdfPageViewer({
       }
     }
 
+    const revealProgressively = progressivePreview;
+    const ownedUrls = new Set<string>();
+    let revealed = false;
     let cancelled = false;
     let destroyDocument: (() => void) | undefined;
     const deadline = setTimeout(() => {
       cancelled = true;
       destroyDocument?.();
-      setProcessError("The PDF took too long to prepare.");
+      if (revealed) setRenderWarning("Some pages took too long to prepare. Retry the PDF to load them.");
+      else setProcessError("The PDF took too long to prepare.");
+      setPreparingMore(false);
+      setNativeState(previous => ({ ...previous, complete: true, partial: true }));
       setIsProcessing(false);
     }, 45_000);
     previewStartRef.current = { data: pdfData, rotation: previewRotation, match: initialPageRef.current,
       page: previewStartRef.current?.data === pdfData ? currentVisiblePageRef.current : initialPageRef.current || 1 };
     setIsProcessing(true);
+    setNativeState({ source: pdfData, rotation: previewRotation, pages: new Map(), complete: !nativeEnabled, partial: false });
+    setPreparingMore(false);
+    setRenderWarning(null);
     setProcessError(null);
 
     (async () => {
@@ -550,20 +657,37 @@ export function PdfPageViewer({
         if (cancelled) return;
         const task = pdfjs.getDocument({ data: pdfBytes });
         destroyDocument = () => { destroyDocument = undefined; void task.destroy().catch(() => {}); };
-        const doc = await task.promise;
+        const doc = await task.promise.catch(error => {
+          if (!cancelled) documentErrorCallback.current?.();
+          throw error;
+        });
 
         if (cancelled) {
           doc.destroy();
           return;
         }
 
+        pageCountCallback.current?.(doc.numPages);
+
         const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
         const scale = RENDER_SCALE * dpr;
 
+        const nativeJobs: Promise<void>[] = [];
+        const nativeStarted = new Set<number>();
+        let nativeFailure = false;
         const renderPage = async (pageNum: number): Promise<RenderedPage | null> => {
           if (cancelled) return null;
           try {
             const page = await doc.getPage(pageNum);
+            if (nativeEnabled && !nativeStarted.has(pageNum)) {
+              nativeStarted.add(pageNum);
+              nativeJobs.push(page.getTextContent().then(content => {
+                if (cancelled) return;
+                const viewport = page.getViewport({ scale: RENDER_SCALE, rotation: ((page.rotate || 0) + previewRotation) % 360 });
+                const text = pdfNativeText(content, viewport);
+                setNativeState(previous => ({ ...previous, pages: new Map(previous.pages).set(pageNum, text) }));
+              }).catch(() => { nativeFailure = true; }));
+            }
             const viewport = page.getViewport(previewRotation ? { scale, rotation: ((page.rotate || 0) + previewRotation) % 360 } : { scale });
 
             const canvas = document.createElement("canvas");
@@ -583,6 +707,7 @@ export function PdfPageViewer({
             if (cancelled) return null;
 
             const url = URL.createObjectURL(blob);
+            if (revealProgressively) ownedUrls.add(url);
             return {
               url,
               width: viewport.width / dpr,
@@ -596,6 +721,47 @@ export function PdfPageViewer({
         };
 
         const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
+        if (revealProgressively && pageNums.length) {
+          const anchor = Math.max(1, Math.min(previewStartRef.current?.page || 1, doc.numPages));
+          // Reserve every physical page's actual dimensions before publishing.
+          // Later images fill these slots without moving the current page.
+          const slots: RenderedPage[] = [];
+          for (let start = 0; start < pageNums.length; start += 4) {
+            const dimensions = await Promise.all(pageNums.slice(start, start + 4).map(async number => {
+              const page = await doc.getPage(number);
+              const viewport = page.getViewport(previewRotation ? { scale, rotation: ((page.rotate || 0) + previewRotation) % 360 } : { scale });
+              return { url: "", width: viewport.width / dpr, height: viewport.height / dpr };
+            }));
+            if (cancelled) return;
+            slots.push(...dimensions);
+          }
+          // The first batch has one page, so a slow neighbour cannot delay it.
+          const order = [...pageNums].sort((a, b) => Math.abs(a - anchor) - Math.abs(b - anchor));
+          const concurrency = Number.isFinite(renderConcurrency) ? Math.max(1, Math.floor(renderConcurrency)) : 2;
+          for (let start = 0; start < order.length;) {
+            const batch = order.slice(start, start + (start === 0 ? 1 : concurrency));
+            const rendered = await Promise.all(batch.map(renderPage));
+            if (cancelled) return;
+            rendered.forEach((page, index) => { if (page) slots[batch[index] - 1] = page; });
+            start += batch.length;
+            if (!revealed && !rendered.some(Boolean)) continue;
+            revealed = true;
+            progressiveSource.current = { data: pdfData, rotation: previewRotation };
+            pageUrlsRef.current = [...ownedUrls];
+            renderScaleRef.current = RENDER_SCALE;
+            setPages([...slots]);
+            setIsProcessing(false);
+            setPreparingMore(start < order.length);
+          }
+          await Promise.allSettled(nativeJobs);
+          if (cancelled) return;
+          if (nativeEnabled) setNativeState(previous => ({ ...previous, complete: true, partial: nativeFailure || previous.pages.size < doc.numPages }));
+          doc.destroy(); destroyDocument = undefined;
+          if (!revealed) throw new Error("No pages could be prepared");
+          if (slots.some(page => !page.url)) setRenderWarning("Some pages could not be prepared. Retry the PDF to load them.");
+          return;
+        }
+
         const results: (RenderedPage | null)[] = [];
         const batchSize = Number.isFinite(renderConcurrency) ? Math.max(1, Math.floor(renderConcurrency)) : pageNums.length || 1;
         for (let start = 0; start < pageNums.length; start += batchSize) {
@@ -669,8 +835,10 @@ export function PdfPageViewer({
       cancelled = true;
       clearTimeout(deadline);
       destroyDocument?.();
+      ownedUrls.forEach(url => URL.revokeObjectURL(url));
+      if (revealProgressively) pageUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick, previewRotation, renderConcurrency]);
+  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick, previewRotation, renderConcurrency, progressivePreview, nativeEnabled]);
 
   // Revoke all cached page URLs on unmount
   useEffect(() => {
@@ -722,8 +890,15 @@ export function PdfPageViewer({
       hiResRerenderRef.current = false;
       return;
     }
+    if (progressivePreview) {
+      const source = progressiveSource.current;
+      if (!source || source.data !== progressiveDocument || source.rotation !== progressiveRotation) return;
+      const previous = progressiveLayout.current;
+      if (previous?.data === progressiveDocument && previous.rotation === progressiveRotation && previous.count === pages.length) return;
+      progressiveLayout.current = { data: progressiveDocument, rotation: progressiveRotation, count: pages.length };
+    }
     settleZoom();
-  }, [pages, settleZoom]);
+  }, [pages, settleZoom, progressivePreview, progressiveDocument, progressiveRotation]);
 
   // Once the settled zoom has been drawn, scroll back to where the tutor was.
   useLayoutEffect(() => {
@@ -774,15 +949,29 @@ export function PdfPageViewer({
     if (!container || pagesRef.current.length === 0) return;
 
     const observer = new ResizeObserver(() => {
-      if (userHasZoomed.current || pagesRef.current.length === 0) return;
+      if (userHasZoomed.current || pagesRef.current.length === 0 || container.clientWidth === 0) return;
       const fit = computeFitZoom(container, pagesRef.current[0].width);
       fitZoomRef.current = fit;
-      if (fit !== zoomRef.current) setZoom(fit);
+      if (fit !== zoomRef.current) {
+        if (progressivePreview && !restoreRef.current && initialPageApplied.current?.data === progressiveDocument) {
+          const index = currentVisiblePageRef.current - 1;
+          const page = pageRefs.current[index]?.getBoundingClientRect();
+          if (page?.height) resizeAnchor.current = { page: index, fraction: (container.getBoundingClientRect().top + container.clientHeight / 2 - page.top) / page.height };
+        }
+        setZoom(fit);
+      }
     });
     observer.observe(container);
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages.length]);
+  }, [pages.length, progressivePreview, progressiveDocument, progressiveBusy]);
+
+  useLayoutEffect(() => {
+    const anchor = resizeAnchor.current, container = scrollContainerRef.current;
+    if (!anchor || !container) return;
+    resizeAnchor.current = null;
+    const page = pageRefs.current[anchor.page]?.getBoundingClientRect();
+    if (page) container.scrollTop += page.top + page.height * anchor.fraction - container.getBoundingClientRect().top - container.clientHeight / 2;
+  }, [zoom]);
 
   // Track which page is most visible via scroll position (center of viewport)
   useEffect(() => {
@@ -816,7 +1005,7 @@ export function PdfPageViewer({
   // Debounced hi-res re-render when zoom exceeds current render resolution
   // Uses pagesRef to avoid re-triggering when pages change (prevents flash on initial load)
   useEffect(() => {
-    if (pagesRef.current.length === 0 || !pdfBytesRef.current) return;
+    if (preparingMore || pagesRef.current.some(page => !page.url) || pagesRef.current.length === 0 || !pdfBytesRef.current) return;
 
     const neededScale = (zoom / 100) * RENDER_SCALE;
     // Only re-render if zoom demands more than 10% beyond current resolution
@@ -910,7 +1099,7 @@ export function PdfPageViewer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, exerciseId, previewRotation]);
+  }, [zoom, exerciseId, previewRotation, preparingMore]);
 
   useLayoutEffect(() => {
     if (isLoading || isProcessing || !pdfData || pages.length === 0 || !pageStackRef.current) return;
@@ -931,8 +1120,15 @@ export function PdfPageViewer({
     </div>
   ) : content;
 
+  // A full-document courseware preview can receive bytes one render before
+  // its preparation effect starts. Keep the same surface through that handoff.
+  if (renderLoading && pdfData && pageNumbers.length === 0 && pages.length === 0 && !error && !processError) {
+    return renderLoading();
+  }
+
   // Loading state
   if (isLoading || isProcessing) {
+    if (renderLoading) return renderLoading();
     if (preview === "motion") return <LessonWorksheetLoading key={viewId} label={exerciseLabel} pages={pageNumbers.length ? formatCompactPageRange(pageNumbers) : undefined} toolbarStart={toolbarStart} toolbarClass={toolbarRow} message={isLoading ? loadingMessage : "Preparing pages"} />;
     // Theme-aware colors for the page-flip animation
     const spine = isDark
@@ -1023,6 +1219,7 @@ export function PdfPageViewer({
 
   // Error state
   if (error || processError) {
+    if (renderError) return renderError(error || processError || "The PDF could not load.");
     if (preview === "motion") return <LessonWorksheetLoading key={`error-${viewId}`} label={exerciseLabel} pages={pageNumbers.length ? formatCompactPageRange(pageNumbers) : undefined} toolbarStart={toolbarStart} toolbarClass={toolbarRow} error={error || processError} onRetry={onRetry} />;
     return withStartBar(
       <div data-native-pdf-failed className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1078,20 +1275,21 @@ export function PdfPageViewer({
         if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
         const dialog = event.target instanceof HTMLElement ? event.target.closest('[role="dialog"]') : null;
         if (dialog && event.currentTarget.contains(dialog)) return;
+        if (nativeEnabled && event.key === "F3") { event.preventDefault(); event.stopPropagation(); nextNativeMatch(event.shiftKey ? -1 : 1); return; }
         const next = event.key === "ArrowRight" || event.key === "PageDown" ? currentVisiblePage + 1
           : event.key === "ArrowLeft" || event.key === "PageUp" ? currentVisiblePage - 1
           : event.key === "Home" ? 1 : event.key === "End" ? pages.length : null;
         if (next === null) return;
         event.preventDefault(); event.stopPropagation(); scrollToPage(next);
       } : undefined}>
-      <div className={previewStyles.phonePdfTitle}>
+      {!compactToolbar && <div className={previewStyles.phonePdfTitle}>
         <span title={exerciseLabel}>{exerciseLabel}</span>
         {pageNumbers.length > 0 && <small>p{formatCompactPageRange(pageNumbers)}</small>}
-      </div>
+      </div>}
       {/* Toolbar. It never wraps: the file name gives way first, then the button labels, and then the row scrolls sideways. */}
       <div data-native-pdf-toolbar className={cn(toolbarRow, "@container/toolbar")}>
         {toolbarStart}
-        {exerciseLabel && (
+        {exerciseLabel && !compactToolbar && (
           <span data-native-pdf-label title={exerciseLabel} className="min-w-0 truncate text-xs font-medium text-ink-subtle ml-1">
             {exerciseLabel}
           </span>
@@ -1194,6 +1392,16 @@ export function PdfPageViewer({
         )}
       </div>
 
+      {nativeEnabled && <div role="group" aria-label="PDF text matches" className={findStyles.findBar}>
+        <span aria-live="polite" title={nativeRows.matches.length ? undefined : 'Use page navigation or View text when the original PDF has no matching native text.'}>{nativeRows.matches.length ? `${Math.max(0, nativeRows.matches.findIndex(match => match.id === activeNativeId)) + 1} of ${nativeRows.matches.length}${nativeRows.truncated || nativeState.partial ? '+' : ''} matches${activeNativeId && unlocatedNativeId === activeNativeId ? ' · page only' : ''}` : nativeState.complete ? nativeRows.hasText && !nativeState.partial ? 'No matching text in PDF' : 'Precise highlighting unavailable' : 'Finding PDF matches…'}</span>
+        <div className="flex items-center gap-1">{!nativeState.complete && nativeRows.matches.length > 0 && <Loader2 className="h-3 w-3 animate-spin" aria-label="Finding remaining PDF matches" />}
+          <IconButton label="Previous PDF match" title="Previous PDF match (Shift+F3)" icon={ChevronUp} size="sm" disabled={!nativeRows.matches.length} onClick={() => nextNativeMatch(-1)} />
+          <IconButton label="Next PDF match" title="Next PDF match (F3)" icon={ChevronDown} size="sm" disabled={!nativeRows.matches.length} onClick={() => nextNativeMatch(1)} />
+        </div>
+      </div>}
+      {preparingMore && <p role="status" className="px-3 py-1 text-xs text-ink-subtle">Preparing remaining pages…</p>}
+      {renderWarning && <p role="alert" className="px-3 py-1 text-xs text-ink-subtle">{renderWarning} {onRetry && <button className="underline" onClick={onRetry}>Retry PDF</button>}</p>}
+
       {/* Scrollable page container, with the Pen Tray floating over its bottom edge */}
       <div className="relative flex-1 min-h-0 flex flex-col">
       <div
@@ -1231,12 +1439,12 @@ export function PdfPageViewer({
                 className="absolute inset-0 rounded"
                 style={pdfDarkMode ? { filter: PDF_DARK_FILTER } : undefined}
               >
-                <img
+                {page.url ? <img
                   src={page.url}
                   alt={`Page ${i + 1}`}
                   className="block w-full h-full rounded"
                   draggable={false}
-                />
+                /> : <div className="flex h-full items-center justify-center text-sm text-gray-600" aria-label={`Preparing page ${i + 1}`}>Page {i + 1}</div>}
                 {tools && (
                   <AnnotationLayer
                     // A new exercise gets fresh layers, so fading ink from the last one doesn't linger
@@ -1256,6 +1464,7 @@ export function PdfPageViewer({
                   />
                 )}
               </div>
+              {nativeEnabled && page.url && nativeRows.pages.get(i + 1)?.matches.length && (Math.abs(currentVisiblePage - i - 1) <= 1 || activeNative?.page === i + 1) ? <PdfTextSearchLayer dark={pdfDarkMode} page={nativeRows.pages.get(i + 1)!.text} matches={nativeRows.pages.get(i + 1)!.matches} active={activeNative?.page === i + 1 ? activeNative.pageIndex : -1} onActiveReady={revealNativeMatch} onUnavailable={() => { if (activeNative?.page === i + 1) { pendingNativeScroll.current = false; setUnlocatedNativeId(activeNative.id); } }} /> : null}
               {covers[i] !== undefined && (
                 <PageCover
                   top={covers[i]}

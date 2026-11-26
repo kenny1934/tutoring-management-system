@@ -44,7 +44,7 @@ import {
   downloadBulkFiles,
 } from "@/lib/file-system";
 import type { PrintStampInfo } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
+
 import { formatShortDate } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
@@ -89,8 +89,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
     if (openState === 'loading') return;
     setOpenState('loading');
     setProgressMessage(null);
-    const error = await openFileFromPathWithFallback(exercise.pdf_name, (p) =>
-      searchPaperlessByPath(p, setProgressMessage)
+    const error = await openFileFromPathWithFallback(exercise.pdf_name, undefined
     );
     setProgressMessage(null);
     if (error) {
@@ -111,7 +110,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
       exercise.page_end,
       complexPages || undefined,
       stamp,
-      (p) => searchPaperlessByPath(p, setProgressMessage)
+      undefined
     );
     setProgressMessage(null);
     if (error) {
@@ -277,7 +276,7 @@ function ExercisesList({ exercises, session }: {
       sessionTime: session.time_slot,
     };
 
-    const error = await printBulkFiles(bulkExercises, stamp, searchPaperlessByPath, title);
+    const error = await printBulkFiles(bulkExercises, stamp, undefined, title);
     if (error) {
       setLoading('error');
       setTimeout(() => setLoading('idle'), 2000);
@@ -312,7 +311,7 @@ function ExercisesList({ exercises, session }: {
       sessionTime: session.time_slot,
     };
 
-    const error = await downloadBulkFiles(bulkExercises, filename, stamp, searchPaperlessByPath);
+    const error = await downloadBulkFiles(bulkExercises, filename, stamp, undefined);
     if (error) {
       setLoading('error');
       setTimeout(() => setLoading('idle'), 2000);

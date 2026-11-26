@@ -16,8 +16,6 @@ export type { BulkPrintExercise } from './bulk-pdf-helpers';
 const createFsUtils = (): FileSystemUtils => ({
   isSupported: isFileSystemAccessSupported,
   getFileHandle: getFileHandleFromPath,
-  getCachedDocId: getCachedPaperlessDocumentId,
-  setCachedDocId: setPaperlessPathCache,
 });
 
 // Extend FileSystemDirectoryHandle with methods not in default TypeScript lib.dom.d.ts
@@ -117,14 +115,15 @@ export async function getSavedFolders(): Promise<SavedFolder[]> {
  */
 export async function verifyPermission(
   handle: FileSystemDirectoryHandle,
-  mode: 'read' | 'readwrite' = 'read'
+  mode: 'read' | 'readwrite' = 'read',
+  requestPermission = true
 ): Promise<boolean> {
   try {
     const options = { mode };
     if ((await handle.queryPermission(options)) === 'granted') {
       return true;
     }
-    if ((await handle.requestPermission(options)) === 'granted') {
+    if (requestPermission && (await handle.requestPermission(options)) === 'granted') {
       return true;
     }
     return false;
@@ -423,8 +422,8 @@ function findDriveFolder(folders: SavedFolder[], driveLetter: string): SavedFold
 }
 
 /** Navigate a directory handle to a file using relative path segments */
-export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[]): Promise<FileOperationResult> {
-  const hasPermission = await verifyPermission(folderHandle);
+export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[], requestPermission = true): Promise<FileOperationResult> {
+  const hasPermission = await verifyPermission(folderHandle, 'read', requestPermission);
   if (!hasPermission) {
     return { success: false, error: 'permission_denied' };
   }
@@ -445,7 +444,7 @@ export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, re
   }
 }
 
-export async function getFileHandleFromPath(path: string): Promise<FileOperationResult> {
+export async function getFileHandleFromPath(path: string, options?: { requestPermission?: boolean }): Promise<FileOperationResult> {
   // Strip surrounding quotes (from Windows "Copy as path")
   path = path.replace(/^["']|["']$/g, '');
 
@@ -477,7 +476,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
   if (mapping) {
     const driveFolder = findDriveFolder(folders, mapping.drivePath);
     if (driveFolder) {
-      return navigateToFile(driveFolder.handle, relativeParts);
+      return navigateToFile(driveFolder.handle, relativeParts, options?.requestPermission);
     }
   }
 
@@ -485,7 +484,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
   if (/^[A-Za-z]:$/.test(potentialAlias)) {
     const driveFolder = findDriveFolder(folders, potentialAlias);
     if (driveFolder) {
-      return navigateToFile(driveFolder.handle, relativeParts);
+      return navigateToFile(driveFolder.handle, relativeParts, options?.requestPermission);
     }
   }
 
@@ -496,7 +495,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
     return { success: false, error: 'folder_not_found' };
   }
 
-  return navigateToFile(folder.handle, relativeParts);
+  return navigateToFile(folder.handle, relativeParts, options?.requestPermission);
 }
 
 /**
@@ -898,15 +897,15 @@ export function getCachedPaperlessDocumentId(path: string): number | null {
 }
 
 /**
- * Open a file with Paperless fallback when local access fails.
+ * Open a connected file or its authenticated MCKB original.
  *
  * @param path - The file path (alias format or folder-relative)
- * @param paperlessSearch - Optional callback to search Paperless by path when cache misses
+ * @param _legacySearch - Retained for older callers; courseware resolves through MCKB.
  * @returns null on success, error string on failure
  */
 export async function openFileFromPathWithFallback(
   path: string,
-  paperlessSearch?: (searchPath: string) => Promise<number | null>
+  _legacySearch?: (searchPath: string) => Promise<number | null>
 ): Promise<string | null> {
   // 1. Try local file access (with path mapping support)
   const result = await getFileHandleFromPath(path);
@@ -927,45 +926,18 @@ export async function openFileFromPathWithFallback(
     return null;
   }
 
-  // 2. Local access failed - try Paperless fallback
-  if (!paperlessSearch) {
-    return result.error;
-  }
-
-  // 2a. Check localStorage cache first
-  let documentId = getCachedPaperlessDocumentId(path);
-
-  // 2b. Cache miss - search Paperless by full path
-  if (!documentId) {
-    try {
-      documentId = await paperlessSearch(path);
-      if (documentId) {
-        setPaperlessPathCache(path, documentId);
-      }
-    } catch {
-      // Search failed, return original error
-      return result.error;
-    }
-  }
-
-  // 2c. Open via Paperless API
-  if (documentId) {
-    window.open(`/api/paperless/preview/${documentId}`, '_blank');
-    return null;
-  }
-
-  return 'file_not_found';
+  return result.success ? 'open_failed' : result.error;
 }
 
 /**
- * Print a file with Paperless fallback when local access fails.
+ * Print a connected PDF or its authenticated MCKB original.
  *
  * @param path - The file path
  * @param pageStart - Start page (optional)
  * @param pageEnd - End page (optional)
  * @param complexRange - Complex page range string (optional)
  * @param stamp - Stamp info (optional)
- * @param paperlessSearch - Optional callback to search Paperless
+ * @param _legacySearch - Retained for older callers; courseware resolves through MCKB.
  * @returns null on success, error string on failure
  */
 export async function printFileFromPathWithFallback(
@@ -974,22 +946,22 @@ export async function printFileFromPathWithFallback(
   pageEnd?: number,
   complexRange?: string,
   stamp?: PrintStampInfo,
-  paperlessSearch?: (searchPath: string) => Promise<number | null>
+  _legacySearch?: (searchPath: string) => Promise<number | null>
 ): Promise<string | null> {
   // 1. Try local file access
   const result = await getFileHandleFromPath(path);
   if (result.success) {
-    // Validate PDF magic bytes — .doc/.docx files must fall through to Paperless
+    // Validate PDF magic bytes before opening the PDF viewer.
     try {
       const file = await result.handle.getFile();
       const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
       const magic = String.fromCharCode(...header);
       if (magic.startsWith('%PDF-')) {
-        return printFilePages(result.handle, pageStart, pageEnd, complexRange, stamp);
+        return await printFilePages(result.handle, pageStart, pageEnd, complexRange, stamp) ? null : 'print_failed';
       }
-      // Not a PDF — fall through to Paperless
+      // Not a PDF. Let the courseware resolver report an unsupported preview.
     } catch {
-      // Read failed — fall through to Paperless
+      // Read failed. Try the courseware original.
     }
   }
 
@@ -1010,67 +982,7 @@ export async function printFileFromPathWithFallback(
     } catch { return 'print_failed'; }
   }
 
-  // 2. Local access failed - try Paperless fallback
-  if (!paperlessSearch) {
-    return result.error;
-  }
-
-  let documentId = getCachedPaperlessDocumentId(path);
-
-  if (!documentId) {
-    try {
-      documentId = await paperlessSearch(path);
-      if (documentId) {
-        setPaperlessPathCache(path, documentId);
-      }
-    } catch {
-      return result.error;
-    }
-  }
-
-  if (!documentId) {
-    return 'file_not_found';
-  }
-
-  // 3. Fetch PDF from Paperless and print with page extraction
-  try {
-    const response = await fetch(`/api/paperless/preview/${documentId}`);
-    if (!response.ok) {
-      return 'fetch_failed';
-    }
-
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-
-    // If no page range, print raw or stamp-and-print as PDF
-    if (!pageStart && !pageEnd && !complexRange) {
-      const printBlob = stamp
-        ? await stampPdf(arrayBuffer, stamp)
-        : new Blob([arrayBuffer], { type: 'application/pdf' });
-      return printPdfBlob(printBlob) ? null : 'popup_blocked';
-    }
-
-    // Build page numbers array for specific page ranges
-    let pageNumbers: number[] = [];
-    if (complexRange) {
-      pageNumbers = parsePageRange(complexRange);
-    } else if (pageStart !== undefined) {
-      const end = pageEnd ?? pageStart;
-      for (let i = pageStart; i <= end; i++) {
-        pageNumbers.push(i);
-      }
-    }
-
-    if (pageNumbers.length === 0) {
-      return 'invalid_page_range';
-    }
-
-    // Extract specific pages and print (with optional stamp — renders to HTML)
-    const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
-    return printPdfBlob(extractedBlob) ? null : 'popup_blocked';
-  } catch (error) {
-    return 'print_failed';
-  }
+  return result.success ? 'print_failed' : result.error;
 }
 
 // ============================================================================
@@ -1083,22 +995,16 @@ export async function printFileFromPathWithFallback(
  *
  * @param exercises - Array of exercises with PDF paths and page ranges
  * @param stamp - Optional stamp info to display on each page
- * @param paperlessSearch - Optional callback to search Paperless when local access fails
+ * @param _legacySearch - Retained for older callers; courseware resolves through MCKB.
  * @param title - Optional title for print dialog (displayed as filename)
  * @returns null on success, error string on failure
  */
 export async function printBulkFiles(
   exercises: BulkPrintExercise[],
   stamp?: PrintStampInfo,
-  paperlessSearch?: (path: string) => Promise<number | null>,
+  _legacySearch?: (path: string) => Promise<number | null>,
   title?: string
 ): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
-  const fsSupported = isFileSystemAccessSupported();
-
-  // If no File System API and no Paperless fallback, can't proceed
-  if (!fsSupported && !paperlessSearch) {
-    return 'not_supported';
-  }
 
   // Filter exercises that have valid PDF paths
   const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
@@ -1109,7 +1015,7 @@ export async function printBulkFiles(
   // Fetch all PDFs in parallel using shared helper
   const fsUtils = createFsUtils();
   const results = await Promise.all(
-    validExercises.map(ex => fetchPdfData(ex, fsUtils, paperlessSearch, '[BulkPrint]'))
+    validExercises.map(ex => fetchPdfData(ex, fsUtils, undefined, '[BulkPrint]'))
   );
 
   // Build bulkItems from results using shared helper
@@ -1171,21 +1077,15 @@ export async function printBulkFiles(
  * @param exercises - Array of exercises with PDF paths and page ranges
  * @param filename - The filename to use for the download
  * @param stamp - Optional stamp info to display on each page
- * @param paperlessSearch - Optional callback to search Paperless when local access fails
+ * @param _legacySearch - Retained for older callers; courseware resolves through MCKB.
  * @returns null on success, error string on failure
  */
 export async function downloadBulkFiles(
   exercises: BulkPrintExercise[],
   filename: string,
   stamp?: PrintStampInfo,
-  paperlessSearch?: (path: string) => Promise<number | null>
+  _legacySearch?: (path: string) => Promise<number | null>
 ): Promise<'not_supported' | 'no_valid_files' | 'download_failed' | null> {
-  const fsSupported = isFileSystemAccessSupported();
-
-  // If no File System API and no Paperless fallback, can't proceed
-  if (!fsSupported && !paperlessSearch) {
-    return 'not_supported';
-  }
 
   // Filter exercises that have valid PDF paths
   const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
@@ -1196,7 +1096,7 @@ export async function downloadBulkFiles(
   // Fetch all PDFs in parallel using shared helper
   const fsUtils = createFsUtils();
   const results = await Promise.all(
-    validExercises.map(ex => fetchPdfData(ex, fsUtils, paperlessSearch, '[BulkDownload]'))
+    validExercises.map(ex => fetchPdfData(ex, fsUtils, undefined, '[BulkDownload]'))
   );
 
   // Build bulkItems from results using shared helper
@@ -1263,22 +1163,16 @@ export interface AnswerExercise {
  * @param exercises - Array of exercises with answer fields
  * @param filename - The filename to use for the download
  * @param stamp - Optional stamp info to display on each page
- * @param paperlessSearch - Optional callback to search Paperless when local access fails
+ * @param _legacySearch - Retained for older callers; courseware resolves through MCKB.
  * @returns Object with result status and count of found/missing answers
  */
 export async function downloadAllAnswerFiles(
   exercises: AnswerExercise[],
   filename: string,
   stamp?: PrintStampInfo,
-  paperlessSearch?: (path: string) => Promise<number | null>,
+  _legacySearch?: (path: string) => Promise<number | null>,
   onProgress?: (msg: string) => void
 ): Promise<{ status: 'not_supported' | 'no_valid_files' | 'download_failed' | 'success'; found: number; missing: number }> {
-  const fsSupported = isFileSystemAccessSupported();
-
-  // If no File System API and no Paperless fallback, can't proceed
-  if (!fsSupported && !paperlessSearch) {
-    return { status: 'not_supported', found: 0, missing: exercises.length };
-  }
 
   // Filter exercises that have a PDF (needed to search for answer)
   const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
@@ -1287,29 +1181,33 @@ export async function downloadAllAnswerFiles(
   }
 
   // For each exercise, find the answer file path
-  const answerPaths: { path: string; exercise: AnswerExercise; documentId?: number }[] = [];
+  const answerPaths: { path: string; exercise: AnswerExercise; fileId?: number }[] = [];
   let missing = 0;
 
   for (let i = 0; i < validExercises.length; i++) {
     const exercise = validExercises[i];
     onProgress?.(`Searching ${i + 1}/${validExercises.length}…`);
     let answerPath: string | null = null;
-    let documentId: number | undefined;
+    let fileId: number | undefined;
 
     // First check if manually selected answer exists
     if (exercise.answer_pdf_name) {
       answerPath = exercise.answer_pdf_name;
     } else {
       // Search for answer file
-      const result = await searchAnswerFile(exercise.pdf_name);
-      if (result) {
-        answerPath = result.path;
-        documentId = result.documentId;
+      try {
+        const result = await searchAnswerFile(exercise.pdf_name);
+        if (result) {
+          answerPath = result.path;
+          fileId = result.fileId;
+        }
+      } catch {
+        return { status: 'download_failed', found: 0, missing };
       }
     }
 
     if (answerPath) {
-      answerPaths.push({ path: answerPath, exercise, documentId });
+      answerPaths.push({ path: answerPath, exercise, fileId });
     } else {
       missing++;
     }
@@ -1331,7 +1229,7 @@ export async function downloadAllAnswerFiles(
   onProgress?.(`Downloading ${answerPaths.length} answer(s)…`);
   const fsUtils = createFsUtils();
   const results = await Promise.all(
-    answerExercises.map(ex => fetchPdfData(ex, fsUtils, paperlessSearch, '[AnswerDownload]'))
+    answerExercises.map(ex => fetchPdfData(ex, fsUtils, undefined, '[AnswerDownload]'))
   );
 
   // Build bulkItems from results
