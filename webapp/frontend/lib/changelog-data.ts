@@ -31,6 +31,12 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
+            "description": "**Autopay follow-up**: Show the specific enrollment checks and related records, open enrollment review directly, and keep missing bank authorisation separate from enrollment problems."
+          },
+          {
+            "description": "**Search while typing**: Keep interrupted searches from briefly showing a retry error or cancelling their replacement."
+          },
+          {
             "description": "**Search assignment dialogs**: Cover the whole search console with the background dimming and blur, including the area over an expanded sidebar."
           },
           {

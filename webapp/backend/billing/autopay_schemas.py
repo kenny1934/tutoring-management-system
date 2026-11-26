@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .schemas import BillingStudent, CollectionWindow, PaymentMethod
+from .schemas import BillingStudent, CollectionWindow, PaymentMethod, PreviewIssue
 
 AutopayStage = Literal['ready', 'attention', 'prepare', 'skipped']
 
@@ -53,6 +53,7 @@ class AutopayRow(BaseModel):
     enrollment_ids: list[int] = Field(default_factory=list)
     action_url: str
     # Presentation evidence must not change historical raw export hashes.
+    issues: list[PreviewIssue] = Field(default_factory=list, exclude_if=lambda value: not value)
     bank_run: AutopayBankRun | None = Field(default=None, exclude_if=lambda value: value is None)
 
 

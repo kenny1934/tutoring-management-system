@@ -15,7 +15,8 @@ import type { BillingPaymentDetail, BillingQueueRow } from '@/types/billing';
 import { BillingDraftFocus } from './BillingDraftReview';
 import { BillingRenewalPanel, type BillingRenewalAction } from './BillingRenewalPanel';
 
-export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, onChanged, onNext, nextAvailable = false, navigating = false, navigationError, position, worklistSize }: {
+export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, onChanged, onNext, nextAvailable = false, navigating = false, navigationError, position, worklistSize, allowPreparation = true }: {
+  allowPreparation?: boolean;
   onNext?: () => void;
   nextAvailable?: boolean;
   navigating?: boolean;
@@ -29,8 +30,8 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
   onChanged: () => void;
 }) {
   const enrollments = row.current_enrollments ?? [];
-  const intakeOnly = row.origin === 'draft' && !!row.draft_id && !row.enrollment_ids.length && !enrollments.length;
-  const firstAction = initialAction ?? (intakeOnly ? { kind: 'draft' as const, id: row.draft_id! } : null);
+  const intakeOnly = allowPreparation && row.origin === 'draft' && !!row.draft_id && !row.enrollment_ids.length && !enrollments.length;
+  const firstAction = !allowPreparation ? null : initialAction ?? (intakeOnly ? { kind: 'draft' as const, id: row.draft_id! } : null);
   const [enrollmentId, setEnrollmentId] = useState<number | null>(enrollments[0]?.enrollment_id ?? row.enrollment_ids[0] ?? null);
   const [action, setAction] = useState<BillingRenewalAction | null>(firstAction);
   const [panelAction, setPanelAction] = useState<BillingRenewalAction | null>(firstAction);
@@ -115,14 +116,14 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
     setTab(next); document.getElementById(`${id}-${next}-tab`)?.focus();
   }
   const panelTitle = panelAction?.kind === 'payment' ? created ? multipleCreated ? 'New enrollments' : 'New enrollment' : 'Payment' : panelAction?.kind === 'draft' ? 'Saved draft' : 'Create renewal';
-  const canRenew = !created && ((row.origin !== 'payment' && row.origin !== 'legacy') || row.renewal_available === true)
+  const canRenew = allowPreparation && !created && ((row.origin !== 'payment' && row.origin !== 'legacy') || row.renewal_available === true)
     && !(row.stage === 'no_payment' && row.first_lesson_date === null);
   const knownIds = enrollments.map(item => item.enrollment_id);
   const previousIds = new Set([...knownIds, ...row.enrollment_ids]);
   const ids = [...new Set([...previousIds, ...createdIds, ...(enrollmentId ? [enrollmentId] : [])])];
   const detailTitle = created && enrollmentId ? createdIds.includes(enrollmentId) ? 'New enrollment' : previousIds.has(enrollmentId) ? 'Previous enrollment' : 'Enrollment details' : null;
 
-  return <Modal isOpen persistent={busy || navigating} onClose={() => { if (!busy && !navigating) onClose(); }} layer={layer} title={intakeOnly ? 'New enrollment' : 'Enrollment renewal'} size={action && !intakeOnly ? '2xl' : 'lg'} className={cn('transition-[max-width] duration-200', action && !intakeOnly ? 'lg:!max-w-[60rem]' : '!max-w-[36rem]')}
+  return <Modal isOpen persistent={busy || navigating} onClose={() => { if (!busy && !navigating) onClose(); }} layer={layer} title={row.stage === 'attention' && !firstAction ? 'Enrollment review' : intakeOnly ? 'New enrollment' : 'Enrollment renewal'} size={action && !intakeOnly ? '2xl' : 'lg'} className={cn('transition-[max-width] duration-200', action && !intakeOnly ? 'lg:!max-w-[60rem]' : '!max-w-[36rem]')}
     footer={onNext && <div className="w-full space-y-2">
       {navigationError && <p role="status" className="text-xs text-amber-800 dark:text-amber-300">{navigationError}</p>}
       <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.student.student_name}</p><p className="text-xs text-ink-subtle">Student {position} of {worklistSize}</p></div>
@@ -144,7 +145,7 @@ export function BillingRenewalWorkspace({ row, initialAction, trigger, onClose, 
           <div className="min-h-0 flex-1">
             {enrollmentId ? <EnrollmentDetailModal isOpen standalone={false} hideCloseButton enrollmentId={enrollmentId} compact={wide && !!action} onClose={onClose}
               showRenewalActions={row.origin === 'legacy'} onStatusChange={changed}
-              onCreateBillingRenewal={canRenew ? renew : undefined} onOpenBillingPayment={paymentId => open({ kind: 'payment', id: paymentId })} />
+              onCreateBillingRenewal={canRenew ? renew : undefined} onOpenBillingPayment={!allowPreparation ? undefined : paymentId => open({ kind: 'payment', id: paymentId })} />
               : <div className="space-y-3 rounded border border-line p-4"><p className="text-sm">No enrollment is available to open.</p>{canRenew && <Button onClick={renew}>Review renewal</Button>}</div>}
           </div>
         </div>}

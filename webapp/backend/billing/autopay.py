@@ -217,7 +217,7 @@ def _planned(db, *, as_of, month, holidays, tutor_id, location, policy, excluded
         except BAD_EVIDENCE:
             rows.append(AutopayRow(key=f'prepare-{sid}', student=context.student, stage='attention', origin='projection',
                 recorded_payment_method=context.recorded_payment_method, mandate_ready=context.mandate_ready,
-                reasons=[reason('ENROLLMENT_REVIEW', 'Check the enrollment records')],
+                reasons=[reason('ENROLLMENT_REVIEW', 'The enrollment records could not be checked. Review the payment plan.')],
                 action_url=f'/billing/students/{sid}'))
             continue
         later_collection = bool(queued.collection and _window_month(queued.collection)
@@ -248,15 +248,22 @@ def _planned(db, *, as_of, month, holidays, tutor_id, location, policy, excluded
                    else reason('ENROLLMENT_NOT_PREPARED', 'Prepare the enrollment')]
         if queued.collection and queued.collection.method == 'manual':
             reasons.append(reason('MANUAL_COLLECTION', 'Collect this enrollment manually'))
+        checks = [check for check in queued.issues if check.code != 'DRAFT_REVIEW'] if queued.stage == 'attention' else []
+        checks = [check.model_copy(update={'message': 'Record bank authorisation before collecting this payment.'})
+                  if check.code == 'MANDATE_NOT_READY' else check for check in checks]
         if queued.stage == 'attention':
-            reasons.insert(0, reason('ENROLLMENT_REVIEW', 'Check the enrollment records'))
+            # A missing mandate can be the only issue. Do not invent a second
+            # enrollment problem or discard the actual records behind a check.
+            reasons = [reason(check.code, check.message) for check in checks] or [
+                reason('ENROLLMENT_REVIEW', 'Review the enrollment and timetable before preparing this collection.')]
+
         rows.append(AutopayRow(key=f'prepare-{sid}', student=context.student,
             stage='attention' if queued.stage == 'attention' else 'prepare', origin=queued.origin,
             draft_id=queued.draft_id, collection=queued.collection, coverage_from=queued.first_lesson_date,
             coverage_through=queued.coverage_through, lesson_count=queued.lesson_count,
             total_fee=queued.total_fee, amount_basis='estimate' if queued.total_fee is not None else 'unknown',
             recorded_payment_method=context.recorded_payment_method, mandate_ready=context.mandate_ready,
-            reasons=reasons, enrollment_ids=queued.enrollment_ids, action_url=queued.action_url))
+            reasons=reasons, issues=checks, enrollment_ids=queued.enrollment_ids, action_url=queued.action_url))
     return rows
 
 

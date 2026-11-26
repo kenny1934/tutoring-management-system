@@ -156,7 +156,7 @@ function PaymentSettingsContent({ studentId, studentName, initialAuthorisationOp
     const status = <span className={`inline-flex items-center gap-1.5 text-xs ${savedMandate ? 'text-green-700 dark:text-green-400' : 'text-amber-800 dark:text-amber-300'}`}><Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{label}</span>;
     const canEditAuthorisation = auth.isAdmin && !auth.isReadOnly && storageAvailable && canWrite;
     return inline ? <section className="space-y-3" aria-label="Bank authorisation">
-      <div className="flex flex-wrap items-center justify-between gap-2">{status}{!open && canEditAuthorisation && <Button ref={trigger} size="sm" variant="secondary" onClick={beginEditing}>Update authorisation</Button>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">{status}{!open && canEditAuthorisation && <Button ref={trigger} size="sm" variant="secondary" onClick={beginEditing}>{savedMandate ? 'Update authorisation' : 'Record bank authorisation'}</Button>}</div>
       {open ? form : authorisationHint && <p role="status" className="text-xs text-ink-subtle">{authorisationHint}</p>}
     </section> : <div className="space-y-1">
       {canEditAuthorisation ? <Button ref={trigger} size="sm" variant="quiet" className="h-auto gap-1.5 px-0 py-0" aria-label={studentName ? `Bank authorisation for ${studentName}` : 'Bank authorisation'} onClick={beginEditing}>{status}<Settings2 className="h-3 w-3 text-ink-subtle" aria-hidden="true" /></Button> : status}

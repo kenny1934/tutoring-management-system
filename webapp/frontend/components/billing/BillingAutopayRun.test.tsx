@@ -15,9 +15,9 @@ vi.mock('./BillingPayments', () => ({ BillingPayments: (props: { studentId: numb
   mocks.payment(props); return <section aria-label="Reviewed payment">{props.studentId}:{props.initialPaymentId}</section>;
 } }));
 
-vi.mock('./BillingRenewalWorkspace', () => ({ BillingRenewalWorkspace: (props: { row: BillingQueueRow; initialAction: { kind: string; id?: string }; onClose: () => void; onChanged: () => void }) => {
+vi.mock('./BillingRenewalWorkspace', () => ({ BillingRenewalWorkspace: (props: { row: BillingQueueRow; initialAction?: { kind: string; id?: string }; allowPreparation?: boolean; onClose: () => void; onChanged: () => void }) => {
   mocks.workspace(props);
-  return <div role="dialog" aria-label="Enrollment renewal"><p>{props.row.student.student_name}</p><p>{props.initialAction.kind === 'draft' ? `Draft ${props.initialAction.id}` : 'Renewal form'}</p><button onClick={props.onChanged}>Confirm reviewed enrollment</button><button onClick={props.onClose}>Close renewal</button></div>;
+  return <div role="dialog" aria-label={props.row.stage === 'attention' && !props.initialAction ? "Enrollment review" : "Enrollment renewal"}><p>{props.row.student.student_name}</p><p>{props.row.stage === 'attention' && !props.initialAction ? 'Record review' : props.initialAction?.kind === 'draft' ? `Draft ${props.initialAction.id}` : 'Renewal form'}</p><button onClick={props.onChanged}>Confirm reviewed enrollment</button><button onClick={props.onClose}>Close renewal</button></div>;
 } }));
 
 const options = { workflow_writes_available: true, autopay_first_collection_month: '2026-11', autopay_last_collection_month: '2027-06', workflow_available: true, preferences_writes_available: true };
@@ -63,7 +63,7 @@ describe('autopay collection review', () => {
   ])('keeps authorisation editing out of the row unless its bank-authorisation check is unresolved', async value => {
     mocks.autopay.mockResolvedValue(response([value]));show();
     const card=await screen.findByRole('article');
-    expect(within(card).queryByRole('button', { name: /Check bank authorisation for/ })).not.toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: /Record bank authorisation for/ })).not.toBeInTheDocument();
     expect(within(card).queryByText('Update authorisation')).not.toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe('autopay collection review', () => {
     show();const card=await screen.findByRole('article');
     expect(within(card).getByText('File saved')).toBeVisible();
     expect(within(card).getByText('Check enrollment')).toBeVisible();
-    expect(within(card).getAllByRole('button',{name:'Check bank authorisation for Synthetic Student'})).toHaveLength(1);
+    expect(within(card).getAllByRole('button',{name:'Record bank authorisation for Synthetic Student'})).toHaveLength(1);
     expect(within(card).queryByText('+1 check')).not.toBeInTheDocument();
   });
 
@@ -94,8 +94,8 @@ describe('autopay collection review', () => {
     mocks.autopay.mockImplementation(({ stage }: { stage: BillingAutopayStage }) => Promise.resolve(response(stage === 'attention' ? [attention] : [])));
     show();fireEvent.click(await screen.findByRole('tab', { name: 'Needs attention 3' }));
     const card = await screen.findByRole('article');
-    expect(within(card).getByRole('button', { name: 'Check bank authorisation for Synthetic Student' })).toHaveTextContent('Check bank authorisation');
-    fireEvent.click(within(card).getByRole('button', { name: 'Check bank authorisation for Synthetic Student' }));
+    expect(within(card).getByRole('button', { name: 'Record bank authorisation for Synthetic Student' })).toHaveTextContent('Record bank authorisation');
+    fireEvent.click(within(card).getByRole('button', { name: 'Record bank authorisation for Synthetic Student' }));
     const dialog = await screen.findByRole('dialog', { name: 'Payment' });
     const checkbox = await within(dialog).findByRole('checkbox', { name: 'Bank authorisation is ready.' });
     await waitFor(() => expect(checkbox).toBeEnabled());fireEvent.click(checkbox);
@@ -112,7 +112,7 @@ describe('autopay collection review', () => {
     if (mode === 'options_error') mocks.options.mockRejectedValue(new Error('Options unavailable'));
     show();
     if (mode === 'options_error') { await screen.findByText('Options unavailable'); expect(screen.queryByRole('article')).not.toBeInTheDocument(); }
-    else { const card = await screen.findByRole('article');expect(within(card).queryByRole('button', { name: /Check bank authorisation for/ })).not.toBeInTheDocument(); }
+    else { const card = await screen.findByRole('article');expect(within(card).queryByRole('button', { name: /Record bank authorisation for/ })).not.toBeInTheDocument(); }
     expect(mocks.savePreferences).not.toHaveBeenCalled();
   });
 
@@ -221,7 +221,7 @@ describe('autopay collection review', () => {
     fireEvent.click(within(card).getByRole('button', { name: 'Details for Synthetic Student' }));
     const dialog = await screen.findByRole('dialog', { name: 'Autopay details' });
     expect(within(dialog).getByText('No debit')).toBeInTheDocument();
-    expect(within(dialog).getByRole('link', { name: 'Open payment journey' })).toHaveAttribute('href', '/billing/students/4');
+    expect(within(dialog).getByRole('link', { name: 'Review payment plan' })).toHaveAttribute('href', '/billing/students/4');
     expect(mocks.payment).not.toHaveBeenCalled();
   });
 
@@ -397,5 +397,55 @@ describe('direct autopay preparation', () => {
     if (mode === 'role') { mocks.auth.mockReturnValue({ user: { id: 1 }, isAdmin: false, isReadOnly: true, canViewAdminPages: true, effectiveRole: 'Supervisor' }); view.rerender(<BillingAutopayRun initialCollectionMonth="2026-11" />); }
     expect(screen.queryByRole('dialog', { name: 'Enrollment renewal' })).not.toBeInTheDocument();
     await act(async () => {});
+  });
+});
+
+
+describe('actionable Autopay attention', () => {
+  function attention(onlyMandate = false) {
+    const issue = onlyMandate
+      ? { code: 'MANDATE_NOT_READY', message: 'Record bank authorisation before collecting this payment.', period: null }
+      : { code: 'OFF_SLOT_ORIGINALS', message: 'Some original lessons use a different timetable.', period: null, record_evidence: [{ enrollment_id: 7, date: '2026-12-11', time_slot: '18:00 - 19:30' }] };
+    const value = row({ key: 'attention-projection', stage: 'attention', origin: 'projection', payment_id: null,
+      draft_id: null, payment_status: null, mandate_ready: false, amount_basis: 'estimate',
+      reasons: [{ code: issue.code, label: issue.message }], issues: [issue] });
+    mocks.autopay.mockImplementation(({ stage }: { stage: BillingAutopayStage }) => Promise.resolve(response(stage === 'attention' ? [value] : [])));
+    return value;
+  }
+  async function list() { const view = show();fireEvent.click(await screen.findByRole('tab', { name: /Needs attention/ }));await screen.findByRole('article');return view; }
+  it('shows the actual problem and related record with suggested dates and estimated money', async () => {
+    attention();await list();fireEvent.click(screen.getByRole('button', { name: 'Details for Synthetic Student' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Autopay details' });
+    await waitFor(() => expect(within(dialog).getByText('Some original lessons use a different timetable.')).toBeVisible());
+    expect(within(dialog).getByRole('button', { name: 'Enrollment #7' })).toBeVisible();
+    expect(within(dialog).getByText('Suggested notice')).toBeVisible();
+    expect(within(dialog).getByText('Suggested bank debit')).toBeVisible();
+    expect(within(dialog).getByText('Est. tuition')).toBeVisible();
+    expect(within(dialog).queryByText('Check the enrollment records')).not.toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Record bank authorisation' })).toBeVisible());
+    expect(within(dialog).queryByRole('link', { name: 'Review payment plan' })).not.toBeInTheDocument();
+  });
+  it('opens the affected record without promoting a blocked entry to preparation', async () => {
+    const value = attention();await list();fireEvent.click(screen.getByRole('button', { name: 'Review enrollment for Synthetic Student' }));
+    await screen.findByRole('dialog', { name: 'Enrollment review' });
+    expect(mocks.workspace.mock.lastCall![0]).toMatchObject({ allowPreparation: true, row: { stage: 'attention', enrollment_ids: [7], issues: value.issues, total_fee: null, amount_basis: 'unknown' } });
+    expect(mocks.workspace.mock.lastCall![0].initialAction).toBeUndefined();
+    expect(screen.queryByText('Renewal form')).not.toBeInTheDocument();
+  });
+  it('keeps authorisation-only attention focused on recording the mandate', async () => {
+    attention(true);await list();
+    expect(screen.queryByRole('button', { name: 'Review enrollment for Synthetic Student' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Details for Synthetic Student' }));
+    const dialog=await screen.findByRole('dialog', { name: 'Autopay details' });
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Record bank authorisation' })).toBeVisible());
+    expect(within(dialog).queryByRole('region', { name: 'Enrollment checks' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('link', { name: 'Review payment plan' })).not.toBeInTheDocument();
+  });
+  it('allows record inspection when creation is paused', async () => {
+    attention();mocks.options.mockResolvedValue({ ...options, workflow_writes_available: false });await list();
+    fireEvent.click(screen.getByRole('button', { name: 'Review enrollment for Synthetic Student' }));
+    await screen.findByRole('dialog', { name: 'Enrollment review' });
+    expect(mocks.workspace.mock.lastCall![0].allowPreparation).toBe(false);
+    expect(screen.queryByText('Renewal form')).not.toBeInTheDocument();
   });
 });

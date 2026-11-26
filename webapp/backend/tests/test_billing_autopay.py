@@ -405,3 +405,45 @@ def test_legacy_only_paid_december_is_a_skipped_transition_collection(env):
     row, = run(client)['rows']
     assert row['stage'] == 'attention' and 'COVERAGE_REVIEW' in codes(row)
     assert row['total_fee'] is None
+
+
+@pytest.mark.parametrize('code,message', [
+    ('MANDATE_NOT_READY', 'Record bank authorisation before collecting this payment.'),
+    ('OFF_SLOT_ORIGINALS', 'Some original lessons use a different time from this enrollment.'),
+])
+def test_attention_preserves_actual_checks_without_inventing_record_problems(env, monkeypatch, code, message):
+    from billing.schemas import BillingQueueRow, PreviewIssue
+    client, db, _ = env
+    preference(client, method='autopay', ready=code != 'MANDATE_NOT_READY')
+    evidence = [] if code == 'MANDATE_NOT_READY' else [
+        {'enrollment_id': 11, 'session_id': 111, 'date': '2026-10-16',
+         'time_slot': '16:00 - 17:30', 'expected_time_slot': '18:00 - 19:30'}]
+    def projection(context, *_args, **_kwargs):
+        return BillingQueueRow(key='attention-fixture', student=context.student, stage='attention',
+            origin='projection', payment_method='autopay', first_lesson_date=date(2026, 12, 11),
+            coverage_through=date(2027, 1, 31), lesson_count=6, total_fee=2400,
+            amount_basis='tuition_only', enrollment_ids=[11],
+            issues=[PreviewIssue(code=code, message=message, record_evidence=evidence)],
+            note='Check the enrollment records', action_url='/billing/students/101')
+    monkeypatch.setattr('billing.autopay.projection_row', projection)
+    result = run(client)
+    row, = result['rows']
+    assert row['stage'] == 'attention' and row['amount_basis'] == 'estimate'
+    assert row['reasons'] == [{'code': code, 'label': message}]
+    assert row['issues'][0]['message'] == message
+    records = row['issues'][0].get('record_evidence', [])
+    assert len(records) == len(evidence)
+    for actual, expected in zip(records, evidence):
+        assert all(actual[key] == value for key, value in expected.items())
+    assert 'ENROLLMENT_REVIEW' not in codes(row)
+    assert 'ENROLLMENT_NOT_PREPARED' not in codes(row)
+    assert result['ready_total'] == 0 and row['total_fee'] == 2400
+    assert db.query(BillingPayment).count() == 0
+
+
+def test_ready_serialisation_does_not_add_presentation_fields_to_saved_export_evidence(env):
+    client, db, _ = env
+    autopay_payment(client, db)
+    row, = run(client)['rows']
+    assert row['stage'] == 'ready'
+    assert 'issues' not in row
