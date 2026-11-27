@@ -24,3 +24,10 @@
 @media(max-width:767px) {
   .modal:has([data-courseware-detail]) { height: 100dvh; max-height: 100dvh; border-radius: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 }
+
+@container (max-width: 700px) {
+  .header { flex-wrap: wrap; row-gap: 0; }
+  .query { flex-basis: 100%; }
+  .tools { width: 100%; }
+  .tools:empty { display: none; }
+}

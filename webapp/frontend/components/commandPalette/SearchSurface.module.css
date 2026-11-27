@@ -1,5 +1,5 @@
 .backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 32px; background: rgb(24 17 11 / .34); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.panel { width: min(720px, 100%); max-height: calc(100dvh - 64px); display: flex; flex-direction: column; overflow: hidden; background: var(--color-paper); border: 1px solid var(--color-line); border-radius: 6px; box-shadow: 0 24px 64px -24px rgb(24 17 11 / .48), 0 4px 16px -8px rgb(24 17 11 / .2); }
+.panel { container-type: inline-size; width: min(720px, 100%); max-height: calc(100dvh - 64px); display: flex; flex-direction: column; overflow: hidden; background: var(--color-paper); border: 1px solid var(--color-line); border-radius: 6px; box-shadow: 0 24px 64px -24px rgb(24 17 11 / .48), 0 4px 16px -8px rgb(24 17 11 / .2); }
 .header { flex-shrink: 0; padding: 14px 20px; }
 .header input { border: 0; outline: 0; box-shadow: none; padding: 0; background: transparent; }
 .body { display: flex; height: min(58dvh, 480px); min-height: 0; }
@@ -102,3 +102,11 @@
 .filterToggle[aria-expanded="true"] { background: var(--color-tint); }
 
 .resultColumn { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+
+@container (max-width: 700px) {
+  .modeToolbar[data-search-area='materials'] { flex-direction: column; align-items: stretch; gap: 2px; }
+  .modeToolbar[data-search-area='materials'] .areaBar { flex: none; }
+  .modeToolbar[data-search-area='materials'] .areas { display: flex; }
+  .modeToolbar[data-search-area='materials'] .areas button { flex: 1; min-width: 0; min-height: 44px; }
+  .modeToolbar[data-search-area='materials'] .searchTools { justify-content: stretch; }
+}
