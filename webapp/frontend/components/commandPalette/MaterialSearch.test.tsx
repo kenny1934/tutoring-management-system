@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SWRConfig } from 'swr';
+import { SWRConfig, useSWRConfig } from 'swr';
 import { MaterialHighlight, MaterialSearch, materialAliasPath } from './MaterialSearch';
 
 const mocks = vi.hoisted(() => ({ fetch: vi.fn() }));
@@ -442,4 +442,243 @@ it('still offers Retry for a failure that the current request did not cancel', a
   mocks.fetch.mockImplementation((path:string)=>path.endsWith('/sources')?Promise.resolve(sources):Promise.reject(new Error('Courseware service unavailable.')));
   mount();await screen.findByRole('button',{name:'Retry search'});
   expect(screen.getByRole('alert')).toHaveTextContent('Courseware service unavailable.');
+});
+
+it('opens a pasted NAS path through exact resolution and the existing reader', async () => {
+  const material = row(9, 'Algebra.pdf');
+  mocks.fetch.mockImplementation(async (path: string) => {
+    if (path.endsWith('/sources')) return { ...sources, features: ['folder_navigation', 'focused_preview', 'search_refinements'] };
+    if (path.endsWith('/resolve')) return material;
+    if (path.includes('/preview')) return { file_id: 9, chunks: [], truncated: false };
+    return page([]);
+  });
+  mount(String.raw`V:\English\DSE\Algebra.pdf`);
+  const preview = await screen.findByRole('region', { name: 'Courseware preview' });
+  expect(within(preview).getByRole('heading', { name: 'Algebra.pdf' })).toBeVisible();
+  const lookup = mocks.fetch.mock.calls.find(call => call[0].endsWith('/resolve'))!;
+  expect(JSON.parse(lookup[1].body)).toEqual({ path: String.raw`V:\English\DSE\Algebra.pdf`, allow_folder: true });
+  expect(mocks.fetch.mock.calls.some(call => call[0].endsWith('/search'))).toBe(false);
+  await waitFor(() => expect(mocks.fetch.mock.calls.some(call => call[0].includes('/preview?q=') && !call[0].includes('English'))).toBe(true));
+  fireEvent.click(within(preview).getByRole('button', { name: 'Back to courseware' }));
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull());
+  expect(screen.getByRole('button', { name: /Algebra.pdf/ })).toBeInTheDocument();
+});
+
+it('does not fall back to a text search when a pasted path is inaccessible', async () => {
+  mocks.fetch.mockImplementation(async (path: string) => {
+    if (path.endsWith('/sources')) return { ...sources, features: ['folder_navigation'] };
+    throw new Error('Not available');
+  });
+  mount(String.raw`Z:\Private\Algebra.pdf`);
+  expect(await screen.findByRole('button', { name: 'Retry opening' })).toBeVisible();
+  expect(mocks.fetch.mock.calls.some(call => call[0].endsWith('/search'))).toBe(false);
+});
+
+it('browses a selected source folder with an empty search box', async () => {
+  const { createMaterialWorkspace } = await import('./material-workspace');
+  const workspace = createMaterialWorkspace();
+  workspace.filters = { ...workspace.filters, share: 'center', folder: 'English/DSE/F4' };
+  mocks.fetch.mockImplementation(async (path: string) => {
+    if (path.endsWith('/sources')) return { ...sources, features: ['folder_navigation', 'search_refinements'] };
+    return page([1]);
+  });
+  render(<SWRConfig value={{ provider: () => new Map() }}><MaterialSearch query="" scope="browse" workspace={workspace} /></SWRConfig>);
+  expect(await screen.findByRole('button', { name: /Worksheet 1/ })).toBeVisible();
+  expect(JSON.parse(mocks.fetch.mock.calls.find(call => call[0].endsWith('/search'))![1].body)).toMatchObject({ q: '', share: 'center', folder: 'English/DSE/F4' });
+});
+
+
+it.each(['English/DSE', '/'])('turns a pasted folder into a browsable scope: %s', async folder => {
+  mocks.fetch.mockImplementation(async (path: string) => {
+    if (path.endsWith('/sources')) return { ...sources, features: ['folder_navigation', 'search_refinements'] };
+    if (path.endsWith('/resolve')) return { kind: 'folder', share: 'center', folder };
+    return page([1]);
+  });
+  function Harness() {
+    const [query, setQuery] = React.useState(String.raw`Z:\English\DSE`);
+    return <><input aria-label="Test query" value={query} onChange={e => setQuery(e.target.value)} /><MaterialSearch query={query} scope="folder-path" onQueryChange={setQuery} /></>;
+  }
+  render(<SWRConfig value={{ provider: () => new Map() }}><Harness /></SWRConfig>);
+  expect(await screen.findByRole('button', { name: /Worksheet 1/ })).toBeVisible();
+  expect(screen.getByLabelText('Test query')).toHaveValue('');
+  const requests = () => mocks.fetch.mock.calls.filter(call => call[0].endsWith('/search')).map(call => JSON.parse(call[1].body));
+  expect(requests()).toContainEqual(expect.objectContaining({ q: '', share: 'center', folder }));
+  expect(requests().some(request => request.q.includes('English'))).toBe(false);
+  expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
+  fireEvent.change(screen.getByLabelText('Test query'), { target: { value: 'quadratic' } });
+  await waitFor(() => expect(requests()).toContainEqual(expect.objectContaining({ q: 'quadratic', share: 'center', folder })));
+});
+
+
+it('browses folders before immediate files and searches descendants by default', async () => {
+  const { createMaterialWorkspace } = await import('./material-workspace');
+  const workspace = createMaterialWorkspace();
+  workspace.filters = { ...workspace.filters, share: 'center', folder: 'English/DSE' };
+  mocks.fetch.mockImplementation(async (path: string, options?: {body: string}) => {
+    if (path.endsWith('/sources')) return { ...sources, features: ['folder_navigation', 'search_refinements'] };
+    if (path.endsWith('/folders')) {
+      const {share, folder} = JSON.parse(options!.body);
+      return {share, path: folder === '/' ? '' : folder, folders: folder === 'English/DSE' ? [{name: 'F4', path: 'English/DSE/F4', files: 3}] : [], next: null};
+    }
+    return page([1]);
+  });
+  function Harness() {
+    const [query, setQuery] = React.useState('');
+    return <><input aria-label="Test query" value={query} onChange={e=>setQuery(e.target.value)} /><MaterialSearch query={query} scope="browse-depth" workspace={workspace} onQueryChange={setQuery} /></>;
+  }
+  render(<SWRConfig value={{provider:()=>new Map()}}><Harness /></SWRConfig>);
+  const folder = await screen.findByRole('button', {name:'Open folder F4'});
+  const file = await screen.findByRole('button', {name:/Worksheet 1/});
+  expect(folder.compareDocumentPosition(file) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const requests = () => mocks.fetch.mock.calls.filter(call=>call[0].endsWith('/search')).map(call=>JSON.parse(call[1].body));
+  expect(requests()).toContainEqual(expect.objectContaining({q:'',folder:'English/DSE',folder_scope:'current'}));
+  fireEvent.click(folder);
+  await waitFor(()=>expect(requests()).toContainEqual(expect.objectContaining({q:'',folder:'English/DSE/F4',folder_scope:'current'})));
+  fireEvent.click(screen.getByRole('button',{name:'DSE'}));
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Open folder F4'})).toBeVisible());
+  fireEvent.change(screen.getByLabelText('Test query'),{target:{value:'quadratic'}});
+  const toggle = await screen.findByRole('checkbox',{name:'Include subfolders'});
+  expect(toggle).toBeChecked();
+  await waitFor(()=>expect(requests()).toContainEqual(expect.objectContaining({q:'quadratic',folder:'English/DSE',folder_scope:'subtree'})));
+  fireEvent.click(toggle);
+  await waitFor(()=>expect(requests()).toContainEqual(expect.objectContaining({q:'quadratic',folder:'English/DSE',folder_scope:'current'})));
+});
+
+
+it('opens folders from a visible Browse action, switches sources and preserves a cancelled search', async () => {
+  mocks.fetch.mockImplementation(async (path: string, options?: {body: string}) => {
+    if (path.endsWith('/sources')) return {...sources,features:['folder_navigation','search_refinements']};
+    if (path.endsWith('/folders')) {
+      const {share,folder}=JSON.parse(options!.body);
+      const name=share==='center'?'English':'Revision';
+      return {share,path:folder,folders:folder===''?[{name,path:name,files:3}]:[],next:null};
+    }
+    return page([1]);
+  });
+  function Harness() {
+    const [query,setQuery]=React.useState('fractions');
+    return <><input aria-label="Test query" value={query} onChange={e=>setQuery(e.target.value)}/><MaterialSearch query={query} scope="browse-entry" onQueryChange={setQuery}/></>;
+  }
+  render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+  await screen.findByRole('button',{name:/Worksheet 1/});
+  fireEvent.click(screen.getByRole('button',{name:'Browse folders'}));
+  expect(await screen.findByRole('button',{name:'Browse Center'})).toBeVisible();
+  expect(screen.getByRole('button',{name:'Browse Courseware Developer 中學'})).toBeVisible();
+  expect(screen.getByRole('button',{name:'Browse MSA Staff / scan'})).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Filters'})).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Back to search'}));
+  expect(screen.getByLabelText('Test query')).toHaveValue('fractions');
+  expect(await screen.findByRole('button',{name:/Worksheet 1/})).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Browse folders'}));
+  fireEvent.click(screen.getByRole('button',{name:'Browse Center'}));
+  expect(await screen.findByRole('button',{name:'Open folder English'})).toBeVisible();
+  expect(screen.getByLabelText('Test query')).toHaveValue('');
+  const requests=()=>mocks.fetch.mock.calls.filter(call=>call[0].endsWith('/search')).map(call=>JSON.parse(call[1].body));
+  await waitFor(()=>expect(requests()).toContainEqual(expect.objectContaining({q:'',share:'center',folder:'/',folder_scope:'current'})));
+  fireEvent.click(screen.getByRole('button',{name:'Folders'}));
+  fireEvent.click(screen.getByRole('button',{name:'Browse Courseware Developer 中學'}));
+  expect(await screen.findByRole('button',{name:'Open folder Revision'})).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Open folder English'})).toBeNull();
+  await waitFor(()=>expect(requests()).toContainEqual(expect.objectContaining({q:'',share:'developer',folder:'/'})));
+  fireEvent.click(screen.getByRole('button',{name:'Browse folders'}));
+  fireEvent.change(screen.getByLabelText('Test query'),{target:{value:'quadratic'}});
+  await waitFor(()=>expect(screen.queryByRole('region',{name:'Courseware folders'})).toBeNull());
+  await waitFor(()=>expect(requests()).toContainEqual(expect.objectContaining({q:'quadratic',share:'developer',folder:'/',folder_scope:'subtree'})));
+});
+
+it('handles Escape from the portalled Browse button without closing its parent', async () => {
+  mocks.fetch.mockImplementation(async (path:string)=>path.endsWith('/sources')?{...sources,features:['folder_navigation']}:page([]));
+  const host=document.createElement('div');document.body.appendChild(host);
+  const parentEscape=vi.fn();
+  try {
+    render(<SWRConfig value={{provider:()=>new Map()}}><div onKeyDown={parentEscape}><MaterialSearch query="" scope="browse-escape" toolbarHost={host}/></div></SWRConfig>);
+    const browse=await screen.findByRole('button',{name:'Browse folders'});
+    fireEvent.click(browse);
+    await screen.findByRole('region',{name:'Courseware folders'});
+    fireEvent.keyDown(browse,{key:'Escape'});
+    expect(screen.queryByRole('region',{name:'Courseware folders'})).toBeNull();
+    expect(parentEscape).not.toHaveBeenCalled();
+    expect(browse).toHaveFocus();
+  } finally {host.remove();}
+});
+
+
+it('opens a recent folder directly and omits history from unavailable sources', async () => {
+  const {defaultMaterialFilters}=await import('./material-workspace');
+  localStorage.setItem('command-palette-courseware-history:recent-folder-entry',JSON.stringify([
+    {query:'quadratic',filters:{...defaultMaterialFilters(),share:'center',folder:'English/DSE'}},
+    {query:'private',filters:{...defaultMaterialFilters(),share:'director',folder:'Private'}},
+  ]));
+  mocks.fetch.mockImplementation(async(path:string,options?:{body:string})=>{
+    if(path.endsWith('/sources'))return {...sources,features:['folder_navigation','search_refinements']};
+    if(path.endsWith('/folders')){const {share,folder}=JSON.parse(options!.body);return {share,path:folder,folders:[],next:null};}
+    return page([1]);
+  });
+  function Harness(){const [query,setQuery]=React.useState('');return <MaterialSearch query={query} scope="recent-folder-entry" onQueryChange={setQuery}/>;}
+  render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+  fireEvent.click(await screen.findByRole('button',{name:'Browse folders'}));
+  expect(screen.queryByRole('button',{name:/Browse recent folder.*Private/})).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Browse recent folder Center / English/DSE'}));
+  await waitFor(()=>expect(mocks.fetch.mock.calls.some(call=>call[0].endsWith('/search')&&JSON.parse(call[1].body).folder==='English/DSE')).toBe(true));
+  expect(screen.queryByRole('region',{name:'Courseware folders'})).toBeNull();
+});
+
+
+it('keeps a pasted-file reader closed when its metadata refreshes after Back', async () => {
+  const path=String.raw`Z:\English\Algebra.pdf`;
+  const material=row(9,'Algebra.pdf');
+  mocks.fetch.mockImplementation(async(url:string)=>{
+    if(url.endsWith('/sources'))return {...sources,features:['folder_navigation','focused_preview','search_refinements']};
+    if(url.endsWith('/resolve'))return material;
+    return {file_id:9,chunks:[],truncated:false};
+  });
+  let refresh!:ReturnType<typeof useSWRConfig>['mutate'];
+  function Harness(){refresh=useSWRConfig().mutate;return <MaterialSearch query={path} scope="refresh-path"/>;}
+  render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+  const preview=await screen.findByRole('region',{name:'Courseware preview'});
+  fireEvent.click(within(preview).getByRole('button',{name:'Back to courseware'}));
+  await waitFor(()=>expect(screen.queryByRole('region',{name:'Courseware preview'})).toBeNull());
+  await act(async()=>{await refresh(['material-path','refresh-path',path],{...material,filename:'Updated algebra.pdf'},{revalidate:false});});
+  expect(screen.queryByRole('region',{name:'Courseware preview'})).toBeNull();
+  expect(screen.getByRole('button',{name:/Updated algebra.pdf/})).toBeVisible();
+});
+
+
+it('starts explicit source navigation without waiting for the typing debounce', async () => {
+  vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});
+  mocks.fetch.mockImplementation(async(path:string,options?:{body:string})=>{
+    if(path.endsWith('/sources'))return {...sources,features:['folder_navigation','search_refinements']};
+    if(path.endsWith('/folders')){const body=JSON.parse(options!.body);return {share:body.share,path:'',folders:[],next:null};}
+    return page([1]);
+  });
+  function Harness(){const [query,setQuery]=React.useState('algebra');return <MaterialSearch query={query} scope="immediate-source" onQueryChange={setQuery}/>;}
+  try {
+    render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+    await act(async()=>{await vi.advanceTimersByTimeAsync(20);});
+    fireEvent.click(screen.getByRole('button',{name:'Browse folders'}));
+    fireEvent.click(screen.getByRole('button',{name:'Browse Center'}));
+    await act(async()=>{await vi.advanceTimersByTimeAsync(20);});
+    expect(mocks.fetch.mock.calls.some(call=>call[0].endsWith('/search')&&JSON.parse(call[1].body).q===''&&JSON.parse(call[1].body).folder==='/')).toBe(true);
+  } finally {vi.useRealTimers();}
+});
+
+it('starts a deliberate saved search immediately while retaining debouncing for typed words', async () => {
+  const {defaultMaterialFilters}=await import('./material-workspace');
+  localStorage.setItem('command-palette-courseware-history:immediate-history',JSON.stringify([{query:'quadratic',filters:defaultMaterialFilters()}]));
+  vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});
+  mocks.fetch.mockImplementation(async(path:string)=>path.endsWith('/sources')?sources:page([1]));
+  function Harness(){const [query,setQuery]=React.useState('');return <><input aria-label="Test query" value={query} onChange={e=>setQuery(e.target.value)}/><MaterialSearch query={query} scope="immediate-history" onQueryChange={setQuery}/></>;}
+  try {
+    render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+    await act(async()=>{await vi.advanceTimersByTimeAsync(20);});
+    fireEvent.click(screen.getByRole('button',{name:'Search courseware for quadratic'}));
+    await act(async()=>{await vi.advanceTimersByTimeAsync(20);});
+    const searched=(q:string)=>mocks.fetch.mock.calls.some(call=>call[0].endsWith('/search')&&JSON.parse(call[1].body).q===q);
+    expect(searched('quadratic')).toBe(true);
+    fireEvent.change(screen.getByLabelText('Test query'),{target:{value:'algebra'}});
+    await act(async()=>{await vi.advanceTimersByTimeAsync(299);});
+    expect(searched('algebra')).toBe(false);
+    await act(async()=>{await vi.advanceTimersByTimeAsync(1);});
+    expect(searched('algebra')).toBe(true);
+  } finally {vi.useRealTimers();}
 });

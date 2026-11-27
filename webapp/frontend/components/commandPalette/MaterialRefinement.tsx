@@ -8,6 +8,7 @@ import { defaultMaterialFilters, type MaterialFilters } from './material-workspa
 import { filterChips, serializeMaterialTerms } from './material-refinements';
 import { MaterialTermInput, createTermDraft, termError, termValues } from './MaterialTermInput';
 import { MaterialDateRange } from './MaterialDateRange';
+import { MaterialFolderPicker } from './MaterialFolderPicker';
 import styles from './MaterialSearch.module.css';
 
 type Rule = 'any_words' | 'exclude_words' | 'exact_phrase';
@@ -15,7 +16,7 @@ const ruleLabels: Record<Rule, string> = { any_words: 'Must include one of', exc
 export type MaterialRefinementProps = {
   sources?: { id: string; label: string }[]; filters: MaterialFilters; onApply: (patch: Partial<MaterialFilters>) => void;
   isOpen: boolean; onOpenChange: (open: boolean) => void; edit?: keyof MaterialFilters;
-  supportsRefinements: boolean; facets?: { ext: Record<string, number>; folder: Record<string, number> };
+  supportsRefinements: boolean; folderNavigation?: boolean; scope?: string; facets?: { ext: Record<string, number>; folder: Record<string, number> };
 };
 
 export function MaterialRefinement({ isOpen, onOpenChange, ...props }: MaterialRefinementProps) {
@@ -41,7 +42,7 @@ export function MaterialRefinement({ isOpen, onOpenChange, ...props }: MaterialR
   </>;
 }
 
-function RefinementForm({ filters, onApply, onCancel, supportsRefinements, facets, edit, mobile, sources }: Omit<MaterialRefinementProps, 'isOpen' | 'onOpenChange'> & { onCancel: () => void; mobile: boolean }) {
+function RefinementForm({ filters, onApply, onCancel, supportsRefinements, folderNavigation, scope = "", facets, edit, mobile, sources }: Omit<MaterialRefinementProps, 'isOpen' | 'onOpenChange'> & { onCancel: () => void; mobile: boolean }) {
   const [draft, setDraft] = useState(filters);
   const [visible, setVisible] = useState<Rule[]>(() => (Object.keys(ruleLabels) as Rule[]).filter(key => !!filters[key] || key === edit));
   const [words, setWords] = useState(() => ({ any_words: createTermDraft(filters.any_words), exclude_words: createTermDraft(filters.exclude_words) }));
@@ -82,7 +83,8 @@ function RefinementForm({ filters, onApply, onCancel, supportsRefinements, facet
         {sources && <label>Source<select id={`${id}-share`} aria-label="Filter courseware source" value={draft.share} onChange={event => setDraft(previous => ({ ...previous, share: event.target.value, folder: '' }))}><option value="">All sources</option>{sources.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>}
         {supportsRefinements && <label>Search in<select id={`${id}-search_in`} aria-label="Courseware search scope" value={draft.search_in} onChange={event => update('search_in', event.target.value)}><option value="both">Name &amp; text</option><option value="filename">Filename only</option><option value="content">Contents only</option></select></label>}
         <label>File type<select id={`${id}-ext`} aria-label="Courseware file type" value={draft.ext} onChange={event => update('ext', event.target.value)}><option value="">All types</option>{[...new Set(['.pdf', '.docx', '.xlsx', '.pptx', ...Object.keys(facets?.ext ?? {})])].sort().map(ext => <option key={ext} value={ext}>{ext.slice(1).toUpperCase()}</option>)}</select></label>
-        <label>Folder<select id={`${id}-folder`} aria-label="Courseware folder" value={draft.folder} onChange={event => update('folder', event.target.value)}><option value="">All folders</option>{[...new Set([...(draft.folder ? [draft.folder] : []), ...Object.keys(facets?.folder ?? {})])].map(folder => <option key={folder} value={folder}>{folder}{facets?.folder[folder] !== undefined ? ` (${facets.folder[folder]})` : ''}</option>)}</select></label>
+        {folderNavigation ? <MaterialFolderPicker id={`${id}-folder`} scope={scope} share={draft.share} sourceLabel={sources?.find(source => source.id === draft.share)?.label ?? draft.share}
+          value={draft.folder} onChange={value => update('folder', value)} autoOpen={edit === 'folder'} /> : <label>Folder<select id={`${id}-folder`} aria-label="Courseware folder" value={draft.folder} onChange={event => update('folder', event.target.value)}><option value="">All folders</option>{[...new Set([...(draft.folder ? [draft.folder] : []), ...Object.keys(facets?.folder ?? {})])].map(folder => <option key={folder} value={folder}>{folder}{facets?.folder[folder] !== undefined ? ` (${facets.folder[folder]})` : ''}</option>)}</select></label>}
         <label>Modified<select id={`${id}-modified`} aria-label="Courseware modified date" value={customDates ? 'custom' : draft.modified} onChange={event => {
           setCustomDates(event.target.value === 'custom'); setDraft(previous => ({ ...previous, modified: event.target.value === 'custom' ? '' : event.target.value, modified_from: '', modified_to: '' }));
         }}><option value="">Any time</option><option value="week">Past week</option><option value="month">Past month</option><option value="year">Past year</option><option value="older">Older than a year</option>{supportsRefinements && <option value="custom">Custom range…</option>}</select></label>

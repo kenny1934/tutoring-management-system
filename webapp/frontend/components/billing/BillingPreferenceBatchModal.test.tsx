@@ -278,7 +278,7 @@ describe('bulk bank authorisation', () => {
     mocks.savePreferences.mockRejectedValueOnce(new Error('Reply lost'));
     showAuthorisation(); await screen.findByRole('dialog'); confirmAuthorisation();
     await screen.findByText('1 confirmed');
-    expect(within(authItem(2)).getByRole('button', { name: 'Retry save' })).toBeVisible();
+    await waitFor(() => expect(within(authItem(2)).getByRole('button', { name: 'Retry save' })).toBeVisible());
     const body = mocks.savePreferences.mock.calls[0][1];
     fireEvent.click(within(authItem(2)).getByRole('button', { name: 'Retry save' }));
     await screen.findByText('2 confirmed');

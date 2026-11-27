@@ -76,6 +76,7 @@ class MaterialSearch(BaseModel):
     share: str | None = None
     ext: str | None = Field(default=None, max_length=16)
     folder: str | None = Field(default=None, max_length=512)
+    folder_scope: str = Field(default="subtree", pattern="^(subtree|current)$")
     modified: str | None = None
     sort: str = "relevance"
     page: int = Field(default=1, ge=1, le=1000)
@@ -90,8 +91,22 @@ def sources(user: Tutor = Depends(get_current_user)):
 @router.post("/search")
 def search(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
     if not data.q.strip() and not (data.refine and (data.refine.any_words.strip() or data.refine.exact_phrase.strip())):
-        raise HTTPException(422, "Enter some words or an exact phrase to search for.")
-    return request_materials("search", data.model_dump(mode="json", exclude_none=True), user)
+        if data.q.strip() or not data.share or not data.folder:
+            raise HTTPException(422, "Enter some words or choose a source and folder.")
+    return request_materials("search", data.model_dump(mode="json", exclude_none=True,
+        exclude={"folder_scope"} if "folder_scope" not in data.model_fields_set else set()), user)
+
+
+class MaterialFolder(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    share: str = Field(min_length=1, max_length=64)
+    folder: str = Field(default='', max_length=512)
+    after: str = Field(default='', max_length=512)
+
+
+@router.post('/folders')
+def folders(data: MaterialFolder, user: Tutor = Depends(get_current_user)):
+    return request_materials('folders', data.model_dump(), user)
 
 
 @router.get("/{file_id}/preview")
@@ -159,13 +174,15 @@ def original(file_id: int, request: Request, download: bool = False, user: Tutor
 class ResolveMaterial(BaseModel):
     model_config = ConfigDict(extra="forbid")
     path: str = Field(min_length=1, max_length=2048)
+    allow_folder: bool = False
 
 
 @router.post("/resolve")
 def resolve(data: ResolveMaterial, user: Tutor = Depends(get_current_user)):
-    path = data.path.strip().replace("/", "\\")
+    path = data.path.strip().strip('"\'').replace("/", "\\")
+    options = {"allow_folder": True} if data.allow_folder else {}
     if not path.startswith("\\") or path.startswith("\\\\"):
-        return request_materials("resolve", {"path": path}, user)
+        return request_materials("resolve", {"path": path, **options}, user)
     parts = path[1:].split("\\")
     if any(part in ("", ".", "..") or ":" in part for part in parts):
         raise HTTPException(404, "This material is no longer available.")
@@ -175,7 +192,7 @@ def resolve(data: ResolveMaterial, user: Tutor = Depends(get_current_user)):
     forbidden = 0
     for candidate in candidates:
         try:
-            found = request_materials("resolve", {"path": candidate}, user)
+            found = request_materials("resolve", {"path": candidate, **options}, user)
             matches.append({**found, "nas_path": candidate})
         except HTTPException as error:
             if error.status_code == 403:

@@ -237,3 +237,34 @@ def test_provider_timing_is_numeric_and_nonnegative(client, monkeypatch, duratio
     response = client.post('/api/materials/search', json={"q": "fractions"})
     assert response.status_code == 200
     assert 'mckb_search' not in response.headers['server-timing']
+
+
+def test_folder_requests_keep_authenticated_identity_and_reject_extra_fields(client, monkeypatch):
+    def handler(request):
+        assert request.url.path.endswith('/materials/folders')
+        assert request.headers['X-CSM-Email'] == 'tutor@example.test'
+        assert json.loads(request.content) == {'share': 'center', 'folder': 'English/DSE', 'after': ''}
+        return httpx.Response(200, json={'share': 'center', 'path': 'English/DSE', 'folders': [], 'next': None})
+    intercept(monkeypatch, handler)
+    assert client.post('/api/materials/folders', json={'share': 'center', 'folder': 'English/DSE'}).status_code == 200
+    assert client.post('/api/materials/folders', json={'share': 'center', 'email': 'other@example.test'}).status_code == 422
+
+
+def test_folder_browsing_can_use_an_empty_query_but_needs_source_and_folder(client, monkeypatch):
+    intercept(monkeypatch, lambda request: httpx.Response(200, json={'results': [], 'total': 0}))
+    assert client.post('/api/materials/search', json={'q': '', 'share': 'center', 'folder': 'English/DSE'}).status_code == 200
+    assert client.post('/api/materials/search', json={'q': '', 'folder': 'English/DSE'}).status_code == 422
+    assert client.post('/api/materials/search', json={'q': '', 'share': 'center'}).status_code == 422
+
+
+def test_folder_aware_resolution_is_forwarded_only_when_requested(client, monkeypatch):
+    seen = []
+    def provider(action, payload, user):
+        seen.append(payload)
+        return {'kind': 'folder', 'share': 'center', 'folder': 'English/DSE'}
+    monkeypatch.setattr(materials, 'request_materials', provider)
+    response = client.post('/api/materials/resolve', json={'path': r'Z:\English\DSE', 'allow_folder': True})
+    assert response.json() == {'kind': 'folder', 'share': 'center', 'folder': 'English/DSE'}
+    assert seen == [{'path': r'Z:\English\DSE', 'allow_folder': True}]
+    client.post('/api/materials/resolve', json={'path': r'Z:\English\Algebra.pdf'})
+    assert 'allow_folder' not in seen[-1]

@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.4.18](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.17...v2.4.18) (2026-11-27)
+
+### Improvements
+
+* **Browse courseware folders**: Open Browse beside search, choose a source or recent folder, and navigate child folders with breadcrumbs.
+* **Open saved paths**: Paste a courseware file or folder path, including CSM aliases and mapped drive paths, to open it directly.
+* **Search within folders**: Include subfolders by default, with an option to search only the current folder and saved searches that remember your choice.
+* **Faster courseware navigation**: Open sources, recent folders and saved searches without the typing delay, and reuse recent folder listings for quicker navigation.
+* **Long worksheet previews**: Load matching extracted text more quickly when opening a page in a long worksheet.
+
+### Bug Fixes
+
+* **PDF reader navigation**: Keep the reader closed after returning to results, even when file information refreshes in the background.
+* **Search responsiveness**: Keep other requests responsive while courseware searches or original files are loading, and share identical simultaneous search work.
+
 ## [2.4.17](https://github.com/kenny1934/tutoring-management-system/compare/v2.4.16...v2.4.17) (2026-11-26)
 
 ### Improvements
