@@ -300,3 +300,10 @@
 
 .recentFoldersHeading { margin-top: 24px; margin-bottom: 10px; color: var(--color-ink-subtle); font-size: 12px; font-weight: 500; }
 .sourceRow .recentFolderPath { display: block; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; font-weight: 400; }
+
+@container (max-width: 700px) {
+  .hostedToolbar { flex: 1; width: 100%; justify-content: space-between; gap: 12px; }
+  .hostedToolbar .browseTrigger, .hostedToolbar .filterTrigger { border-color: transparent; padding-inline: 8px; }
+  .hostedToolbar .browseTrigger { margin-left: -8px; }
+  .hostedToolbar .filterTrigger { margin-right: -8px; }
+}

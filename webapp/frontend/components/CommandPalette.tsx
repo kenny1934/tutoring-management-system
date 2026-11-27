@@ -888,7 +888,7 @@ export function CommandPalette() {
           </div>
         )}
 
-        <div className={styles.modeToolbar}><SearchAreaSwitch value={searchArea} onChange={switchSearchArea} /><div className={styles.searchTools} ref={setSearchToolsHost} /></div>
+        <div className={styles.modeToolbar} data-search-area={searchArea}><SearchAreaSwitch value={searchArea} onChange={switchSearchArea} /><div className={styles.searchTools} ref={setSearchToolsHost} /></div>
         <MaterialSearch toolbarHost={searchToolsHost} key={`${scope}:${selectedLocation}`} workspace={materialWorkspace} onQueryChange={setQuery} query={query} scope={`${scope}:${selectedLocation}`} active={searchArea === 'materials'} prefetchSources={!!user} canAssign={!isReadOnly} />
         {searchArea === 'records' && <>
         {!commandPath.length && !query.startsWith('=') && !query.startsWith('?') && filterType !== 'page' && <SearchFilterControls toolbarHost={searchToolsHost}
