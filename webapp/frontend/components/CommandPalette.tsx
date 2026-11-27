@@ -1189,7 +1189,7 @@ export function CommandPalette() {
         </>}
 
         {/* Footer hints - hidden on mobile */}
-        <div className="px-4 py-2 border-t border-line dark:border-tint bg-wash/50 max-sm:hidden">
+        <div className={cn(styles.keyboardHints, "px-4 py-2 border-t border-line dark:border-tint bg-wash/50 max-sm:hidden")}>
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <ArrowUp className="h-3 w-3" />

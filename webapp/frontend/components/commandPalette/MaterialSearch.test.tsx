@@ -49,7 +49,7 @@ describe('Courseware search', () => {
     expect(within(preview).getByRole('combobox', { name: 'Matching text pages' })).toBeVisible();
     expect(within(preview).getByRole('option', { name: 'Page 2' })).toBeInTheDocument();
     fireEvent.keyDown(preview, { key: 'Escape' });
-    await waitFor(() => expect(result).toHaveFocus());
+    expect(result).toHaveFocus();
     expect(screen.queryByRole('region', { name: 'Courseware preview' })).toBeNull();
   });
   it('keeps file paths and fallback actions in collapsed file details', async () => {
@@ -681,4 +681,82 @@ it('starts a deliberate saved search immediately while retaining debouncing for 
     await act(async()=>{await vi.advanceTimersByTimeAsync(1);});
     expect(searched('algebra')).toBe(true);
   } finally {vi.useRealTimers();}
+});
+
+it('returns from the source chooser to the previous results scroll position', async () => {
+  const {createMaterialWorkspace}=await import('./material-workspace');
+  const workspace=createMaterialWorkspace();
+  mocks.fetch.mockImplementation(async(path:string,options?:{body:string})=>path.endsWith('/sources')?{...sources,features:['folder_navigation']}:JSON.parse(options!.body).page===2?page([3],3,2):page([1,2],3));
+  render(<SWRConfig value={{provider:()=>new Map()}}><MaterialSearch query="fractions" scope="chooser-scroll" workspace={workspace}/></SWRConfig>);
+  await screen.findByRole('button',{name:/Worksheet 1/});
+  fireEvent.click(screen.getByRole('button',{name:'Load more courseware'}));
+  await screen.findByRole('button',{name:/Worksheet 3/});
+  const list=screen.getByLabelText('Courseware results');
+  list.scrollTop=320;fireEvent.scroll(list);
+  fireEvent.click(screen.getByRole('button',{name:'Browse folders'}));
+  await screen.findByRole('button',{name:'Browse Center'});
+  list.scrollTop=0;fireEvent.scroll(list);
+  fireEvent.click(screen.getByRole('button',{name:'Back to search'}));
+  await screen.findByRole('button',{name:/Worksheet 1/});
+  expect(await screen.findByRole('button',{name:/Worksheet 3/})).toBeVisible();
+  expect(list.scrollTop).toBe(320);
+  expect(workspace.listTop).toBe(320);
+});
+
+it('waits for folder names before declaring that a browsed folder has no files', async () => {
+  const {createMaterialWorkspace}=await import('./material-workspace');
+  const workspace=createMaterialWorkspace();workspace.filters={...workspace.filters,share:'center',folder:'English'};
+  let finishFolders!:(value:unknown)=>void;
+  mocks.fetch.mockImplementation(async(path:string)=>{
+    if(path.endsWith('/sources'))return {...sources,features:['folder_navigation']};
+    if(path.endsWith('/folders'))return new Promise(resolve=>{finishFolders=resolve;});
+    return page([]);
+  });
+  render(<SWRConfig value={{provider:()=>new Map()}}><MaterialSearch query="" scope="slow-folder" workspace={workspace}/></SWRConfig>);
+  await screen.findByText('Loading folders…');
+  await waitFor(()=>expect(screen.getByText('0 files')).toBeVisible());
+  expect(screen.queryByText('No files directly in this folder.')).toBeNull();
+  await act(async()=>finishFolders({share:'center',path:'English',folders:[{name:'DSE',path:'English/DSE',files:3}],next:null}));
+  expect(await screen.findByRole('button',{name:'Open folder DSE'})).toBeVisible();
+  expect(screen.getByText('No files directly in this folder.')).toBeVisible();
+});
+
+it('restores each parent folder position and its loaded file pages', async () => {
+  const {createMaterialWorkspace}=await import('./material-workspace');
+  const workspace=createMaterialWorkspace();workspace.filters={...workspace.filters,share:'center',folder:'English'};
+  mocks.fetch.mockImplementation(async(path:string,options?:{body:string})=>{
+    if(path.endsWith('/sources'))return {...sources,features:['folder_navigation']};
+    const request=JSON.parse(options!.body);
+    if(path.endsWith('/folders'))return {share:'center',path:request.folder,folders:request.folder==='English'?[{name:'DSE',path:'English/DSE',files:3}]:[],next:null};
+    return request.page===2?page([3],3,2):page([1,2],3);
+  });
+  render(<SWRConfig value={{provider:()=>new Map()}}><MaterialSearch query="" scope="parent-place" workspace={workspace}/></SWRConfig>);
+  fireEvent.click(await screen.findByRole('button',{name:'Load more courseware'}));
+  await screen.findByRole('button',{name:/Worksheet 3/});
+  const list=screen.getByLabelText('Courseware results');list.scrollTop=450;fireEvent.scroll(list);
+  fireEvent.click(screen.getByRole('button',{name:'Open folder DSE'}));
+  await screen.findByRole('button',{name:'DSE'});
+  list.scrollTop=120;fireEvent.scroll(list);
+  fireEvent.click(screen.getByRole('button',{name:'English'}));
+  expect(await screen.findByRole('button',{name:/Worksheet 3/})).toBeVisible();
+  expect(list.scrollTop).toBe(450);
+  fireEvent.click(screen.getByRole('button',{name:'Open folder DSE'}));
+  await screen.findByRole('button',{name:'DSE'});
+  expect(list.scrollTop).toBe(120);
+});
+
+it('broadens folder search without clearing the query or other refinements', async () => {
+  const {createMaterialWorkspace}=await import('./material-workspace');
+  const workspace=createMaterialWorkspace();workspace.filters={...workspace.filters,share:'center',folder:'English/DSE',ext:'.pdf',exact_phrase:'quadratic equation',folder_scope:'current'};
+  mocks.fetch.mockImplementation(async(path:string)=>path.endsWith('/sources')?{...sources,features:['folder_navigation','search_refinements']}:page([1]));
+  render(<SWRConfig value={{provider:()=>new Map()}}><MaterialSearch query="algebra" scope="broaden-scope" workspace={workspace}/></SWRConfig>);
+  await screen.findByRole('button',{name:/Worksheet 1/});
+  fireEvent.click(screen.getByRole('button',{name:'Search all courseware'}));
+  await waitFor(()=>{
+    const request=JSON.parse(mocks.fetch.mock.calls.filter(call=>call[0].endsWith('/search')).at(-1)![1].body);
+    expect(request).toMatchObject({q:'algebra',ext:'.pdf',refine:expect.objectContaining({exact_phrase:'quadratic equation'})});
+    expect(request.share).toBeUndefined();expect(request.folder).toBeUndefined();
+  });
+  expect(screen.queryByRole('navigation',{name:'Courseware folder location'})).toBeNull();
+  expect(screen.getByText('All courseware ·')).toBeVisible();
 });

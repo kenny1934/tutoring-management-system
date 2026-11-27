@@ -28,8 +28,9 @@ export type MaterialWorkspace = {
   searchKey: string;
   size: number;
   listTop: number;
+  browsePlaces: Map<string, { top: number; size: number }>;
   reading: { key: string; place: MaterialReadingPlace } | null;
 };
 export const createMaterialWorkspace = (): MaterialWorkspace => ({
-  basket: [], filters: defaultMaterialFilters(), selection: null, searchKey: '', size: 1, listTop: 0, reading: null,
+  basket: [], filters: defaultMaterialFilters(), selection: null, searchKey: '', size: 1, listTop: 0, browsePlaces: new Map(), reading: null,
 });
