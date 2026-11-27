@@ -13,12 +13,15 @@ import { MaterialFolderPicker } from './MaterialFolderPicker';
 import { coursewarePath, folderBrowse } from './material-paths';
 import { MaterialBasket } from './MaterialBasket';
 import { isCancelledSearchRequest, useAbortableRequest } from './useAbortableRequest';
-import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Clock, X, CalendarPlus, FolderOpen, HardDrive, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Clock, X, CalendarPlus, FolderOpen, HardDrive, ChevronRight, Bookmark } from "lucide-react";
 import { fetchAPI } from "@/lib/api";
 import { IconButton } from '@/components/controls';
 import { MathText } from "@/components/ui/math-text";
 import { MaterialWorkControls } from "./MaterialWorkControls";
 import { createMaterialWorkspace, createMaterialReadingPlace, type MaterialWorkspace } from "./material-workspace";
+import { useSavedCoursewareSearches, savedSearchIdentity } from './useSavedCoursewareSearches';
+import { CoursewareSourceStatus, type CoursewareSource } from './CoursewareSourceStatus';
+import { SavedCoursewareSearches } from './SavedCoursewareSearches';
 import { useCoursewareHistory, type CoursewareHistoryEntry } from "./useCoursewareHistory";
 import { MaterialCoverageStatus, type MaterialCoverage } from "./MaterialCoverage";
 import styles from "./MaterialSearch.module.css";
@@ -60,6 +63,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   const local = useRef(createMaterialWorkspace());
   const workspace = saved ?? local.current;
   const history = useCoursewareHistory(scope);
+  const savedSearches = useSavedCoursewareSearches(scope);
   const [term, setTerm] = useState(query.trim());
   const [filters, setFilters] = useState(() => workspace.filters);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -82,7 +86,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
     const timer = setTimeout(() => setTerm(query.trim()), 300);
     return () => clearTimeout(timer);
   }, [query]);
-  const sources = useSWR(active || prefetchSources ? ["material-sources", scope] : null, () => fetchAPI<{ features?: string[]; sources: { id: string; label: string; coverage?: { files: number; limited_files: number } }[] }>("/materials/sources"), { revalidateOnFocus: false, shouldRetryOnError: false });
+  const sources = useSWR(active || prefetchSources ? ["material-sources", scope] : null, () => fetchAPI<{ features?: string[]; sources: CoursewareSource[] }>("/materials/sources"), { revalidateOnFocus: false, shouldRetryOnError: false, refreshInterval: active ? 60_000 : 0 });
   const supportsNavigation = sources.data?.features?.includes('folder_navigation') ?? false;
   const path = coursewarePath(term);
   const pathMode = !!coursewarePath(query);
@@ -238,6 +242,8 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         </>}
       </div>
   );
+  const savedCurrent = savedSearches.entries.find(entry => savedSearchIdentity(entry) === savedSearchIdentity({ query: query.trim(), filters }));
+  const saveSearchName = (query.trim() || filters.exact_phrase || filters.any_words || filters.folder.split('/').filter(Boolean).at(-1) || labels[filters.share] || 'Courseware').slice(0, 80);
   const textPageNavigation = selected && (!!selected.matched_pages.length && <label className={styles.textPages}>
           <span className={styles.visuallyHidden}>Matching text pages</span>
           <select aria-label="Matching text pages" value={reading?.focusPage ?? 'all'} onChange={event => jumpToPage(event.target.value === 'all' ? null : Number(event.target.value))}>
@@ -256,11 +262,16 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
       {refine && sources.data && !supportsRefinements && <p role="alert">Search refinements are unavailable on this service. <button onClick={() => update(Object.fromEntries(refinementKeys.map(key => [key, defaultMaterialFilters()[key]])))}>Clear refinements</button></p>}
     </div>
     {!choosingSource && !expanded && (first || positiveSearch(query, filters) || browsing) && <div className={styles.resultTools}><span className={styles.count} aria-live="polite">{!browsing && !pathMode && <span>{filters.share ? labels[filters.share] ?? filters.share : 'All courseware'}{first ? ' · ' : ''}</span>}{first ? `${first.total.toLocaleString()} ${browsing ? first.total === 1 ? 'file' : 'files' : first.total === 1 ? 'result' : 'results'}` : ''}</span>
+      <div className={styles.resultActions}>
+      {!pathMode && (positiveSearch(query, filters) || browsing) && <button type="button" className={styles.saveSearch} aria-label={savedCurrent ? 'Remove saved search' : 'Save search'} aria-pressed={!!savedCurrent} title={savedCurrent ? 'Remove saved search' : 'Save search'} onClick={() => savedCurrent ? savedSearches.remove(savedCurrent.id) : savedSearches.save({ query: query.trim(), filters }, saveSearchName)}><Bookmark size={16} fill={savedCurrent ? 'currentColor' : 'none'} /></button>}
       {!pathMode && <label><span className={styles.visuallyHidden}>Sort</span><select aria-label="Courseware sort" value={filters.sort} onChange={event => update({ sort: event.target.value })}><option value="relevance">{browsing ? 'Name' : 'Relevance'}</option><option value="recent">Recently modified</option></select></label>}
+      </div>
     </div>}
+    {savedSearches.error && <p className={styles.savedError} role="alert">{savedSearches.error}</p>}
     <div className={styles.body}>
       <div ref={listRef} hidden={expanded} className={`${styles.list} ${selected && !externalPreview ? styles.withSelection : ''}`} aria-label="Courseware results" onScroll={event => { if (!choosingSource && !expanded && !(mobile && selected && !externalPreview)) workspace.listTop = event.currentTarget.scrollTop; }} onKeyDown={event => {
         if (choosingSource && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeBrowse(); return; }
+        if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
         const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-material-result]')];
         const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
@@ -272,8 +283,9 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
           {sources.error && <p role="alert">Could not load sources. <button type="button" onClick={() => void sources.mutate()}>Retry</button></p>}
           {!sources.error && !sources.isLoading && !sources.data?.sources.length && <p>No courseware sources available.</p>}
           {sources.data?.sources.map(source => <button key={source.id} type="button" data-material-result className={styles.sourceRow} aria-label={`Browse ${source.label}`} onClick={() => browseSource(source.id)}>
-            <HardDrive size={20} /><span>{source.label}</span>{source.coverage && <small>{source.coverage.files.toLocaleString()} files</small>}<ChevronRight size={16} />
+            <HardDrive size={20} /><span>{source.label}<CoursewareSourceStatus freshness={source.freshness} /></span>{source.coverage && <small>{source.coverage.files.toLocaleString()} files</small>}<ChevronRight size={16} />
           </button>)}
+          <SavedCoursewareSearches entries={savedSearches.entries} sources={labels} onRecall={entry => { recall(entry); setChoosingSource(false); }} onRename={savedSearches.rename} onRemove={savedSearches.remove} />
           {!!recentFolders.length && <><h3 className={styles.recentFoldersHeading}>Recent folders</h3>{recentFolders.map(folder => <button key={JSON.stringify([folder.share, folder.folder])} type="button" data-material-result
             className={styles.sourceRow} aria-label={`Browse recent folder ${labels[folder.share]} / ${folder.folder}`} onClick={() => browseSource(folder.share, folder.folder)}>
             <FolderOpen size={18} /><span>{folder.folder.split('/').at(-1)}<small className={styles.recentFolderPath}>{labels[folder.share]} / {folder.folder}</small></span><ChevronRight size={16} />
@@ -289,6 +301,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
           {!browsing && <div className={styles.scopeControls}><label className={styles.subfolderOption}><input type="checkbox" checked={filters.folder_scope !== 'current'}
             onChange={event => update({ folder_scope: event.target.checked ? 'subtree' : 'current' })} />Include subfolders</label><button type="button" onClick={() => update({ share: '', folder: '', folder_scope: 'subtree' })}>Search all courseware</button></div>}
         </>}
+        {!positiveSearch(query, filters) && !browsing && !pathMode && onQueryChange && <SavedCoursewareSearches entries={savedSearches.entries} sources={labels} onRecall={recall} onRename={savedSearches.rename} onRemove={savedSearches.remove} />}
         {!positiveSearch(query, filters) && !browsing && !!history.entries.length && onQueryChange && <div role="group" aria-label="Recent courseware searches">
           <div className={styles.historyHeader}><span>Recent searches</span><button onClick={history.clear}>Clear history</button></div>
           {history.entries.map(entry => <div className={styles.historyRow} key={JSON.stringify(entry)}>
@@ -305,6 +318,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         {pathReady && resolved.error && !isCancelledSearchRequest(resolved.error) && <p role="alert">This file could not be opened. Check the path and your source access. <button onClick={() => void resolved.mutate()}>Retry opening</button></p>}
         {ready && pages.error && !isCancelledSearchRequest(pages.error) && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
         {first?.total === 0 && !pending && !pages.error && !browsing && <><p>No courseware matches. Try fewer words or broaden the filters.</p>{limitedSources && <p role="note">Some files in these sources have no searchable text or incomplete extraction. Their page contents may not appear in results.</p>}</>}
+        {first?.total === 0 && !pending && !pages.error && !browsing && sources.data?.sources.some(source => source.freshness && (!filters.share || source.id === filters.share)) && <details className={styles.scanDetails}><summary>Source scans</summary>{sources.data.sources.filter(source => !filters.share || source.id === filters.share).map(source => <div key={source.id}><strong>{source.label}</strong><CoursewareSourceStatus freshness={source.freshness} /></div>)}</details>}
         {!positiveSearch(query, filters) && !browsing && emptyState}
         {rows.map(row => <div key={row.file_id} className={styles.resultRow}>{canAssign && multiple && row.ext === '.pdf' && <input type="checkbox" aria-label={`Select ${row.filename}`} checked={basket.some(entry => entry.material.file_id === row.file_id)} onChange={event => changeBasket(event.target.checked ? [...basket, { material: row, pages: row.page_count ? (row.page_count === 1 ? '1' : `1-${row.page_count}`) : '' }] : basket.filter(entry => entry.material.file_id !== row.file_id))} />}<button id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
           <FileText size={16} /><span><strong>{row.filename}</strong><small>{labels[row.share] ?? row.share}{row.page_count ? ` · ${row.page_count} ${row.page_count === 1 ? 'page' : 'pages'}` : ''}{row.duplicate_count ? ` · ${row.duplicate_count} other copies` : ''}</small>

@@ -323,3 +323,24 @@
 .scopeControls > button { min-height: 44px; font-size: .75rem; }
 .resultTools .count { min-width: 0; overflow-wrap: anywhere; }
 .resultTools > label { flex-shrink: 0; }
+
+.resultActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.saveSearch { display: inline-flex; align-items: center; justify-content: center; width: 36px; min-height: 36px; border-radius: 3px; }
+.saveSearch:hover, .saveSearch[aria-pressed='true'] { background: var(--color-tint); }
+.savedRename { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; padding: 8px 16px; }
+.savedRename input { flex: 1; min-width: 0; min-height: 44px; padding: 6px 8px; font-size: 16px; border: 1px solid var(--color-line); color: var(--color-ink-heading); background: var(--color-field-fill, var(--color-paper)); }
+.savedError { padding: 8px 16px; font-size: 12px; }
+.historyHeader small { font-size: 11px; }
+.result:disabled { opacity: .6; cursor: default; }
+@media (pointer: coarse) { .saveSearch { width: 44px; min-height: 44px; } }
+
+.sourceRow .sourceFreshness, .sourceFreshness { display: block; margin-top: 5px; font-size: 11px; font-weight: 400; white-space: normal; line-height: 1.5; color: var(--color-ink-subtle); }
+.sourceFreshness > span { display: block; }
+.scanDetails { margin: 8px 16px 16px; font-size: 12px; }
+.scanDetails summary { min-height: 36px; cursor: pointer; }
+.scanDetails > div { padding-block: 6px; }
+.sourceChooser .historyHeader { padding-inline: 0; }
+.sourceChooser .historyRow > .result { padding-inline: 4px; }
+
+.savedList .historyRow { border-top: 1px solid var(--color-line); }
+.savedList .result { border-top: 0; }

@@ -760,3 +760,21 @@ it('broadens folder search without clearing the query or other refinements', asy
   expect(screen.queryByRole('navigation',{name:'Courseware folder location'})).toBeNull();
   expect(screen.getByText('All courseware ·')).toBeVisible();
 });
+
+it('keeps navigation keys in the saved-search name editor and persists renaming', async () => {
+  const {defaultMaterialFilters}=await import('./material-workspace');
+  localStorage.setItem('courseware-saved-searches:rename-keys',JSON.stringify([
+    {id:'one',name:'Fractions',query:'fractions',filters:defaultMaterialFilters()},
+    {id:'two',name:'Geometry',query:'geometry',filters:defaultMaterialFilters()},
+  ]));
+  function Harness(){const [query,setQuery]=React.useState('');return <MaterialSearch query={query} scope="rename-keys" onQueryChange={setQuery}/>;}
+  render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+  fireEvent.click(await screen.findByRole('button',{name:'Rename saved search Fractions'}));
+  const input=screen.getByRole('textbox',{name:'Saved search name'});
+  expect(fireEvent.keyDown(input,{key:'Home'})).toBe(true);
+  expect(input).toHaveFocus();
+  fireEvent.change(input,{target:{value:'F4 revision'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save search name'}));
+  expect(await screen.findByRole('button',{name:'Run saved search F4 revision'})).toBeVisible();
+  expect(JSON.parse(localStorage.getItem('courseware-saved-searches:rename-keys')!)[0].name).toBe('F4 revision');
+});
