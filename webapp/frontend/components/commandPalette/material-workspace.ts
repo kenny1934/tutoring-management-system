@@ -1,8 +1,8 @@
 import type { MaterialResult } from './MaterialSearch';
 import type { PdfViewState } from '@/components/lesson/PdfPageViewer';
 
-export type MaterialFilters = { share: string; ext: string; modified: string; folder: string; sort: string; match: string; any_words: string; exclude_words: string; exact_phrase: string; search_in: string; modified_from: string; modified_to: string };
-export const defaultMaterialFilters = (): MaterialFilters => ({ share: '', ext: '', modified: '', folder: '', sort: 'relevance', match: 'all', any_words: '', exclude_words: '', exact_phrase: '', search_in: 'both', modified_from: '', modified_to: '' });
+export type MaterialFilters = { share: string; ext: string; modified: string; folder: string; folder_scope: string; sort: string; match: string; any_words: string; exclude_words: string; exact_phrase: string; search_in: string; modified_from: string; modified_to: string };
+export const defaultMaterialFilters = (): MaterialFilters => ({ share: '', ext: '', modified: '', folder: '', folder_scope: 'subtree', sort: 'relevance', match: 'all', any_words: '', exclude_words: '', exact_phrase: '', search_in: 'both', modified_from: '', modified_to: '' });
 
 export type MaterialReadingPlace = {
   textTop: number | null;

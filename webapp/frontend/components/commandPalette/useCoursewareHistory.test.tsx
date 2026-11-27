@@ -36,3 +36,26 @@ it('migrates saved searches from before refinements and retains phrase-only sear
   hook.unmount();
   expect(renderHook(() => useCoursewareHistory('legacy')).result.current.entries[0]).toEqual(phrase);
 });
+
+it('retains folder-only visits and copied file paths longer than a text query', () => {
+  const hook = renderHook(() => useCoursewareHistory('folders'));
+  const folder = { query: '', filters: { ...defaultMaterialFilters(), share: 'center', folder: 'English/DSE' } };
+  const file = { query: '[Center]\\' + 'Long folder\\'.repeat(25) + 'Example.pdf', filters: defaultMaterialFilters() };
+  act(() => hook.result.current.save(folder));
+  act(() => hook.result.current.save(file));
+  hook.unmount();
+  expect(renderHook(() => useCoursewareHistory('folders')).result.current.entries).toEqual([file, folder]);
+});
+
+
+it('remembers current-folder search while defaulting old history to include descendants', () => {
+  const hook = renderHook(() => useCoursewareHistory('folder-scope'));
+  const entry = { query: 'algebra', filters: { ...defaultMaterialFilters(), share: 'center', folder: 'English/DSE', folder_scope: 'current' } };
+  act(() => hook.result.current.save(entry));
+  hook.unmount();
+  expect(renderHook(() => useCoursewareHistory('folder-scope')).result.current.entries[0]).toEqual(entry);
+  const legacy = { ...entry.filters };
+  delete (legacy as Partial<typeof legacy>).folder_scope;
+  localStorage.setItem('command-palette-courseware-history:old-scope', JSON.stringify([{ query: 'algebra', filters: legacy }]));
+  expect(renderHook(() => useCoursewareHistory('old-scope')).result.current.entries[0].filters.folder_scope).toBe('subtree');
+});

@@ -253,3 +253,50 @@
   .pdfContent { padding: 0; }
   .pdfContent .viewer { border-inline: 0; border-bottom: 0; }
 }
+
+.folderPicker { display: grid; grid-template-columns: 92px minmax(0,1fr); align-items: center; gap: 12px; font-size: 12px; min-width: 0; }
+.folderPicker > button { display: flex; align-items: center; gap: .5rem; width: 100%; min-width: 0; padding: .5rem .625rem; border: 1px solid var(--color-line); border-radius: .375rem; text-align: left; background: var(--color-field-fill,var(--color-paper)); }
+.folderPicker > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folderPicker button:disabled { opacity: .6; cursor: default; }
+.folderBrowser { grid-column: 1 / -1; min-width: 0; border: 1px solid var(--color-line); border-radius: .375rem; padding: .5rem; }
+.folderBrowser p { margin: .5rem; font-size: .8125rem; }
+.folderCrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem; padding: .25rem .25rem .5rem; border-bottom: 1px solid var(--color-line); }
+.folderCrumbs > span { display: inline-flex; align-items: center; gap: .25rem; min-width: 0; max-width: 100%; }
+.folderCrumbs button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: .25rem; font-size: .75rem; text-align: left; }
+.folderCrumbs button[aria-current] { font-weight: 600; }
+.folderChildren { max-height: 14rem; overflow: auto; overscroll-behavior: contain; margin-top: .25rem; }
+.folderChildren > button { display: flex; align-items: center; gap: .5rem; width: 100%; padding: .625rem .375rem; min-width: 0; text-align: left; border-radius: .25rem; }
+.folderChildren > button:hover { background: var(--color-tint); }
+.folderChildren > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.folderChildren small { white-space: nowrap; font-size: .6875rem; opacity: .8; }
+
+@media (max-width: 767px) { .folderPicker > button, .folderChildren > button { min-height: 44px; } }
+
+.folderContents { padding: 0 .875rem .5rem; }
+.folderContents .folderCrumbs { padding-block: .5rem; }
+.folderContents .folderChildren { max-height: none; overflow: visible; }
+.folderContents .folderChildren > button { min-height: 44px; }
+.subfolderOption { display: flex; align-items: center; gap: .5rem; padding: .25rem 1rem .625rem; font-size: .8125rem; min-height: 44px; }
+.subfolderOption input { accent-color: var(--color-accent); }
+
+.browseTrigger { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 10px; flex-shrink: 0; border: 1px solid var(--color-line); border-radius: 3px; font-size: 12px; white-space: nowrap; }
+.browseTrigger[aria-expanded='true'] { background: var(--color-tint); }
+.sourceChooser { padding: 8px 20px 20px; }
+.sourceHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; }
+.sourceHeading h2 { font-size: 16px; font-weight: 600; color: var(--color-ink-heading); }
+.sourceHeading button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 12px; }
+.root .sourceRow { display: flex; align-items: center; gap: 14px; min-height: 64px; width: 100%; padding: 12px 4px; border-top: 1px solid var(--color-line); text-align: left; color: var(--color-ink-heading); }
+.sourceRow > span { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.sourceRow svg { flex-shrink: 0; color: var(--color-ink-subtle); }
+.sourceRow small { font-size: 11px; color: var(--color-ink-subtle); white-space: nowrap; }
+.sourceRow:hover { background: var(--color-tint); }
+.sourceChooser > p { padding-block: 12px; font-size: 12px; }
+@media (max-width:767px) { .browseTrigger { min-height: 44px; padding-inline: 8px; } .sourceChooser { padding-inline: 16px; } .sourceRow { gap: 10px; } }
+@media (prefers-reduced-motion:no-preference) { .sourceChooser { animation: filtersAppear .14s ease-out; } }
+@container (max-width:700px) { .hostedToolbar > label { display: none; } }
+
+.browseTrigger:hover { background: var(--color-tint); }
+@media (pointer:coarse) { .browseTrigger, .filterTrigger { min-height: 44px; } }
+
+.recentFoldersHeading { margin-top: 24px; margin-bottom: 10px; color: var(--color-ink-subtle); font-size: 12px; font-weight: 500; }
+.sourceRow .recentFolderPath { display: block; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; font-weight: 400; }

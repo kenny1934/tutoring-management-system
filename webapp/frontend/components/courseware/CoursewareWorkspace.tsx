@@ -36,7 +36,7 @@ function Workspace({ scope, canAssign, active = true, ...props }: Props & { scop
       <div ref={setToolbar} className={styles.tools} />
     </div>
     <MaterialSearch {...props} active={active} scope={scope} query={query} onQueryChange={setQuery} toolbarHost={toolbar} workspace={workspace.current} canAssign={canAssign}
-      emptyState={props.emptyState ?? <CoursewareStart recent={recent} exerciseType={props.exerciseType} grade={props.grade} school={props.school} location={props.location} onFind={path => setQuery(path.split(/[\\/]/).at(-1) || path)} />}
+      emptyState={props.emptyState ?? <CoursewareStart recent={recent} exerciseType={props.exerciseType} grade={props.grade} school={props.school} location={props.location} onFind={setQuery} />}
       onPreview={file => { recent.remember({ path: materialAliasPath(file.nas_path), title: file.filename }); props.onPreview?.(file); }}
       onPick={props.onPick ? files => { files.forEach(recent.remember); props.onPick?.(files); } : undefined} />
   </div>;

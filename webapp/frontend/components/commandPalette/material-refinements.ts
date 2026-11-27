@@ -1,3 +1,4 @@
+import { coursewarePath } from './material-paths';
 import { isPdfMath, type PdfFindTerm } from '@/lib/pdf-text-search';
 import { defaultMaterialFilters, type MaterialFilters } from './material-workspace';
 export const refinementKeys = ['match', 'any_words', 'exclude_words', 'exact_phrase', 'search_in', 'modified_from', 'modified_to'] as const;
@@ -29,7 +30,7 @@ export function filterChips(filters: MaterialFilters, labels: Record<string, str
   const chips: MaterialFilterChip[] = [];
   if (filters.share) chips.push({ key: 'share', label: labels[filters.share] ?? filters.share, clear: { share: '', folder: '' } });
   if (filters.ext) chips.push({ key: 'ext', label: filters.ext.slice(1).toUpperCase(), clear: { ext: '' } });
-  if (filters.folder) chips.push({ key: 'folder', label: filters.folder, clear: { folder: '' } });
+  if (filters.folder) chips.push({ key: 'folder', label: filters.folder === '/' ? 'All folders' : filters.folder, clear: { folder: '' } });
   if (filters.modified) chips.push({ key: 'modified', label: ({ week: 'Past week', month: 'Past month', year: 'Past year', older: 'Older' } as Record<string, string>)[filters.modified] || filters.modified, clear: { modified: '' } });
   if (filters.match === 'any') chips.push({ key: 'match', label: 'Any search word', clear: { match: 'all' } });
   if (filters.any_words.trim()) chips.push({ key: 'any_words', label: `Includes ${words(filters.any_words)}`, clear: { any_words: '' } });
@@ -45,7 +46,7 @@ export function filterChips(filters: MaterialFilters, labels: Record<string, str
 
 /** Pass only positive search terms to the native PDF finder. */
 export function coursewarePdfTerms(query: string, filters: MaterialFilters): PdfFindTerm[] {
-  if (filters.search_in === 'filename') return [];
+  if (filters.search_in === 'filename' || coursewarePath(query)) return [];
   const terms: PdfFindTerm[] = [];
   for (const raw of [query, filters.any_words]) {
     const value = raw.replace(/[“”]/g, '"').trim();

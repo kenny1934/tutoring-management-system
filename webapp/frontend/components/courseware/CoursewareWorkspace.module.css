@@ -1,4 +1,4 @@
-.workspace { display: flex; flex-direction: column; min-height: 280px; height: 100%; min-width: 0; color: var(--color-ink-heading); background: var(--color-paper); }
+.workspace { container-type: inline-size; display: flex; flex-direction: column; min-height: 280px; height: 100%; min-width: 0; color: var(--color-ink-heading); background: var(--color-paper); }
 .header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 12px 20px; border-bottom: 1px solid var(--color-line); }
 .query { display: flex; flex: 1 1 220px; min-width: 0; gap: 10px; align-items: center; }
 .query svg { flex: none; color: var(--color-ink-subtle); }

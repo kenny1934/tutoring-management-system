@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
+import { coursewarePath, folderBrowse } from './material-paths';
 import { positiveSearch } from './material-refinements';
 import { defaultMaterialFilters, type MaterialFilters } from './material-workspace';
 
@@ -14,12 +15,12 @@ function read(scope: string): CoursewareHistoryEntry[] {
     const value: unknown = JSON.parse(localStorage.getItem(storageKey(scope)) ?? '[]');
     if (!Array.isArray(value)) return [];
     return value.flatMap(entry => {
-      if (!entry || typeof entry.query !== 'string' || entry.query.length > 256 || !entry.filters || typeof entry.filters !== 'object') return [];
+      if (!entry || typeof entry.query !== 'string' || entry.query.length > (coursewarePath(entry.query) ? 2048 : 256) || !entry.filters || typeof entry.filters !== 'object') return [];
       const defaults = defaultMaterialFilters();
       // Older saved searches do not have refinement fields yet.
       const filters = Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [key, typeof entry.filters[key] === 'string' ? entry.filters[key] : fallback])) as MaterialFilters;
-      if (!positiveSearch(entry.query, filters) || Object.values(filters).some(value => value.length > 512)
-        || !['all', 'any'].includes(filters.match) || !['both', 'filename', 'content'].includes(filters.search_in)
+      if ((!positiveSearch(entry.query, filters) && !folderBrowse(entry.query, filters)) || Object.values(filters).some(value => value.length > 512)
+        || !['subtree', 'current'].includes(filters.folder_scope) || !['all', 'any'].includes(filters.match) || !['both', 'filename', 'content'].includes(filters.search_in)
         || [filters.modified_from, filters.modified_to].some(value => value && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return [];
       return [{ query: entry.query, filters }];
     }).slice(0, LIMIT);
@@ -39,7 +40,7 @@ export function useCoursewareHistory(scope: string) {
     setState({ scope, entries });
   }, [scope]);
   const save = useCallback((entry: CoursewareHistoryEntry) => {
-    if (!positiveSearch(entry.query, entry.filters) || entry.query.length > 256) return;
+    if ((!positiveSearch(entry.query, entry.filters) && !folderBrowse(entry.query, entry.filters)) || entry.query.length > (coursewarePath(entry.query) ? 2048 : 256)) return;
     update(entries => [entry, ...entries.filter(item => identity(item) !== identity(entry))].slice(0, LIMIT));
   }, [update]);
   const remove = useCallback((entry: CoursewareHistoryEntry) => update(entries => entries.filter(item => identity(item) !== identity(entry))), [update]);
