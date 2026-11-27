@@ -778,3 +778,78 @@ it('keeps navigation keys in the saved-search name editor and persists renaming'
   expect(await screen.findByRole('button',{name:'Run saved search F4 revision'})).toBeVisible();
   expect(JSON.parse(localStorage.getItem('courseware-saved-searches:rename-keys')!)[0].name).toBe('F4 revision');
 });
+
+it('shows early filenames and keeps an opened document when complete results arrive', async () => {
+  let finish!:(value:unknown)=>void;
+  mocks.fetch.mockImplementation(async(path:string)=>{
+    if(path.endsWith('/sources'))return {...sources,features:['quick_filename_search','search_refinements']};
+    if(path.endsWith('/quick'))return {...page([1]),eligible:true,results:[{...row(1),filename_match:true}]};
+    if(path.includes('/preview'))return {file_id:1,chunks:[],truncated:false};
+    return new Promise(resolve=>{finish=resolve;});
+  });
+  mount('algebra');
+  const first=await screen.findByRole('button',{name:/Worksheet 1/});
+  expect(screen.getByText('Searching page text…')).toBeVisible();
+  expect(screen.queryByText('No courseware matches. Try fewer words or broaden the filters.')).toBeNull();
+  expect(screen.queryByRole('button',{name:'Load more courseware'})).toBeNull();
+  expect(JSON.parse(mocks.fetch.mock.calls.find(call=>call[0].endsWith('/search'))![1].body).filename_first).toBe(true);
+  fireEvent.click(first);await screen.findByRole('region',{name:'Courseware preview'});
+  await act(async()=>finish({...page([1,2]),results:[{...row(1),filename_match:true},row(2)]}));
+  expect(screen.getByRole('region',{name:'Courseware preview'})).toBeVisible();
+  expect(screen.getByRole('button',{name:/Worksheet 1/})).toHaveAttribute('aria-pressed','true');
+  expect(screen.queryByText('Searching page text…')).toBeNull();
+  expect(screen.getByRole('button',{name:/Worksheet 2/})).toBeVisible();
+});
+
+it('continues complete search when early filename assistance fails',async()=>{
+  mocks.fetch.mockImplementation(async(path:string)=>{
+    if(path.endsWith('/sources'))return {...sources,features:['quick_filename_search','search_refinements']};
+    if(path.endsWith('/quick'))throw Error('Early service unavailable');
+    return page([2]);
+  });
+  mount('algebra');expect(await screen.findByRole('button',{name:/Worksheet 2/})).toBeVisible();
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('offers explicit typo recovery after zero results and preserves its filters',async()=>{
+  const {createMaterialWorkspace}=await import('./material-workspace');const workspace=createMaterialWorkspace();workspace.filters={...workspace.filters,share:'center',ext:'.pdf'};
+  mocks.fetch.mockImplementation(async(path:string,options?:{body:string})=>{
+    if(path.endsWith('/sources'))return {...sources,features:['search_suggestions','search_refinements']};
+    if(path.endsWith('/suggestions'))return {suggestions:['quadratic']};
+    return JSON.parse(options!.body).q==='qudratic'?page([]):page([1]);
+  });
+  function Harness(){const [query,setQuery]=React.useState('qudratic');return <><input aria-label="Test query" value={query} onChange={event=>setQuery(event.target.value)}/><MaterialSearch query={query} scope="typo-recovery" workspace={workspace} onQueryChange={setQuery}/></>;}
+  render(<SWRConfig value={{provider:()=>new Map()}}><Harness/></SWRConfig>);
+  const button=await screen.findByRole('button',{name:'quadratic',exact:true});
+  expect(screen.getByLabelText('Test query')).toHaveValue('qudratic');
+  fireEvent.click(button);await screen.findByRole('button',{name:/Worksheet 1/});
+  expect(screen.getByLabelText('Test query')).toHaveValue('quadratic');
+  expect(JSON.parse(mocks.fetch.mock.calls.filter(call=>call[0].endsWith('/search')).at(-1)![1].body)).toMatchObject({q:'quadratic',share:'center',ext:'.pdf'});
+});
+
+it('never requests corrections for an expression even when it finds no results',async()=>{
+  mocks.fetch.mockImplementation(async(path:string)=>path.endsWith('/sources')?{...sources,features:['quick_filename_search','search_suggestions','search_refinements']}:page([]));
+  mount('4x^2-y^2+10x-y');await screen.findByText('No courseware matches. Try fewer words or broaden the filters.');
+  expect(mocks.fetch.mock.calls.some(call=>call[0].endsWith('/quick')||call[0].endsWith('/suggestions'))).toBe(false);
+});
+
+
+it('ignores a late early-filename response after the query changes', async()=>{
+  let finishOld!:(value:unknown)=>void;
+  let oldSignal!:AbortSignal;
+  mocks.fetch.mockImplementation(async(path:string,options?:{body:string,signal:AbortSignal})=>{
+    if(path.endsWith('/sources'))return {...sources,features:['quick_filename_search','search_refinements']};
+    const request=JSON.parse(options!.body);
+    if(path.endsWith('/quick')&&request.q==='old query'){
+      oldSignal=options!.signal;
+      return new Promise(resolve=>{finishOld=resolve;});
+    }
+    if(path.endsWith('/quick'))return {...page([7]),eligible:true};
+    return request.q==='old query'?new Promise(()=>{}):page([7]);
+  });
+  const view=mount('old query');await waitFor(()=>expect(finishOld).toBeTypeOf('function'));
+  view.change('new query');await screen.findByRole('button',{name:/Worksheet 7/});
+  expect(oldSignal.aborted).toBe(true);
+  await act(async()=>finishOld({...page([8]),eligible:true}));
+  expect(screen.queryByRole('button',{name:/Worksheet 8/})).toBeNull();
+});

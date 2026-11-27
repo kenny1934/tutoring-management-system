@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
@@ -13,7 +13,8 @@ import { MaterialFolderPicker } from './MaterialFolderPicker';
 import { coursewarePath, folderBrowse } from './material-paths';
 import { MaterialBasket } from './MaterialBasket';
 import { isCancelledSearchRequest, useAbortableRequest } from './useAbortableRequest';
-import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Clock, X, CalendarPlus, FolderOpen, HardDrive, ChevronRight, Bookmark } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, Copy, FileText, Clock, X, CalendarPlus, FolderOpen, HardDrive, ChevronRight, Bookmark, Loader2 } from "lucide-react";
+import { isPdfMath } from '@/lib/pdf-text-search';
 import { fetchAPI } from "@/lib/api";
 import { IconButton } from '@/components/controls';
 import { MathText } from "@/components/ui/math-text";
@@ -29,9 +30,9 @@ import styles from "./MaterialSearch.module.css";
 export type MaterialResult = {
   file_id: number; share: string; filename: string; ext: string; rel_path: string; nas_path: string;
   page_count: number | null; matched_pages: number[]; snippet: string; highlights: number[][];
-  duplicate_count: number; duplicate_locations: { share: string; rel_path: string; nas_path: string }[];
+  filename_match?: boolean; duplicate_count: number; duplicate_locations: { share: string; rel_path: string; nas_path: string }[];
 };
-type SearchPage = { total: number; page: number; page_size: number; results: MaterialResult[];
+type SearchPage = { eligible?: boolean; total: number; page: number; page_size: number; results: MaterialResult[];
   facets: { share: Record<string, number>; ext: Record<string, number>; modified: Record<string, number>; folder: Record<string, number> } };
 type Preview = { file_id: number; filename: string; page_count: number | null; truncated: boolean; coverage?: MaterialCoverage; focused_page?: number | null; extraction_metadata?: { needs_review: boolean; pages: { page: number; method: string; warnings: string[] }[] };
   chunks: { chunk_index: number; page_start: number | null; page_end: number | null; content: string; highlights: number[][] }[] };
@@ -104,14 +105,21 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   const requestFilters = Object.fromEntries(Object.entries(filters).filter(([key, value]) => value && (key !== 'folder_scope' || supportsNavigation) && !refinementKeys.includes(key as typeof refinementKeys[number])));
   const key = JSON.stringify([scope, term, filters]);
   const ready = active && !choosingSource && !!sources.data?.sources.length && !pathMode && (positiveSearch(term, filters) || browsing) && term.length <= 256 && term === query.trim() && (!refine || supportsRefinements);
+  const quickEligible = !!sources.data?.features?.includes('quick_filename_search') && !browsing && !pathMode && filters.sort === 'relevance'
+    && filters.search_in === 'both' && !filters.exclude_words.trim() && !isPdfMath(query);
+  const quickRequest = useAbortableRequest(key, ready && quickEligible);
+  const early = useSWR<SearchPage>(ready && quickEligible ? ['material-quick', key] : null,
+    () => quickRequest(signal => fetchAPI<SearchPage>('/materials/quick', { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(refine ? { refine } : {}) }), signal })),
+    { revalidateOnFocus: false, shouldRetryOnError: false });
   const searchRequest = useAbortableRequest(key, ready);
   const pages = useSWRInfinite<SearchPage>(
     (index, previous) => !ready || (previous && previous.page * previous.page_size >= previous.total) ? null : ["material-search", key, index + 1],
-    ([, , page]: [string, string, number]) => searchRequest(signal => fetchAPI<SearchPage>("/materials/search", { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(browsing ? { folder_scope: 'current' } : {}), ...(refine ? { refine } : {}), page }), signal })),
+    ([, , page]: [string, string, number]) => searchRequest(signal => fetchAPI<SearchPage>("/materials/search", { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(quickEligible ? { filename_first: true } : {}), ...(browsing ? { folder_scope: 'current' } : {}), ...(refine ? { refine } : {}), page }), signal })),
     { revalidateOnFocus: false, shouldRetryOnError: false, persistSize: false, revalidateFirstPage: false, initialSize: workspace.searchKey === key ? workspace.size : 1 }
   );
   const { size: loadedPages, setSize } = pages;
-  const visible: SearchPage[] | undefined = pathReady && resolvedFile ? [{ total: 1, page: 1, page_size: 20, results: [resolvedFile], facets: { share: {}, ext: {}, folder: {}, modified: {} } }] : ready ? pages.data : undefined;
+  const earlyMode = ready && !pages.data?.[0] && (!pages.error || isCancelledSearchRequest(pages.error)) && !!early.data?.eligible && !!early.data.results.length;
+  const visible = useMemo<SearchPage[] | undefined>(() => pathReady && resolvedFile ? [{ total: 1, page: 1, page_size: 20, results: [resolvedFile], facets: { share: {}, ext: {}, folder: {}, modified: {} } }] : ready ? pages.data ?? (earlyMode ? [early.data!] : undefined) : undefined, [pathReady, resolvedFile, ready, pages.data, earlyMode, early.data]);
   const rows = [...new Map((visible ?? []).flatMap(page => page.results).map(row => [row.file_id, row])).values()];
   const selected = !choosingSource && selection?.key === key && term === query.trim() ? rows.find(row => row.file_id === selection.id) : undefined;
   useEffect(() => { if (!selected || !active) setReaderExpanded(false); }, [selected, active]);
@@ -163,6 +171,12 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
     !!sources.data?.sources.length && !pathMode && (positiveSearch(query, filters) || browsing) && query.trim().length <= 256 && (!refine || supportsRefinements) &&
     (term !== query.trim() || (ready && (pages.isLoading || (pages.isValidating && pages.size === 1))))
   ));
+  const suggestReady = ready && !pending && !pages.error && !earlyMode && first?.total === 0 && !browsing && !pathMode
+    && filters.search_in !== 'content' && !!sources.data?.features?.includes('search_suggestions') && /^[a-zA-Z0-9 ]+$/.test(query) && !isPdfMath(query);
+  const suggestRequest = useAbortableRequest(key, suggestReady);
+  const suggested = useSWR<{ suggestions: string[] }>(suggestReady ? ['material-suggestions', key] : null,
+    () => suggestRequest(signal => fetchAPI<{ suggestions: string[] }>('/materials/suggestions', { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(refine ? { refine } : {}) }), signal })),
+    { revalidateOnFocus: false, shouldRetryOnError: false });
   const jumpToPage = (page: number | null) => {
     if (!reading) return;
     reading.focusPage = page; reading.matchIndex = 0; reading.textTop = null; reading.matchPage = page;
@@ -171,12 +185,12 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   };
   const { save: saveHistory } = history;
   useEffect(() => {
-    if (!active || !first || pages.error || !ready || pathMode) return;
+    if (!active || !first || pages.error || !ready || pathMode || earlyMode) return;
     if (browsing) { saveHistory({ query: term, filters }); return; }
     // Avoid saving every intermediate query while the tutor types.
     const timer = setTimeout(() => saveHistory({ query: term, filters }), 1500);
     return () => clearTimeout(timer);
-  }, [active, first, pages.error, ready, pathMode, browsing, term, filters, saveHistory]);
+  }, [active, first, pages.error, ready, pathMode, browsing, term, filters, saveHistory, earlyMode]);
   const openedPath = useRef<string | null>(null);
   useEffect(() => { openedPath.current = null; }, [query]);
   useEffect(() => {
@@ -261,7 +275,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
       </span>)}</div>}
       {refine && sources.data && !supportsRefinements && <p role="alert">Search refinements are unavailable on this service. <button onClick={() => update(Object.fromEntries(refinementKeys.map(key => [key, defaultMaterialFilters()[key]])))}>Clear refinements</button></p>}
     </div>
-    {!choosingSource && !expanded && (first || positiveSearch(query, filters) || browsing) && <div className={styles.resultTools}><span className={styles.count} aria-live="polite">{!browsing && !pathMode && <span>{filters.share ? labels[filters.share] ?? filters.share : 'All courseware'}{first ? ' · ' : ''}</span>}{first ? `${first.total.toLocaleString()} ${browsing ? first.total === 1 ? 'file' : 'files' : first.total === 1 ? 'result' : 'results'}` : ''}</span>
+    {!choosingSource && !expanded && (first || positiveSearch(query, filters) || browsing) && <div className={styles.resultTools}><span className={styles.count} aria-live="polite">{!earlyMode && !browsing && !pathMode && <span>{filters.share ? labels[filters.share] ?? filters.share : 'All courseware'}{first ? ' · ' : ''}</span>}{first ? `${first.total.toLocaleString()} ${earlyMode ? first.total === 1 ? 'filename match' : 'filename matches' : browsing ? first.total === 1 ? 'file' : 'files' : first.total === 1 ? 'result' : 'results'}` : ''}{earlyMode && <small className={styles.earlyStatus}><Loader2 size={12} aria-hidden />Searching page text…</small>}</span>
       <div className={styles.resultActions}>
       {!pathMode && (positiveSearch(query, filters) || browsing) && <button type="button" className={styles.saveSearch} aria-label={savedCurrent ? 'Remove saved search' : 'Save search'} aria-pressed={!!savedCurrent} title={savedCurrent ? 'Remove saved search' : 'Save search'} onClick={() => savedCurrent ? savedSearches.remove(savedCurrent.id) : savedSearches.save({ query: query.trim(), filters }, saveSearchName)}><Bookmark size={16} fill={savedCurrent ? 'currentColor' : 'none'} /></button>}
       {!pathMode && <label><span className={styles.visuallyHidden}>Sort</span><select aria-label="Courseware sort" value={filters.sort} onChange={event => update({ sort: event.target.value })}><option value="relevance">{browsing ? 'Name' : 'Relevance'}</option><option value="recent">Recently modified</option></select></label>}
@@ -309,7 +323,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
             <IconButton label={`Remove courseware search ${entry.query || entry.filters.exact_phrase || entry.filters.any_words || entry.filters.folder}`} icon={X} size="sm" onClick={() => history.remove(entry)} />
           </div>)}
         </div>}
-        <SearchProgress busy={pending} requestKey={JSON.stringify([scope, query.trim(), filters])} label={sources.isLoading ? "Connecting courseware…" : pathMode ? "Opening courseware…" : browsing ? "Loading courseware…" : "Searching courseware…"} placeholders={!first && positiveSearch(query, filters) ? pathMode ? 1 : 3 : 0} />
+        <SearchProgress busy={pending && !earlyMode} requestKey={JSON.stringify([scope, query.trim(), filters])} label={sources.isLoading ? "Connecting courseware…" : pathMode ? "Opening courseware…" : browsing ? "Loading courseware…" : "Searching courseware…"} placeholders={!first && positiveSearch(query, filters) ? pathMode ? 1 : 3 : 0} />
         {sources.error && <p role="alert">{sources.error.message} <button onClick={() => void sources.mutate()}>Retry connection</button></p>}
         {sources.data && !sources.data.sources.length && <p>Your Knowledge Base account has no courseware sources. Ask an administrator for access.</p>}
         {!!sources.data?.sources.length && !pathMode && !ready && (!!query.trim() || !!filters.any_words || !!filters.exact_phrase) && (!positiveSearch(query, filters) || query.trim().length > 256) && <p>{query.trim().length > 256 ? 'Use a search of 256 characters or fewer.' : 'Enter at least two characters.'}</p>}
@@ -319,14 +333,15 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         {ready && pages.error && !isCancelledSearchRequest(pages.error) && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
         {first?.total === 0 && !pending && !pages.error && !browsing && <><p>No courseware matches. Try fewer words or broaden the filters.</p>{limitedSources && <p role="note">Some files in these sources have no searchable text or incomplete extraction. Their page contents may not appear in results.</p>}</>}
         {first?.total === 0 && !pending && !pages.error && !browsing && sources.data?.sources.some(source => source.freshness && (!filters.share || source.id === filters.share)) && <details className={styles.scanDetails}><summary>Source scans</summary>{sources.data.sources.filter(source => !filters.share || source.id === filters.share).map(source => <div key={source.id}><strong>{source.label}</strong><CoursewareSourceStatus freshness={source.freshness} /></div>)}</details>}
+        {suggestReady && !!suggested.data?.suggestions.length && onQueryChange && <div className={styles.suggestions} role="group" aria-label="Suggested searches"><span>Try</span>{suggested.data.suggestions.map(value => <button key={value} type="button" onClick={() => { setSelection(null); setTerm(value); onQueryChange(value); }}>{value}</button>)}</div>}
         {!positiveSearch(query, filters) && !browsing && emptyState}
         {rows.map(row => <div key={row.file_id} className={styles.resultRow}>{canAssign && multiple && row.ext === '.pdf' && <input type="checkbox" aria-label={`Select ${row.filename}`} checked={basket.some(entry => entry.material.file_id === row.file_id)} onChange={event => changeBasket(event.target.checked ? [...basket, { material: row, pages: row.page_count ? (row.page_count === 1 ? '1' : `1-${row.page_count}`) : '' }] : basket.filter(entry => entry.material.file_id !== row.file_id))} />}<button id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
           <FileText size={16} /><span><strong>{row.filename}</strong><small>{labels[row.share] ?? row.share}{row.page_count ? ` · ${row.page_count} ${row.page_count === 1 ? 'page' : 'pages'}` : ''}{row.duplicate_count ? ` · ${row.duplicate_count} other copies` : ''}</small>
-            <small className={styles.path}>{row.rel_path}</small><span className={styles.snippet}><MaterialHighlight text={row.snippet} ranges={row.highlights} /></span>
-            {!!row.matched_pages.length && <small>Matches within pages: {row.matched_pages.slice(0, 8).join(', ')}{row.matched_pages.length > 8 ? '…' : ''}</small>}
+            <small className={styles.path}>{row.rel_path}</small>{!row.filename_match && <span className={styles.snippet}><MaterialHighlight text={row.snippet} ranges={row.highlights} /></span>}
+            {!row.filename_match && !!row.matched_pages.length && <small>Matches within pages: {row.matched_pages.slice(0, 8).join(', ')}{row.matched_pages.length > 8 ? '…' : ''}</small>}
           </span>
         </button>{canAssign && onAssignResult && row.ext === ".pdf" && <IconButton label={`Assign ${row.filename}`} icon={CalendarPlus} size="sm" onClick={() => onAssignResult(row)} />}</div>)}
-        {first && (visible?.at(-1)?.page ?? 0) * first.page_size < first.total && <button className={styles.more} disabled={pages.isValidating} onClick={() => void pages.setSize(pages.size + 1)}>{pages.isValidating ? 'Loading…' : 'Load more courseware'}</button>}
+        {!earlyMode && first && (visible?.at(-1)?.page ?? 0) * first.page_size < first.total && <button className={styles.more} disabled={pages.isValidating} onClick={() => void pages.setSize(pages.size + 1)}>{pages.isValidating ? 'Loading…' : 'Load more courseware'}</button>}
         </>}
       </div>
       {selected && !externalPreview && <section ref={previewRef} tabIndex={-1} className={styles.preview} aria-label="Courseware preview" onKeyDown={event => { if (event.currentTarget.contains(event.target as Node) && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); back(); } }}>

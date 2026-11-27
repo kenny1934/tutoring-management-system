@@ -8,6 +8,12 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
+            "description": "**Earlier courseware results**: Open filename matches while the search continues through worksheet text, with results and previews kept in place."
+          },
+          {
+            "description": "**Search suggestions**: Recover from misspelled words with suggested searches that keep your selected filters and leave mathematical expressions unchanged."
+          },
+          {
             "description": "**Browse courseware folders**: Open Browse beside search, choose a source or recent folder, and navigate child folders with breadcrumbs."
           },
           {

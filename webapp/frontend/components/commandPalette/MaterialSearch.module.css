@@ -344,3 +344,9 @@
 
 .savedList .historyRow { border-top: 1px solid var(--color-line); }
 .savedList .result { border-top: 0; }
+
+.earlyStatus { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.earlyStatus svg { animation: folderLoadingSpin 1s linear infinite; }
+.suggestions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 16px; font-size: 12px; }
+.suggestions button { min-height: 44px; padding: 6px 10px; border: 1px solid var(--color-line); border-radius: 3px; }
+@media(prefers-reduced-motion:reduce) { .earlyStatus svg { animation: none; } }
