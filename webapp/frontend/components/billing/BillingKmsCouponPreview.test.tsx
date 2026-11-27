@@ -287,6 +287,6 @@ it('keeps legacy enrollment inspection available before receipt recording is ena
   fireEvent.click(within(dialog).getByRole('button', { name: 'Read from KMS' }));
   await within(dialog).findByRole('button', { name: 'Update 1 student' });
   fireEvent.click(within(dialog).getByText('MSA0021'));
-  expect(within(dialog).getByRole('button', { name: 'Enrollment #77' })).toBeVisible();
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Enrollment #77' })).toBeVisible());
   expect(within(dialog).queryByRole('button', { name: 'Record receipt' })).not.toBeInTheDocument();
 });
