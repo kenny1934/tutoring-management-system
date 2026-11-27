@@ -110,3 +110,11 @@
   .modeToolbar[data-search-area='materials'] .areas button { flex: 1; min-width: 0; min-height: 44px; }
   .modeToolbar[data-search-area='materials'] .searchTools { justify-content: stretch; }
 }
+
+@media (min-width: 640px) and (max-width: 1023px) and (pointer: coarse) {
+  .backdrop { top: var(--search-top, 0px); bottom: auto; height: var(--search-height, 100dvh); padding: 16px; }
+  .panel { max-height: calc(var(--search-height, 100dvh) - 32px); }
+  .keyboardHints { display: none; }
+}
+
+.keyboardHints { flex-shrink: 0; }
