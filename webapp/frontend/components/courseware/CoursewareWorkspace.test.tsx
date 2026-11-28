@@ -72,3 +72,14 @@ it('ignores an old query result after switching centres', async () => {
   expect(screen.getByRole('searchbox')).toHaveValue('');
   expect(screen.queryByText('Fractions.pdf')).toBeNull();
 });
+it('offers index health only on the page for a writable administrator', async () => {
+  h.role = 'Admin';
+  h.fetch.mockImplementation(async (path: string) => {
+    if (path === '/materials/sources') return { can_manage_index: true, sources: [{ id: 'center', label: 'Center' }] };
+    throw new Error(`Unexpected service: ${path}`);
+  });
+  const view = mount({ showIndexHealth: true });
+  expect(await screen.findByRole('button', { name: 'Index health', exact: true })).toBeVisible();
+  h.role = 'Supervisor'; h.readOnly = true; view.refresh();
+  expect(screen.queryByRole('button', { name: 'Index health', exact: true })).toBeNull();
+});

@@ -31,3 +31,6 @@
   .tools { width: 100%; }
   .tools:empty { display: none; }
 }
+
+.management { display: flex; justify-content: flex-end; padding: 0 12px; }
+.management:empty { display: none; }

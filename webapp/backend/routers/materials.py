@@ -15,7 +15,7 @@ from services.material_refinements import SearchRefinement
 from services.material_http import get_material_client
 from services.material_timing import material_timings
 
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_admin_write
 from models import Tutor
 
 router = APIRouter(prefix="/materials")
@@ -54,7 +54,9 @@ def request_materials(action: str, payload: dict, user: Tutor):
             timings["mckb_request"] = (time.perf_counter() - started) * 1000
     if response.status_code == 403:
         raise HTTPException(403, "Your Knowledge Base account needs access to this material source. Ask an administrator.")
-    if response.status_code == 404 and action in ("preview", "resolve"):
+    if response.status_code == 409 and action == "retry-extraction":
+        raise HTTPException(409, "This file no longer needs a retry. Refresh the list.")
+    if response.status_code == 404 and action in ("preview", "resolve", "retry-extraction"):
         raise HTTPException(404, "This material is no longer available.")
     if response.status_code == 422:
         try:
@@ -224,3 +226,25 @@ def resolve(data: ResolveMaterial, user: Tutor = Depends(get_current_user)):
     if not matches:
         raise HTTPException(404, "This material is no longer available.")
     return matches[0]
+
+
+class IndexHealthInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    share: str | None = None
+    page: int = Field(default=1, ge=1, le=10000)
+    page_size: int = Field(default=20, ge=1, le=50)
+
+
+class RetryExtractionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    file_id: int = Field(gt=0)
+
+
+@router.post("/index-health")
+def index_health(data: IndexHealthInput, user: Tutor = Depends(require_admin_write)):
+    return request_materials("index-health", data.model_dump(), user)
+
+
+@router.post("/retry-extraction")
+def retry_extraction(data: RetryExtractionInput, user: Tutor = Depends(require_admin_write)):
+    return request_materials("retry-extraction", data.model_dump(), user)
