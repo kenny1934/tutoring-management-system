@@ -6,12 +6,12 @@ function date(value: string | null) {
   const stamp = new Date(value);
   return Number.isNaN(stamp.getTime()) ? null : stamp.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
-export function CoursewareSourceStatus({ freshness }: { freshness?: SourceFreshness }) {
+export function CoursewareSourceStatus({ freshness, indexedFiles = 0 }: { freshness?: SourceFreshness; indexedFiles?: number }) {
   if (!freshness) return null;
   const last = date(freshness.last_full_scan_at);
-  const issue = freshness.latest_status === 'error' ? 'Latest scan failed' : freshness.latest_status === 'aborted' ? 'Latest scan stopped' : freshness.latest_status === 'running' ? 'Latest scan not completed' : freshness.errors ? `Latest scan reported ${freshness.errors} ${freshness.errors === 1 ? 'error' : 'errors'}` : null;
+  const issue = freshness.latest_status === 'error' ? indexedFiles > 0 ? 'Latest scan failed; indexed files remain available' : 'Latest scan failed' : freshness.latest_status === 'aborted' ? 'Latest scan stopped' : freshness.latest_status === 'running' ? 'Latest scan not completed' : freshness.errors ? `Latest scan reported ${freshness.errors} ${freshness.errors === 1 ? 'error' : 'errors'}` : null;
   return <small className={styles.sourceFreshness}>
-    <span>{last ? <>Last full scan <time dateTime={freshness.last_full_scan_at!}>{last}</time></> : 'No completed full scan recorded'}</span>
+    <span>{last ? <>Last full scan <time dateTime={freshness.last_full_scan_at!}>{last}</time></> : indexedFiles > 0 ? 'Files indexed; full scan not yet recorded' : 'No completed full scan recorded'}</span>
     {issue && <span>{issue}{date(freshness.latest_finished_at ?? freshness.latest_started_at) ? ` · ${date(freshness.latest_finished_at ?? freshness.latest_started_at)}` : ''}</span>}
   </small>;
 }

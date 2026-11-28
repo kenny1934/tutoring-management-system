@@ -296,3 +296,26 @@ def test_filename_first_is_opt_in_for_provider_compatibility(client, monkeypatch
     client.post('/api/materials/search', json={'q': 'algebra', 'filename_first': True})
     assert 'filename_first' not in seen[0]
     assert seen[1]['filename_first'] is True
+
+
+@pytest.mark.parametrize('action,read_seconds', [('search',60),('quick',20),('suggestions',20),('sources',20)])
+def test_only_full_search_has_the_extended_read_budget(client,monkeypatch,action,read_seconds):
+    def handler(request):
+        budget=request.extensions['timeout']
+        assert budget['read']==read_seconds
+        assert budget['connect']==5
+        assert budget['write']==20 and budget['pool']==20
+        return httpx.Response(200,json={'results':[],'total':0})
+    intercept(monkeypatch,handler)
+    result=client.get('/api/materials/sources') if action=='sources' else client.post('/api/materials/'+action,json={'q':'algebra'})
+    assert result.status_code==200
+
+
+def test_slow_text_search_gives_a_specific_timeout_without_private_diagnostics(client,monkeypatch):
+    def handler(request):
+        raise httpx.ReadTimeout('private provider address and query',request=request)
+    intercept(monkeypatch,handler)
+    response=client.post('/api/materials/search',json={'q':'algebra'})
+    assert response.status_code==503
+    assert 'taking longer than expected' in response.json()['detail']
+    assert 'private' not in response.text

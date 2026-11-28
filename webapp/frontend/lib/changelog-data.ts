@@ -34,6 +34,12 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
+            "description": "**Courseware search recovery**: Allow longer page-text searches to finish, keep filename matches and opened previews available after temporary failures, and show clear retry progress."
+          },
+          {
+            "description": "**Source scan status**: Distinguish files already indexed from sources that have not yet completed a full scan."
+          },
+          {
             "description": "**PDF reader navigation**: Keep the reader closed after returning to results, even when file information refreshes in the background."
           },
           {

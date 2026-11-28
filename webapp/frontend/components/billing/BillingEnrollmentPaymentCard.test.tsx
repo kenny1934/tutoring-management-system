@@ -55,7 +55,7 @@ it('shows one total, separates materials from identity, and opens the charge for
   expect(within(dialog).queryByText('Payment plan')).not.toBeInTheDocument();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel changes' }));
   await waitFor(() => expect(screen.queryByRole('form', { name: 'Edit enrollment charges' })).not.toBeInTheDocument());
-  expect(edit).toHaveFocus();
+  await waitFor(() => expect(edit).toHaveFocus());
 });
 it('saves the reviewed whole-payment correction and updates the summary without recreating an enrollment', async () => {
   mocks.editCharges.mockImplementation(async (_id, data) => {
@@ -185,7 +185,7 @@ it('opens the full payment in place and restores focus without navigating away',
   expect(screen.getByRole('region', { name: 'Payment summary' })).toBeInTheDocument();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Close modal' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(window.location.href).toBe(before);
 });
 

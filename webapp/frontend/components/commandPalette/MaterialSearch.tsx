@@ -118,7 +118,18 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
     { revalidateOnFocus: false, shouldRetryOnError: false, persistSize: false, revalidateFirstPage: false, initialSize: workspace.searchKey === key ? workspace.size : 1 }
   );
   const { size: loadedPages, setSize } = pages;
-  const earlyMode = ready && !pages.data?.[0] && (!pages.error || isCancelledSearchRequest(pages.error)) && !!early.data?.eligible && !!early.data.results.length;
+  const [retryingKey, setRetryingKey] = useState<string | null>(null);
+  const retrying = retryingKey === key;
+  const retrySearch = async () => {
+    if (retrying || pages.isValidating) return;
+    setRetryingKey(key);
+    try { await pages.mutate(); }
+    finally { setRetryingKey(current => current === key ? null : current); }
+  };
+  const searchErrorStatus = (pages.error as { status?: number } | undefined)?.status;
+  const canKeepFilenames = typeof searchErrorStatus === 'number' && [408, 429, 500, 502, 503, 504].includes(searchErrorStatus)
+    || pages.error instanceof TypeError;
+  const earlyMode = ready && !pages.data?.[0] && (!pages.error || isCancelledSearchRequest(pages.error) || canKeepFilenames) && !!early.data?.eligible && !!early.data.results.length;
   const visible = useMemo<SearchPage[] | undefined>(() => pathReady && resolvedFile ? [{ total: 1, page: 1, page_size: 20, results: [resolvedFile], facets: { share: {}, ext: {}, folder: {}, modified: {} } }] : ready ? pages.data ?? (earlyMode ? [early.data!] : undefined) : undefined, [pathReady, resolvedFile, ready, pages.data, earlyMode, early.data]);
   const rows = [...new Map((visible ?? []).flatMap(page => page.results).map(row => [row.file_id, row])).values()];
   const selected = !choosingSource && selection?.key === key && term === query.trim() ? rows.find(row => row.file_id === selection.id) : undefined;
@@ -275,7 +286,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
       </span>)}</div>}
       {refine && sources.data && !supportsRefinements && <p role="alert">Search refinements are unavailable on this service. <button onClick={() => update(Object.fromEntries(refinementKeys.map(key => [key, defaultMaterialFilters()[key]])))}>Clear refinements</button></p>}
     </div>
-    {!choosingSource && !expanded && (first || positiveSearch(query, filters) || browsing) && <div className={styles.resultTools}><span className={styles.count} aria-live="polite">{!earlyMode && !browsing && !pathMode && <span>{filters.share ? labels[filters.share] ?? filters.share : 'All courseware'}{first ? ' · ' : ''}</span>}{first ? `${first.total.toLocaleString()} ${earlyMode ? first.total === 1 ? 'filename match' : 'filename matches' : browsing ? first.total === 1 ? 'file' : 'files' : first.total === 1 ? 'result' : 'results'}` : ''}{earlyMode && <small className={styles.earlyStatus}><Loader2 size={12} aria-hidden />Searching page text…</small>}</span>
+    {!choosingSource && !expanded && (first || positiveSearch(query, filters) || browsing) && <div className={styles.resultTools}><span className={styles.count} aria-live="polite">{!earlyMode && !browsing && !pathMode && <span>{filters.share ? labels[filters.share] ?? filters.share : 'All courseware'}{first ? ' · ' : ''}</span>}{first ? `${first.total.toLocaleString()} ${earlyMode ? first.total === 1 ? 'filename match' : 'filename matches' : browsing ? first.total === 1 ? 'file' : 'files' : first.total === 1 ? 'result' : 'results'}` : ''}{earlyMode && <small className={styles.earlyStatus}>{pages.isValidating ? <><Loader2 size={12} aria-hidden />Searching page text…</> : 'Filename matches only'}</small>}</span>
       <div className={styles.resultActions}>
       {!pathMode && (positiveSearch(query, filters) || browsing) && <button type="button" className={styles.saveSearch} aria-label={savedCurrent ? 'Remove saved search' : 'Save search'} aria-pressed={!!savedCurrent} title={savedCurrent ? 'Remove saved search' : 'Save search'} onClick={() => savedCurrent ? savedSearches.remove(savedCurrent.id) : savedSearches.save({ query: query.trim(), filters }, saveSearchName)}><Bookmark size={16} fill={savedCurrent ? 'currentColor' : 'none'} /></button>}
       {!pathMode && <label><span className={styles.visuallyHidden}>Sort</span><select aria-label="Courseware sort" value={filters.sort} onChange={event => update({ sort: event.target.value })}><option value="relevance">{browsing ? 'Name' : 'Relevance'}</option><option value="recent">Recently modified</option></select></label>}
@@ -297,7 +308,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
           {sources.error && <p role="alert">Could not load sources. <button type="button" onClick={() => void sources.mutate()}>Retry</button></p>}
           {!sources.error && !sources.isLoading && !sources.data?.sources.length && <p>No courseware sources available.</p>}
           {sources.data?.sources.map(source => <button key={source.id} type="button" data-material-result className={styles.sourceRow} aria-label={`Browse ${source.label}`} onClick={() => browseSource(source.id)}>
-            <HardDrive size={20} /><span>{source.label}<CoursewareSourceStatus freshness={source.freshness} /></span>{source.coverage && <small>{source.coverage.files.toLocaleString()} files</small>}<ChevronRight size={16} />
+            <HardDrive size={20} /><span>{source.label}<CoursewareSourceStatus freshness={source.freshness} indexedFiles={source.coverage?.files} /></span>{source.coverage && <small>{source.coverage.files.toLocaleString()} files</small>}<ChevronRight size={16} />
           </button>)}
           <SavedCoursewareSearches entries={savedSearches.entries} sources={labels} onRecall={entry => { recall(entry); setChoosingSource(false); }} onRename={savedSearches.rename} onRemove={savedSearches.remove} />
           {!!recentFolders.length && <><h3 className={styles.recentFoldersHeading}>Recent folders</h3>{recentFolders.map(folder => <button key={JSON.stringify([folder.share, folder.folder])} type="button" data-material-result
@@ -330,9 +341,12 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         {pathMode && sources.data && !supportsNavigation && <p role="alert">Opening a file path is not available on this service yet.</p>}
         {pathMode && query.trim().length > 2048 && <p role="alert">Use a file path of 2,048 characters or fewer.</p>}
         {pathReady && resolved.error && !isCancelledSearchRequest(resolved.error) && <p role="alert">This file could not be opened. Check the path and your source access. <button onClick={() => void resolved.mutate()}>Retry opening</button></p>}
-        {ready && pages.error && !isCancelledSearchRequest(pages.error) && <p role="alert">{pages.error.message} <button onClick={() => void pages.mutate()}>Retry search</button></p>}
+        {ready && pages.error && !isCancelledSearchRequest(pages.error) && <div role="alert" className={styles.searchFailure}>
+          <span>{retrying ? earlyMode ? 'Retrying page-text search…' : 'Retrying search…' : earlyMode ? 'Page-text search could not finish. Filename matches are still available.' : pages.error.message}</span>
+          <button type="button" disabled={retrying || pages.isValidating} onClick={() => void retrySearch()}>{retrying ? 'Retrying…' : 'Retry search'}</button>
+        </div>}
         {first?.total === 0 && !pending && !pages.error && !browsing && <><p>No courseware matches. Try fewer words or broaden the filters.</p>{limitedSources && <p role="note">Some files in these sources have no searchable text or incomplete extraction. Their page contents may not appear in results.</p>}</>}
-        {first?.total === 0 && !pending && !pages.error && !browsing && sources.data?.sources.some(source => source.freshness && (!filters.share || source.id === filters.share)) && <details className={styles.scanDetails}><summary>Source scans</summary>{sources.data.sources.filter(source => !filters.share || source.id === filters.share).map(source => <div key={source.id}><strong>{source.label}</strong><CoursewareSourceStatus freshness={source.freshness} /></div>)}</details>}
+        {first?.total === 0 && !pending && !pages.error && !browsing && sources.data?.sources.some(source => source.freshness && (!filters.share || source.id === filters.share)) && <details className={styles.scanDetails}><summary>Source scans</summary>{sources.data.sources.filter(source => !filters.share || source.id === filters.share).map(source => <div key={source.id}><strong>{source.label}</strong><CoursewareSourceStatus freshness={source.freshness} indexedFiles={source.coverage?.files} /></div>)}</details>}
         {suggestReady && !!suggested.data?.suggestions.length && onQueryChange && <div className={styles.suggestions} role="group" aria-label="Suggested searches"><span>Try</span>{suggested.data.suggestions.map(value => <button key={value} type="button" onClick={() => { setSelection(null); setTerm(value); onQueryChange(value); }}>{value}</button>)}</div>}
         {!positiveSearch(query, filters) && !browsing && emptyState}
         {rows.map(row => <div key={row.file_id} className={styles.resultRow}>{canAssign && multiple && row.ext === '.pdf' && <input type="checkbox" aria-label={`Select ${row.filename}`} checked={basket.some(entry => entry.material.file_id === row.file_id)} onChange={event => changeBasket(event.target.checked ? [...basket, { material: row, pages: row.page_count ? (row.page_count === 1 ? '1' : `1-${row.page_count}`) : '' }] : basket.filter(entry => entry.material.file_id !== row.file_id))} />}<button id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>

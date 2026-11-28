@@ -853,3 +853,60 @@ it('ignores a late early-filename response after the query changes', async()=>{
   await act(async()=>finishOld({...page([8]),eligible:true}));
   expect(screen.queryByRole('button',{name:/Worksheet 8/})).toBeNull();
 });
+
+
+it('keeps early filename results and their reader while retrying a failed text search',async()=>{
+  let rejectFirst!:(error:Error)=>void,finishRetry!:(value:unknown)=>void;
+  let attempts=0;
+  mocks.fetch.mockImplementation(async(path:string)=>{
+    if(path.endsWith('/sources'))return {...sources,features:['quick_filename_search','search_refinements']};
+    if(path.endsWith('/quick'))return {...page([1]),eligible:true,results:[{...row(1),filename_match:true}]};
+    if(path.includes('/preview'))return {file_id:1,chunks:[],truncated:false};
+    attempts++;
+    if(attempts===1)return new Promise((_resolve,reject)=>{rejectFirst=reject;});
+    return new Promise(resolve=>{finishRetry=resolve;});
+  });
+  mount('algebra');fireEvent.click(await screen.findByRole('button',{name:/Worksheet 1/}));
+  await screen.findByRole('region',{name:'Courseware preview'});
+  await act(async()=>rejectFirst(Object.assign(new Error('Courseware search is temporarily unavailable.'),{status:503})));
+  expect(screen.getByRole('button',{name:/Worksheet 1/})).toBeVisible();
+  expect(screen.getByRole('region',{name:'Courseware preview'})).toBeVisible();
+  expect(screen.queryByText('Searching page text…')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Retry search'}));
+  await waitFor(()=>expect(attempts).toBe(2));
+  expect(screen.getByRole('button',{name:'Retrying…'})).toBeDisabled();
+  expect(screen.getByRole('alert')).toHaveTextContent('Retrying page-text search');
+  await act(async()=>finishRetry({...page([1,2]),results:[{...row(1),filename_match:true},row(2)]}));
+  await screen.findByRole('button',{name:/Worksheet 2/});
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByRole('region',{name:'Courseware preview'})).toBeVisible();
+  expect(mocks.fetch.mock.calls.filter(call=>call[0].endsWith('/quick'))).toHaveLength(1);
+});
+
+it('makes a new request on every explicit retry and retains a repeated failure',async()=>{
+  let attempts=0;
+  mocks.fetch.mockImplementation(async(path:string)=>{
+    if(path.endsWith('/sources'))return sources;
+    attempts++;if(attempts<=2)throw Object.assign(new Error('Temporarily unavailable.'),{status:503});
+    return page([1]);
+  });
+  mount('algebra');fireEvent.click(await screen.findByRole('button',{name:'Retry search'}));
+  await waitFor(()=>expect(attempts).toBe(2));
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Retry search'})).toBeEnabled());
+  expect(screen.getByRole('alert')).toHaveTextContent('Temporarily unavailable.');
+  fireEvent.click(screen.getByRole('button',{name:'Retry search'}));
+  await screen.findByRole('button',{name:/Worksheet 1/});expect(attempts).toBe(3);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('does not retain early results when source permission is denied',async()=>{
+  let fail!:(error:Error)=>void;
+  mocks.fetch.mockImplementation(async(path:string)=>{
+    if(path.endsWith('/sources'))return {...sources,features:['quick_filename_search','search_refinements']};
+    if(path.endsWith('/quick'))return {...page([1]),eligible:true};
+    return new Promise((_resolve,reject)=>{fail=reject;});
+  });
+  mount('algebra');await screen.findByRole('button',{name:/Worksheet 1/});
+  await act(async()=>fail(Object.assign(new Error('Access denied.'),{status:403})));
+  await screen.findByRole('alert');expect(screen.queryByRole('button',{name:/Worksheet 1/})).toBeNull();
+});
