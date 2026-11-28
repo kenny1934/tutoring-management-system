@@ -65,7 +65,9 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   const workspace = saved ?? local.current;
   const history = useCoursewareHistory(scope);
   const savedSearches = useSavedCoursewareSearches(scope);
-  const [term, setTerm] = useState(query.trim());
+  const [term, setQuickTerm] = useState(query.trim());
+  const [textTerm, setTextTerm] = useState(query.trim());
+  const setTerm = useCallback((value: string) => { setQuickTerm(value); setTextTerm(value); }, []);
   const [filters, setFilters] = useState(() => workspace.filters);
   const [filterOpen, setFilterOpen] = useState(false);
   const [editFilter, setEditFilter] = useState<keyof typeof filters>();
@@ -84,9 +86,9 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   const returnToFile = useRef<number | null>(null);
   useEffect(() => {
     if (!query.trim()) { setTerm(''); return; }
-    const timer = setTimeout(() => setTerm(query.trim()), 300);
+    const timer = setTimeout(() => setQuickTerm(query.trim()), 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, setTerm]);
   const sources = useSWR(active || prefetchSources ? ["material-sources", scope] : null, () => fetchAPI<{ features?: string[]; sources: CoursewareSource[] }>("/materials/sources"), { revalidateOnFocus: false, shouldRetryOnError: false, refreshInterval: active ? 60_000 : 0 });
   const supportsNavigation = sources.data?.features?.includes('folder_navigation') ?? false;
   const path = coursewarePath(term);
@@ -107,13 +109,21 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   const ready = active && !choosingSource && !!sources.data?.sources.length && !pathMode && (positiveSearch(term, filters) || browsing) && term.length <= 256 && term === query.trim() && (!refine || supportsRefinements);
   const quickEligible = !!sources.data?.features?.includes('quick_filename_search') && !browsing && !pathMode && filters.sort === 'relevance'
     && filters.search_in === 'both' && !filters.exclude_words.trim() && !isPdfMath(query);
+  useEffect(() => {
+    if (!query.trim()) return;
+    // A fast filename lookup keeps feedback immediate while we avoid page
+    // scans during brief mid-word pauses. Deliberate picks use setTerm.
+    const timer = setTimeout(() => setTextTerm(query.trim()), quickEligible ? 650 : 300);
+    return () => clearTimeout(timer);
+  }, [query, quickEligible]);
   const quickRequest = useAbortableRequest(key, ready && quickEligible);
   const early = useSWR<SearchPage>(ready && quickEligible ? ['material-quick', key] : null,
     () => quickRequest(signal => fetchAPI<SearchPage>('/materials/quick', { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(refine ? { refine } : {}) }), signal })),
     { revalidateOnFocus: false, shouldRetryOnError: false });
-  const searchRequest = useAbortableRequest(key, ready);
+  const pageReady = ready && textTerm === query.trim();
+  const searchRequest = useAbortableRequest(key, pageReady);
   const pages = useSWRInfinite<SearchPage>(
-    (index, previous) => !ready || (previous && previous.page * previous.page_size >= previous.total) ? null : ["material-search", key, index + 1],
+    (index, previous) => !pageReady || (previous && previous.page * previous.page_size >= previous.total) ? null : ["material-search", key, index + 1],
     ([, , page]: [string, string, number]) => searchRequest(signal => fetchAPI<SearchPage>("/materials/search", { method: 'POST', body: JSON.stringify({ q: term, ...requestFilters, ...(quickEligible ? { filename_first: true } : {}), ...(browsing ? { folder_scope: 'current' } : {}), ...(refine ? { refine } : {}), page }), signal })),
     { revalidateOnFocus: false, shouldRetryOnError: false, persistSize: false, revalidateFirstPage: false, initialSize: workspace.searchKey === key ? workspace.size : 1 }
   );
@@ -180,9 +190,12 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
   const first = visible?.[0], facets = first?.facets;
   const pending = active && !sources.error && (sources.isLoading || (pathMode && (resolved.isLoading || term !== query.trim())) || (
     !!sources.data?.sources.length && !pathMode && (positiveSearch(query, filters) || browsing) && query.trim().length <= 256 && (!refine || supportsRefinements) &&
-    (term !== query.trim() || (ready && (pages.isLoading || (pages.isValidating && pages.size === 1))))
+    (term !== query.trim() || textTerm !== query.trim() || (pageReady && (pages.isLoading || (pages.isValidating && pages.size === 1))))
   ));
-  const suggestReady = ready && !pending && !pages.error && !earlyMode && first?.total === 0 && !browsing && !pathMode
+  // A completed filename lookup can identify a likely typo while page-text
+  // search continues. An incidental OCR hit must not suppress that assistance.
+  const emptyFilenameLookup = quickEligible && early.data?.total === 0 && !early.isLoading && !early.error;
+  const suggestReady = ready && (emptyFilenameLookup || (!pending && !pages.error && first?.total === 0)) && !browsing && !pathMode
     && filters.search_in !== 'content' && !!sources.data?.features?.includes('search_suggestions') && /^[a-zA-Z0-9 ]+$/.test(query) && !isPdfMath(query);
   const suggestRequest = useAbortableRequest(key, suggestReady);
   const suggested = useSWR<{ suggestions: string[] }>(suggestReady ? ['material-suggestions', key] : null,
@@ -221,7 +234,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
     onPreview?.(resolved.data);
     saveHistory({ query: term, filters });
     // A deliberate Back keeps the resolved file in the list until a new lookup.
-  }, [path, pathReady, resolved.data, key, onPreview, saveHistory, term, filters, onQueryChange, workspace]);
+  }, [path, pathReady, resolved.data, key, onPreview, saveHistory, term, filters, onQueryChange, workspace, setTerm]);
   const recall = (entry: CoursewareHistoryEntry) => {
     setFilters(entry.filters); setSelection(null); workspace.reading = null; workspace.listTop = 0;
     setTerm(entry.query.trim());
@@ -334,6 +347,7 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
             <IconButton label={`Remove courseware search ${entry.query || entry.filters.exact_phrase || entry.filters.any_words || entry.filters.folder}`} icon={X} size="sm" onClick={() => history.remove(entry)} />
           </div>)}
         </div>}
+        {suggestReady && !!suggested.data?.suggestions.length && onQueryChange && <div className={styles.suggestions} role="group" aria-label="Suggested searches"><span>Did you mean</span>{suggested.data.suggestions.map(value => <button key={value} type="button" onClick={() => { setSelection(null); setTerm(value); onQueryChange(value); }}>{value}</button>)}</div>}
         <SearchProgress busy={pending && !earlyMode} requestKey={JSON.stringify([scope, query.trim(), filters])} label={sources.isLoading ? "Connecting courseware…" : pathMode ? "Opening courseware…" : browsing ? "Loading courseware…" : "Searching courseware…"} placeholders={!first && positiveSearch(query, filters) ? pathMode ? 1 : 3 : 0} />
         {sources.error && <p role="alert">{sources.error.message} <button onClick={() => void sources.mutate()}>Retry connection</button></p>}
         {sources.data && !sources.data.sources.length && <p>Your Knowledge Base account has no courseware sources. Ask an administrator for access.</p>}
@@ -347,7 +361,6 @@ function MaterialSearchWorkspace({ query, scope, active = true, prefetchSources 
         </div>}
         {first?.total === 0 && !pending && !pages.error && !browsing && <><p>No courseware matches. Try fewer words or broaden the filters.</p>{limitedSources && <p role="note">Some files in these sources have no searchable text or incomplete extraction. Their page contents may not appear in results.</p>}</>}
         {first?.total === 0 && !pending && !pages.error && !browsing && sources.data?.sources.some(source => source.freshness && (!filters.share || source.id === filters.share)) && <details className={styles.scanDetails}><summary>Source scans</summary>{sources.data.sources.filter(source => !filters.share || source.id === filters.share).map(source => <div key={source.id}><strong>{source.label}</strong><CoursewareSourceStatus freshness={source.freshness} indexedFiles={source.coverage?.files} /></div>)}</details>}
-        {suggestReady && !!suggested.data?.suggestions.length && onQueryChange && <div className={styles.suggestions} role="group" aria-label="Suggested searches"><span>Try</span>{suggested.data.suggestions.map(value => <button key={value} type="button" onClick={() => { setSelection(null); setTerm(value); onQueryChange(value); }}>{value}</button>)}</div>}
         {!positiveSearch(query, filters) && !browsing && emptyState}
         {rows.map(row => <div key={row.file_id} className={styles.resultRow}>{canAssign && multiple && row.ext === '.pdf' && <input type="checkbox" aria-label={`Select ${row.filename}`} checked={basket.some(entry => entry.material.file_id === row.file_id)} onChange={event => changeBasket(event.target.checked ? [...basket, { material: row, pages: row.page_count ? (row.page_count === 1 ? '1' : `1-${row.page_count}`) : '' }] : basket.filter(entry => entry.material.file_id !== row.file_id))} />}<button id={`material-${row.file_id}`} data-material-result aria-pressed={selected?.file_id === row.file_id} className={styles.result} onClick={() => choose(row)}>
           <FileText size={16} /><span><strong>{row.filename}</strong><small>{labels[row.share] ?? row.share}{row.page_count ? ` · ${row.page_count} ${row.page_count === 1 ? 'page' : 'pages'}` : ''}{row.duplicate_count ? ` · ${row.duplicate_count} other copies` : ''}</small>
