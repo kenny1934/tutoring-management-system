@@ -910,3 +910,61 @@ it('does not retain early results when source permission is denied',async()=>{
   await act(async()=>fail(Object.assign(new Error('Access denied.'),{status:403})));
   await screen.findByRole('alert');expect(screen.queryByRole('button',{name:/Worksheet 1/})).toBeNull();
 });
+
+it('offers the matrix correction before page text finishes and keeps it beside incidental OCR matches', async () => {
+  let finish!: (value: ReturnType<typeof page>) => void;
+  mocks.fetch.mockImplementation(async (path: string, options?: { body: string }) => {
+    if (path.endsWith('/sources')) return { ...sources, features: ['search_refinements', 'quick_filename_search', 'search_suggestions'] };
+    if (path.endsWith('/quick')) return { ...page([]), eligible: false };
+    if (path.endsWith('/suggestions')) return { suggestions: ['matrix'] };
+    const body = JSON.parse(options!.body);
+    if (body.q === 'mateix') return new Promise(resolve => { finish = resolve; });
+    return page([1]);
+  });
+  function Harness() { const [query, setQuery] = React.useState('mateix'); return <MaterialSearch query={query} scope="mateix-assistance" onQueryChange={setQuery} />; }
+  render(<SWRConfig value={{ provider: () => new Map() }}><Harness /></SWRConfig>);
+  const correction = await screen.findByRole('button', { name: 'matrix', exact: true });
+  expect(screen.queryByRole('button', { name: /Worksheet 99/ })).toBeNull();
+  await act(async () => finish(page([99])));
+  expect(await screen.findByRole('button', { name: /Worksheet 99/ })).toBeVisible();
+  expect(correction).toBeVisible();
+  fireEvent.click(correction);
+  expect(await screen.findByRole('button', { name: /Worksheet 1\.pdf/ })).toBeVisible();
+  expect(mocks.fetch.mock.calls.some(([path, options]) => path.endsWith('/search') && JSON.parse(options.body).q === 'matrix')).toBe(true);
+});
+
+it('starts quick filenames while waiting out mid-word pauses before page scans', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? { ...sources, features: ['quick_filename_search'] } : { ...page([]), eligible: true });
+  function Harness() { const [query, setQuery] = React.useState(''); return <><input aria-label="Typing query" value={query} onChange={event => setQuery(event.target.value)} /><MaterialSearch query={query} scope="typing-load" onQueryChange={setQuery} /></>; }
+  try {
+    render(<SWRConfig value={{ provider: () => new Map() }}><Harness /></SWRConfig>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    const called = (action: string, q: string) => mocks.fetch.mock.calls.some(([path, options]) => path.endsWith('/' + action) && JSON.parse(options.body).q === q);
+    fireEvent.change(screen.getByLabelText('Typing query'), { target: { value: 'matrix inv' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(called('quick', 'matrix inv')).toBe(true);
+    expect(called('search', 'matrix inv')).toBe(false);
+    fireEvent.change(screen.getByLabelText('Typing query'), { target: { value: 'matrix inverse' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(649); });
+    expect(called('search', 'matrix inv')).toBe(false);
+    expect(called('search', 'matrix inverse')).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(called('search', 'matrix inverse')).toBe(true);
+  } finally { vi.useRealTimers(); }
+});
+
+it('does not delay a deliberate recent search when fast filename results are enabled', async () => {
+  const { defaultMaterialFilters } = await import('./material-workspace');
+  localStorage.setItem('command-palette-courseware-history:fast-history', JSON.stringify([{ query: 'matrix inverse', filters: defaultMaterialFilters() }]));
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  mocks.fetch.mockImplementation(async (path: string) => path.endsWith('/sources') ? { ...sources, features: ['quick_filename_search'] } : { ...page([1]), eligible: true });
+  function Harness() { const [query, setQuery] = React.useState(''); return <MaterialSearch query={query} scope="fast-history" onQueryChange={setQuery} />; }
+  try {
+    render(<SWRConfig value={{ provider: () => new Map() }}><Harness /></SWRConfig>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    fireEvent.click(screen.getByRole('button', { name: 'Search courseware for matrix inverse' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(mocks.fetch.mock.calls.some(([path, options]) => path.endsWith('/search') && JSON.parse(options.body).q === 'matrix inverse')).toBe(true);
+  } finally { vi.useRealTimers(); }
+});
