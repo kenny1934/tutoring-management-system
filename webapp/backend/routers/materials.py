@@ -73,6 +73,7 @@ class MaterialSearch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     q: str = Field(default="", max_length=256)
     refine: SearchRefinement | None = None
+    filename_first: bool | None = None
     share: str | None = None
     ext: str | None = Field(default=None, max_length=16)
     folder: str | None = Field(default=None, max_length=512)
@@ -95,6 +96,16 @@ def search(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
             raise HTTPException(422, "Enter some words or choose a source and folder.")
     return request_materials("search", data.model_dump(mode="json", exclude_none=True,
         exclude={"folder_scope"} if "folder_scope" not in data.model_fields_set else set()), user)
+
+
+@router.post('/quick')
+def quick(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
+    return request_materials('quick', data.model_dump(mode='json', exclude_none=True), user)
+
+
+@router.post('/suggestions')
+def suggestions(data: MaterialSearch, user: Tutor = Depends(get_current_user)):
+    return request_materials('suggestions', data.model_dump(mode='json', exclude_none=True), user)
 
 
 class MaterialFolder(BaseModel):

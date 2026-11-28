@@ -4,6 +4,8 @@
 
 ### Improvements
 
+* **Earlier courseware results**: Open filename matches while the search continues through worksheet text, with results and previews kept in place.
+* **Search suggestions**: Recover from misspelled words with suggested searches that keep your selected filters and leave mathematical expressions unchanged.
 * **Browse courseware folders**: Open Browse beside search, choose a source or recent folder, and navigate child folders with breadcrumbs.
 * **Open saved paths**: Paste a courseware file or folder path, including CSM aliases and mapped drive paths, to open it directly.
 * **Search within folders**: Include subfolders by default, with an option to search only the current folder and saved searches that remember your choice.

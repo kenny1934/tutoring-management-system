@@ -268,3 +268,31 @@ def test_folder_aware_resolution_is_forwarded_only_when_requested(client, monkey
     assert seen == [{'path': r'Z:\English\DSE', 'allow_folder': True}]
     client.post('/api/materials/resolve', json={'path': r'Z:\English\Algebra.pdf'})
     assert 'allow_folder' not in seen[-1]
+
+
+@pytest.mark.parametrize("action", ["quick", "suggestions"])
+def test_search_assistance_keeps_identity_filters_and_validation(client, monkeypatch, action):
+    def handler(request):
+        assert request.url.path.endswith('/materials/' + action)
+        assert request.headers['X-CSM-Email'] == 'tutor@example.test'
+        body = json.loads(request.content)
+        assert body['q'] == 'qudratic'
+        assert body['share'] == 'center'
+        assert body['refine']['search_in'] == 'filename'
+        assert 'filename_first' not in body
+        return httpx.Response(200, json={'results': [], 'suggestions': []})
+    intercept(monkeypatch, handler)
+    assert client.post('/api/materials/' + action, json={'q': 'qudratic', 'share': 'center', 'refine': {'search_in': 'filename'}}).status_code == 200
+    assert client.post('/api/materials/' + action, json={'q': 'test', 'email': 'other@example.test'}).status_code == 422
+
+
+def test_filename_first_is_opt_in_for_provider_compatibility(client, monkeypatch):
+    seen = []
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={'results': [], 'total': 0})
+    intercept(monkeypatch, handler)
+    client.post('/api/materials/search', json={'q': 'algebra'})
+    client.post('/api/materials/search', json={'q': 'algebra', 'filename_first': True})
+    assert 'filename_first' not in seen[0]
+    assert seen[1]['filename_first'] is True
