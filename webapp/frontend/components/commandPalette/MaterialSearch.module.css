@@ -350,3 +350,8 @@
 .suggestions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 16px; font-size: 12px; }
 .suggestions button { min-height: 44px; padding: 6px 10px; border: 1px solid var(--color-line); border-radius: 3px; }
 @media(prefers-reduced-motion:reduce) { .earlyStatus svg { animation: none; } }
+
+.searchFailure { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: var(--color-wash); border-block: 1px solid var(--color-line); font-size: 12px; }
+.searchFailure > span { min-width: 0; }
+.searchFailure > button { flex-shrink: 0; min-height: 44px; padding: 6px 10px; border: 1px solid var(--color-line-strong); border-radius: 3px; background: var(--color-paper); font-weight: 500; }
+.searchFailure > button:disabled { opacity: .65; cursor: wait; }

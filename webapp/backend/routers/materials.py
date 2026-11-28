@@ -39,7 +39,14 @@ def request_materials(action: str, payload: dict, user: Tutor):
     try:
         # A standalone Request does not inherit the pooled client's cookies or
         # defaults. Only this caller's freshly signed identity goes upstream.
-        response = get_material_client().send(httpx.Request("POST", base + path, content=body, headers=headers))
+        client = get_material_client()
+        # Full-text work can finish after the former 20-second bridge cutoff.
+        # Keep quick/metadata budgets and all non-read limits unchanged.
+        extensions = {"timeout": {**client.timeout.as_dict(), "read": 60.0}} if action == "search" else {}
+        response = client.send(httpx.Request("POST", base + path, content=body, headers=headers, extensions=extensions))
+    except httpx.ReadTimeout:
+        detail = "Page-text search is taking longer than expected. Please try again." if action == "search" else "Courseware search is temporarily unavailable."
+        raise HTTPException(503, detail) from None
     except httpx.HTTPError:
         raise HTTPException(503, "Courseware search is temporarily unavailable.") from None
     finally:

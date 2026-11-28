@@ -14,6 +14,8 @@
 
 ### Bug Fixes
 
+* **Courseware search recovery**: Allow longer page-text searches to finish, keep filename matches and opened previews available after temporary failures, and show clear retry progress.
+* **Source scan status**: Distinguish files already indexed from sources that have not yet completed a full scan.
 * **PDF reader navigation**: Keep the reader closed after returning to results, even when file information refreshes in the background.
 * **Search responsiveness**: Keep other requests responsive while courseware searches or original files are loading, and share identical simultaneous search work.
 
