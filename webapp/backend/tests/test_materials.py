@@ -319,3 +319,22 @@ def test_slow_text_search_gives_a_specific_timeout_without_private_diagnostics(c
     assert response.status_code==503
     assert 'taking longer than expected' in response.json()['detail']
     assert 'private' not in response.text
+
+
+@pytest.mark.parametrize('role,allowed', [('Tutor', False), ('Supervisor', False), ('Admin', True), ('Super Admin', True)])
+def test_index_management_uses_csm_role_and_signed_identity(client, monkeypatch, role, allowed):
+    client.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(user_email='Tutor@Example.test', role=role)
+    calls = []
+    def handler(request):
+        calls.append(request)
+        assert request.headers['X-CSM-Email'] == 'tutor@example.test'
+        return httpx.Response(200, json={'status': 'pending'})
+    intercept(monkeypatch, handler)
+    for path, body in [('index-health', {}), ('retry-extraction', {'file_id': 1})]:
+        assert client.post('/api/materials/'+path, json=body).status_code == (200 if allowed else 403)
+    assert len(calls) == (2 if allowed else 0)
+
+
+def test_index_management_cannot_accept_a_browser_identity(client):
+    client.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(user_email='admin@example.test', role='Admin')
+    assert client.post('/api/materials/retry-extraction', json={'file_id': 1, 'email': 'other@example.test'}).status_code == 422

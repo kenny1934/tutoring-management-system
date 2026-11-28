@@ -1991,7 +1991,7 @@ interface TreeNode {
 
 
 function CoursewareSearchTab() {
-  return <CoursewareWorkspace />;
+  return <CoursewareWorkspace showIndexHealth />;
 }
 
 export default function CoursewarePage() {
